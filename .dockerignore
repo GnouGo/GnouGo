@@ -1,0 +1,40 @@
+﻿# ── Build artifacts ──
+**/bin/
+**/obj/
+**/out/
+
+# ── Node modules (rebuilt in Docker) ──
+**/node_modules/
+
+# ── IDE / OS ──
+**/.vs/
+**/.vscode/
+**/.idea/
+**/.git/
+**/.gitignore
+**/Thumbs.db
+**/.DS_Store
+**/*.user
+**/*.suo
+
+# ── Docker ──
+**/.dockerignore
+**/docker-compose*.yml
+
+# ── Test projects ──
+tests/
+
+# ── Temporary files ──
+tmp_explore/
+
+# ── Local data (recreated at runtime) ──
+**/data/*.db
+**/data/*.db-*
+
+# ── Pre-built wwwroot (rebuilt in Docker) ──
+src/GnOuGo.OtlpCollector.Server/wwwroot/
+src/GnOuGo.KeyVault.Server/wwwroot/
+src/GnOuGo.DocIngestor.Server/wwwroot/
+src/GnOuGo.Diff.Server/wwwroot/
+src/GnOuGo.Flow.Server/wwwroot/
+src/GnOuGo.Agent.Server/wwwroot/ui/

@@ -1,0 +1,64 @@
+﻿dsl: 1
+name: chat-history-demo
+meta:
+  description: Demonstrates chat_history.get and chat_history.append steps
+
+workflows:
+  main:
+    inputs:
+      user_message:
+        type: string
+        required: true
+        description: The user message to start the conversation
+
+    steps:
+      - id: think_start
+        type: emit
+        input:
+          message: "Starting conversation…"
+          level: info
+
+      # 1) Start a new conversation by appending the user message
+      - id: create_conv
+        type: chat_history.append
+        input:
+          messages:
+            - role: system
+              content: "You are a helpful assistant."
+            - role: user
+              content: "${data.inputs.user_message}"
+
+      # 2) Call LLM with the user message
+      - id: think_llm
+        type: emit
+        input:
+          message: "Generating response…"
+          level: thinking
+
+      - id: llm_response
+        type: llm.call
+        input:
+          model: gpt-4
+          prompt: "${data.inputs.user_message}"
+
+      # 3) Append the assistant response to the conversation
+      - id: save_response
+        type: chat_history.append
+        input:
+          conversation_id: "${data.steps.create_conv.conversation_id}"
+          messages:
+            - role: assistant
+              content: "${data.steps.llm_response.text}"
+
+      # 4) Retrieve the full conversation history
+      - id: full_history
+        type: chat_history.get
+        input:
+          conversation_id: "${data.steps.create_conv.conversation_id}"
+          top_k: 100
+
+    outputs:
+      conversation_id: "${data.steps.create_conv.conversation_id}"
+      assistant_response: "${data.steps.llm_response.text}"
+      message_count: "${len(data.steps.full_history.messages)}"
+

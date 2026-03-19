@@ -1,0 +1,25 @@
+﻿dsl: 1
+name: invalid-workflow
+
+workflows:
+  main:
+    steps:
+      - id: step1
+        type: unknown_type
+        input:
+          value: "${invalid expression ***}"
+
+      - id: step1
+        type: template.render
+        input:
+          engine: mustache
+          template: "hello"
+          mode: text
+
+      - id: step2
+        type: workflow.call
+        input:
+          ref:
+            kind: local
+            name: nonexistent_workflow
+

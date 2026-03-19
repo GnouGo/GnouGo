@@ -1,0 +1,50 @@
+// ============================================================================
+// Trace List Component (BEM)
+// ============================================================================
+
+.trace-list {
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+
+  &__header {
+    display: flex;
+    gap: $spacing-sm;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $spacing-md;
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-size: $font-size-base;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  &__items {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    padding-right: 4px;
+
+    // Visible scrollbar
+    &::-webkit-scrollbar { width: 6px; }
+    &::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 10px; }
+    &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 10px; }
+    &::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
+  }
+
+  &__empty {
+    font-size: $font-size-sm;
+    opacity: 0.7;
+    text-align: center;
+    padding: $spacing-lg;
+  }
+}

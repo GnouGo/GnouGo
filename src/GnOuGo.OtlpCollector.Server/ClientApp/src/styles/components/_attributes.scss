@@ -1,0 +1,36 @@
+// ============================================================================
+// Attributes Component (BEM) - Key-value attributes display
+// ============================================================================
+
+.attributes {
+  font-size: $font-size-sm;
+  border-left: 2px solid rgba(255, 255, 255, 0.08);
+  padding-left: 12px;
+
+  &__item {
+    display: flex;
+    gap: $spacing-sm;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__key {
+    width: 200px;
+    flex-shrink: 0;
+    opacity: 0.75;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__value {
+    flex: 1;
+    word-break: break-word;
+    opacity: 0.9;
+  }
+}

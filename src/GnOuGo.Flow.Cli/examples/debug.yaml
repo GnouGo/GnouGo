@@ -1,0 +1,35 @@
+﻿dsl: 1
+name: debug-test
+
+workflows:
+  main:
+    inputs:
+      items:
+        type: array
+        items: { type: any }
+        required: true
+        description: Items to debug (any type)
+
+    steps:
+      - id: debug_items
+        type: template.render
+        input:
+          engine: mustache
+          template: "items_json: {{{items_json}}}"
+          data:
+            items_json: "${json(data.inputs.items)}"
+          mode: text
+
+      - id: debug_len
+        type: template.render
+        input:
+          engine: mustache
+          template: "len: {{len}}"
+          data:
+            len: "${len(data.inputs.items)}"
+          mode: text
+
+    outputs:
+      items_debug: "${data.steps.debug_items.text}"
+      len_debug: "${data.steps.debug_len.text}"
+

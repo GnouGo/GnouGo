@@ -1,0 +1,1 @@
+{"name":"gnougo-agent-ui","private":true,"version":"0.0.0","type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview"},"dependencies":{"mermaid":"11.12.2","github-markdown-css":"5.8.1"},"devDependencies":{"vite":"^5.4.11","sass":"^1.77.8","typescript":"^5.5.4"}}

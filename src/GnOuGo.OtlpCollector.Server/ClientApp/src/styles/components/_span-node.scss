@@ -1,0 +1,135 @@
+// ============================================================================
+// Span Node Component (BEM) - Individual span in the tree
+// ============================================================================
+
+.span-node {
+  margin-bottom: $spacing-xs;
+
+  &__row {
+    display: flex;
+    gap: $spacing-sm;
+    align-items: center;
+    padding: 8px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-border;
+    background: rgba(255, 255, 255, 0.02);
+    transition: all $transition-fast;
+    position: relative;
+
+    &:hover {
+      border-color: $color-border-hover;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    // Modifier: has children (expandable)
+    &--has-children {
+      padding-left: 4px;
+    }
+
+    // Modifier: selected span (clicked from timeline)
+    &--selected {
+      border-color: $color-accent !important;
+      background: rgba(59, 130, 246, 0.1) !important;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    // Modifier: genAI span
+    &--genai {
+      border-left: 3px solid #10b981;
+    }
+  }
+
+  // Highlight animation class (added temporarily via JS)
+  &--highlight .span-node__row {
+    animation: span-highlight 2s ease-out;
+  }
+
+  @keyframes span-highlight {
+    0%, 100% {
+      background: rgba(255, 255, 255, 0.04);
+    }
+    50% {
+      background: rgba(59, 130, 246, 0.2);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+    }
+  }
+
+  &__toggle {
+    background: transparent;
+    border: none;
+    color: $color-text-secondary;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 10px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: transform $transition-fast;
+
+    &:hover {
+      color: $color-text-primary;
+    }
+  }
+
+  &__name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    font-size: $font-size-base;
+    color: $color-text-primary;
+  }
+
+  &__badges {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    align-items: center;
+  }
+
+  &__dur {
+    font-size: $font-size-xs;
+    font-family: $font-family-mono;
+    color: $color-text-secondary;
+    white-space: nowrap;
+  }
+
+  &__attributes {
+    margin-top: 4px;
+    margin-bottom: 4px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: $radius-sm;
+    border: 1px solid $color-border;
+  }
+
+  &__ev-title {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $color-text-secondary;
+    margin-bottom: 4px;
+  }
+
+  &__ev {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    font-size: $font-size-sm;
+  }
+
+  &__ev-name {
+    color: $color-text-primary;
+    font-weight: 500;
+  }
+
+  &__ev-time {
+    font-family: $font-family-mono;
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+  }
+
+  &__children {
+    // Children are automatically indented via paddingLeft in component
+  }
+}

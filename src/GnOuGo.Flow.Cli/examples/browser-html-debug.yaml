@@ -1,0 +1,50 @@
+dsl: 1
+name: browser-html-debug
+meta:
+  description: Debug workflow pour vérifier la récupération du HTML
+
+workflows:
+  main:
+    inputs:
+      homepage_url:
+        type: string
+        required: false
+        default: https://www.iana.org/
+        description: URL to fetch HTML from
+      browser_server:
+        type: string
+        required: false
+        default: GnOuGo.Flow.Browser
+        description: MCP browser server name
+      max_html_characters:
+        type: number
+        required: false
+        default: 20000
+        description: Maximum number of HTML characters to retrieve
+
+    steps:
+      - id: get_homepage_html
+        type: mcp.call
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_get_content
+          request:
+            url: "${data.inputs.homepage_url}"
+            waitUntil: domcontentloaded
+            selector: body
+            format: html
+            maxCharacters: "${data.inputs.max_html_characters}"
+          timeout_ms: 45000
+
+      - id: close_browser
+        type: mcp.call
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_close
+
+    outputs:
+      html_status: "${data.steps.get_homepage_html.status}"
+      html_response: "${data.steps.get_homepage_html.response}"
+      html_content: "${data.steps.get_homepage_html.response.content}"
+      close_status: "${data.steps.close_browser.status}"
+

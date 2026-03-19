@@ -1,0 +1,38 @@
+﻿dsl: 1
+name: simple-loop-test
+
+workflows:
+  main:
+    inputs:
+      items:
+        type: array
+        items: { type: string }
+        required: true
+        description: List of items to process in parallel
+
+    steps:
+      - id: think_start
+        type: emit
+        input:
+          message: "Starting parallel loop…"
+          level: thinking
+
+      - id: process_all
+        type: loop.parallel
+        input:
+          items: "${data.inputs.items}"
+        item_var: item
+        index_var: idx
+        steps:
+          - id: render_item
+            type: template.render
+            input:
+              engine: mustache
+              template: "Item: {{val}}"
+              data:
+                val: "${data.item}"
+              mode: text
+
+    outputs:
+      results: "${data.steps.process_all}"
+

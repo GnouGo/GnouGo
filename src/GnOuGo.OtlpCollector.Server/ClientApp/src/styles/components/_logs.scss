@@ -1,0 +1,355 @@
+// ============================================================================
+// Log Components (BEM) — List + Item + Detail
+// ============================================================================
+
+// ── Severity color map ──
+$sev-fatal: #dc2626;
+$sev-error: #ef4444;
+$sev-warn:  #f59e0b;
+$sev-info:  #3b82f6;
+$sev-debug: #6b7280;
+$sev-trace: #9ca3af;
+
+// ============================================================================
+// Log List (left panel in grid)
+// ============================================================================
+.log-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0; // critical: allows flex child to shrink below content size
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-sm;
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px solid $color-border;
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-size: $font-size-lg;
+    font-weight: 600;
+    color: $color-text-primary;
+    margin: 0;
+  }
+
+  &__loading,
+  &__empty {
+    padding: $spacing-xl $spacing-md;
+    text-align: center;
+    color: $color-text-tertiary;
+    font-size: $font-size-sm;
+  }
+
+  &__items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+
+    // Visible scrollbar
+    &::-webkit-scrollbar { width: 6px; }
+    &::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 10px; }
+    &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 10px; }
+    &::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
+  }
+}
+
+// ============================================================================
+// Log Item (compact row in list)
+// ============================================================================
+.log-item {
+  display: flex;
+  align-items: stretch;
+  background: $color-bg-secondary;
+  border: 1px solid transparent;
+  border-radius: $radius-sm;
+  cursor: pointer;
+  transition: all $transition-fast;
+  overflow: hidden;
+
+  &:hover {
+    background: rgba(255,255,255,0.03);
+    border-color: $color-border;
+  }
+
+  // ── Severity indicator bar (left edge) ──
+  &__indicator {
+    width: 4px;
+    flex-shrink: 0;
+    border-radius: $radius-sm 0 0 $radius-sm;
+  }
+
+  // ── Severity modifiers (indicator + border tint) ──
+  &--fatal &__indicator { background: $sev-fatal; }
+  &--error &__indicator { background: $sev-error; }
+  &--warn  &__indicator { background: $sev-warn; }
+  &--info  &__indicator { background: $sev-info; }
+  &--debug &__indicator { background: $sev-debug; }
+  &--trace &__indicator { background: $sev-trace; }
+
+  &--fatal:hover { border-color: rgba($sev-fatal, 0.3); }
+  &--error:hover { border-color: rgba($sev-error, 0.3); }
+  &--warn:hover  { border-color: rgba($sev-warn, 0.3); }
+  &--info:hover  { border-color: rgba($sev-info, 0.3); }
+
+  // ── Selected state ──
+  &--selected {
+    background: rgba($color-accent, 0.08);
+    border-color: rgba($color-accent, 0.35);
+    box-shadow: inset 0 0 0 1px rgba($color-accent, 0.12);
+
+    &:hover {
+      border-color: rgba($color-accent, 0.45);
+    }
+  }
+
+  // ── Content area ──
+  &__content {
+    flex: 1;
+    min-width: 0; // allow text truncation
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  &__top-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  &__icon {
+    font-size: $font-size-sm;
+    line-height: 1;
+  }
+
+  &__time {
+    font-family: $font-family-mono;
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  &__body-preview {
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// ============================================================================
+// Log Detail (right panel in grid)
+// ============================================================================
+.log-detail {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+
+  // Scrollbar
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 10px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 10px; }
+  &::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
+
+  // ── Empty state ──
+  &--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+  }
+
+  &__placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-sm;
+    color: $color-text-tertiary;
+  }
+
+  &__placeholder-icon {
+    font-size: 48px;
+    opacity: 0.4;
+  }
+
+  &__placeholder-text {
+    font-size: $font-size-base;
+  }
+
+  // ── Header ──
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-sm $spacing-md;
+    border-radius: $radius-sm;
+    flex-wrap: wrap;
+
+    &--fatal { background: rgba($sev-fatal, 0.12); border-left: 4px solid $sev-fatal; }
+    &--error { background: rgba($sev-error, 0.12); border-left: 4px solid $sev-error; }
+    &--warn  { background: rgba($sev-warn, 0.10);  border-left: 4px solid $sev-warn; }
+    &--info  { background: rgba($sev-info, 0.10);  border-left: 4px solid $sev-info; }
+    &--debug { background: rgba($sev-debug, 0.08); border-left: 4px solid $sev-debug; }
+    &--trace { background: rgba($sev-trace, 0.06); border-left: 4px solid $sev-trace; }
+  }
+
+  &__header-icon {
+    font-size: $font-size-xl;
+  }
+
+  &__header-ts {
+    font-family: $font-family-mono;
+    font-size: $font-size-sm;
+    color: $color-text-tertiary;
+    margin-left: auto;
+  }
+
+  // ── Body ──
+  &__body {
+    background: $color-bg-primary;
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+    overflow: hidden;
+  }
+
+  &__body-pre {
+    margin: 0;
+    padding: $spacing-md;
+    font-family: $font-family-mono;
+    font-size: $font-size-sm;
+    line-height: 1.55;
+    color: $color-text-primary;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  // ── Identity bar ──
+  &__id-bar {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-xs $spacing-md;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+    flex-wrap: wrap;
+  }
+
+  &__id-item {
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+    font-family: $font-family-mono;
+  }
+
+  // ── Collapsible sections ──
+  &__section {
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+    overflow: hidden;
+
+    &[open] > summary {
+      border-bottom: 1px solid $color-border;
+    }
+  }
+
+  &__section-title {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    padding: $spacing-sm $spacing-md;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $color-text-primary;
+    cursor: pointer;
+    user-select: none;
+    background: rgba(255,255,255,0.02);
+    transition: background $transition-fast;
+
+    &:hover { background: rgba(255,255,255,0.04); }
+
+    &::marker { color: $color-text-tertiary; }
+  }
+
+  &__section-count {
+    font-size: $font-size-xs;
+    font-weight: 400;
+    color: $color-text-tertiary;
+    background: rgba(255,255,255,0.06);
+    padding: 1px 7px;
+    border-radius: $radius-full;
+    margin-left: 4px;
+  }
+
+  // ── Attribute table ──
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: $font-size-sm;
+  }
+
+  &__attr-key {
+    padding: 6px $spacing-md;
+    color: $color-text-tertiary;
+    font-weight: 500;
+    white-space: nowrap;
+    width: 1%;
+    vertical-align: top;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+
+  &__attr-val {
+    padding: 6px $spacing-md;
+    color: $color-text-primary;
+    font-family: $font-family-mono;
+    font-size: $font-size-xs;
+    word-break: break-all;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+
+  // ── Raw JSON ──
+  &__json {
+    margin: 0;
+    padding: $spacing-md;
+    font-family: $font-family-mono;
+    font-size: $font-size-xs;
+    line-height: 1.5;
+    color: $color-text-secondary;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 400px;
+    overflow-y: auto;
+    background: $color-bg-primary;
+  }
+}
+
+// ============================================================================
+// Severity badges (reuse badge component, add severity colors)
+// ============================================================================
+.badge--fatal { background: $sev-fatal; color: #fff; }
+.badge--error { background: $sev-error; color: #fff; }
+.badge--warn  { background: $sev-warn;  color: #000; }
+.badge--info  { background: $sev-info;  color: #fff; }
+.badge--debug { background: $sev-debug; color: #fff; }
+.badge--trace { background: $sev-trace; color: #000; }
+
+// ============================================================================
+// Responsive
+// ============================================================================
+// Responsive rules are now handled in _grid.scss and _panel.scss

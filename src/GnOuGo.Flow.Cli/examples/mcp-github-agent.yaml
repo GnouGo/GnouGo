@@ -1,0 +1,209 @@
+dsl: 1
+name: mcp-github-agent
+meta:
+  description: >
+    Agentic workflow that iteratively uses GitHub MCP tools to answer a user question.
+
+    1. Discovers all available tools from the GitHub MCP server
+    2. Asks the LLM to build an execution plan (which tools to call, in what order)
+    3. Executes each planned tool call via MCP
+    4. Evaluates the result — if incomplete, re-plans and iterates (up to 3 rounds)
+    5. Produces a final synthesized answer
+
+    Requires:
+      - LLM.McpServers.Github configured in appsettings.json
+      - LLM.Models.OpenAi configured with a valid API key
+
+    Usage:
+      gnougo-flow run examples/mcp-github-agent.yaml -i question="What are the latest open issues on microsoft/typescript?"
+      gnougo-flow run examples/mcp-github-agent.yaml -i question="Show me the README of dotnet/aspnetcore"
+      gnougo-flow run examples/mcp-github-agent.yaml -i question="Search for files related to SignalR in dotnet/aspnetcore"
+
+workflows:
+  main:
+    inputs:
+      question:
+        type: string
+        required: true
+        description: The user question to answer using GitHub tools
+
+    steps:
+      # ──────────────────────────────────────────────────────────
+      # Step 1: Discover available GitHub MCP tools
+      # ──────────────────────────────────────────────────────────
+      - id: discover
+        type: mcp.list
+        input:
+          server: Github
+          include:
+            - tools
+
+      # ──────────────────────────────────────────────────────────
+      # Step 2: Iterative reasoning loop (up to 3 rounds)
+      #
+      # Each round: plan → execute → evaluate.
+      # The loop runs a fixed number of times (3).
+      # Sub-steps use "if" to skip when the previous evaluate
+      # already returned status == "complete".
+      # ──────────────────────────────────────────────────────────
+      - id: agent_loop
+        type: loop.sequential
+        input:
+          times: 3
+        steps:
+
+          # ── 2a: Plan — ask the LLM what tools to call ──
+          # Skip if a previous iteration already marked complete
+          - id: plan
+            type: llm.call
+            if: "${data.steps.evaluate?.json?.status != 'complete'}"
+            input:
+              model: gpt-4o-mini
+              temperature: 0
+              prompt: >
+                You are a GitHub research agent. You have access to the following MCP tools:
+
+                ${data.steps.discover.text}
+
+                User question: "${data.inputs.question}"
+
+                Round number: ${_loop.index + 1} of 3.
+
+                Previous tool results (from last round, if any):
+                ${json(data.steps.execute_plan)}
+
+                Previous evaluation (from last round, if any):
+                ${json(data.steps.evaluate)}
+
+                Based on the user question and available tools, plan the next tool calls needed.
+                If the previous results are null, this is the first round.
+                If the previous evaluation says "complete", return an empty calls array.
+
+                Return a JSON object with this exact structure:
+                {
+                  "reasoning": "Your step-by-step reasoning about what information is needed",
+                  "calls": [
+                    {"tool": "tool_name", "args": {"param1": "value1"}}
+                  ]
+                }
+
+                Rules:
+                - Use ONLY tools listed above
+                - Each call must have a "tool" (exact tool name) and "args" (object)
+                - Plan 1-3 calls maximum per round
+                - If you already have enough information from previous rounds, return an empty calls array: {"reasoning": "...", "calls": []}
+              structured_output:
+                schema_inline:
+                  type: object
+                  properties:
+                    reasoning:
+                      type: string
+                    calls:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          tool:
+                            type: string
+                          args:
+                            type: object
+                  required:
+                    - reasoning
+                    - calls
+
+          # ── 2b: Execute — run each planned tool call ──
+          - id: execute_plan
+            type: loop.sequential
+            if: "${data.steps.plan != null && data.steps.plan.json != null && len(data.steps.plan.json.calls) > 0}"
+            input:
+              times: "${len(data.steps.plan.json.calls)}"
+            steps:
+              - id: call_tool
+                type: mcp.call
+                input:
+                  server: Github
+                  method: "${data.steps.plan.json.calls[_loop.index].tool}"
+                  request: "${data.steps.plan.json.calls[_loop.index].args}"
+                  timeout_ms: 30000
+
+          # ── 2c: Evaluate — does the LLM have enough to answer? ──
+          - id: evaluate
+            type: llm.call
+            if: "${data.steps.plan != null && data.steps.plan.json != null && len(data.steps.plan.json.calls) > 0}"
+            input:
+              model: gpt-4o-mini
+              temperature: 0
+              prompt: >
+                You are evaluating whether you have enough information to fully answer the user question.
+
+                User question: "${data.inputs.question}"
+
+                Reasoning from planner: ${data.steps.plan.json.reasoning}
+
+                Tool results from this round:
+                ${json(data.steps.execute_plan)}
+
+                Evaluate:
+                1. Do the tool results provide enough information to answer the question?
+                2. Are there errors that require retrying with different parameters?
+                3. Is more information needed from other tools?
+
+                Return a JSON object:
+                {
+                  "status": "complete" or "needs_more",
+                  "confidence": 0.0 to 1.0,
+                  "summary": "Brief summary of what we know so far",
+                  "missing": "What information is still missing (empty string if complete)"
+                }
+              structured_output:
+                schema_inline:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      enum:
+                        - complete
+                        - needs_more
+                    confidence:
+                      type: number
+                    summary:
+                      type: string
+                    missing:
+                      type: string
+                  required:
+                    - status
+                    - confidence
+                    - summary
+                    - missing
+                strict: true
+
+      # ──────────────────────────────────────────────────────────
+      # Step 3: Final synthesis — produce the answer
+      # ──────────────────────────────────────────────────────────
+      - id: synthesize
+        type: llm.call
+        input:
+          model: gpt-4o-mini
+          temperature: 0.3
+          prompt: >
+            You are a helpful assistant. Based on all the research performed, provide a clear
+            and comprehensive answer to the user question.
+
+            User question: "${data.inputs.question}"
+
+            Research rounds performed: ${data.steps.agent_loop.count}
+
+            All gathered data:
+            ${json(data.steps.agent_loop.iterations)}
+
+            Instructions:
+            - Synthesize all the information into a coherent answer
+            - Use markdown formatting for readability
+            - Include specific details (numbers, names, dates) from the tool results
+            - If some information could not be retrieved, mention it honestly
+            - Keep the answer focused and relevant to the question
+
+    outputs:
+      question: "${data.inputs.question}"
+      rounds: "${data.steps.agent_loop.count}"
+      answer: "${data.steps.synthesize.text}"

@@ -1,0 +1,48 @@
+﻿dsl: 1
+name: mcp-demo
+meta:
+  description: Demonstrates mcp.call step with tool invocation
+
+workflows:
+  main:
+    inputs:
+      city:
+        type: string
+        required: true
+        default: Paris
+        description: City for weather data lookup
+
+    steps:
+      - id: think_weather
+        type: emit
+        input:
+          message: "Fetching weather data for ${data.inputs.city}…"
+          level: thinking
+
+      # 1) Call an MCP tool to get weather data
+      - id: weather
+        type: mcp.call
+        input:
+          server: demo
+          method: get_weather
+          request:
+            location: "${data.inputs.city}"
+
+      # 2) Use LLM to summarize the weather data
+      - id: think_summary
+        type: emit
+        input:
+          message: "Summarizing weather data with LLM…"
+          level: thinking
+
+      - id: summary
+        type: llm.call
+        input:
+          model: gpt-4
+          prompt: "Summarize this weather data: ${json(data.steps.weather.response)}"
+
+    outputs:
+      mcp_status: "${data.steps.weather.status}"
+      weather_data: "${data.steps.weather.response}"
+      summary: "${data.steps.summary.text}"
+

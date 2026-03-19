@@ -1,0 +1,25 @@
+dsl: 1
+name: mcp-github-discover
+meta:
+  description: >
+    Discovers all tools exposed by the GitHub Copilot MCP server.
+    Requires a valid GitHub token in appsettings.json (LLM.McpServers.Github.ApiKey).
+
+    Usage:
+      gnougo-flow run examples/mcp-github-discover.yaml
+
+workflows:
+  main:
+    steps:
+      # ── Discover all tools from GitHub MCP ──
+      - id: discover
+        type: mcp.list
+        input:
+          server: Github
+          include:
+            - tools
+
+    outputs:
+      tool_count: "${len(data.steps.discover.tools)}"
+      tools_text: "${data.steps.discover.text}"
+

@@ -1,0 +1,326 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Models;
+using YamlDotNet.RepresentationModel;
+
+namespace GnOuGo.Flow.Core.Parsing;
+
+/// <summary>
+/// Parses YAML workflow documents into the DSL model.
+/// Uses RepresentationModel (DOM API) — no reflection, AOT-safe.
+/// </summary>
+public static class WorkflowParser
+{
+    public static WorkflowDocument Parse(string yaml)
+    {
+        var stream = new YamlStream();
+        using var reader = new StringReader(yaml);
+        stream.Load(reader);
+
+        if (stream.Documents.Count == 0)
+            throw new WorkflowParseException("Empty YAML document");
+
+        var root = stream.Documents[0].RootNode as YamlMappingNode
+            ?? throw new WorkflowParseException("Root must be a YAML mapping");
+
+        var doc = new WorkflowDocument();
+
+        // dsl
+        doc.Dsl = root.GetInt("dsl") ?? throw new WorkflowParseException("Missing required field 'dsl'");
+        if (doc.Dsl != 1)
+            throw new WorkflowParseException($"Unsupported DSL version: {doc.Dsl}");
+
+        // name
+        doc.Name = root.GetScalar("name");
+
+        // meta
+        if (root.HasKey("meta"))
+            doc.Meta = root.GetStringMap("meta");
+
+        // functions (global WFScript)
+        doc.Functions = root.GetScalar("functions");
+
+        // exports
+        if (root.HasKey("exports"))
+            doc.Exports = root.GetStringList("exports");
+
+        // entrypoint
+        doc.Entrypoint = root.GetScalar("entrypoint");
+
+        // workflows
+        var workflowsNode = root.GetMapping("workflows")
+            ?? throw new WorkflowParseException("Missing required field 'workflows'");
+
+        foreach (var child in workflowsNode.Children)
+        {
+            var name = (child.Key as YamlScalarNode)?.Value
+                ?? throw new WorkflowParseException("Workflow name must be a string");
+            var wfNode = child.Value as YamlMappingNode
+                ?? throw new WorkflowParseException($"Workflow '{name}' must be a mapping");
+            doc.Workflows[name] = ParseWorkflowDef(wfNode, name);
+        }
+
+        // Default entrypoint
+        if (doc.Entrypoint == null && doc.Workflows.ContainsKey("main"))
+            doc.Entrypoint = "main";
+
+        return doc;
+    }
+
+    private static WorkflowDef ParseWorkflowDef(YamlMappingNode node, string name)
+    {
+        var wf = new WorkflowDef();
+
+        // inputs
+        var inputsNode = node.GetMapping("inputs");
+        if (inputsNode != null)
+        {
+            wf.Inputs = new Dictionary<string, InputDef>();
+            foreach (var child in inputsNode.Children)
+            {
+                var key = (child.Key as YamlScalarNode)?.Value ?? "";
+                wf.Inputs[key] = ParseInputDef(child.Value);
+            }
+        }
+
+        // functions (local WFScript)
+        wf.Functions = node.GetScalar("functions");
+
+        // steps
+        var stepsNode = node.GetSequence("steps")
+            ?? throw new WorkflowParseException($"Workflow '{name}' missing required 'steps'");
+        wf.Steps = ParseStepList(stepsNode);
+
+        // outputs
+        if (node.HasKey("outputs"))
+            wf.Outputs = node.GetStringMap("outputs");
+
+        return wf;
+    }
+
+    private static InputDef ParseInputDef(YamlNode node)
+    {
+        if (node is YamlScalarNode scalar)
+            return new InputDef { Type = scalar.Value ?? "any" };
+
+        if (node is YamlMappingNode map)
+        {
+            var def = new InputDef
+            {
+                Type = map.GetScalar("type") ?? "any",
+                Required = map.GetBool("required") ?? true,
+                Default = map.GetScalar("default"),
+                Description = map.GetScalar("description")
+            };
+
+            // Array element type
+            var itemsNode = map.Children
+                .FirstOrDefault(c => (c.Key as YamlScalarNode)?.Value == "items").Value;
+            if (itemsNode != null)
+                def.Items = ParseInputDef(itemsNode);
+
+            // Object property schemas
+            var propsNode = map.GetMapping("properties");
+            if (propsNode != null)
+            {
+                def.Properties = new Dictionary<string, InputDef>();
+                foreach (var child in propsNode.Children)
+                {
+                    var key = (child.Key as YamlScalarNode)?.Value ?? "";
+                    def.Properties[key] = ParseInputDef(child.Value);
+                }
+            }
+
+            // Dictionary value type / extra object properties
+            var additionalNode = map.Children
+                .FirstOrDefault(c => (c.Key as YamlScalarNode)?.Value == "additional_properties").Value;
+            if (additionalNode != null)
+                def.AdditionalProperties = ParseInputDef(additionalNode);
+
+            // Required property names (for objects)
+            def.RequiredProperties = map.GetStringList("required") is { Count: > 0 } reqList
+                ? reqList
+                : null;
+
+            return def;
+        }
+
+        return new InputDef();
+    }
+
+    private static List<StepDef> ParseStepList(YamlSequenceNode seq)
+    {
+        var steps = new List<StepDef>();
+        foreach (var item in seq.Children)
+        {
+            if (item is YamlMappingNode stepNode)
+                steps.Add(ParseStep(stepNode));
+        }
+        return steps;
+    }
+
+    private static StepDef ParseStep(YamlMappingNode node)
+    {
+        var step = new StepDef
+        {
+            Id = node.GetScalar("id") ?? throw new WorkflowParseException("Step missing 'id'"),
+            Type = node.GetScalar("type") ?? throw new WorkflowParseException("Step missing 'type'"),
+            If = node.GetScalar("if"),
+            Output = node.GetScalar("output"),
+            ItemVar = node.GetScalar("item_var"),
+            IndexVar = node.GetScalar("index_var"),
+            Expr = node.GetScalar("expr"),
+        };
+
+        // input
+        if (node.HasKey("input"))
+        {
+            var inputNode = node.Children[new YamlScalarNode("input")];
+            step.Input = YamlToJson(inputNode);
+        }
+
+        // retry
+        var retryNode = node.GetMapping("retry");
+        if (retryNode != null)
+        {
+            step.Retry = new RetryPolicy
+            {
+                Max = retryNode.GetInt("max") ?? 1,
+                BackoffMs = retryNode.GetInt("backoff_ms") ?? 1000,
+                BackoffMult = retryNode.GetDouble("backoff_mult") ?? 2.0,
+                JitterMs = retryNode.GetInt("jitter_ms") ?? 0
+            };
+        }
+
+        // on_error
+        var onErrorNode = node.GetMapping("on_error");
+        if (onErrorNode != null)
+        {
+            step.OnError = ParseOnError(onErrorNode);
+        }
+
+        // steps (for sequence, loop, etc.)
+        var stepsSeq = node.GetSequence("steps");
+        if (stepsSeq != null)
+            step.Steps = ParseStepList(stepsSeq);
+
+        // branches (for parallel)
+        var branchesSeq = node.GetSequence("branches");
+        if (branchesSeq != null)
+        {
+            step.Branches = new List<BranchDef>();
+            foreach (var b in branchesSeq.Children)
+            {
+                if (b is YamlMappingNode branchMap)
+                {
+                    var branch = new BranchDef();
+                    var branchSteps = branchMap.GetSequence("steps");
+                    if (branchSteps != null)
+                        branch.Steps = ParseStepList(branchSteps);
+                    step.Branches.Add(branch);
+                }
+            }
+        }
+
+        // cases (for switch)
+        var casesSeq = node.GetSequence("cases");
+        if (casesSeq != null)
+        {
+            step.Cases = new List<SwitchCaseDef>();
+            foreach (var c in casesSeq.Children)
+            {
+                if (c is YamlMappingNode caseMap)
+                {
+                    step.Cases.Add(new SwitchCaseDef
+                    {
+                        Value = caseMap.GetScalar("value"),
+                        When = caseMap.GetScalar("when"),
+                        Steps = ParseStepList(caseMap.GetSequence("steps") ?? new YamlSequenceNode())
+                    });
+                }
+            }
+        }
+
+        // default (for switch)
+        var defaultSeq = node.GetSequence("default");
+        if (defaultSeq != null)
+            step.Default = ParseStepList(defaultSeq);
+
+        return step;
+    }
+
+    private static OnErrorDef ParseOnError(YamlMappingNode node)
+    {
+        var def = new OnErrorDef();
+        var casesSeq = node.GetSequence("cases");
+        if (casesSeq != null)
+        {
+            foreach (var c in casesSeq.Children)
+            {
+                if (c is YamlMappingNode caseMap)
+                {
+                    def.Cases.Add(new OnErrorCase
+                    {
+                        If = caseMap.GetScalar("if"),
+                        Action = caseMap.GetScalar("action") ?? "stop",
+                        SetOutput = caseMap.GetScalar("set_output"),
+                        Retry = caseMap.HasKey("retry") ? new RetryPolicy
+                        {
+                            Max = caseMap.GetMapping("retry")?.GetInt("max") ?? 1,
+                            BackoffMs = caseMap.GetMapping("retry")?.GetInt("backoff_ms") ?? 1000,
+                            BackoffMult = caseMap.GetMapping("retry")?.GetDouble("backoff_mult") ?? 2.0,
+                            JitterMs = caseMap.GetMapping("retry")?.GetInt("jitter_ms") ?? 0
+                        } : null
+                    });
+                }
+            }
+        }
+        return def;
+    }
+
+    /// <summary>
+    /// Convert a YamlNode to a System.Text.Json.Nodes.JsonNode.
+    /// </summary>
+    public static JsonNode? YamlToJson(YamlNode node)
+    {
+        return node switch
+        {
+            YamlScalarNode scalar => ParseScalarToJson(scalar),
+            YamlMappingNode map => YamlMapToJson(map),
+            YamlSequenceNode seq => YamlSeqToJson(seq),
+            _ => null
+        };
+    }
+
+    private static JsonNode? ParseScalarToJson(YamlScalarNode scalar)
+    {
+        var val = scalar.Value;
+        if (val == null || val == "null" || val == "~") return null;
+        if (val == "true" || val == "True") return JsonValue.Create(true);
+        if (val == "false" || val == "False") return JsonValue.Create(false);
+        if (int.TryParse(val, out var i)) return JsonValue.Create(i);
+        if (double.TryParse(val, System.Globalization.CultureInfo.InvariantCulture, out var d))
+            return JsonValue.Create(d);
+        return JsonValue.Create(val);
+    }
+
+    private static JsonObject YamlMapToJson(YamlMappingNode map)
+    {
+        var obj = new JsonObject();
+        foreach (var kv in map.Children)
+        {
+            var key = (kv.Key as YamlScalarNode)?.Value ?? "";
+            obj[key] = YamlToJson(kv.Value);
+        }
+        return obj;
+    }
+
+    private static JsonArray YamlSeqToJson(YamlSequenceNode seq)
+    {
+        var arr = new JsonArray();
+        foreach (var item in seq.Children)
+            arr.Add(YamlToJson(item));
+        return arr;
+    }
+}
+

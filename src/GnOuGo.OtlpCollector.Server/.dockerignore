@@ -1,0 +1,58 @@
+﻿# ── Build artifacts ──
+**/bin/
+**/obj/
+**/out/
+
+# ── Node modules (rebuilt in Docker) ──
+**/node_modules/
+
+# ── IDE / OS ──
+**/.vs/
+**/.vscode/
+**/.idea/
+**/.git/
+**/.gitignore
+**/Thumbs.db
+**/.DS_Store
+**/*.user
+**/*.suo
+
+# ── Docker ──
+**/Dockerfile*
+**/.dockerignore
+**/docker-compose*.yml
+
+# ── Documentation ──
+**/*.md
+**/LICENSE
+
+# ── Test projects ──
+tests/
+
+# ── Other projects (not needed for this build) ──
+src/SlimAgent.Desktop/
+src/SlimAgent.Server/
+src/SlimAgent.Shared/
+src/SlimDiff.Cli/
+src/SlimDiff.Core/
+src/SlimDiff.Server/
+src/SlimDocIngestor.Cli/
+src/SlimDocIngestor.Core/
+src/SlimDocIngestor.Server/
+src/SlimFlow.Cli/
+src/SlimFlow.Core/
+src/SlimFlow.Server/
+src/SlimKeyVault.Core/
+src/SlimKeyVault.Server/
+src/SlimOtlpCollector.Cli/
+src/SlimVectorDbDisk/
+tmp_explore/
+scripts/
+
+# ── Local data (SQLite DB recreated at runtime) ──
+src/SlimOtlpCollector.Server/data/*.db
+src/SlimOtlpCollector.Server/data/*.db-*
+
+# ── Pre-built wwwroot (rebuilt in Docker) ──
+src/SlimOtlpCollector.Server/wwwroot/
+

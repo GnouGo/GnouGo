@@ -1,0 +1,83 @@
+dsl: 1
+name: mcp-browser-navigation-demo
+meta:
+  description: >
+    Demonstrates sequential MCP browser navigation with GnOuGo.Flow.Browser.
+    Requires Playwright browser binaries to be installed for the GnOuGo.Flow.Browser project.
+
+    Usage from the repository root:
+      dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/mcp-browser-navigation-demo.yaml
+
+workflows:
+  main:
+    inputs:
+      first_url:
+        type: string
+        default: https://example.com/
+        description: First URL to visit
+      second_url:
+        type: string
+        default: https://www.iana.org/help/example-domains
+        description: Second URL to visit
+      third_url:
+        type: string
+        default: https://www.rfc-editor.org/rfc/rfc2606.html
+        description: Third URL to visit
+
+    steps:
+      - id: discover_browser_tools
+        type: mcp.list
+        input:
+          server: GnOuGo.Flow.Browser
+          include:
+            - tools
+
+      - id: read_first
+        type: mcp.call
+        input:
+          server: GnOuGo.Flow.Browser
+          method: browser_get_content
+          request:
+            url: "${data.inputs.first_url}"
+            waitUntil: domcontentloaded
+            format: text
+            maxCharacters: 500
+
+      - id: read_second
+        type: mcp.call
+        input:
+          server: GnOuGo.Flow.Browser
+          method: browser_get_content
+          request:
+            url: "${data.inputs.second_url}"
+            waitUntil: domcontentloaded
+            format: text
+            maxCharacters: 500
+
+      - id: read_third
+        type: mcp.call
+        input:
+          server: GnOuGo.Flow.Browser
+          method: browser_get_content
+          request:
+            url: "${data.inputs.third_url}"
+            waitUntil: domcontentloaded
+            format: text
+            maxCharacters: 500
+
+      - id: close_browser
+        type: mcp.call
+        input:
+          server: GnOuGo.Flow.Browser
+          method: browser_close
+
+    outputs:
+      tool_count: "${len(data.steps.discover_browser_tools.tools)}"
+      first_excerpt_status: "${data.steps.read_first.status}"
+      first_excerpt: "${data.steps.read_first.response}"
+      second_excerpt_status: "${data.steps.read_second.status}"
+      second_excerpt: "${data.steps.read_second.response}"
+      third_excerpt_status: "${data.steps.read_third.status}"
+      third_excerpt: "${data.steps.read_third.response}"
+      close_status: "${data.steps.close_browser.status}"
+      close_result: "${data.steps.close_browser.response}"

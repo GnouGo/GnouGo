@@ -1,0 +1,156 @@
+﻿/* ─── YamlCodeEditor styles ──────────────────────────────── */
+
+.yce {
+  display: flex;
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--editor-bg);
+  overflow: hidden;
+  flex: 1;
+  min-height: 120px;
+
+  &--focused {
+    border-color: var(--accent);
+  }
+
+  &--readonly {
+    .yce__input {
+      caret-color: transparent;
+      cursor: default;
+    }
+  }
+
+  /* ── Gutter (line numbers) ── */
+  &__gutter {
+    flex-shrink: 0;
+    width: 46px;
+    padding: 12px 0;
+    overflow: hidden;
+    background: rgba(18, 20, 28, 0.6);
+    border-right: 1px solid var(--border);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  &__ln {
+    height: 1.5em;
+    line-height: 1.5;
+    padding: 0 8px 0 0;
+    text-align: right;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    opacity: 0.5;
+
+    &--error {
+      color: var(--error);
+      opacity: 1;
+      font-weight: 700;
+      cursor: help;
+    }
+  }
+
+  /* ── Code area ── */
+  &__code {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Shared typographic properties for both layers */
+  &__highlight,
+  &__input {
+    margin: 0;
+    padding: 12px;
+    border: none;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    tab-size: 2;
+    white-space: pre;
+    overflow-wrap: normal;
+    word-break: keep-all;
+  }
+
+  /* Highlighted overlay — renders colored text */
+  &__highlight {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;            /* scroll is driven by textarea */
+    pointer-events: none;
+    color: var(--text);
+    background: transparent;
+  }
+
+  /* Actual textarea — transparent text, visible caret */
+  &__input {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    resize: none;
+    outline: none;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--text);
+    overflow: auto;
+
+    &::placeholder {
+      color: var(--text-dim);
+      opacity: 0.5;
+    }
+
+    /* Selection still visible */
+    &::selection {
+      background: rgba(79, 143, 247, 0.25);
+      color: transparent;
+    }
+  }
+
+  /* ── Syntax colours ── */
+  .yce-key {
+    color: #7ec8e3;            /* soft blue — YAML keys */
+  }
+  .yce-string {
+    color: #a8db8f;            /* green — strings */
+  }
+  .yce-number {
+    color: #d4a0f5;            /* purple — numbers */
+  }
+  .yce-bool {
+    color: #f5a97f;            /* orange — booleans */
+  }
+  .yce-null {
+    color: #f5a97f;
+    font-style: italic;
+  }
+  .yce-comment {
+    color: #636882;            /* dimmed — comments */
+    font-style: italic;
+  }
+  .yce-punct {
+    color: #8b8fa3;            /* dim — colons, dashes */
+  }
+  .yce-expr {
+    color: #f7c46c;            /* gold — ${...} expressions */
+  }
+
+  /* ── Error tooltip ── */
+  &__tooltip {
+    position: fixed;
+    z-index: 100;
+    max-width: 420px;
+    padding: 6px 10px;
+    background: #2d1215;
+    border: 1px solid var(--error);
+    border-radius: 6px;
+    color: #fca5a5;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}

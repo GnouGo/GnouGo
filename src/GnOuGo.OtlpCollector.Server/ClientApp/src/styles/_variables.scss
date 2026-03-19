@@ -1,0 +1,56 @@
+// ============================================================================
+// Variables - Colors, Spacing, Typography
+// ============================================================================
+
+// Colors
+$color-bg-primary: #0b0f19;
+$color-bg-secondary: #11182a;
+$color-text-primary: #e6e8ee;
+$color-text-secondary: rgba(255, 255, 255, 0.8);
+$color-text-tertiary: rgba(255, 255, 255, 0.6);
+$color-border: rgba(255, 255, 255, 0.08);
+$color-border-hover: rgba(255, 255, 255, 0.22);
+$color-border-focus: rgba(255, 255, 255, 0.28);
+$color-accent: #3b82f6;
+$color-error: #ffb4b4;
+$color-warning: #ffd700;
+$color-success: #4ade80;
+
+// Spacing
+$spacing-xs: 6px;
+$spacing-sm: 10px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+$spacing-xl: 32px;
+
+// Border radius
+$radius-sm: 8px;
+$radius-md: 12px;
+$radius-lg: 16px;
+$radius-full: 999px;
+
+// Typography
+$font-family-base: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+$font-family-mono: ui-monospace, 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+
+$font-size-xs: 11px;
+$font-size-sm: 12px;
+$font-size-base: 14px;
+$font-size-lg: 16px;
+$font-size-xl: 20px;
+$font-size-2xl: 24px;
+
+// Transitions
+$transition-fast: 0.15s ease;
+$transition-base: 0.2s ease;
+
+// Shadows
+$shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+$shadow-md: 0 4px 16px rgba(0, 0, 0, 0.15);
+$shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.22);
+
+// Breakpoints
+$breakpoint-sm: 640px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;
+$breakpoint-xl: 1280px;

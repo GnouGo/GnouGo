@@ -1,0 +1,356 @@
+// ============================================================================
+// Span Timeline – Waterfall layout (like Jaeger / Zipkin)
+// ============================================================================
+
+.span-timeline {
+  background: $color-bg-secondary;
+  border-radius: $radius-md;
+  padding: $spacing-md;
+  margin-bottom: $spacing-md;
+  border: 1px solid $color-border;
+
+  /* ---- header ---- */
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-sm;
+  }
+
+  &__title {
+    font-size: $font-size-lg;
+    font-weight: 600;
+    color: $color-text-primary;
+    margin: 0;
+  }
+
+  &__total {
+    font-family: $font-family-mono;
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 2px 10px;
+    border-radius: $radius-full;
+  }
+
+  /* ---- time scale ---- */
+  &__scale {
+    position: relative;
+    height: 22px;
+    margin-bottom: 2px;
+    margin-left: 260px; // same as label width
+    border-bottom: 1px solid $color-border;
+  }
+
+  &__scale-mark {
+    position: absolute;
+    bottom: 2px;
+    transform: translateX(-50%);
+    font-size: 10px;
+    font-family: $font-family-mono;
+    color: $color-text-tertiary;
+    white-space: nowrap;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      width: 1px;
+      height: 4px;
+      background: $color-border;
+    }
+  }
+
+  /* ---- waterfall rows ---- */
+  &__waterfall {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    height: 28px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background $transition-fast;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    &--selected {
+      background: rgba(59, 130, 246, 0.1) !important;
+    }
+
+    &--error {
+      background: rgba(239, 68, 68, 0.04);
+
+      &:hover {
+        background: rgba(239, 68, 68, 0.08);
+      }
+    }
+  }
+
+  /* label column */
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 260px;
+    min-width: 260px;
+    overflow: hidden;
+  }
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  &__name {
+    flex: 1;
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: $color-text-primary;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__error-badge {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #fff;
+    background: #ef4444;
+    padding: 1px 5px;
+    border-radius: 3px;
+    line-height: 1.4;
+  }
+
+  &__dur {
+    font-size: 10px;
+    font-family: $font-family-mono;
+    color: $color-text-tertiary;
+    flex-shrink: 0;
+    margin-right: 6px;
+  }
+
+  /* bar column */
+  &__bar-track {
+    flex: 1;
+    position: relative;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  &__bar {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    border-radius: 3px;
+    min-width: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: opacity $transition-fast;
+
+    .span-timeline__row:hover & {
+      opacity: 0.85;
+    }
+  }
+
+  /* ---- detail panel ---- */
+  &__details {
+    margin-top: $spacing-md;
+    background: $color-bg-primary;
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+    padding: $spacing-md;
+  }
+
+  &__details-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-sm;
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px solid $color-border;
+    color: $color-text-primary;
+    font-size: $font-size-base;
+  }
+
+  &__details-close {
+    background: none;
+    border: none;
+    color: $color-text-secondary;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: $color-text-primary;
+    }
+  }
+
+  &__details-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: $font-size-sm;
+    margin-bottom: $spacing-sm;
+
+    td {
+      padding: 4px 8px;
+      vertical-align: top;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    td:first-child {
+      font-weight: 600;
+      color: $color-text-secondary;
+      width: 110px;
+      white-space: nowrap;
+    }
+
+    td:last-child {
+      color: $color-text-primary;
+      font-family: $font-family-mono;
+      word-break: break-all;
+    }
+  }
+
+  &__details-section {
+    margin-top: $spacing-sm;
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+    overflow: hidden;
+
+    summary {
+      padding: 8px 12px;
+      font-weight: 600;
+      font-size: $font-size-sm;
+      color: $color-text-secondary;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.02);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+    }
+
+    pre {
+      margin: 0;
+      padding: 12px;
+      font-size: $font-size-xs;
+      font-family: $font-family-mono;
+      color: $color-text-primary;
+      background: $color-bg-primary;
+      overflow-x: auto;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+  }
+
+  &__event {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: $font-size-sm;
+    color: $color-text-primary;
+
+    strong {
+      color: $color-accent;
+    }
+
+    span {
+      font-family: $font-family-mono;
+      font-size: $font-size-xs;
+      color: $color-text-tertiary;
+    }
+
+    pre {
+      margin: 6px 0 0;
+      padding: 8px;
+      font-size: $font-size-xs;
+      background: $color-bg-primary;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  // ── Attribute table (replaces raw JSON dump) ──
+  &__attr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: $font-size-xs;
+    margin: 0;
+
+    td {
+      padding: 4px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      vertical-align: top;
+    }
+  }
+
+  &__attr-key {
+    font-weight: 600;
+    color: $color-text-secondary;
+    white-space: nowrap;
+    width: 1%;
+    padding-right: 12px !important;
+    font-family: $font-family-mono;
+  }
+
+  &__attr-value {
+    font-family: $font-family-mono;
+    color: $color-text-primary;
+    word-break: break-word;
+    white-space: pre-wrap;
+
+    &--long {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+  }
+
+  &__attr-toggle {
+    background: none;
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+    color: $color-accent;
+    cursor: pointer;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    align-self: flex-start;
+    font-family: $font-family-base;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+  }
+}
+
+// Responsive
+@media (max-width: $breakpoint-md) {
+  .span-timeline {
+    &__label {
+      width: 140px;
+      min-width: 140px;
+    }
+
+    &__scale {
+      margin-left: 140px;
+    }
+  }
+}
+

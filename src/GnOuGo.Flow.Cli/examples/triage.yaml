@@ -1,0 +1,144 @@
+dsl: 1
+name: triage-example
+meta:
+  author: GnOuGo.Flow
+  version: "1.0"
+
+functions: |
+  function classify(text) {
+    if (contains(lower(text), "urgent")) {
+      return "urgent";
+    } else {
+      return "normal";
+    }
+  }
+  function buildPrompt(category, message) {
+    return "You are a triage assistant. Category: " + category + ". Message: " + message;
+  }
+
+workflows:
+  main:
+    inputs:
+      message:
+        type: string
+        required: true
+        description: The message to triage
+      priority:
+        type: string
+        required: false
+        default: "auto"
+        description: Priority level (urgent, normal, auto)
+
+    steps:
+      - id: think_classify
+        type: emit
+        input:
+          message: "Classifying incoming message…"
+          level: thinking
+
+      - id: classify_input
+        type: template.render
+        input:
+          engine: mustache
+          template: "Category: {{category}}"
+          data:
+            category: "${functions.classify(data.inputs.message)}"
+          mode: text
+          strict: false
+
+      - id: check_priority
+        type: switch
+        expr: "${data.inputs.priority}"
+        cases:
+          - value: "urgent"
+            steps:
+              - id: urgent_response
+                type: llm.call
+                input:
+                  model: gpt-4
+                  prompt: '${functions.buildPrompt("urgent", data.inputs.message)}'
+
+          - value: "normal"
+            steps:
+              - id: normal_response
+                type: llm.call
+                input:
+                  model: gpt-3.5-turbo
+                  prompt: '${functions.buildPrompt("normal", data.inputs.message)}'
+
+        default:
+          - id: auto_classify
+            type: llm.call
+            input:
+              model: gpt-4
+              prompt: "Classify and respond to: ${data.inputs.message}"
+
+      - id: think_format
+        type: emit
+        input:
+          message: "Triage complete — formatting result"
+          level: info
+
+      - id: format_output
+        type: template.render
+        input:
+          engine: mustache
+          template: |
+            Triage Result:
+            Classification: {{classification}}
+            Message: {{message}}
+          data:
+            classification: "${data.steps.classify_input.text}"
+            message: "${data.inputs.message}"
+          mode: text
+
+      - id: parallel_notifications
+        type: parallel
+        branches:
+          - steps:
+              - id: log_result
+                type: template.render
+                input:
+                  engine: mustache
+                  template: "Log: {{message}}"
+                  data:
+                    message: "${data.inputs.message}"
+                  mode: text
+
+          - steps:
+              - id: prepare_metrics
+                type: template.render
+                input:
+                  engine: mustache
+                  template: '{"processed": true, "message_length": {{len}}}'
+                  data:
+                    len: "${len(data.inputs.message)}"
+                  mode: json
+
+    outputs:
+      result: "${data.steps.format_output.text}"
+      classification: "${data.steps.classify_input.text}"
+
+  helper:
+    inputs:
+      text:
+        type: string
+        required: true
+        description: Text to process
+
+    steps:
+      - id: process
+        type: template.render
+        input:
+          engine: mustache
+          template: "Processed: {{text}}"
+          data:
+            text: "${data.inputs.text}"
+          mode: text
+
+    outputs:
+      result: "${data.steps.process.text}"
+
+exports:
+  - helper
+

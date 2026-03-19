@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>preview</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>DocIngestor.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GnOuGo.DocIngestor.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GnOuGo.Auth.Core\GnOuGo.Auth.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- DOCX / PPTX / XLSX extraction -->
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.*" />
+
+    <!-- PDF text extraction -->
+    <PackageReference Include="PdfPig" Version="0.*" />
+
+    <!-- Token counting (optional but helpful for chunking policies) -->
+    <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.*" />
+    <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.*" />
+      <!-- SQLite store (MIT) -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.*" />
+    <PackageReference Include="PdfPig.Rendering.Skia" Version="0.1.12.2" />
+    <PackageReference Include="SkiaSharp" Version="3.*" />
+
+    <!-- OpenTelemetry for GenAI instrumentation -->
+    <PackageReference Include="OpenTelemetry.Api" Version="1.10.*" />
+  </ItemGroup>
+
+  <!-- Reco Linux (surtout en container/minimal images) -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != '' and $(RuntimeIdentifier.StartsWith('linux'))">
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.*" />
+  </ItemGroup>
+
+</Project>

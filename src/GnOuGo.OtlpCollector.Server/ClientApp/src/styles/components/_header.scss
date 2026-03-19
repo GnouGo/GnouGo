@@ -1,0 +1,63 @@
+// ============================================================================
+// Header Component (BEM)
+// ============================================================================
+
+.header {
+  margin-bottom: $spacing-md;
+
+  &__content {
+    display: flex;
+    gap: $spacing-md;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  &__title {
+    font-size: $font-size-xl;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    margin: 0;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: $radius-full;
+
+    &--live {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+  }
+
+  &__status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: live-pulse 1.5s ease-in-out infinite;
+  }
+}
+
+@keyframes live-pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+}

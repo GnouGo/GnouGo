@@ -1,0 +1,30 @@
+// ============================================================================
+// Grid Component (BEM) - Layout grid for traces
+// ============================================================================
+
+.grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: $spacing-md;
+  margin-top: $spacing-md;
+  // Constrain height so child panels can scroll
+  height: calc(100vh - 280px);
+  min-height: 300px;
+
+  // Ensure grid children don't overflow their cell
+  > * {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  // Responsive: stack on small screens
+  @media (max-width: $breakpoint-md) {
+    grid-template-columns: 1fr;
+    height: auto;
+    max-height: none;
+
+    > * {
+      max-height: 50vh;
+    }
+  }
+}

@@ -1,0 +1,32 @@
+// ============================================================================
+// Span Tree Component (BEM) - Tree structure of spans
+// ============================================================================
+
+.span-tree {
+  font-family: $font-family-mono;
+  font-size: $font-size-sm;
+  background: $color-bg-secondary;
+  border-radius: $radius-md;
+  padding: $spacing-md;
+  margin-bottom: $spacing-md;
+  border: 1px solid $color-border;
+
+  &__title {
+    font-size: $font-size-lg;
+    font-weight: 600;
+    color: $color-text-primary;
+    margin: 0 0 $spacing-sm 0;
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__empty {
+    font-size: $font-size-sm;
+    opacity: 0.7;
+    text-align: center;
+    padding: $spacing-lg;
+  }
+}

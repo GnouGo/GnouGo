@@ -1,0 +1,265 @@
+﻿// ── Variables ────────────────────────────────────────────────────────
+$color-bg: #0f1117;
+$color-surface: #1a1d27;
+$color-border: #2d3148;
+$color-primary: #6c8cff;
+$color-primary-hover: #8aa4ff;
+$color-text: #e1e4ed;
+$color-text-muted: #8b90a5;
+$color-success: #4caf77;
+$color-danger: #e05555;
+$radius: 8px;
+$font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+// ── Reset ────────────────────────────────────────────────────────────
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-family: $font; font-size: 15px; background: $color-bg; color: $color-text; }
+body { min-height: 100vh; }
+
+// ── App layout ───────────────────────────────────────────────────────
+.app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid $color-border;
+  }
+
+  &__title {
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  &__content {
+    min-height: 60vh;
+  }
+}
+
+// ── Nav ──────────────────────────────────────────────────────────────
+.nav {
+  display: flex;
+  gap: 0.25rem;
+
+  &__item {
+    padding: 0.5rem 1.25rem;
+    border: 1px solid $color-border;
+    border-radius: $radius;
+    background: transparent;
+    color: $color-text-muted;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &:hover { color: $color-text; border-color: $color-primary; }
+    &--active {
+      background: $color-primary;
+      color: #fff;
+      border-color: $color-primary;
+    }
+  }
+}
+
+// ── Page ─────────────────────────────────────────────────────────────
+.page {
+  &__title {
+    font-size: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+}
+
+// ── Filter bar ───────────────────────────────────────────────────────
+.filter-bar {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+    color: $color-text-muted;
+  }
+
+  &__select, &__input {
+    padding: 0.4rem 0.75rem;
+    border: 1px solid $color-border;
+    border-radius: $radius;
+    background: $color-surface;
+    color: $color-text;
+    font-size: 0.88rem;
+  }
+}
+
+// ── Form ─────────────────────────────────────────────────────────────
+.form {
+  margin-bottom: 1.5rem;
+
+  &--inline {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  &__input {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid $color-border;
+    border-radius: $radius;
+    background: $color-surface;
+    color: $color-text;
+    font-size: 0.9rem;
+    flex: 1;
+    min-width: 140px;
+
+    &::placeholder { color: $color-text-muted; }
+  }
+
+  &__button {
+    padding: 0.5rem 1.5rem;
+    border: none;
+    border-radius: $radius;
+    background: $color-primary;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+
+    &:hover:not(:disabled) { background: $color-primary-hover; }
+    &:disabled { opacity: 0.45; cursor: not-allowed; }
+  }
+}
+
+// ── Table ────────────────────────────────────────────────────────────
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+
+  &__header {
+    .table__cell {
+      background: $color-surface;
+      font-weight: 600;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: $color-text-muted;
+    }
+  }
+
+  &__row {
+    border-bottom: 1px solid $color-border;
+    transition: background 0.1s;
+
+    &:hover { background: rgba($color-primary, 0.04); }
+    &--selected { background: rgba($color-primary, 0.08); }
+  }
+
+  &__cell {
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    font-size: 0.88rem;
+
+    &--mono { font-family: 'JetBrains Mono', monospace; }
+  }
+}
+
+// ── Buttons ──────────────────────────────────────────────────────────
+.btn {
+  padding: 0.4rem 1rem;
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  background: transparent;
+  color: $color-text;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover { border-color: $color-primary; color: $color-primary; }
+  &--sm { padding: 0.25rem 0.6rem; font-size: 0.8rem; margin-right: 0.25rem; }
+  &--danger {
+    color: $color-danger;
+    border-color: $color-danger;
+    &:hover { background: rgba($color-danger, 0.1); }
+  }
+}
+
+// ── Detail panel ─────────────────────────────────────────────────────
+.detail-panel {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  background: $color-surface;
+
+  &__title {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  &__value {
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    background: $color-bg;
+    border-radius: $radius;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    word-break: break-all;
+  }
+}
+
+// ── Version list ─────────────────────────────────────────────────────
+.version-list {
+  list-style: none;
+  margin-bottom: 1rem;
+
+  &__item {
+    padding: 0.35rem 0;
+    font-size: 0.88rem;
+    border-bottom: 1px solid $color-border;
+    &:last-child { border-bottom: none; }
+  }
+}
+
+// ── Badges ───────────────────────────────────────────────────────────
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba($color-text-muted, 0.15);
+  color: $color-text-muted;
+
+  &--setsecret { background: rgba($color-primary, 0.15); color: $color-primary; }
+  &--getsecret { background: rgba($color-success, 0.15); color: $color-success; }
+  &--deletesecret { background: rgba($color-danger, 0.15); color: $color-danger; }
+  &--createtenant { background: rgba($color-primary, 0.15); color: $color-primary; }
+  &--deletetenant { background: rgba($color-danger, 0.15); color: $color-danger; }
+}
+
+// ── Pagination ───────────────────────────────────────────────────────
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1rem;
+
+  &__info {
+    font-size: 0.88rem;
+    color: $color-text-muted;
+  }
+}
+

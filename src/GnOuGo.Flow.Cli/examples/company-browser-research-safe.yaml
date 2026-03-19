@@ -1,0 +1,450 @@
+dsl: 1
+name: company-browser-research-safe
+meta:
+  description: >
+    Variante plus robuste du workflow de veille société, pensée pour éviter les sites
+    qui bloquent fréquemment l'automatisation navigateur.
+
+    Cette variante est la version prudente du workflow
+    `src/GnOuGo.Flow.Cli/examples/slimfaas-browser-research-agent.yaml`.
+    Elle restreint volontairement les sources aux pages publiques les moins susceptibles
+    de bloquer Playwright, afin d'obtenir un workflow plus stable mais parfois moins riche.
+
+    Cette version ne cherche pas à contourner les protections anti-bot.
+    Aucun clic automatique sur une bannière cookies n'est effectué.
+    Si une bannière ou un overlay masque l'accès au contenu, c'est au client MCP / LLM,
+    à partir du HTML rendu, de décider quelle action générique entreprendre.
+    Elle privilégie :
+      - le site officiel
+      - la documentation publique
+      - le blog public
+      - Bing
+      - DuckDuckGo
+      - GitHub search
+      - Hacker News Algolia
+      - Reddit search
+
+    Usage depuis la racine du dépôt :
+      dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/company-browser-research-safe.yaml
+      dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/company-browser-research-safe.yaml -i subject="Acme Cloud" -i company_domain="acme.com"
+
+workflows:
+  main:
+    inputs:
+      subject:
+        type: string
+        required: false
+        default: SlimFaas
+        description: Company or product name to research
+      company_domain:
+        type: string
+        required: false
+        default: slimfaas.dev
+        description: Official domain of the company
+      browser_server:
+        type: string
+        required: false
+        default: GnOuGo.Flow.Browser
+        description: MCP browser server name
+      max_characters:
+        type: number
+        required: false
+        default: 8000
+        description: Maximum text characters per page
+      max_html_characters:
+        type: number
+        required: false
+        default: 20000
+        description: Maximum HTML characters per page
+      max_rounds:
+        type: number
+        required: false
+        default: 3
+        description: Maximum number of research rounds
+      max_sources_per_round:
+        type: number
+        required: false
+        default: 3
+        description: Maximum sources to visit per round
+
+    steps:
+      - id: discover_browser_tools
+        type: mcp.list
+        input:
+          server: "${data.inputs.browser_server}"
+          include:
+            - tools
+
+      - id: safe_source_catalog
+        type: set
+        input:
+          sources:
+            - name: official_homepage
+              kind: browser
+              focus: Official homepage, positioning, product messaging, CTA, navigation labels
+              url: "${'https://' + data.inputs.company_domain}"
+            - name: official_docs
+              kind: browser
+              focus: Public docs, product capabilities, APIs, integrations, terminology
+              url: "${'https://' + data.inputs.company_domain + '/docs'}"
+            - name: official_blog
+              kind: browser
+              focus: Blog posts, launches, changelogs, announcements, partnerships
+              url: "${'https://' + data.inputs.company_domain + '/blog'}"
+            - name: bing_overview
+              kind: browser
+              focus: General search coverage, snippets, overview pages, alternative ranking
+              url: "${'https://www.bing.com/search?q=' + encodeURIComponent(data.inputs.subject)}"
+            - name: duckduckgo_overview
+              kind: browser
+              focus: Alternative public-web coverage and search engine diversification
+              url: "${'https://duckduckgo.com/?q=' + encodeURIComponent(data.inputs.subject)}"
+            - name: github_repositories
+              kind: browser
+              focus: Repositories, organizations, README visibility, stars, technical footprint
+              url: "${'https://github.com/search?q=' + encodeURIComponent(data.inputs.subject) + '&type=repositories'}"
+            - name: github_code
+              kind: browser
+              focus: Code references, SDKs, docs, examples, integration traces
+              url: "${'https://github.com/search?q=' + encodeURIComponent(data.inputs.subject) + '&type=code'}"
+            - name: hackernews_search
+              kind: browser
+              focus: Public startup and technical discussion, launch visibility, credibility signals
+              url: "${'https://hn.algolia.com/?dateRange=all&page=0&prefix=true&sort=byPopularity&type=story&query=' + encodeURIComponent(data.inputs.subject)}"
+            - name: reddit_search
+              kind: browser
+              focus: Community discussion, opinions, comparisons, praise and complaints
+              url: "${'https://www.reddit.com/search/?q=' + encodeURIComponent(data.inputs.subject)}"
+
+      - id: safe_research_loop
+        type: loop.sequential
+        input:
+          while: "${data.steps.safe_evaluate_round?.json?.status != 'complete'}"
+          max_times: "${data.inputs.max_rounds}"
+        steps:
+          - id: safe_plan_round
+            type: llm.call
+            input:
+              model: gpt-4o-mini
+              temperature: 0
+              prompt: >
+                You are a public web research planner.
+
+                Target: ${data.inputs.subject}
+                Official domain: ${data.inputs.company_domain}
+                Current round: ${data._loop.index + 1} of ${data.inputs.max_rounds}
+                Max sources to choose: ${data.inputs.max_sources_per_round}
+
+                Available safe sources:
+                ${json(data.steps.safe_source_catalog.sources)}
+
+                Previous rounds:
+                ${json(data.steps.safe_research_loop != null ? data.steps.safe_research_loop.iterations : null)}
+
+                Choose the most valuable next public sources.
+                Prefer official pages first, then broad public sources, then community signals.
+                Avoid unnecessary revisits.
+
+                Return JSON only:
+                {
+                  "round_goal": "string",
+                  "calls": [
+                    {
+                      "source_index": 0,
+                      "reason": "string",
+                      "expected_signal": "string"
+                    }
+                  ]
+                }
+              structured_output:
+                schema_inline:
+                  type: object
+                  properties:
+                    round_goal:
+                      type: string
+                    calls:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          source_index: { type: number }
+                          reason: { type: string }
+                          expected_signal: { type: string }
+                        required: [source_index, reason, expected_signal]
+                  required: [round_goal, calls]
+                strict: true
+
+          - id: safe_execute_round
+            type: loop.sequential
+            if: "${data.steps.safe_plan_round.json != null && len(data.steps.safe_plan_round.json.calls) > 0}"
+            input:
+              times: "${len(data.steps.safe_plan_round.json.calls)}"
+            steps:
+              - id: current_safe_call
+                type: set
+                input:
+                  call: "${data.steps.safe_plan_round.json.calls[data._loop.index]}"
+
+              - id: research_safe_source
+                type: workflow.call
+                input:
+                  ref:
+                    kind: local
+                    name: research_one_safe_source
+                  args:
+                    subject: "${data.inputs.subject}"
+                    browser_server: "${data.inputs.browser_server}"
+                    max_characters: "${data.inputs.max_characters}"
+                    max_html_characters: "${data.inputs.max_html_characters}"
+                    source_name: "${data.steps.safe_source_catalog.sources[data.steps.current_safe_call.call.source_index].name}"
+                    source_focus: "${data.steps.safe_source_catalog.sources[data.steps.current_safe_call.call.source_index].focus}"
+                    source_url: "${data.steps.safe_source_catalog.sources[data.steps.current_safe_call.call.source_index].url}"
+                    selection_reason: "${data.steps.current_safe_call.call.reason}"
+                    expected_signal: "${data.steps.current_safe_call.call.expected_signal}"
+
+          - id: safe_evaluate_round
+            type: llm.call
+            input:
+              model: gpt-4o-mini
+              temperature: 0
+              prompt: >
+                Evaluate whether the public research on ${data.inputs.subject} is sufficient.
+
+                Current round:
+                ${json(data.steps.safe_plan_round.json)}
+
+                Current execution results:
+                ${json(data.steps.safe_execute_round != null ? data.steps.safe_execute_round.iterations : null)}
+
+                All rounds so far:
+                ${json(data.steps.safe_research_loop != null ? data.steps.safe_research_loop.iterations : null)}
+
+                Return JSON only:
+                {
+                  "status": "complete" or "needs_more",
+                  "confidence": 0.0,
+                  "what_we_know": "string",
+                  "missing_information": ["..."]
+                }
+              structured_output:
+                schema_inline:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      enum: [complete, needs_more]
+                    confidence:
+                      type: number
+                    what_we_know:
+                      type: string
+                    missing_information:
+                      type: array
+                      items: { type: string }
+                  required: [status, confidence, what_we_know, missing_information]
+                strict: true
+
+      - id: summarize_safe_research
+        type: workflow.call
+        input:
+          ref:
+            kind: local
+            name: summarize_safe_findings
+          args:
+            subject: "${data.inputs.subject}"
+            research_iterations: "${data.steps.safe_research_loop.iterations}"
+            final_evaluation: "${data.steps.safe_evaluate_round.json}"
+
+      - id: close_browser
+        type: mcp.call
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_close
+
+    outputs:
+      subject: "${data.inputs.subject}"
+      sources_count: "${len(data.steps.safe_source_catalog.sources)}"
+      rounds_run: "${data.steps.safe_research_loop.count}"
+      final_evaluation: "${data.steps.safe_evaluate_round.json}"
+      structured_summary: "${data.steps.summarize_safe_research.outputs.summary_json}"
+      executive_summary: "${data.steps.summarize_safe_research.outputs.summary_text}"
+      research_trace: "${data.steps.safe_research_loop.iterations}"
+
+  research_one_safe_source:
+    inputs:
+      subject:
+        type: string
+        required: true
+      browser_server:
+        type: string
+        required: true
+      max_characters:
+        type: number
+        required: true
+      max_html_characters:
+        type: number
+        required: true
+      source_name:
+        type: string
+        required: true
+      source_focus:
+        type: string
+        required: true
+      source_url:
+        type: string
+        required: true
+      selection_reason:
+        type: string
+        required: true
+      expected_signal:
+        type: string
+        required: true
+
+    steps:
+      - id: read_page
+        type: mcp.call
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_get_content
+          request:
+            url: "${data.inputs.source_url}"
+            waitUntil: domcontentloaded
+            format: text
+            maxCharacters: "${data.inputs.max_characters}"
+          timeout_ms: 45000
+        retry:
+          max: 2
+          backoff_ms: 1000
+          backoff_mult: 2
+
+
+      - id: read_page_html
+        type: mcp.call
+        if: "${data.steps.read_page.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_get_content
+          request:
+            selector: body
+            format: html
+            maxCharacters: "${data.inputs.max_html_characters}"
+          timeout_ms: 30000
+
+      - id: extract_findings
+        type: llm.call
+        if: "${data.steps.read_page.status == 'ok' && data.steps.read_page_html.status == 'ok'}"
+        input:
+          model: gpt-4o-mini
+          temperature: 0
+          prompt: >
+            Analyze this public page about ${data.inputs.subject}.
+
+            Source name: ${data.inputs.source_name}
+            Focus: ${data.inputs.source_focus}
+            Selection reason: ${data.inputs.selection_reason}
+            Expected signal: ${data.inputs.expected_signal}
+            Final URL: ${data.steps.read_page.response.url}
+            Page title: ${data.steps.read_page.response.title}
+
+            Page text:
+            ${data.steps.read_page.response.content}
+
+            Rendered HTML excerpt:
+            ${data.steps.read_page_html.response.content}
+
+            Return grounded findings only.
+            If the page appears blocked or partially blocked by a consent / cookie banner,
+            infer that only from the HTML/text and describe it as a blocker.
+            Suggest generic next actions a client MCP could take, but do not assume any click happened.
+          structured_output:
+            schema_inline:
+              type: object
+              properties:
+                source_name: { type: string }
+                page_url: { type: string }
+                page_title: { type: string }
+                summary: { type: string }
+                confidence: { type: number }
+                findings:
+                  type: array
+                  items: { type: string }
+                access_blockers:
+                  type: array
+                  items: { type: string }
+                suggested_next_actions:
+                  type: array
+                  items: { type: string }
+                unknowns:
+                  type: array
+                  items: { type: string }
+              required: [source_name, page_url, page_title, summary, confidence, findings, access_blockers, suggested_next_actions, unknowns]
+            strict: true
+
+    outputs:
+      source_name: "${data.inputs.source_name}"
+      navigate_status: "${data.steps.read_page.status}"
+      navigate_response: "${data.steps.read_page.response}"
+      read_status: "${data.steps.read_page.status}"
+      html_status: "${data.steps.read_page_html != null ? data.steps.read_page_html.status : null}"
+      html_excerpt: "${data.steps.read_page_html != null ? data.steps.read_page_html.response.content : null}"
+      extraction_json: "${data.steps.extract_findings != null ? data.steps.extract_findings.json : null}"
+
+  summarize_safe_findings:
+    inputs:
+      subject:
+        type: string
+        required: true
+      research_iterations:
+        type: array
+        required: true
+      final_evaluation:
+        type: object
+        required: true
+
+    steps:
+      - id: structured_summary
+        type: llm.call
+        input:
+          model: gpt-4o-mini
+          temperature: 0
+          prompt: >
+            Summarize the public research findings about ${data.inputs.subject}.
+
+            Research iterations:
+            ${json(data.inputs.research_iterations)}
+
+            Final evaluation:
+            ${json(data.inputs.final_evaluation)}
+
+            Return a grounded structured synthesis.
+          structured_output:
+            schema_inline:
+              type: object
+              properties:
+                subject: { type: string }
+                one_line_summary: { type: string }
+                strong_signals:
+                  type: array
+                  items: { type: string }
+                weaker_signals:
+                  type: array
+                  items: { type: string }
+                unanswered_questions:
+                  type: array
+                  items: { type: string }
+              required: [subject, one_line_summary, strong_signals, weaker_signals, unanswered_questions]
+            strict: true
+
+      - id: narrative_summary
+        type: llm.call
+        input:
+          model: gpt-4o-mini
+          temperature: 0.2
+          prompt: >
+            Write a concise markdown research summary about ${data.inputs.subject} from this structured JSON:
+
+            ${json(data.steps.structured_summary.json)}
+
+    outputs:
+      summary_json: "${data.steps.structured_summary.json}"
+      summary_text: "${data.steps.narrative_summary.text}"
+

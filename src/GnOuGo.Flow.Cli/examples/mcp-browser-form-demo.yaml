@@ -1,0 +1,183 @@
+dsl: 1
+name: mcp-browser-form-demo
+meta:
+  description: >
+    Démonstration de scénario interactif avec GnOuGo.Flow.Browser :
+    ouverture d'une page de formulaire, attente, remplissage de champs,
+    sélection d'une option, clic sur un bouton et lecture du résultat.
+
+    Cette démo utilise uniquement les outils navigateur génériques exposés par le serveur MCP.
+
+    Usage depuis la racine du dépôt :
+      dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/mcp-browser-form-demo.yaml
+
+workflows:
+  main:
+    inputs:
+      form_url:
+        type: string
+        default: https://www.selenium.dev/selenium/web/web-form.html
+        description: URL of the form page to fill
+      customer_name:
+        type: string
+        default: Jane Doe
+        description: Customer name to enter in the form
+      phone:
+        type: string
+        default: +33 6 12 34 56 78
+        description: Phone number to enter
+      email:
+        type: string
+        default: jane.doe@example.com
+        description: Email address to enter
+      pizza_size:
+        type: string
+        default: "2"
+        description: Pizza size dropdown value
+      comments:
+        type: string
+        default: Merci de préparer une démo Playwright/MCP.
+        description: Additional comments
+      browser_server:
+        type: string
+        default: GnOuGo.Flow.Browser
+        description: MCP browser server name
+
+    steps:
+      - id: discover_browser_tools
+        type: mcp.list
+        input:
+          server: "${data.inputs.browser_server}"
+          include:
+            - tools
+
+      - id: open_form
+        type: mcp.call
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_get_content
+          request:
+            url: "${data.inputs.form_url}"
+            waitUntil: domcontentloaded
+            format: text
+            maxCharacters: 1
+          timeout_ms: 45000
+
+      - id: wait_form_ready
+        type: mcp.call
+        if: "${data.steps.open_form.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_wait
+          request:
+            selector: form
+            state: visible
+            timeoutMs: 10000
+
+      - id: fill_name
+        type: mcp.call
+        if: "${data.steps.wait_form_ready.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_fill
+          request:
+            selector: "input[name='my-text']"
+            value: "${data.inputs.customer_name}"
+
+      - id: fill_phone
+        type: mcp.call
+        if: "${data.steps.fill_name.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_fill
+          request:
+            selector: "input[name='my-password']"
+            value: "${data.inputs.phone}"
+
+      - id: fill_email
+        type: mcp.call
+        if: "${data.steps.fill_phone.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_fill
+          request:
+            selector: "input[name='my-datalist']"
+            value: "${data.inputs.email}"
+
+      - id: select_size
+        type: mcp.call
+        if: "${data.steps.fill_email.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_select
+          request:
+            selector: "select[name='my-select']"
+            value: "${data.inputs.pizza_size}"
+
+      - id: click_bacon
+        type: mcp.call
+        if: "${data.steps.fill_email.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_click
+          request:
+            selector: "input[id='my-check-2']"
+            waitUntil: domcontentloaded
+
+      - id: fill_comments
+        type: mcp.call
+        if: "${data.steps.fill_email.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_fill
+          request:
+            selector: "textarea[name='my-textarea']"
+            value: "${data.inputs.comments}"
+
+      - id: submit_form
+        type: mcp.call
+        if: "${data.steps.fill_comments != null && data.steps.fill_comments.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_click_text
+          request:
+            text: Submit
+            exact: false
+            waitUntil: domcontentloaded
+            timeoutMs: 10000
+
+      - id: wait_result
+        type: mcp.call
+        if: "${data.steps.submit_form != null && data.steps.submit_form.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_wait
+          request:
+            delayMs: 1000
+
+      - id: read_result
+        type: mcp.call
+        if: "${data.steps.wait_result != null && data.steps.wait_result.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_get_content
+          request:
+            format: text
+            maxCharacters: 2000
+
+      - id: close_browser
+        type: mcp.call
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_close
+
+    outputs:
+      tool_count: "${len(data.steps.discover_browser_tools.tools)}"
+      open_form: "${data.steps.open_form.response}"
+      wait_form_ready: "${data.steps.wait_form_ready != null ? data.steps.wait_form_ready.response : null}"
+      selected_size: "${data.steps.select_size != null ? data.steps.select_size.response : null}"
+      click_bacon_result: "${data.steps.click_bacon != null ? data.steps.click_bacon.response : null}"
+      submit_result: "${data.steps.submit_form != null ? data.steps.submit_form.response : null}"
+      result_excerpt: "${data.steps.read_result != null ? data.steps.read_result.response : null}"
+      close_result: "${data.steps.close_browser.response}"
+

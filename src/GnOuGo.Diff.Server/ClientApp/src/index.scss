@@ -1,0 +1,263 @@
+﻿// Variables
+$color-primary: #2563eb;
+$color-primary-dark: #1d4ed8;
+$color-text: #333;
+$color-text-muted: #666;
+$color-text-light: #6b7280;
+$color-border: #ddd;
+$color-border-light: #e5e7eb;
+$color-bg: #f5f5f5;
+$color-bg-white: white;
+$color-bg-light: #f9fafb;
+$color-bg-selected: #dbeafe;
+$color-error-bg: #fee2e2;
+$color-error-text: #991b1b;
+$color-success: #10b981;
+$color-danger: #ef4444;
+$color-warning: #f59e0b;
+$color-disabled: #94a3b8;
+
+$shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+$border-radius: 8px;
+$border-radius-sm: 4px;
+$spacing-xs: 5px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 15px;
+$spacing-xl: 20px;
+
+// Reset
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  background: $color-bg;
+  color: $color-text;
+}
+
+// App Container
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: $spacing-xl;
+}
+
+// Header Block
+.header {
+  background: $color-bg-white;
+  padding: $spacing-xl;
+  border-radius: $border-radius;
+  margin-bottom: $spacing-xl;
+  box-shadow: $shadow-sm;
+
+  &__title {
+    font-size: 28px;
+    color: $color-primary;
+    margin-bottom: $spacing-sm;
+  }
+
+  &__description {
+    color: $color-text-muted;
+  }
+}
+
+// Controls Block
+.controls {
+  background: $color-bg-white;
+  padding: $spacing-xl;
+  border-radius: $border-radius;
+  margin-bottom: $spacing-xl;
+  box-shadow: $shadow-sm;
+}
+
+.control-group {
+  margin-bottom: $spacing-lg;
+
+  &__label {
+    display: block;
+    margin-bottom: $spacing-xs;
+    font-weight: 500;
+    color: #555;
+  }
+
+  &__select,
+  &__button {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid $color-border;
+    border-radius: $border-radius-sm;
+    font-size: 14px;
+  }
+
+  &__select {
+    background: $color-bg-white;
+  }
+
+  &__button {
+    background: $color-primary;
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s;
+
+    &:hover {
+      background: $color-primary-dark;
+    }
+
+    &:disabled {
+      background: $color-disabled;
+      cursor: not-allowed;
+    }
+  }
+}
+
+// Revisions Grid
+.revisions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-xl;
+  margin-bottom: $spacing-xl;
+}
+
+// Revision Selector Block
+.revision-selector {
+  background: $color-bg-white;
+  padding: $spacing-xl;
+  border-radius: $border-radius;
+  box-shadow: $shadow-sm;
+
+  &__title {
+    margin-bottom: $spacing-lg;
+    color: $color-text;
+  }
+
+  &__list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid $color-border-light;
+    border-radius: $border-radius-sm;
+  }
+}
+
+// Revision Item Block
+.revision-item {
+  padding: $spacing-md;
+  border-bottom: 1px solid $color-border-light;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: $color-bg-light;
+  }
+
+  &--selected {
+    background: $color-bg-selected;
+    border-left: 4px solid $color-primary;
+  }
+
+  &__timestamp {
+    font-size: 12px;
+    color: $color-text-light;
+    margin-bottom: 4px;
+  }
+
+  &__author {
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+  }
+
+  &__id {
+    font-size: 11px;
+    color: #9ca3af;
+    font-family: monospace;
+  }
+}
+
+// Diff Viewer Block
+.diff-viewer {
+  background: $color-bg-white;
+  padding: $spacing-xl;
+  border-radius: $border-radius;
+  box-shadow: $shadow-sm;
+
+  &__title {
+    margin-bottom: $spacing-lg;
+    color: $color-text;
+  }
+}
+
+// Diff Stats Block
+.diff-stats {
+  display: flex;
+  gap: $spacing-xl;
+  margin-bottom: $spacing-lg;
+  padding: $spacing-md;
+  background: $color-bg-light;
+  border-radius: $border-radius-sm;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  font-size: 14px;
+
+  &__label {
+    color: $color-text-light;
+  }
+
+  &__value {
+    font-weight: 600;
+  }
+
+  &--added &__value {
+    color: $color-success;
+  }
+
+  &--deleted &__value {
+    color: $color-danger;
+  }
+
+  &--modified &__value {
+    color: $color-warning;
+  }
+}
+
+// Loading Block
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: $color-text-light;
+}
+
+// Error Block
+.error {
+  background: $color-error-bg;
+  color: $color-error-text;
+  padding: $spacing-md;
+  border-radius: $border-radius-sm;
+  margin-bottom: $spacing-xl;
+}
+
+// Empty State Block
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: $color-text-light;
+
+  &__icon {
+    font-size: 48px;
+    margin-bottom: $spacing-md;
+  }
+
+  &__message {
+    font-size: 16px;
+  }
+}
+

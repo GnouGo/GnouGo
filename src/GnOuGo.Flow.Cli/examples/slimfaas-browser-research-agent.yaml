@@ -1,0 +1,715 @@
+dsl: 1
+name: company-browser-research-agent
+meta:
+  description: >
+    Agent de recherche web autonome orienté veille société / produit, avec une configuration
+    par défaut optimisée pour SlimFaas.
+
+    Le workflow ne dépend d'aucune logique navigateur spécifique côté serveur MCP :
+    il utilise uniquement les outils génériques de GnOuGo.Flow.Browser et laisse la stratégie
+    de recherche, de sélection des sources et d'interprétation au LLM côté client.
+    Aucun clic automatique sur une bannière cookies n'est effectué dans ce workflow.
+    Si une bannière masque le contenu utile, c'est au client MCP / LLM d'inspecter
+    le HTML rendu et de décider quel bouton il faudrait cliquer.
+
+    Le workflow :
+      1. découvre les outils MCP navigateur disponibles
+      2. prépare un brief de recherche (questions prioritaires, angles, hypothèses)
+      3. construit un catalogue multi-sources (site officiel, docs, blog, Google, Bing, DuckDuckGo, Reddit, LinkedIn, GitHub, Hacker News, News)
+      4. re-planifie les visites sur plusieurs rounds en évitant les sources déjà peu utiles
+      5. visite les sources choisies séquentiellement avec GnOuGo.Flow.Browser
+      6. extrait des faits structurés et des preuves textuelles avec le LLM pour chaque page visitée
+      7. évalue la couverture des informations collectées, puis décide de continuer ou s'arrêter
+      8. produit un brief final structuré et un résumé narratif markdown
+      9. ferme la session navigateur
+
+    Pré-requis :
+      - GnOuGo.Flow.Browser configuré dans appsettings.json
+      - binaires Playwright installés pour GnOuGo.Flow.Browser
+      - une clé LLM valide pour llm.call
+
+    Usage depuis la racine du dépôt :
+      dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/slimfaas-browser-research-agent.yaml
+      dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/slimfaas-browser-research-agent.yaml -i subject="Acme Cloud" -i company_domain="acme.com"
+
+workflows:
+  main:
+    inputs:
+      subject:
+        type: string
+        required: false
+        default: SlimFaas
+        description: Company or product name to research
+      company_domain:
+        type: string
+        required: false
+        default: slimfaas.dev
+        description: Official domain of the company
+      aliases:
+        type: array
+        items: { type: string }
+        required: false
+        default:
+          - GnOuGo FaaS
+          - slimfaas
+        description: Known alternative names or spellings
+      research_focus:
+        type: array
+        items: { type: string }
+        required: false
+        default:
+          - company profile and positioning
+          - product capabilities and differentiators
+          - founders and people signals
+          - community and social proof
+          - technical footprint and GitHub traces
+          - commercial signals and launches
+        description: Research areas to focus on
+      browser_server:
+        type: string
+        required: false
+        default: GnOuGo.Flow.Browser
+        description: MCP browser server name
+      max_characters:
+        type: number
+        required: false
+        default: 8000
+        description: Maximum text characters per page
+      max_html_characters:
+        type: number
+        required: false
+        default: 20000
+        description: Maximum HTML characters per page
+      max_rounds:
+        type: number
+        required: false
+        default: 4
+        description: Maximum number of research rounds
+      max_sources_per_round:
+        type: number
+        required: false
+        default: 4
+        description: Maximum sources to visit per round
+
+    steps:
+      - id: discover_browser_tools
+        type: mcp.list
+        input:
+          server: "${data.inputs.browser_server}"
+          include:
+            - tools
+
+      - id: research_brief
+        type: llm.call
+        input:
+          model: gpt-4o-mini
+          temperature: 0
+          prompt: >
+            You are preparing a browser research brief for a company/product intelligence workflow.
+
+            Target subject: ${data.inputs.subject}
+            Official domain: ${data.inputs.company_domain}
+            Known aliases: ${json(data.inputs.aliases)}
+            Desired focus areas:
+            ${json(data.inputs.research_focus)}
+
+            Return JSON only with a concise, actionable research brief for downstream planning.
+          structured_output:
+            schema_inline:
+              type: object
+              properties:
+                subject_normalized:
+                  type: string
+                research_goal:
+                  type: string
+                priority_questions:
+                  type: array
+                  items: { type: string }
+                query_angles:
+                  type: array
+                  items: { type: string }
+                source_strategy:
+                  type: array
+                  items: { type: string }
+                known_aliases:
+                  type: array
+                  items: { type: string }
+              required:
+                - subject_normalized
+                - research_goal
+                - priority_questions
+                - query_angles
+                - source_strategy
+                - known_aliases
+            strict: true
+
+      - id: source_catalog
+        type: set
+        input:
+          sources:
+            - name: official_homepage
+              kind: browser
+              focus: Official homepage, positioning, value proposition, product messaging, calls to action, navigation labels
+              url: "${'https://' + data.inputs.company_domain}"
+            - name: official_docs
+              kind: browser
+              focus: Public docs, concepts, APIs, integrations, developer experience, technical terminology
+              url: "${'https://' + data.inputs.company_domain + '/docs'}"
+            - name: official_blog
+              kind: browser
+              focus: Blog posts, launches, changelogs, partnerships, announcements, roadmap clues
+              url: "${'https://' + data.inputs.company_domain + '/blog'}"
+            - name: google_overview
+              kind: browser
+              focus: General web overview, snippets, company description, product positioning, overview pages
+              url: "${'https://www.google.com/search?q=' + encodeURIComponent(data.inputs.subject)}"
+            - name: bing_overview
+              kind: browser
+              focus: Alternative search results, ranking differences, corporate references, broader coverage
+              url: "${'https://www.bing.com/search?q=' + encodeURIComponent(data.inputs.subject)}"
+            - name: duckduckgo_overview
+              kind: browser
+              focus: Privacy-oriented alternative search results, broader public web coverage
+              url: "${'https://duckduckgo.com/?q=' + encodeURIComponent(data.inputs.subject)}"
+            - name: google_linkedin_search
+              kind: browser
+              focus: LinkedIn company pages, founders, hiring, employee profiles, company positioning
+              url: "${'https://www.google.com/search?q=' + encodeURIComponent(data.inputs.subject + ' site:linkedin.com')}"
+            - name: reddit_direct_search
+              kind: browser
+              focus: Reddit discussions, community feedback, praise, complaints, comparisons, founder mentions
+              url: "${'https://www.reddit.com/search/?q=' + encodeURIComponent(data.inputs.subject)}"
+            - name: google_reddit_search
+              kind: browser
+              focus: Reddit discovery via search engine snippets when direct Reddit navigation is noisy
+              url: "${'https://www.google.com/search?q=' + encodeURIComponent(data.inputs.subject + ' site:reddit.com')}"
+            - name: hackernews_direct_search
+              kind: browser
+              focus: Hacker News discussions, launch mentions, technical credibility, startup reception
+              url: "${'https://hn.algolia.com/?dateRange=all&page=0&prefix=true&sort=byPopularity&type=story&query=' + encodeURIComponent(data.inputs.subject)}"
+            - name: github_repositories_direct
+              kind: browser
+              focus: Repository names, organizations, README visibility, stars, technical footprint
+              url: "${'https://github.com/search?q=' + encodeURIComponent(data.inputs.subject) + '&type=repositories'}"
+            - name: github_code_direct
+              kind: browser
+              focus: Code references, SDKs, docs, examples, configuration snippets, integration traces
+              url: "${'https://github.com/search?q=' + encodeURIComponent(data.inputs.subject) + '&type=code'}"
+            - name: google_news_search
+              kind: browser
+              focus: News, launches, funding, partnerships, blog posts, interviews, announcements
+              url: "${'https://www.google.com/search?q=' + encodeURIComponent(data.inputs.subject + ' news')}"
+            - name: google_reviews_search
+              kind: browser
+              focus: Reviews, testimonials, comparisons, customer proof and objections
+              url: "${'https://www.google.com/search?q=' + encodeURIComponent(data.inputs.subject + ' reviews')}"
+
+      - id: research_agent_loop
+        type: loop.sequential
+        input:
+          while: "${data.steps.evaluate_round?.json?.status != 'complete'}"
+          max_times: "${data.inputs.max_rounds}"
+        steps:
+          - id: plan_round
+            type: llm.call
+            input:
+              model: gpt-4o-mini
+              temperature: 0
+              prompt: >
+                You are a web research planner for company intelligence.
+
+                Target company/product: ${data.inputs.subject}
+                Official domain: ${data.inputs.company_domain}
+                Known aliases: ${json(data.inputs.aliases)}
+                Research brief:
+                ${json(data.steps.research_brief.json)}
+                Desired focus areas:
+                ${json(data.inputs.research_focus)}
+                Current round: ${data._loop.index + 1} of ${data.inputs.max_rounds}
+                Max sources to choose this round: ${data.inputs.max_sources_per_round}
+
+                Available browser sources:
+                ${json(data.steps.source_catalog.sources)}
+
+                Previous rounds, plans, evaluations, and extracted data:
+                ${json(data.steps.research_agent_loop != null ? data.steps.research_agent_loop.iterations : null)}
+
+                Your goal is to maximize useful public information while avoiding repeated low-value visits.
+                Prefer official sources early when they are still unexplored.
+                Prioritize sources most likely to reveal:
+                - company profile and positioning
+                - product capabilities and differentiators
+                - founders, employees, hiring, org signals
+                - technical footprint and GitHub traces
+                - community and social discussion
+                - commercial signals, reviews, launches, partnerships, funding
+
+                If a previous source produced weak or redundant evidence, deprioritize it.
+                Use community and search-engine sources to validate or challenge claims from official pages.
+
+                Return JSON only with this structure:
+                {
+                  "round_goal": "string",
+                  "calls": [
+                    {
+                      "source_index": 0,
+                      "reason": "why this source is worth visiting now",
+                      "expected_signal": "what signal you expect to find"
+                    }
+                  ]
+                }
+
+                Rules:
+                - choose 0 to ${data.inputs.max_sources_per_round} sources
+                - prefer sources not already visited in previous rounds unless there is a strong reason to revisit
+                - if enough information is already available, return an empty calls array
+                - source_index must match the indexes of the provided source catalog exactly
+              structured_output:
+                schema_inline:
+                  type: object
+                  properties:
+                    round_goal:
+                      type: string
+                    calls:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          source_index:
+                            type: number
+                          reason:
+                            type: string
+                          expected_signal:
+                            type: string
+                        required:
+                          - source_index
+                          - reason
+                          - expected_signal
+                  required:
+                    - round_goal
+                    - calls
+                strict: true
+
+          - id: execute_round
+            type: loop.sequential
+            if: "${data.steps.plan_round.json != null && len(data.steps.plan_round.json.calls) > 0}"
+            input:
+              times: "${len(data.steps.plan_round.json.calls)}"
+            steps:
+              - id: current_call
+                type: set
+                input:
+                  call: "${data.steps.plan_round.json.calls[data._loop.index]}"
+
+              - id: research_selected_source
+                type: workflow.call
+                input:
+                  ref:
+                    kind: local
+                    name: research_browser_source
+                  args:
+                    subject: "${data.inputs.subject}"
+                    company_domain: "${data.inputs.company_domain}"
+                    aliases: "${data.inputs.aliases}"
+                    research_brief: "${data.steps.research_brief.json}"
+                    browser_server: "${data.inputs.browser_server}"
+                    max_characters: "${data.inputs.max_characters}"
+                    max_html_characters: "${data.inputs.max_html_characters}"
+                    source_name: "${data.steps.source_catalog.sources[data.steps.current_call.call.source_index].name}"
+                    source_focus: "${data.steps.source_catalog.sources[data.steps.current_call.call.source_index].focus}"
+                    source_url: "${data.steps.source_catalog.sources[data.steps.current_call.call.source_index].url}"
+                    selection_reason: "${data.steps.current_call.call.reason}"
+                    expected_signal: "${data.steps.current_call.call.expected_signal}"
+
+          - id: evaluate_round
+            type: llm.call
+            input:
+              model: gpt-4o-mini
+              temperature: 0
+              prompt: >
+                You are evaluating whether the research on ${data.inputs.subject} is already sufficient.
+
+                Current round number: ${data._loop.index + 1}
+                Research brief:
+                ${json(data.steps.research_brief.json)}
+                Round plan:
+                ${json(data.steps.plan_round.json)}
+
+                Round execution results:
+                ${json(data.steps.execute_round != null ? data.steps.execute_round.iterations : null)}
+
+                All previous rounds:
+                ${json(data.steps.research_agent_loop != null ? data.steps.research_agent_loop.iterations : null)}
+
+                Decide whether we already have enough information to produce a strong public-company research memo.
+                Be conservative: continue if major gaps remain.
+
+                Return JSON only:
+                {
+                  "status": "complete" or "needs_more",
+                  "confidence": 0.0,
+                  "what_we_know": "short summary",
+                  "missing_information": ["..."],
+                  "next_focus": ["..."]
+                }
+              structured_output:
+                schema_inline:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      enum:
+                        - complete
+                        - needs_more
+                    confidence:
+                      type: number
+                    what_we_know:
+                      type: string
+                    missing_information:
+                      type: array
+                      items: { type: string }
+                    next_focus:
+                      type: array
+                      items: { type: string }
+                  required:
+                    - status
+                    - confidence
+                    - what_we_know
+                    - missing_information
+                    - next_focus
+                strict: true
+
+      - id: synthesize_research
+        type: workflow.call
+        input:
+          ref:
+            kind: local
+            name: summarize_findings
+          args:
+            subject: "${data.inputs.subject}"
+            company_domain: "${data.inputs.company_domain}"
+            aliases: "${data.inputs.aliases}"
+            research_brief: "${data.steps.research_brief.json}"
+            research_iterations: "${data.steps.research_agent_loop.iterations}"
+            final_evaluation: "${data.steps.evaluate_round.json}"
+
+      - id: close_browser
+        type: mcp.call
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_close
+
+    outputs:
+      subject: "${data.inputs.subject}"
+      company_domain: "${data.inputs.company_domain}"
+      tool_count: "${len(data.steps.discover_browser_tools.tools)}"
+      research_brief: "${data.steps.research_brief.json}"
+      sources_count: "${len(data.steps.source_catalog.sources)}"
+      rounds_run: "${data.steps.research_agent_loop.count}"
+      final_evaluation: "${data.steps.evaluate_round.json}"
+      structured_summary: "${data.steps.synthesize_research.outputs.summary_json}"
+      executive_summary: "${data.steps.synthesize_research.outputs.summary_text}"
+      research_trace: "${data.steps.research_agent_loop.iterations}"
+      close_status: "${data.steps.close_browser.status}"
+
+  research_browser_source:
+    inputs:
+      subject:
+        type: string
+        required: true
+      company_domain:
+        type: string
+        required: true
+      aliases:
+        type: array
+        required: true
+      research_brief:
+        type: object
+        required: true
+      browser_server:
+        type: string
+        required: true
+      max_characters:
+        type: number
+        required: true
+      max_html_characters:
+        type: number
+        required: true
+      source_name:
+        type: string
+        required: true
+      source_focus:
+        type: string
+        required: true
+      source_url:
+        type: string
+        required: true
+      selection_reason:
+        type: string
+        required: true
+      expected_signal:
+        type: string
+        required: true
+
+    steps:
+      - id: read_page
+        type: mcp.call
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_get_content
+          request:
+            url: "${data.inputs.source_url}"
+            waitUntil: domcontentloaded
+            format: text
+            maxCharacters: "${data.inputs.max_characters}"
+          timeout_ms: 45000
+        retry:
+          max: 2
+          backoff_ms: 1000
+          backoff_mult: 2
+
+      - id: read_page_html
+        type: mcp.call
+        if: "${data.steps.read_page.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_get_content
+          request:
+            selector: body
+            format: html
+            maxCharacters: "${data.inputs.max_html_characters}"
+          timeout_ms: 30000
+        retry:
+          max: 2
+          backoff_ms: 500
+          backoff_mult: 2
+
+      - id: extract_findings
+        type: llm.call
+        if: "${data.steps.read_page.status == 'ok' && data.steps.read_page_html.status == 'ok'}"
+        input:
+          model: gpt-4o-mini
+          temperature: 0
+          prompt: >
+            You are a market and product intelligence analyst.
+
+            Analyze the following public web page about "${data.inputs.subject}".
+            Official domain: ${data.inputs.company_domain}
+            Known aliases: ${json(data.inputs.aliases)}
+            Research brief:
+            ${json(data.inputs.research_brief)}
+
+            This page may be a search results page, a Reddit page, a Hacker News page,
+            a LinkedIn-related result page, a GitHub search page, a news page,
+            or another public web page.
+
+            Source name: ${data.inputs.source_name}
+            Source focus: ${data.inputs.source_focus}
+            Selection reason: ${data.inputs.selection_reason}
+            Expected signal: ${data.inputs.expected_signal}
+            Requested URL: ${data.inputs.source_url}
+            Final page URL: ${data.steps.read_page.response.url}
+            Page title: ${data.steps.read_page.response.title}
+
+            Page text:
+            ${data.steps.read_page.response.content}
+
+            Rendered HTML excerpt:
+            ${data.steps.read_page_html.response.content}
+
+            Extract the maximum amount of useful, grounded information specifically about ${data.inputs.subject}.
+            Capture only facts supported by the page text.
+            If the page appears partially blocked by a consent or cookie banner, infer that only from the rendered HTML/text,
+            list it as a blocker, and suggest what a client MCP could click next. Do not assume any click happened.
+            If a field is unsupported, return an empty array or empty string.
+          structured_output:
+            schema_inline:
+              type: object
+              properties:
+                source_name:
+                  type: string
+                page_url:
+                  type: string
+                page_title:
+                  type: string
+                confidence:
+                  type: number
+                summary:
+                  type: string
+                company_profile:
+                  type: array
+                  items: { type: string }
+                product_signals:
+                  type: array
+                  items: { type: string }
+                people_signals:
+                  type: array
+                  items: { type: string }
+                community_signals:
+                  type: array
+                  items: { type: string }
+                technical_signals:
+                  type: array
+                  items: { type: string }
+                commercial_signals:
+                  type: array
+                  items: { type: string }
+                access_blockers:
+                  type: array
+                  items: { type: string }
+                suggested_next_actions:
+                  type: array
+                  items: { type: string }
+                named_entities:
+                  type: array
+                  items: { type: string }
+                evidence:
+                  type: array
+                  items: { type: string }
+                unknowns:
+                  type: array
+                  items: { type: string }
+              required:
+                - source_name
+                - page_url
+                - page_title
+                - confidence
+                - summary
+                - company_profile
+                - product_signals
+                - people_signals
+                - community_signals
+                - technical_signals
+                - commercial_signals
+                - access_blockers
+                - suggested_next_actions
+                - named_entities
+                - evidence
+                - unknowns
+            strict: true
+
+    outputs:
+      source_name: "${data.inputs.source_name}"
+      source_focus: "${data.inputs.source_focus}"
+      selection_reason: "${data.inputs.selection_reason}"
+      expected_signal: "${data.inputs.expected_signal}"
+      requested_url: "${data.inputs.source_url}"
+      navigate_status: "${data.steps.navigate.status}"
+      navigate_response: "${data.steps.navigate.response}"
+      read_status: "${data.steps.read_page != null ? data.steps.read_page.status : null}"
+      html_status: "${data.steps.read_page_html != null ? data.steps.read_page_html.status : null}"
+      content_excerpt: "${data.steps.read_page != null ? data.steps.read_page.response.content : null}"
+      html_excerpt: "${data.steps.read_page_html != null ? data.steps.read_page_html.response.content : null}"
+      extraction_json: "${data.steps.extract_findings != null ? data.steps.extract_findings.json : null}"
+      extraction_text: "${data.steps.extract_findings != null ? data.steps.extract_findings.text : null}"
+
+  summarize_findings:
+    inputs:
+      subject:
+        type: string
+        required: true
+      company_domain:
+        type: string
+        required: true
+      aliases:
+        type: array
+        required: true
+      research_brief:
+        type: object
+        required: true
+      research_iterations:
+        type: array
+        required: true
+      final_evaluation:
+        type: object
+        required: true
+
+    steps:
+      - id: structured_summary
+        type: llm.call
+        input:
+          model: gpt-4o-mini
+          temperature: 0
+          prompt: >
+            You are preparing a consolidated public research memo about ${data.inputs.subject}.
+            Official domain: ${data.inputs.company_domain}
+            Known aliases: ${json(data.inputs.aliases)}
+            Original research brief:
+            ${json(data.inputs.research_brief)}
+
+            Research iterations:
+            ${json(data.inputs.research_iterations)}
+
+            Final evaluation state:
+            ${json(data.inputs.final_evaluation)}
+
+            Produce the strongest grounded public-company summary possible from these results.
+            Distinguish strong evidence from weak or uncertain signals.
+            Do not invent facts.
+          structured_output:
+            schema_inline:
+              type: object
+              properties:
+                subject:
+                  type: string
+                one_line_summary:
+                  type: string
+                confidence:
+                  type: number
+                company_profile:
+                  type: array
+                  items: { type: string }
+                product_capabilities:
+                  type: array
+                  items: { type: string }
+                people_and_org:
+                  type: array
+                  items: { type: string }
+                community_and_social_proof:
+                  type: array
+                  items: { type: string }
+                technical_footprint:
+                  type: array
+                  items: { type: string }
+                commercial_signals:
+                  type: array
+                  items: { type: string }
+                unanswered_questions:
+                  type: array
+                  items: { type: string }
+                next_manual_checks:
+                  type: array
+                  items: { type: string }
+              required:
+                - subject
+                - one_line_summary
+                - confidence
+                - company_profile
+                - product_capabilities
+                - people_and_org
+                - community_and_social_proof
+                - technical_footprint
+                - commercial_signals
+                - unanswered_questions
+                - next_manual_checks
+            strict: true
+
+      - id: narrative_summary
+        type: llm.call
+        input:
+          model: gpt-4o-mini
+          temperature: 0.2
+          prompt: >
+            Write an executive summary in markdown about ${data.inputs.subject} based on this structured research JSON:
+
+            ${json(data.steps.structured_summary.json)}
+
+            Requirements:
+            - start with a short overview paragraph
+            - add sections: Company profile, Product and capabilities, Social / community signals, Technical footprint, Commercial signals, Unknowns
+            - keep it concise but information-dense
+            - mention when evidence is weak or inferred from search results only
+
+    outputs:
+      summary_json: "${data.steps.structured_summary.json}"
+      summary_text: "${data.steps.narrative_summary.text}"

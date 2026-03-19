@@ -1,0 +1,76 @@
+// ============================================================================
+// Navigation Component (BEM)
+// ============================================================================
+
+.navigation {
+  background: $color-bg-secondary;
+  border-bottom: 1px solid $color-border;
+  box-shadow: $shadow-md;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+
+  &__content {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: $spacing-md $spacing-lg;
+    display: flex;
+    gap: $spacing-lg;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  &__brand {
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-size: $font-size-lg;
+    font-weight: 700;
+    margin: 0;
+    color: $color-text-primary;
+  }
+
+  &__links {
+    display: flex;
+    gap: $spacing-sm;
+  }
+
+  &__link {
+    padding: $spacing-sm $spacing-md;
+    border-radius: $radius-sm;
+    border: 1px solid $color-border;
+    background: rgba(255, 255, 255, 0.03);
+    color: $color-text-secondary;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: $font-size-sm;
+    transition: all $transition-fast;
+
+    &:hover {
+      border-color: $color-border-hover;
+      background: rgba(255, 255, 255, 0.06);
+      color: $color-text-primary;
+      text-decoration: none;
+    }
+
+    // Modifier: active link
+    &--active {
+      border-color: rgba(78, 222, 128, 0.4);
+      background: rgba(78, 222, 128, 0.08);
+      color: $color-success;
+
+      &:hover {
+        border-color: rgba(78, 222, 128, 0.6);
+      }
+    }
+  }
+}
+
+// App container (pour ajouter padding sous navigation)
+.app__container {
+  padding: $spacing-lg;
+  max-width: 100%;
+  margin: 0 auto;
+}

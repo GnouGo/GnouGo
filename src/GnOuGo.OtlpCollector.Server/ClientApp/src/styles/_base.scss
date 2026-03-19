@@ -1,0 +1,64 @@
+// ============================================================================
+// Base Styles - Reset, Typography, Global
+// ============================================================================
+
+:root {
+  font-family: $font-family-base;
+  font-size: $font-size-base;
+  
+  // CSS Custom Properties (for compatibility)
+  --bg-primary: #{$color-bg-primary};
+  --bg-secondary: #{$color-bg-secondary};
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --text-primary: #{$color-text-primary};
+  --text-secondary: #{$color-text-secondary};
+  --text-tertiary: #{$color-text-tertiary};
+  --border-color: #{$color-border};
+  --accent-color: #{$color-accent};
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: $color-bg-primary;
+  color: $color-text-primary;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+code {
+  font-family: $font-family-mono;
+  font-size: 0.9em;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 6px;
+  border-radius: $radius-sm;
+  border: 1px solid $color-border;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+input {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.app {
+  // Container géré par .app__container dans navigation.scss
+}

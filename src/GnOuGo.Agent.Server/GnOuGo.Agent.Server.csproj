@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- Keep Debug fast & friendly; enable NativeAOT + trimming in Release/publish only. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PublishAot>true</PublishAot>
+    <PublishTrimmed>true</PublishTrimmed>
+
+    <!-- PublishTrimmed disables reflection-based System.Text.Json by default.
+         Blazor SSR/interactive endpoints still rely on internal JSON serialization, so keep it enabled. -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+
+    <TrimMode>partial</TrimMode>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GnOuGo.Agent.Shared\GnOuGo.Agent.Shared.csproj" />
+    <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="0.38.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <SkipClientBuild>false</SkipClientBuild>
+  </PropertyGroup>
+
+  <Target Name="ViteBuild" BeforeTargets="PrepareForPublish" Condition="'$(SkipClientBuild)' != 'true'">
+    <Message Importance="high" Text="Building GnOuGo.Agent frontend (Vite)" />
+    <Exec WorkingDirectory="ClientApp" Command="npm install" />
+    <Exec WorkingDirectory="ClientApp" Command="npm run build" />
+  </Target>
+</Project>

@@ -1,0 +1,477 @@
+@page "/"
+@using System.Text.Json
+@using System.Threading
+@using Markdig
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using GnOuGo.Agent.Shared
+
+@inject IJSRuntime JS
+@inject GnOuGo.Agent.Server.OpenAI.OpenAIResponsesClient OpenAI
+
+<div class="sa-app">
+    <aside class="sa-app__sidebar sa-sidebar @( _sidebarOpen ? "sa-sidebar--open" : "")">
+        <div class="sa-sidebar__header">
+            <div class="sa-sidebar__brand">
+                <img class="sa-sidebar__logo" src="assets/gnougo-agent-logo.png" alt="GnOuGo.Agent" />
+                <div class="sa-sidebar__brand-text">
+                    <div class="sa-sidebar__title">GnOuGo.Agent</div>
+                    <div class="sa-sidebar__subtitle">Chats stored locally</div>
+                </div>
+            </div>
+
+            <button class="sa-sidebar__new" @onclick="NewChatAsync" type="button" title="New chat">
+                <span class="sa-sidebar__new-icon">＋</span>
+                <span class="sa-sidebar__new-text">New chat</span>
+            </button>
+
+            <button class="sa-sidebar__close" @onclick="ToggleSidebar" type="button" title="Close">
+                ✕
+            </button>
+        </div>
+
+        <nav class="sa-sidebar__list" aria-label="Chats">
+            @if (_store.Sessions.Count == 0)
+            {
+                <div class="sa-sidebar__empty">No chats yet.</div>
+            }
+            else
+            {
+                @foreach (var s in _store.Sessions.OrderByDescending(x => x.UpdatedAtUnixMs))
+                {
+                    var isActive = string.Equals(_store.ActiveId, s.Id, StringComparison.Ordinal);
+                    <button class="sa-sidebar__item @(isActive ? "sa-sidebar__item--active" : "")"
+                            @onclick="@(() => SelectChatAsync(s.Id))"
+                            type="button">
+                        <div class="sa-sidebar__item-title">@s.Title</div>
+                        <div class="sa-sidebar__item-meta">@FormatUpdatedAt(s.UpdatedAtUnixMs)</div>
+                    </button>
+                }
+            }
+        </nav>
+
+        <div class="sa-sidebar__footer">
+            <div class="sa-sidebar__hint">
+                Tip: your history is stored in <span class="sa-sidebar__hint-strong">localStorage</span>.
+            </div>
+        </div>
+    </aside>
+
+    <main class="sa-app__main sa-chat">
+        <header class="sa-chat__topbar">
+            <button class="sa-chat__menu" @onclick="ToggleSidebar" type="button" title="Menu">
+                ☰
+            </button>
+
+            <div class="sa-chat__topbar-title">
+                @(_active?.Title ?? "Chat")
+            </div>
+
+            <div class="sa-chat__topbar-actions">
+                @if (_isStreaming)
+                {
+                    <div class="sa-chat__streaming" title="Streaming…">
+                        <span class="sa-chat__streaming-dot"></span>
+                        Streaming…
+                    </div>
+                }
+            </div>
+        </header>
+
+        <section class="sa-chat__messages" id="chatMessages">
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <div class="sa-chat__error">@_error</div>
+            }
+
+            @if (_active is null || _active.Messages.Count == 0)
+            {
+                <div class="sa-chat__empty">
+                    <div class="sa-chat__empty-title">Start a new chat</div>
+                    <div class="sa-chat__empty-subtitle">Your messages and history stay in your browser.</div>
+                </div>
+            }
+            else
+            {
+                @foreach (var msg in _active.Messages)
+                {
+                    var isUser = string.Equals(msg.Role, "user", StringComparison.OrdinalIgnoreCase);
+                    <article class="sa-chat__message @(isUser ? "sa-chat__message--user" : "sa-chat__message--assistant")">
+                        <div class="sa-chat__bubble">
+                            <div class="sa-chat__bubble-meta">
+                                <span class="sa-chat__bubble-role">@((isUser ? "You" : "GnOuGo.Agent"))</span>
+                            </div>
+
+                            <div class="sa-chat__bubble-text markdown-body">
+                                @RenderMarkdown(msg.Content)
+                            </div>
+                        </div>
+                    </article>
+                }
+            }
+        </section>
+
+        <footer class="sa-chat__composer">
+            <EditForm class="sa-composer" Model="_model" OnValidSubmit="SendAsync">
+                <DataAnnotationsValidator />
+                <div class="sa-composer__row">
+                    <textarea class="sa-composer__input"
+                              @bind="_model.Prompt"
+                              @bind:event="oninput"
+                              placeholder="Write a message… (Markdown supported: **bold**, `code`, ```mermaid```)"
+                              rows="1"
+                              disabled="@_isStreaming"
+                              @onkeydown="OnKeyDown">
+                    </textarea>
+
+                    @if (_isStreaming)
+                    {
+                        <button class="sa-composer__send sa-composer__send--stop" type="button" @onclick="Stop" title="Stop">
+                            <span class="sa-composer__send-text">Stop</span>
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="sa-composer__send" type="submit" disabled="@string.IsNullOrWhiteSpace(_model.Prompt)">
+                            <span class="sa-composer__send-text">Send</span>
+                        </button>
+                    }
+                </div>
+
+                <div class="sa-composer__hint">
+                    Enter to send • Shift+Enter for newline
+                </div>
+            </EditForm>
+        </footer>
+    </main>
+</div>
+
+@code
+{
+    private sealed class ComposeModel
+    {
+        public string Prompt { get; set; } = "";
+    }
+
+    private const string StorageKeyV2 = "gnougo-agent.sa-chat.store.v2";
+    private const string LegacyStorageKey = "gnougo-sa-chat.sa-chat.history.v1";
+
+    private static readonly MarkdownPipeline MdPipeline = new MarkdownPipelineBuilder()
+        .UseAdvancedExtensions()
+        .DisableHtml() // safer by default
+        .Build();
+
+    private readonly ComposeModel _model = new();
+    private ChatStoreDto _store = new("", new List<ChatSessionDto>());
+    private ChatSessionDto? _active;
+
+    private bool _sidebarOpen;
+    private bool _isStreaming;
+    private string _error = "";
+
+    private CancellationTokenSource? _cts;
+    private bool _needsMarkdownEnhance;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadStoreAsync();
+            EnsureActiveSession();
+
+            _needsMarkdownEnhance = true;
+            StateHasChanged();
+
+            await ScrollToBottomAsync();
+        }
+
+        if (_needsMarkdownEnhance && !_isStreaming)
+        {
+            _needsMarkdownEnhance = false;
+            try
+            {
+                await JS.InvokeVoidAsync("GnOuGo.Agent.markdown.enhance", "chatMessages");
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+    }
+
+    private MarkupString RenderMarkdown(string markdown)
+    {
+        var html = Markdig.Markdown.ToHtml(markdown ?? "", MdPipeline);
+        return (MarkupString)html;
+    }
+
+    private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
+
+    private void CloseSidebar()
+    {
+        _sidebarOpen = false;
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (_isStreaming)
+            return;
+
+        // Enter = send; Shift+Enter = newline
+        if (e.Key is "Enter" && !e.ShiftKey)
+        {
+            if (!string.IsNullOrWhiteSpace(_model.Prompt))
+            {
+                await SendAsync();
+            }
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        if (_active is null) return;
+        if (_isStreaming) return;
+
+        _error = "";
+        var prompt = _model.Prompt?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(prompt))
+            return;
+
+        _model.Prompt = "";
+
+        // Add user message
+        var userMsg = new ChatMessageDto("user", prompt);
+        _active.Messages.Add(userMsg);
+
+        // Placeholder assistant message
+        var assistantMsg = new ChatMessageDto("assistant", "");
+        _active.Messages.Add(assistantMsg);
+
+        TouchActive();
+        await PersistAsync();
+
+        _isStreaming = true;
+        _cts = new CancellationTokenSource();
+
+        StateHasChanged();
+        await ScrollToBottomAsync();
+
+        try
+        {
+            // Stream response
+            await foreach (var chunk in OpenAI.StreamAssistantReplyAsync(_active.Messages, _cts.Token))
+            {
+                assistantMsg = assistantMsg with { Content = assistantMsg.Content + chunk };
+                TouchActive();
+                ReplaceLastAssistant(assistantMsg);
+                StateHasChanged();
+                await ScrollToBottomAsync();
+            }
+
+            // Update title if still default
+            if (string.Equals(_active.Title, "New chat", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(_active.Title, "Migrated sa-chat", StringComparison.OrdinalIgnoreCase))
+            {
+                var title = await OpenAI.SuggestTitleAsync(_active.Messages, _cts.Token);
+                if (!string.IsNullOrWhiteSpace(title))
+                {
+                    _active = _active with { Title = title.Trim() };
+                    ReplaceSession(_active);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // user hit Stop
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isStreaming = false;
+            _cts?.Dispose();
+            _cts = null;
+
+            TouchActive();
+            await PersistAsync();
+
+            _needsMarkdownEnhance = true;
+            StateHasChanged();
+        }
+    }
+
+    private void Stop()
+    {
+        _cts?.Cancel();
+    }
+
+    private void ReplaceLastAssistant(ChatMessageDto assistantMsg)
+    {
+        if (_active is null) return;
+        for (var i = _active.Messages.Count - 1; i >= 0; i--)
+        {
+            if (string.Equals(_active.Messages[i].Role, "assistant", StringComparison.OrdinalIgnoreCase))
+            {
+                _active.Messages[i] = assistantMsg;
+                return;
+            }
+        }
+    }
+
+    private async Task NewChatAsync()
+    {
+        _cts?.Cancel();
+        _error = "";
+        _model.Prompt = "";
+
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var session = new ChatSessionDto(
+            Id: Guid.NewGuid().ToString("N"),
+            Title: "New chat",
+            UpdatedAtUnixMs: now,
+            Messages: new List<ChatMessageDto>
+            {
+                new("assistant", "New chat started. Ask me anything — I’ll stream the answer as it’s generated.")
+            });
+
+        // Put it on top.
+        _store.Sessions.Insert(0, session);
+        _store = _store with { ActiveId = session.Id };
+        _active = session;
+
+        CloseSidebar();
+
+        await PersistAsync();
+        _needsMarkdownEnhance = true;
+        StateHasChanged();
+        await ScrollToBottomAsync();
+    }
+
+    private async Task SelectChatAsync(string id)
+    {
+        if (_isStreaming)
+            return;
+
+        if (!string.Equals(_store.ActiveId, id, StringComparison.Ordinal))
+        {
+            _store = _store with { ActiveId = id };
+            _active = _store.Sessions.FirstOrDefault(s => s.Id == id);
+
+            CloseSidebar();
+            await PersistAsync();
+            _needsMarkdownEnhance = true;
+            StateHasChanged();
+            await ScrollToBottomAsync();
+        }
+    }
+
+    private async Task LoadStoreAsync()
+    {
+        // Prefer v2 store.
+        var json = await JS.InvokeAsync<string?>("GnOuGo.Agent.storage.load", StorageKeyV2);
+        if (!string.IsNullOrWhiteSpace(json))
+        {
+            var saved = JsonSerializer.Deserialize(json, ChatJsonContext.Default.ChatStoreDto);
+            if (saved is not null)
+                _store = saved;
+            return;
+        }
+
+        // Migrate legacy single-sa-chat history if present.
+        var legacy = await JS.InvokeAsync<string?>("GnOuGo.Agent.storage.load", LegacyStorageKey);
+        if (!string.IsNullOrWhiteSpace(legacy))
+        {
+            var msgs = JsonSerializer.Deserialize(legacy, ChatJsonContext.Default.ListChatMessageDto)
+                       ?? new List<ChatMessageDto>();
+
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var session = new ChatSessionDto(
+                Id: Guid.NewGuid().ToString("N"),
+                Title: "Migrated sa-chat",
+                UpdatedAtUnixMs: now,
+                Messages: msgs);
+
+            _store = new ChatStoreDto(session.Id, new List<ChatSessionDto> { session });
+
+            await JS.InvokeVoidAsync("GnOuGo.Agent.storage.clear", LegacyStorageKey);
+            await PersistAsync();
+        }
+    }
+
+    private void EnsureActiveSession()
+    {
+        if (_store.Sessions.Count == 0)
+        {
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var session = new ChatSessionDto(
+                Id: Guid.NewGuid().ToString("N"),
+                Title: "New chat",
+                UpdatedAtUnixMs: now,
+                Messages: new List<ChatMessageDto>
+                {
+                    new("assistant", "Hi! I’m GnOuGo.Agent. Ask me anything — I’ll stream the answer as it’s generated.")
+                });
+
+            _store.Sessions.Add(session);
+            _store = _store with { ActiveId = session.Id };
+        }
+
+        if (string.IsNullOrWhiteSpace(_store.ActiveId))
+            _store = _store with { ActiveId = _store.Sessions[0].Id };
+
+        _active = _store.Sessions.FirstOrDefault(s => s.Id == _store.ActiveId) ?? _store.Sessions[0];
+        _store = _store with { ActiveId = _active.Id };
+    }
+
+    private void TouchActive()
+    {
+        if (_active is null)
+            return;
+
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        _active = _active with { UpdatedAtUnixMs = now };
+        ReplaceSession(_active);
+    }
+
+    private void ReplaceSession(ChatSessionDto session)
+    {
+        for (var i = 0; i < _store.Sessions.Count; i++)
+        {
+            if (string.Equals(_store.Sessions[i].Id, session.Id, StringComparison.Ordinal))
+            {
+                _store.Sessions[i] = session;
+                return;
+            }
+        }
+    }
+
+    private async Task PersistAsync()
+    {
+        var json = JsonSerializer.Serialize(_store, ChatJsonContext.Default.ChatStoreDto);
+        await JS.InvokeVoidAsync("GnOuGo.Agent.storage.save", StorageKeyV2, json);
+    }
+
+    private static string FormatUpdatedAt(long unixMs)
+    {
+        if (unixMs <= 0) return "";
+        var dt = DateTimeOffset.FromUnixTimeMilliseconds(unixMs).ToLocalTime();
+        var now = DateTimeOffset.Now;
+        if (dt.Date == now.Date) return dt.ToString("HH:mm");
+        return dt.ToString("yyyy-MM-dd");
+    }
+
+    private async Task ScrollToBottomAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("GnOuGo.Agent.scrollToBottom", "chatMessages");
+        }
+        catch
+        {
+            // ignore if called too early
+        }
+    }
+}

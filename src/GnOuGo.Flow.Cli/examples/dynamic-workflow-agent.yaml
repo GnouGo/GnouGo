@@ -1,0 +1,151 @@
+dsl: 1
+name: dynamic-workflow-agent
+meta:
+  description: >
+    Demo showcasing the workflow.plan + workflow.execute capabilities.
+    
+    This agent takes a user task description in natural language, asks an LLM to
+    generate a GnOuGo.Flow workflow on-the-fly, validates it against a strict policy,
+    then executes the generated workflow and returns the result.
+    
+    This demonstrates:
+      - Dynamic workflow generation via LLM (workflow.plan)
+      - Policy enforcement (allowed step types, max steps)
+      - Automatic re-prompting on validation errors (up to 3 attempts)
+      - Execution of the generated workflow (workflow.execute)
+      - Combining static and dynamic workflows in one document
+    
+    Requires:
+      - LLM.Models.OpenAi configured with a valid API key
+    
+    Usage:
+      gnougo-flow run examples/dynamic-workflow-agent.yaml -i task="Write a haiku about Kubernetes, then translate it to French"
+      gnougo-flow run examples/dynamic-workflow-agent.yaml -i task="Generate 3 creative product names for a coffee shop and pick the best one"
+      gnougo-flow run examples/dynamic-workflow-agent.yaml -i task="Summarize the pros and cons of microservices vs monoliths"
+
+workflows:
+  main:
+    inputs:
+      task:
+        type: string
+        required: true
+        description: A natural-language description of the task to accomplish
+    
+    steps:
+      # ──────────────────────────────────────────────────────────
+      # Step 0: Signal planning start
+      # ──────────────────────────────────────────────────────────
+      - id: think_plan
+        type: emit
+        input:
+          message: "Planning a workflow for: ${data.inputs.task}"
+          level: thinking
+
+      # ──────────────────────────────────────────────────────────
+      # Step 1: Ask the LLM to generate a workflow dynamically
+      # ──────────────────────────────────────────────────────────
+      - id: generate
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-5.4
+            instruction: >
+              Create a workflow that accomplishes the following task:
+              ${coalesce(data.inputs.task, "no task provided")}
+              
+              The workflow MUST be named "generated" and have a single workflow
+              with an "answer" output containing the final result as a string.
+              Use multiple steps if the task naturally decomposes into sub-tasks.
+              
+              IMPORTANT RULES:
+              - For llm.call: "model" and "prompt" are REQUIRED fields under "input:".
+                Do NOT use "messages". Use "prompt" as a plain string.
+              - For template.render: "engine", "template", and "mode" are required.
+              - All llm.call steps must use model "gpt-5.4-mini" with temperature 0.7.
+              - Outputs MUST reference step results via the pattern data.steps.STEP_ID.text
+              - llm.call output has field "text", template.render output has field "text"
+              - The workflow outputs section must define "answer" referencing the final step text output.
+            context: >
+              The user wants a fully automated workflow. Each LLM call should use
+              model "gpt-5.4-mini" with temperature 0.7. The final output must be
+              a field called "answer" with the complete result.
+          
+          policy:
+            allowed_step_types:
+            denied_step_types:
+            allow_remote_workflow_refs: false
+          
+          limits:
+            max_steps_total: 20
+          
+          validate:
+            compile: true
+          
+          on_invalid:
+            action: reprompt
+            max_attempts: 3
+      
+      # ──────────────────────────────────────────────────────────
+      # Step 2: Log what was generated (for observability)
+      # ──────────────────────────────────────────────────────────
+      - id: log_plan
+        type: template.render
+        input:
+          engine: mustache
+          template: |
+            === Generated Workflow ===
+            Name: {{name}}
+            Workflows: {{workflows}}
+            Attempt: {{attempt}}
+            ===========================
+          data:
+            name: "${data.steps.generate.workflow.name}"
+            workflows: "${json(data.steps.generate.workflow.workflows)}"
+            attempt: "${data.steps.generate.meta.attempt}"
+      
+      # ──────────────────────────────────────────────────────────
+      # Step 3: Execute the generated workflow
+      # ──────────────────────────────────────────────────────────
+      - id: think_exec
+        type: emit
+        input:
+          message: "Executing generated workflow (attempt ${data.steps.generate.meta.attempt})…"
+          level: progress
+
+      - id: run
+        type: workflow.execute
+        input:
+          from_step: generate
+      
+      # ──────────────────────────────────────────────────────────
+      # Step 4: Format the final response
+      # ──────────────────────────────────────────────────────────
+      - id: think_format
+        type: emit
+        input:
+          message: "Formatting final response…"
+          level: thinking
+
+      - id: format
+        type: llm.call
+        input:
+          model: gpt-5.4
+          temperature: 0.3
+          prompt: >
+            The user asked: "${data.inputs.task}"
+            
+            A dynamically generated workflow produced the following result:
+            ${json(data.steps.run.outputs)}
+            
+            Please format this into a clean, well-structured response for the user.
+            Use markdown formatting. Be concise but complete.
+            Start directly with the answer, do not mention that a workflow was used.
+    
+    outputs:
+      task: "${data.inputs.task}"
+      answer: "${data.steps.format.text}"
+      generated_yaml: "${data.steps.generate.yaml}"
+      meta:
+        model: "${data.steps.generate.meta.model}"
+        attempts: "${data.steps.generate.meta.attempt}"
+        steps_executed: "${data.steps.run.run.steps_executed}"

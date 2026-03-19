@@ -1,0 +1,98 @@
+// ============================================================================
+// Button Component (BEM)
+// ============================================================================
+
+.button {
+  background: #1c2a4a;
+  border: 1px solid $color-border-hover;
+  color: $color-text-primary;
+  border-radius: $radius-sm;
+  padding: $spacing-sm 14px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all $transition-fast;
+
+  &:hover:not(:disabled) {
+    border-color: $color-border-focus;
+    background: #243556;
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  // Modifier: loading state
+  &--loading {
+    position: relative;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      width: 12px;
+      height: 12px;
+      margin-top: -6px;
+      border: 2px solid $color-text-primary;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+  }
+
+  // Modifier: danger
+  &--danger {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+
+    &:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.3);
+      border-color: rgba(239, 68, 68, 0.6);
+    }
+  }
+
+  // Modifier: small
+  &--small {
+    padding: 6px 10px;
+    font-size: $font-size-sm;
+  }
+
+  // Modifier: connect (disconnected state)
+  &--connect {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%);
+    border-color: rgba(16, 185, 129, 0.5);
+    color: #6ee7b7;
+    font-weight: 600;
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.35) 0%, rgba(59, 130, 246, 0.35) 100%);
+      border-color: rgba(16, 185, 129, 0.7);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+    }
+  }
+
+  // Modifier: connected (active streaming)
+  &--connected {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+
+    &:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.3);
+      border-color: rgba(239, 68, 68, 0.6);
+    }
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

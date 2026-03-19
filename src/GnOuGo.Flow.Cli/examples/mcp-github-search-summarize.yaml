@@ -1,0 +1,80 @@
+dsl: 1
+name: mcp-github-search-summarize
+meta:
+  description: >
+    Searches GitHub code via MCP and uses the LLM to summarize findings.
+    Requires a valid GitHub token in appsettings.json (LLM.McpServers.Github.ApiKey)
+    and an OpenAI key in LLM.Models.OpenAi.ApiKey.
+
+    Usage:
+      gnougo-flow run examples/mcp-github-search-summarize.yaml -i query="async stream" -i owner=dotnet -i repo=runtime
+
+workflows:
+  main:
+    inputs:
+      query:
+        type: string
+        description: Code search query
+      owner:
+        type: string
+        description: GitHub repository owner
+      repo:
+        type: string
+        description: GitHub repository name
+
+    steps:
+      - id: think_search
+        type: emit
+        input:
+          message: "Searching GitHub for '${data.inputs.query}' in ${data.inputs.owner}/${data.inputs.repo}…"
+          level: thinking
+
+      # ── Step 1: Search code in the repository ──
+      - id: search
+        type: mcp.call
+        input:
+          server: Github
+          method: search_code
+          request:
+            q: "${data.inputs.query} repo:${data.inputs.owner}/${data.inputs.repo}"
+            per_page: 5
+
+      # ── Step 2: Get details about the first result ──
+      - id: first_file
+        type: mcp.call
+        if: "${data.steps.search.status == 'ok'}"
+        input:
+          server: Github
+          method: get_file_contents
+          request:
+            owner: "${data.inputs.owner}"
+            repo: "${data.inputs.repo}"
+            path: "${data.steps.search.response.items[0].path}"
+
+      # ── Step 3: Ask the LLM to analyze the code ──
+      - id: think_analysis
+        type: emit
+        input:
+          message: "Analyzing file content with LLM…"
+          level: thinking
+
+      - id: analysis
+        type: llm.call
+        if: "${data.steps.first_file.status == 'ok'}"
+        input:
+          model: gpt-4o-mini
+          prompt: >
+            I searched for "${data.inputs.query}" in ${data.inputs.owner}/${data.inputs.repo}
+            and found this file: ${data.steps.search.response.items[0].path}
+
+            File content (truncated):
+            ${data.steps.first_file.response}
+
+            Please explain what this code does and how it relates to the search query.
+            Keep your answer concise (2-3 paragraphs).
+
+    outputs:
+      search_status: "${data.steps.search.status}"
+      file_path: "${data.steps.search.response.items[0].path}"
+      analysis: "${data.steps.analysis.text}"
+

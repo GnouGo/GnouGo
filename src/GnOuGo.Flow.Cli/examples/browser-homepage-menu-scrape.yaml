@@ -1,0 +1,292 @@
+dsl: 1
+name: browser-homepage-menu-scrape
+meta:
+  description: >
+    Ouvre une page d'accueil, lit son contenu et son HTML,
+    demande au LLM d'identifier les liens de navigation principaux,
+    itère dessus en mode foreach
+    puis navigue sur chaque page sélectionnée
+    puis résume les informations publiques trouvées.
+
+    Cet exemple montre comment laisser l'IA côté client MCP décider des liens utiles
+    à partir du HTML brut, sans aucun outil navigateur spécialisé côté serveur.
+    Aucun clic automatique sur une bannière cookies n'est effectué dans ce workflow :
+    c'est au client MCP de décider, à partir du HTML rendu, quel bouton il faut cliquer.
+
+    Usage depuis la racine du dépôt :
+      dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/browser-homepage-menu-scrape.yaml
+      dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/browser-homepage-menu-scrape.yaml -i homepage_url="https://example.com/"
+
+workflows:
+  main:
+    inputs:
+      homepage_url:
+        type: string
+        required: false
+        default: https://www.iana.org/
+        description: URL of the homepage to scrape
+      browser_server:
+        type: string
+        required: false
+        default: GnOuGo.Flow.Browser
+        description: MCP browser server name
+      max_menu_links:
+        type: number
+        required: false
+        default: 8
+        description: Maximum number of navigation links to follow
+      max_characters:
+        type: number
+        required: false
+        default: 6000
+        description: Maximum text characters per page
+      max_html_characters:
+        type: number
+        required: false
+        default: 20000
+        description: Maximum HTML characters per page
+
+    steps:
+      - id: discover_browser_tools
+        type: mcp.list
+        input:
+          server: "${data.inputs.browser_server}"
+          include:
+            - tools
+
+      - id: read_homepage
+        type: mcp.call
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_get_content
+          request:
+            url: "${data.inputs.homepage_url}"
+            waitUntil: domcontentloaded
+            format: text
+            maxCharacters: "${data.inputs.max_characters}"
+          timeout_ms: 45000
+
+      - id: read_homepage_html
+        type: mcp.call
+        if: "${data.steps.read_homepage.status == 'ok'}"
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_get_content
+          request:
+            selector: body
+            format: html
+            maxCharacters: "${data.inputs.max_html_characters}"
+          timeout_ms: 30000
+
+      - id: extract_homepage_links
+        type: llm.call
+        if: "${data.steps.read_homepage_html.status == 'ok'}"
+        input:
+          model: gpt-4o-mini
+          temperature: 0
+          prompt: >
+            You are extracting likely primary navigation links from a public homepage.
+
+            Homepage URL: ${data.steps.read_homepage.response.url}
+            Homepage title: ${data.steps.read_homepage.response.title}
+            Maximum links to return: ${data.inputs.max_menu_links}
+
+            Homepage text excerpt:
+            ${data.steps.read_homepage.response.content}
+
+            Homepage HTML excerpt:
+            ${data.steps.read_homepage_html.response.content}
+
+            Return only same-host absolute http/https URLs.
+            Resolve relative URLs against the homepage URL.
+            Prioritize links that look like main navigation or important top-level discovery pages.
+            Exclude anchors, javascript links, mailto links, social share links, cookie/privacy/legal-only links, and obvious duplicates.
+
+            Return JSON only:
+            {
+              "links": [
+                {
+                  "text": "string",
+                  "url": "string",
+                  "reason": "string"
+                }
+              ]
+            }
+          structured_output:
+            schema_inline:
+              type: object
+              properties:
+                links:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      text: { type: string }
+                      url: { type: string }
+                      reason: { type: string }
+                    required: [text, url, reason]
+              required: [links]
+            strict: true
+
+      - id: browse_homepage_links
+        type: loop.parallel
+        if: "${data.steps.extract_homepage_links.status == 'ok' && len(data.steps.extract_homepage_links.json.links) > 0}"
+        input:
+          items: "${data.steps.extract_homepage_links.json.links}"
+          max_concurrency: 1
+        item_var: current_link
+        index_var: current_index
+        steps:
+          - id: inspect_menu_page
+            type: workflow.call
+            input:
+              ref:
+                kind: local
+                name: inspect_one_menu_page
+              args:
+                browser_server: "${data.inputs.browser_server}"
+                max_characters: "${data.inputs.max_characters}"
+                link_text: "${data.current_link.text}"
+                link_url: "${data.current_link.url}"
+
+      - id: synthesize_site
+        type: llm.call
+        if: "${data.steps.read_homepage.status == 'ok'}"
+        input:
+          model: gpt-4o-mini
+          temperature: 0
+          prompt: >
+            You are analyzing a website from its homepage and the links extracted from that homepage.
+
+            Homepage URL: ${data.steps.read_homepage.response.url}
+            Homepage title: ${data.steps.read_homepage.response.title}
+            Homepage content excerpt:
+            ${data.steps.read_homepage.response.content}
+
+            LLM-extracted homepage links:
+            ${json(data.steps.extract_homepage_links != null ? data.steps.extract_homepage_links.json.links : null)}
+
+            Linked page findings:
+            ${json(data.steps.browse_homepage_links != null ? data.steps.browse_homepage_links.results : null)}
+
+            Return JSON only:
+            {
+              "site_summary": "string",
+              "main_navigation_topics": ["..."],
+              "important_findings": ["..."],
+              "missing_information": ["..."]
+            }
+          structured_output:
+            schema_inline:
+              type: object
+              properties:
+                site_summary:
+                  type: string
+                main_navigation_topics:
+                  type: array
+                  items: { type: string }
+                important_findings:
+                  type: array
+                  items: { type: string }
+                missing_information:
+                  type: array
+                  items: { type: string }
+              required: [site_summary, main_navigation_topics, important_findings, missing_information]
+            strict: true
+
+      - id: close_browser
+        type: mcp.call
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_close
+
+    outputs:
+      tool_count: "${len(data.steps.discover_browser_tools.tools)}"
+      homepage_navigation_status: "${data.steps.read_homepage.status}"
+      homepage: "${data.steps.read_homepage.response}"
+      homepage_excerpt: "${data.steps.read_homepage.response}"
+      homepage_html_excerpt: "${data.steps.read_homepage_html != null ? data.steps.read_homepage_html.response : null}"
+      menu_links: "${data.steps.extract_homepage_links != null ? data.steps.extract_homepage_links.json.links : null}"
+      menu_link_count: "${data.steps.extract_homepage_links != null ? len(data.steps.extract_homepage_links.json.links) : 0}"
+      page_reports: "${data.steps.browse_homepage_links != null ? data.steps.browse_homepage_links.results : null}"
+      site_synthesis: "${data.steps.synthesize_site != null ? data.steps.synthesize_site.json : null}"
+      close_status: "${data.steps.close_browser.status}"
+      close_result: "${data.steps.close_browser.response}"
+
+  inspect_one_menu_page:
+    inputs:
+      browser_server:
+        type: string
+        required: true
+      max_characters:
+        type: number
+        required: true
+      link_text:
+        type: string
+        required: true
+      link_url:
+        type: string
+        required: true
+
+    steps:
+      - id: read_page
+        type: mcp.call
+        input:
+          server: "${data.inputs.browser_server}"
+          method: browser_get_content
+          request:
+            url: "${data.inputs.link_url}"
+            waitUntil: domcontentloaded
+            format: text
+            maxCharacters: "${data.inputs.max_characters}"
+          timeout_ms: 45000
+
+      - id: summarize_page
+        type: llm.call
+        if: "${data.steps.read_page.status == 'ok'}"
+        input:
+          model: gpt-4o-mini
+          temperature: 0
+          prompt: >
+            Analyze this menu page from a public website.
+
+            Link text: ${data.inputs.link_text}
+            Page URL: ${data.steps.read_page.response.url}
+            Page title: ${data.steps.read_page.response.title}
+            Page content:
+            ${data.steps.read_page.response.content}
+
+            Return JSON only:
+            {
+              "page_title": "string",
+              "page_url": "string",
+              "link_text": "string",
+              "one_line_summary": "string",
+              "key_points": ["..."]
+            }
+          structured_output:
+            schema_inline:
+              type: object
+              properties:
+                page_title:
+                  type: string
+                page_url:
+                  type: string
+                link_text:
+                  type: string
+                one_line_summary:
+                  type: string
+                key_points:
+                  type: array
+                  items: { type: string }
+              required: [page_title, page_url, link_text, one_line_summary, key_points]
+            strict: true
+
+    outputs:
+      link_text: "${data.inputs.link_text}"
+      navigate_status: "${data.steps.read_page.status}"
+      navigate_response: "${data.steps.navigate_page.response}"
+      read_status: "${data.steps.read_page != null ? data.steps.read_page.status : null}"
+      excerpt: "${data.steps.read_page != null ? data.steps.read_page.response.content : null}"
+      page_summary: "${data.steps.summarize_page != null ? data.steps.summarize_page.json : null}"
+

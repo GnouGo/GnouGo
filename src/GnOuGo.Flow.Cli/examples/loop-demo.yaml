@@ -1,0 +1,80 @@
+﻿dsl: 1
+name: loop-and-subworkflow-example
+
+workflows:
+  main:
+    inputs:
+      items:
+        type: array
+        items: { type: string }
+        required: true
+        description: Items to process in the loop
+
+    steps:
+      - id: count_items
+        type: template.render
+        input:
+          engine: mustache
+          template: "Processing {{count}} items"
+          data:
+            count: "${len(data.inputs.items)}"
+          mode: text
+
+      - id: think_loop
+        type: emit
+        input:
+          message: "Processing ${len(data.inputs.items)} items in parallel…"
+          level: thinking
+
+      - id: process_all
+        type: loop.parallel
+        input:
+          items: "${data.inputs.items}"
+          max_concurrency: 3
+        item_var: item
+        index_var: idx
+        steps:
+          - id: render_item
+            type: template.render
+            input:
+              engine: mustache
+              template: "Item {{idx}}: {{item}}"
+              data:
+                idx: "${data.idx}"
+                item: "${data.item}"
+              mode: text
+
+      - id: call_helper
+        type: workflow.call
+        input:
+          ref:
+            kind: local
+            name: summarize
+          args:
+            total: "${len(data.inputs.items)}"
+
+    outputs:
+      header: "${data.steps.count_items.text}"
+      items_processed: "${data.steps.process_all.count}"
+      summary: "${data.steps.call_helper.outputs.text}"
+
+  summarize:
+    inputs:
+      total:
+        type: number
+        required: true
+        description: Total number of items processed
+
+    steps:
+      - id: make_summary
+        type: template.render
+        input:
+          engine: mustache
+          template: "Summary: processed {{total}} items successfully"
+          data:
+            total: "${data.inputs.total}"
+          mode: text
+
+    outputs:
+      text: "${data.steps.make_summary.text}"
+

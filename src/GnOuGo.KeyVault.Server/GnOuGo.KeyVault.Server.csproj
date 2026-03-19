@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>preview</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
+  </ItemGroup>
+  <!-- Build ClientApp before publish -->
+  <Target Name="BuildClientApp" BeforeTargets="Build" Condition="'$(SkipClientBuild)' != 'true' And '$(CI)' != ''">
+    <Exec WorkingDirectory="ClientApp" Command="npm ci &amp;&amp; npx vite build" />
+  </Target>
+</Project>
+

@@ -1,0 +1,83 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Desktop app packaging -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Required for Blazor interactive endpoints during NativeAOT -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+    <TrimMode>partial</TrimMode>
+    <!-- NativeAOT is enabled at publish time via -p:PublishAot=true -->
+    <AssemblyName>GnOuGo.Agent</AssemblyName>
+  <Product>GnOuGo.Agent</Product>
+  <PackageId>GnOuGo.Agent</PackageId>
+  <ApplicationTitle>GnOuGo.Agent</ApplicationTitle>
+  <ApplicationIcon>Assets/icon.ico</ApplicationIcon>
+</PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Photino.NET" Version="4.0.16" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GnOuGo.Agent.Server\GnOuGo.Agent.Server.csproj" />
+  </ItemGroup>
+
+  <!-- Ensure the web UI static assets and configuration are present next to the desktop binary -->
+    <ItemGroup>
+    <Content Include="..\GnOuGo.Agent.Server\appsettings*.json">
+      <Link>%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+
+    <Content Include="..\GnOuGo.Agent.Server\wwwroot\**\*">
+      <Link>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- Build Vite assets when publishing the desktop app -->
+  <Target Name="ViteBuildForDesktop" BeforeTargets="PrepareForPublish" Condition="'$(SkipClientBuild)' != 'true'">
+    <Message Importance="high" Text="Building Vite UI assets for desktop publish..." />
+    <Exec WorkingDirectory="..\GnOuGo.Agent.Server\ClientApp" Command="npm install" />
+    <Exec WorkingDirectory="..\GnOuGo.Agent.Server\ClientApp" Command="npm run build" />
+  </Target>
+
+  <!--
+    Blazor's unified script (/_framework/blazor.web.js) is resolved via Static Web Assets.
+    When the Server is hosted from the Desktop entry assembly, we must copy the Server
+    static web assets manifest(s) next to the Desktop executable so UseStaticWebAssets() can load them.
+    The manifests may live under bin/<Config>/<TFM>/ or bin/<Config>/<TFM>/<RID>/,
+    depending on how MSBuild resolves the Server project.
+  -->
+  <Target Name="CopyServerStaticWebAssetsManifests" AfterTargets="Build">
+    <ItemGroup>
+      <_ServerStaticWebAssets Include="..\GnOuGo.Agent.Server\bin\$(Configuration)\$(TargetFramework)\*.staticwebassets.*.json" />
+      <_ServerStaticWebAssets Include="..\GnOuGo.Agent.Server\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\*.staticwebassets.*.json" Condition="'$(RuntimeIdentifier)' != ''" />
+    </ItemGroup>
+    <Message Importance="high" Text="CopyServerStaticWebAssetsManifests: found @(_ServerStaticWebAssets->Count()) manifest(s)" />
+    <Copy SourceFiles="@(_ServerStaticWebAssets)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Condition="'@(_ServerStaticWebAssets)' != ''" />
+  </Target>
+
+  <Target Name="CopyServerStaticWebAssetsManifestsToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <_ServerStaticWebAssetsPublish Include="..\GnOuGo.Agent.Server\bin\$(Configuration)\$(TargetFramework)\*.staticwebassets.*.json" />
+      <_ServerStaticWebAssetsPublish Include="..\GnOuGo.Agent.Server\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\*.staticwebassets.*.json" Condition="'$(RuntimeIdentifier)' != ''" />
+    </ItemGroup>
+    <Message Importance="high" Text="CopyServerStaticWebAssetsManifestsToPublish: found @(_ServerStaticWebAssetsPublish->Count()) manifest(s) -> $(PublishDir)" />
+    <Copy SourceFiles="@(_ServerStaticWebAssetsPublish)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" Condition="'@(_ServerStaticWebAssetsPublish)' != ''" />
+  </Target>
+
+
+  <ItemGroup>
+    <Content Include="Assets/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

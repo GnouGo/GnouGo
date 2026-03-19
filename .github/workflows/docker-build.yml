@@ -1,0 +1,84 @@
+﻿name: Docker Build
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile:
+        description: Path to the Dockerfile
+        required: true
+        type: string
+      context:
+        description: Build context
+        required: false
+        type: string
+        default: .
+      image_tag:
+        description: Local tag for the build
+        required: false
+        type: string
+        default: ci
+      platforms:
+        description: Target platforms for buildx
+        required: false
+        type: string
+        default: linux/amd64,linux/arm64
+      registry:
+        description: Container registry (e.g., ghcr.io)
+        required: false
+        type: string
+        default: ghcr.io
+      image_name:
+        description: Full image name without tag (e.g., ghcr.io/org/repo)
+        required: false
+        type: string
+        default: ghcr.io/owner/repo
+      push:
+        description: Whether to push the image
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ inputs.image_name }}
+          tags: |
+            type=raw,value=${{ inputs.image_tag }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      - name: Login to registry
+        if: ${{ inputs.push }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          tags: ${{ steps.meta.outputs.tags }}
+          platforms: ${{ inputs.platforms }}
+          push: ${{ inputs.push }}

@@ -1,0 +1,79 @@
+dsl: 1
+name: mcp-cmd-demo
+meta:
+  description: >
+    Démonstration du serveur MCP sécurisé GnOuGo.Flow.Cmd.
+    Le workflow liste les commandes autorisées, lit la policy, exécute
+    quelques alias sûrs et retourne leurs sorties.
+
+    Usage :
+      dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/mcp-cmd-demo.yaml
+
+workflows:
+  main:
+    inputs:
+      cmd_server:
+        type: string
+        default: GnOuGo.Flow.Cmd
+        description: Name of the MCP command server
+      relative_path:
+        type: string
+        default: src/GnOuGo.Flow.Cmd
+        description: Relative path to list via the command server
+
+    steps:
+      - id: discover_cmd_tools
+        type: mcp.list
+        input:
+          server: "${data.inputs.cmd_server}"
+          include:
+            - tools
+
+      - id: read_policy
+        type: mcp.call
+        input:
+          server: "${data.inputs.cmd_server}"
+          method: cmd_get_policy
+
+      - id: list_allowed
+        type: mcp.call
+        input:
+          server: "${data.inputs.cmd_server}"
+          method: cmd_list_allowed_commands
+
+      - id: print_pwd
+        type: mcp.call
+        input:
+          server: "${data.inputs.cmd_server}"
+          method: cmd_run
+          request:
+            commandName: print_working_directory
+
+      - id: list_src
+        type: mcp.call
+        input:
+          server: "${data.inputs.cmd_server}"
+          method: cmd_run
+          request:
+            commandName: list_src
+
+      - id: list_relative
+        type: mcp.call
+        input:
+          server: "${data.inputs.cmd_server}"
+          method: cmd_run
+          request:
+            commandName: list_relative_path
+            parametersJson: "${json({ path: data.inputs.relative_path })}"
+            timeoutMs: 15000
+
+    outputs:
+      tool_count: "${len(data.steps.discover_cmd_tools.tools)}"
+      policy: "${data.steps.read_policy.response}"
+      allowed_commands: "${data.steps.list_allowed.response.commands}"
+      pwd_result: "${data.steps.print_pwd.response}"
+      list_src_result: "${data.steps.list_src.response}"
+      list_relative_result: "${data.steps.list_relative.response}"
+
+
+

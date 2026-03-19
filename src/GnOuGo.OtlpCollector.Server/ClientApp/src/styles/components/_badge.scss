@@ -1,0 +1,164 @@
+// ============================================================================
+// Badge Component (BEM)
+// ============================================================================
+
+.badge {
+  font-size: $font-size-xs;
+  opacity: 0.8;
+  border: 1px solid $color-border-hover;
+  border-radius: $radius-full;
+  padding: 2px 10px;
+  white-space: nowrap;
+  display: inline-block;
+  font-weight: 500;
+
+  // Status modifiers
+  &--ok {
+    border-color: $color-success;
+    color: $color-success;
+    background: rgba(74, 222, 128, 0.1);
+    opacity: 1;
+  }
+
+  &--warning {
+    border-color: $color-warning;
+    color: $color-warning;
+    background: rgba(255, 215, 0, 0.1);
+    opacity: 1;
+  }
+
+  &--error {
+    border-color: $color-error;
+    color: $color-error;
+    background: rgba(255, 180, 180, 0.1);
+    opacity: 1;
+  }
+
+  &--success {
+    border-color: $color-success;
+    color: $color-success;
+    background: rgba(74, 222, 128, 0.1);
+    opacity: 1;
+  }
+
+  // Service and AI modifiers
+  &--service {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: #60a5fa;
+    opacity: 1;
+  }
+
+  &--ai {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    opacity: 1;
+  }
+
+  &--model {
+    background: #4299e1;
+    color: white;
+    border: none;
+    font-family: $font-family-mono;
+    font-size: 11px;
+    opacity: 1;
+  }
+
+  &--system {
+    background: #9f7aea;
+    color: white;
+    border: none;
+    opacity: 1;
+  }
+
+  &--tokens {
+    background: #48bb78;
+    color: white;
+    border: none;
+    opacity: 1;
+  }
+
+  &--genai {
+    background: #667eea;
+    color: white;
+    border: none;
+    opacity: 1;
+  }
+
+  &--rag {
+    background: #f5576c;
+    color: white;
+    border: none;
+    opacity: 1;
+  }
+
+  &--embedding {
+    background: #4299e1;
+    color: white;
+    border: none;
+    opacity: 1;
+  }
+
+  &--search {
+    background: #ed8936;
+    color: white;
+    border: none;
+    opacity: 1;
+  }
+
+  // Size modifiers
+  &--small {
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+
+  // Status: unset
+  &--unset {
+    border-color: $color-border-hover;
+    color: $color-text-tertiary;
+    opacity: 0.7;
+  }
+
+  // Span Kind modifiers
+  &--internal {
+    border-color: rgba(99, 102, 241, 0.4);
+    color: #818cf8;
+    background: rgba(99, 102, 241, 0.1);
+    opacity: 1;
+  }
+
+  &--client {
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #60a5fa;
+    background: rgba(59, 130, 246, 0.1);
+    opacity: 1;
+  }
+
+  &--server {
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.1);
+    opacity: 1;
+  }
+
+  &--producer {
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.1);
+    opacity: 1;
+  }
+
+  &--consumer {
+    border-color: rgba(236, 72, 153, 0.4);
+    color: #f472b6;
+    background: rgba(236, 72, 153, 0.1);
+    opacity: 1;
+  }
+
+  &--unspecified {
+    border-color: $color-border-hover;
+    color: $color-text-secondary;
+    opacity: 0.7;
+  }
+}

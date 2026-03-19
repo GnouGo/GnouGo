@@ -1,0 +1,70 @@
+dsl: 1
+name: mcp-github-demo
+meta:
+  description: >
+    Demonstrates real MCP integration with GitHub Copilot MCP server.
+    Requires a valid GitHub token in appsettings.json (LLM.McpServers.Github.ApiKey).
+
+    Usage:
+      gnougo-flow run examples/mcp-github-demo.yaml -i owner=microsoft -i repo=typescript
+
+workflows:
+  main:
+    inputs:
+      owner:
+        type: string
+        description: GitHub repository owner
+      repo:
+        type: string
+        description: GitHub repository name
+
+    steps:
+      # ── Step 1: Discover available tools from the GitHub MCP server ──
+      - id: discover
+        type: mcp.list
+        input:
+          server: Github
+          include:
+            - tools
+
+      # ── Step 2: List issues on the repository ──
+      - id: list_issues
+        type: mcp.call
+        input:
+          server: Github
+          method: list_issues
+          request:
+            owner: "${data.inputs.owner}"
+            repo: "${data.inputs.repo}"
+            state: open
+            per_page: 5
+
+      # ── Step 3: Get repository details ──
+      - id: get_repo
+        type: mcp.call
+        input:
+          server: Github
+          method: get_repository
+          request:
+            owner: "${data.inputs.owner}"
+            repo: "${data.inputs.repo}"
+
+      # ── Step 4: Use the LLM to summarize what we found ──
+      - id: summary
+        type: llm.call
+        input:
+          model: gpt-4o-mini
+          prompt: >
+            I queried the GitHub MCP server for the repository ${data.inputs.owner}/${data.inputs.repo}.
+
+            Repository info: ${json(data.steps.get_repo.response)}
+
+            Open issues (first 5): ${json(data.steps.list_issues.response)}
+
+            Please provide a brief summary of this repository and its recent open issues.
+
+    outputs:
+      available_tools: "${len(data.steps.discover.tools)}"
+      repo_status: "${data.steps.get_repo.status}"
+      issues_status: "${data.steps.list_issues.status}"
+      summary: "${data.steps.summary.text}"

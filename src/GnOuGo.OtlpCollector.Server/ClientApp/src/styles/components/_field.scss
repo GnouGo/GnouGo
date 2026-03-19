@@ -1,0 +1,35 @@
+// ============================================================================
+// Field Component (BEM) - Form inputs
+// ============================================================================
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  min-width: 220px;
+  flex: 1;
+
+  &__label {
+    font-size: $font-size-sm;
+    opacity: 0.8;
+    font-weight: 500;
+  }
+
+  &__input {
+    background: $color-bg-primary;
+    color: $color-text-primary;
+    border: 1px solid $color-border-hover;
+    border-radius: $radius-sm;
+    padding: $spacing-sm 12px;
+    outline: none;
+    transition: border-color $transition-fast;
+
+    &:focus {
+      border-color: $color-border-focus;
+    }
+
+    &::placeholder {
+      color: $color-text-tertiary;
+    }
+  }
+}

@@ -1,0 +1,244 @@
+
+// ============================================================================
+// Log Filters Component (BEM) - Filters for log entries
+// ============================================================================
+
+.log-filters {
+  background: $color-bg-secondary;
+  border-radius: $radius-sm;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid $color-border;
+
+  // Elements
+  &__title {
+    margin: 0 0 $spacing-md 0;
+    font-size: $font-size-lg;
+    font-weight: 600;
+    color: $color-text-primary;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: $spacing-md;
+    align-items: end;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+
+    // Modifier: actions field
+    &--actions {
+      justify-content: flex-end;
+    }
+
+    // Modifier: full width field
+    &--full {
+      grid-column: 1 / -1;
+    }
+  }
+
+  &__label {
+    display: block;
+    margin-bottom: $spacing-xs;
+    font-size: 13px;
+    font-weight: 500;
+    color: $color-text-secondary;
+  }
+
+  &__input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid $color-border;
+    border-radius: 6px;
+    background: $color-bg-primary;
+    color: $color-text-primary;
+    font-size: $font-size-base;
+    font-family: inherit;
+    transition: border-color $transition-base;
+
+    &:focus {
+      outline: none;
+      border-color: $color-accent;
+    }
+
+    &::placeholder {
+      color: $color-text-tertiary;
+    }
+
+    // Style pour datetime-local input
+    &[type="datetime-local"] {
+      cursor: pointer;
+
+      &::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        filter: invert(0.8);
+      }
+    }
+
+    // Modifier: monospace for IDs (trace, correlation, etc.)
+    &--mono {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 13px;
+      letter-spacing: -0.3px;
+    }
+  }
+
+  // Severity grid
+  &__severity-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: $spacing-sm;
+  }
+
+  &__severity-option {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border: 2px solid $color-border;
+    border-radius: 6px;
+    background: $color-bg-primary;
+    cursor: pointer;
+    transition: all $transition-base;
+
+    &:hover {
+      background: $color-bg-secondary;
+    }
+  }
+
+  &__checkbox {
+    margin-right: 8px;
+    cursor: pointer;
+  }
+
+  &__severity-label {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  // Clear button
+  &__clear-btn {
+    padding: 8px $spacing-md;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid $color-border;
+    border-radius: 6px;
+    color: $color-text-primary;
+    font-size: $font-size-base;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all $transition-base;
+
+    &:hover {
+      background: $color-bg-secondary;
+      border-color: $color-text-tertiary;
+    }
+
+    &:active {
+      transform: translateY(1px);
+    }
+  }
+
+  // Active filters display
+  &__active {
+    margin-top: $spacing-md;
+    padding-top: $spacing-md;
+    border-top: 1px solid $color-border;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  &__active-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: $color-text-secondary;
+    margin-right: 4px;
+  }
+
+  &__active-item {
+    display: inline-block;
+    padding: 4px 10px;
+    background: $color-accent;
+    color: white;
+    border-radius: $radius-full;
+    font-size: $font-size-sm;
+    font-weight: 500;
+  }
+
+  // Severity buttons (legacy/alternative style)
+  &__severity {
+    margin-top: $spacing-md;
+    padding-top: $spacing-md;
+    border-top: 1px solid $color-border;
+  }
+
+  &__severity-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__severity-btn {
+    padding: 8px $spacing-md;
+    border: 2px solid $color-border;
+    border-radius: 6px;
+    background: $color-bg-primary;
+    color: $color-text-secondary;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all $transition-base;
+    letter-spacing: 0.5px;
+
+    &:hover {
+      border-color: var(--severity-color);
+      color: var(--severity-color);
+      background: $color-bg-secondary;
+    }
+
+    // Modifier: active state
+    &--active {
+      border-color: var(--severity-color);
+      background: var(--severity-color);
+      color: white;
+      box-shadow: $shadow-sm;
+
+      &:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+      }
+    }
+  }
+
+  // Responsive
+  @media (max-width: 768px) {
+    &__grid {
+      grid-template-columns: 1fr;
+    }
+
+    &__field--actions {
+      justify-content: stretch;
+    }
+
+    &__clear-btn {
+      width: 100%;
+    }
+
+    &__severity-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 480px) {
+    &__severity-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+

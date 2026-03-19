@@ -1,0 +1,64 @@
+// ============================================================================
+// Trace Item Component (BEM) - Individual trace in the list
+// ============================================================================
+
+.trace-item {
+  display: flex;
+  gap: $spacing-sm;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: $spacing-sm 12px;
+  border-radius: $radius-md;
+  border: 1px solid $color-border;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  &:hover {
+    border-color: $color-border-hover;
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateX(2px);
+  }
+
+  // Modifier: selected state
+  &--selected {
+    border-color: rgba(78, 222, 128, 0.4);
+    background: rgba(78, 222, 128, 0.05);
+
+    &:hover {
+      border-color: rgba(78, 222, 128, 0.6);
+    }
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 0; // Allow text truncation
+  }
+
+  &__id {
+    font-family: $font-family-mono;
+    font-size: $font-size-sm;
+    opacity: 0.9;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__name {
+    font-size: $font-size-sm;
+    opacity: 0.95;
+    font-weight: 500;
+  }
+
+  &__meta {
+    font-size: $font-size-xs;
+    opacity: 0.75;
+  }
+
+  &__badge {
+    flex-shrink: 0;
+  }
+}

@@ -1,0 +1,27 @@
+// ============================================================================
+// Panel Component (BEM)
+// ============================================================================
+
+.panel {
+  background: $color-bg-secondary;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  padding: $spacing-md;
+  box-shadow: $shadow-lg;
+  margin-bottom: $spacing-md;
+
+  &--scroll {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    // Inside a grid cell, fill the available height
+    height: 100%;
+    margin-bottom: 0; // no bottom margin when inside grid
+  }
+
+  &__row {
+    display: flex;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+  }
+}

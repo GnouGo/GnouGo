@@ -1,0 +1,178 @@
+name: Build (GnOuGo.Agent)
+
+on:
+  push:
+    branches: [ "main" ]
+    tags:
+      - "v*.*.*"
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  unit_tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Run .NET unit tests
+        run: |
+          dotnet restore
+          dotnet test
+
+  docker_builds:
+    name: Docker Build (${{ matrix.name }})
+    needs: unit_tests
+    uses: ./.github/workflows/docker-build.yml
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: GnOuGo.Agent.Server
+            dockerfile: src/GnOuGo.Agent.Server/Dockerfile
+            image_tag: gnougo-agent
+          - name: GnOuGo.Diff.Server
+            dockerfile: src/GnOuGo.Diff.Server/Dockerfile
+            image_tag: gnougo-diff
+          - name: GnOuGo.DocIngestor.Server
+            dockerfile: src/GnOuGo.DocIngestor.Server/Dockerfile
+            image_tag: gnougo-doc-ingestor
+          - name: GnOuGo.Flow.Server
+            dockerfile: src/GnOuGo.Flow.Server/Dockerfile
+            image_tag: gnougo-flow
+          - name: GnOuGo.KeyVault.Server
+            dockerfile: src/GnOuGo.KeyVault.Server/Dockerfile
+            image_tag: gnougo-keyvault
+          - name: GnOuGo.OtlpCollector.Server
+            dockerfile: src/GnOuGo.OtlpCollector.Server/Dockerfile
+            image_tag: gnougo-otlp-collector
+    with:
+      dockerfile: ${{ matrix.dockerfile }}
+      context: .
+      image_tag: ${{ matrix.image_tag }}
+      platforms: linux/amd64,linux/arm64
+      registry: ghcr.io
+      image_name: ghcr.io/gnougo/${{ matrix.image_tag }}
+      push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+
+  server_linux_x64:
+    name: Server (linux-x64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "src/GnOuGo.Agent.Server/ClientApp/package-lock.json"
+
+      - name: Build UI (Vite)
+        working-directory: src/GnOuGo.Agent.Server/ClientApp
+        run: |
+          npm ci
+          npm run build
+
+      - name: Publish Server
+        run: |
+          dotnet restore
+          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64
+
+      - name: Zip Server output
+        shell: pwsh
+        run: |
+          $zip = "GnOuGo.Agent.Server-linux-x64.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path "artifacts/publish/server/linux-x64/*" -DestinationPath $zip
+
+      - name: Upload Server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GnOuGo.Agent.Server-linux-x64
+          path: GnOuGo.Agent.Server-linux-x64.zip
+          if-no-files-found: error
+
+  desktop_aot:
+    name: Desktop AOT (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "src/GnOuGo.Agent.Server/ClientApp/package-lock.json"
+
+      - name: Build UI (Vite)
+        working-directory: src/GnOuGo.Agent.Server/ClientApp
+        run: |
+          npm ci
+          npm run build
+
+      - name: Publish Desktop (NativeAOT)
+        shell: pwsh
+        run: |
+          dotnet restore
+          dotnet publish src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj `
+            -c Release `
+            -r ${{ matrix.rid }} `
+            --self-contained true `
+            -o artifacts/publish/desktop/${{ matrix.rid }} `
+            /p:PublishAot=true `
+            /p:PublishTrimmed=true `
+            /p:InvariantGlobalization=true
+
+      - name: Zip Desktop output
+        shell: pwsh
+        run: |
+          $zip = "GnOuGo.Agent.Desktop-${{ matrix.rid }}.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path "artifacts/publish/desktop/${{ matrix.rid }}/*" -DestinationPath $zip
+
+      - name: Upload Desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GnOuGo.Agent.Desktop-${{ matrix.rid }}
+          path: GnOuGo.Agent.Desktop-${{ matrix.rid }}.zip
+          if-no-files-found: error

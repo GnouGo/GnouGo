@@ -1,0 +1,928 @@
+﻿﻿﻿// ── Variables ────────────────────────────────────────────────────────
+$color-bg: #0f1117;
+$color-surface: #1a1d27;
+$color-border: #2d3148;
+$color-primary: #6c8cff;
+$color-primary-hover: #8aa4ff;
+$color-text: #e1e4ed;
+$color-text-muted: #8b90a5;
+$color-success: #4caf77;
+$color-danger: #e05555;
+$radius: 8px;
+$font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+// ── Reset ────────────────────────────────────────────────────────────
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 15px;
+}
+
+body {
+  font-family: $font;
+  background: $color-bg;
+  color: $color-text;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+a {
+  color: $color-primary;
+  text-decoration: none;
+}
+
+// ── Nav ──────────────────────────────────────────────────────────────
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: $color-surface;
+  border-bottom: 1px solid $color-border;
+
+  &__brand {
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-right: auto;
+  }
+
+  &__link {
+    padding: 0.35rem 0.75rem;
+    border-radius: $radius;
+    color: $color-text-muted;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover {
+      color: $color-text;
+      background: rgba(white, 0.06);
+    }
+
+    &--active {
+      color: $color-primary;
+      background: rgba($color-primary, 0.12);
+    }
+  }
+}
+
+// ── Main ─────────────────────────────────────────────────────────────
+.main {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
+}
+
+// ── Ingest page ──────────────────────────────────────────────────────
+.ingest {
+  &__title {
+    margin-bottom: 1.25rem;
+    font-size: 1.5rem;
+  }
+
+  &__file-name {
+    margin: 0 0.25rem;
+    color: $color-text-muted;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__file-size {
+    color: $color-text-muted;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  &__file-list {
+    margin-top: 1rem;
+  }
+
+  &__file-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+
+  &__file-count {
+    font-size: 0.9rem;
+    color: $color-text-muted;
+  }
+
+  &__error-text {
+    color: $color-danger;
+  }
+
+  &__btn-clear {
+    padding: 0.25rem 0.75rem;
+    border: 1px solid $color-border;
+    border-radius: $radius;
+    background: transparent;
+    color: $color-text-muted;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover:not(:disabled) {
+      background: rgba($color-danger, 0.08);
+      color: $color-danger;
+      border-color: $color-danger;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  &__files {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 280px;
+    overflow-y: auto;
+    border: 1px solid $color-border;
+    border-radius: $radius;
+  }
+
+  &__file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.88rem;
+    border-bottom: 1px solid $color-border;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &--ingesting {
+      background: rgba($color-primary, 0.06);
+    }
+
+    &--done {
+      background: rgba($color-success, 0.06);
+    }
+
+    &--error {
+      background: rgba($color-danger, 0.06);
+    }
+  }
+
+  &__file-icon {
+    flex-shrink: 0;
+    width: 1.25rem;
+    text-align: center;
+  }
+
+  &__btn-remove {
+    margin-left: auto;
+    padding: 0.1rem 0.4rem;
+    border: none;
+    background: transparent;
+    color: $color-text-muted;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border-radius: $radius;
+
+    &:hover {
+      background: rgba($color-danger, 0.12);
+      color: $color-danger;
+    }
+  }
+
+  &__file-error {
+    margin-left: 0.5rem;
+    color: $color-danger;
+    font-size: 0.8rem;
+  }
+
+  &__btn {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.6rem 2rem;
+    border: none;
+    border-radius: $radius;
+    background: $color-primary;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover:not(:disabled) {
+      background: $color-primary-hover;
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+
+  &__status {
+    margin-top: 1rem;
+    font-weight: 600;
+  }
+
+  &__results {
+    margin-top: 1rem;
+  }
+
+  &__result {
+    margin-top: 0.75rem;
+  }
+}
+
+// ── Dropzone ─────────────────────────────────────────────────────────
+.dropzone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  border: 2px dashed $color-border;
+  border-radius: $radius;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+
+  &:hover,
+  &--active {
+    border-color: $color-primary;
+    background: rgba($color-primary, 0.06);
+  }
+
+  &__label {
+    color: $color-text-muted;
+    pointer-events: none;
+  }
+
+  &__input {
+    display: none;
+  }
+}
+
+// ── Config form ──────────────────────────────────────────────────────
+.config-form {
+  margin-top: 1.25rem;
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  padding: 1rem;
+  background: $color-surface;
+
+  &__summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: $color-text-muted;
+    margin-bottom: 0.75rem;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 1.25rem;
+  }
+
+  &__label {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.85rem;
+    color: $color-text-muted;
+
+    &--checkbox {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5rem;
+    }
+  }
+
+  &__input {
+    margin-top: 0.25rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid $color-border;
+    border-radius: 4px;
+    background: $color-bg;
+    color: $color-text;
+    font-size: 0.95rem;
+  }
+}
+
+// ── Search page ──────────────────────────────────────────────────────
+.search {
+  &__title {
+    margin-bottom: 1.25rem;
+    font-size: 1.5rem;
+  }
+
+  &__status {
+    margin-top: 1rem;
+    font-weight: 600;
+  }
+
+  &__actions {
+    margin-top: 1.5rem;
+
+    h3 {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+      color: $color-text-muted;
+    }
+  }
+
+  &__doc-list {
+    list-style: none;
+  }
+
+  &__doc-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid $color-border;
+    font-size: 0.9rem;
+  }
+
+  &__doc-name {
+    word-break: break-all;
+  }
+
+  &__doc-delete {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+
+    &:hover {
+      background: rgba($color-danger, 0.2);
+    }
+  }
+}
+
+// ── Search form ──────────────────────────────────────────────────────
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+
+  &__label {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.85rem;
+    color: $color-text-muted;
+    flex: 1 1 200px;
+  }
+
+  &__input {
+    margin-top: 0.25rem;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid $color-border;
+    border-radius: 4px;
+    background: $color-bg;
+    color: $color-text;
+    font-size: 0.95rem;
+
+    &--small {
+      max-width: 80px;
+    }
+  }
+
+  &__btn {
+    padding: 0.5rem 1.5rem;
+    border: none;
+    border-radius: $radius;
+    background: $color-primary;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover {
+      background: $color-primary-hover;
+    }
+  }
+}
+
+// ── Results ──────────────────────────────────────────────────────────
+.results {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+// ── Result card ──────────────────────────────────────────────────────
+.result-card {
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  padding: 1rem;
+  background: $color-surface;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  &__rank {
+    font-weight: 700;
+    color: $color-primary;
+  }
+
+  &__score {
+    font-size: 0.85rem;
+    background: rgba($color-success, 0.15);
+    color: $color-success;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+  }
+
+  &__doc {
+    font-size: 0.8rem;
+    color: $color-text-muted;
+    margin-left: auto;
+    word-break: break-all;
+  }
+
+  &__title {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.2rem 0.75rem;
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+
+    dt {
+      color: $color-text-muted;
+      font-weight: 600;
+    }
+
+    dd {
+      word-break: break-all;
+    }
+  }
+
+  &__text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 0.5rem;
+    background: $color-bg;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+  }
+
+  &__meta {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+
+    summary {
+      cursor: pointer;
+      color: $color-text-muted;
+    }
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+
+    td {
+      padding: 0.25rem 0.5rem;
+      border-bottom: 1px solid $color-border;
+      vertical-align: top;
+      word-break: break-all;
+    }
+  }
+
+  &__key {
+    color: $color-text-muted;
+    white-space: nowrap;
+    font-weight: 600;
+    width: 140px;
+  }
+}
+
+// ── Reranker Panel ───────────────────────────────────────────────────
+.reranker-panel {
+  margin-top: 0.75rem;
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  background: $color-surface;
+
+  &__summary {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: $color-text-muted;
+  }
+
+  &__badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    background: rgba($color-text-muted, 0.15);
+    color: $color-text-muted;
+
+    &--on {
+      background: rgba($color-success, 0.2);
+      color: $color-success;
+    }
+  }
+
+  &__body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+    padding: 0 1rem 0.75rem;
+  }
+
+  &__label {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.8rem;
+    color: $color-text-muted;
+
+    &--checkbox {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5rem;
+      flex-basis: 100%;
+    }
+  }
+
+  &__input {
+    margin-top: 0.2rem;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid $color-border;
+    border-radius: 4px;
+    background: $color-bg;
+    color: $color-text;
+    font-size: 0.85rem;
+    max-width: 120px;
+  }
+}
+
+// ── Metadata Filters ─────────────────────────────────────────────────
+.meta-filters {
+  margin-top: 1rem;
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  padding: 0.75rem 1rem;
+  background: $color-surface;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+
+  &__title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: $color-text-muted;
+  }
+
+  &__add {
+    background: none;
+    border: 1px solid $color-border;
+    border-radius: 4px;
+    color: $color-primary;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+
+    &:hover {
+      background: rgba($color-primary, 0.1);
+      border-color: $color-primary;
+    }
+  }
+
+  &__empty {
+    font-size: 0.8rem;
+    color: $color-text-muted;
+    font-style: italic;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__input {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid $color-border;
+    border-radius: 4px;
+    background: $color-bg;
+    color: $color-text;
+    font-size: 0.85rem;
+
+    &--key {
+      flex: 1 1 140px;
+      min-width: 100px;
+    }
+
+    &--op {
+      flex: 0 0 auto;
+      min-width: 95px;
+    }
+
+    &--value {
+      flex: 2 1 180px;
+      min-width: 100px;
+    }
+  }
+
+  &__remove {
+    background: none;
+    border: none;
+    color: $color-text-muted;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+
+    &:hover {
+      background: rgba($color-danger, 0.15);
+      color: $color-danger;
+    }
+  }
+}
+
+.search__filter-count {
+  color: $color-text-muted;
+  font-weight: 400;
+  font-size: 0.85em;
+}
+
+// ── Proximity Chart ──────────────────────────────────────────────────
+.proximity-chart {
+  margin-top: 1.5rem;
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  padding: 1rem;
+  background: $color-surface;
+
+  &__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+
+  &__subtitle {
+    font-size: 0.85rem;
+    color: $color-text-muted;
+    margin-bottom: 1rem;
+
+    em {
+      color: $color-primary;
+      font-style: normal;
+    }
+  }
+
+  &__legend {
+    display: flex;
+    justify-content: center;
+    gap: 1.25rem;
+    margin-top: 0.75rem;
+    font-size: 0.8rem;
+    color: $color-text-muted;
+  }
+
+  &__legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  &__dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+}
+
+// ── Proximity Tooltip ────────────────────────────────────────────────
+.proximity-tooltip {
+  background: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  padding: 0.75rem;
+  max-width: 360px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+  }
+
+  &__rank {
+    font-weight: 700;
+    color: $color-primary;
+    font-size: 0.9rem;
+  }
+
+  &__score {
+    font-size: 0.8rem;
+    background: rgba($color-success, 0.15);
+    color: $color-success;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+  }
+
+  &__doc {
+    font-size: 0.75rem;
+    color: $color-text-muted;
+    margin-left: auto;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__text {
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: $color-text;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}
+
+// ── Chart Switcher ───────────────────────────────────────────────────
+.chart-switcher {
+  margin-top: 1.5rem;
+
+  &__tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 0;
+  }
+
+  &__tab {
+    padding: 0.5rem 1.25rem;
+    border: 1px solid $color-border;
+    border-bottom: none;
+    border-radius: $radius $radius 0 0;
+    background: transparent;
+    color: $color-text-muted;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    &:hover {
+      background: rgba($color-text, 0.04);
+      color: $color-text;
+    }
+
+    &--active {
+      background: $color-surface;
+      color: $color-primary;
+      border-color: $color-border;
+      border-bottom-color: $color-surface;
+    }
+  }
+
+  &__spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid $color-text-muted;
+    border-top-color: $color-primary;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+// ── t-SNE Chart ──────────────────────────────────────────────────────
+.tsne-chart {
+  border: 1px solid $color-border;
+  border-top: none;
+  border-radius: 0 0 $radius $radius;
+  padding: 1rem;
+  background: $color-surface;
+
+  &--loading,
+  &--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    color: $color-text-muted;
+    font-style: italic;
+  }
+
+  &__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+
+  &__subtitle {
+    font-size: 0.85rem;
+    color: $color-text-muted;
+    margin-bottom: 1rem;
+
+    em {
+      color: $color-primary;
+      font-style: normal;
+    }
+  }
+
+  &__legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 0.75rem;
+    font-size: 0.8rem;
+    color: $color-text-muted;
+  }
+
+  &__legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  &__dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  &__gradient-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__gradient-bar {
+    width: 180px;
+    height: 10px;
+    border-radius: 5px;
+    border: 1px solid $color-border;
+  }
+
+  &__gradient-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: $color-text-muted;
+    min-width: 32px;
+    text-align: center;
+  }
+}
+
+// Adjust proximity-chart when used inside switcher
+.chart-switcher .proximity-chart {
+  margin-top: 0;
+  border-top: none;
+  border-radius: 0 0 $radius $radius;
+}
+

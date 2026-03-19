@@ -1,0 +1,1180 @@
+﻿// ============================================================================
+// GenAI Split View – Left timeline + Right detail panel
+// ============================================================================
+
+.genai-split {
+  display: flex;
+  gap: $spacing-md;
+  min-height: 500px;
+  max-height: 82vh;
+
+  // ── Left sidebar (timeline) ──
+  &__left {
+    width: 340px;
+    min-width: 280px;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    background: $color-bg-primary;
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+    overflow: hidden;
+  }
+
+  &__left-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: $spacing-sm $spacing-md;
+    border-bottom: 1px solid $color-border;
+    flex-shrink: 0;
+  }
+
+  &__left-title {
+    font-size: $font-size-base;
+    font-weight: 700;
+    margin: 0;
+    color: $color-text-primary;
+  }
+
+  &__left-count {
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+    font-family: $font-family-mono;
+  }
+
+  // ── Synthèse button ──
+  &__synth-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px $spacing-md;
+    background: rgba(102, 126, 234, 0.08);
+    border: none;
+    border-bottom: 1px solid $color-border;
+    cursor: pointer;
+    text-align: left;
+    color: $color-text-primary;
+    transition: all $transition-fast;
+    flex-shrink: 0;
+
+    &:hover {
+      background: rgba(102, 126, 234, 0.15);
+    }
+
+    &--active {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.15) 100%);
+      border-left: 3px solid #667eea;
+
+      .genai-split__synth-label {
+        color: #a5b4fc;
+        font-weight: 700;
+      }
+    }
+  }
+
+  &__synth-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  &__synth-label {
+    font-size: $font-size-base;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  &__synth-hint {
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+  }
+
+  // ── Timeline items ──
+  &__timeline {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      &:hover { background: rgba(255, 255, 255, 0.15); }
+    }
+  }
+
+  &__tl-item {
+    display: flex;
+    flex-direction: column;
+    padding: 6px $spacing-sm;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all $transition-fast;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    &--active {
+      background: rgba(59, 130, 246, 0.1);
+      border-left-color: $color-accent;
+    }
+
+    &--genai {
+      border-left-color: rgba(139, 92, 246, 0.3);
+
+      &.genai-split__tl-item--active {
+        border-left-color: #8b5cf6;
+        background: rgba(139, 92, 246, 0.1);
+      }
+    }
+
+    &--error {
+      border-left-color: rgba(239, 68, 68, 0.5);
+      background: rgba(239, 68, 68, 0.04);
+
+      &:hover {
+        background: rgba(239, 68, 68, 0.08);
+      }
+
+      &.genai-split__tl-item--active {
+        border-left-color: #ef4444;
+        background: rgba(239, 68, 68, 0.12);
+      }
+    }
+  }
+
+  &__tl-error-badge {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #fff;
+    background: #ef4444;
+    padding: 1px 5px;
+    border-radius: 3px;
+    line-height: 1.4;
+  }
+
+  &__tl-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 3px;
+  }
+
+  &__tl-icon {
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  &__tl-name {
+    flex: 1;
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: $color-text-primary;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__tl-dur {
+    font-size: 10px;
+    font-family: $font-family-mono;
+    color: $color-text-tertiary;
+    flex-shrink: 0;
+  }
+
+  &__tl-bar-track {
+    position: relative;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  &__tl-bar {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    border-radius: 3px;
+    min-width: 3px;
+    transition: opacity $transition-fast;
+  }
+
+  // ── Right panel ──
+  &__right {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    background: $color-bg-primary;
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+    padding: $spacing-md;
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      &:hover { background: rgba(255, 255, 255, 0.15); }
+    }
+  }
+}
+
+// ============================================================================
+// GenAI Summary Panel
+// ============================================================================
+
+.genai-summary {
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-md;
+  }
+
+  &__title {
+    font-size: $font-size-lg;
+    font-weight: 700;
+    color: $color-text-primary;
+    margin: 0;
+  }
+
+  &__trace-id {
+    font-size: $font-size-xs;
+    font-family: $font-family-mono;
+    color: $color-text-tertiary;
+  }
+
+  // ── KPIs ──
+  &__kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: $spacing-sm;
+    margin-bottom: $spacing-md;
+  }
+
+  &__kpi {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-sm $spacing-md;
+    border-radius: $radius-sm;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid $color-border;
+    transition: all $transition-fast;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.07);
+      transform: translateY(-1px);
+    }
+
+    &--tokens { border-left: 3px solid #8b5cf6; }
+    &--cost { border-left: 3px solid #f59e0b; }
+    &--time { border-left: 3px solid #3b82f6; }
+    &--llm { border-left: 3px solid #10b981; }
+    &--calls { border-left: 3px solid #ec4899; }
+    &--spans { border-left: 3px solid #6366f1; }
+  }
+
+  &__kpi-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  &__kpi-content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__kpi-value {
+    font-size: $font-size-lg;
+    font-weight: 700;
+    color: $color-text-primary;
+    font-family: $font-family-mono;
+    line-height: 1.2;
+  }
+
+  &__kpi-label {
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  // ── Sections ──
+  &__section {
+    margin-bottom: $spacing-md;
+    padding: $spacing-md;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+  }
+
+  &__section-title {
+    font-size: $font-size-base;
+    font-weight: 600;
+    color: $color-text-secondary;
+    margin: 0 0 $spacing-sm 0;
+  }
+
+  // ── Token bar ──
+  &__token-bar,
+  &__call-token-bar {
+    height: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 5px;
+    display: flex;
+    overflow: hidden;
+    margin-bottom: $spacing-xs;
+  }
+
+  &__token-seg {
+    height: 100%;
+    transition: width 0.3s ease;
+
+    &--prompt {
+      background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    }
+    &--completion {
+      background: linear-gradient(90deg, #10b981, #34d399);
+    }
+  }
+
+  &__token-legend {
+    display: flex;
+    gap: $spacing-md;
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+  }
+
+  &__token-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+
+    &--prompt { background: #3b82f6; }
+    &--completion { background: #10b981; }
+  }
+
+  // ── Tags ──
+  &__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+  }
+
+  &__tag {
+    padding: 4px 10px;
+    border-radius: $radius-full;
+    font-size: $font-size-xs;
+    font-weight: 600;
+
+    &--provider {
+      background: rgba(159, 122, 234, 0.2);
+      color: #c4b5fd;
+      border: 1px solid rgba(159, 122, 234, 0.3);
+    }
+    &--model {
+      background: rgba(66, 153, 225, 0.15);
+      color: #93c5fd;
+      border: 1px solid rgba(66, 153, 225, 0.3);
+      font-family: $font-family-mono;
+    }
+  }
+
+  // ── RAG Steps ──
+  &__rag-steps {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  &__rag-step {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    padding: $spacing-sm;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  &__rag-step-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  &__rag-step-name {
+    font-weight: 600;
+    font-size: $font-size-sm;
+    flex: 1;
+  }
+
+  &__rag-step-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 4px;
+  }
+
+  &__rag-step-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #34d399);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  &__rag-step-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+    font-family: $font-family-mono;
+  }
+
+  &__rag-arrow {
+    text-align: center;
+    font-size: 16px;
+    color: $color-text-tertiary;
+    margin: -4px 0;
+  }
+
+  // ── Calls ──
+  &__calls {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  &__call {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    padding: $spacing-sm;
+  }
+
+  &__call-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  &__call-op {
+    font-weight: 600;
+    font-size: $font-size-sm;
+  }
+
+  &__call-model {
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+    margin-bottom: 6px;
+
+    code {
+      background: rgba(255, 255, 255, 0.06);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: $font-family-mono;
+      font-size: $font-size-xs;
+    }
+  }
+
+  &__call-stats {
+    display: flex;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+    font-size: $font-size-xs;
+    margin-bottom: 6px;
+
+    > span {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 3px 8px;
+      border-radius: $radius-full;
+    }
+  }
+
+  &__call-token-detail {
+    display: flex;
+    gap: $spacing-md;
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+  }
+}
+
+// ============================================================================
+// GenAI Span Detail Panel (right side when span is selected)
+// ============================================================================
+
+.genai-span-detail {
+
+  // ── Duration badge in header ──
+  &__dur-badge {
+    background: rgba(255, 255, 255, 0.08);
+    color: $color-text-primary;
+    font-family: $font-family-mono;
+    font-size: $font-size-xs;
+    padding: 2px 8px;
+    border-radius: $radius-full;
+    font-weight: 600;
+  }
+
+  // ── Identity bar (compact trace/span info) ──
+  &__id-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 6px 10px;
+    margin-bottom: $spacing-md;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: $radius-sm;
+    font-size: $font-size-xs;
+    font-family: $font-family-mono;
+    color: $color-text-tertiary;
+
+    > span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 200px;
+    }
+  }
+
+  // ── Tabs ──
+  &__tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: $spacing-md;
+  }
+
+  &__tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    color: $color-text-tertiary;
+    font-size: $font-size-sm;
+    font-family: $font-family-base;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color $transition-fast, border-color $transition-fast, background $transition-fast;
+    white-space: nowrap;
+
+    &:hover {
+      color: $color-text-secondary;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    &--active {
+      color: $color-accent;
+      border-bottom-color: $color-accent;
+      font-weight: 600;
+    }
+  }
+
+  &__tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: $radius-full;
+    background: rgba(255, 255, 255, 0.1);
+    font-size: 10px;
+    font-weight: 700;
+    font-family: $font-family-mono;
+    color: $color-text-secondary;
+
+    .genai-span-detail__tab--active & {
+      background: rgba($color-accent, 0.2);
+      color: $color-accent;
+    }
+  }
+
+  &__tab-content {
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  // ── Empty state within tabs ──
+  &__empty-label {
+    color: $color-text-tertiary;
+    font-size: $font-size-sm;
+    font-style: italic;
+  }
+
+  &__section--empty {
+    background: none;
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    text-align: center;
+    padding: $spacing-md;
+  }
+
+  // ── Event tags (INPUT / OUTPUT / EVENT label) ──
+  &__event-tag {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: $radius-full;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-family: $font-family-mono;
+    background: rgba(255, 255, 255, 0.08);
+    color: $color-text-tertiary;
+    margin-right: 6px;
+    flex-shrink: 0;
+
+    &--input {
+      background: rgba(59, 130, 246, 0.15);
+      color: #93c5fd;
+    }
+
+    &--output {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+    }
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-md;
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px solid $color-border;
+  }
+
+  &__title {
+    font-size: $font-size-lg;
+    font-weight: 700;
+    color: $color-text-primary;
+    margin: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__badges {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  &__error {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: $radius-sm;
+    padding: $spacing-sm $spacing-md;
+    color: #fca5a5;
+    font-size: $font-size-sm;
+    margin-bottom: $spacing-md;
+  }
+
+  // ── Section ──
+  &__section {
+    margin-bottom: $spacing-md;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+    padding: $spacing-md;
+
+    &--genai {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.06) 0%, rgba(118, 75, 162, 0.04) 100%);
+      border-color: rgba(102, 126, 234, 0.2);
+    }
+
+    &--input {
+      background: rgba(59, 130, 246, 0.04);
+      border-color: rgba(59, 130, 246, 0.15);
+    }
+
+    &--output {
+      background: rgba(16, 185, 129, 0.04);
+      border-color: rgba(16, 185, 129, 0.15);
+    }
+
+    &--collapsible {
+      cursor: default;
+
+      > summary {
+        cursor: pointer;
+        user-select: none;
+        padding: 0;
+        margin: -$spacing-md;
+        padding: $spacing-sm $spacing-md;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.03);
+        }
+      }
+
+      > .genai-span-detail__table {
+        margin-top: $spacing-sm;
+      }
+    }
+  }
+
+  &__section-title {
+    font-size: $font-size-base;
+    font-weight: 600;
+    color: $color-text-secondary;
+    margin: 0 0 $spacing-sm 0;
+  }
+
+  // ── Table ──
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: $font-size-sm;
+
+    td {
+      padding: 4px 8px;
+      vertical-align: top;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    td:first-child {
+      font-weight: 600;
+      color: $color-text-secondary;
+      white-space: nowrap;
+      width: 1%;
+      padding-right: 12px;
+    }
+
+    td:last-child {
+      color: $color-text-primary;
+      font-family: $font-family-mono;
+      font-size: $font-size-xs;
+      word-break: break-all;
+    }
+
+    code {
+      background: rgba(255, 255, 255, 0.06);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: $font-size-xs;
+    }
+
+    strong {
+      color: $color-text-primary;
+    }
+  }
+
+  &__attr-key {
+    font-family: $font-family-mono;
+    color: $color-accent !important;
+  }
+
+  &__attr-val {
+    font-family: $font-family-mono;
+    color: $color-text-primary;
+    word-break: break-word;
+    white-space: pre-wrap;
+
+    &--long {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+  }
+
+  &__attr-pre {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 8px;
+    border-radius: 4px;
+    font-size: $font-size-xs;
+    line-height: 1.5;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  &__attr-toggle {
+    background: none;
+    border: 1px solid $color-border;
+    border-radius: $radius-sm;
+    color: $color-accent;
+    cursor: pointer;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    align-self: flex-start;
+    font-family: $font-family-base;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+  }
+
+  // ── Events ──
+  &__event {
+    padding: $spacing-sm;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    margin-bottom: $spacing-xs;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__event-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+
+    strong {
+      color: $color-text-primary;
+      font-size: $font-size-sm;
+    }
+  }
+
+  &__event-time {
+    font-family: $font-family-mono;
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+  }
+
+  // ── Children ──
+  &__children {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: $spacing-sm;
+  }
+
+  &__child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    font-size: $font-size-sm;
+  }
+
+  &__child-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: $color-text-primary;
+  }
+
+  &__child-dur {
+    font-family: $font-family-mono;
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+    flex-shrink: 0;
+  }
+}
+
+// Responsive
+@media (max-width: $breakpoint-lg) {
+  .genai-split {
+    flex-direction: column;
+
+    &__left {
+      width: 100%;
+      max-width: 100%;
+      max-height: 300px;
+    }
+  }
+}
+
+// ============================================================================
+// SmartContent — Syntax-highlighted JSON / YAML / XML viewer
+// ============================================================================
+
+.smart-content {
+  margin: 4px 0;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+
+  &__badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(0, 0, 0, 0.15);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: $font-size-xs;
+  }
+
+  &__badge-icon {
+    font-size: 11px;
+  }
+
+  &__badge-label {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 10px;
+  }
+
+  &__badge-size {
+    margin-left: auto;
+    color: $color-text-tertiary;
+    font-family: $font-family-mono;
+    font-size: 10px;
+  }
+
+  &__view-toggle {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: $radius-full;
+    color: $color-accent;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 8px;
+    cursor: pointer;
+    font-family: $font-family-base;
+    transition: background $transition-fast;
+    white-space: nowrap;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+  }
+
+  &__markdown {
+    padding: 12px 14px;
+    font-size: $font-size-sm;
+    line-height: 1.7;
+    color: $color-text-primary;
+    overflow-y: auto;
+    max-height: 600px;
+
+    h1, h2, h3, h4, h5, h6 {
+      color: $color-text-primary;
+      margin: 0.8em 0 0.4em;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    h1 { font-size: 1.4em; }
+    h2 { font-size: 1.2em; }
+    h3 { font-size: 1.05em; }
+
+    p { margin: 0.5em 0; }
+
+    ul, ol {
+      padding-left: 1.5em;
+      margin: 0.5em 0;
+    }
+
+    li { margin: 0.2em 0; }
+
+    blockquote {
+      border-left: 3px solid $color-accent;
+      margin: 0.5em 0;
+      padding: 4px 12px;
+      color: $color-text-secondary;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 0 4px 4px 0;
+    }
+
+    code {
+      background: rgba(255, 255, 255, 0.07);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: $font-family-mono;
+      font-size: 0.9em;
+    }
+
+    pre {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 0.5em 0;
+
+      code {
+        background: none;
+        padding: 0;
+        font-size: $font-size-xs;
+        line-height: 1.6;
+      }
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.5em 0;
+      font-size: $font-size-xs;
+
+      th, td {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 4px 8px;
+        text-align: left;
+      }
+      th {
+        background: rgba(255, 255, 255, 0.05);
+        font-weight: 600;
+      }
+    }
+
+    a {
+      color: $color-accent;
+      text-decoration: underline;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin: 0.8em 0;
+    }
+
+    strong { font-weight: 700; }
+    em { font-style: italic; }
+  }
+
+  &__body {
+    position: relative;
+    overflow: hidden;
+
+    &--collapsed {
+      overflow: hidden;
+    }
+  }
+
+  &__fade {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 48px;
+    background: linear-gradient(transparent, rgba(11, 15, 25, 0.95));
+    pointer-events: none;
+  }
+
+  &__pre {
+    margin: 0;
+    padding: 10px 12px;
+    font-family: $font-family-mono;
+    font-size: $font-size-xs;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: $color-text-primary;
+    overflow-x: auto;
+    tab-size: 2;
+  }
+
+  &__toggle {
+    display: block;
+    width: 100%;
+    padding: 5px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    color: $color-accent;
+    font-size: $font-size-xs;
+    font-family: $font-family-base;
+    cursor: pointer;
+    text-align: center;
+    transition: background $transition-fast;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+  }
+}
+
+// ============================================================================
+// Prism.js — Dark theme for JSON / YAML / XML syntax highlighting
+// ============================================================================
+
+.smart-content__pre {
+  // JSON
+  .token {
+    &.property {
+      color: #7dd3fc;    // light blue — keys
+    }
+    &.string {
+      color: #86efac;    // green — strings
+    }
+    &.number {
+      color: #fbbf24;    // amber — numbers
+    }
+    &.boolean {
+      color: #c4b5fd;    // purple — booleans
+    }
+    &.null {
+      color: #94a3b8;    // slate — null
+      font-style: italic;
+    }
+    &.operator,
+    &.punctuation {
+      color: rgba(255, 255, 255, 0.5); // dim braces/brackets
+    }
+
+    // YAML specifics
+    &.key {
+      color: #7dd3fc;    // light blue — YAML keys
+    }
+    &.important {
+      color: #fb923c;    // orange — YAML document markers (---)
+    }
+    &.atrule {
+      color: #7dd3fc;
+    }
+    &.scalar {
+      color: #86efac;
+    }
+
+    // XML / markup specifics
+    &.tag {
+      color: #f472b6;    // pink — tags
+    }
+    &.attr-name {
+      color: #7dd3fc;    // light blue — attribute names
+    }
+    &.attr-value {
+      color: #86efac;    // green — attribute values
+    }
+    &.namespace {
+      color: #fbbf24;    // amber — namespaces
+    }
+    &.comment {
+      color: #6b7280;    // gray — comments
+      font-style: italic;
+    }
+
+    // Generic
+    &.keyword {
+      color: #c4b5fd;
+    }
+    &.function {
+      color: #7dd3fc;
+    }
+  }
+}
+

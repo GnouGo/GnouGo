@@ -1,0 +1,109 @@
+// ============================================================================
+// Create Tenant Form Component (BEM)
+// ============================================================================
+
+.create-tenant-form {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+
+  &__fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-md;
+
+    @media (max-width: $breakpoint-md) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+  }
+}
+
+// Panel modifier for create form
+.panel--create-form {
+  background: rgba(78, 222, 128, 0.05);
+  border-color: rgba(78, 222, 128, 0.2);
+}
+
+// Field hint
+.field__hint {
+  font-size: $font-size-xs;
+  opacity: 0.7;
+  margin-top: 4px;
+  display: block;
+}
+
+// Success message
+.success {
+  background: rgba(78, 222, 128, 0.1);
+  border: 1px solid rgba(78, 222, 128, 0.3);
+  border-radius: $radius-sm;
+  padding: $spacing-md;
+  margin-top: $spacing-md;
+
+  &__title {
+    font-weight: 700;
+    color: $color-success;
+    margin-bottom: $spacing-sm;
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  &__field {
+    font-size: $font-size-sm;
+
+    strong {
+      opacity: 0.8;
+      margin-right: 6px;
+    }
+  }
+
+  &__api-key {
+    font-family: $font-family-mono;
+    font-size: $font-size-xs;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 4px 8px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-border;
+    display: inline-block;
+    word-break: break-all;
+    margin-left: 6px;
+  }
+
+  &__warning {
+    font-size: $font-size-sm;
+    color: $color-warning;
+    margin-top: $spacing-sm;
+    padding: $spacing-sm;
+    background: rgba(255, 215, 0, 0.1);
+    border-radius: $radius-sm;
+    font-weight: 600;
+  }
+}
+
+// Button modifier: primary
+.button--primary {
+  background: rgba(78, 222, 128, 0.15);
+  border-color: rgba(78, 222, 128, 0.4);
+  color: $color-success;
+
+  &:hover:not(:disabled) {
+    background: rgba(78, 222, 128, 0.25);
+    border-color: rgba(78, 222, 128, 0.6);
+  }
+}
+
+// Button modifier: small
+.button--small {
+  padding: 4px 10px;
+  font-size: $font-size-xs;
+}

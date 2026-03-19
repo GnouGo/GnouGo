@@ -1,0 +1,185 @@
+dsl: 1
+name: comprehensive-demo
+meta:
+  author: GnOuGo.Flow
+  description: Demonstrates all step types
+
+functions: |
+  function scoreText(text) {
+    let score = len(text);
+    if (score > 20) {
+      return "high";
+    } else {
+      return "low";
+    }
+  }
+  function formatResult(label, val) {
+    return label + ": " + val;
+  }
+
+workflows:
+  main:
+    inputs:
+      data_items:
+        type: array
+        items: { type: any }
+        required: true
+        description: Data items to process in the workflow
+      mode:
+        type: string
+        required: false
+        default: "standard"
+        description: Processing mode (standard, fast, or custom)
+
+    steps:
+      # 1) Sequence of setup steps
+      - id: setup
+        type: sequence
+        steps:
+          - id: validate_input
+            type: template.render
+            input:
+              engine: mustache
+              template: "Validated {{count}} items in {{mode}} mode"
+              data:
+                count: "${len(data.inputs.data_items)}"
+                mode: "${data.inputs.mode}"
+              mode: text
+
+          - id: score
+            type: template.render
+            input:
+              engine: mustache
+              template: "Score: {{score}}"
+              data:
+                score: "${functions.scoreText(data.inputs.mode)}"
+              mode: text
+
+      # 2) Switch on mode
+      - id: mode_switch
+        type: switch
+        cases:
+          - when: '${data.inputs.mode == "fast"}'
+            steps:
+              - id: fast_process
+                type: template.render
+                input:
+                  engine: mustache
+                  template: "Fast mode activated"
+                  data: {}
+                  mode: text
+
+          - when: '${data.inputs.mode == "standard"}'
+            steps:
+              - id: standard_process
+                type: template.render
+                input:
+                  engine: mustache
+                  template: "Standard mode activated"
+                  data: {}
+                  mode: text
+
+        default:
+          - id: default_process
+            type: template.render
+            input:
+              engine: mustache
+              template: "Unknown mode: {{mode}}"
+              data:
+                mode: "${data.inputs.mode}"
+              mode: text
+
+      # 3) Parallel processing of items
+      - id: think_parallel
+        type: emit
+        input:
+          message: "Processing ${len(data.inputs.data_items)} items in parallel…"
+          level: thinking
+
+      - id: process_items
+        type: loop.parallel
+        input:
+          items: "${data.inputs.data_items}"
+          max_concurrency: 2
+        item_var: item
+        index_var: idx
+        steps:
+          - id: format_item
+            type: template.render
+            input:
+              engine: mustache
+              template: "{{label}}"
+              data:
+                label: '${functions.formatResult("Item", json(data.item))}'
+              mode: text
+
+      # 4) LLM call for summary
+      - id: think_llm
+        type: emit
+        input:
+          message: "Asking LLM to summarize ${len(data.inputs.data_items)} processed items…"
+          level: thinking
+
+      - id: llm_summary
+        type: llm.call
+        input:
+          model: gpt-4
+          prompt: "Summarize processing of ${len(data.inputs.data_items)} items"
+          temperature: 0.3
+
+      # 5) Call sub-workflow
+      - id: think_report
+        type: emit
+        input:
+          message: "Generating final report…"
+          level: progress
+
+      - id: final_report
+        type: workflow.call
+        input:
+          ref:
+            kind: local
+            name: report_builder
+          args:
+            item_count: "${len(data.inputs.data_items)}"
+            summary: "${data.steps.llm_summary.text}"
+
+    outputs:
+      setup: "${data.steps.setup}"
+      items_processed: "${data.steps.process_items.count}"
+      summary: "${data.steps.llm_summary.text}"
+      report: "${data.steps.final_report.outputs.report}"
+
+  report_builder:
+    inputs:
+      item_count:
+        type: number
+        required: true
+        description: Total number of items processed
+      summary:
+        type: string
+        required: true
+        description: LLM-generated summary text
+
+    steps:
+      - id: build_report
+        type: template.render
+        input:
+          engine: mustache
+          template: |
+            === REPORT ===
+            Items: {{count}}
+            Summary: {{summary}}
+            ==============
+          data:
+            count: "${data.inputs.item_count}"
+            summary: "${data.inputs.summary}"
+          mode: text
+
+    outputs:
+      report: "${data.steps.build_report.text}"
+
+exports:
+  - report_builder
+
+

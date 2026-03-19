@@ -1,0 +1,533 @@
+// ─── SlimFlow Visual Editor Styles (BEM) ───────────────────
+
+// ── Flow Editor ──
+.flow-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  background: var(--bg);
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    flex-shrink: 0;
+
+    &-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      label {
+        font-size: 0.82rem;
+        color: var(--text-dim);
+      }
+
+      select {
+        background: var(--editor-bg);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 0.82rem;
+        cursor: pointer;
+      }
+    }
+
+    &-right {
+      display: flex;
+      align-items: center;
+    }
+  }
+
+  &__parse-error {
+    background: rgba(244, 67, 54, 0.12);
+    border-bottom: 1px solid var(--error);
+    padding: 8px 16px;
+    font-size: 0.82rem;
+    color: var(--error);
+    flex-shrink: 0;
+  }
+
+  &__content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  &__palette {
+    width: 220px;
+    border-right: 1px solid var(--border);
+    background: var(--panel-bg);
+    overflow-y: auto;
+    flex-shrink: 0;
+    cursor: default;
+  }
+
+  &__graph {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__props {
+    width: 300px;
+    border-left: 1px solid var(--border);
+    background: var(--panel-bg);
+    overflow-y: auto;
+    flex-shrink: 0;
+    cursor: default;
+  }
+}
+
+// ── Btn Add ──
+.btn-add {
+  padding: 4px 12px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-weight: 600;
+
+  &:hover {
+    background: var(--accent-hover);
+  }
+}
+
+// ── Validation badge ──
+.validation-badge {
+  font-size: 0.78rem;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+
+  &--valid {
+    background: rgba(76, 175, 80, 0.15);
+    color: var(--success);
+  }
+
+  &--has-warnings {
+    background: rgba(255, 152, 0, 0.15);
+    color: var(--warning);
+  }
+
+  &--has-errors {
+    background: rgba(244, 67, 54, 0.15);
+    color: var(--error);
+  }
+}
+
+// ── Step Node ──
+.step-node {
+  min-width: 220px;
+  border: 2px solid #444;
+  border-radius: 8px;
+  background: var(--panel-bg);
+  font-size: 0.78rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: box-shadow 0.15s, border-color 0.15s;
+  cursor: pointer;
+
+  &--selected {
+    box-shadow: 0 0 0 2px var(--accent), 0 4px 16px rgba(79, 143, 247, 0.3);
+  }
+
+  &--has-errors {
+    border-color: var(--error) !important;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 6px 6px 0 0;
+    color: white;
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  &__icon {
+    font-size: 0.9rem;
+  }
+
+  &__type {
+    flex: 1;
+  }
+
+  &__badge {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+
+    &--error {
+      background: var(--error);
+    }
+
+    &--warning {
+      background: var(--warning);
+      color: #000;
+    }
+  }
+
+  &__body {
+    padding: 8px 10px;
+  }
+
+  &__id {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  &__guard {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+
+    code {
+      background: rgba(79, 143, 247, 0.1);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 0.68rem;
+    }
+  }
+
+  &__errors {
+    margin-top: 4px;
+  }
+
+  &__error {
+    font-size: 0.68rem;
+    padding: 1px 0;
+
+    &--error {
+      color: var(--error);
+    }
+
+    &--warning {
+      color: var(--warning);
+    }
+  }
+
+  &__error-more {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+  }
+}
+
+.step-handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: var(--accent) !important;
+  border: 2px solid var(--panel-bg) !important;
+}
+
+// ── Step Palette ──
+.step-palette {
+  padding: 10px;
+
+  h3 {
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+    color: var(--text-dim);
+  }
+
+  &__category {
+    margin-bottom: 10px;
+  }
+
+  &__cat-label {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+
+  &__items {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    background: var(--editor-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid;
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 0.76rem;
+    cursor: pointer;
+    transition: background 0.1s;
+    text-align: left;
+    width: 100%;
+
+    &:hover {
+      background: rgba(79, 143, 247, 0.08);
+      border-color: var(--accent);
+    }
+  }
+
+  &__icon {
+    font-size: 0.85rem;
+  }
+}
+
+// ── Step Properties ──
+.step-props {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    h3 {
+      flex: 1;
+      font-size: 0.9rem;
+    }
+  }
+
+  &__icon {
+    font-size: 1.2rem;
+  }
+
+  &__delete {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    transition: all 0.15s;
+
+    &:hover {
+      background: rgba(244, 67, 54, 0.15);
+      border-color: var(--error);
+      color: var(--error);
+    }
+  }
+
+  &__desc {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  &__section {
+    h4 {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border);
+    }
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    input,
+    select,
+    textarea {
+      background: var(--editor-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 0.78rem;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      outline: none;
+      transition: border-color 0.15s;
+
+      &:focus {
+        border-color: var(--accent);
+      }
+
+      &.has-error {
+        border-color: var(--error) !important;
+      }
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 50px;
+    }
+
+    &--checkbox label {
+      flex-direction: row;
+      cursor: pointer;
+    }
+  }
+
+  &__hint {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+  }
+
+  &__raw-input {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.78rem;
+    min-height: 80px;
+  }
+
+  &__toggle {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    cursor: pointer;
+    text-align: left;
+    padding: 4px 0;
+
+    &:hover {
+      color: var(--text);
+    }
+  }
+
+  &__advanced {
+    padding-left: 8px;
+    border-left: 2px solid var(--border);
+  }
+
+  &__errors {
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+
+    h4 {
+      font-size: 0.78rem;
+      margin-bottom: 4px;
+    }
+  }
+
+  &__error {
+    font-size: 0.72rem;
+    padding: 2px 0;
+
+    &--error {
+      color: var(--error);
+    }
+
+    &--warning {
+      color: var(--warning);
+    }
+  }
+}
+
+// ── Utility classes ──
+.required {
+  color: var(--error);
+  font-weight: 700;
+}
+
+.tag-expr {
+  background: rgba(79, 143, 247, 0.15);
+  color: var(--accent);
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.field-error {
+  font-size: 0.7rem;
+  color: var(--error);
+}
+
+// ── React Flow overrides ──
+$cursor-grab: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M9 11V6a1 1 0 1 1 2 0v5h1V5a1 1 0 1 1 2 0v6h1V7a1 1 0 1 1 2 0v8.5l1.2-1.2a1 1 0 0 1 1.4 1.4l-3.1 3.1a2 2 0 0 1-1.4.6H12a4 4 0 0 1-4-4v-3a1 1 0 1 1 2 0z' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M9 11V6a1 1 0 1 1 2 0v5h1V5a1 1 0 1 1 2 0v6h1V7a1 1 0 1 1 2 0v8.5l1.2-1.2a1 1 0 0 1 1.4 1.4l-3.1 3.1a2 2 0 0 1-1.4.6H12a4 4 0 0 1-4-4v-3a1 1 0 1 1 2 0z' fill='none' stroke='%23c0c4d0' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, grab;
+$cursor-grabbing: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M9 11V6a1 1 0 1 1 2 0v5h1V5a1 1 0 1 1 2 0v6h1V7a1 1 0 1 1 2 0v8.5l1.2-1.2a1 1 0 0 1 1.4 1.4l-3.1 3.1a2 2 0 0 1-1.4.6H12a4 4 0 0 1-4-4v-3a1 1 0 1 1 2 0z' fill='%23c0c4d0' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M9 11V6a1 1 0 1 1 2 0v5h1V5a1 1 0 1 1 2 0v6h1V7a1 1 0 1 1 2 0v8.5l1.2-1.2a1 1 0 0 1 1.4 1.4l-3.1 3.1a2 2 0 0 1-1.4.6H12a4 4 0 0 1-4-4v-3a1 1 0 1 1 2 0z' fill='%23c0c4d0' stroke='%23c0c4d0' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, grabbing;
+
+.flow-editor--edge {
+  .react-flow__pane,
+  .react-flow__renderer,
+  .react-flow__viewport {
+    cursor: move !important;
+  }
+
+  .react-flow__pane.dragging {
+    cursor: move !important;
+  }
+}
+
+.react-flow__node {
+  padding: 0 !important;
+  border-radius: 8px !important;
+  border: none !important;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+
+.react-flow,
+.react-flow__pane {
+  cursor: default;
+}
+
+.react-flow__pane {
+  cursor: $cursor-grab, grab, move, default !important;
+}
+
+.react-flow__pane.dragging {
+  cursor: $cursor-grabbing, grabbing, move, default !important;
+}
+
+.react-flow__minimap {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.react-flow__controls {
+  border-radius: 6px;
+  overflow: hidden;
+
+  button {
+    background: var(--panel-bg) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+
+    &:hover {
+      background: var(--editor-bg) !important;
+    }
+
+    svg {
+      fill: var(--text) !important;
+    }
+  }
+}

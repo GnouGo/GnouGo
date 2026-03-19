@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ClientAppDir>ClientApp</ClientAppDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GnOuGo.Diff.Core\GnOuGo.Diff.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Compiler automatiquement la ClientApp avant le build -->
+  <Target Name="BuildClientApp" BeforeTargets="Build" Condition="'$(SkipClientBuild)' != 'true'">
+    <Message Importance="high" Text="🔨 Compilation de la ClientApp (SCSS + React)..." />
+    
+    <!-- Installer les dépendances npm si node_modules n'existe pas -->
+    <Exec WorkingDirectory="$(ClientAppDir)" Command="npm install" Condition="!Exists('$(ClientAppDir)\node_modules')" />
+    
+    <!-- Compiler la ClientApp -->
+    <Exec WorkingDirectory="$(ClientAppDir)" Command="npm run build" />
+    
+    <Message Importance="high" Text="✅ ClientApp compilée dans wwwroot" />
+  </Target>
+
+  <!-- Nettoyer wwwroot lors du clean -->
+  <Target Name="CleanClientApp" AfterTargets="Clean">
+    <Message Importance="high" Text="🧹 Nettoyage de wwwroot..." />
+    <RemoveDir Directories="wwwroot" />
+  </Target>
+
+</Project>

@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "OtlpTenantCollector": {
+      "commandName": "Project",
+      "applicationUrl": "http://localhost:4318;http://localhost:4317",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
