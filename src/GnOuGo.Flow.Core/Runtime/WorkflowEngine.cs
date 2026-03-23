@@ -117,7 +117,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                 var outputObj = new JsonObject();
                 foreach (var kv in workflow.Outputs)
                 {
-                    outputObj[kv.Key] = _interpolator.Interpolate(kv.Value, data);
+                    outputObj[kv.Key] = EvaluateOutputDef(kv.Value, data);
                 }
                 result.Outputs = outputObj;
             }
@@ -494,6 +494,30 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public ExpressionEvaluator Evaluator => _evaluator;
     public StringInterpolator Interpolator => _interpolator;
     public StepExecutorRegistry Registry => _registry;
+
+    /// <summary>
+    /// Evaluates an <see cref="OutputDef"/> against the data context.
+    /// Handles both simple expression outputs and nested object outputs (backward-compat).
+    /// </summary>
+    internal JsonNode? EvaluateOutputDef(Models.OutputDef def, JsonObject data)
+    {
+        // Simple expression output
+        if (!string.IsNullOrEmpty(def.Expr))
+            return _interpolator.Interpolate(def.Expr, data);
+
+        // Nested object output (backward-compat: outputs without expr, with properties containing expressions)
+        if (def.Properties != null)
+        {
+            var obj = new JsonObject();
+            foreach (var (key, propDef) in def.Properties)
+            {
+                obj[key] = EvaluateOutputDef(propDef, data);
+            }
+            return obj;
+        }
+
+        return null;
+    }
 
     private static StepExecutorRegistry CreateDefaultRegistry()
     {

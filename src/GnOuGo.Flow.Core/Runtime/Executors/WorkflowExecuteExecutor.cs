@@ -67,9 +67,25 @@ public sealed class WorkflowExecuteExecutor : IStepExecutor
         var result = new RunResult { Success = true };
         await ctx.Engine.ExecuteStepsAsync(workflow.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, ctx.CallStack, ct);
 
+        // Evaluate typed outputs if declared
+        JsonNode? outputs;
+        if (workflow.Outputs != null)
+        {
+            var outputObj = new JsonObject();
+            foreach (var kv in workflow.Outputs)
+            {
+                outputObj[kv.Key] = ctx.Engine.EvaluateOutputDef(kv.Value, subData);
+            }
+            outputs = outputObj;
+        }
+        else
+        {
+            outputs = subData["steps"]?.DeepClone();
+        }
+
         return new JsonObject
         {
-            ["outputs"] = subData["steps"]?.DeepClone(),
+            ["outputs"] = outputs,
             ["workflow"] = workflow.Name,
             ["run"] = new JsonObject
             {

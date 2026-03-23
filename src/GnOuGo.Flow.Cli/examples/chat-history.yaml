@@ -58,7 +58,16 @@ workflows:
           top_k: 100
 
     outputs:
-      conversation_id: "${data.steps.create_conv.conversation_id}"
-      assistant_response: "${data.steps.llm_response.text}"
-      message_count: "${len(data.steps.full_history.messages)}"
+      conversation_id:
+        expr: "${data.steps.create_conv.conversation_id}"
+        type: string
+        description: Unique conversation identifier
+      assistant_response:
+        expr: "${data.steps.llm_response.text}"
+        type: string
+        description: LLM assistant response text
+      message_count:
+        expr: "${len(data.steps.full_history.messages)}"
+        type: number
+        description: Total messages in conversation
 

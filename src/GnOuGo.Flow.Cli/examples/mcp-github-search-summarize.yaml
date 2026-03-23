@@ -74,7 +74,16 @@ workflows:
             Keep your answer concise (2-3 paragraphs).
 
     outputs:
-      search_status: "${data.steps.search.status}"
-      file_path: "${data.steps.search.response.items[0].path}"
-      analysis: "${data.steps.analysis.text}"
+      search_status:
+        expr: "${data.steps.search.status}"
+        type: string
+        description: GitHub search status
+      file_path:
+        expr: "${data.steps.search.response.items[0].path}"
+        type: string
+        description: Path of first search result
+      analysis:
+        expr: "${data.steps.analysis.text}"
+        type: string
+        description: LLM analysis of search results
 

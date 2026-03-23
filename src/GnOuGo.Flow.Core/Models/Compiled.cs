@@ -20,7 +20,7 @@ public sealed class CompiledWorkflow
     public string Name { get; set; } = "";
     public WorkflowDef Source { get; set; } = null!;
     public List<CompiledStep> Steps { get; set; } = new();
-    public Dictionary<string, string>? Outputs { get; set; }
+    public Dictionary<string, OutputDef>? Outputs { get; set; }
 
     /// <summary>Reference to the parent compiled document (for sub-workflow calls).</summary>
     public CompiledDocument Document { get; set; } = null!;

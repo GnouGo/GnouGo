@@ -130,7 +130,94 @@ workflows:
         var doc = WorkflowParser.Parse(yaml);
         var outputs = doc.Workflows["main"].Outputs;
         Assert.NotNull(outputs);
-        Assert.Equal("${data.steps.s1}", outputs!["result"]);
+        Assert.Equal("${data.steps.s1}", outputs!["result"].Expr);
+        Assert.Equal("any", outputs["result"].Type); // untyped short form defaults to "any"
+    }
+
+    [Fact]
+    public void Parse_TypedOutputs_ParsesLongForm()
+    {
+        var yaml = @"
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: s1
+        type: template.render
+    outputs:
+      summary:
+        expr: ""${data.steps.s1.text}""
+        type: string
+        description: The summary text
+      count:
+        expr: ""${data.steps.s1.count}""
+        type: number
+        description: Number of items
+      items:
+        expr: ""${data.steps.s1.items}""
+        type: array
+        items: { type: string }
+        description: List of item names
+      details:
+        expr: ""${data.steps.s1.json}""
+        type: object
+        description: Structured details
+        properties:
+          name: { type: string }
+          score: { type: number }
+        required: [name]
+";
+        var doc = WorkflowParser.Parse(yaml);
+        var outputs = doc.Workflows["main"].Outputs;
+        Assert.NotNull(outputs);
+        Assert.Equal(4, outputs!.Count);
+
+        // string output
+        Assert.Equal("${data.steps.s1.text}", outputs["summary"].Expr);
+        Assert.Equal("string", outputs["summary"].Type);
+        Assert.Equal("The summary text", outputs["summary"].Description);
+
+        // number output
+        Assert.Equal("number", outputs["count"].Type);
+
+        // array output with items
+        Assert.Equal("array", outputs["items"].Type);
+        Assert.NotNull(outputs["items"].Items);
+        Assert.Equal("string", outputs["items"].Items!.Type);
+
+        // object output with properties and required
+        Assert.Equal("object", outputs["details"].Type);
+        Assert.NotNull(outputs["details"].Properties);
+        Assert.Equal(2, outputs["details"].Properties!.Count);
+        Assert.Equal("string", outputs["details"].Properties["name"].Type);
+        Assert.Equal("number", outputs["details"].Properties["score"].Type);
+        Assert.NotNull(outputs["details"].RequiredProperties);
+        Assert.Contains("name", outputs["details"].RequiredProperties!);
+    }
+
+    [Fact]
+    public void Parse_NestedObjectOutputs_BackwardCompat()
+    {
+        var yaml = @"
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: s1
+        type: template.render
+    outputs:
+      meta:
+        model: ""${data.steps.s1.model}""
+        attempts: ""${data.steps.s1.attempts}""
+";
+        var doc = WorkflowParser.Parse(yaml);
+        var outputs = doc.Workflows["main"].Outputs;
+        Assert.NotNull(outputs);
+        var meta = outputs!["meta"];
+        Assert.Equal("object", meta.Type);
+        Assert.NotNull(meta.Properties);
+        Assert.Equal("${data.steps.s1.model}", meta.Properties!["model"].Expr);
+        Assert.Equal("${data.steps.s1.attempts}", meta.Properties["attempts"].Expr);
     }
 
     [Fact]

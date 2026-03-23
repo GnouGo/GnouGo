@@ -72,12 +72,39 @@ workflows:
           method: browser_close
 
     outputs:
-      tool_count: "${len(data.steps.discover_browser_tools.tools)}"
-      first_excerpt_status: "${data.steps.read_first.status}"
-      first_excerpt: "${data.steps.read_first.response}"
-      second_excerpt_status: "${data.steps.read_second.status}"
-      second_excerpt: "${data.steps.read_second.response}"
-      third_excerpt_status: "${data.steps.read_third.status}"
-      third_excerpt: "${data.steps.read_third.response}"
-      close_status: "${data.steps.close_browser.status}"
-      close_result: "${data.steps.close_browser.response}"
+      tool_count:
+        expr: "${len(data.steps.discover_browser_tools.tools)}"
+        type: number
+        description: Number of browser tools discovered
+      first_excerpt_status:
+        expr: "${data.steps.read_first.status}"
+        type: string
+        description: First page read status
+      first_excerpt:
+        expr: "${data.steps.read_first.response}"
+        type: object
+        description: First page response
+      second_excerpt_status:
+        expr: "${data.steps.read_second.status}"
+        type: string
+        description: Second page read status
+      second_excerpt:
+        expr: "${data.steps.read_second.response}"
+        type: object
+        description: Second page response
+      third_excerpt_status:
+        expr: "${data.steps.read_third.status}"
+        type: string
+        description: Third page read status
+      third_excerpt:
+        expr: "${data.steps.read_third.response}"
+        type: object
+        description: Third page response
+      close_status:
+        expr: "${data.steps.close_browser.status}"
+        type: string
+        description: Browser close status
+      close_result:
+        expr: "${data.steps.close_browser.response}"
+        type: object
+        description: Browser close response

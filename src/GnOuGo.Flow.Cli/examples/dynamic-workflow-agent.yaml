@@ -142,9 +142,18 @@ workflows:
             Start directly with the answer, do not mention that a workflow was used.
     
     outputs:
-      task: "${data.inputs.task}"
-      answer: "${data.steps.format.text}"
-      generated_yaml: "${data.steps.generate.yaml}"
+      task:
+        expr: "${data.inputs.task}"
+        type: string
+        description: Original user task
+      answer:
+        expr: "${data.steps.format.text}"
+        type: string
+        description: Final formatted answer
+      generated_yaml:
+        expr: "${data.steps.generate.yaml}"
+        type: string
+        description: Generated YAML workflow source
       meta:
         model: "${data.steps.generate.meta.model}"
         attempts: "${data.steps.generate.meta.attempt}"

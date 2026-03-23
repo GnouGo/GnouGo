@@ -20,6 +20,12 @@ workflows:
             - tools
 
     outputs:
-      tool_count: "${len(data.steps.discover.tools)}"
-      tools_text: "${data.steps.discover.text}"
+      tool_count:
+        expr: "${len(data.steps.discover.tools)}"
+        type: number
+        description: Number of GitHub tools discovered
+      tools_text:
+        expr: "${data.steps.discover.text}"
+        type: string
+        description: Text description of discovered tools
 

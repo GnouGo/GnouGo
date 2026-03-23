@@ -42,7 +42,16 @@ workflows:
           prompt: "Summarize this weather data: ${json(data.steps.weather.response)}"
 
     outputs:
-      mcp_status: "${data.steps.weather.status}"
-      weather_data: "${data.steps.weather.response}"
-      summary: "${data.steps.summary.text}"
+      mcp_status:
+        expr: "${data.steps.weather.status}"
+        type: string
+        description: MCP call status
+      weather_data:
+        expr: "${data.steps.weather.response}"
+        type: object
+        description: Weather data response
+      summary:
+        expr: "${data.steps.summary.text}"
+        type: string
+        description: LLM weather summary
 
