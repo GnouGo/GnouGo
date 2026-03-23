@@ -116,8 +116,14 @@ workflows:
                   mode: json
 
     outputs:
-      result: "${data.steps.format_output.text}"
-      classification: "${data.steps.classify_input.text}"
+      result:
+        expr: "${data.steps.format_output.text}"
+        type: string
+        description: Final formatted result
+      classification:
+        expr: "${data.steps.classify_input.text}"
+        type: string
+        description: LLM classification of input
 
   helper:
     inputs:
@@ -137,7 +143,10 @@ workflows:
           mode: text
 
     outputs:
-      result: "${data.steps.process.text}"
+      result:
+        expr: "${data.steps.process.text}"
+        type: string
+        description: Processed text result
 
 exports:
   - helper

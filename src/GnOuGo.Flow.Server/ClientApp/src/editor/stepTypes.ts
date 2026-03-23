@@ -103,6 +103,18 @@ export const STEP_TYPES: StepTypeDef[] = [
     description: 'Set or compute variables (each key in input becomes a variable)',
     fields: [],
   },
+  {
+    type: 'emit',
+    label: 'Emit',
+    icon: '💬',
+    category: 'control',
+    color: '#a3e635',
+    description: 'Emit a thinking / info / progress / response message',
+    fields: [
+      { name: 'message', label: 'Message', type: 'text', required: true, placeholder: 'Processing ${len(data.inputs.items)} items…' },
+      { name: 'level', label: 'Level', type: 'select', options: ['thinking', 'info', 'progress', 'response'], defaultValue: 'thinking', description: 'Message level' },
+    ],
+  },
 
   // ── Template ──
   {

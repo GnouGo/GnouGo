@@ -29,7 +29,10 @@ workflows:
         type: template.render
         input: { engine: mustache, template: "Hello {{name}}", data: { name: "${data.inputs.message}" }, mode: text }
     outputs:
-      result: "${data.steps.step1.text}"
+      result:
+        expr: "${data.steps.step1.text}"
+        type: string
+        description: The rendered result text
 ```
 
 ## Input type system
@@ -80,6 +83,34 @@ query:
 ```
 
 All rich type fields are optional — omitting them means no structural validation beyond the base type check.
+
+## Output type system
+Outputs support the same rich type descriptors as inputs, enabling automatic JSON Schema generation for MCP tool exposure.
+
+### Short form (expression only, backward compatible)
+```yaml
+outputs:
+  result: "${data.steps.step1.text}"
+```
+
+### Long form (typed output)
+```yaml
+outputs:
+  result:
+    expr: "${data.steps.step1.text}"
+    type: string
+    description: The rendered result text
+  summary:
+    expr: "${data.steps.llm.json}"
+    type: object
+    description: Structured summary
+    properties:
+      title: { type: string }
+      items: { type: array, items: { type: string } }
+    required: [title, items]
+```
+
+Base types: `string`, `number`, `boolean`, `array`, `object`, `dictionary`, `any` (same as inputs).
 
 ## Expressions ${...}
 Expressions are embedded in strings using `${...}` syntax. They are JavaScript expressions evaluated against a data context.

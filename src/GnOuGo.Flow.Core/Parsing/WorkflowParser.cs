@@ -93,7 +93,18 @@ public static class WorkflowParser
 
         // outputs
         if (node.HasKey("outputs"))
-            wf.Outputs = node.GetStringMap("outputs");
+        {
+            var outputsNode = node.GetMapping("outputs");
+            if (outputsNode != null)
+            {
+                wf.Outputs = new Dictionary<string, OutputDef>();
+                foreach (var child in outputsNode.Children)
+                {
+                    var key = (child.Key as YamlScalarNode)?.Value ?? "";
+                    wf.Outputs[key] = ParseOutputDef(child.Value);
+                }
+            }
+        }
 
         return wf;
     }
@@ -146,6 +157,125 @@ public static class WorkflowParser
         }
 
         return new InputDef();
+    }
+
+    private static OutputDef ParseOutputDef(YamlNode node)
+    {
+        // Short form: scalar expression string → OutputDef { Expr = expr, Type = "any" }
+        if (node is YamlScalarNode scalar)
+            return OutputDef.FromExpr(scalar.Value ?? "");
+
+        if (node is YamlMappingNode map)
+        {
+            var hasExpr = map.HasKey("expr");
+            var hasType = map.HasKey("type");
+
+            // Long form with "expr" key — typed output definition
+            if (hasExpr)
+            {
+                var def = new OutputDef
+                {
+                    Expr = map.GetScalar("expr") ?? "",
+                    Type = map.GetScalar("type") ?? "any",
+                    Description = map.GetScalar("description")
+                };
+
+                // Array element type
+                var itemsNode = map.Children
+                    .FirstOrDefault(c => (c.Key as YamlScalarNode)?.Value == "items").Value;
+                if (itemsNode != null)
+                    def.Items = ParseOutputDef(itemsNode);
+
+                // Object property schemas
+                var propsNode = map.GetMapping("properties");
+                if (propsNode != null)
+                {
+                    def.Properties = new Dictionary<string, OutputDef>();
+                    foreach (var child in propsNode.Children)
+                    {
+                        var key = (child.Key as YamlScalarNode)?.Value ?? "";
+                        def.Properties[key] = ParseOutputDef(child.Value);
+                    }
+                }
+
+                // Dictionary value type / extra object properties
+                var additionalNode = map.Children
+                    .FirstOrDefault(c => (c.Key as YamlScalarNode)?.Value == "additional_properties").Value;
+                if (additionalNode != null)
+                    def.AdditionalProperties = ParseOutputDef(additionalNode);
+
+                // Required property names (for objects)
+                def.RequiredProperties = map.GetStringList("required") is { Count: > 0 } reqList
+                    ? reqList
+                    : null;
+
+                return def;
+            }
+
+            // Type-only schema (no expr, but has type) — used in nested items/properties
+            if (hasType)
+            {
+                var def = new OutputDef
+                {
+                    Type = map.GetScalar("type") ?? "any",
+                    Description = map.GetScalar("description")
+                };
+
+                var itemsNode = map.Children
+                    .FirstOrDefault(c => (c.Key as YamlScalarNode)?.Value == "items").Value;
+                if (itemsNode != null)
+                    def.Items = ParseOutputDef(itemsNode);
+
+                var propsNode = map.GetMapping("properties");
+                if (propsNode != null)
+                {
+                    def.Properties = new Dictionary<string, OutputDef>();
+                    foreach (var child in propsNode.Children)
+                    {
+                        var key = (child.Key as YamlScalarNode)?.Value ?? "";
+                        def.Properties[key] = ParseOutputDef(child.Value);
+                    }
+                }
+
+                var additionalNode = map.Children
+                    .FirstOrDefault(c => (c.Key as YamlScalarNode)?.Value == "additional_properties").Value;
+                if (additionalNode != null)
+                    def.AdditionalProperties = ParseOutputDef(additionalNode);
+
+                def.RequiredProperties = map.GetStringList("required") is { Count: > 0 } reqList
+                    ? reqList
+                    : null;
+
+                return def;
+            }
+
+            // Backward-compat: nested mapping without "expr" or "type" — build a composite object output
+            // e.g. { model: "${...}", attempts: "${...}" }
+            return new OutputDef
+            {
+                Expr = "",
+                Type = "object",
+                Properties = ParseNestedOutputExpressions(map)
+            };
+        }
+
+        return OutputDef.FromExpr("");
+    }
+
+    /// <summary>
+    /// Handles backward-compatible nested mapping outputs (no "expr" key) like:
+    /// <code>meta: { model: "${...}", attempts: "${...}" }</code>
+    /// Each child becomes an OutputDef with just its expression.
+    /// </summary>
+    private static Dictionary<string, OutputDef> ParseNestedOutputExpressions(YamlMappingNode map)
+    {
+        var props = new Dictionary<string, OutputDef>();
+        foreach (var child in map.Children)
+        {
+            var key = (child.Key as YamlScalarNode)?.Value ?? "";
+            props[key] = ParseOutputDef(child.Value);
+        }
+        return props;
     }
 
     private static List<StepDef> ParseStepList(YamlSequenceNode seq)

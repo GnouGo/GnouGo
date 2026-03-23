@@ -64,7 +64,19 @@ workflows:
             Please provide a brief summary of this repository and its recent open issues.
 
     outputs:
-      available_tools: "${len(data.steps.discover.tools)}"
-      repo_status: "${data.steps.get_repo.status}"
-      issues_status: "${data.steps.list_issues.status}"
-      summary: "${data.steps.summary.text}"
+      available_tools:
+        expr: "${len(data.steps.discover.tools)}"
+        type: number
+        description: Number of available tools
+      repo_status:
+        expr: "${data.steps.get_repo.status}"
+        type: string
+        description: Repository fetch status
+      issues_status:
+        expr: "${data.steps.list_issues.status}"
+        type: string
+        description: Issues list status
+      summary:
+        expr: "${data.steps.summary.text}"
+        type: string
+        description: LLM summary of results

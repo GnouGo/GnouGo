@@ -261,13 +261,34 @@ workflows:
           method: browser_close
 
     outputs:
-      subject: "${data.inputs.subject}"
-      sources_count: "${len(data.steps.safe_source_catalog.sources)}"
-      rounds_run: "${data.steps.safe_research_loop.count}"
-      final_evaluation: "${data.steps.safe_evaluate_round.json}"
-      structured_summary: "${data.steps.summarize_safe_research.outputs.summary_json}"
-      executive_summary: "${data.steps.summarize_safe_research.outputs.summary_text}"
-      research_trace: "${data.steps.safe_research_loop.iterations}"
+      subject:
+        expr: "${data.inputs.subject}"
+        type: string
+        description: Researched company or product name
+      sources_count:
+        expr: "${len(data.steps.safe_source_catalog.sources)}"
+        type: number
+        description: Total number of safe sources in catalog
+      rounds_run:
+        expr: "${data.steps.safe_research_loop.count}"
+        type: number
+        description: Number of research rounds executed
+      final_evaluation:
+        expr: "${data.steps.safe_evaluate_round.json}"
+        type: object
+        description: Final evaluation with status, confidence, coverage
+      structured_summary:
+        expr: "${data.steps.summarize_safe_research.outputs.summary_json}"
+        type: object
+        description: Structured research summary
+      executive_summary:
+        expr: "${data.steps.summarize_safe_research.outputs.summary_text}"
+        type: string
+        description: Narrative markdown summary
+      research_trace:
+        expr: "${data.steps.safe_research_loop.iterations}"
+        type: array
+        description: Full trace of all research iterations
 
   research_one_safe_source:
     inputs:
@@ -380,13 +401,34 @@ workflows:
             strict: true
 
     outputs:
-      source_name: "${data.inputs.source_name}"
-      navigate_status: "${data.steps.read_page.status}"
-      navigate_response: "${data.steps.read_page.response}"
-      read_status: "${data.steps.read_page.status}"
-      html_status: "${data.steps.read_page_html != null ? data.steps.read_page_html.status : null}"
-      html_excerpt: "${data.steps.read_page_html != null ? data.steps.read_page_html.response.content : null}"
-      extraction_json: "${data.steps.extract_findings != null ? data.steps.extract_findings.json : null}"
+      source_name:
+        expr: "${data.inputs.source_name}"
+        type: string
+        description: Name of the researched source
+      navigate_status:
+        expr: "${data.steps.read_page.status}"
+        type: string
+        description: HTTP navigation status
+      navigate_response:
+        expr: "${data.steps.read_page.response}"
+        type: object
+        description: Full navigation response
+      read_status:
+        expr: "${data.steps.read_page.status}"
+        type: string
+        description: Page read status
+      html_status:
+        expr: "${data.steps.read_page_html != null ? data.steps.read_page_html.status : null}"
+        type: string
+        description: HTML read status
+      html_excerpt:
+        expr: "${data.steps.read_page_html != null ? data.steps.read_page_html.response.content : null}"
+        type: string
+        description: HTML content excerpt
+      extraction_json:
+        expr: "${data.steps.extract_findings != null ? data.steps.extract_findings.json : null}"
+        type: object
+        description: Structured extraction findings
 
   summarize_safe_findings:
     inputs:
@@ -445,6 +487,12 @@ workflows:
             ${json(data.steps.structured_summary.json)}
 
     outputs:
-      summary_json: "${data.steps.structured_summary.json}"
-      summary_text: "${data.steps.narrative_summary.text}"
+      summary_json:
+        expr: "${data.steps.structured_summary.json}"
+        type: object
+        description: Structured research synthesis
+      summary_text:
+        expr: "${data.steps.narrative_summary.text}"
+        type: string
+        description: Narrative markdown summary
 

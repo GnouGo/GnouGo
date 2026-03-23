@@ -161,7 +161,7 @@ workflows:
         var yaml = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n    outputs:\n      result: \"${data.steps.s1}\"\n";
         var compiled = _compiler.Compile(WorkflowParser.Parse(yaml));
         Assert.NotNull(compiled.Workflows["main"].Outputs);
-        Assert.Equal("${data.steps.s1}", compiled.Workflows["main"].Outputs!["result"]);
+        Assert.Equal("${data.steps.s1}", compiled.Workflows["main"].Outputs!["result"].Expr);
     }
 
     [Fact]
@@ -271,6 +271,93 @@ workflows:
 ";
         var errors = _compiler.Validate(WorkflowParser.Parse(yaml));
         Assert.Contains(errors, e => e.Code == "INVALID_INPUT_SCHEMA" && e.Message!.Contains("missing_prop"));
+    }
+
+    [Fact]
+    public void Validate_TypedOutputs_ValidSchema_NoErrors()
+    {
+        var yaml = @"
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: s1
+        type: template.render
+    outputs:
+      result:
+        expr: ""${data.steps.s1.text}""
+        type: string
+        description: The result
+      items:
+        expr: ""${data.steps.s1.items}""
+        type: array
+        items: { type: string }
+";
+        var errors = _compiler.Validate(WorkflowParser.Parse(yaml));
+        Assert.DoesNotContain(errors, e => e.Code == "INVALID_OUTPUT_TYPE" || e.Code == "INVALID_OUTPUT_SCHEMA");
+    }
+
+    [Fact]
+    public void Validate_TypedOutputs_UnknownType_ReturnsError()
+    {
+        var yaml = @"
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: s1
+        type: template.render
+    outputs:
+      result:
+        expr: ""${data.steps.s1}""
+        type: foobar
+";
+        var errors = _compiler.Validate(WorkflowParser.Parse(yaml));
+        Assert.Contains(errors, e => e.Code == "INVALID_OUTPUT_TYPE" && e.Message!.Contains("foobar"));
+    }
+
+    [Fact]
+    public void Validate_TypedOutputs_ItemsOnNonArray_ReturnsError()
+    {
+        var yaml = @"
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: s1
+        type: template.render
+    outputs:
+      result:
+        expr: ""${data.steps.s1}""
+        type: string
+        items: { type: number }
+";
+        var errors = _compiler.Validate(WorkflowParser.Parse(yaml));
+        Assert.Contains(errors, e => e.Code == "INVALID_OUTPUT_SCHEMA" && e.Message!.Contains("items"));
+    }
+
+    [Fact]
+    public void Compile_PreservesTypedOutputs()
+    {
+        var yaml = @"
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: s1
+        type: template.render
+    outputs:
+      result:
+        expr: ""${data.steps.s1.text}""
+        type: string
+        description: The result text
+";
+        var compiled = _compiler.Compile(WorkflowParser.Parse(yaml));
+        var outputs = compiled.Workflows["main"].Outputs;
+        Assert.NotNull(outputs);
+        Assert.Equal("${data.steps.s1.text}", outputs!["result"].Expr);
+        Assert.Equal("string", outputs["result"].Type);
+        Assert.Equal("The result text", outputs["result"].Description);
     }
 }
 
