@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using GnOuGo.Flow.Core.Expressions;
@@ -115,6 +114,7 @@ public sealed class LlmCallExecutor : IStepExecutor
         try
         {
             var response = await llmClient.CallAsync(request, ct);
+
 
             // ── Thinking: preview first 120 chars of the LLM response ──
             if (!string.IsNullOrWhiteSpace(response.Text))

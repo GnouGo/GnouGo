@@ -1,0 +1,107 @@
+﻿# Human-in-the-Loop Example Workflow
+# Demonstrates HITL support:
+#   1. human.input step — explicit pause for user input
+#   2. Checkpoint/resume — workflow survives restarts
+
+dsl: 1
+
+workflows:
+  main:
+    inputs:
+      topic:
+        type: string
+        required: true
+        description: "The topic to research"
+
+    steps:
+      # ── Level 1: Explicit human input ──
+      - id: confirm_topic
+        type: human.input
+        input:
+          prompt: "The agent will research the following topic. Do you approve?"
+          context: "${data.inputs.topic}"
+          choices:
+            - approve
+            - reject
+            - modify
+          timeout_ms: 300000
+
+      # Guard: only continue if approved
+      - id: check_approval
+        type: switch
+        cases:
+          - when: "${data.steps.confirm_topic.response == 'reject'}"
+            steps:
+              - id: rejected
+                type: set
+                input:
+                  status: "rejected"
+                  message: "User rejected the topic."
+          - when: "${data.steps.confirm_topic.response == 'modify'}"
+            steps:
+              # Ask user for the modified topic
+              - id: ask_new_topic
+                type: human.input
+                input:
+                  prompt: "Please provide the modified topic:"
+                  fields:
+                    - name: new_topic
+                      type: string
+                      required: true
+                      description: "Enter the new research topic"
+              - id: use_new_topic
+                type: set
+                input:
+                  final_topic: "${data.steps.ask_new_topic.new_topic}"
+        default:
+          - id: use_original
+            type: set
+            input:
+              final_topic: "${data.inputs.topic}"
+
+      # Converge all branches into a single final_topic reference
+      - id: resolve_topic
+        type: set
+        input:
+          final_topic: "${data.steps.use_new_topic?.final_topic ?? data.steps.use_original?.final_topic ?? data.inputs.topic}"
+
+      # ── LLM research call ──
+      - id: research
+        type: llm.call
+        if: "${data.steps.confirm_topic.response != 'reject'}"
+        input:
+          model: gpt-4o
+          prompt: |
+            Research the following topic and create a summary.
+            Topic: ${data.steps.resolve_topic.final_topic}
+
+            Return a structured summary.
+          structured_output:
+            schema_inline:
+              type: object
+              properties:
+                summary:
+                  type: string
+                key_points:
+                  type: array
+                  items:
+                    type: string
+              required: [summary, key_points]
+
+      # ── Level 1: Final review ──
+      - id: final_review
+        type: human.input
+        if: "${data.steps.confirm_topic.response != 'reject'}"
+        input:
+          prompt: "Here is the research summary. Do you want to publish it?"
+          context: "${json(data.steps.research.json)}"
+          choices:
+            - publish
+            - discard
+            - revise
+
+    outputs:
+      decision:
+        expr: "${data.steps.final_review?.response ?? data.steps.rejected?.status ?? 'unknown'}"
+      research:
+        expr: "${data.steps.research?.json}"

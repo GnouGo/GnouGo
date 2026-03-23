@@ -24,6 +24,7 @@ public static class WorkflowParser
             ?? throw new WorkflowParseException("Root must be a YAML mapping");
 
         var doc = new WorkflowDocument();
+        doc.RawYaml = yaml;
 
         // dsl
         doc.Dsl = root.GetInt("dsl") ?? throw new WorkflowParseException("Missing required field 'dsl'");

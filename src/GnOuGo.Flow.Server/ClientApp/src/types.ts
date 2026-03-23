@@ -131,3 +131,24 @@ export interface ThinkingMessage {
   timestamp: string
 }
 
+export interface HumanInputFieldDef {
+  name: string
+  type: string
+  required?: boolean
+  description?: string
+  options?: string[]
+  default?: string
+}
+
+export interface PendingHumanInput {
+  runId: string
+  stepId: string
+  prompt: string
+  choices?: string[]
+  fields?: HumanInputFieldDef[]
+  context?: unknown
+  timeout_ms?: number
+  /** ISO timestamp when the request was emitted (from the SSE envelope). */
+  requestedAt?: string
+}
+

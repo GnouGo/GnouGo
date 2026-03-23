@@ -519,3 +519,117 @@ body {
   0%, 100% { opacity: 0.4; transform: scale(0.85); }
   50%      { opacity: 1;   transform: scale(1.15); }
 }
+
+// ── Human Input Form ──
+.human-input-form {
+  background: var(--panel-bg);
+  border: 2px solid var(--warning);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 12px 0;
+  animation: thinking-appear 0.3s ease-out;
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 1rem;
+    color: var(--warning);
+  }
+  &__icon { font-size: 1.3rem; }
+  &__timer {
+    margin-left: auto;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-dim);
+    &--expired {
+      color: var(--error);
+      font-weight: 600;
+    }
+  }
+  &__prompt {
+    color: var(--text);
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+  &__context {
+    margin-bottom: 12px;
+    summary {
+      cursor: pointer;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      &:hover { color: var(--accent); }
+    }
+    pre {
+      background: var(--editor-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 6px;
+      font-size: 0.8rem;
+      max-height: 240px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  }
+  &__choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  &__choice {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.15s, color 0.15s;
+    &:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+  }
+  &__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    label {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+    input, select {
+      background: var(--editor-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 0.9rem;
+    }
+  }
+  &__required {
+    color: var(--error);
+    margin-left: 2px;
+  }
+  &__free {
+    display: flex;
+    gap: 8px;
+    input {
+      flex: 1;
+      background: var(--editor-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 0.9rem;
+    }
+  }
+}

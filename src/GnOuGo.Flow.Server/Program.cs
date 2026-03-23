@@ -11,10 +11,12 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Logs;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Server.Configuration;
+using GnOuGo.Flow.Server.HumanInput;
 using GnOuGo.Flow.Server.Telemetry;
 
 var builder = WebApplication.CreateSlimBuilder(args);
@@ -133,6 +135,9 @@ builder.Services.AddSingleton<IMcpClientFactory>(_ =>
 });
 
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ServerHumanInputProvider>();
+builder.Services.AddSingleton<IHumanInputProvider>(sp => sp.GetRequiredService<ServerHumanInputProvider>());
+builder.Services.AddSingleton<IWorkflowCheckpointer, InMemoryWorkflowCheckpointer>();
 
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
@@ -151,6 +156,8 @@ app.MapPost("/api/workflow/run", async (
     ILLMClient llm,
     IMcpClientFactory mcpFactory,
     IMemoryCache mcpCache,
+    IHumanInputProvider hitlProvider,
+    IWorkflowCheckpointer checkpointer,
     ILoggerFactory loggerFactory) =>
 {
     try
@@ -158,7 +165,7 @@ app.MapPost("/api/workflow/run", async (
         var prepared = PrepareWorkflowRun(request);
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine");
-        var result = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, telemetry, llm, mcpFactory, mcpCache, logger, cts.Token);
+        var result = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, telemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, null, cts.Token, checkpointer);
         return Results.Ok(ToWorkflowRunResponse(result));
     }
     catch (WorkflowParseException ex)
@@ -175,6 +182,107 @@ app.MapPost("/api/workflow/run", async (
     }
 });
 
+// ── Human-in-the-Loop endpoint ──
+app.MapPost("/api/workflow/human-input/{runId}/{stepId}", async (
+    string runId,
+    string stepId,
+    HttpContext httpContext,
+    ServerHumanInputProvider hitlProvider,
+    IOptions<JsonOptions> jsonOptions) =>
+{
+    JsonNode? body;
+    try
+    {
+        var raw = await new StreamReader(httpContext.Request.Body).ReadToEndAsync();
+        body = string.IsNullOrWhiteSpace(raw) ? null : JsonNode.Parse(raw);
+    }
+    catch
+    {
+        return Results.BadRequest(new { error = "Invalid JSON body" });
+    }
+
+    if (hitlProvider.TrySubmitResponse(runId, stepId, body))
+        return Results.Ok(new { status = "accepted", runId, stepId });
+    return Results.NotFound(new { error = "No pending human input request", runId, stepId });
+});
+
+// ── List pending human-input requests ──
+app.MapGet("/api/workflow/human-input/pending", (ServerHumanInputProvider hitlProvider) =>
+{
+    var pending = hitlProvider.PendingKeys
+        .Select(k =>
+        {
+            var parts = k.Split(':', 2);
+            return new { runId = parts[0], stepId = parts.Length > 1 ? parts[1] : "" };
+        })
+        .ToList();
+    return Results.Ok(pending);
+});
+
+// ── Resume a workflow from checkpoint ──
+app.MapPost("/api/workflow/resume/{runId}", async (
+    string runId,
+    IWorkflowTelemetry telemetry,
+    ILLMClient llm,
+    IMcpClientFactory mcpFactory,
+    IMemoryCache mcpCache,
+    IHumanInputProvider hitlProvider,
+    IWorkflowCheckpointer checkpointer,
+    ILoggerFactory loggerFactory) =>
+{
+    try
+    {
+        var checkpoint = await checkpointer.LoadAsync(runId, CancellationToken.None);
+        if (checkpoint == null)
+            return Results.NotFound(new { error = "No checkpoint found", runId });
+
+        if (string.IsNullOrWhiteSpace(checkpoint.WorkflowYaml))
+            return Results.BadRequest(new { error = "Checkpoint does not contain workflow YAML; cannot resume", runId });
+
+        var doc = WorkflowParser.Parse(checkpoint.WorkflowYaml);
+        var compiler = new WorkflowCompiler();
+        var compiled = compiler.Compile(doc);
+        var entrypoint = compiled.Entrypoint;
+        if (entrypoint == null || !compiled.Workflows.ContainsKey(entrypoint))
+            return Results.BadRequest(new { error = "No entrypoint workflow found in checkpoint" });
+
+        var workflow = compiled.Workflows[entrypoint];
+        var logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine");
+
+        var engine = new WorkflowEngine
+        {
+            LLMClient = llm,
+            McpClientFactory = mcpFactory,
+            McpCache = mcpCache,
+            HumanInputProvider = hitlProvider,
+            Checkpointer = checkpointer,
+            Telemetry = telemetry,
+            Logger = logger,
+            Limits = new ExecutionLimits { LogStepContent = true, RunId = runId }
+        };
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        var result = await engine.ResumeAsync(runId, workflow, cts.Token);
+        return Results.Ok(ToWorkflowRunResponse(result));
+    }
+    catch (WorkflowParseException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (WorkflowCompilationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (WorkflowRuntimeException ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
 app.MapPost("/api/workflow/run/stream", async (
     HttpContext httpContext,
     WorkflowRunRequest request,
@@ -182,6 +290,8 @@ app.MapPost("/api/workflow/run/stream", async (
     ILLMClient llm,
     IMcpClientFactory mcpFactory,
     IMemoryCache mcpCache,
+    IHumanInputProvider hitlProvider,
+    IWorkflowCheckpointer checkpointer,
     ILoggerFactory loggerFactory,
     IOptions<JsonOptions> jsonOptions) =>
 {
@@ -223,7 +333,8 @@ app.MapPost("/api/workflow/run/stream", async (
 
     var streamingTelemetry = new StreamingWorkflowTelemetry(telemetry, evt => channel.Writer.TryWrite(evt));
     var logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine");
-    using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+    var runId = Guid.NewGuid().ToString("N");
+    using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
     using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(httpContext.RequestAborted, timeoutCts.Token);
 
     RunResult? runResult = null;
@@ -233,7 +344,7 @@ app.MapPost("/api/workflow/run/stream", async (
     {
         try
         {
-            runResult = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, streamingTelemetry, llm, mcpFactory, mcpCache, logger, linkedCts.Token);
+            runResult = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, streamingTelemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, linkedCts.Token, checkpointer);
         }
         catch (Exception ex)
         {
@@ -335,17 +446,22 @@ static Task<RunResult> ExecuteWorkflowAsync(
     ILLMClient llm,
     IMcpClientFactory mcpFactory,
     IMemoryCache mcpCache,
+    IHumanInputProvider hitlProvider,
     ILogger logger,
-    CancellationToken ct)
+    string? runId,
+    CancellationToken ct,
+    IWorkflowCheckpointer? checkpointer = null)
 {
     var engine = new WorkflowEngine
     {
         LLMClient = llm,
         McpClientFactory = mcpFactory,
         McpCache = mcpCache,
+        HumanInputProvider = hitlProvider,
+        Checkpointer = checkpointer,
         Telemetry = telemetry,
         Logger = logger,
-        Limits = new ExecutionLimits { LogStepContent = true }
+        Limits = new ExecutionLimits { LogStepContent = true, RunId = runId }
     };
 
     return engine.ExecuteAsync(workflow, inputs, ct);

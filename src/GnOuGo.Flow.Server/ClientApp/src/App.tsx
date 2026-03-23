@@ -63,6 +63,8 @@ export default function App() {
             workflowCompleted={stream.workflowCompleted}
             orderedSteps={stream.orderedSteps}
             allThinkingMessages={stream.allThinkingMessages}
+            pendingHumanInput={stream.pendingHumanInput}
+            onSubmitHumanInput={stream.submitHumanInput}
           />
         </div>
       )}

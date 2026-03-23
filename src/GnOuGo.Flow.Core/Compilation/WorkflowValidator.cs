@@ -18,7 +18,8 @@ public sealed class WorkflowValidator
         "workflow.call", "workflow.plan", "workflow.execute",
         "chat_history.get", "chat_history.append",
         "mcp.call", "mcp.list",
-        "emit"
+        "emit",
+        "human.input"
     };
 
     public List<ValidationError> Validate(WorkflowDocument doc)
