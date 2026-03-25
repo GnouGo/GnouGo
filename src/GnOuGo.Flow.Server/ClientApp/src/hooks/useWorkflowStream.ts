@@ -302,13 +302,15 @@ export function useWorkflowStream(): WorkflowStreamState {
     async (data: unknown) => {
       if (!pendingHumanInput) return
       const { runId, stepId } = pendingHumanInput
+      // Clear immediately so it doesn't race with the next waiting_for_human event
+      // that may arrive on the SSE stream before the fetch response returns.
+      setPendingHumanInput(null)
       try {
         await fetch(`/api/workflow/human-input/${runId}/${stepId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         })
-        setPendingHumanInput(null)
       } catch (e) {
         console.error('Failed to submit human input', e)
       }

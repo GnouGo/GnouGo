@@ -16,6 +16,13 @@
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="wwwroot\assets\index-CLIWY9RY.js" />
+    <_ContentIncludedByDefault Remove="wwwroot\assets\index-CZ6J5LMN.css" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="wwwroot\" />
+  </ItemGroup>
   <Target Name="BuildClientApp" BeforeTargets="Build" Condition="'$(SkipClientBuild)' != 'true'">
     <Message Importance="high" Text="Building ClientApp (React + Vite)..." />
     <Exec WorkingDirectory="$(ClientAppDir)" Command="npm install" Condition="!Exists('$(ClientAppDir)\node_modules')" />

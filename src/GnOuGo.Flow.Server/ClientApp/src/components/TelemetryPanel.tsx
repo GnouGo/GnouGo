@@ -2,18 +2,12 @@
 
 import { useState } from 'react'
 import type { WorkflowStreamState } from '../hooks/useWorkflowStream'
-<<<<<<< human-in-the-loop
 import type { PendingHumanInput } from '../types'
-=======
->>>>>>> feature/structured-output
 import { ThinkingFeed } from './ThinkingFeed'
 import { TelemetrySummary } from './TelemetrySummary'
 import { StepList } from './StepList'
 import { FinalOutputs } from './FinalOutputs'
-<<<<<<< human-in-the-loop
 import { HumanInputForm } from './HumanInputForm'
-=======
->>>>>>> feature/structured-output
 
 type Props = Pick<
   WorkflowStreamState,
@@ -25,14 +19,10 @@ type Props = Pick<
   | 'workflowCompleted'
   | 'orderedSteps'
   | 'allThinkingMessages'
-<<<<<<< human-in-the-loop
 > & {
   pendingHumanInput?: PendingHumanInput | null
   onSubmitHumanInput?: (data: unknown) => void
 }
-=======
->
->>>>>>> feature/structured-output
 
 export function TelemetryPanel({
   loading,
@@ -43,11 +33,9 @@ export function TelemetryPanel({
   workflowCompleted,
   orderedSteps,
   allThinkingMessages,
-<<<<<<< human-in-the-loop
   pendingHumanInput,
   onSubmitHumanInput,
-=======
->>>>>>> feature/structured-output
+
 }: Props) {
   const [showStepDetails, setShowStepDetails] = useState(false)
 
@@ -86,13 +74,10 @@ export function TelemetryPanel({
 
       <ThinkingFeed messages={allThinkingMessages} />
 
-<<<<<<< human-in-the-loop
       {pendingHumanInput && onSubmitHumanInput && (
         <HumanInputForm pending={pendingHumanInput} onSubmit={onSubmitHumanInput} />
       )}
-
-=======
->>>>>>> feature/structured-output
+    
       {error && (
         <div className="error-box">
           <strong>Error:</strong> {error}
