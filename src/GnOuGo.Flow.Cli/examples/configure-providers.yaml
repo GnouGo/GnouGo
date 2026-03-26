@@ -783,9 +783,9 @@ workflows:
             | Server             | Type  | Auth     | Description                              |
             |--------------------|-------|----------|------------------------------------------|
             | Github             | http  | api_key  | GitHub repository automation             |
-            | GnOuGo.Flow.Browser | stdio | none    | Web navigation via Playwright.NET        |
-            | GnOuGo.Flow.Cmd    | stdio | none     | Secure allowlisted command execution     |
-            | GnOuGo.Flow.UserData | stdio | none   | User chat history store via MCP          |
+            | GnOuGo.Browser.Mcp | stdio | none    | Web navigation via Playwright.NET        |
+            | GnOuGo.Cmd.Mcp    | stdio | none     | Secure allowlisted command execution     |
+            | GnOuGo.UserData.Mcp | stdio | none   | User chat history store via MCP          |
 
             ## 🔐 Supported Auth Modes
 

@@ -1,14 +1,14 @@
-dsl: 1
+﻿dsl: 1
 name: mcp-browser-form-demo
 meta:
   description: >
-    Démonstration de scénario interactif avec GnOuGo.Flow.Browser :
+    DÃ©monstration de scÃ©nario interactif avec GnOuGo.Browser.Mcp :
     ouverture d'une page de formulaire, attente, remplissage de champs,
-    sélection d'une option, clic sur un bouton et lecture du résultat.
+    sÃ©lection d'une option, clic sur un bouton et lecture du rÃ©sultat.
 
-    Cette démo utilise uniquement les outils navigateur génériques exposés par le serveur MCP.
+    Cette dÃ©mo utilise uniquement les outils navigateur gÃ©nÃ©riques exposÃ©s par le serveur MCP.
 
-    Usage depuis la racine du dépôt :
+    Usage depuis la racine du dÃ©pÃ´t :
       dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/mcp-browser-form-demo.yaml
 
 workflows:
@@ -36,11 +36,11 @@ workflows:
         description: Pizza size dropdown value
       comments:
         type: string
-        default: Merci de préparer une démo Playwright/MCP.
+        default: Merci de prÃ©parer une dÃ©mo Playwright/MCP.
         description: Additional comments
       browser_server:
         type: string
-        default: GnOuGo.Flow.Browser
+        default: GnOuGo.Browser.Mcp
         description: MCP browser server name
 
     steps:

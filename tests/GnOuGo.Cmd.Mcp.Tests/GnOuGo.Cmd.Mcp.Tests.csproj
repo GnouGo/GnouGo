@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\GnOuGo.Flow.Cmd\GnOuGo.Flow.Cmd.csproj" />
+    <ProjectReference Include="..\..\src\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj" />
   </ItemGroup>
 
   <ItemGroup>

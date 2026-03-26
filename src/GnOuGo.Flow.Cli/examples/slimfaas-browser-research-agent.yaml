@@ -1,34 +1,34 @@
-dsl: 1
+﻿dsl: 1
 name: company-browser-research-agent
 meta:
   description: >
-    Agent de recherche web autonome orienté veille société / produit, avec une configuration
-    par défaut optimisée pour SlimFaas.
+    Agent de recherche web autonome orientÃ© veille sociÃ©tÃ© / produit, avec une configuration
+    par dÃ©faut optimisÃ©e pour SlimFaas.
 
-    Le workflow ne dépend d'aucune logique navigateur spécifique côté serveur MCP :
-    il utilise uniquement les outils génériques de GnOuGo.Flow.Browser et laisse la stratégie
-    de recherche, de sélection des sources et d'interprétation au LLM côté client.
-    Aucun clic automatique sur une bannière cookies n'est effectué dans ce workflow.
-    Si une bannière masque le contenu utile, c'est au client MCP / LLM d'inspecter
-    le HTML rendu et de décider quel bouton il faudrait cliquer.
+    Le workflow ne dÃ©pend d'aucune logique navigateur spÃ©cifique cÃ´tÃ© serveur MCP :
+    il utilise uniquement les outils gÃ©nÃ©riques de GnOuGo.Browser.Mcp et laisse la stratÃ©gie
+    de recherche, de sÃ©lection des sources et d'interprÃ©tation au LLM cÃ´tÃ© client.
+    Aucun clic automatique sur une banniÃ¨re cookies n'est effectuÃ© dans ce workflow.
+    Si une banniÃ¨re masque le contenu utile, c'est au client MCP / LLM d'inspecter
+    le HTML rendu et de dÃ©cider quel bouton il faudrait cliquer.
 
     Le workflow :
-      1. découvre les outils MCP navigateur disponibles
-      2. prépare un brief de recherche (questions prioritaires, angles, hypothèses)
+      1. dÃ©couvre les outils MCP navigateur disponibles
+      2. prÃ©pare un brief de recherche (questions prioritaires, angles, hypothÃ¨ses)
       3. construit un catalogue multi-sources (site officiel, docs, blog, Google, Bing, DuckDuckGo, Reddit, LinkedIn, GitHub, Hacker News, News)
-      4. re-planifie les visites sur plusieurs rounds en évitant les sources déjà peu utiles
-      5. visite les sources choisies séquentiellement avec GnOuGo.Flow.Browser
-      6. extrait des faits structurés et des preuves textuelles avec le LLM pour chaque page visitée
-      7. évalue la couverture des informations collectées, puis décide de continuer ou s'arrêter
-      8. produit un brief final structuré et un résumé narratif markdown
+      4. re-planifie les visites sur plusieurs rounds en Ã©vitant les sources dÃ©jÃ  peu utiles
+      5. visite les sources choisies sÃ©quentiellement avec GnOuGo.Browser.Mcp
+      6. extrait des faits structurÃ©s et des preuves textuelles avec le LLM pour chaque page visitÃ©e
+      7. Ã©value la couverture des informations collectÃ©es, puis dÃ©cide de continuer ou s'arrÃªter
+      8. produit un brief final structurÃ© et un rÃ©sumÃ© narratif markdown
       9. ferme la session navigateur
 
-    Pré-requis :
-      - GnOuGo.Flow.Browser configuré dans appsettings.json
-      - binaires Playwright installés pour GnOuGo.Flow.Browser
-      - une clé LLM valide pour llm.call
+    PrÃ©-requis :
+      - GnOuGo.Browser.Mcp configurÃ© dans appsettings.json
+      - binaires Playwright installÃ©s pour GnOuGo.Browser.Mcp
+      - une clÃ© LLM valide pour llm.call
 
-    Usage depuis la racine du dépôt :
+    Usage depuis la racine du dÃ©pÃ´t :
       dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/slimfaas-browser-research-agent.yaml
       dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/slimfaas-browser-research-agent.yaml -i subject="Acme Cloud" -i company_domain="acme.com"
 
@@ -68,7 +68,7 @@ workflows:
       browser_server:
         type: string
         required: false
-        default: GnOuGo.Flow.Browser
+        default: GnOuGo.Browser.Mcp
         description: MCP browser server name
       max_characters:
         type: number

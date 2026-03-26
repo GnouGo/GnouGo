@@ -1,10 +1,10 @@
-dsl: 1
+﻿dsl: 1
 name: mcp-cmd-demo
 meta:
   description: >
-    Démonstration du serveur MCP sécurisé GnOuGo.Flow.Cmd.
-    Le workflow liste les commandes autorisées, lit la policy, exécute
-    quelques alias sûrs et retourne leurs sorties.
+    DÃ©monstration du serveur MCP sÃ©curisÃ© GnOuGo.Cmd.Mcp.
+    Le workflow liste les commandes autorisÃ©es, lit la policy, exÃ©cute
+    quelques alias sÃ»rs et retourne leurs sorties.
 
     Usage :
       dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/mcp-cmd-demo.yaml
@@ -14,11 +14,11 @@ workflows:
     inputs:
       cmd_server:
         type: string
-        default: GnOuGo.Flow.Cmd
+        default: GnOuGo.Cmd.Mcp
         description: Name of the MCP command server
       relative_path:
         type: string
-        default: src/GnOuGo.Flow.Cmd
+        default: src/GnOuGo.Cmd.Mcp
         description: Relative path to list via the command server
 
     steps:

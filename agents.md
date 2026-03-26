@@ -20,6 +20,7 @@ Use English only.
   - `ClientApp/` : React/Vite front-end
   - `wwwroot/` : Vite build output (static assets)
 - `src/GnOuGo.<LibName>.Cli/` : CLI (if needed)
+- - `src/GnOuGo.<LibName>.Mcp/` : MCP stdio and/or http (if needed)
 - `src/GnOuGo.Agent/` : **final tool** (application) in **Blazor**
 - `tests/GnOuGo.<LibName>.Tests/` : unit tests
 

@@ -2,7 +2,7 @@
 name: chat-history-demo
 meta:
   description: >
-    Demonstrates chat history via the GnOuGo.Flow.UserData MCP stdio server.
+    Demonstrates chat history via the GnOuGo.UserData.Mcp MCP stdio server.
     Uses mcp.call to append and retrieve conversation messages.
 
     Usage:
@@ -27,7 +27,7 @@ workflows:
       - id: create_conv
         type: mcp.call
         input:
-          server: GnOuGo.Flow.UserData
+          server: GnOuGo.UserData.Mcp
           method: user_chat_history_append
           request:
             messagesJson: '[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"${data.inputs.user_message}"}]'
@@ -49,7 +49,7 @@ workflows:
       - id: save_response
         type: mcp.call
         input:
-          server: GnOuGo.Flow.UserData
+          server: GnOuGo.UserData.Mcp
           method: user_chat_history_append
           request:
             messagesJson: '[{"role":"assistant","content":"${data.steps.llm_response.text}"}]'
@@ -59,7 +59,7 @@ workflows:
       - id: full_history
         type: mcp.call
         input:
-          server: GnOuGo.Flow.UserData
+          server: GnOuGo.UserData.Mcp
           method: user_chat_history_get
           request:
             conversationId: "${data.steps.create_conv.response.conversation_id}"

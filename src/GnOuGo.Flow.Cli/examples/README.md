@@ -1,11 +1,11 @@
-# `GnOuGo.Flow.Cli` Examples
+﻿# `GnOuGo.Flow.Cli` Examples
 
 This folder contains several ready-to-run YAML workflows for `GnOuGo.Flow.Cli`.
 
 ## Browser / MCP Examples
 
 ### 1. `mcp-browser-navigation-demo.yaml`
-The simplest demo to verify `GnOuGo.Flow.Browser` integration:
+The simplest demo to verify `GnOuGo.Browser.Mcp` integration:
 - MCP tool discovery
 - 3 successive navigations
 - reading content at each step
@@ -96,7 +96,7 @@ dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- validate src/
 
 ## Notes
 
-- `GnOuGo.Flow.Browser` must be configured in `appsettings.json` on the CLI/Server side.
-- Playwright binaries must be installed for `src/GnOuGo.Flow.Browser`.
+- `GnOuGo.Browser.Mcp` must be configured in `appsettings.json` on the CLI/Server side.
+- Playwright binaries must be installed for `src/GnOuGo.Browser.Mcp`.
 - Workflows using `llm.call` require a valid LLM configuration.
 - Cookie click logic or link extraction is no longer implemented on the MCP server side: it is now handled by the client/LLM when needed.
