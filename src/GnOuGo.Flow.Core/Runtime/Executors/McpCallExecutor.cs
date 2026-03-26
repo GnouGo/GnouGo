@@ -400,7 +400,7 @@ public sealed class McpCallExecutor : IStepExecutor
             Model = model,
             Prompt = BuildLlmSelectionPrompt(prompt),
             Temperature = temperature,
-            Tools = capabilities.Select(c => c.Tool).ToList()
+            Tools = BuildToolsList(capabilities, input)
         }, ct);
 
         var finishReason = llmResponse.ToolCalls is { Count: > 0 } ? "tool_calls" : "stop";
@@ -430,6 +430,7 @@ public sealed class McpCallExecutor : IStepExecutor
 
         foreach (var toolCall in llmResponse.ToolCalls)
         {
+
             if (!capabilityMap.TryGetValue(toolCall.Name, out var capability))
                 throw new WorkflowRuntimeException(defaultKind == "prompt" ? ErrorCodes.McpPromptError : ErrorCodes.McpCallError,
                     $"mcp.call prompt mode selected unknown MCP capability '{toolCall.Name}'", retryable: false);
@@ -999,6 +1000,14 @@ Produce the final answer strictly from the executed MCP results.
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Builds the list of LLM tools from MCP capabilities.
+    /// </summary>
+    private static List<LLMTool> BuildToolsList(List<McpSelectableCapability> capabilities, JsonObject input)
+    {
+        return capabilities.Select(c => c.Tool).ToList();
     }
 }
 

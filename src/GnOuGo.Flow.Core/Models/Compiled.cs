@@ -118,5 +118,11 @@ public sealed class ExecutionLimits
     /// Disabled by default because payloads can be large.
     /// </summary>
     public bool LogStepContent { get; set; }
+
+    /// <summary>
+    /// Unique identifier for this workflow run. Used by human-in-the-loop
+    /// providers to route responses to the correct waiting step.
+    /// </summary>
+    public string? RunId { get; set; }
 }
 

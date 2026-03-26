@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import type {
   LiveStep,
+  PendingHumanInput,
   StreamEnvelope,
   ThinkingMessage,
   WorkflowCompletedStreamData,
@@ -26,6 +27,8 @@ export interface WorkflowStreamState {
   workflowCompleted: WorkflowCompletedStreamData | null
   orderedSteps: LiveStep[]
   allThinkingMessages: ThinkingMessage[]
+  pendingHumanInput: PendingHumanInput | null
+  submitHumanInput: (data: unknown) => Promise<void>
   run: (workflow: string, inputs: string) => Promise<void>
 }
 
@@ -38,6 +41,7 @@ export function useWorkflowStream(): WorkflowStreamState {
   const [workflowCompleted, setWorkflowCompleted] = useState<WorkflowCompletedStreamData | null>(null)
   const [liveSteps, setLiveSteps] = useState<Record<string, LiveStep>>({})
   const [allThinkingMessages, setAllThinkingMessages] = useState<ThinkingMessage[]>([])
+  const [pendingHumanInput, setPendingHumanInput] = useState<PendingHumanInput | null>(null)
 
   const orderedSteps = useMemo(
     () => Object.values(liveSteps).sort((a, b) => a.order - b.order),
@@ -136,6 +140,27 @@ export function useWorkflowStream(): WorkflowStreamState {
             return
           }
 
+          // ── Detect human-input request ──
+          if (data.name === 'gnougo-flow.step.waiting_for_human') {
+            try {
+              const raw = data.attributes?.['gnougo-flow.human.request'] as string
+              if (raw) {
+                const parsed = JSON.parse(raw)
+                const req: PendingHumanInput = {
+                  runId: parsed.run_id ?? parsed.runId ?? '',
+                  stepId: parsed.step_id ?? parsed.stepId ?? '',
+                  prompt: parsed.prompt ?? '',
+                  choices: parsed.choices,
+                  fields: parsed.fields,
+                  context: parsed.context,
+                  timeout_ms: parsed.timeout_ms,
+                  requestedAt: event.timestamp,
+                }
+                setPendingHumanInput(req)
+              }
+            } catch { /* ignore parse errors */ }
+          }
+
           updateLiveStep(stepKey, (current, stepCount) => {
             const next: LiveStep = {
               key: stepKey,
@@ -175,6 +200,10 @@ export function useWorkflowStream(): WorkflowStreamState {
         case 'step.completed': {
           const data = event.data as StepCompletedStreamData
           const stepKey = makeStepKey(data.stepId, data.callDepth)
+          // Clear pending human input if this step was the one waiting
+          setPendingHumanInput(prev =>
+            prev && prev.stepId === data.stepId ? null : prev,
+          )
           updateLiveStep(stepKey, (current, stepCount) => ({
             key: stepKey,
             order: current?.order ?? stepCount,
@@ -209,6 +238,7 @@ export function useWorkflowStream(): WorkflowStreamState {
       setWorkflowCompleted(null)
       setLiveSteps({})
       setAllThinkingMessages([])
+      setPendingHumanInput(null)
 
       try {
         let normalizedInputs: string | undefined
@@ -268,6 +298,26 @@ export function useWorkflowStream(): WorkflowStreamState {
     [handleStreamEvent],
   )
 
+  const submitHumanInput = useCallback(
+    async (data: unknown) => {
+      if (!pendingHumanInput) return
+      const { runId, stepId } = pendingHumanInput
+      // Clear immediately so it doesn't race with the next waiting_for_human event
+      // that may arrive on the SSE stream before the fetch response returns.
+      setPendingHumanInput(null)
+      try {
+        await fetch(`/api/workflow/human-input/${runId}/${stepId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+      } catch (e) {
+        console.error('Failed to submit human input', e)
+      }
+    },
+    [pendingHumanInput],
+  )
+
   return {
     result,
     error,
@@ -277,6 +327,8 @@ export function useWorkflowStream(): WorkflowStreamState {
     workflowCompleted,
     orderedSteps,
     allThinkingMessages,
+    pendingHumanInput,
+    submitHumanInput,
     run,
   }
 }

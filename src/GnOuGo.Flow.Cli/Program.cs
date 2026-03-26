@@ -249,6 +249,7 @@ runCommand.SetHandler(async (FileInfo file, string[] inputs, string? inputJson, 
             LLMClient = llmClient,
             McpClientFactory = mcpFactory,
             McpCache = new MemoryCache(new MemoryCacheOptions()),
+            HumanInputProvider = new ConsoleHumanInputProvider(),
             Telemetry = new OTelWorkflowTelemetry(),
             Logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine"),
         };

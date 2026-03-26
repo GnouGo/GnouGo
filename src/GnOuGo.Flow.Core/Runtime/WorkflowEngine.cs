@@ -23,6 +23,8 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public IWorkflowFetcher? WorkflowFetcher { get; set; }
     public ITemplateEngine? TemplateEngine { get; set; }
     public IMcpClientFactory? McpClientFactory { get; set; }
+    public IHumanInputProvider? HumanInputProvider { get; set; }
+    public IWorkflowCheckpointer? Checkpointer { get; set; }
     public IWorkflowTelemetry Telemetry { get; set; } = NullWorkflowTelemetry.Instance;
     public FetchPolicy? FetchPolicy { get; set; }
     public ExecutionLimits Limits { get; set; } = new();
@@ -177,6 +179,120 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         return result;
     }
 
+    /// <summary>
+    /// Resume a workflow from a previously saved checkpoint.
+    /// Requires <see cref="Checkpointer"/> to be configured.
+    /// </summary>
+    public async Task<RunResult> ResumeAsync(string runId, CompiledWorkflow workflow, CancellationToken ct)
+    {
+        if (Checkpointer == null)
+            throw new InvalidOperationException("ResumeAsync requires a configured IWorkflowCheckpointer.");
+
+        var checkpoint = await Checkpointer.LoadAsync(runId, ct)
+            ?? throw new WorkflowRuntimeException("CHECKPOINT_NOT_FOUND",
+                $"No checkpoint found for run '{runId}'.");
+
+        _totalStepsExecuted = 0;
+        CompiledDocument = workflow.Document;
+        Limits.RunId = runId;
+
+        // Rebuild evaluator (same as ExecuteAsync)
+        var scriptFunctions = new Dictionary<string, Func<JsonNode?[], JsonNode?>>();
+        var jint = new JintSandbox();
+        if (workflow.Document?.Source?.Functions != null)
+            foreach (var kv in jint.LoadFunctions(workflow.Document.Source.Functions))
+                scriptFunctions[kv.Key] = kv.Value;
+        if (workflow.Source?.Functions != null)
+            foreach (var kv in jint.LoadFunctions(workflow.Source.Functions))
+                scriptFunctions[kv.Key] = kv.Value;
+        foreach (var kv in ScriptFunctions)
+            scriptFunctions[kv.Key] = kv.Value;
+        _evaluator = new ExpressionEvaluator(scriptFunctions);
+        _interpolator = new StringInterpolator(_evaluator);
+
+        // Restore data from checkpoint
+        var data = new JsonObject
+        {
+            ["inputs"] = checkpoint.Inputs?.DeepClone() ?? new JsonObject(),
+            ["steps"] = checkpoint.StepOutputs.DeepClone(),
+            ["env"] = new JsonObject()
+        };
+
+        var result = new RunResult { Success = true };
+
+        var workflowSpan = Telemetry.WorkflowStart(new WorkflowTelemetryInfo
+        {
+            WorkflowName = workflow.Name,
+            DocumentName = workflow.Document?.Source?.Name,
+            Inputs = checkpoint.Inputs?.DeepClone()
+        });
+
+        var workflowSw = Stopwatch.StartNew();
+        Logger.LogInformation("Workflow '{WorkflowName}' resuming from step index {StartIndex} (runId: {RunId})",
+            workflow.Name, checkpoint.NextStepIndex, runId);
+
+        try
+        {
+            await ExecuteStepsAsync(workflow.Steps, data, result, Limits, 0, new HashSet<string>(), ct, workflowSpan, checkpoint.NextStepIndex);
+
+            // Evaluate outputs
+            if (workflow.Outputs != null)
+            {
+                var outputObj = new JsonObject();
+                foreach (var kv in workflow.Outputs)
+                    outputObj[kv.Key] = EvaluateOutputDef(kv.Value, data);
+                result.Outputs = outputObj;
+            }
+            else
+            {
+                result.Outputs = data["steps"]?.DeepClone();
+            }
+
+            // Mark checkpoint as completed
+            checkpoint.Status = "completed";
+            await Checkpointer.SaveAsync(checkpoint, ct);
+
+            Logger.LogInformation("Workflow '{WorkflowName}' resumed and completed in {DurationMs:F1}ms",
+                workflow.Name, workflowSw.Elapsed.TotalMilliseconds);
+        }
+        catch (WorkflowRuntimeException ex)
+        {
+            result.Success = false;
+            result.Error = ex.ToWorkflowError();
+            checkpoint.Status = "failed";
+            await Checkpointer.SaveAsync(checkpoint, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            result.Success = false;
+            result.Error = new WorkflowError { Code = "CANCELLED", Message = "Workflow execution cancelled", Retryable = true };
+            checkpoint.Status = "paused";
+            await Checkpointer.SaveAsync(checkpoint, ct);
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Error = new WorkflowError { Code = "INTERNAL_ERROR", Message = ex.Message, Retryable = false };
+            checkpoint.Status = "failed";
+            await Checkpointer.SaveAsync(checkpoint, ct);
+        }
+        finally
+        {
+            workflowSw.Stop();
+            Telemetry.WorkflowEnd(workflowSpan, new WorkflowResultInfo
+            {
+                Success = result.Success,
+                StepsExecuted = _totalStepsExecuted,
+                Duration = workflowSw.Elapsed,
+                ErrorCode = result.Error?.Code,
+                ErrorMessage = result.Error?.Message
+            });
+            workflowSpan.Dispose();
+        }
+
+        return result;
+    }
+
     public async Task ExecuteStepsAsync(
         List<CompiledStep> steps,
         JsonObject data,
@@ -185,12 +301,14 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         int callDepth,
         HashSet<string> callStack,
         CancellationToken ct,
-        IWorkflowSpan? workflowSpan = null)
+        IWorkflowSpan? workflowSpan = null,
+        int startFromIndex = 0)
     {
         workflowSpan ??= NullWorkflowTelemetry.Instance.WorkflowStart(new WorkflowTelemetryInfo());
 
-        foreach (var step in steps)
+        for (var stepIndex = startFromIndex; stepIndex < steps.Count; stepIndex++)
         {
+            var step = steps[stepIndex];
             ct.ThrowIfCancellationRequested();
 
             var stepCount = Interlocked.Increment(ref _totalStepsExecuted);
@@ -316,6 +434,23 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                     Duration = sw.Elapsed,
                     Output = output
                 });
+
+                // ── Checkpoint: save progress after each successful top-level step ──
+                if (callDepth == 0 && Checkpointer != null && limits.RunId != null)
+                {
+                    var checkpoint = new WorkflowCheckpoint
+                    {
+                        RunId = limits.RunId,
+                        WorkflowName = CompiledDocument?.Source?.Name ?? "",
+                        WorkflowYaml = CompiledDocument?.Source?.RawYaml ?? "",
+                        NextStepIndex = stepIndex + 1,
+                        StepOutputs = (data["steps"] as JsonObject)?.DeepClone() as JsonObject ?? new JsonObject(),
+                        Inputs = data["inputs"]?.DeepClone(),
+                        Status = "running",
+                        Timestamp = DateTimeOffset.UtcNow
+                    };
+                    await Checkpointer.SaveAsync(checkpoint, ct);
+                }
             }
             catch (WorkflowRuntimeException ex)
             {
@@ -536,6 +671,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.McpCallExecutor());
         registry.Register(new Executors.McpListExecutor());
         registry.Register(new Executors.EmitExecutor());
+        registry.Register(new Executors.HumanInputExecutor());
         return registry;
     }
 }

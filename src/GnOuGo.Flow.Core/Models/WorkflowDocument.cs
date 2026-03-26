@@ -25,5 +25,8 @@ public sealed class WorkflowDocument
 
     /// <summary>Entry-point workflow name. Defaults to "main" if present.</summary>
     public string? Entrypoint { get; set; }
+
+    /// <summary>Original YAML source text (preserved for checkpoint/resume).</summary>
+    public string? RawYaml { get; set; }
 }
 

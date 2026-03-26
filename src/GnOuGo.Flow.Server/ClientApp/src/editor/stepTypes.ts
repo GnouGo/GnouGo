@@ -244,6 +244,23 @@ export const STEP_TYPES: StepTypeDef[] = [
       { name: 'messages', label: 'Messages (JSON)', type: 'json', required: true, placeholder: '[{ "role": "assistant", "content": "${data.steps.llm.text}" }]', description: 'Array of { role, content, meta? }' },
     ],
   },
+
+  // ── Human-in-the-Loop ──
+  {
+    type: 'human.input',
+    label: 'Human Input',
+    icon: '🙋',
+    category: 'control',
+    color: '#ff9800',
+    description: 'Pause the workflow and wait for human input',
+    fields: [
+      { name: 'prompt', label: 'Prompt', type: 'text', required: true, placeholder: 'Please review the plan and approve or reject.' },
+      { name: 'choices', label: 'Choices (JSON)', type: 'json', placeholder: '["approve", "reject", "modify"]', description: 'Quick-reply buttons shown to the user' },
+      { name: 'fields', label: 'Form fields (JSON)', type: 'json', placeholder: '[{ "name": "email", "type": "string", "required": true }]', description: 'Structured form fields for richer input' },
+      { name: 'context', label: 'Context', type: 'expression', placeholder: '${json(data.steps.plan)}', description: 'Structured data shown alongside the prompt' },
+      { name: 'timeout_ms', label: 'Timeout (ms)', type: 'number', placeholder: '300000', description: 'Timeout in milliseconds (default 5 min)' },
+    ],
+  },
 ]
 
 export const STEP_TYPE_MAP = new Map(STEP_TYPES.map(t => [t.type, t]))
