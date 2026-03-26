@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.Agent.Shared\GnOuGo.Agent.Shared.csproj" />
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Markdig" Version="0.38.0" />
@@ -36,4 +37,9 @@
     <Exec WorkingDirectory="ClientApp" Command="npm install" />
     <Exec WorkingDirectory="ClientApp" Command="npm run build" />
   </Target>
+
+  <ItemGroup>
+    <EmbeddedResource Include="SmartFlow\dynamic-workflow-agent.yaml" />
+    <EmbeddedResource Include="SmartFlow\configure-providers-agent.yaml" />
+  </ItemGroup>
 </Project>

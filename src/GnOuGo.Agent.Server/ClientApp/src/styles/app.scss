@@ -249,6 +249,45 @@ html, body {
 .sa-chat__message--assistant { justify-content: flex-start; }
 .sa-chat__message--user { justify-content: flex-end; }
 
+// ── Thinking messages ──
+.sa-chat__message--thinking {
+  justify-content: flex-start;
+  animation: sa-thinking-fadein 0.4s ease-out;
+}
+
+.sa-chat__thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 900px;
+  padding: 8px 14px;
+  border-radius: var(--sa-radius);
+  background: rgba(128, 128, 128, 0.08);
+  border: 1px dashed rgba(128, 128, 128, 0.25);
+  font-size: 13px;
+  color: var(--sa-muted);
+  font-style: italic;
+}
+
+.sa-chat__thinking-icon {
+  font-size: 16px;
+  animation: sa-thinking-pulse 1.5s ease-in-out infinite;
+}
+
+.sa-chat__thinking-text {
+  line-height: 1.4;
+}
+
+@keyframes sa-thinking-fadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sa-thinking-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+
 .sa-chat__bubble {
   max-width: 900px;
   width: fit-content;

@@ -1,5 +1,6 @@
 @page "/"
 @using System.Text.Json
+@using System.Text.Json.Nodes
 @using System.Threading
 @using Markdig
 @using Microsoft.AspNetCore.Components
@@ -8,7 +9,8 @@
 @using GnOuGo.Agent.Shared
 
 @inject IJSRuntime JS
-@inject GnOuGo.Agent.Server.OpenAI.OpenAIResponsesClient OpenAI
+@inject GnOuGo.Agent.Server.SmartFlow.SmartFlowService SmartFlow
+@inject GnOuGo.Agent.Server.SmartFlow.AgentHumanInputProvider HumanInputProvider
 
 <div class="sa-app">
     <aside class="sa-app__sidebar sa-sidebar @( _sidebarOpen ? "sa-sidebar--open" : "")">
@@ -97,18 +99,98 @@
                 @foreach (var msg in _active.Messages)
                 {
                     var isUser = string.Equals(msg.Role, "user", StringComparison.OrdinalIgnoreCase);
-                    <article class="sa-chat__message @(isUser ? "sa-chat__message--user" : "sa-chat__message--assistant")">
-                        <div class="sa-chat__bubble">
-                            <div class="sa-chat__bubble-meta">
-                                <span class="sa-chat__bubble-role">@((isUser ? "You" : "GnOuGo.Agent"))</span>
-                            </div>
+                    var isThinking = string.Equals(msg.Role, "thinking", StringComparison.OrdinalIgnoreCase);
 
-                            <div class="sa-chat__bubble-text markdown-body">
-                                @RenderMarkdown(msg.Content)
+                    @if (isThinking)
+                    {
+                        <article class="sa-chat__message sa-chat__message--thinking">
+                            <div class="sa-chat__thinking">
+                                <span class="sa-chat__thinking-icon">💭</span>
+                                <span class="sa-chat__thinking-text">@msg.Content</span>
                             </div>
-                        </div>
-                    </article>
+                        </article>
+                    }
+                    else
+                    {
+                        <article class="sa-chat__message @(isUser ? "sa-chat__message--user" : "sa-chat__message--assistant")">
+                            <div class="sa-chat__bubble">
+                                <div class="sa-chat__bubble-meta">
+                                    <span class="sa-chat__bubble-role">@((isUser ? "You" : "GnOuGo.Agent"))</span>
+                                </div>
+
+                                <div class="sa-chat__bubble-text markdown-body">
+                                    @RenderMarkdown(msg.Content)
+                                </div>
+                            </div>
+                        </article>
+                    }
                 }
+            }
+
+            @if (_pendingHumanInput is not null)
+            {
+                <article class="sa-chat__message sa-chat__message--assistant">
+                    <div class="sa-chat__bubble">
+                        <div class="sa-chat__bubble-meta">
+                            <span class="sa-chat__bubble-role">⚙️ Configuration</span>
+                        </div>
+                        <div class="sa-chat__bubble-text">
+                            <p><strong>@_pendingHumanInput.Prompt</strong></p>
+
+                            @if (!string.IsNullOrWhiteSpace(_pendingHumanInput.Context))
+                            {
+                                <div class="sa-chat__thinking">
+                                    <span class="sa-chat__thinking-text" style="font-size: 0.85em; opacity: 0.8;">@_pendingHumanInput.Context</span>
+                                </div>
+                            }
+
+                            @if (_pendingHumanInput.Choices is { Count: > 0 })
+                            {
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+                                    @foreach (var choice in _pendingHumanInput.Choices)
+                                    {
+                                        var c = choice;
+                                        <button class="sa-composer__send"
+                                                type="button"
+                                                style="min-width: 80px;"
+                                                @onclick="@(() => SubmitHumanInputChoice(c))">
+                                            @c
+                                        </button>
+                                    }
+                                </div>
+                            }
+                            else if (_pendingHumanInput.Fields is { Count: > 0 })
+                            {
+                                <div style="margin-top: 8px;">
+                                    @foreach (var field in _pendingHumanInput.Fields)
+                                    {
+                                        <div style="margin-bottom: 8px;">
+                                            <label style="display: block; font-weight: 600; margin-bottom: 2px;">
+                                                @field.Name
+                                                @if (field.Required) { <span style="color: #e74c3c;">*</span> }
+                                            </label>
+                                            @if (!string.IsNullOrWhiteSpace(field.Description))
+                                            {
+                                                <div style="font-size: 0.8em; opacity: 0.7; margin-bottom: 2px;">@field.Description</div>
+                                            }
+                                            <input type="text"
+                                                   class="sa-composer__input"
+                                                   style="width: 100%; padding: 6px 10px; border-radius: 6px;"
+                                                   value="@GetFieldValue(field.Name)"
+                                                   @onchange="@((ChangeEventArgs e) => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))" />
+                                        </div>
+                                    }
+                                    <button class="sa-composer__send"
+                                            type="button"
+                                            style="margin-top: 8px;"
+                                            @onclick="SubmitHumanInputFields">
+                                        Submit
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </article>
             }
         </section>
 
@@ -120,6 +202,7 @@
                               @bind="_model.Prompt"
                               @bind:event="oninput"
                               placeholder="Write a message… (Markdown supported: **bold**, `code`, ```mermaid```)"
+
                               rows="1"
                               disabled="@_isStreaming"
                               @onkeydown="OnKeyDown">
@@ -154,12 +237,31 @@
         public string Prompt { get; set; } = "";
     }
 
+    private sealed class HumanInputModel
+    {
+        public string RunId { get; set; } = "";
+        public string StepId { get; set; } = "";
+        public string Prompt { get; set; } = "";
+        public string? Context { get; set; }
+        public List<string>? Choices { get; set; }
+        public List<HumanInputFieldModel>? Fields { get; set; }
+    }
+
+    private sealed class HumanInputFieldModel
+    {
+        public string Name { get; set; } = "";
+        public string Type { get; set; } = "string";
+        public bool Required { get; set; }
+        public string? Description { get; set; }
+        public string? Default { get; set; }
+    }
+
     private const string StorageKeyV2 = "gnougo-agent.sa-chat.store.v2";
     private const string LegacyStorageKey = "gnougo-sa-chat.sa-chat.history.v1";
 
     private static readonly MarkdownPipeline MdPipeline = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
-        .DisableHtml() // safer by default
+        .DisableHtml()
         .Build();
 
     private readonly ComposeModel _model = new();
@@ -172,6 +274,12 @@
 
     private CancellationTokenSource? _cts;
     private bool _needsMarkdownEnhance;
+
+    private HumanInputModel? _pendingHumanInput;
+    private readonly Dictionary<string, string> _fieldValues = new();
+
+    /// <summary>Typewriter delay in ms between characters.</summary>
+    private const int TypewriterDelayMs = 12;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -193,10 +301,7 @@
             {
                 await JS.InvokeVoidAsync("GnOuGo.Agent.markdown.enhance", "chatMessages");
             }
-            catch
-            {
-                // ignore
-            }
+            catch { }
         }
     }
 
@@ -207,23 +312,37 @@
     }
 
     private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
-
-    private void CloseSidebar()
-    {
-        _sidebarOpen = false;
-    }
+    private void CloseSidebar() => _sidebarOpen = false;
 
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
-        if (_isStreaming)
-            return;
-
-        // Enter = send; Shift+Enter = newline
+        if (_isStreaming) return;
         if (e.Key is "Enter" && !e.ShiftKey)
         {
             if (!string.IsNullOrWhiteSpace(_model.Prompt))
-            {
                 await SendAsync();
+        }
+    }
+
+    /// <summary>
+    /// Typewriter effect: appends text character by character with a small delay.
+    /// </summary>
+    private async Task TypewriterAppendAsync(string text, ChatMessageDto targetMsg, CancellationToken ct)
+    {
+        foreach (var ch in text)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            targetMsg = targetMsg with { Content = targetMsg.Content + ch };
+            ReplaceLastAssistant(targetMsg);
+            TouchActive();
+            StateHasChanged();
+
+            // Only delay every few characters for performance
+            if (ch is ' ' or '\n' or '.' or ',' or '!' or '?')
+            {
+                await Task.Delay(TypewriterDelayMs, ct);
+                await ScrollToBottomAsync();
             }
         }
     }
@@ -259,26 +378,122 @@
 
         try
         {
-            // Stream response
-            await foreach (var chunk in OpenAI.StreamAssistantReplyAsync(_active.Messages, _cts.Token))
+            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, _cts.Token))
             {
-                assistantMsg = assistantMsg with { Content = assistantMsg.Content + chunk };
-                TouchActive();
-                ReplaceLastAssistant(assistantMsg);
-                StateHasChanged();
-                await ScrollToBottomAsync();
+                if (evt.Type.StartsWith("thinking:", StringComparison.Ordinal))
+                {
+                    var level = evt.Type.AsSpan(9).ToString(); // after "thinking:"
+
+                    if (string.Equals(level, "response", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // "response" level = final user-facing content (e.g. from configure-providers)
+                        await TypewriterAppendAsync(evt.Text ?? "", assistantMsg, _cts.Token);
+                        assistantMsg = _active.Messages.Last(m =>
+                            string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase));
+                    }
+                    else
+                    {
+                        // Insert a thinking message before the assistant placeholder
+                        var thinkingMsg = new ChatMessageDto("thinking", evt.Text ?? "");
+                        var lastIdx = _active.Messages.Count - 1;
+                        _active.Messages.Insert(lastIdx, thinkingMsg);
+                        StateHasChanged();
+                        await ScrollToBottomAsync();
+                    }
+                }
+                else if (evt.Type is "answer")
+                {
+                    // Typewriter effect for the final answer
+                    await TypewriterAppendAsync(evt.Text ?? "", assistantMsg, _cts.Token);
+                    // Sync the final state
+                    assistantMsg = _active.Messages.Last(m =>
+                        string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase));
+                }
+                else if (evt.Type is "llm.chunk")
+                {
+                    // Intermediate LLM chunks — also typewriter
+                    // (These are intermediate steps, not the final answer,
+                    //  but we can show them to give feedback.)
+                }
+                else if (evt.Type is "error")
+                {
+                    _error = evt.Text ?? "Unknown error";
+                }
+                else if (evt.Type is "human_input_request")
+                {
+                    // Parse the human input request and show it in the UI
+                    var requestJson = JsonNode.Parse(evt.Text ?? "{}")?.AsObject();
+                    if (requestJson is not null)
+                    {
+                        var model = new HumanInputModel
+                        {
+                            RunId = requestJson["run_id"]?.GetValue<string>() ?? "",
+                            StepId = requestJson["step_id"]?.GetValue<string>() ?? "",
+                            Prompt = requestJson["prompt"]?.GetValue<string>() ?? "",
+                            Context = requestJson["context"]?.GetValue<string>(),
+                        };
+
+                        if (requestJson["choices"] is JsonArray choicesArr)
+                            model.Choices = choicesArr.Select(c => c?.GetValue<string>() ?? "").ToList();
+
+                        if (requestJson["fields"] is JsonArray fieldsArr)
+                        {
+                            model.Fields = new List<HumanInputFieldModel>();
+                            foreach (var fNode in fieldsArr)
+                            {
+                                if (fNode is not JsonObject fObj) continue;
+                                var field = new HumanInputFieldModel
+                                {
+                                    Name = fObj["name"]?.GetValue<string>() ?? "",
+                                    Type = fObj["type"]?.GetValue<string>() ?? "string",
+                                    Required = fObj["required"]?.GetValue<bool>() ?? false,
+                                    Description = fObj["description"]?.GetValue<string>(),
+                                    Default = fObj["default"]?.GetValue<string>(),
+                                };
+                                model.Fields.Add(field);
+                            }
+                        }
+
+                        // Pre-populate field defaults
+                        _fieldValues.Clear();
+                        if (model.Fields is not null)
+                        {
+                            foreach (var f in model.Fields)
+                            {
+                                if (!string.IsNullOrEmpty(f.Default))
+                                    _fieldValues[f.Name] = f.Default;
+                            }
+                        }
+
+                        _pendingHumanInput = model;
+                        StateHasChanged();
+                        await ScrollToBottomAsync();
+                    }
+                }
+            }
+
+            // Remove thinking messages from final history (keep only user/assistant)
+            if (_active is not null)
+            {
+                _active.Messages.RemoveAll(m =>
+                    string.Equals(m.Role, "thinking", StringComparison.OrdinalIgnoreCase));
             }
 
             // Update title if still default
-            if (string.Equals(_active.Title, "New chat", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(_active.Title, "Migrated sa-chat", StringComparison.OrdinalIgnoreCase))
+            if (_active is not null &&
+                (string.Equals(_active.Title, "New chat", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(_active.Title, "Migrated sa-chat", StringComparison.OrdinalIgnoreCase)))
             {
-                var title = await OpenAI.SuggestTitleAsync(_active.Messages, _cts.Token);
-                if (!string.IsNullOrWhiteSpace(title))
+                try
                 {
-                    _active = _active with { Title = title.Trim() };
-                    ReplaceSession(_active);
+                    var title = await SmartFlow.SuggestTitleAsync(_active.Messages, _cts.Token);
+                    if (!string.IsNullOrWhiteSpace(title))
+                    {
+                        _active = _active with { Title = title.Trim() };
+                        ReplaceSession(_active);
+                    }
                 }
+                catch { /* ignore title generation failures */ }
             }
         }
         catch (OperationCanceledException)
@@ -292,6 +507,8 @@
         finally
         {
             _isStreaming = false;
+            _pendingHumanInput = null;
+            _fieldValues.Clear();
             _cts?.Dispose();
             _cts = null;
 
@@ -306,6 +523,59 @@
     private void Stop()
     {
         _cts?.Cancel();
+    }
+
+    private void SubmitHumanInputChoice(string choice)
+    {
+        if (_pendingHumanInput is null) return;
+
+        var response = new JsonObject { ["response"] = choice };
+        HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
+
+        // Show the choice as a user message
+        _active?.Messages.Insert(_active.Messages.Count - 1,
+            new ChatMessageDto("user", $"➡️ {choice}"));
+
+        _pendingHumanInput = null;
+        _fieldValues.Clear();
+        StateHasChanged();
+    }
+
+    private void SubmitHumanInputFields()
+    {
+        if (_pendingHumanInput is null) return;
+
+        var response = new JsonObject();
+        if (_pendingHumanInput.Fields is not null)
+        {
+            foreach (var field in _pendingHumanInput.Fields)
+            {
+                var value = _fieldValues.TryGetValue(field.Name, out var v) ? v : "";
+                response[field.Name] = value;
+            }
+        }
+
+        HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
+
+        // Show a summary as a user message
+        var summary = string.Join(", ", _pendingHumanInput.Fields?.Select(f =>
+            $"{f.Name}: {(_fieldValues.TryGetValue(f.Name, out var v) ? v : "(empty)")}") ?? Array.Empty<string>());
+        _active?.Messages.Insert(_active.Messages.Count - 1,
+            new ChatMessageDto("user", $"➡️ {summary}"));
+
+        _pendingHumanInput = null;
+        _fieldValues.Clear();
+        StateHasChanged();
+    }
+
+    private string GetFieldValue(string name)
+    {
+        return _fieldValues.TryGetValue(name, out var v) ? v : "";
+    }
+
+    private void SetFieldValue(string name, string value)
+    {
+        _fieldValues[name] = value;
     }
 
     private void ReplaceLastAssistant(ChatMessageDto assistantMsg)
@@ -334,7 +604,7 @@
             UpdatedAtUnixMs: now,
             Messages: new List<ChatMessageDto>
             {
-                new("assistant", "New chat started. Ask me anything — I’ll stream the answer as it’s generated.")
+                new("assistant", "New chat started. Ask me anything — I'll stream the answer as it's generated.")
             });
 
         // Put it on top.
@@ -352,8 +622,7 @@
 
     private async Task SelectChatAsync(string id)
     {
-        if (_isStreaming)
-            return;
+        if (_isStreaming) return;
 
         if (!string.Equals(_store.ActiveId, id, StringComparison.Ordinal))
         {
@@ -370,7 +639,6 @@
 
     private async Task LoadStoreAsync()
     {
-        // Prefer v2 store.
         var json = await JS.InvokeAsync<string?>("GnOuGo.Agent.storage.load", StorageKeyV2);
         if (!string.IsNullOrWhiteSpace(json))
         {
@@ -380,7 +648,6 @@
             return;
         }
 
-        // Migrate legacy single-sa-chat history if present.
         var legacy = await JS.InvokeAsync<string?>("GnOuGo.Agent.storage.load", LegacyStorageKey);
         if (!string.IsNullOrWhiteSpace(legacy))
         {
@@ -412,7 +679,7 @@
                 UpdatedAtUnixMs: now,
                 Messages: new List<ChatMessageDto>
                 {
-                    new("assistant", "Hi! I’m GnOuGo.Agent. Ask me anything — I’ll stream the answer as it’s generated.")
+                    new("assistant", "Hi! I'm GnOuGo.Agent. Ask me anything — I'll stream the answer as it's generated.")
                 });
 
             _store.Sessions.Add(session);
@@ -428,9 +695,7 @@
 
     private void TouchActive()
     {
-        if (_active is null)
-            return;
-
+        if (_active is null) return;
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         _active = _active with { UpdatedAtUnixMs = now };
         ReplaceSession(_active);
@@ -465,13 +730,8 @@
 
     private async Task ScrollToBottomAsync()
     {
-        try
-        {
-            await JS.InvokeVoidAsync("GnOuGo.Agent.scrollToBottom", "chatMessages");
-        }
-        catch
-        {
-            // ignore if called too early
-        }
+        try { await JS.InvokeVoidAsync("GnOuGo.Agent.scrollToBottom", "chatMessages"); }
+        catch { }
     }
 }
+
