@@ -278,6 +278,10 @@
     private HumanInputModel? _pendingHumanInput;
     private readonly Dictionary<string, string> _fieldValues = new();
 
+    /// <summary>Accumulates all HITL prompt+response pairs so they can be grouped
+    /// into a single message at the end of the flow.</summary>
+    private readonly List<(string Question, string Answer)> _hitlLog = new();
+
     /// <summary>Typewriter delay in ms between characters.</summary>
     private const int TypewriterDelayMs = 12;
 
@@ -472,6 +476,25 @@
                 }
             }
 
+            // ── Group HITL interactions into a single user message ──
+            if (_hitlLog.Count > 0 && _active is not null)
+            {
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine("⚙️ **Configuration**\n");
+                sb.AppendLine("| Step | Your choice |");
+                sb.AppendLine("|------|-------------|");
+                foreach (var (q, a) in _hitlLog)
+                {
+                    // Trim the prompt to keep the table compact
+                    var shortQ = q.Length > 60 ? q[..57] + "…" : q;
+                    sb.AppendLine($"| {shortQ} | `{a}` |");
+                }
+
+                var lastIdx = _active.Messages.Count - 1;
+                _active.Messages.Insert(lastIdx,
+                    new ChatMessageDto("user", sb.ToString()));
+            }
+
             // Remove thinking messages from final history (keep only user/assistant)
             if (_active is not null)
             {
@@ -509,6 +532,7 @@
             _isStreaming = false;
             _pendingHumanInput = null;
             _fieldValues.Clear();
+            _hitlLog.Clear();
             _cts?.Dispose();
             _cts = null;
 
@@ -532,9 +556,8 @@
         var response = new JsonObject { ["response"] = choice };
         HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
 
-        // Show the choice as a user message
-        _active?.Messages.Insert(_active.Messages.Count - 1,
-            new ChatMessageDto("user", $"➡️ {choice}"));
+        // Log the interaction for the grouped summary (instead of inserting a message)
+        _hitlLog.Add((_pendingHumanInput.Prompt, choice));
 
         _pendingHumanInput = null;
         _fieldValues.Clear();
@@ -557,11 +580,20 @@
 
         HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
 
-        // Show a summary as a user message
-        var summary = string.Join(", ", _pendingHumanInput.Fields?.Select(f =>
-            $"{f.Name}: {(_fieldValues.TryGetValue(f.Name, out var v) ? v : "(empty)")}") ?? Array.Empty<string>());
-        _active?.Messages.Insert(_active.Messages.Count - 1,
-            new ChatMessageDto("user", $"➡️ {summary}"));
+        // Log each field for the grouped summary (mask sensitive values)
+        if (_pendingHumanInput.Fields is not null)
+        {
+            foreach (var field in _pendingHumanInput.Fields)
+            {
+                var label = field.Description ?? field.Name;
+                var value = _fieldValues.TryGetValue(field.Name, out var v) ? v : field.Default ?? "";
+                var isSensitive = field.Name.Contains("key", StringComparison.OrdinalIgnoreCase)
+                               || field.Name.Contains("secret", StringComparison.OrdinalIgnoreCase)
+                               || field.Name.Contains("password", StringComparison.OrdinalIgnoreCase)
+                               || field.Name.Contains("token", StringComparison.OrdinalIgnoreCase);
+                _hitlLog.Add((label, isSensitive && !string.IsNullOrEmpty(value) ? "••••••••" : value));
+            }
+        }
 
         _pendingHumanInput = null;
         _fieldValues.Clear();
