@@ -172,12 +172,36 @@ workflows:
           method: browser_close
 
     outputs:
-      tool_count: "${len(data.steps.discover_browser_tools.tools)}"
-      open_form: "${data.steps.open_form.response}"
-      wait_form_ready: "${data.steps.wait_form_ready != null ? data.steps.wait_form_ready.response : null}"
-      selected_size: "${data.steps.select_size != null ? data.steps.select_size.response : null}"
-      click_bacon_result: "${data.steps.click_bacon != null ? data.steps.click_bacon.response : null}"
-      submit_result: "${data.steps.submit_form != null ? data.steps.submit_form.response : null}"
-      result_excerpt: "${data.steps.read_result != null ? data.steps.read_result.response : null}"
-      close_result: "${data.steps.close_browser.response}"
+      tool_count:
+        expr: "${len(data.steps.discover_browser_tools.tools)}"
+        type: number
+        description: Number of browser tools discovered
+      open_form:
+        expr: "${data.steps.open_form.response}"
+        type: object
+        description: Form page open response
+      wait_form_ready:
+        expr: "${data.steps.wait_form_ready != null ? data.steps.wait_form_ready.response : null}"
+        type: object
+        description: Form readiness response
+      selected_size:
+        expr: "${data.steps.select_size != null ? data.steps.select_size.response : null}"
+        type: object
+        description: Size selection response
+      click_bacon_result:
+        expr: "${data.steps.click_bacon != null ? data.steps.click_bacon.response : null}"
+        type: object
+        description: Bacon checkbox click response
+      submit_result:
+        expr: "${data.steps.submit_form != null ? data.steps.submit_form.response : null}"
+        type: object
+        description: Form submission response
+      result_excerpt:
+        expr: "${data.steps.read_result != null ? data.steps.read_result.response : null}"
+        type: object
+        description: Result page excerpt
+      close_result:
+        expr: "${data.steps.close_browser.response}"
+        type: object
+        description: Browser close response
 

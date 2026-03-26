@@ -18,7 +18,8 @@ public sealed class WorkflowValidator
         "workflow.call", "workflow.plan", "workflow.execute",
         "chat_history.get", "chat_history.append",
         "mcp.call", "mcp.list",
-        "emit"
+        "emit",
+        "human.input"
     };
 
     public List<ValidationError> Validate(WorkflowDocument doc)
@@ -72,12 +73,15 @@ public sealed class WorkflowValidator
         foreach (var step in wf.Steps)
             ValidateStep(step, name, doc, errors);
 
-        // Validate output expressions
+        // Validate output expressions and type schemas
         if (wf.Outputs != null)
         {
-            foreach (var (key, expr) in wf.Outputs)
+            foreach (var (key, outputDef) in wf.Outputs)
             {
-                ValidateExpression(expr, name, null, "outputs." + key, errors);
+                if (!string.IsNullOrEmpty(outputDef.Expr))
+                    ValidateExpression(outputDef.Expr, name, null, "outputs." + key, errors);
+
+                ValidateOutputDef(outputDef, name, key, errors);
             }
         }
 
@@ -385,6 +389,88 @@ public sealed class WorkflowValidator
 
         if (def.AdditionalProperties != null)
             ValidateInputDef(def.AdditionalProperties, wfName, $"{path}.additional_properties", errors);
+    }
+
+    private void ValidateOutputDef(OutputDef def, string wfName, string path, List<ValidationError> errors)
+    {
+        // Unknown base type
+        if (!KnownInputTypes.Contains(def.Type))
+            errors.Add(new ValidationError
+            {
+                Code = "INVALID_OUTPUT_TYPE",
+                WorkflowName = wfName,
+                Message = $"Output '{path}': unknown type '{def.Type}'. Known types: {string.Join(", ", KnownInputTypes)}"
+            });
+
+        var typeLc = def.Type.ToLowerInvariant();
+
+        // items only valid on array
+        if (def.Items != null && typeLc != "array")
+            errors.Add(new ValidationError
+            {
+                Code = "INVALID_OUTPUT_SCHEMA",
+                WorkflowName = wfName,
+                Message = $"Output '{path}': 'items' is only valid when type is 'array', got '{def.Type}'"
+            });
+
+        // properties / required_properties only valid on object
+        if (def.Properties != null && typeLc != "object")
+            errors.Add(new ValidationError
+            {
+                Code = "INVALID_OUTPUT_SCHEMA",
+                WorkflowName = wfName,
+                Message = $"Output '{path}': 'properties' is only valid when type is 'object', got '{def.Type}'"
+            });
+
+        if (def.RequiredProperties != null && typeLc != "object")
+            errors.Add(new ValidationError
+            {
+                Code = "INVALID_OUTPUT_SCHEMA",
+                WorkflowName = wfName,
+                Message = $"Output '{path}': 'required' is only valid when type is 'object', got '{def.Type}'"
+            });
+
+        // additional_properties valid on object or dictionary
+        if (def.AdditionalProperties != null && typeLc != "object" && typeLc != "dictionary")
+            errors.Add(new ValidationError
+            {
+                Code = "INVALID_OUTPUT_SCHEMA",
+                WorkflowName = wfName,
+                Message = $"Output '{path}': 'additional_properties' is only valid when type is 'object' or 'dictionary', got '{def.Type}'"
+            });
+
+        // required_properties names must exist in properties (if declared)
+        if (def.RequiredProperties != null && def.Properties != null)
+        {
+            foreach (var rp in def.RequiredProperties)
+            {
+                if (!def.Properties.ContainsKey(rp))
+                    errors.Add(new ValidationError
+                    {
+                        Code = "INVALID_OUTPUT_SCHEMA",
+                        WorkflowName = wfName,
+                        Message = $"Output '{path}': required property '{rp}' is not declared in 'properties'"
+                    });
+            }
+        }
+
+        // Validate expressions inside nested properties (backward-compat object outputs)
+        if (def.Properties != null)
+        {
+            foreach (var (propName, propDef) in def.Properties)
+            {
+                if (!string.IsNullOrEmpty(propDef.Expr))
+                    ValidateExpression(propDef.Expr, wfName, null, $"outputs.{path}.{propName}", errors);
+                ValidateOutputDef(propDef, wfName, $"{path}.properties.{propName}", errors);
+            }
+        }
+
+        // Recurse into sub-schemas
+        if (def.Items != null)
+            ValidateOutputDef(def.Items, wfName, $"{path}.items", errors);
+
+        if (def.AdditionalProperties != null)
+            ValidateOutputDef(def.AdditionalProperties, wfName, $"{path}.additional_properties", errors);
     }
 }
 

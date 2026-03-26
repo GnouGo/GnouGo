@@ -201,17 +201,50 @@ workflows:
           method: browser_close
 
     outputs:
-      tool_count: "${len(data.steps.discover_browser_tools.tools)}"
-      homepage_navigation_status: "${data.steps.read_homepage.status}"
-      homepage: "${data.steps.read_homepage.response}"
-      homepage_excerpt: "${data.steps.read_homepage.response}"
-      homepage_html_excerpt: "${data.steps.read_homepage_html != null ? data.steps.read_homepage_html.response : null}"
-      menu_links: "${data.steps.extract_homepage_links != null ? data.steps.extract_homepage_links.json.links : null}"
-      menu_link_count: "${data.steps.extract_homepage_links != null ? len(data.steps.extract_homepage_links.json.links) : 0}"
-      page_reports: "${data.steps.browse_homepage_links != null ? data.steps.browse_homepage_links.results : null}"
-      site_synthesis: "${data.steps.synthesize_site != null ? data.steps.synthesize_site.json : null}"
-      close_status: "${data.steps.close_browser.status}"
-      close_result: "${data.steps.close_browser.response}"
+      tool_count:
+        expr: "${len(data.steps.discover_browser_tools.tools)}"
+        type: number
+        description: Number of browser tools discovered
+      homepage_navigation_status:
+        expr: "${data.steps.read_homepage.status}"
+        type: string
+        description: HTTP status of homepage navigation
+      homepage:
+        expr: "${data.steps.read_homepage.response}"
+        type: object
+        description: Full homepage response
+      homepage_excerpt:
+        expr: "${data.steps.read_homepage.response}"
+        type: object
+        description: Homepage text excerpt
+      homepage_html_excerpt:
+        expr: "${data.steps.read_homepage_html != null ? data.steps.read_homepage_html.response : null}"
+        type: object
+        description: Homepage HTML excerpt
+      menu_links:
+        expr: "${data.steps.extract_homepage_links != null ? data.steps.extract_homepage_links.json.links : null}"
+        type: array
+        description: Extracted navigation links
+      menu_link_count:
+        expr: "${data.steps.extract_homepage_links != null ? len(data.steps.extract_homepage_links.json.links) : 0}"
+        type: number
+        description: Number of menu links extracted
+      page_reports:
+        expr: "${data.steps.browse_homepage_links != null ? data.steps.browse_homepage_links.results : null}"
+        type: array
+        description: Reports from visited pages
+      site_synthesis:
+        expr: "${data.steps.synthesize_site != null ? data.steps.synthesize_site.json : null}"
+        type: object
+        description: Overall site synthesis
+      close_status:
+        expr: "${data.steps.close_browser.status}"
+        type: string
+        description: Browser close status
+      close_result:
+        expr: "${data.steps.close_browser.response}"
+        type: object
+        description: Browser close response
 
   inspect_one_menu_page:
     inputs:
@@ -283,10 +316,28 @@ workflows:
             strict: true
 
     outputs:
-      link_text: "${data.inputs.link_text}"
-      navigate_status: "${data.steps.read_page.status}"
-      navigate_response: "${data.steps.navigate_page.response}"
-      read_status: "${data.steps.read_page != null ? data.steps.read_page.status : null}"
-      excerpt: "${data.steps.read_page != null ? data.steps.read_page.response.content : null}"
-      page_summary: "${data.steps.summarize_page != null ? data.steps.summarize_page.json : null}"
+      link_text:
+        expr: "${data.inputs.link_text}"
+        type: string
+        description: Text of the navigated link
+      navigate_status:
+        expr: "${data.steps.read_page.status}"
+        type: string
+        description: Navigation HTTP status
+      navigate_response:
+        expr: "${data.steps.navigate_page.response}"
+        type: object
+        description: Full navigation response
+      read_status:
+        expr: "${data.steps.read_page != null ? data.steps.read_page.status : null}"
+        type: string
+        description: Page read status
+      excerpt:
+        expr: "${data.steps.read_page != null ? data.steps.read_page.response.content : null}"
+        type: string
+        description: Page text excerpt
+      page_summary:
+        expr: "${data.steps.summarize_page != null ? data.steps.summarize_page.json : null}"
+        type: object
+        description: LLM-generated page summary
 

@@ -43,8 +43,20 @@ workflows:
           method: browser_close
 
     outputs:
-      html_status: "${data.steps.get_homepage_html.status}"
-      html_response: "${data.steps.get_homepage_html.response}"
-      html_content: "${data.steps.get_homepage_html.response.content}"
-      close_status: "${data.steps.close_browser.status}"
+      html_status:
+        expr: "${data.steps.get_homepage_html.status}"
+        type: string
+        description: HTML fetch status
+      html_response:
+        expr: "${data.steps.get_homepage_html.response}"
+        type: object
+        description: Full HTML response object
+      html_content:
+        expr: "${data.steps.get_homepage_html.response.content}"
+        type: string
+        description: Raw HTML content
+      close_status:
+        expr: "${data.steps.close_browser.status}"
+        type: string
+        description: Browser close status
 

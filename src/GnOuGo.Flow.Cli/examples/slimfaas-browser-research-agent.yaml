@@ -400,17 +400,50 @@ workflows:
           method: browser_close
 
     outputs:
-      subject: "${data.inputs.subject}"
-      company_domain: "${data.inputs.company_domain}"
-      tool_count: "${len(data.steps.discover_browser_tools.tools)}"
-      research_brief: "${data.steps.research_brief.json}"
-      sources_count: "${len(data.steps.source_catalog.sources)}"
-      rounds_run: "${data.steps.research_agent_loop.count}"
-      final_evaluation: "${data.steps.evaluate_round.json}"
-      structured_summary: "${data.steps.synthesize_research.outputs.summary_json}"
-      executive_summary: "${data.steps.synthesize_research.outputs.summary_text}"
-      research_trace: "${data.steps.research_agent_loop.iterations}"
-      close_status: "${data.steps.close_browser.status}"
+      subject:
+        expr: "${data.inputs.subject}"
+        type: string
+        description: Researched company or product name
+      company_domain:
+        expr: "${data.inputs.company_domain}"
+        type: string
+        description: Company domain
+      tool_count:
+        expr: "${len(data.steps.discover_browser_tools.tools)}"
+        type: number
+        description: Number of browser tools discovered
+      research_brief:
+        expr: "${data.steps.research_brief.json}"
+        type: object
+        description: Initial research brief
+      sources_count:
+        expr: "${len(data.steps.source_catalog.sources)}"
+        type: number
+        description: Total number of sources in catalog
+      rounds_run:
+        expr: "${data.steps.research_agent_loop.count}"
+        type: number
+        description: Number of research rounds executed
+      final_evaluation:
+        expr: "${data.steps.evaluate_round.json}"
+        type: object
+        description: Final evaluation with status and confidence
+      structured_summary:
+        expr: "${data.steps.synthesize_research.outputs.summary_json}"
+        type: object
+        description: Structured research summary
+      executive_summary:
+        expr: "${data.steps.synthesize_research.outputs.summary_text}"
+        type: string
+        description: Narrative markdown summary
+      research_trace:
+        expr: "${data.steps.research_agent_loop.iterations}"
+        type: array
+        description: Full trace of all research iterations
+      close_status:
+        expr: "${data.steps.close_browser.status}"
+        type: string
+        description: Browser close status
 
   research_browser_source:
     inputs:
@@ -589,19 +622,58 @@ workflows:
             strict: true
 
     outputs:
-      source_name: "${data.inputs.source_name}"
-      source_focus: "${data.inputs.source_focus}"
-      selection_reason: "${data.inputs.selection_reason}"
-      expected_signal: "${data.inputs.expected_signal}"
-      requested_url: "${data.inputs.source_url}"
-      navigate_status: "${data.steps.navigate.status}"
-      navigate_response: "${data.steps.navigate.response}"
-      read_status: "${data.steps.read_page != null ? data.steps.read_page.status : null}"
-      html_status: "${data.steps.read_page_html != null ? data.steps.read_page_html.status : null}"
-      content_excerpt: "${data.steps.read_page != null ? data.steps.read_page.response.content : null}"
-      html_excerpt: "${data.steps.read_page_html != null ? data.steps.read_page_html.response.content : null}"
-      extraction_json: "${data.steps.extract_findings != null ? data.steps.extract_findings.json : null}"
-      extraction_text: "${data.steps.extract_findings != null ? data.steps.extract_findings.text : null}"
+      source_name:
+        expr: "${data.inputs.source_name}"
+        type: string
+        description: Name of the researched source
+      source_focus:
+        expr: "${data.inputs.source_focus}"
+        type: string
+        description: Expected focus area
+      selection_reason:
+        expr: "${data.inputs.selection_reason}"
+        type: string
+        description: Why this source was selected
+      expected_signal:
+        expr: "${data.inputs.expected_signal}"
+        type: string
+        description: Expected information signal
+      requested_url:
+        expr: "${data.inputs.source_url}"
+        type: string
+        description: Requested URL
+      navigate_status:
+        expr: "${data.steps.navigate.status}"
+        type: string
+        description: Navigation HTTP status
+      navigate_response:
+        expr: "${data.steps.navigate.response}"
+        type: object
+        description: Full navigation response
+      read_status:
+        expr: "${data.steps.read_page != null ? data.steps.read_page.status : null}"
+        type: string
+        description: Page read status
+      html_status:
+        expr: "${data.steps.read_page_html != null ? data.steps.read_page_html.status : null}"
+        type: string
+        description: HTML read status
+      content_excerpt:
+        expr: "${data.steps.read_page != null ? data.steps.read_page.response.content : null}"
+        type: string
+        description: Text content excerpt
+      html_excerpt:
+        expr: "${data.steps.read_page_html != null ? data.steps.read_page_html.response.content : null}"
+        type: string
+        description: HTML content excerpt
+      extraction_json:
+        expr: "${data.steps.extract_findings != null ? data.steps.extract_findings.json : null}"
+        type: object
+        description: Structured extraction findings
+      extraction_text:
+        expr: "${data.steps.extract_findings != null ? data.steps.extract_findings.text : null}"
+        type: string
+        description: Extraction text summary
 
   summarize_findings:
     inputs:
@@ -711,5 +783,11 @@ workflows:
             - mention when evidence is weak or inferred from search results only
 
     outputs:
-      summary_json: "${data.steps.structured_summary.json}"
-      summary_text: "${data.steps.narrative_summary.text}"
+      summary_json:
+        expr: "${data.steps.structured_summary.json}"
+        type: object
+        description: Structured research synthesis
+      summary_text:
+        expr: "${data.steps.narrative_summary.text}"
+        type: string
+        description: Narrative markdown summary

@@ -20,7 +20,7 @@ public sealed class CompiledWorkflow
     public string Name { get; set; } = "";
     public WorkflowDef Source { get; set; } = null!;
     public List<CompiledStep> Steps { get; set; } = new();
-    public Dictionary<string, string>? Outputs { get; set; }
+    public Dictionary<string, OutputDef>? Outputs { get; set; }
 
     /// <summary>Reference to the parent compiled document (for sub-workflow calls).</summary>
     public CompiledDocument Document { get; set; } = null!;
@@ -118,5 +118,11 @@ public sealed class ExecutionLimits
     /// Disabled by default because payloads can be large.
     /// </summary>
     public bool LogStepContent { get; set; }
+
+    /// <summary>
+    /// Unique identifier for this workflow run. Used by human-in-the-loop
+    /// providers to route responses to the correct waiting step.
+    /// </summary>
+    public string? RunId { get; set; }
 }
 

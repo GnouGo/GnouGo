@@ -1,7 +1,12 @@
 ﻿dsl: 1
 name: chat-history-demo
 meta:
-  description: Demonstrates chat_history.get and chat_history.append steps
+  description: >
+    Demonstrates chat history via the GnOuGo.Flow.UserData MCP stdio server.
+    Uses mcp.call to append and retrieve conversation messages.
+
+    Usage:
+      gnougo-flow run examples/chat-history.yaml -i user_message="Hello, how are you?"
 
 workflows:
   main:
@@ -18,15 +23,14 @@ workflows:
           message: "Starting conversation…"
           level: info
 
-      # 1) Start a new conversation by appending the user message
+      # 1) Start a new conversation by appending the system + user messages
       - id: create_conv
-        type: chat_history.append
+        type: mcp.call
         input:
-          messages:
-            - role: system
-              content: "You are a helpful assistant."
-            - role: user
-              content: "${data.inputs.user_message}"
+          server: GnOuGo.Flow.UserData
+          method: user_chat_history_append
+          request:
+            messagesJson: '[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"${data.inputs.user_message}"}]'
 
       # 2) Call LLM with the user message
       - id: think_llm
@@ -43,22 +47,34 @@ workflows:
 
       # 3) Append the assistant response to the conversation
       - id: save_response
-        type: chat_history.append
+        type: mcp.call
         input:
-          conversation_id: "${data.steps.create_conv.conversation_id}"
-          messages:
-            - role: assistant
-              content: "${data.steps.llm_response.text}"
+          server: GnOuGo.Flow.UserData
+          method: user_chat_history_append
+          request:
+            messagesJson: '[{"role":"assistant","content":"${data.steps.llm_response.text}"}]'
+            conversationId: "${data.steps.create_conv.response.conversation_id}"
 
       # 4) Retrieve the full conversation history
       - id: full_history
-        type: chat_history.get
+        type: mcp.call
         input:
-          conversation_id: "${data.steps.create_conv.conversation_id}"
-          top_k: 100
+          server: GnOuGo.Flow.UserData
+          method: user_chat_history_get
+          request:
+            conversationId: "${data.steps.create_conv.response.conversation_id}"
+            topK: 100
 
     outputs:
-      conversation_id: "${data.steps.create_conv.conversation_id}"
-      assistant_response: "${data.steps.llm_response.text}"
-      message_count: "${len(data.steps.full_history.messages)}"
-
+      conversation_id:
+        expr: "${data.steps.create_conv.response.conversation_id}"
+        type: string
+        description: Unique conversation identifier
+      assistant_response:
+        expr: "${data.steps.llm_response.text}"
+        type: string
+        description: LLM assistant response text
+      message_count:
+        expr: "${len(data.steps.full_history.response.messages)}"
+        type: number
+        description: Total messages in conversation

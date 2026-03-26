@@ -204,6 +204,15 @@ workflows:
             - Keep the answer focused and relevant to the question
 
     outputs:
-      question: "${data.inputs.question}"
-      rounds: "${data.steps.agent_loop.count}"
-      answer: "${data.steps.synthesize.text}"
+      question:
+        expr: "${data.inputs.question}"
+        type: string
+        description: Original question
+      rounds:
+        expr: "${data.steps.agent_loop.count}"
+        type: number
+        description: Number of agent rounds
+      answer:
+        expr: "${data.steps.synthesize.text}"
+        type: string
+        description: Final synthesized answer

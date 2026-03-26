@@ -103,6 +103,18 @@ export const STEP_TYPES: StepTypeDef[] = [
     description: 'Set or compute variables (each key in input becomes a variable)',
     fields: [],
   },
+  {
+    type: 'emit',
+    label: 'Emit',
+    icon: '💬',
+    category: 'control',
+    color: '#a3e635',
+    description: 'Emit a thinking / info / progress / response message',
+    fields: [
+      { name: 'message', label: 'Message', type: 'text', required: true, placeholder: 'Processing ${len(data.inputs.items)} items…' },
+      { name: 'level', label: 'Level', type: 'select', options: ['thinking', 'info', 'progress', 'response'], defaultValue: 'thinking', description: 'Message level' },
+    ],
+  },
 
   // ── Template ──
   {
@@ -230,6 +242,23 @@ export const STEP_TYPES: StepTypeDef[] = [
     fields: [
       { name: 'conversation_id', label: 'Conversation ID', type: 'expression', placeholder: '${data.inputs.session}', description: 'Optional — null creates a new conversation' },
       { name: 'messages', label: 'Messages (JSON)', type: 'json', required: true, placeholder: '[{ "role": "assistant", "content": "${data.steps.llm.text}" }]', description: 'Array of { role, content, meta? }' },
+    ],
+  },
+
+  // ── Human-in-the-Loop ──
+  {
+    type: 'human.input',
+    label: 'Human Input',
+    icon: '🙋',
+    category: 'control',
+    color: '#ff9800',
+    description: 'Pause the workflow and wait for human input',
+    fields: [
+      { name: 'prompt', label: 'Prompt', type: 'text', required: true, placeholder: 'Please review the plan and approve or reject.' },
+      { name: 'choices', label: 'Choices (JSON)', type: 'json', placeholder: '["approve", "reject", "modify"]', description: 'Quick-reply buttons shown to the user' },
+      { name: 'fields', label: 'Form fields (JSON)', type: 'json', placeholder: '[{ "name": "email", "type": "string", "required": true }]', description: 'Structured form fields for richer input' },
+      { name: 'context', label: 'Context', type: 'expression', placeholder: '${json(data.steps.plan)}', description: 'Structured data shown alongside the prompt' },
+      { name: 'timeout_ms', label: 'Timeout (ms)', type: 'number', placeholder: '300000', description: 'Timeout in milliseconds (default 5 min)' },
     ],
   },
 ]

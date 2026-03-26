@@ -106,7 +106,7 @@ public sealed class WorkflowCallExecutor : IStepExecutor
             var outputObj = new JsonObject();
             foreach (var kv in subWorkflow.Outputs)
             {
-                outputObj[kv.Key] = ctx.Engine.Interpolator.Interpolate(kv.Value, subData);
+                outputObj[kv.Key] = ctx.Engine.EvaluateOutputDef(kv.Value, subData);
             }
             outputs = outputObj;
         }

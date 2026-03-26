@@ -54,9 +54,18 @@ workflows:
             total: "${len(data.inputs.items)}"
 
     outputs:
-      header: "${data.steps.count_items.text}"
-      items_processed: "${data.steps.process_all.count}"
-      summary: "${data.steps.call_helper.outputs.text}"
+      header:
+        expr: "${data.steps.count_items.text}"
+        type: string
+        description: Header text with item count
+      items_processed:
+        expr: "${data.steps.process_all.count}"
+        type: number
+        description: Number of items processed
+      summary:
+        expr: "${data.steps.call_helper.outputs.text}"
+        type: string
+        description: Summary text from helper workflow
 
   summarize:
     inputs:
@@ -76,5 +85,8 @@ workflows:
           mode: text
 
     outputs:
-      text: "${data.steps.make_summary.text}"
+      text:
+        expr: "${data.steps.make_summary.text}"
+        type: string
+        description: Summary text
 

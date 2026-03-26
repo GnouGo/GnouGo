@@ -68,12 +68,30 @@ workflows:
             timeoutMs: 15000
 
     outputs:
-      tool_count: "${len(data.steps.discover_cmd_tools.tools)}"
-      policy: "${data.steps.read_policy.response}"
-      allowed_commands: "${data.steps.list_allowed.response.commands}"
-      pwd_result: "${data.steps.print_pwd.response}"
-      list_src_result: "${data.steps.list_src.response}"
-      list_relative_result: "${data.steps.list_relative.response}"
+      tool_count:
+        expr: "${len(data.steps.discover_cmd_tools.tools)}"
+        type: number
+        description: Number of command tools discovered
+      policy:
+        expr: "${data.steps.read_policy.response}"
+        type: object
+        description: Command execution policy
+      allowed_commands:
+        expr: "${data.steps.list_allowed.response.commands}"
+        type: array
+        description: List of allowed commands
+      pwd_result:
+        expr: "${data.steps.print_pwd.response}"
+        type: object
+        description: Current working directory
+      list_src_result:
+        expr: "${data.steps.list_src.response}"
+        type: object
+        description: Directory listing of src
+      list_relative_result:
+        expr: "${data.steps.list_relative.response}"
+        type: object
+        description: Relative directory listing
 
 
 

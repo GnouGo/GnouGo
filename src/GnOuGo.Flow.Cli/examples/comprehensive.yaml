@@ -145,10 +145,22 @@ workflows:
             summary: "${data.steps.llm_summary.text}"
 
     outputs:
-      setup: "${data.steps.setup}"
-      items_processed: "${data.steps.process_items.count}"
-      summary: "${data.steps.llm_summary.text}"
-      report: "${data.steps.final_report.outputs.report}"
+      setup:
+        expr: "${data.steps.setup}"
+        type: any
+        description: Setup step results
+      items_processed:
+        expr: "${data.steps.process_items.count}"
+        type: number
+        description: Number of items processed
+      summary:
+        expr: "${data.steps.llm_summary.text}"
+        type: string
+        description: LLM-generated summary text
+      report:
+        expr: "${data.steps.final_report.outputs.report}"
+        type: string
+        description: Final rendered report
 
   report_builder:
     inputs:
@@ -177,7 +189,10 @@ workflows:
           mode: text
 
     outputs:
-      report: "${data.steps.build_report.text}"
+      report:
+        expr: "${data.steps.build_report.text}"
+        type: string
+        description: Rendered report text
 
 exports:
   - report_builder

@@ -30,6 +30,12 @@ workflows:
           mode: text
 
     outputs:
-      items_debug: "${data.steps.debug_items.text}"
-      len_debug: "${data.steps.debug_len.text}"
+      items_debug:
+        expr: "${data.steps.debug_items.text}"
+        type: string
+        description: Debug output for items
+      len_debug:
+        expr: "${data.steps.debug_len.text}"
+        type: string
+        description: Debug output for length
 

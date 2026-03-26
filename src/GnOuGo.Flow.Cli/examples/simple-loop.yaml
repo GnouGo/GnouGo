@@ -34,5 +34,8 @@ workflows:
               mode: text
 
     outputs:
-      results: "${data.steps.process_all}"
+      results:
+        expr: "${data.steps.process_all}"
+        type: any
+        description: All loop results
 

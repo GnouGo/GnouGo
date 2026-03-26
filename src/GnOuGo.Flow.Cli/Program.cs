@@ -249,6 +249,7 @@ runCommand.SetHandler(async (FileInfo file, string[] inputs, string? inputJson, 
             LLMClient = llmClient,
             McpClientFactory = mcpFactory,
             McpCache = new MemoryCache(new MemoryCacheOptions()),
+            HumanInputProvider = new ConsoleHumanInputProvider(),
             Telemetry = new OTelWorkflowTelemetry(),
             Logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine"),
         };
@@ -353,7 +354,11 @@ inspectCommand.SetHandler(async (FileInfo file) =>
             }            Console.WriteLine($"    Steps: {wf.Steps.Count}");
             PrintSteps(wf.Steps, "    ");
             if (wf.Outputs != null)
-                Console.WriteLine($"    Outputs: {string.Join(", ", wf.Outputs.Keys)}");
+            {
+                Console.WriteLine($"    Outputs:");
+                foreach (var (outputName, outputDef) in wf.Outputs)
+                    PrintOutputDef(outputName, outputDef, "      ");
+            }
         }
     }
     catch (WorkflowParseException ex)
@@ -412,6 +417,25 @@ static string FormatInputType(GnOuGo.Flow.Core.Models.InputDef def)
         "dictionary" when def.AdditionalProperties != null => $"dictionary<string, {FormatInputType(def.AdditionalProperties)}>",
         "object" when def.Properties != null =>
             $"object{{{string.Join(", ", def.Properties.Select(p => $"{p.Key}: {FormatInputType(p.Value)}"))}}}",
+        _ => def.Type
+    };
+}
+
+static void PrintOutputDef(string name, GnOuGo.Flow.Core.Models.OutputDef def, string indent)
+{
+    var desc = def.Description != null ? $" — {def.Description}" : "";
+    var expr = !string.IsNullOrEmpty(def.Expr) ? $" = {def.Expr}" : "";
+    Console.WriteLine($"{indent}{name}: {FormatOutputType(def)}{expr}{desc}");
+}
+
+static string FormatOutputType(GnOuGo.Flow.Core.Models.OutputDef def)
+{
+    return def.Type.ToLowerInvariant() switch
+    {
+        "array" when def.Items != null => $"array<{FormatOutputType(def.Items)}>",
+        "dictionary" when def.AdditionalProperties != null => $"dictionary<string, {FormatOutputType(def.AdditionalProperties)}>",
+        "object" when def.Properties != null =>
+            $"object{{{string.Join(", ", def.Properties.Select(p => $"{p.Key}: {FormatOutputType(p.Value)}"))}}}",
         _ => def.Type
     };
 }
