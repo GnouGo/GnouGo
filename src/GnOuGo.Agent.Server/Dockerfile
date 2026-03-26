@@ -14,7 +14,7 @@
 # ----------------------------------------------
 # Stage 1: Build the ClientApp (Vite + TS)
 # ----------------------------------------------
-FROM --platform=$BUILDPLATFORM node:20-alpine AS clientapp
+FROM --platform=$BUILDPLATFORM node:24-alpine AS clientapp
 WORKDIR /build/ClientApp
 COPY src/GnOuGo.Agent.Server/ClientApp/package.json \
      src/GnOuGo.Agent.Server/ClientApp/package-lock.json* \

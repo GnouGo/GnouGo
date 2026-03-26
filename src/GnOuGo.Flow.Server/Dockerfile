@@ -15,7 +15,7 @@
 # ──────────────────────────────────────────────
 # Stage 1: Build the React ClientApp
 # ──────────────────────────────────────────────
-FROM --platform=$BUILDPLATFORM node:20-alpine AS clientapp
+FROM --platform=$BUILDPLATFORM node:24-alpine AS clientapp
 
 WORKDIR /build/ClientApp
 COPY src/GnOuGo.Flow.Server/ClientApp/package.json \
