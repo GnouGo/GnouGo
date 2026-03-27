@@ -16,15 +16,16 @@ public sealed class CmdTools
         _logger = logger;
     }
 
-    [McpServerTool(Name = "cmd_list_allowed_commands"), Description("Lists the allowlisted commands that this secure command MCP server is allowed to execute.")]
+    [McpServerTool(Name = "cmd_list_allowed_commands"), Description("Lists the allowlisted commands that this secure command MCP server is allowed to execute. Each entry includes its name, description, target shell, working directory, and accepted parameters.")]
     public CmdAllowedCommandsResult ListAllowedCommands()
         => new(_host.ListAllowedCommands());
 
-    [McpServerTool(Name = "cmd_get_policy"), Description("Returns the active command execution policy, including shells, roots and execution limits.")]
+    [McpServerTool(Name = "cmd_get_policy"), Description("Returns the active command execution policy: configured shells, allowed working roots, execution limits, and the current OS/architecture/available shells environment info.")]
     public CmdPolicyInfo GetPolicy()
         => _host.GetPolicy();
 
-    [McpServerTool(Name = "cmd_run"), Description("Runs one allowlisted command by name. Raw shell commands are not accepted; only preconfigured aliases may be executed.")]
+
+    [McpServerTool(Name = "cmd_run"), Description("Runs one allowlisted command by name. Raw shell commands are not accepted; only preconfigured aliases may be executed. Returns a structured result with stdout, stderr, exit code, success flag, and error details if any.")]
     public async Task<CmdRunResult> RunAsync(
         [Description("Allowlisted command alias to execute.")] string commandName,
         [Description("Optional JSON object string of named parameters, for example {\"path\":\"src\"}.")] string? parametersJson = null,
@@ -35,10 +36,22 @@ public sealed class CmdTools
         {
             return await _host.RunAsync(commandName, parametersJson, timeoutMs, cancellationToken);
         }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("cmd_run cancelled for command={CommandName}", commandName);
+            return CmdRunResult.FromError(commandName, "CANCELLED", "The operation was cancelled by the client.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Policy violations (unknown command, bad parameters, shell not found, etc.)
+            _logger.LogWarning(ex, "cmd_run policy violation for command={CommandName}", commandName);
+            return CmdRunResult.FromError(commandName, "POLICY_VIOLATION", ex.Message);
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "cmd_run failed for command={CommandName}", commandName);
-            throw;
+            _logger.LogError(ex, "cmd_run unexpected error for command={CommandName}", commandName);
+            return CmdRunResult.FromError(commandName, "INTERNAL_ERROR",
+                $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 }

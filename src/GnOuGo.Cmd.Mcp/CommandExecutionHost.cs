@@ -24,6 +24,7 @@ public sealed class CommandExecutionHost
 
     public CmdPolicyInfo GetPolicy() => _policy.DescribePolicy();
 
+
     public async Task<CmdRunResult> RunAsync(
         string commandName,
         string? parametersJson,
@@ -42,78 +43,129 @@ public sealed class CommandExecutionHost
             var outputLimit = _policy.ResolveOutputLimit(command);
             var environment = _policy.BuildEnvironment();
 
-            using var process = new Process
+            Process process;
+            try
             {
-                StartInfo = new ProcessStartInfo
+                process = new Process
                 {
-                    FileName = shell.ExecutablePath,
-                    Arguments = shell.BuildArguments(script),
-                    WorkingDirectory = workingDirectory,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    RedirectStandardInput = false,
-                    CreateNoWindow = true
-                }
-            };
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = shell.ExecutablePath,
+                        Arguments = shell.BuildArguments(script),
+                        WorkingDirectory = workingDirectory,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        RedirectStandardInput = false,
+                        CreateNoWindow = true
+                    }
+                };
 
-            process.StartInfo.Environment.Clear();
-            foreach (var variable in environment)
-                process.StartInfo.Environment[variable.Key] = variable.Value;
-
-            var startedAt = DateTimeOffset.UtcNow;
-            if (!process.Start())
-                throw new InvalidOperationException($"Failed to start command '{commandName}'.");
-
-            _logger.LogInformation(
-                "Executing allowed command {CommandName} with shell {Shell} in {WorkingDirectory}",
-                commandName,
-                shell.LogicalName,
-                workingDirectory);
-
-            var stdoutTask = ReadCappedAsync(process.StandardOutput, outputLimit);
-            var stderrTask = ReadCappedAsync(process.StandardError, outputLimit);
-            var exitTask = process.WaitForExitAsync(CancellationToken.None);
-            var delayTask = Task.Delay(effectiveTimeoutMs, cancellationToken);
-
-            var completed = await Task.WhenAny(exitTask, delayTask);
-            var timedOut = completed == delayTask;
-
-            if (timedOut)
+                process.StartInfo.Environment.Clear();
+                foreach (var variable in environment)
+                    process.StartInfo.Environment[variable.Key] = variable.Value;
+            }
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "Failed to configure process for command {CommandName}", commandName);
+                return CmdRunResult.FromError(commandName, "PROCESS_SETUP_FAILED",
+                    $"Failed to configure process: {ex.Message}");
+            }
+
+            using (process)
+            {
+                var startedAt = DateTimeOffset.UtcNow;
+
                 try
                 {
-                    process.Kill(entireProcessTree: true);
+                    if (!process.Start())
+                    {
+                        return CmdRunResult.FromError(commandName, "PROCESS_START_FAILED",
+                            $"Failed to start process for command '{commandName}' using shell '{shell.LogicalName}'.");
+                    }
                 }
-                catch (InvalidOperationException)
+                catch (System.ComponentModel.Win32Exception ex)
                 {
-                    // Process already exited.
+                    _logger.LogError(ex, "Process start failed (Win32) for command {CommandName}: {NativeErrorCode}",
+                        commandName, ex.NativeErrorCode);
+                    return CmdRunResult.FromError(commandName, "PROCESS_START_FAILED",
+                        $"Cannot start shell '{shell.LogicalName}' ({shell.ExecutablePath}): {ex.Message}");
                 }
-            }
-            else
-            {
-                await exitTask;
-            }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Process start failed for command {CommandName}", commandName);
+                    return CmdRunResult.FromError(commandName, "PROCESS_START_FAILED",
+                        $"Cannot start command '{commandName}': {ex.Message}");
+                }
 
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
-            var finishedAt = DateTimeOffset.UtcNow;
-            var exitCode = timedOut ? -1 : process.ExitCode;
-            var success = !timedOut && exitCode == 0;
+                _logger.LogInformation(
+                    "Executing allowed command {CommandName} with shell {Shell} in {WorkingDirectory}",
+                    commandName,
+                    shell.LogicalName,
+                    workingDirectory);
 
-            return new CmdRunResult(
-                CommandName: commandName,
-                Shell: shell.LogicalName,
-                WorkingDirectory: workingDirectory,
-                ExitCode: exitCode,
-                Success: success,
-                TimedOut: timedOut,
-                Stdout: stdout.Text,
-                Stderr: stderr.Text,
-                OutputTruncated: stdout.Truncated || stderr.Truncated,
-                StartedAtUtc: startedAt,
-                FinishedAtUtc: finishedAt,
-                DurationMs: (finishedAt - startedAt).TotalMilliseconds);
+                var stdoutTask = ReadCappedAsync(process.StandardOutput, outputLimit);
+                var stderrTask = ReadCappedAsync(process.StandardError, outputLimit);
+                var exitTask = process.WaitForExitAsync(CancellationToken.None);
+                var delayTask = Task.Delay(effectiveTimeoutMs, cancellationToken);
+
+                var completed = await Task.WhenAny(exitTask, delayTask);
+                var timedOut = completed == delayTask;
+
+                if (timedOut)
+                {
+                    try
+                    {
+                        process.Kill(entireProcessTree: true);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // Process already exited.
+                    }
+                }
+                else
+                {
+                    await exitTask;
+                }
+
+                var stdout = await stdoutTask;
+                var stderr = await stderrTask;
+                var finishedAt = DateTimeOffset.UtcNow;
+                var exitCode = timedOut ? -1 : process.ExitCode;
+                var success = !timedOut && exitCode == 0;
+
+                // Build error code/message for non-success outcomes
+                string? errorCode = null;
+                string? errorMessage = null;
+                if (timedOut)
+                {
+                    errorCode = "TIMEOUT";
+                    errorMessage = $"Command '{commandName}' timed out after {effectiveTimeoutMs}ms and was killed.";
+                }
+                else if (exitCode != 0)
+                {
+                    errorCode = "NON_ZERO_EXIT";
+                    errorMessage = $"Command '{commandName}' exited with code {exitCode}.";
+                    if (!string.IsNullOrWhiteSpace(stderr.Text))
+                        errorMessage += $" Stderr: {stderr.Text.Trim()[..Math.Min(stderr.Text.Trim().Length, 500)]}";
+                }
+
+                return new CmdRunResult(
+                    CommandName: commandName,
+                    Shell: shell.LogicalName,
+                    WorkingDirectory: workingDirectory,
+                    ExitCode: exitCode,
+                    Success: success,
+                    TimedOut: timedOut,
+                    Stdout: stdout.Text,
+                    Stderr: stderr.Text,
+                    OutputTruncated: stdout.Truncated || stderr.Truncated,
+                    StartedAtUtc: startedAt,
+                    FinishedAtUtc: finishedAt,
+                    DurationMs: (finishedAt - startedAt).TotalMilliseconds,
+                    ErrorCode: errorCode,
+                    ErrorMessage: errorMessage);
+            }
         }
         finally
         {
@@ -184,15 +236,38 @@ public sealed class CommandExecutionHost
 
 public sealed record CmdRunResult(
     string CommandName,
-    string Shell,
-    string WorkingDirectory,
+    string? Shell,
+    string? WorkingDirectory,
     int ExitCode,
     bool Success,
     bool TimedOut,
-    string Stdout,
-    string Stderr,
+    string? Stdout,
+    string? Stderr,
     bool OutputTruncated,
-    DateTimeOffset StartedAtUtc,
-    DateTimeOffset FinishedAtUtc,
-    double DurationMs);
+    DateTimeOffset? StartedAtUtc,
+    DateTimeOffset? FinishedAtUtc,
+    double DurationMs,
+    string? ErrorCode = null,
+    string? ErrorMessage = null)
+{
+    /// <summary>
+    /// Creates a structured error result without a process execution.
+    /// </summary>
+    public static CmdRunResult FromError(string commandName, string errorCode, string errorMessage)
+        => new(
+            CommandName: commandName,
+            Shell: null,
+            WorkingDirectory: null,
+            ExitCode: -1,
+            Success: false,
+            TimedOut: false,
+            Stdout: null,
+            Stderr: null,
+            OutputTruncated: false,
+            StartedAtUtc: null,
+            FinishedAtUtc: null,
+            DurationMs: 0,
+            ErrorCode: errorCode,
+            ErrorMessage: errorMessage);
+}
 
