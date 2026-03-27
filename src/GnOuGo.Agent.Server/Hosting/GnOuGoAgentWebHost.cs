@@ -3,12 +3,14 @@ using System.IO;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using GnOuGo.Agent.Server.Endpoints;
-using GnOuGo.Agent.Server.OpenAI;
+using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Shared;
 using GnOuGo.AI.Core;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.Hosting;
 
@@ -80,7 +82,8 @@ public static class GnOuGoAgentWebHost
         }
 
         // --- config ---
-        builder.Services.Configure<OpenAIOptions>(builder.Configuration.GetSection(OpenAIOptions.SectionName));
+        // LLM + MCP configuration (same structure as GnOuGo.Flow.Server)
+        var llmOptions = builder.Configuration.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
 
         // AOT-friendly JSON for Minimal APIs
         builder.Services.ConfigureHttpJsonOptions(static o =>
@@ -89,12 +92,22 @@ public static class GnOuGoAgentWebHost
         });
 
         // --- services ---
-        builder.Services.AddHttpClient<OpenAIResponsesClient>(static (sp, http) =>
+        builder.Services.AddSingleton<ILLMClient>(_ =>
         {
-            var opt = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpenAIOptions>>().Value;
-            http.BaseAddress = new Uri(opt.BaseUrl);
-            http.Timeout = TimeSpan.FromMinutes(5);
+            var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+            var routingClient = new RoutingLLMClient(http, llmOptions);
+            return new RoutingLLMClientAdapter(routingClient);
         });
+        builder.Services.AddSingleton<IMcpClientFactory>(_ =>
+        {
+            if (llmOptions.McpServers.Count > 0)
+                return new ConfiguredMcpClientFactory(llmOptions.McpServers);
+            return new InMemoryMcpClientFactory();
+        });
+        builder.Services.AddMemoryCache();
+        builder.Services.AddSingleton<AgentHumanInputProvider>();
+        builder.Services.AddSingleton<ConfigureProvidersService>();
+        builder.Services.AddSingleton<SmartFlowService>();
 
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
@@ -193,20 +206,12 @@ public static class GnOuGoAgentWebHost
         });
 
         // --- UI ---
+        // Always register interactive server render mode.
         // In published Desktop/NativeAOT builds the static web assets manifest
-        // may be absent, which causes AddInteractiveServerRenderMode() to fail
-        // internally when it tries to call MapStaticAssets() for /_framework/*.
-        // Fall back to non-interactive Razor components in that case.
-        if (File.Exists(staticAssetsManifest))
-        {
-            app.MapRazorComponents<GnOuGo.Agent.Server.Components.App>()
-                .AddInteractiveServerRenderMode();
-        }
-        else
-        {
-            Log("Static assets manifest not found — mapping Razor components without interactive server render mode.");
-            app.MapRazorComponents<GnOuGo.Agent.Server.Components.App>();
-        }
+        // may be absent; MapStaticAssets() is only called when the manifest exists,
+        // but interactive SSR is always available.
+        app.MapRazorComponents<GnOuGo.Agent.Server.Components.App>()
+            .AddInteractiveServerRenderMode();
 
         return app;
     }

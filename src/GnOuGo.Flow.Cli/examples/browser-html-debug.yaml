@@ -1,7 +1,7 @@
-dsl: 1
+﻿dsl: 1
 name: browser-html-debug
 meta:
-  description: Debug workflow pour vérifier la récupération du HTML
+  description: Debug workflow pour vÃ©rifier la rÃ©cupÃ©ration du HTML
 
 workflows:
   main:
@@ -14,7 +14,7 @@ workflows:
       browser_server:
         type: string
         required: false
-        default: GnOuGo.Flow.Browser
+        default: GnOuGo.Browser.Mcp
         description: MCP browser server name
       max_html_characters:
         type: number

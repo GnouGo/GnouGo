@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using GnOuGo.Agent.Server.OpenAI;
+using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Shared;
 
 namespace GnOuGo.Agent.Server.Endpoints;
@@ -11,7 +11,7 @@ public static class ChatEndpoints
 {
     public static async Task<IResult> CompleteAsync(
         ChatStreamRequestDto request,
-        OpenAIResponsesClient openAi,
+        SmartFlowService smartFlow,
         CancellationToken ct)
     {
         if (request.Messages is null || request.Messages.Count == 0)
@@ -19,7 +19,17 @@ public static class ChatEndpoints
 
         try
         {
-            var text = await openAi.CompleteAsync(request.Messages, ct).ConfigureAwait(false);
+            var lastUserMsg = "";
+            for (var i = request.Messages.Count - 1; i >= 0; i--)
+            {
+                if (string.Equals(request.Messages[i].Role, "user", StringComparison.OrdinalIgnoreCase))
+                {
+                    lastUserMsg = request.Messages[i].Content;
+                    break;
+                }
+            }
+
+            var text = await smartFlow.CompleteAsync(lastUserMsg, ct).ConfigureAwait(false);
             return Results.Ok(new { text });
         }
         catch (Exception ex)
@@ -31,13 +41,13 @@ public static class ChatEndpoints
     public static async Task StreamAsync(
         HttpContext ctx,
         ChatStreamRequestDto request,
-        OpenAIResponsesClient openAi,
+        SmartFlowService smartFlow,
         CancellationToken ct)
     {
         ctx.Response.Headers.CacheControl = "no-store";
         ctx.Response.Headers.Pragma = "no-cache";
         ctx.Response.Headers.Append("X-Accel-Buffering", "no");
-        ctx.Response.ContentType = "text/plain; charset=utf-8";
+        ctx.Response.ContentType = "text/event-stream; charset=utf-8";
 
         if (request.Messages is null || request.Messages.Count == 0)
         {
@@ -48,22 +58,32 @@ public static class ChatEndpoints
 
         try
         {
-            await foreach (var chunk in openAi.StreamChatWordsAsync(request.Messages, ct).ConfigureAwait(false))
+            var lastUserMsg = "";
+            for (var i = request.Messages.Count - 1; i >= 0; i--)
             {
-                await ctx.Response.WriteAsync(chunk, ct).ConfigureAwait(false);
+                if (string.Equals(request.Messages[i].Role, "user", StringComparison.OrdinalIgnoreCase))
+                {
+                    lastUserMsg = request.Messages[i].Content;
+                    break;
+                }
+            }
+
+            await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, ct).ConfigureAwait(false))
+            {
+                // SSE format: "event: <type>\ndata: <text>\n\n"
+                await ctx.Response.WriteAsync($"event: {evt.Type}\ndata: {evt.Text ?? ""}\n\n", ct).ConfigureAwait(false);
                 await ctx.Response.Body.FlushAsync(ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
         {
-            // client disconnected / cancelled: nothing to do
+            // client disconnected
         }
         catch (Exception ex)
         {
-            // Best-effort error write (might be too late if headers are sent)
             try
             {
-                await ctx.Response.WriteAsync($"\n\n[error] {ex.Message}", ct).ConfigureAwait(false);
+                await ctx.Response.WriteAsync($"event: error\ndata: {ex.Message}\n\n", ct).ConfigureAwait(false);
                 await ctx.Response.Body.FlushAsync(ct).ConfigureAwait(false);
             }
             catch { }

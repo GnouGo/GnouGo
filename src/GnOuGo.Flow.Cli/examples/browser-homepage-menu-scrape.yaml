@@ -1,19 +1,19 @@
-dsl: 1
+﻿dsl: 1
 name: browser-homepage-menu-scrape
 meta:
   description: >
     Ouvre une page d'accueil, lit son contenu et son HTML,
     demande au LLM d'identifier les liens de navigation principaux,
-    itère dessus en mode foreach
-    puis navigue sur chaque page sélectionnée
-    puis résume les informations publiques trouvées.
+    itÃ¨re dessus en mode foreach
+    puis navigue sur chaque page sÃ©lectionnÃ©e
+    puis rÃ©sume les informations publiques trouvÃ©es.
 
-    Cet exemple montre comment laisser l'IA côté client MCP décider des liens utiles
-    à partir du HTML brut, sans aucun outil navigateur spécialisé côté serveur.
-    Aucun clic automatique sur une bannière cookies n'est effectué dans ce workflow :
-    c'est au client MCP de décider, à partir du HTML rendu, quel bouton il faut cliquer.
+    Cet exemple montre comment laisser l'IA cÃ´tÃ© client MCP dÃ©cider des liens utiles
+    Ã  partir du HTML brut, sans aucun outil navigateur spÃ©cialisÃ© cÃ´tÃ© serveur.
+    Aucun clic automatique sur une banniÃ¨re cookies n'est effectuÃ© dans ce workflow :
+    c'est au client MCP de dÃ©cider, Ã  partir du HTML rendu, quel bouton il faut cliquer.
 
-    Usage depuis la racine du dépôt :
+    Usage depuis la racine du dÃ©pÃ´t :
       dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/browser-homepage-menu-scrape.yaml
       dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/browser-homepage-menu-scrape.yaml -i homepage_url="https://example.com/"
 
@@ -28,7 +28,7 @@ workflows:
       browser_server:
         type: string
         required: false
-        default: GnOuGo.Flow.Browser
+        default: GnOuGo.Browser.Mcp
         description: MCP browser server name
       max_menu_links:
         type: number

@@ -108,11 +108,15 @@ public sealed class HumanInputExecutor : IStepExecutor
 
         var context = input["context"];
 
+        // Compute RunId once so that the telemetry payload (sent to the UI)
+        // and the HumanInputRequest (used to key the pending TCS) are consistent.
+        var runId = ctx.Limits.RunId ?? Guid.NewGuid().ToString("N");
+
         // Emit telemetry event so the UI knows we are waiting
         var requestPayload = new JsonObject
         {
             ["prompt"] = prompt,
-            ["run_id"] = ctx.Limits.RunId ?? "",
+            ["run_id"] = runId,
             ["step_id"] = ctx.Step.Id,
         };
         requestPayload["timeout_ms"] = timeoutMs;
@@ -141,7 +145,7 @@ public sealed class HumanInputExecutor : IStepExecutor
         // Build the request
         var request = new HumanInputRequest
         {
-            RunId = ctx.Limits.RunId ?? Guid.NewGuid().ToString("N"),
+            RunId = runId,
             StepId = ctx.Step.Id,
             Prompt = prompt,
             Context = context?.DeepClone(),

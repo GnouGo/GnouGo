@@ -1,9 +1,9 @@
-dsl: 1
+﻿dsl: 1
 name: mcp-browser-navigation-demo
 meta:
   description: >
-    Demonstrates sequential MCP browser navigation with GnOuGo.Flow.Browser.
-    Requires Playwright browser binaries to be installed for the GnOuGo.Flow.Browser project.
+    Demonstrates sequential MCP browser navigation with GnOuGo.Browser.Mcp.
+    Requires Playwright browser binaries to be installed for the GnOuGo.Browser.Mcp project.
 
     Usage from the repository root:
       dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/mcp-browser-navigation-demo.yaml
@@ -28,14 +28,14 @@ workflows:
       - id: discover_browser_tools
         type: mcp.list
         input:
-          server: GnOuGo.Flow.Browser
+          server: GnOuGo.Browser.Mcp
           include:
             - tools
 
       - id: read_first
         type: mcp.call
         input:
-          server: GnOuGo.Flow.Browser
+          server: GnOuGo.Browser.Mcp
           method: browser_get_content
           request:
             url: "${data.inputs.first_url}"
@@ -46,7 +46,7 @@ workflows:
       - id: read_second
         type: mcp.call
         input:
-          server: GnOuGo.Flow.Browser
+          server: GnOuGo.Browser.Mcp
           method: browser_get_content
           request:
             url: "${data.inputs.second_url}"
@@ -57,7 +57,7 @@ workflows:
       - id: read_third
         type: mcp.call
         input:
-          server: GnOuGo.Flow.Browser
+          server: GnOuGo.Browser.Mcp
           method: browser_get_content
           request:
             url: "${data.inputs.third_url}"
@@ -68,7 +68,7 @@ workflows:
       - id: close_browser
         type: mcp.call
         input:
-          server: GnOuGo.Flow.Browser
+          server: GnOuGo.Browser.Mcp
           method: browser_close
 
     outputs:
