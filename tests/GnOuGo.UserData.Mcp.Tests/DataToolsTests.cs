@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace GnOuGo.UserData.Mcp.Tests;
@@ -10,7 +11,7 @@ public class DataToolsTests
 
     public DataToolsTests()
     {
-        _tools = new DataTools(_store);
+        _tools = new DataTools(_store, NullLogger<DataTools>.Instance);
     }
 
     // ── ChatHistoryAppend ────────────────────────────────────────────
@@ -22,6 +23,7 @@ public class DataToolsTests
 
         var result = _tools.ChatHistoryAppend(json);
 
+        Assert.True(result["success"]!.GetValue<bool>());
         Assert.NotNull(result["conversation_id"]?.GetValue<string>());
         Assert.Equal(1, result["count_appended"]!.GetValue<int>());
     }
@@ -33,6 +35,7 @@ public class DataToolsTests
 
         var result = _tools.ChatHistoryAppend(json, "existing-conv");
 
+        Assert.True(result["success"]!.GetValue<bool>());
         Assert.Equal("existing-conv", result["conversation_id"]!.GetValue<string>());
     }
 
@@ -43,6 +46,7 @@ public class DataToolsTests
 
         var result = _tools.ChatHistoryAppend(json);
 
+        Assert.True(result["success"]!.GetValue<bool>());
         Assert.Equal(2, result["count_appended"]!.GetValue<int>());
     }
 
@@ -52,9 +56,11 @@ public class DataToolsTests
         var json = """[{"role":"user","content":"test","meta":{"source":"unit-test","score":42}}]""";
 
         var appendResult = _tools.ChatHistoryAppend(json, "meta-conv");
+        Assert.True(appendResult["success"]!.GetValue<bool>());
         var convId = appendResult["conversation_id"]!.GetValue<string>();
 
         var getResult = _tools.ChatHistoryGet(convId);
+        Assert.True(getResult["success"]!.GetValue<bool>());
         var messages = getResult["messages"]!.AsArray();
         Assert.Single(messages);
 
@@ -64,41 +70,64 @@ public class DataToolsTests
     }
 
     [Fact]
-    public void ChatHistoryAppend_Throws_WhenJsonIsNotArray()
+    public void ChatHistoryAppend_ReturnsError_WhenJsonIsNotArray()
     {
-        var ex = Assert.Throws<ArgumentException>(() => _tools.ChatHistoryAppend("""{"role":"user"}"""));
-        Assert.Contains("non-empty JSON array", ex.Message);
+        var result = _tools.ChatHistoryAppend("""{"role":"user"}""");
+
+        Assert.False(result["success"]!.GetValue<bool>());
+        Assert.Equal("INVALID_INPUT", result["error_code"]!.GetValue<string>());
+        Assert.Contains("non-empty JSON array", result["error_message"]!.GetValue<string>());
     }
 
     [Fact]
-    public void ChatHistoryAppend_Throws_WhenArrayIsEmpty()
+    public void ChatHistoryAppend_ReturnsError_WhenArrayIsEmpty()
     {
-        var ex = Assert.Throws<ArgumentException>(() => _tools.ChatHistoryAppend("[]"));
-        Assert.Contains("non-empty JSON array", ex.Message);
+        var result = _tools.ChatHistoryAppend("[]");
+
+        Assert.False(result["success"]!.GetValue<bool>());
+        Assert.Equal("INVALID_INPUT", result["error_code"]!.GetValue<string>());
     }
 
     [Fact]
-    public void ChatHistoryAppend_Throws_WhenMessageHasNoRole()
+    public void ChatHistoryAppend_ReturnsError_WhenMessageHasNoRole()
     {
         var json = """[{"content":"hello"}]""";
-        var ex = Assert.Throws<ArgumentException>(() => _tools.ChatHistoryAppend(json));
-        Assert.Contains("role is required", ex.Message);
+        var result = _tools.ChatHistoryAppend(json);
+
+        Assert.False(result["success"]!.GetValue<bool>());
+        Assert.Equal("INVALID_INPUT", result["error_code"]!.GetValue<string>());
+        Assert.Contains("role is required", result["error_message"]!.GetValue<string>());
     }
 
     [Fact]
-    public void ChatHistoryAppend_Throws_WhenMessageHasNoContent()
+    public void ChatHistoryAppend_ReturnsError_WhenMessageHasNoContent()
     {
         var json = """[{"role":"user"}]""";
-        var ex = Assert.Throws<ArgumentException>(() => _tools.ChatHistoryAppend(json));
-        Assert.Contains("content is required", ex.Message);
+        var result = _tools.ChatHistoryAppend(json);
+
+        Assert.False(result["success"]!.GetValue<bool>());
+        Assert.Equal("INVALID_INPUT", result["error_code"]!.GetValue<string>());
+        Assert.Contains("content is required", result["error_message"]!.GetValue<string>());
     }
 
     [Fact]
-    public void ChatHistoryAppend_Throws_WhenElementIsNotObject()
+    public void ChatHistoryAppend_ReturnsError_WhenElementIsNotObject()
     {
         var json = """["not an object"]""";
-        var ex = Assert.Throws<ArgumentException>(() => _tools.ChatHistoryAppend(json));
-        Assert.Contains("must be a JSON object", ex.Message);
+        var result = _tools.ChatHistoryAppend(json);
+
+        Assert.False(result["success"]!.GetValue<bool>());
+        Assert.Equal("INVALID_INPUT", result["error_code"]!.GetValue<string>());
+        Assert.Contains("must be a JSON object", result["error_message"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void ChatHistoryAppend_ReturnsError_WhenJsonIsMalformed()
+    {
+        var result = _tools.ChatHistoryAppend("not json at all {{{");
+
+        Assert.False(result["success"]!.GetValue<bool>());
+        Assert.Equal("INVALID_JSON", result["error_code"]!.GetValue<string>());
     }
 
     // ── ChatHistoryGet ───────────────────────────────────────────────
@@ -108,6 +137,7 @@ public class DataToolsTests
     {
         var result = _tools.ChatHistoryGet("unknown");
 
+        Assert.True(result["success"]!.GetValue<bool>());
         Assert.Equal("unknown", result["conversation_id"]!.GetValue<string>());
         Assert.Empty(result["messages"]!.AsArray());
     }
@@ -116,9 +146,10 @@ public class DataToolsTests
     public void ChatHistoryGet_ReturnsMessages_WithCorrectFields()
     {
         var json = """[{"role":"user","content":"question"},{"role":"assistant","content":"answer"}]""";
-        var appendResult = _tools.ChatHistoryAppend(json, "fields-test");
+        _tools.ChatHistoryAppend(json, "fields-test");
 
         var result = _tools.ChatHistoryGet("fields-test");
+        Assert.True(result["success"]!.GetValue<bool>());
         var messages = result["messages"]!.AsArray();
 
         Assert.Equal(2, messages.Count);
@@ -136,6 +167,7 @@ public class DataToolsTests
         _tools.ChatHistoryAppend(json, "topk-test");
 
         var result = _tools.ChatHistoryGet("topk-test", topK: 2);
+        Assert.True(result["success"]!.GetValue<bool>());
         var messages = result["messages"]!.AsArray();
 
         Assert.Equal(2, messages.Count);
@@ -144,17 +176,23 @@ public class DataToolsTests
     }
 
     [Fact]
-    public void ChatHistoryGet_Throws_WhenConversationIdIsEmpty()
+    public void ChatHistoryGet_ReturnsError_WhenConversationIdIsEmpty()
     {
-        var ex = Assert.Throws<ArgumentException>(() => _tools.ChatHistoryGet(""));
-        Assert.Contains("conversationId", ex.Message);
+        var result = _tools.ChatHistoryGet("");
+
+        Assert.False(result["success"]!.GetValue<bool>());
+        Assert.Equal("INVALID_INPUT", result["error_code"]!.GetValue<string>());
+        Assert.Contains("conversationId", result["error_message"]!.GetValue<string>());
     }
 
     [Fact]
-    public void ChatHistoryGet_Throws_WhenTopKIsZeroOrNegative()
+    public void ChatHistoryGet_ReturnsError_WhenTopKIsZeroOrNegative()
     {
-        var ex = Assert.Throws<ArgumentException>(() => _tools.ChatHistoryGet("any", topK: 0));
-        Assert.Contains("topK", ex.Message);
+        var result = _tools.ChatHistoryGet("any", topK: 0);
+
+        Assert.False(result["success"]!.GetValue<bool>());
+        Assert.Equal("INVALID_INPUT", result["error_code"]!.GetValue<string>());
+        Assert.Contains("topK", result["error_message"]!.GetValue<string>());
     }
 
     // ── Round-trip ───────────────────────────────────────────────────
@@ -164,6 +202,7 @@ public class DataToolsTests
     {
         var json = """[{"role":"system","content":"You are helpful."},{"role":"user","content":"What is 2+2?"}]""";
         var appendResult = _tools.ChatHistoryAppend(json);
+        Assert.True(appendResult["success"]!.GetValue<bool>());
         var convId = appendResult["conversation_id"]!.GetValue<string>();
 
         // Append assistant response
@@ -171,6 +210,7 @@ public class DataToolsTests
         _tools.ChatHistoryAppend(json2, convId);
 
         var getResult = _tools.ChatHistoryGet(convId, topK: 100);
+        Assert.True(getResult["success"]!.GetValue<bool>());
         var messages = getResult["messages"]!.AsArray();
 
         Assert.Equal(3, messages.Count);

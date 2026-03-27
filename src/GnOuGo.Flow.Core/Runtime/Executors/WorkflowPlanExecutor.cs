@@ -73,7 +73,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         var stepExceptionsDoc = BuildStepExceptionsDoc(ctx.Engine.Registry, allowedTypes);
 
         // ── MCP discovery + optional pre-filter ─────────────────────────
-        var discovered = await DiscoverMcpServersAsync(ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ct);
+        var discovered = await DiscoverMcpServersAsync(ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, ct);
 
         if (discovered != null && discovered.Count > 0)
         {
@@ -345,10 +345,19 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
     /// Returns null when no servers are configured.
     /// </summary>
     private static async Task<List<McpServerDiscovery>?> DiscoverMcpServersAsync(
-        IMcpClientFactory? factory, Microsoft.Extensions.Caching.Memory.IMemoryCache? cache, ILogger logger, CancellationToken ct)
+        IMcpClientFactory? factory, Microsoft.Extensions.Caching.Memory.IMemoryCache? cache, ILogger logger, StepExecutionContext ctx, CancellationToken ct)
     {
         if (factory?.ServerMetadata == null || factory.ServerMetadata.Count == 0)
             return null;
+
+        var serverCount = factory.ServerMetadata.Count;
+
+        // ── Thinking: MCP discovery start ──
+        ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.thinking.message", $"Discovering {serverCount} MCP server(s)…"),
+            new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "thinking")
+        });
 
         var results = new List<McpServerDiscovery>();
 
@@ -369,6 +378,14 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     Prompts = cachedPrompts,
                     Discovered = true
                 });
+
+                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+                {
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                        $"MCP '{server.Name}': {cachedTools.Count} tool(s), {cachedPrompts.Count} prompt(s) (cached)"),
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+                });
+
                 continue;
             }
 
@@ -406,6 +423,13 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     Prompts = prompts,
                     Discovered = true
                 });
+
+                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+                {
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                        $"MCP '{server.Name}': {tools.Count} tool(s), {prompts.Count} prompt(s)"),
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+                });
             }
             catch (Exception ex)
             {
@@ -416,8 +440,26 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     Description = server.Description,
                     Discovered = false
                 });
+
+                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+                {
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                        $"MCP '{server.Name}': discovery failed — {ex.Message}"),
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+                });
             }
         }
+
+        // ── Thinking: MCP discovery summary ──
+        var discoveredCount = results.Count(r => r.Discovered);
+        var totalTools = results.Sum(r => r.Tools.Count);
+        var totalPrompts = results.Sum(r => r.Prompts.Count);
+        ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                $"MCP discovery complete: {discoveredCount}/{serverCount} server(s), {totalTools} tool(s), {totalPrompts} prompt(s)"),
+            new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+        });
 
         return results;
     }
@@ -498,12 +540,31 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
 
         try
         {
+            // ── Thinking: prefilter start ──
+            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                    $"Pre-filtering MCP servers with {model} ({allServers.Count} server(s), {allServers.Sum(s => s.Tools.Count)} tool(s))…"),
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "thinking")
+            });
+
             ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.start", new[]
             {
                 new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count),
                 new KeyValuePair<string, object?>("mcp.tools_total", allServers.Sum(s => s.Tools.Count)),
                 new KeyValuePair<string, object?>("gen_ai.request.model", model)
             });
+
+            // ── GenAI: log prefilter prompt ──
+            if (ctx.Limits.LogStepContent)
+            {
+                ctx.AddTelemetryEvent("gen_ai.content.prompt", new[]
+                {
+                    new KeyValuePair<string, object?>("gen_ai.prompt", prefilterPrompt),
+                    new KeyValuePair<string, object?>("prompt.role", "user"),
+                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "prefilter")
+                });
+            }
 
             var response = await llmClient.CallAsync(new LLMRequest
             {
@@ -512,6 +573,39 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 Prompt = prefilterPrompt,
                 Temperature = 0.0
             }, ct);
+
+            // ── GenAI: log prefilter completion + usage ──
+            if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
+            {
+                ctx.AddTelemetryEvent("gen_ai.content.completion", new[]
+                {
+                    new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
+                    new KeyValuePair<string, object?>("completion.role", "assistant"),
+                    new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
+                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "prefilter")
+                });
+            }
+
+            if (response.Usage is JsonObject prefilterUsage)
+            {
+                var attrs = new List<KeyValuePair<string, object?>>
+                {
+                    new("gnougo-flow.plan.phase", "prefilter"),
+                    new("gen_ai.request.model", model)
+                };
+                if (prefilterUsage.TryGetPropertyValue("prompt_tokens", out var pt) && pt != null)
+                    attrs.Add(new("gen_ai.usage.input_tokens", pt.GetValue<int>()));
+                else if (prefilterUsage.TryGetPropertyValue("input_tokens", out var it) && it != null)
+                    attrs.Add(new("gen_ai.usage.input_tokens", it.GetValue<int>()));
+                if (prefilterUsage.TryGetPropertyValue("completion_tokens", out var ct2) && ct2 != null)
+                    attrs.Add(new("gen_ai.usage.output_tokens", ct2.GetValue<int>()));
+                else if (prefilterUsage.TryGetPropertyValue("output_tokens", out var ot) && ot != null)
+                    attrs.Add(new("gen_ai.usage.output_tokens", ot.GetValue<int>()));
+                if (prefilterUsage.TryGetPropertyValue("total_tokens", out var tt) && tt != null)
+                    attrs.Add(new("gen_ai.usage.total_tokens", tt.GetValue<int>()));
+
+                ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.usage", attrs.ToArray());
+            }
 
             var jsonText = StripMarkdownFences(response.Text).Trim();
             var filterResult = JsonNode.Parse(jsonText) as JsonObject;
@@ -524,6 +618,15 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     new KeyValuePair<string, object?>("mcp.servers_selected", 0),
                     new KeyValuePair<string, object?>("mcp.tools_selected", 0)
                 });
+
+                // ── Thinking: prefilter result (none selected) ──
+                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+                {
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                        "MCP pre-filter: no servers selected as relevant for this task."),
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+                });
+
                 return new List<McpServerDiscovery>();
             }
 
@@ -595,6 +698,14 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 new KeyValuePair<string, object?>("mcp.tools_selected", filtered.Sum(s => s.Tools.Count))
             });
 
+            // ── Thinking: prefilter result summary ──
+            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                    $"MCP pre-filter: {filtered.Count} server(s), {filtered.Sum(s => s.Tools.Count)} tool(s) selected for planning."),
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+            });
+
             return filtered;
         }
         catch (Exception ex)
@@ -602,6 +713,15 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             // On any failure, fall back to the full unfiltered list
             ctx.Engine.Logger.LogWarning(ex, "workflow.plan: MCP prefilter failed, falling back to full server list");
             ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.fallback", Array.Empty<KeyValuePair<string, object?>>());
+
+            // ── Thinking: prefilter fallback ──
+            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                    $"MCP pre-filter failed ({ex.Message}), using all {allServers.Count} server(s)."),
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+            });
+
             return allServers;
         }
     }

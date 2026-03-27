@@ -57,7 +57,39 @@ public sealed class CommandPolicy
             DefaultTimeoutMs: _settings.DefaultTimeoutMs,
             MaxTimeoutMs: _settings.MaxTimeoutMs,
             MaxOutputCharacters: _settings.MaxOutputCharacters,
-            AllowedCommandCount: _settings.AllowedCommands.Count);
+            AllowedCommandCount: _settings.AllowedCommands.Count,
+            Environment: DetectEnvironment());
+
+    /// <summary>
+    /// Detects the current OS, architecture, and which configured shells are actually available.
+    /// </summary>
+    public CmdEnvironmentInfo DetectEnvironment()
+    {
+        var os = OperatingSystem.IsWindows() ? "windows"
+            : OperatingSystem.IsLinux() ? "linux"
+            : OperatingSystem.IsMacOS() ? "macos"
+            : "unknown";
+
+        var availableShells = new List<CmdShellAvailability>();
+        foreach (var shellName in _settings.AllowedShells.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var info = ResolveShell(shellName);
+                availableShells.Add(new CmdShellAvailability(shellName, Available: true, info.ExecutablePath));
+            }
+            catch
+            {
+                availableShells.Add(new CmdShellAvailability(shellName, Available: false, ResolvedPath: null));
+            }
+        }
+
+        return new CmdEnvironmentInfo(
+            OperatingSystem: os,
+            Architecture: System.Runtime.InteropServices.RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant(),
+            MachineName: System.Environment.MachineName,
+            AvailableShells: availableShells);
+    }
 
     public ShellLaunchInfo ResolveShell(string shellName)
     {
@@ -71,6 +103,9 @@ public sealed class CommandPolicy
                 ? ["powershell.exe", "pwsh.exe"]
                 : ["pwsh", "powershell"]),
             "sh" => ResolveKnownShell(normalized, ["sh", "/bin/sh"]),
+            "cmd" => ResolveKnownShell(normalized, OperatingSystem.IsWindows()
+                ? ["cmd.exe"]
+                : throw new InvalidOperationException("Shell 'cmd' is only available on Windows.")),
             _ => throw new InvalidOperationException($"Shell '{normalized}' is not supported.")
         };
     }
@@ -182,8 +217,25 @@ public sealed class CommandPolicy
         {
             "powershell" => $"'{value.Replace("'", "''", StringComparison.Ordinal)}'",
             "sh" => $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'",
+            "cmd" => "\"" + CmdEscapeSpecialChars(value) + "\"",
             _ => throw new InvalidOperationException($"Shell '{normalized}' is not supported for escaping.")
         };
+    }
+
+    /// <summary>
+    /// Escapes cmd.exe special characters with the ^ prefix.
+    /// </summary>
+    private static string CmdEscapeSpecialChars(string value)
+    {
+        ReadOnlySpan<char> special = ['&', '|', '<', '>', '^', '%', '(', ')'];
+        var sb = new System.Text.StringBuilder(value.Length + 8);
+        foreach (var ch in value)
+        {
+            if (special.Contains(ch))
+                sb.Append('^');
+            sb.Append(ch);
+        }
+        return sb.ToString();
     }
 
     internal static string? DiscoverWorkspaceRoot(string contentRootPath)
@@ -234,6 +286,7 @@ public sealed class CommandPolicy
                 {
                     "powershell" => new ShellLaunchInfo(logicalName, resolvedPath, script => $"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"{script.Replace("\"", "\\\"", StringComparison.Ordinal)}\""),
                     "sh" => new ShellLaunchInfo(logicalName, resolvedPath, script => $"-c \"{script.Replace("\"", "\\\"", StringComparison.Ordinal)}\""),
+                    "cmd" => new ShellLaunchInfo(logicalName, resolvedPath, script => $"/C \"{script.Replace("\"", "\\\"", StringComparison.Ordinal)}\""),
                     _ => throw new InvalidOperationException($"Shell '{logicalName}' is not supported.")
                 };
             }
@@ -296,7 +349,19 @@ public sealed record CmdPolicyInfo(
     int DefaultTimeoutMs,
     int MaxTimeoutMs,
     int MaxOutputCharacters,
-    int AllowedCommandCount);
+    int AllowedCommandCount,
+    CmdEnvironmentInfo Environment);
+
+public sealed record CmdEnvironmentInfo(
+    string OperatingSystem,
+    string Architecture,
+    string MachineName,
+    IReadOnlyList<CmdShellAvailability> AvailableShells);
+
+public sealed record CmdShellAvailability(
+    string Name,
+    bool Available,
+    string? ResolvedPath);
 
 public sealed record CmdAllowedCommandInfo(
     string Name,

@@ -4,8 +4,8 @@ using GnOuGo.Flow.Core.Runtime;
 namespace GnOuGo.Agent.Server.SmartFlow;
 
 /// <summary>
-/// Lightweight telemetry implementation that captures "emit" step outputs
-/// and forwards them as <see cref="SmartFlowEvent"/> to the streaming channel.
+/// Lightweight telemetry implementation that captures thinking events (from any executor)
+/// and LLM chunks, forwarding them as <see cref="SmartFlowEvent"/> to the streaming channel.
 /// </summary>
 public sealed class AgentStreamingTelemetry : IWorkflowTelemetry
 {
@@ -28,18 +28,6 @@ public sealed class AgentStreamingTelemetry : IWorkflowTelemetry
         if (span is not AgentStepSpan agentSpan)
             return;
 
-        // Capture emit steps (thinking / progress / info / response)
-        if (string.Equals(agentSpan.Info.StepType, "emit", StringComparison.OrdinalIgnoreCase)
-            && result.Output is JsonObject output)
-        {
-            var message = output["message"]?.GetValue<string>();
-            var level = output["level"]?.GetValue<string>() ?? "thinking";
-
-            if (!string.IsNullOrWhiteSpace(message))
-            {
-                _emit(new SmartFlowEvent($"thinking:{level}", message));
-            }
-        }
 
         // Capture LLM step completions for streaming text chunks
         if (string.Equals(agentSpan.Info.StepType, "llm.call", StringComparison.OrdinalIgnoreCase)
@@ -73,9 +61,28 @@ public sealed class AgentStreamingTelemetry : IWorkflowTelemetry
 
         public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
         {
+            if (attributes is null) return;
+
+            // Capture thinking/info/progress events from any executor (e.g. workflow.plan, emit, etc.)
+            if (string.Equals(name, "gnougo-flow.step.thinking", StringComparison.Ordinal))
+            {
+                string? message = null;
+                string level = "thinking";
+                foreach (var attr in attributes)
+                {
+                    if (string.Equals(attr.Key, "gnougo-flow.thinking.message", StringComparison.Ordinal)
+                        && attr.Value is string msg)
+                        message = msg;
+                    else if (string.Equals(attr.Key, "gnougo-flow.thinking.level", StringComparison.Ordinal)
+                             && attr.Value is string lvl)
+                        level = lvl;
+                }
+                if (!string.IsNullOrWhiteSpace(message))
+                    _emit(new SmartFlowEvent($"thinking:{level}", message));
+            }
+
             // Capture human.input waiting events and forward to the UI
-            if (string.Equals(name, "gnougo-flow.step.waiting_for_human", StringComparison.Ordinal)
-                && attributes is not null)
+            if (string.Equals(name, "gnougo-flow.step.waiting_for_human", StringComparison.Ordinal))
             {
                 foreach (var attr in attributes)
                 {

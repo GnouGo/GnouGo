@@ -7,7 +7,7 @@ public sealed class CmdServerSettings
     public int DefaultTimeoutMs { get; set; } = 10_000;
     public int MaxTimeoutMs { get; set; } = 30_000;
     public int MaxOutputCharacters { get; set; } = 12_000;
-    public List<string> AllowedShells { get; set; } = ["powershell", "sh"];
+    public List<string> AllowedShells { get; set; } = ["powershell", "sh", "cmd"];
     public List<string> AllowedWorkingRoots { get; set; } = [];
     public List<string> EnvironmentAllowList { get; set; } =
     [

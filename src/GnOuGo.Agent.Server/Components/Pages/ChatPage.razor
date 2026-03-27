@@ -100,10 +100,11 @@
                 {
                     var isUser = string.Equals(msg.Role, "user", StringComparison.OrdinalIgnoreCase);
                     var isThinking = string.Equals(msg.Role, "thinking", StringComparison.OrdinalIgnoreCase);
+                    var isThought = string.Equals(msg.Role, "thought", StringComparison.OrdinalIgnoreCase);
 
-                    @if (isThinking)
+                    @if (isThinking || isThought)
                     {
-                        <article class="sa-chat__message sa-chat__message--thinking">
+                        <article class="sa-chat__message @(isThought ? "sa-chat__message--thought" : "sa-chat__message--thinking")">
                             <div class="sa-chat__thinking">
                                 <span class="sa-chat__thinking-icon">💭</span>
                                 <span class="sa-chat__thinking-text">@msg.Content</span>
@@ -421,7 +422,41 @@
                 }
                 else if (evt.Type is "error")
                 {
-                    _error = evt.Text ?? "Unknown error";
+                    // Detect HITL timeout and show a friendly message
+                    var errText = evt.Text ?? "Unknown error";
+                    if (errText.Contains("timed out", StringComparison.OrdinalIgnoreCase)
+                        && errText.Contains("human", StringComparison.OrdinalIgnoreCase)
+                        && _active is not null)
+                    {
+                        var timeoutMsg = new ChatMessageDto("assistant",
+                            "⏱️ **Human input timed out.** The workflow was waiting for your response, "
+                            + "but no input was received within the allowed time. "
+                            + "Please try again — the workflow will re-prompt you for the required information.");
+
+                        // Replace the empty assistant placeholder (if any) instead of inserting alongside it
+                        var replaced = false;
+                        for (var i = _active.Messages.Count - 1; i >= 0; i--)
+                        {
+                            if (string.Equals(_active.Messages[i].Role, "assistant", StringComparison.OrdinalIgnoreCase)
+                                && string.IsNullOrWhiteSpace(_active.Messages[i].Content))
+                            {
+                                _active.Messages[i] = timeoutMsg;
+                                replaced = true;
+                                break;
+                            }
+                        }
+                        if (!replaced)
+                            _active.Messages.Add(timeoutMsg);
+
+                        _pendingHumanInput = null;
+                        _fieldValues.Clear();
+                        StateHasChanged();
+                        await ScrollToBottomAsync();
+                    }
+                    else
+                    {
+                        _error = errText;
+                    }
                 }
                 else if (evt.Type is "human_input_request")
                 {
@@ -495,11 +530,14 @@
                     new ChatMessageDto("user", sb.ToString()));
             }
 
-            // Remove thinking messages from final history (keep only user/assistant)
+            // Convert live thinking messages to "thought" (static, no pulse animation)
             if (_active is not null)
             {
-                _active.Messages.RemoveAll(m =>
-                    string.Equals(m.Role, "thinking", StringComparison.OrdinalIgnoreCase));
+                for (var i = 0; i < _active.Messages.Count; i++)
+                {
+                    if (string.Equals(_active.Messages[i].Role, "thinking", StringComparison.OrdinalIgnoreCase))
+                        _active.Messages[i] = _active.Messages[i] with { Role = "thought" };
+                }
             }
 
             // Update title if still default
