@@ -28,6 +28,7 @@ public sealed class SmartFlowService
     private readonly IMcpClientFactory _mcpFactory;
     private readonly IMemoryCache _mcpCache;
     private readonly ConfigureProvidersService _configureProviders;
+    private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<SmartFlowService> _logger;
     private readonly string _workflowYaml;
 
@@ -39,12 +40,14 @@ public sealed class SmartFlowService
         IMcpClientFactory mcpFactory,
         IMemoryCache mcpCache,
         ConfigureProvidersService configureProviders,
+        AgentOTelTelemetry otel,
         ILogger<SmartFlowService> logger)
     {
         _llm = llm;
         _mcpFactory = mcpFactory;
         _mcpCache = mcpCache;
         _configureProviders = configureProviders;
+        _otel = otel;
         _logger = logger;
 
         // Load the embedded workflow YAML
@@ -108,7 +111,9 @@ public sealed class SmartFlowService
         });
 
         // Create a telemetry decorator that captures emit steps
-        var telemetry = new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt));
+        var telemetry = new CompositeWorkflowTelemetry(
+            new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt)),
+            _otel);
 
         var engine = new WorkflowEngine
         {
