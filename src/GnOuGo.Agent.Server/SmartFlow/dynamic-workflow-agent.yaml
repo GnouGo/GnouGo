@@ -2,13 +2,20 @@ dsl: 1
 name: dynamic-workflow-agent
 meta:
   description: >
-    Demo showcasing the workflow.plan + workflow.execute capabilities.
+    Demo showcasing the workflow.plan + workflow.execute capabilities with
+    a human-in-the-loop approach analysis phase.
     
-    This agent takes a user task description in natural language, asks an LLM to
-    generate a GnOuGo.Flow workflow on-the-fly, validates it against a strict policy,
-    then executes the generated workflow and returns the result.
+    This agent takes a user task description in natural language, first asks an LLM
+    to propose the best approach (in Markdown), then presents it to the user for
+    approval via a human-in-the-loop review loop. If the user is not satisfied,
+    they can provide feedback and the LLM refines the approach. Once approved,
+    the agent generates a GnOuGo.Flow workflow on-the-fly, validates it against a
+    strict policy, then executes the generated workflow and returns the result.
     
     This demonstrates:
+      - LLM-powered approach analysis with human review loop
+      - Human-in-the-loop approval / feedback (human.input)
+      - Iterative refinement via loop.sequential
       - Dynamic workflow generation via LLM (workflow.plan)
       - Policy enforcement (allowed step types, max steps)
       - Automatic re-prompting on validation errors (up to 3 attempts)
@@ -33,16 +40,71 @@ workflows:
     
     steps:
       # ──────────────────────────────────────────────────────────
-      # Step 0: Signal planning start
+      # Phase 1: Approach analysis with human-in-the-loop review
+      # ──────────────────────────────────────────────────────────
+      - id: think_analyze
+        type: emit
+        input:
+          message: "Analyzing the best approach for: ${data.inputs.task}"
+          level: thinking
+
+      - id: discover_mcp
+        type: mcp.list
+        input:
+          servers:
+            - "*"
+          include:
+            - tools
+            - prompts
+
+      - id: review_loop
+        type: loop.sequential
+        input:
+          while: "${!exists(data.steps.review) || data.steps.review.response != 'approve'}"
+          max_iterations: 10
+        steps:
+          # LLM analysis — first pass or refinement based on feedback
+          - id: analyze
+            type: llm.call
+            input:
+              model: gpt-5.4-mini
+              temperature: 0.7
+              prompt: >
+                ${data._loop.index == 0
+                  ? "You are a task analysis expert. Analyze the task and return a very concise **Markdown** execution plan. The plan must be strictly logical, ordered step by step, and easy to execute. Use 3 to 7 short numbered steps, one action per step, with no unnecessary explanation. Prefer available MCP tools/prompts when they reduce work. Mention only the few most relevant tools. End with a very short expected outcome section.\n\nTask: " + data.inputs.task + "\n\n--- Available MCP capabilities ---\n" + data.steps.discover_mcp.text
+                  : "You are a task analysis expert. Refine your previous analysis based on the user feedback below. Return an updated very concise **Markdown** execution plan. The plan must stay strictly logical, ordered step by step, and easy to execute. Use 3 to 7 short numbered steps, one action per step, with no unnecessary explanation. Prefer available MCP tools/prompts when they reduce work. Mention only the few most relevant tools. End with a very short expected outcome section.\n\nOriginal task: " + data.inputs.task + "\n\n--- Available MCP capabilities ---\n" + data.steps.discover_mcp.text + "\n\n--- Previous analysis ---\n" + data.steps.analyze.text + "\n\n--- User feedback ---\n" + data.steps.feedback.response + "\n\nProvide an updated approach that addresses the feedback."}
+
+          # Present the analysis and ask the user to approve or request changes
+          - id: review
+            type: human.input
+            input:
+              prompt: |
+                Please review the proposed approach below.
+                • **Approve** — proceed with automated workflow generation & execution.
+                • **Modify** — provide feedback so the approach can be refined.
+              context: "${data.steps.analyze.text}"
+              choices:
+                - approve
+                - modify
+
+          # If the user chose "modify", collect their feedback
+          - id: feedback
+            type: human.input
+            if: "${data.steps.review.response == 'modify'}"
+            input:
+              prompt: "What should be improved or changed in the approach?"
+
+      # ──────────────────────────────────────────────────────────
+      # Phase 2: Signal planning start
       # ──────────────────────────────────────────────────────────
       - id: think_plan
         type: emit
         input:
-          message: "Planning a workflow for: ${data.inputs.task}"
+          message: "Approach approved — planning a workflow for: ${data.inputs.task}"
           level: thinking
 
       # ──────────────────────────────────────────────────────────
-      # Step 1: Ask the LLM to generate a workflow dynamically
+      # Phase 3: Ask the LLM to generate a workflow dynamically
       # ──────────────────────────────────────────────────────────
       - id: generate
         type: workflow.plan
@@ -52,6 +114,16 @@ workflows:
             instruction: >
               Create a workflow that accomplishes the following task:
               ${coalesce(data.inputs.task, "no task provided")}
+              
+              An expert has analyzed the task and the user has approved
+              the following approach. Follow it closely:
+              ${data.steps.analyze.text}
+
+              Available MCP capabilities discovered before planning:
+              ${data.steps.discover_mcp.text}
+
+              Keep the generated workflow as short as possible and aim for fewer than 10 steps when feasible.
+              Prefer available MCP tools/prompts over additional LLM calls when they are a better fit.
               
               The workflow MUST be named "generated" and have a single workflow
               with an "answer" output containing the final result as a string.
@@ -86,7 +158,7 @@ workflows:
             max_attempts: 3
       
       # ──────────────────────────────────────────────────────────
-      # Step 2: Log what was generated (for observability)
+      # Phase 4: Log what was generated (for observability)
       # ──────────────────────────────────────────────────────────
       - id: log_plan
         type: template.render
@@ -104,7 +176,7 @@ workflows:
             attempt: "${data.steps.generate.meta.attempt}"
       
       # ──────────────────────────────────────────────────────────
-      # Step 3: Execute the generated workflow
+      # Phase 5: Execute the generated workflow
       # ──────────────────────────────────────────────────────────
       - id: think_exec
         type: emit
@@ -118,7 +190,7 @@ workflows:
           from_step: generate
       
       # ──────────────────────────────────────────────────────────
-      # Step 4: Format the final response
+      # Phase 6: Format the final response
       # ──────────────────────────────────────────────────────────
       - id: think_format
         type: emit
@@ -150,6 +222,14 @@ workflows:
         expr: "${data.steps.format.text}"
         type: string
         description: Final formatted answer
+      approved_approach:
+        expr: "${data.steps.analyze.text}"
+        type: string
+        description: The human-approved approach analysis
+      review_iterations:
+        expr: "${data.steps.review_loop.count}"
+        type: number
+        description: Number of review iterations before approval
       generated_yaml:
         expr: "${data.steps.generate.yaml}"
         type: string

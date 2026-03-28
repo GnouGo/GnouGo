@@ -1,20 +1,20 @@
-﻿dsl: 1
+dsl: 1
 name: company-browser-research-safe
 meta:
   description: >
-    Variante plus robuste du workflow de veille sociÃ©tÃ©, pensÃ©e pour Ã©viter les sites
-    qui bloquent frÃ©quemment l'automatisation navigateur.
+    Variante plus robuste du workflow de veille société, pensée pour éviter les sites
+    qui bloquent fréquemment l'automatisation navigateur.
 
     Cette variante est la version prudente du workflow
     `src/GnOuGo.Flow.Cli/examples/slimfaas-browser-research-agent.yaml`.
     Elle restreint volontairement les sources aux pages publiques les moins susceptibles
     de bloquer Playwright, afin d'obtenir un workflow plus stable mais parfois moins riche.
 
-    Cette version ne cherche pas Ã  contourner les protections anti-bot.
-    Aucun clic automatique sur une banniÃ¨re cookies n'est effectuÃ©.
-    Si une banniÃ¨re ou un overlay masque l'accÃ¨s au contenu, c'est au client MCP / LLM,
-    Ã  partir du HTML rendu, de dÃ©cider quelle action gÃ©nÃ©rique entreprendre.
-    Elle privilÃ©gie :
+    Cette version ne cherche pas à contourner les protections anti-bot.
+    Aucun clic automatique sur une bannière cookies n'est effectué.
+    Si une bannière ou un overlay masque l'accès au contenu, c'est au client MCP / LLM,
+    à partir du HTML rendu, de décider quelle action générique entreprendre.
+    Elle privilégie :
       - le site officiel
       - la documentation publique
       - le blog public
@@ -24,7 +24,7 @@ meta:
       - Hacker News Algolia
       - Reddit search
 
-    Usage depuis la racine du dÃ©pÃ´t :
+    Usage depuis la racine du dépôt :
       dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/company-browser-research-safe.yaml
       dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/company-browser-research-safe.yaml -i subject="Acme Cloud" -i company_domain="acme.com"
 
@@ -71,7 +71,7 @@ workflows:
       - id: discover_browser_tools
         type: mcp.list
         input:
-          server: "${data.inputs.browser_server}"
+          servers: ["${data.inputs.browser_server}"]
           include:
             - tools
 

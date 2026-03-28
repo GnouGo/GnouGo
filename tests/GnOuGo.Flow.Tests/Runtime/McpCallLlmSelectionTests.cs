@@ -150,7 +150,7 @@ workflows:
       - id: discover
         type: mcp.list
         input:
-          server: github
+          servers: [github]
           include: [tools]
       - id: call
         type: mcp.call

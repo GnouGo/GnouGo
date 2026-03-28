@@ -835,9 +835,10 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       ok: true
+                      status_text: "done"
                 outputs:
                   status:
-                    expr: "'done'"
+                    expr: "${data.steps.s.status_text}"
                     type: string
             """;
 
@@ -965,4 +966,5 @@ public class WorkflowExecuteExecutorTests
         Assert.Equal("Items: 3", result.Outputs!["text"]!.GetValue<string>());
     }
 }
+
 

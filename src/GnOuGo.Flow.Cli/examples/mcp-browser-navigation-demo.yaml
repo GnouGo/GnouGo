@@ -1,4 +1,4 @@
-﻿dsl: 1
+dsl: 1
 name: mcp-browser-navigation-demo
 meta:
   description: >
@@ -28,7 +28,7 @@ workflows:
       - id: discover_browser_tools
         type: mcp.list
         input:
-          server: GnOuGo.Browser.Mcp
+          servers: [GnOuGo.Browser.Mcp]
           include:
             - tools
 

@@ -215,17 +215,26 @@ Access: `data.steps.classify.json.category`, `data.steps.classify.json.priority`
 
 ### `mcp.list` — Discover MCP Server Capabilities
 
-Lists tools and/or prompts exposed by an MCP server.
+Lists tools, resources, and/or prompts exposed by one or more MCP servers.
+Use a one-item array for a single server, or `servers: ["*"]` to discover all configured MCP servers.
 
 ```yaml
 - id: discover
   type: mcp.list
   input:
-    server: my-mcp-server     # Required — configured MCP server name
-    include: ["tools", "prompts"]  # Optional — default: both
+    servers: [github, docs]         # Required — configured MCP server names
+    include: ["tools", "prompts"] # Optional — default: ["tools"]
+
+- id: discover_all
+  type: mcp.list
+  input:
+    servers: ["*"]
+    include: ["tools"]
 ```
 
-**Output:** `{ tools: [...], prompts: [...] }`
+**Output:** `{ status, text, servers: [...], tools: [...], resources: [...], prompts: [...] }`
+
+Flattened `tools`, `resources`, and `prompts` entries each include a `server` field so downstream steps can keep the server affinity when multiple MCP servers are discovered at once.
 
 ---
 
@@ -270,7 +279,7 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 - id: discover
   type: mcp.list
   input:
-    server: github
+    servers: [github]
 
 - id: smart_call
   type: mcp.call

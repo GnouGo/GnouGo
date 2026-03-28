@@ -23,7 +23,7 @@ public sealed class BrowserTools
         [Description("Navigation wait mode used when url is provided: load, domcontentloaded, or networkidle.")] string waitUntil = "load",
         [Description("Optional navigation timeout in milliseconds used when url is provided.")] int? timeoutMs = null,
         [Description("Optional CSS selector. Defaults to the body element. Prefer scoping to nav/header/menu/form containers when inspecting links or interactive elements. Example: selector='nav' with format='html' for menu links.")] string? selector = null,
-        [Description("Return format: text or html. Example text => article summary, success message, visible page copy. Example html => nav/header links, href/src attributes, forms, buttons, tables, selectors, and any task where the client must inspect the rendered markup before acting.")] string format = "html",
+        [Description("Return format: text or html. Example text => article summary, success message, visible page copy. Example html => nav/header links, href/src attributes, forms, buttons, tables, selectors, and any task where the client must inspect the rendered html markup before acting.")] string format = "html",
         [Description("Maximum number of characters returned.")] int? maxCharacters = null,
         CancellationToken cancellationToken = default)
     {

@@ -732,7 +732,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
     private static string FormatMcpServersDoc(List<McpServerDiscovery> servers)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Use the exact server name in mcp.call/mcp.list input.server.");
+        sb.AppendLine("Use the exact server name in mcp.call input.server and in mcp.list input.servers.");
 
         bool anyToolsDiscovered = false;
 
