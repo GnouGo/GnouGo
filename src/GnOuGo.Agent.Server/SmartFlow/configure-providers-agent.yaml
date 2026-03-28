@@ -107,6 +107,37 @@ workflows:
         expr: "${data.steps.help_text?.text ?? null}"
         type: string
         description: "Help text (only when no command was given)"
+      llm_saved:
+        expr: "${data.steps.llm_flow?.outputs?.saved ?? false}"
+        type: boolean
+        description: "Whether the LLM provider was saved (only for /llm command)"
+      llm_provider:
+        expr: "${data.steps.llm_flow?.outputs?.provider ?? null}"
+        type: string
+      llm_url:
+        expr: "${data.steps.llm_flow?.outputs?.url ?? null}"
+        type: string
+      llm_model:
+        expr: "${data.steps.llm_flow?.outputs?.model ?? null}"
+        type: string
+      llm_auth_type:
+        expr: "${data.steps.llm_flow?.outputs?.auth_type ?? null}"
+        type: string
+      llm_api_key:
+        expr: "${data.steps.llm_flow?.outputs?.api_key ?? null}"
+        type: string
+      llm_oidc_issuer:
+        expr: "${data.steps.llm_flow?.outputs?.oidc_issuer ?? null}"
+        type: string
+      llm_oidc_client_id:
+        expr: "${data.steps.llm_flow?.outputs?.oidc_client_id ?? null}"
+        type: string
+      llm_oidc_scopes:
+        expr: "${data.steps.llm_flow?.outputs?.oidc_scopes ?? null}"
+        type: string
+      llm_oidc_client_secret:
+        expr: "${data.steps.llm_flow?.outputs?.oidc_client_secret ?? null}"
+        type: string
 
   # ══════════════════════════════════════════════════════════════════
   # SUB-WORKFLOW: /llm — Configure LLM Provider + persist to KeyVault
@@ -308,13 +339,13 @@ workflows:
           oidc_scopes: "${data.steps.auth_none?.oidc_scopes ?? data.steps.auth_apikey?.oidc_scopes ?? data.steps.auth_oidc?.oidc_scopes ?? data.steps.auth_copilot_env?.oidc_scopes ?? ''}"
           oidc_client_secret: "${data.steps.auth_none?.oidc_client_secret ?? data.steps.auth_apikey?.oidc_client_secret ?? data.steps.auth_oidc?.oidc_client_secret ?? data.steps.auth_copilot_env?.oidc_client_secret ?? ''}"
 
-      # ── Build summary ──
+      # ── Build summary (shown as a thinking preview before confirm) ──
       - id: llm_summary
         type: template.render
         input:
           engine: mustache
           template: |
-            ## ✅ LLM Provider Configured
+            ## 📋 Review before saving
 
             | Field          | Value                    |
             |----------------|--------------------------|
@@ -345,7 +376,7 @@ workflows:
         type: emit
         input:
           message: "${data.steps.llm_summary.text}"
-          level: response
+          level: thinking
 
       # ── Confirm ──
       - id: confirm_llm
@@ -488,7 +519,7 @@ workflows:
             type: emit
             input:
               message: "❌ LLM configuration discarded."
-              level: response
+              level: thinking
 
     outputs:
       saved:
@@ -499,6 +530,34 @@ workflows:
         expr: "${data.steps.choose_provider.response}"
         type: string
         description: "Provider key (openai, ollama, copilot)"
+      url:
+        expr: "${data.steps.configure_connection?.url ?? ''}"
+        type: string
+        description: "Provider endpoint URL"
+      model:
+        expr: "${data.steps.configure_connection?.model ?? ''}"
+        type: string
+        description: "Default model name"
+      auth_type:
+        expr: "${data.steps.final_auth?.auth_type ?? 'none'}"
+        type: string
+        description: "Auth type (api_key, oidc, copilot_env, none)"
+      api_key:
+        expr: "${data.steps.final_auth?.api_key ?? ''}"
+        type: string
+        description: "API key (present only when auth_type == api_key)"
+      oidc_issuer:
+        expr: "${data.steps.final_auth?.oidc_issuer ?? ''}"
+        type: string
+      oidc_client_id:
+        expr: "${data.steps.final_auth?.oidc_client_id ?? ''}"
+        type: string
+      oidc_scopes:
+        expr: "${data.steps.final_auth?.oidc_scopes ?? ''}"
+        type: string
+      oidc_client_secret:
+        expr: "${data.steps.final_auth?.oidc_client_secret ?? ''}"
+        type: string
 
   # ══════════════════════════════════════════════════════════════════
   # SUB-WORKFLOW: /mcp — Configure MCP Server + persist to KeyVault
@@ -927,7 +986,7 @@ workflows:
             type: emit
             input:
               message: "❌ MCP server configuration discarded."
-              level: response
+              level: thinking
 
     outputs:
       saved:
