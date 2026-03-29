@@ -69,7 +69,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Oltp", "Oltp", "{3A6A9022-2
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.AI.Core.Tests", "tests\GnOuGo.AI.Core.Tests\GnOuGo.AI.Core.Tests.csproj", "{46A45AAD-053B-4CE2-8FC5-538B96179DEB}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "KeyVault", "KeyVault", "{03B736EC-78CF-6EF2-B49B-9095733121B9}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "KeyVault.Mcp", "KeyVault.Mcp", "{03B736EC-78CF-6EF2-B49B-9095733121B9}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.KeyVault.Mcp", "src\GnOuGo.KeyVault.Mcp\GnOuGo.KeyVault.Mcp.csproj", "{85C9E7AA-6BF6-4A61-87A1-B6139A0416D8}"
 EndProject
