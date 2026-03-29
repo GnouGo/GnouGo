@@ -39,11 +39,6 @@ workflows:
         type: string
         required: true
         description: A natural-language description of the task to accomplish
-      cmd_server:
-        type: string
-        required: false
-        default: GnOuGo.Cmd.Mcp
-        description: MCP command server used for optional Markdown file export
     
     steps:
       # ──────────────────────────────────────────────────────────
@@ -271,7 +266,7 @@ workflows:
         type: mcp.call
         if: "${data.steps.ask_markdown_export.response == 'save'}"
         input:
-          server: "${data.inputs.cmd_server}"
+          server: GnOuGo.Cmd.Mcp
           method: cmd_run
           request:
             commandName: write_markdown_file

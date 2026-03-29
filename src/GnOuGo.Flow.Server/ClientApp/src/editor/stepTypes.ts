@@ -11,7 +11,7 @@ export interface FieldDef {
   required?: boolean
   placeholder?: string
   options?: string[]  // for select
-  defaultValue?: string | number | boolean
+  defaultValue?: string | number | boolean | Record<string, unknown> | unknown[]
   description?: string
 }
 
@@ -156,10 +156,10 @@ export const STEP_TYPES: StepTypeDef[] = [
     icon: '📡',
     category: 'mcp',
     color: '#f97316',
-    description: 'List tools/prompts from MCP server',
+    description: 'List tools/resources/prompts from one or more MCP servers',
     fields: [
-      { name: 'server', label: 'Server', type: 'string', required: true, placeholder: 'demo' },
-      { name: 'include', label: 'Include', type: 'json', placeholder: '["tools", "prompts"]' },
+      { name: 'servers', label: 'Servers', type: 'json', required: true, placeholder: '["demo"]', defaultValue: ['*'], description: 'Array of MCP server names, or ["*"] to inspect all configured servers' },
+      { name: 'include', label: 'Include', type: 'json', placeholder: '["tools", "prompts"]', description: 'Optional capabilities to include: tools, resources, prompts' },
     ],
   },
   {
