@@ -156,5 +156,21 @@ public class BuiltInFunctionsTests
         var result = Eval("formatDate(null, \"yyyy\")", null);
         Assert.Null(result);
     }
+
+    [Fact]
+    public void Base64_EncodesUtf8String()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["text"] = "# Hello\n\n- Café" } };
+        var result = Eval("base64(data.inputs.text)", ctx);
+
+        Assert.Equal("IyBIZWxsbwoKLSBDYWbDqQ==", result!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Base64_NullInput_ReturnsNull()
+    {
+        var result = Eval("base64(null)", null);
+        Assert.Null(result);
+    }
 }
 

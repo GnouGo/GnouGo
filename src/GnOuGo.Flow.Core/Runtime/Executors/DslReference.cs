@@ -136,6 +136,7 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 - `replace(s, old, new)` → replaces all occurrences of old with new in s
 - `toNumber(val)` → converts value to number
 - `json(val)` → serializes value to JSON string
+- `base64(val)` → encodes the UTF-8 string value as Base64
 - `formatDate(dateStr, fmt)` → formats a date string (default fmt: "yyyy-MM-dd"); also accepts unix ms timestamps
 
 ### WFScript (custom JavaScript functions)
