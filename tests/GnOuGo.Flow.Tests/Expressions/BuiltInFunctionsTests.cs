@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Globalization;
 using GnOuGo.Flow.Core.Expressions;
 using Xunit;
 
@@ -143,6 +144,14 @@ public class BuiltInFunctionsTests
     }
 
     [Fact]
+    public void Now_ReturnsIsoTimestamp()
+    {
+        var result = Eval("now()");
+
+        Assert.True(DateTimeOffset.TryParse(result!.GetValue<string>(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _));
+    }
+
+    [Fact]
     public void FormatDate_IsoString()
     {
         var ctx = new JsonObject { ["inputs"] = new JsonObject { ["d"] = "2024-06-15T10:30:00Z" } };
@@ -154,6 +163,35 @@ public class BuiltInFunctionsTests
     public void FormatDate_NullInput_ReturnsNull()
     {
         var result = Eval("formatDate(null, \"yyyy\")", null);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void FormatDate_CanFormatCurrentTimestampWithTimeParts()
+    {
+        var result = Eval("formatDate(now(), \"dd_MM_yyyy_HH_mm_ss\")");
+
+        Assert.True(DateTime.TryParseExact(
+            result!.GetValue<string>(),
+            "dd_MM_yyyy_HH_mm_ss",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out _));
+    }
+
+    [Fact]
+    public void Base64_EncodesUtf8String()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["text"] = "# Hello\n\n- Café" } };
+        var result = Eval("base64(data.inputs.text)", ctx);
+
+        Assert.Equal("IyBIZWxsbwoKLSBDYWbDqQ==", result!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Base64_NullInput_ReturnsNull()
+    {
+        var result = Eval("base64(null)", null);
         Assert.Null(result);
     }
 }

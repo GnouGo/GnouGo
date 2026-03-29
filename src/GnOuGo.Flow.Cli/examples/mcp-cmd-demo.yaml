@@ -25,7 +25,7 @@ workflows:
       - id: discover_cmd_tools
         type: mcp.list
         input:
-          server: "${data.inputs.cmd_server}"
+          servers: ["${data.inputs.cmd_server}"]
           include:
             - tools
 

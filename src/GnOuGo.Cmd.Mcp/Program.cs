@@ -33,14 +33,19 @@ builder.Services
 var host = builder.Build();
 var startupLogger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Cmd.Mcp.Startup");
 var settings = host.Services.GetRequiredService<IOptions<CmdServerSettings>>().Value;
+var policy = host.Services.GetRequiredService<CommandPolicy>();
+var defaultWorkingDirectory = policy.ResolveWorkingDirectory(null);
+var allowedWorkingRoots = policy.DescribePolicy().AllowedWorkingRoots;
 
 startupLogger.LogInformation(
-    "Cmd server configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, allowedShells={AllowedShells}, allowedRoots={AllowedRoots}, commandCount={CommandCount}, defaultTimeoutMs={DefaultTimeoutMs}, maxTimeoutMs={MaxTimeoutMs}, maxOutputCharacters={MaxOutputCharacters}",
+    "Cmd server configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, configuredDefaultWorkingDirectory={ConfiguredDefaultWorkingDirectory}, resolvedDefaultWorkingDirectory={ResolvedDefaultWorkingDirectory}, allowedShells={AllowedShells}, allowedRoots={AllowedRoots}, commandCount={CommandCount}, defaultTimeoutMs={DefaultTimeoutMs}, maxTimeoutMs={MaxTimeoutMs}, maxOutputCharacters={MaxOutputCharacters}",
     builder.Environment.ContentRootPath,
     Environment.CurrentDirectory,
     AppContext.BaseDirectory,
+    settings.DefaultWorkingDirectory,
+    defaultWorkingDirectory,
     string.Join(", ", settings.AllowedShells),
-    string.Join(", ", settings.AllowedWorkingRoots),
+    string.Join(", ", allowedWorkingRoots),
     settings.AllowedCommands.Count,
     settings.DefaultTimeoutMs,
     settings.MaxTimeoutMs,

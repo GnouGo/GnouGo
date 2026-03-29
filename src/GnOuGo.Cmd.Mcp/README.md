@@ -17,6 +17,8 @@ This is intentionally a **deny-by-default** design to limit risks:
 - optional named parameters validated by regex
 - no raw free shell execution
 
+By default, the server now resolves its writable workspace to `Desktop/GnOuGo` for the current user and creates that directory automatically on startup if it does not already exist.
+
 ## Cross-Platform Support
 
 The server is designed to work on **Windows**, **Linux**, and **macOS** out of the box.
@@ -70,21 +72,38 @@ Example:
 ```json
 {
   "Cmd": {
+    "DefaultWorkingDirectory": "GnOuGo",
     "DefaultTimeoutMs": 10000,
     "MaxTimeoutMs": 30000,
     "MaxOutputCharacters": 12000,
     "AllowedShells": ["powershell", "sh"],
-    "AllowedWorkingRoots": ["C:/github/GnOuGo.Agent"],
+    "AllowedWorkingRoots": [],
     "AllowedCommands": {
-      "git_status": {
+      "print_working_directory": {
         "Shell": "powershell",
-        "Script": "git --no-pager status --short",
-        "WorkingDirectory": "C:/github/GnOuGo.Agent"
+        "Script": "Get-Location | Select-Object -ExpandProperty Path"
       }
     }
   }
 }
 ```
+
+`DefaultWorkingDirectory` behaves as follows:
+
+- if it is a **relative path** such as `GnOuGo` or `GnOuGo/notes`, it is resolved under the current user's Desktop
+- if it is an **absolute path**, that absolute path is used instead
+- the resolved directory is automatically created at startup
+- the resolved directory is automatically included in the server's allowed working roots
+
+With the default value `GnOuGo`, the writable workspace typically resolves to:
+
+- **Windows**: `C:/Users/<user>/Desktop/GnOuGo`
+- **macOS**: `/Users/<user>/Desktop/GnOuGo`
+- **Linux**: `/home/<user>/Desktop/GnOuGo`
+
+These are the usual default paths. Internally, the server first asks the OS for the current user's Desktop directory and then falls back to `UserProfile/Desktop` or `HOME/Desktop` if needed.
+
+This means that, out of the box, commands without an explicit `WorkingDirectory` run inside a writable user-owned workspace instead of the repository directory.
 
 ## Secure Parameters
 
@@ -102,12 +121,11 @@ Example:
   "list_relative_path": {
     "Shell": "powershell",
     "Script": "Get-ChildItem -Name {{path}}",
-    "WorkingDirectory": "C:/github/GnOuGo.Agent",
     "Parameters": {
       "path": {
         "Required": true,
-        "Pattern": "^[A-Za-z0-9_./\\-]{1,120}$",
-        "MaxLength": 120
+        "Pattern": "^(?![\\/])(?!.*(?:^|[\\/])\\.\\.(?:[\\/]|$))[A-Za-z0-9_.\\/-]{1,240}$",
+        "MaxLength": 240
       }
     }
   }
@@ -131,6 +149,30 @@ dotnet build .\src\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj
 dotnet run --project .\src\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj
 ```
 
+## Writable Workspace Examples
+
+The sample `appsettings.json` includes allowlisted commands for writable operations inside the default workspace:
+
+- `create_directory`
+- `write_markdown_file`
+
+Example payload for `write_markdown_file`:
+
+```json
+{
+  "commandName": "write_markdown_file",
+  "parametersJson": "{\"path\":\"notes/today.md\",\"contentBase64\":\"IyBUb2RheQoKLSBFeGFtcGxlIG5vdGUK\"}"
+}
+```
+
+The sample above writes the following Markdown content after decoding the UTF-8 base64 payload:
+
+```markdown
+# Today
+
+- Example note
+```
+
 ## CLI Example
 
 A GnOuGo.Flow example is provided in:
@@ -149,3 +191,4 @@ dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuG
 - The `cmd_run` tool never executes a raw command provided by the caller
 - All errors are returned as structured results — the MCP client always gets a valid JSON response
 - To allow a new command, it must be explicitly added in `src/GnOuGo.Cmd.Mcp/appsettings.json`
+- The built-in writable examples only accept **relative** paths that reject parent directory traversal such as `..`

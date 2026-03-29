@@ -81,6 +81,7 @@ public class WorkflowPlanExecutorTests
         Assert.Contains("replace(s", reference);
         Assert.Contains("toNumber(val)", reference);
         Assert.Contains("json(val)", reference);
+        Assert.Contains("now()", reference);
         Assert.Contains("formatDate(", reference);
     }
 
@@ -360,7 +361,7 @@ workflows:
 
         Assert.NotNull(capturedPrompt);
         Assert.Contains("[AVAILABLE MCP SERVERS]", capturedPrompt);
-        Assert.Contains("Use the exact server name in mcp.call/mcp.list input.server.", capturedPrompt);
+        Assert.Contains("Use the exact server name in mcp.call input.server and in mcp.list input.servers.", capturedPrompt);
 
         // Tool discovery: tool names and descriptions should appear
         Assert.Contains("- github: GitHub repository automation and file operations", capturedPrompt);

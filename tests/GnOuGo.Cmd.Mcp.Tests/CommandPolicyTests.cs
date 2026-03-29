@@ -7,6 +7,57 @@ namespace GnOuGo.Cmd.Mcp.Tests;
 public class CommandPolicyTests
 {
     [Fact]
+    public void ResolveWorkingDirectory_UsesConfiguredDefaultWorkingDirectoryAndCreatesIt()
+    {
+        var contentRoot = CreateTempDirectory();
+        var defaultRoot = Path.Combine(contentRoot, "workspace", Guid.NewGuid().ToString("N"));
+        var settings = new CmdServerSettings
+        {
+            DefaultWorkingDirectory = defaultRoot,
+            AllowedShells = ["powershell", "sh"],
+            AllowedCommands = new Dictionary<string, AllowedCommandSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["test"] = new()
+                {
+                    Shell = "powershell",
+                    Script = "Write-Output 'ok'"
+                }
+            }
+        };
+
+        var policy = new CommandPolicy(settings, contentRoot);
+
+        var resolved = policy.ResolveWorkingDirectory(null);
+
+        Assert.Equal(Path.GetFullPath(defaultRoot), resolved);
+        Assert.True(Directory.Exists(resolved));
+    }
+
+    [Fact]
+    public void DescribePolicy_IncludesDefaultWorkingDirectoryInAllowedRoots()
+    {
+        var contentRoot = CreateTempDirectory();
+        var defaultRoot = Path.Combine(contentRoot, "workspace", Guid.NewGuid().ToString("N"));
+        var policy = new CommandPolicy(new CmdServerSettings
+        {
+            DefaultWorkingDirectory = defaultRoot,
+            AllowedShells = ["powershell", "sh"],
+            AllowedCommands = new Dictionary<string, AllowedCommandSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["test"] = new()
+                {
+                    Shell = "powershell",
+                    Script = "Write-Output 'ok'"
+                }
+            }
+        }, contentRoot);
+
+        var info = policy.DescribePolicy();
+
+        Assert.Contains(Path.GetFullPath(defaultRoot), info.AllowedWorkingRoots, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ResolveWorkingDirectory_AllowsChildDirectoryInsideAllowedRoot()
     {
         var root = CreateTempDirectory();

@@ -60,7 +60,7 @@ export function parseYaml(yamlStr: string): { doc: ParsedDocument | null; error:
     if (!raw || typeof raw !== 'object') return { doc: null, error: 'Invalid YAML: not an object' }
     if (!raw.workflows || typeof raw.workflows !== 'object')
       return { doc: null, error: 'Missing "workflows" section' }
-    return { doc: raw, error: null }
+    return { doc: normalizeDocument(raw), error: null }
   } catch (e) {
     return { doc: null, error: e instanceof Error ? e.message : 'YAML parse error' }
   }
@@ -68,7 +68,7 @@ export function parseYaml(yamlStr: string): { doc: ParsedDocument | null; error:
 
 // ── Serialize back to YAML ──
 export function serializeYaml(doc: ParsedDocument): string {
-  return yaml.dump(doc, {
+  return yaml.dump(normalizeDocument(doc), {
     indent: 2,
     lineWidth: 120,
     noRefs: true,
@@ -107,12 +107,84 @@ export function validateStep(step: ParsedStep): ValidationError[] {
         })
       }
     }
+
+    if (step.type === 'mcp.list') {
+      const servers = input.servers
+      if (!Array.isArray(servers) || servers.length === 0) {
+        errors.push({
+          stepId: step.id,
+          field: 'servers',
+          message: '"Servers" must be a non-empty JSON array of MCP server names',
+          severity: 'error',
+        })
+      } else {
+        const normalizedServers = servers
+          .map(item => typeof item === 'string' ? item.trim() : '')
+          .filter(item => item.length > 0)
+
+        if (normalizedServers.length !== servers.length) {
+          errors.push({
+            stepId: step.id,
+            field: 'servers',
+            message: 'Each MCP server entry must be a non-empty string',
+            severity: 'error',
+          })
+        }
+
+        if (normalizedServers.includes('*') && normalizedServers.length > 1) {
+          errors.push({
+            stepId: step.id,
+            field: 'servers',
+            message: 'Wildcard "*" cannot be combined with explicit MCP server names',
+            severity: 'error',
+          })
+        }
+      }
+    }
   } else if (typeDef && typeDef.fields.some(f => f.required) && !step.input) {
     errors.push({ stepId: step.id, field: 'input', message: 'Input section is required', severity: 'error' })
   }
 
   // Validate duplicate IDs will be done at workflow level
   return errors
+}
+
+function normalizeDocument(doc: ParsedDocument): ParsedDocument {
+  const clone = JSON.parse(JSON.stringify(doc)) as ParsedDocument
+
+  for (const workflow of Object.values(clone.workflows ?? {})) {
+    workflow.steps = normalizeSteps(workflow.steps ?? [])
+  }
+
+  return clone
+}
+
+function normalizeSteps(steps: ParsedStep[]): ParsedStep[] {
+  for (const step of steps) {
+    normalizeStep(step)
+  }
+
+  return steps
+}
+
+function normalizeStep(step: ParsedStep): void {
+  if (step.type === 'mcp.list') {
+    if (!step.input) {
+      step.input = {}
+    }
+
+    const input = step.input as Record<string, unknown>
+    if (input.servers === undefined && typeof input.server === 'string' && input.server.trim() !== '') {
+      input.servers = [input.server.trim()]
+    }
+
+    delete input.server
+  }
+
+  if (step.steps) normalizeSteps(step.steps)
+  if (step.branches) step.branches.forEach(branch => normalizeSteps(branch.steps))
+  if (step.cases) step.cases.forEach(item => normalizeSteps(item.steps))
+  if (step.default) normalizeSteps(step.default)
 }
 
 // ── Validate entire workflow (cross-step checks) ──

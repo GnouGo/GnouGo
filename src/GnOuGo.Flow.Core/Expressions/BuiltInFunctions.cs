@@ -1,4 +1,4 @@
-using System.Text.Json;
+using System.Text;
 using System.Text.Json.Nodes;
 
 namespace GnOuGo.Flow.Core.Expressions;
@@ -23,7 +23,9 @@ public static class BuiltInFunctions
         ["replace"] = Replace,
         ["toNumber"] = ToNumber,
         ["json"] = Json,
+        ["now"] = Now,
         ["formatDate"] = FormatDate,
+        ["base64"] = Base64,
     };
 
     private static JsonNode? Exists(JsonNode?[] args)
@@ -114,6 +116,11 @@ public static class BuiltInFunctions
         return JsonValue.Create(args[0]!.ToJsonString());
     }
 
+    private static JsonNode? Now(JsonNode?[] args)
+    {
+        return JsonValue.Create(DateTimeOffset.Now.ToString("O"));
+    }
+
     private static JsonNode? FormatDate(JsonNode?[] args)
     {
         if (args.Length < 1 || args[0] == null) return null;
@@ -124,6 +131,13 @@ public static class BuiltInFunctions
         if (double.TryParse(s, System.Globalization.CultureInfo.InvariantCulture, out var ts))
             return JsonValue.Create(DateTimeOffset.FromUnixTimeMilliseconds((long)ts).ToString(fmt));
         return JsonValue.Create(s);
+    }
+
+    private static JsonNode? Base64(JsonNode?[] args)
+    {
+        if (args.Length < 1 || args[0] == null) return null;
+        var s = ExpressionEvaluator.GetString(args[0]);
+        return JsonValue.Create(Convert.ToBase64String(Encoding.UTF8.GetBytes(s)));
     }
 }
 

@@ -969,7 +969,7 @@ workflows:
       - id: discover
         type: mcp.list
         input:
-          server: srv
+          servers: [srv]
           include:
             - tools
             - prompts
@@ -1045,7 +1045,7 @@ workflows:
       - id: discover
         type: mcp.list
         input:
-          server: demo
+          servers: [demo]
           include:
             - tools
             - prompts
@@ -1359,7 +1359,7 @@ workflows:
       - id: discover
         type: mcp.list
         input:
-          server: demo
+          servers: [demo]
           include:
             - tools
             - prompts

@@ -4,6 +4,7 @@ public sealed class CmdServerSettings
 {
     public const string SectionName = "Cmd";
 
+    public string DefaultWorkingDirectory { get; set; } = "GnOuGo";
     public int DefaultTimeoutMs { get; set; } = 10_000;
     public int MaxTimeoutMs { get; set; } = 30_000;
     public int MaxOutputCharacters { get; set; } = 12_000;

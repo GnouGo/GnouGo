@@ -56,7 +56,7 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: srv
+          servers: [srv]
     outputs:
       status: "${data.steps.list.status}"
 """, mcpFactory: mockFactory.Object);
@@ -66,6 +66,9 @@ workflows:
 
         var listOut = result.StepResults[0].Output as JsonObject;
         Assert.NotNull(listOut);
+        var servers = Assert.IsType<JsonArray>(listOut["servers"]);
+        Assert.Single(servers);
+        Assert.Equal("srv", servers[0]!["name"]!.GetValue<string>());
         Assert.NotNull(listOut["tools"]);
         Assert.Null(listOut["resources"]);
         Assert.Null(listOut["prompts"]);
@@ -73,6 +76,7 @@ workflows:
         var tools = listOut["tools"] as JsonArray;
         Assert.Equal(2, tools!.Count);
         Assert.Equal("ping", tools[0]!["name"]!.GetValue<string>());
+        Assert.Equal("srv", tools[0]!["server"]!.GetValue<string>());
 
         var text = listOut["text"]!.GetValue<string>();
         Assert.Contains("ping", text);
@@ -123,7 +127,7 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: srv
+          servers: [srv]
           include:
             - tools
             - resources
@@ -135,12 +139,17 @@ workflows:
         var listOut = result.StepResults[0].Output as JsonObject;
         Assert.NotNull(listOut);
         Assert.Equal("ok", listOut["status"]!.GetValue<string>());
+        var servers = Assert.IsType<JsonArray>(listOut["servers"]);
+        Assert.Single(servers);
+        Assert.Equal("srv", servers[0]!["name"]!.GetValue<string>());
+        Assert.Equal("ok", servers[0]!["status"]!.GetValue<string>());
 
         // Tools
         var tools = listOut["tools"] as JsonArray;
         Assert.NotNull(tools);
         Assert.Single(tools);
         Assert.Equal("search", tools[0]!["name"]!.GetValue<string>());
+        Assert.Equal("srv", tools[0]!["server"]!.GetValue<string>());
 
         // Resources
         var resources = listOut["resources"] as JsonArray;
@@ -149,12 +158,14 @@ workflows:
         Assert.Equal("data", resources[0]!["name"]!.GetValue<string>());
         Assert.Equal("file:///data.json", resources[0]!["uri"]!.GetValue<string>());
         Assert.Equal("application/json", resources[0]!["mime_type"]!.GetValue<string>());
+        Assert.Equal("srv", resources[0]!["server"]!.GetValue<string>());
 
         // Prompts
         var prompts = listOut["prompts"] as JsonArray;
         Assert.NotNull(prompts);
         Assert.Single(prompts);
         Assert.Equal("summarize", prompts[0]!["name"]!.GetValue<string>());
+        Assert.Equal("srv", prompts[0]!["server"]!.GetValue<string>());
         var args = prompts[0]!["arguments"] as JsonArray;
         Assert.NotNull(args);
         Assert.Single(args);
@@ -196,7 +207,7 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: srv
+          servers: [srv]
           include:
             - resources
 """, mcpFactory: mockFactory.Object);
@@ -236,7 +247,7 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: srv
+          servers: [srv]
           include:
             - prompts
 """, mcpFactory: mockFactory.Object);
@@ -247,8 +258,8 @@ workflows:
         Assert.NotNull(listOut);
         Assert.Null(listOut["tools"]);
         Assert.Null(listOut["resources"]);
-        Assert.NotNull(listOut["prompts"]);
-        Assert.Single(listOut["prompts"] as JsonArray);
+        var prompts = Assert.IsType<JsonArray>(listOut["prompts"]);
+        Assert.Single(prompts);
 
         var text = listOut["text"]!.GetValue<string>();
         Assert.Contains("Prompts", text);
@@ -282,7 +293,7 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: srv
+          servers: [srv]
           include:
             - tools
             - prompts
@@ -326,7 +337,7 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: srv
+          servers: [srv]
           include:
             - resources
 """, mcpFactory: mockFactory.Object);
@@ -368,7 +379,7 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: srv
+          servers: [srv]
           include:
             - tools
             - resources
@@ -378,8 +389,8 @@ workflows:
 
         var listOut = result.StepResults[0].Output as JsonObject;
         Assert.NotNull(listOut);
-        Assert.Empty(listOut["tools"] as JsonArray);
-        Assert.Empty(listOut["resources"] as JsonArray);
+        Assert.Empty(Assert.IsType<JsonArray>(listOut["tools"]));
+        Assert.Empty(Assert.IsType<JsonArray>(listOut["resources"]));
     }
 
     // ────── Error handling ──────
@@ -395,7 +406,7 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: any
+          servers: [any]
 """, mcpFactory: null);
 
         Assert.False(result.Success);
@@ -403,7 +414,7 @@ workflows:
     }
 
     [Fact]
-    public async Task McpList_MissingServer_Fails()
+    public async Task McpList_MissingServers_Fails()
     {
         var mockFactory = new Mock<IMcpClientFactory>();
 
@@ -441,7 +452,7 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: srv
+          servers: [srv]
           include:
             - invalid_type
 """, mcpFactory: mockFactory.Object);
@@ -451,7 +462,7 @@ workflows:
     }
 
     [Fact]
-    public async Task McpList_ServerNotFound_Fails()
+    public async Task McpList_UnknownServer_Fails()
     {
         var mockFactory = new Mock<IMcpClientFactory>();
         mockFactory.Setup(f => f.GetClientAsync("unknown", It.IsAny<CancellationToken>()))
@@ -466,7 +477,7 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: unknown
+          servers: [unknown]
 """, mcpFactory: mockFactory.Object);
 
         Assert.False(result.Success);
@@ -488,12 +499,161 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: srv
+          servers: [srv]
 """, mcpFactory: mockFactory.Object);
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.McpListError, result.Error!.Code);
         Assert.Contains("connection failed", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task McpList_MultipleServers_FlattensCapabilitiesAndPreservesServerNames()
+    {
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("alpha", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "ping", Description = "Ping alpha" }
+            },
+            Prompts = new List<McpPromptInfo>
+            {
+                new() { Name = "summarize", Description = "Summarize alpha" }
+            }
+        });
+        factory.RegisterServer("beta", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "search", Description = "Search beta" }
+            }
+        });
+
+        var result = await RunMain("""
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: list
+        type: mcp.list
+        input:
+          servers: [alpha, beta]
+          include:
+            - tools
+            - prompts
+""", mcpFactory: factory);
+
+        Assert.True(result.Success);
+
+        var listOut = Assert.IsType<JsonObject>(result.StepResults[0].Output);
+        Assert.Equal("ok", listOut["status"]!.GetValue<string>());
+
+        var servers = Assert.IsType<JsonArray>(listOut["servers"]);
+        Assert.Equal(2, servers.Count);
+        Assert.Equal("alpha", servers[0]!["name"]!.GetValue<string>());
+        Assert.Equal("beta", servers[1]!["name"]!.GetValue<string>());
+
+        var tools = Assert.IsType<JsonArray>(listOut["tools"]);
+        Assert.Equal(2, tools.Count);
+        Assert.Equal("alpha", tools[0]!["server"]!.GetValue<string>());
+        Assert.Equal("beta", tools[1]!["server"]!.GetValue<string>());
+
+        var prompts = Assert.IsType<JsonArray>(listOut["prompts"]);
+        Assert.Single(prompts);
+        Assert.Equal("alpha", prompts[0]!["server"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task McpList_WildcardServers_ListsAllConfiguredServers()
+    {
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("alpha", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "ping", Description = "Ping alpha" }
+            }
+        });
+        factory.RegisterServer("beta", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "search", Description = "Search beta" }
+            }
+        });
+
+        var result = await RunMain("""
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: list
+        type: mcp.list
+        input:
+          servers: ["*"]
+""", mcpFactory: factory);
+
+        Assert.True(result.Success);
+
+        var listOut = Assert.IsType<JsonObject>(result.StepResults[0].Output);
+        var servers = Assert.IsType<JsonArray>(listOut["servers"]);
+        Assert.Equal(2, servers.Count);
+
+        var tools = Assert.IsType<JsonArray>(listOut["tools"]);
+        Assert.Equal(2, tools.Count);
+        Assert.Contains(tools, t => t!["server"]!.GetValue<string>() == "alpha");
+        Assert.Contains(tools, t => t!["server"]!.GetValue<string>() == "beta");
+    }
+
+    [Fact]
+    public async Task McpList_MultipleServers_PartialFailure_ReturnsPartial()
+    {
+        var goodSession = new Mock<IMcpSession>();
+        goodSession.Setup(s => s.ServerName).Returns("good");
+        goodSession.Setup(s => s.ListToolsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<McpToolInfo>
+            {
+                new() { Name = "ping", Description = "Ping good" }
+            }.AsReadOnly());
+        goodSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var factory = new Mock<IMcpClientFactory>();
+        factory.SetupGet(f => f.ServerMetadata).Returns(new List<McpServerMetadata>
+        {
+            new() { Name = "good" },
+            new() { Name = "bad" }
+        }.AsReadOnly());
+        factory.Setup(f => f.GetClientAsync("good", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(goodSession.Object);
+        factory.Setup(f => f.GetClientAsync("bad", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("broken connection"));
+
+        var result = await RunMain("""
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: list
+        type: mcp.list
+        input:
+          servers: [good, bad]
+""", mcpFactory: factory.Object);
+
+        Assert.True(result.Success);
+
+        var listOut = Assert.IsType<JsonObject>(result.StepResults[0].Output);
+        Assert.Equal("partial", listOut["status"]!.GetValue<string>());
+
+        var servers = Assert.IsType<JsonArray>(listOut["servers"]);
+        Assert.Equal(2, servers.Count);
+        Assert.Equal("ok", servers[0]!["status"]!.GetValue<string>());
+        Assert.Equal("error", servers[1]!["status"]!.GetValue<string>());
+        Assert.Contains("broken connection", servers[1]!["error"]!.GetValue<string>());
+
+        var tools = Assert.IsType<JsonArray>(listOut["tools"]);
+        Assert.Single(tools);
+        Assert.Equal("good", tools[0]!["server"]!.GetValue<string>());
     }
 
     // ────── InMemoryMcpClientFactory ──────
@@ -547,7 +707,7 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: test
+          servers: [test]
 """;
         var doc = WorkflowParser.Parse(yaml);
         var compiler = new WorkflowCompiler();
@@ -594,7 +754,7 @@ workflows:
       - id: list
         type: mcp.list
         input:
-          server: demo
+          servers: [demo]
           include:
             - tools
             - resources
@@ -666,7 +826,7 @@ workflows:
       - id: discover
         type: mcp.list
         input:
-          server: srv
+          servers: [srv]
           include:
             - tools
             - prompts
@@ -752,7 +912,7 @@ workflows:
       - id: discover
         type: mcp.list
         input:
-          server: srv
+          servers: [srv]
 
       - id: call_each
         type: loop.parallel
@@ -822,7 +982,7 @@ workflows:
       - id: discover
         type: mcp.list
         input:
-          server: demo
+          servers: [demo]
           include:
             - tools
             - prompts

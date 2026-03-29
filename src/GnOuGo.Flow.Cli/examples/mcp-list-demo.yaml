@@ -23,7 +23,7 @@ workflows:
       - id: discover
         type: mcp.list
         input:
-          server: Github
+          servers: [Github]
           include:
             - tools
 

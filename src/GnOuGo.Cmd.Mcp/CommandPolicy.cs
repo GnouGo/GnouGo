@@ -11,6 +11,7 @@ public sealed class CommandPolicy
     private readonly CmdServerSettings _settings;
     private readonly string _contentRootPath;
     private readonly string? _workspaceRootPath;
+    private readonly string _defaultWorkingDirectory;
 
     public CommandPolicy(IOptions<CmdServerSettings> settings)
         : this(settings.Value, AppContext.BaseDirectory)
@@ -22,6 +23,7 @@ public sealed class CommandPolicy
         _settings = settings;
         _contentRootPath = Path.GetFullPath(contentRootPath);
         _workspaceRootPath = DiscoverWorkspaceRoot(_contentRootPath);
+        _defaultWorkingDirectory = ResolveDefaultWorkingDirectory();
     }
 
     public AllowedCommandSettings GetRequiredCommand(string commandName)
@@ -114,15 +116,12 @@ public sealed class CommandPolicy
     {
         var basePath = _workspaceRootPath ?? _contentRootPath;
         var candidate = string.IsNullOrWhiteSpace(configuredPath)
-            ? basePath
+            ? _defaultWorkingDirectory
             : Path.GetFullPath(Path.IsPathRooted(configuredPath)
                 ? configuredPath
                 : Path.Combine(basePath, configuredPath));
 
         var allowedRoots = ResolveAllowedWorkingRoots();
-        if (allowedRoots.Count == 0)
-            throw new InvalidOperationException("Cmd:AllowedWorkingRoots must contain at least one allowed root.");
-
         if (!allowedRoots.Any(root => IsPathWithinRoot(candidate, root)))
             throw new InvalidOperationException(
                 $"Working directory '{candidate}' is outside the allowed roots: {string.Join(", ", allowedRoots)}.");
@@ -267,13 +266,54 @@ public sealed class CommandPolicy
     private List<string> ResolveAllowedWorkingRoots()
     {
         var basePath = _workspaceRootPath ?? _contentRootPath;
-        return _settings.AllowedWorkingRoots
+        var roots = new List<string> { _defaultWorkingDirectory };
+        roots.AddRange(_settings.AllowedWorkingRoots
             .Where(static p => !string.IsNullOrWhiteSpace(p))
             .Select(path => Path.GetFullPath(Path.IsPathRooted(path)
                 ? path
-                : Path.Combine(basePath, path)))
+                : Path.Combine(basePath, path))));
+
+        return roots
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private string ResolveDefaultWorkingDirectory()
+    {
+        var configuredPath = string.IsNullOrWhiteSpace(_settings.DefaultWorkingDirectory)
+            ? "GnOuGo"
+            : _settings.DefaultWorkingDirectory.Trim();
+        var desktopPath = ResolveDesktopDirectory();
+
+        var resolvedPath = Path.IsPathRooted(configuredPath)
+            ? Path.GetFullPath(configuredPath)
+            : Path.GetFullPath(Path.Combine(desktopPath, configuredPath));
+
+        if (!Path.IsPathRooted(configuredPath) && !IsPathWithinRoot(resolvedPath, desktopPath))
+        {
+            throw new InvalidOperationException(
+                $"Default working directory '{configuredPath}' must stay within the current user's Desktop directory '{desktopPath}'.");
+        }
+
+        Directory.CreateDirectory(resolvedPath);
+        return resolvedPath;
+    }
+
+    private static string ResolveDesktopDirectory()
+    {
+        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (!string.IsNullOrWhiteSpace(desktopPath))
+            return Path.GetFullPath(desktopPath);
+
+        var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfilePath))
+            return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
+
+        var homePath = Environment.GetEnvironmentVariable("HOME");
+        if (!string.IsNullOrWhiteSpace(homePath))
+            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
+
+        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
     }
 
     private static ShellLaunchInfo ResolveKnownShell(string logicalName, IEnumerable<string> candidates)
