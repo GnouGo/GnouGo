@@ -166,9 +166,10 @@ public sealed class CommandPolicy
         return environment;
     }
 
-    public string RenderScript(AllowedCommandSettings command, JsonObject? parameters)
+    public string RenderScript(AllowedCommandSettings command, JsonObject? parameters, string workingDirectory)
     {
         parameters ??= new JsonObject();
+        var normalizedParameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var supplied in parameters.Select(kv => kv.Key))
         {
@@ -191,14 +192,20 @@ public sealed class CommandPolicy
 
             if (!Regex.IsMatch(value, parameter.Value.Pattern))
                 throw new InvalidOperationException($"Parameter '{parameter.Key}' does not match the required pattern.");
+
+            normalizedParameters[parameter.Key] = parameter.Value.IsWorkspacePath
+                ? ResolveWorkspacePathParameter(parameter.Key, value, parameter.Value, workingDirectory)
+                : value;
         }
 
         var rendered = PlaceholderRegex.Replace(command.Script, match =>
         {
             var parameterName = match.Groups[1].Value;
-            var parameterValue = parameters[parameterName]?.GetValue<string>();
-            if (string.IsNullOrWhiteSpace(parameterValue))
+            if (!normalizedParameters.TryGetValue(parameterName, out var parameterValue)
+                || string.IsNullOrWhiteSpace(parameterValue))
+            {
                 throw new InvalidOperationException($"Missing value for placeholder '{parameterName}'.");
+            }
 
             return EscapeForShell(command.Shell, parameterValue);
         });
@@ -262,6 +269,71 @@ public sealed class CommandPolicy
 
         return normalizedPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
     }
+
+    private string ResolveWorkspacePathParameter(
+        string parameterName,
+        string parameterValue,
+        CommandParameterSettings parameterSettings,
+        string workingDirectory)
+    {
+        var normalizedValue = NormalizeRequiredValue(parameterValue, parameterName);
+
+        if (normalizedValue.StartsWith('~'))
+            throw new InvalidOperationException($"Parameter '{parameterName}' must not use home-directory shortcuts.");
+
+        if (ContainsParentTraversalSegment(normalizedValue))
+            throw new InvalidOperationException($"Parameter '{parameterName}' must not contain parent directory traversal segments ('..').");
+
+        if (ContainsWildcardCharacters(normalizedValue))
+            throw new InvalidOperationException($"Parameter '{parameterName}' must not contain wildcard characters.");
+
+        if (HasDriveRelativePrefix(normalizedValue) && !Path.IsPathFullyQualified(normalizedValue))
+            throw new InvalidOperationException($"Parameter '{parameterName}' must not use drive-relative paths.");
+
+        if (!parameterSettings.AllowAbsolutePath && (Path.IsPathRooted(normalizedValue) || HasDriveRelativePrefix(normalizedValue)))
+        {
+            throw new InvalidOperationException($"Parameter '{parameterName}' must be a relative path inside the workspace.");
+        }
+
+        var candidatePath = Path.GetFullPath(Path.IsPathRooted(normalizedValue)
+            ? normalizedValue
+            : Path.Combine(workingDirectory, normalizedValue));
+
+        var allowedRoots = ResolveAllowedWorkingRoots();
+        if (!allowedRoots.Any(root => IsPathWithinRoot(candidatePath, root)))
+        {
+            throw new InvalidOperationException(
+                $"Parameter '{parameterName}' resolves outside the allowed workspace roots: {string.Join(", ", allowedRoots)}.");
+        }
+
+        if (parameterSettings.MustExist)
+            EnsureWorkspacePathExists(parameterName, candidatePath, parameterSettings.PathKind);
+
+        return candidatePath;
+    }
+
+    private static void EnsureWorkspacePathExists(string parameterName, string candidatePath, WorkspacePathKind pathKind)
+    {
+        var exists = pathKind switch
+        {
+            WorkspacePathKind.File => File.Exists(candidatePath),
+            WorkspacePathKind.Directory => Directory.Exists(candidatePath),
+            _ => File.Exists(candidatePath) || Directory.Exists(candidatePath)
+        };
+
+        if (!exists)
+            throw new InvalidOperationException($"Parameter '{parameterName}' points to a missing {pathKind.ToString().ToLowerInvariant()} path '{candidatePath}'.");
+    }
+
+    private static bool ContainsParentTraversalSegment(string path)
+        => path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries)
+            .Any(static segment => string.Equals(segment, "..", StringComparison.Ordinal));
+
+    private static bool ContainsWildcardCharacters(string path)
+        => path.IndexOfAny(['*', '?']) >= 0;
+
+    private static bool HasDriveRelativePrefix(string path)
+        => path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':';
 
     private List<string> ResolveAllowedWorkingRoots()
     {

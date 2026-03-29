@@ -43,5 +43,16 @@ public sealed class CommandParameterSettings
     public bool Required { get; set; }
     public string Pattern { get; set; } = "^[A-Za-z0-9_./\\\\ -]{1,120}$";
     public int MaxLength { get; set; } = 120;
+    public bool IsWorkspacePath { get; set; }
+    public bool AllowAbsolutePath { get; set; }
+    public bool MustExist { get; set; }
+    public WorkspacePathKind PathKind { get; set; } = WorkspacePathKind.Any;
+}
+
+public enum WorkspacePathKind
+{
+    Any,
+    File,
+    Directory
 }
 
