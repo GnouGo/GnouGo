@@ -95,6 +95,14 @@ Example:
 - the resolved directory is automatically created at startup
 - the resolved directory is automatically included in the server's allowed working roots
 
+With the default value `GnOuGo`, the writable workspace typically resolves to:
+
+- **Windows**: `C:/Users/<user>/Desktop/GnOuGo`
+- **macOS**: `/Users/<user>/Desktop/GnOuGo`
+- **Linux**: `/home/<user>/Desktop/GnOuGo`
+
+These are the usual default paths. Internally, the server first asks the OS for the current user's Desktop directory and then falls back to `UserProfile/Desktop` or `HOME/Desktop` if needed.
+
 This means that, out of the box, commands without an explicit `WorkingDirectory` run inside a writable user-owned workspace instead of the repository directory.
 
 ## Secure Parameters
@@ -116,7 +124,7 @@ Example:
     "Parameters": {
       "path": {
         "Required": true,
-        "Pattern": "^(?![\\/])(?!.*(?:^|[\\/])\.\.(?:[\\/]|$))[A-Za-z0-9_.\\/-]{1,240}$",
+        "Pattern": "^(?![\\/])(?!.*(?:^|[\\/])\\.\\.(?:[\\/]|$))[A-Za-z0-9_.\\/-]{1,240}$",
         "MaxLength": 240
       }
     }

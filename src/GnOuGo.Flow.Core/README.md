@@ -825,6 +825,7 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 | `replace(s, old, new)` | Replaces all occurrences |
 | `toNumber(val)` | Converts to number |
 | `json(val)` | Serializes value to JSON string |
+| `now()` | Returns the current local date/time as an ISO-8601 string |
 | `base64(val)` | Encodes the UTF-8 string value as Base64 |
 | `formatDate(dateStr, fmt)` | Formats a date string (default: `yyyy-MM-dd`) |
 

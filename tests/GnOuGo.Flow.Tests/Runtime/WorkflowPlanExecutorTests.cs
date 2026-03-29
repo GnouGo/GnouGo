@@ -81,6 +81,7 @@ public class WorkflowPlanExecutorTests
         Assert.Contains("replace(s", reference);
         Assert.Contains("toNumber(val)", reference);
         Assert.Contains("json(val)", reference);
+        Assert.Contains("now()", reference);
         Assert.Contains("formatDate(", reference);
     }
 

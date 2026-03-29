@@ -39,6 +39,11 @@ workflows:
         type: string
         required: true
         description: A natural-language description of the task to accomplish
+      markdown_timestamp_format:
+        type: string
+        required: false
+        default: dd_MM_yyyy
+        description: .NET date/time pattern used in the default Markdown export filename, for example dd_MM_yyyy or dd_MM_yyyy_HH_mm_ss
     
     steps:
       # ──────────────────────────────────────────────────────────
@@ -239,8 +244,8 @@ workflows:
             - name: file_path
               type: string
               required: true
-              default: exports/final-answer.md
-              description: Relative Markdown file path, for example exports/final-answer.md
+              default: "${'exports/final-answer-' + formatDate(now(), data.inputs.markdown_timestamp_format) + '.md'}"
+              description: Relative Markdown file path. The default includes the current date, and you can use formats such as dd_MM_yyyy or dd_MM_yyyy_HH_mm_ss.
 
       - id: render_markdown_export
         type: template.render

@@ -1,6 +1,5 @@
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text;
+using System.Text.Json.Nodes;
 
 namespace GnOuGo.Flow.Core.Expressions;
 
@@ -24,6 +23,7 @@ public static class BuiltInFunctions
         ["replace"] = Replace,
         ["toNumber"] = ToNumber,
         ["json"] = Json,
+        ["now"] = Now,
         ["formatDate"] = FormatDate,
         ["base64"] = Base64,
     };
@@ -114,6 +114,11 @@ public static class BuiltInFunctions
     {
         if (args.Length < 1 || args[0] == null) return JsonValue.Create("null");
         return JsonValue.Create(args[0]!.ToJsonString());
+    }
+
+    private static JsonNode? Now(JsonNode?[] args)
+    {
+        return JsonValue.Create(DateTimeOffset.Now.ToString("O"));
     }
 
     private static JsonNode? FormatDate(JsonNode?[] args)
