@@ -618,7 +618,7 @@ workflows:
                 - name: name
                   type: string
                   required: true
-                  description: "Server name (e.g. Browser, Cmd, UserData)"
+                  description: "Server name (e.g. Browser, Cmd, Agent)"
                 - name: description
                   type: string
                   required: true
@@ -785,7 +785,7 @@ workflows:
             | Github             | http  | api_key  | GitHub repository automation             |
             | GnOuGo.Browser.Mcp | stdio | none    | Web navigation via Playwright.NET        |
             | GnOuGo.Cmd.Mcp    | stdio | none     | Secure allowlisted command execution     |
-            | GnOuGo.UserData.Mcp | stdio | none   | User chat history store via MCP          |
+            | GnOuGo.Agent.Mcp  | stdio | none   | User chat history & agent store via MCP  |
 
             ## 🔐 Supported Auth Modes
 

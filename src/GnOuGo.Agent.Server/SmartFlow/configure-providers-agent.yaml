@@ -712,7 +712,7 @@ workflows:
                 - name: name
                   type: string
                   required: true
-                  description: "Server name (e.g. Browser, Cmd, UserData)"
+                  description: "Server name (e.g. Browser, Cmd, Agent)"
                 - name: description
                   type: string
                   required: true
