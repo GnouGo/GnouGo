@@ -1,6 +1,6 @@
 ﻿using Xunit;
 
-namespace GnOuGo.UserData.Mcp.Tests;
+namespace GnOuGo.Agent.Mcp.Tests;
 
 public class InMemoryChatHistoryStoreTests
 {

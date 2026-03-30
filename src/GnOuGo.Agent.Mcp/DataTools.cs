@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 
-namespace GnOuGo.UserData.Mcp;
+namespace GnOuGo.Agent.Mcp;
 
 [McpServerToolType]
 public sealed class DataTools

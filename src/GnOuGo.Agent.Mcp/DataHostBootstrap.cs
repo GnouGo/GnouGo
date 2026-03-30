@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Hosting;
 
-namespace GnOuGo.UserData.Mcp;
+namespace GnOuGo.Agent.Mcp;
 
 public static class DataHostBootstrap
 {

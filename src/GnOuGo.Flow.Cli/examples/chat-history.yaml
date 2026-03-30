@@ -1,8 +1,8 @@
-ï»¿dsl: 1
+dsl: 1
 name: chat-history-demo
 meta:
   description: >
-    Demonstrates chat history via the GnOuGo.UserData.Mcp MCP stdio server.
+    Demonstrates chat history via the GnOuGo.Agent.Mcp MCP stdio server.
     Uses mcp.call to append and retrieve conversation messages.
 
     Usage:
@@ -20,14 +20,14 @@ workflows:
       - id: think_start
         type: emit
         input:
-          message: "Starting conversationâ€¦"
+          message: "Starting conversation…"
           level: info
 
       # 1) Start a new conversation by appending the system + user messages
       - id: create_conv
         type: mcp.call
         input:
-          server: GnOuGo.UserData.Mcp
+          server: GnOuGo.Agent.Mcp
           method: user_chat_history_append
           request:
             messagesJson: '[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"${data.inputs.user_message}"}]'
@@ -36,7 +36,7 @@ workflows:
       - id: think_llm
         type: emit
         input:
-          message: "Generating responseâ€¦"
+          message: "Generating response…"
           level: thinking
 
       - id: llm_response
@@ -49,7 +49,7 @@ workflows:
       - id: save_response
         type: mcp.call
         input:
-          server: GnOuGo.UserData.Mcp
+          server: GnOuGo.Agent.Mcp
           method: user_chat_history_append
           request:
             messagesJson: '[{"role":"assistant","content":"${data.steps.llm_response.text}"}]'
@@ -59,7 +59,7 @@ workflows:
       - id: full_history
         type: mcp.call
         input:
-          server: GnOuGo.UserData.Mcp
+          server: GnOuGo.Agent.Mcp
           method: user_chat_history_get
           request:
             conversationId: "${data.steps.create_conv.response.conversation_id}"

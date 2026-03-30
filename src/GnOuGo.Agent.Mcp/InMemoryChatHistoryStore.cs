@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 
-namespace GnOuGo.UserData.Mcp;
+namespace GnOuGo.Agent.Mcp;
 
 /// <summary>
 /// In-memory chat history store.
