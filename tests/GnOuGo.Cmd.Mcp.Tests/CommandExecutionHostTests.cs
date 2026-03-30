@@ -27,7 +27,7 @@ public class CommandExecutionHostTests
                     Script = "$directory = {{directory}}; New-Item -ItemType Directory -Path $directory -Force | Out-Null; $filePath = Join-Path -Path $directory -ChildPath {{fileName}}; $content = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String({{contentBase64}})); [System.IO.File]::WriteAllText($filePath, $content, [System.Text.UTF8Encoding]::new($false)); Write-Output $filePath",
                     Parameters = new Dictionary<string, CommandParameterSettings>(StringComparer.OrdinalIgnoreCase)
                     {
-                        ["directory"] = new() { Required = true, Pattern = "^(?![\\\\/])(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$))[A-Za-z0-9_.\\\\/-]{1,120}$", MaxLength = 120 },
+                        ["directory"] = new() { Required = true, Pattern = "^(?![\\\\/])(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$))[A-Za-z0-9_.\\\\/-]{1,120}$", MaxLength = 120, IsWorkspacePath = true, PathKind = WorkspacePathKind.Directory },
                         ["fileName"] = new() { Required = true, Pattern = "^[A-Za-z0-9_.-]{1,120}\\.md$", MaxLength = 120 },
                         ["contentBase64"] = new() { Required = true, Pattern = "^[A-Za-z0-9+/=\\r\\n]{1,4000}$", MaxLength = 4000 }
                     }
@@ -55,6 +55,45 @@ public class CommandExecutionHostTests
         Assert.True(File.Exists(expectedFilePath));
         Assert.Equal(content, File.ReadAllText(expectedFilePath));
         Assert.Contains("today.md", result.Stdout, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RunAsync_RejectsWorkspacePathTraversalBeforeLaunchingTheProcess()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var root = CreateTempDirectory();
+        var policy = new CommandPolicy(new CmdServerSettings
+        {
+            DefaultWorkingDirectory = root,
+            AllowedShells = ["powershell"],
+            AllowedCommands = new Dictionary<string, AllowedCommandSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["read_note"] = new()
+                {
+                    Shell = "powershell",
+                    Script = "Get-Content {{path}}",
+                    Parameters = new Dictionary<string, CommandParameterSettings>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["path"] = new()
+                        {
+                            Required = true,
+                            Pattern = "^[A-Za-z0-9_.\\\\/-]{1,120}$",
+                            MaxLength = 120,
+                            IsWorkspacePath = true
+                        }
+                    }
+                }
+            }
+        }, root);
+
+        var host = new CommandExecutionHost(policy, NullLogger<CommandExecutionHost>.Instance);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            host.RunAsync("read_note", "{\"path\":\"../outside.txt\"}", null, CancellationToken.None));
+
+        Assert.Contains("parent directory traversal", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -127,4 +166,3 @@ public class CommandExecutionHostTests
         return path;
     }
 }
-

@@ -15,6 +15,7 @@ This is intentionally a **deny-by-default** design to limit risks:
 - bounded max stdout/stderr size
 - environment transmitted via allowlist
 - optional named parameters validated by regex
+- optional path parameters normalized inside the workspace and rejected on traversal attempts
 - no raw free shell execution
 
 By default, the server now resolves its writable workspace to `Desktop/GnOuGo` for the current user and creates that directory automatically on startup if it does not already exist.
@@ -113,6 +114,22 @@ Values are:
 - validated by regex
 - bounded in length
 - escaped according to the target shell
+- optionally resolved to an absolute path inside the allowed workspace roots
+
+For path-bearing parameters, enable the built-in workspace guardrails on the parameter itself:
+
+- `IsWorkspacePath`: treat the value as a workspace-relative or explicitly allowed absolute path
+- `AllowAbsolutePath`: allow fully-qualified absolute paths (still restricted to allowed roots)
+- `MustExist`: require the referenced file or directory to already exist
+- `PathKind`: `Any`, `File`, or `Directory`
+
+When `IsWorkspacePath` is enabled, the server additionally rejects:
+
+- `..` parent traversal segments
+- drive-relative paths such as `C:temp\\note.md`
+- `~` home-directory shortcuts
+- wildcard characters such as `*` and `?`
+- any resolved path outside the configured allowed workspace roots
 
 Example:
 
@@ -125,7 +142,9 @@ Example:
       "path": {
         "Required": true,
         "Pattern": "^(?![\\/])(?!.*(?:^|[\\/])\\.\\.(?:[\\/]|$))[A-Za-z0-9_.\\/-]{1,240}$",
-        "MaxLength": 240
+        "MaxLength": 240,
+        "IsWorkspacePath": true,
+        "MustExist": true
       }
     }
   }
@@ -191,4 +210,5 @@ dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuG
 - The `cmd_run` tool never executes a raw command provided by the caller
 - All errors are returned as structured results — the MCP client always gets a valid JSON response
 - To allow a new command, it must be explicitly added in `src/GnOuGo.Cmd.Mcp/appsettings.json`
-- The built-in writable examples only accept **relative** paths that reject parent directory traversal such as `..`
+- Workspace path parameters can be hardened centrally with `IsWorkspacePath` so values such as `../secret.txt` are rejected before the process starts
+- The traversal guardrails apply to the effective working directory and to user-supplied parameters marked with `IsWorkspacePath`; allowlisted scripts themselves should still avoid hardcoded paths outside the intended workspace
