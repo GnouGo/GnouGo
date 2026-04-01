@@ -28,18 +28,20 @@ public sealed class SmartFlowService
     private readonly IMcpClientFactory _mcpFactory;
     private readonly IMemoryCache _mcpCache;
     private readonly ConfigureProvidersService _configureProviders;
+    private readonly ConfigureAgentsService _configureAgents;
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<SmartFlowService> _logger;
     private readonly string _workflowYaml;
 
     /// <summary>Slash commands that route to the configure-providers workflow.</summary>
-    private static readonly string[] SlashCommands = { "/llm", "/mcp", "/status" };
+    private static readonly string[] ProviderCommands = { "/llm", "/mcp", "/status" };
 
     public SmartFlowService(
         ILLMClient llm,
         IMcpClientFactory mcpFactory,
         IMemoryCache mcpCache,
         ConfigureProvidersService configureProviders,
+        ConfigureAgentsService configureAgents,
         AgentOTelTelemetry otel,
         ILogger<SmartFlowService> logger)
     {
@@ -47,6 +49,7 @@ public sealed class SmartFlowService
         _mcpFactory = mcpFactory;
         _mcpCache = mcpCache;
         _configureProviders = configureProviders;
+        _configureAgents = configureAgents;
         _otel = otel;
         _logger = logger;
 
@@ -74,12 +77,25 @@ public sealed class SmartFlowService
     {
         // ── Slash command routing ──
         var trimmed = task.Trim();
-        foreach (var cmd in SlashCommands)
+
+        // Route /agent commands to ConfigureAgentsService
+        if (trimmed.StartsWith("/agent", StringComparison.OrdinalIgnoreCase)
+            && (trimmed.Length == 6 || char.IsWhiteSpace(trimmed[6])))
+        {
+            await foreach (var evt in _configureAgents.ExecuteAsync(trimmed, ct))
+            {
+                yield return evt;
+            }
+            yield break;
+        }
+
+        // Route /llm, /mcp, /status commands to ConfigureProvidersService (with full command including sub-commands)
+        foreach (var cmd in ProviderCommands)
         {
             if (trimmed.StartsWith(cmd, StringComparison.OrdinalIgnoreCase)
                 && (trimmed.Length == cmd.Length || char.IsWhiteSpace(trimmed[cmd.Length])))
             {
-                await foreach (var evt in _configureProviders.ExecuteAsync(cmd, ct))
+                await foreach (var evt in _configureProviders.ExecuteAsync(trimmed, ct))
                 {
                     yield return evt;
                 }

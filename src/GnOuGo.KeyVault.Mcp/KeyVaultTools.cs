@@ -137,6 +137,38 @@ public sealed class KeyVaultTools
         }
     }
 
+    [McpServerTool(Name = "keyvault_get_secret"), Description("Reads a secret value by its key. Returns the decrypted value along with metadata. An audit entry is created for every read.")]
+    public async Task<KeyVaultResult> GetSecretAsync(
+        [Description("Secret key to read.")] string key,
+        [Description("Author or user reading the secret.")] string author,
+        [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+            var result = await svc.GetSecretAsync(key, tenantId, author, ct);
+            if (result is null)
+                return KeyVaultResult.NotFound($"Secret '{key}' not found.");
+
+            return KeyVaultResult.Ok(new
+            {
+                result.Id,
+                result.Key,
+                result.Value,
+                result.Version,
+                result.TenantId,
+                result.CreatedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "keyvault_get_secret failed for key={Key}", key);
+            throw;
+        }
+    }
+
     [McpServerTool(Name = "keyvault_delete_secret"), Description("Soft-deletes a secret by its key.")]
     public async Task<KeyVaultResult> DeleteSecretAsync(
         [Description("Secret key to delete.")] string key,

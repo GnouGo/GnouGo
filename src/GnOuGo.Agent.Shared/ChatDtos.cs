@@ -11,8 +11,28 @@ public sealed record ChatSessionDto(
     string Id,
     string Title,
     long UpdatedAtUnixMs,
-    List<ChatMessageDto> Messages);
+    List<ChatMessageDto> Messages,
+    string? AgentName = null);
 
 public sealed record ChatStoreDto(
     string? ActiveId,
     List<ChatSessionDto> Sessions);
+
+public sealed record LlmConfiguredProviderDto(
+    string Key,
+    string ProviderType,
+    string Url,
+    string? DefaultModel,
+    bool IsDefault);
+
+public sealed record LlmModelDto(
+    string Id,
+    string DisplayName,
+    string ProviderType,
+    string? OwnedBy = null);
+
+public sealed record LlmProviderModelsDto(
+    string Provider,
+    string ProviderType,
+    IReadOnlyList<LlmModelDto> Models);
+

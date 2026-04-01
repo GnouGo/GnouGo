@@ -216,6 +216,12 @@ public static class GnOuGoAgentWebHost
             // so a /llm wizard update takes effect for the very next message.
             return new DynamicRoutingLLMClientAdapter(http, store);
         });
+        builder.Services.AddSingleton<ILLMModelCatalog>(sp =>
+        {
+            var store = sp.GetRequiredService<LLMRuntimeOptionsStore>();
+            var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
+            return new DynamicRoutingLLMModelCatalogAdapter(http, store);
+        });
         builder.Services.AddSingleton<IMcpClientFactory>(_ =>
         {
             if (llmOptions.McpServers.Count > 0)
@@ -225,6 +231,7 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddMemoryCache();
         builder.Services.AddSingleton<AgentHumanInputProvider>();
         builder.Services.AddSingleton<ConfigureProvidersService>();
+        builder.Services.AddSingleton<ConfigureAgentsService>();
         builder.Services.AddSingleton<SmartFlowService>();
 
         builder.Services.AddRazorComponents()
@@ -300,6 +307,8 @@ public static class GnOuGoAgentWebHost
         // --- API ---
         app.MapPost("/api/chat", ChatEndpoints.CompleteAsync);
         app.MapPost("/api/chat/stream", ChatEndpoints.StreamAsync);
+        app.MapGet("/api/llm/providers", LlmProviderEndpoints.ListProviders);
+        app.MapGet("/api/llm/providers/{provider}/models", LlmProviderEndpoints.ListModelsAsync);
         app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
         app.MapGet("/desktop/boot-log/{token}", (string token, string? step, string? detail) =>
         {

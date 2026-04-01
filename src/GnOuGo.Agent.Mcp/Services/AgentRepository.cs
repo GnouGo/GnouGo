@@ -33,7 +33,7 @@ public sealed class AgentRepository : IAgentRepository
         _diff = diff;
     }
 
-    public async Task<AgentDefinition> AddAgentAsync(string name, string workflow, List<Schedule> schedules, CancellationToken ct = default)
+    public async Task<AgentDefinition> AddAgentAsync(string name, string workflow, List<Schedule> schedules, string? originalPrompt = null, string? scheduleDescription = null, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(workflow);
@@ -51,6 +51,8 @@ public sealed class AgentRepository : IAgentRepository
             Id = Guid.NewGuid(),
             Name = name.Trim(),
             Workflow = workflow,
+            OriginalPrompt = originalPrompt,
+            ScheduleDescription = scheduleDescription,
             SchedulesJson = JsonSerializer.Serialize(schedules, JsonOptions),
             CreatedAt = now,
             UpdatedAt = now
@@ -64,7 +66,7 @@ public sealed class AgentRepository : IAgentRepository
         return agent;
     }
 
-    public async Task<AgentDefinition> UpdateAgentAsync(Guid id, string name, string workflow, List<Schedule> schedules, CancellationToken ct = default)
+    public async Task<AgentDefinition> UpdateAgentAsync(Guid id, string name, string workflow, List<Schedule> schedules, string? originalPrompt = null, string? scheduleDescription = null, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(workflow);
@@ -81,6 +83,8 @@ public sealed class AgentRepository : IAgentRepository
 
         agent.Name = name.Trim();
         agent.Workflow = workflow;
+        agent.OriginalPrompt = originalPrompt;
+        agent.ScheduleDescription = scheduleDescription;
         agent.SchedulesJson = JsonSerializer.Serialize(schedules, JsonOptions);
         agent.UpdatedAt = DateTimeOffset.UtcNow;
 
@@ -93,6 +97,10 @@ public sealed class AgentRepository : IAgentRepository
 
     public async Task<List<AgentDefinition>> ListAgentsAsync(CancellationToken ct = default)
         => await _db.Agents.OrderBy(a => a.Name).ToListAsync(ct);
+
+    public async Task<AgentDefinition?> GetByNameAsync(string name, CancellationToken ct = default)
+        => await _db.Agents.FirstOrDefaultAsync(
+            a => a.Name.ToLower() == name.Trim().ToLower(), ct);
 
     public async Task DeleteAgentAsync(Guid id, CancellationToken ct = default)
     {
@@ -133,6 +141,8 @@ public sealed class AgentRepository : IAgentRepository
             Id = agent.Id.ToString(),
             Name = agent.Name,
             Workflow = agent.Workflow,
+            OriginalPrompt = agent.OriginalPrompt ?? "",
+            ScheduleDescription = agent.ScheduleDescription ?? "",
             Schedules = DeserializeSchedules(agent.SchedulesJson),
             CreatedAt = agent.CreatedAt.ToString("o"),
             UpdatedAt = agent.UpdatedAt.ToString("o")
@@ -147,6 +157,8 @@ public sealed class AgentRepository : IAgentRepository
         public string Id { get; set; } = "";
         public string Name { get; set; } = "";
         public string Workflow { get; set; } = "";
+        public string OriginalPrompt { get; set; } = "";
+        public string ScheduleDescription { get; set; } = "";
         public List<Schedule> Schedules { get; set; } = [];
         public string CreatedAt { get; set; } = "";
         public string UpdatedAt { get; set; } = "";

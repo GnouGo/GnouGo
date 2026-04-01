@@ -16,6 +16,12 @@ public sealed class AgentDefinition
     /// <summary>Workflow definition (free-form text / YAML / JSON).</summary>
     public required string Workflow { get; set; }
 
+    /// <summary>Original natural-language prompt used to generate the workflow.</summary>
+    public string? OriginalPrompt { get; set; }
+
+    /// <summary>Human-readable schedule description before cron conversion.</summary>
+    public string? ScheduleDescription { get; set; }
+
     /// <summary>Schedules serialized as a JSON array of <see cref="Schedule"/>.</summary>
     public string SchedulesJson { get; set; } = "[]";
 

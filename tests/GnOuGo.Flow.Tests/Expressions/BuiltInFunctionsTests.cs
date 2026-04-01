@@ -194,5 +194,93 @@ public class BuiltInFunctionsTests
         var result = Eval("base64(null)", null);
         Assert.Null(result);
     }
+
+    // ── substring ──────────────────────────────────────────────────
+
+    [Fact]
+    public void Substring_FromStart()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["s"] = "/llm list" } };
+        var result = Eval("substring(data.inputs.s, 4)", ctx);
+        Assert.Equal(" list", result!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Substring_WithLength()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["s"] = "hello world" } };
+        var result = Eval("substring(data.inputs.s, 0, 5)", ctx);
+        Assert.Equal("hello", result!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Substring_StartBeyondLength_ReturnsEmpty()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["s"] = "hi" } };
+        var result = Eval("substring(data.inputs.s, 10)", ctx);
+        Assert.Equal("", result!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Substring_LlmCommand_ExtractsRemainder()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["s"] = "/llm" } };
+        var result = Eval("substring(data.inputs.s, 4)", ctx);
+        Assert.Equal("", result!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Substring_McpEditCommand_ExtractsArgument()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["s"] = "edit Github" } };
+        var result = Eval("substring(data.inputs.s, 5)", ctx);
+        Assert.Equal("Github", result!.GetValue<string>());
+    }
+
+    // ── fromJson ───────────────────────────────────────────────────
+
+    [Fact]
+    public void FromJson_ParsesObject()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["s"] = "{\"name\":\"test\"}" } };
+        var result = Eval("fromJson(data.inputs.s)", ctx);
+        Assert.NotNull(result);
+        Assert.Equal("test", result!["name"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void FromJson_ParsesArray()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["s"] = "[1,2,3]" } };
+        var result = Eval("fromJson(data.inputs.s)", ctx);
+        Assert.NotNull(result);
+        Assert.IsType<JsonArray>(result);
+        Assert.Equal(3, result!.AsArray().Count);
+    }
+
+    [Fact]
+    public void FromJson_InvalidJson_ReturnsNull()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["s"] = "not json" } };
+        var result = Eval("fromJson(data.inputs.s)", ctx);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void FromJson_NullInput_ReturnsNull()
+    {
+        var result = Eval("fromJson(null)", null);
+        Assert.Null(result);
+    }
+
+    // ── length (alias for len) ─────────────────────────────────────
+
+    [Fact]
+    public void Length_IsAliasForLen()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["s"] = "hello" } };
+        var result = Eval("length(data.inputs.s)", ctx);
+        Assert.Equal(5, result!.GetValue<int>());
+    }
 }
 

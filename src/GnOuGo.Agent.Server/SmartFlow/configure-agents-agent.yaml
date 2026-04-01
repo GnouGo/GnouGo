@@ -1,0 +1,692 @@
+﻿# Configure Agents — Agent Edition
+#
+# Commands:
+#   /agent             — Show agent command documentation
+#   /agent list        — List all configured agents
+#   /agent add         — Interactive agent creation flow
+#   /agent edit <name> — Edit an existing agent
+#   /agent remove <name> — Remove an agent
+#   /agent select <name> — Set as current chat agent
+
+dsl: 1
+name: configure-agents-agent
+meta:
+  author: GnOuGo.Agent
+  description: >
+    Interactive agent management wizard triggered by /agent slash-commands.
+    Agents are stored in the GnOuGo.Agent.Mcp database with workflow YAML,
+    original prompts, and schedule metadata.
+
+workflows:
+  main:
+    inputs:
+      command:
+        type: string
+        required: false
+        default: ""
+        description: >
+          Full slash-command, e.g. /agent, /agent list, /agent add, /agent select mybot.
+
+    steps:
+      - id: parse_cmd
+        type: set
+        input:
+          raw: "${trim(data.inputs.command ?? '')}"
+          lower: "${lower(trim(data.inputs.command ?? ''))}"
+
+      - id: parsed
+        type: set
+        input:
+          remainder: "${length(data.steps.parse_cmd.lower) > 6 ? trim(substring(data.steps.parse_cmd.lower, 6)) : ''}"
+          # Keep original case for the argument (agent names are case-sensitive)
+          remainder_original: "${length(data.steps.parse_cmd.raw) > 6 ? trim(substring(data.steps.parse_cmd.raw, 6)) : ''}"
+
+      - id: action_parts
+        type: set
+        input:
+          action: "${data.steps.parsed.remainder == '' ? 'help' : startsWith(data.steps.parsed.remainder, 'list') ? 'list' : startsWith(data.steps.parsed.remainder, 'add') ? 'add' : startsWith(data.steps.parsed.remainder, 'edit') ? 'edit' : startsWith(data.steps.parsed.remainder, 'remove') ? 'remove' : startsWith(data.steps.parsed.remainder, 'select') ? 'select' : 'help'}"
+          argument: "${startsWith(data.steps.parsed.remainder, 'edit ') ? trim(substring(data.steps.parsed.remainder_original, 5)) : startsWith(data.steps.parsed.remainder, 'remove ') ? trim(substring(data.steps.parsed.remainder_original, 7)) : startsWith(data.steps.parsed.remainder, 'select ') ? trim(substring(data.steps.parsed.remainder_original, 7)) : ''}"
+
+      - id: debug_parsed
+        type: emit
+        input:
+          message: "🔍 Agent command — Action: ${data.steps.action_parts.action} | Arg: ${data.steps.action_parts.argument}"
+          level: thinking
+
+      - id: route
+        type: switch
+        expr: "${data.steps.action_parts.action}"
+        cases:
+          - value: "list"
+            steps:
+              - id: agent_list
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: agent_list }
+                  args: {}
+
+          - value: "add"
+            steps:
+              - id: agent_add
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: agent_add }
+                  args: {}
+
+          - value: "edit"
+            steps:
+              - id: agent_edit
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: agent_edit }
+                  args:
+                    name: "${data.steps.action_parts.argument}"
+
+          - value: "remove"
+            steps:
+              - id: agent_remove
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: agent_remove }
+                  args:
+                    name: "${data.steps.action_parts.argument}"
+
+          - value: "select"
+            steps:
+              - id: agent_select
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: agent_select }
+                  args:
+                    name: "${data.steps.action_parts.argument}"
+
+        default:
+          - id: agent_help
+            type: template.render
+            input:
+              engine: mustache
+              template: |
+                # 🤖 Agent Commands
+
+                | Command                 | Description                                    |
+                |-------------------------|------------------------------------------------|
+                | `/agent list`           | List all configured agents                     |
+                | `/agent add`            | Create a new agent (interactive wizard)        |
+                | `/agent edit <name>`    | Edit an existing agent                         |
+                | `/agent remove <name>`  | Remove an agent                                |
+                | `/agent select <name>`  | Set as current agent for this chat             |
+
+                **Creating an agent:**
+                - Requires at least one configured LLM provider (`/llm add`)
+                1. Choose a name for the agent
+                2. Describe what the agent should do (natural language prompt)
+                3. A workflow YAML is generated from your description
+                4. Optionally configure schedules (cron expressions)
+                5. The agent is saved with all metadata
+
+                The selected agent name is displayed at the top of the chat.
+                The text input supports YAML directly.
+              data: {}
+              mode: text
+          - id: emit_agent_help
+            type: emit
+            input:
+              message: "${data.steps.agent_help.text}"
+              level: response
+
+    outputs:
+      agent_selected:
+        expr: "${data.steps.agent_select?.outputs?.agent_name ?? null}"
+        type: string
+        description: "Name of the selected agent (only for /agent select)"
+
+  # ══════════════════════════════════════════════════════════════════
+  # /agent list
+  # ══════════════════════════════════════════════════════════════════
+  agent_list:
+    inputs: {}
+    steps:
+      - id: think_loading
+        type: emit
+        input:
+          message: "📋 Loading agents…"
+          level: thinking
+
+      - id: list_agents
+        type: mcp.call
+        input:
+          server: GnOuGo.Agent.Mcp
+          method: agent_list
+
+      - id: format_list
+        type: llm.call
+        input:
+          model: gpt-4o-mini
+          temperature: 0.2
+          prompt: >
+            You are a formatter. Given the following agent list data, produce a clean Markdown table.
+
+            Agent data:
+            ${json(data.steps.list_agents)}
+
+            Format:
+            # 🤖 Configured Agents
+
+            | Name | ID | Schedules | Created | Updated |
+            |------|----|-----------|---------|---------|
+
+            For each agent, show the name, a short ID (first 8 chars), number of schedules,
+            and formatted dates. If no agents found, say "No agents configured yet. Use `/agent add` to create one."
+
+      - id: emit_list
+        type: emit
+        input:
+          message: "${data.steps.format_list.text}"
+          level: response
+
+    outputs: {}
+
+  # ══════════════════════════════════════════════════════════════════
+  # /agent add — Interactive agent creation with workflow generation
+  # ══════════════════════════════════════════════════════════════════
+  agent_add:
+    inputs: {}
+
+    steps:
+      - id: think_start
+        type: emit
+        input:
+          message: "🤖 Starting agent creation wizard…"
+          level: thinking
+
+      # Step 1: Agent name
+      - id: input_name
+        type: human.input
+        input:
+          prompt: "Choose a name for this agent:"
+          fields:
+            - name: agent_name
+              type: string
+              required: true
+              description: "Agent name (e.g. code-reviewer, daily-reporter)"
+          timeout_ms: 300000
+
+      # Step 2: Describe the agent purpose
+      - id: input_prompt
+        type: human.input
+        input:
+          prompt: "Describe what this agent should do (natural language):"
+          fields:
+            - name: description
+              type: string
+              required: true
+              description: "Describe the agent's purpose and behavior. This prompt will be used to generate a workflow YAML."
+          timeout_ms: 600000
+
+      - id: think_generating
+        type: emit
+        input:
+          message: "⚙️ Generating workflow YAML from your description using ${data.inputs.agent_llm_provider}/${data.inputs.agent_llm_model}…"
+          level: thinking
+
+      # Step 3: Generate workflow YAML from the description
+      - id: discover_mcp
+        type: mcp.list
+        input:
+          servers:
+            - "*"
+          include:
+            - tools
+            - prompts
+
+      - id: generate_workflow
+        type: llm.call
+        input:
+          provider: "${data.inputs.agent_llm_provider}"
+          model: "${data.inputs.agent_llm_model}"
+          temperature: 0.7
+          prompt: >
+            You are a GnOuGo.Flow workflow YAML expert. Generate a valid workflow YAML
+            for an agent based on the user's description below.
+
+            Agent name: ${data.steps.input_name.agent_name}
+            Description: ${data.steps.input_prompt.description}
+
+            Available MCP capabilities:
+            ${data.steps.discover_mcp.text}
+
+            Rules:
+            - Use DSL version 1
+            - The workflow must be named "${data.steps.input_name.agent_name}"
+            - Include an "answer" output with the final result
+            - Use available MCP tools when applicable
+            - For llm.call steps use provider "${data.inputs.agent_llm_provider}" and model "${data.inputs.agent_llm_model}" with temperature 0.7
+            - Keep the workflow concise (under 15 steps)
+            - Add the original prompt as a comment at the top
+
+            Return ONLY the YAML, no markdown code fences, no explanation.
+
+      - id: emit_workflow
+        type: emit
+        input:
+          message: "📝 Generated workflow:\n\n```yaml\n${data.steps.generate_workflow.text}\n```"
+          level: thinking
+
+      # Step 4: Review workflow
+      - id: review_workflow
+        type: human.input
+        input:
+          prompt: "Review the generated workflow. You can approve it or modify it by pasting corrected YAML."
+          context: "${data.steps.generate_workflow.text}"
+          choices:
+            - approve
+            - modify
+          timeout_ms: 600000
+
+      - id: workflow_branch
+        type: switch
+        cases:
+          - when: "${data.steps.review_workflow.response == 'modify'}"
+            steps:
+              - id: custom_workflow
+                type: human.input
+                input:
+                  prompt: "Paste your modified workflow YAML below:"
+                  fields:
+                    - name: yaml
+                      type: string
+                      required: true
+                      description: "Modified workflow YAML"
+                      default: "${data.steps.generate_workflow.text}"
+                  timeout_ms: 600000
+              - id: final_workflow_modified
+                type: set
+                input:
+                  workflow: "${data.steps.custom_workflow.yaml}"
+
+        default:
+          - id: final_workflow_approved
+            type: set
+            input:
+              workflow: "${data.steps.generate_workflow.text}"
+
+      - id: final_workflow
+        type: set
+        input:
+          workflow: "${data.steps.final_workflow_modified?.workflow ?? data.steps.final_workflow_approved?.workflow ?? data.steps.generate_workflow.text}"
+
+      # Step 5: Schedules
+      - id: want_schedules
+        type: human.input
+        input:
+          prompt: "Would you like to add schedules (cron jobs) to this agent?"
+          choices:
+            - yes
+            - no
+          timeout_ms: 300000
+
+      - id: schedule_branch
+        type: switch
+        cases:
+          - when: "${data.steps.want_schedules.response == 'yes'}"
+            steps:
+              - id: describe_schedule
+                type: human.input
+                input:
+                  prompt: "Describe when this agent should run (e.g. 'every day at 8am', 'every Monday at noon'):"
+                  fields:
+                    - name: schedule_text
+                      type: string
+                      required: true
+                      description: "Natural language schedule description"
+                  timeout_ms: 300000
+
+              - id: think_cron
+                type: emit
+                input:
+                  message: "⏰ Generating cron expression…"
+                  level: thinking
+
+              - id: generate_cron
+                type: llm.call
+                input:
+                  provider: "${data.inputs.agent_llm_provider}"
+                  model: "${data.inputs.agent_llm_model}"
+                  temperature: 0.2
+                  prompt: >
+                    Convert the following schedule description to one or more Kubernetes cron expressions
+                    (5 fields: minute hour day-of-month month day-of-week).
+
+                    Description: ${data.steps.describe_schedule.schedule_text}
+
+                    Return a JSON array of objects with "name" and "cron" fields.
+                    Example: [{"name":"daily-8am","cron":"0 8 * * *"}]
+
+                    Return ONLY the JSON array, no explanation.
+
+              - id: review_cron
+                type: human.input
+                input:
+                  prompt: "Review the generated schedule(s):"
+                  context: "${data.steps.generate_cron.text}"
+                  choices:
+                    - approve
+                    - modify
+                  timeout_ms: 300000
+
+              - id: cron_branch
+                type: switch
+                cases:
+                  - when: "${data.steps.review_cron.response == 'modify'}"
+                    steps:
+                      - id: custom_cron
+                        type: human.input
+                        input:
+                          prompt: "Enter the schedule JSON (array of {name, cron}):"
+                          fields:
+                            - name: schedules_json
+                              type: string
+                              required: true
+                              description: "JSON array of schedules"
+                              default: "${data.steps.generate_cron.text}"
+                          timeout_ms: 300000
+                      - id: final_schedules_modified
+                        type: set
+                        input:
+                          schedules_json: "${data.steps.custom_cron.schedules_json}"
+                          schedule_description: "${data.steps.describe_schedule.schedule_text}"
+
+                default:
+                  - id: final_schedules_approved
+                    type: set
+                    input:
+                      schedules_json: "${data.steps.generate_cron.text}"
+                      schedule_description: "${data.steps.describe_schedule.schedule_text}"
+
+              - id: merged_schedules
+                type: set
+                input:
+                  schedules_json: "${data.steps.final_schedules_modified?.schedules_json ?? data.steps.final_schedules_approved?.schedules_json ?? '[]'}"
+                  schedule_description: "${data.steps.final_schedules_modified?.schedule_description ?? data.steps.final_schedules_approved?.schedule_description ?? ''}"
+
+        default:
+          - id: no_schedules
+            type: set
+            input:
+              schedules_json: "[]"
+              schedule_description: ""
+
+      - id: final_schedule_data
+        type: set
+        input:
+          schedules_json: "${data.steps.merged_schedules?.schedules_json ?? data.steps.no_schedules?.schedules_json ?? '[]'}"
+          schedule_description: "${data.steps.merged_schedules?.schedule_description ?? data.steps.no_schedules?.schedule_description ?? ''}"
+
+      # Step 6: Save agent via MCP
+      - id: think_saving
+        type: emit
+        input:
+          message: "💾 Saving agent '${data.steps.input_name.agent_name}'…"
+          level: progress
+
+      - id: save_agent
+        type: mcp.call
+        input:
+          server: GnOuGo.Agent.Mcp
+          method: agent_add
+          request:
+            name: "${data.steps.input_name.agent_name}"
+            workflow: "${data.steps.final_workflow.workflow}"
+            schedules: "${fromJson(data.steps.final_schedule_data.schedules_json)}"
+            originalPrompt: "${data.steps.input_prompt.description}"
+            scheduleDescription: "${data.steps.final_schedule_data.schedule_description}"
+
+      - id: emit_saved
+        type: emit
+        input:
+          message: "✅ Agent '${data.steps.input_name.agent_name}' created successfully!\n\nUse `/agent select ${data.steps.input_name.agent_name}` to activate it in this chat."
+          level: response
+
+    outputs: {}
+
+  # ══════════════════════════════════════════════════════════════════
+  # /agent edit <name>
+  # ══════════════════════════════════════════════════════════════════
+  agent_edit:
+    inputs:
+      name:
+        type: string
+        required: true
+
+    steps:
+      - id: think_loading
+        type: emit
+        input:
+          message: "🔍 Loading agent '${data.inputs.name}'…"
+          level: thinking
+
+      - id: find_agent
+        type: mcp.call
+        input:
+          server: GnOuGo.Agent.Mcp
+          method: agent_get_by_name
+          request:
+            name: "${data.inputs.name}"
+
+      - id: check_found
+        type: switch
+        cases:
+          - when: "${data.steps.find_agent.success != true}"
+            steps:
+              - id: not_found
+                type: emit
+                input:
+                  message: "❌ Agent '${data.inputs.name}' not found. Use `/agent list` to see available agents."
+                  level: response
+
+        default:
+          - id: show_current
+            type: emit
+            input:
+              message: "📝 Current workflow for '${data.steps.find_agent.agent.name}':\n\n```yaml\n${data.steps.find_agent.agent.workflow}\n```"
+              level: thinking
+
+          - id: edit_choice
+            type: human.input
+            input:
+              prompt: "What would you like to edit?"
+              choices:
+                - workflow
+                - schedules
+                - both
+              timeout_ms: 300000
+
+          - id: edit_branch
+            type: switch
+            cases:
+              - when: "${data.steps.edit_choice.response == 'workflow' || data.steps.edit_choice.response == 'both'}"
+                steps:
+                  - id: edit_workflow
+                    type: human.input
+                    input:
+                      prompt: "Enter the new workflow YAML (or modify the existing one):"
+                      fields:
+                        - name: yaml
+                          type: string
+                          required: true
+                          description: "Workflow YAML"
+                          default: "${data.steps.find_agent.agent.workflow}"
+                      timeout_ms: 600000
+                  - id: new_workflow
+                    type: set
+                    input:
+                      workflow: "${data.steps.edit_workflow.yaml}"
+
+            default:
+              - id: keep_workflow
+                type: set
+                input:
+                  workflow: "${data.steps.find_agent.agent.workflow}"
+
+          - id: final_edit_workflow
+            type: set
+            input:
+              workflow: "${data.steps.new_workflow?.workflow ?? data.steps.keep_workflow?.workflow ?? data.steps.find_agent.agent.workflow}"
+
+          - id: confirm_edit
+            type: human.input
+            input:
+              prompt: "Save the updated agent '${data.inputs.name}'?"
+              choices:
+                - save
+                - discard
+              timeout_ms: 300000
+
+          - id: save_edit_branch
+            type: switch
+            cases:
+              - when: "${data.steps.confirm_edit.response == 'save'}"
+                steps:
+                  - id: save_update
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.Agent.Mcp
+                      method: agent_update
+                      request:
+                        id: "${data.steps.find_agent.agent.id}"
+                        name: "${data.steps.find_agent.agent.name}"
+                        workflow: "${data.steps.final_edit_workflow.workflow}"
+                        schedules: "${data.steps.find_agent.agent.schedules}"
+
+                  - id: emit_updated
+                    type: emit
+                    input:
+                      message: "✅ Agent '${data.inputs.name}' updated."
+                      level: response
+
+            default:
+              - id: emit_edit_discarded
+                type: emit
+                input:
+                  message: "❌ Edit discarded."
+                  level: thinking
+
+    outputs: {}
+
+  # ══════════════════════════════════════════════════════════════════
+  # /agent remove <name>
+  # ══════════════════════════════════════════════════════════════════
+  agent_remove:
+    inputs:
+      name:
+        type: string
+        required: true
+
+    steps:
+      - id: find_agent
+        type: mcp.call
+        input:
+          server: GnOuGo.Agent.Mcp
+          method: agent_get_by_name
+          request:
+            name: "${data.inputs.name}"
+
+      - id: check_found
+        type: switch
+        cases:
+          - when: "${data.steps.find_agent.success != true}"
+            steps:
+              - id: not_found
+                type: emit
+                input:
+                  message: "❌ Agent '${data.inputs.name}' not found."
+                  level: response
+
+        default:
+          - id: confirm_remove
+            type: human.input
+            input:
+              prompt: "⚠️ Are you sure you want to remove agent '${data.inputs.name}'?"
+              choices:
+                - confirm
+                - cancel
+              timeout_ms: 300000
+
+          - id: remove_branch
+            type: switch
+            cases:
+              - when: "${data.steps.confirm_remove.response == 'confirm'}"
+                steps:
+                  - id: delete_agent
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.Agent.Mcp
+                      method: agent_delete
+                      request:
+                        id: "${data.steps.find_agent.agent.id}"
+
+                  - id: emit_removed
+                    type: emit
+                    input:
+                      message: "✅ Agent '${data.inputs.name}' removed."
+                      level: response
+
+            default:
+              - id: emit_cancelled
+                type: emit
+                input:
+                  message: "❌ Removal cancelled."
+                  level: thinking
+
+    outputs: {}
+
+  # ══════════════════════════════════════════════════════════════════
+  # /agent select <name> — Set as current chat agent
+  # ══════════════════════════════════════════════════════════════════
+  agent_select:
+    inputs:
+      name:
+        type: string
+        required: true
+
+    steps:
+      - id: find_agent
+        type: mcp.call
+        input:
+          server: GnOuGo.Agent.Mcp
+          method: agent_get_by_name
+          request:
+            name: "${data.inputs.name}"
+
+      - id: check_found
+        type: switch
+        cases:
+          - when: "${data.steps.find_agent.success != true}"
+            steps:
+              - id: not_found
+                type: emit
+                input:
+                  message: "❌ Agent '${data.inputs.name}' not found. Use `/agent list` to see available agents."
+                  level: response
+              - id: not_found_result
+                type: set
+                input:
+                  agent_name: ""
+
+        default:
+          - id: emit_selected
+            type: emit
+            input:
+              message: "✅ Agent '${data.steps.find_agent.agent.name}' is now the active agent for this chat."
+              level: response
+          - id: selected_result
+            type: set
+            input:
+              agent_name: "${data.steps.find_agent.agent.name}"
+
+    outputs:
+      agent_name:
+        expr: "${data.steps.selected_result?.agent_name ?? data.steps.not_found_result?.agent_name ?? ''}"
+        type: string
+        description: "Selected agent name (empty if not found)"
+

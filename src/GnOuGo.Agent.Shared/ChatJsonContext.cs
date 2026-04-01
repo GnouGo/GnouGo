@@ -11,6 +11,11 @@ namespace GnOuGo.Agent.Shared;
 [JsonSerializable(typeof(ChatStoreDto))]
 [JsonSerializable(typeof(ChatSessionDto))]
 [JsonSerializable(typeof(List<ChatSessionDto>))]
+[JsonSerializable(typeof(LlmConfiguredProviderDto))]
+[JsonSerializable(typeof(List<LlmConfiguredProviderDto>))]
+[JsonSerializable(typeof(LlmModelDto))]
+[JsonSerializable(typeof(List<LlmModelDto>))]
+[JsonSerializable(typeof(LlmProviderModelsDto))]
 public partial class ChatJsonContext : JsonSerializerContext
 {
 }

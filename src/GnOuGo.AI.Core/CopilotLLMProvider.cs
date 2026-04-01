@@ -14,7 +14,7 @@ namespace GnOuGo.AI.Core;
 /// or plain names (e.g. "gpt-4.1", "o4-mini", "claude-sonnet-4").
 /// The provider strips the vendor prefix before sending to the API.
 /// </summary>
-public sealed class CopilotLLMProvider : ILLMProvider
+public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 {
     /// <summary>
     /// Default GitHub Models inference endpoint.
@@ -31,7 +31,9 @@ public sealed class CopilotLLMProvider : ILLMProvider
     /// <inheritdoc />
     public string ProviderType => "copilot";
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Sends a chat completion request to the GitHub Models / Copilot provider.
+    /// </summary>
     public async Task<LLMClientResponse> CallAsync(
         string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
     {
@@ -153,5 +155,94 @@ public sealed class CopilotLLMProvider : ILLMProvider
 
     private static List<LLMToolDef>? MapTools(IReadOnlyList<LLMToolDef>? tools)
         => tools is { Count: > 0 } ? tools as List<LLMToolDef> ?? new List<LLMToolDef>(tools) : null;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<LLMModelDescriptor>> ListModelsAsync(ModelProviderOptions provider, CancellationToken ct)
+    {
+        var token = ResolveToken(provider);
+        Exception? lastError = null;
+
+        foreach (var candidate in CopilotEndpoints.ModelListCandidates(provider.Url))
+        {
+            try
+            {
+                using var req = GnOuGo.AI.Core.HttpRequestHelper.CreateGet(candidate);
+                if (!string.IsNullOrWhiteSpace(token))
+                    HttpRequestHelper.SetBearerAuth(req, token);
+
+                using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
+                    lastError = new HttpRequestException(
+                        $"Copilot/GitHub Models list call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+
+                    if ((int)resp.StatusCode is 404 or 405 or 501)
+                        continue;
+
+                    throw lastError;
+                }
+
+                await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+                using var json = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+                return ParseModelResponse(json.RootElement);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                lastError = ex;
+            }
+        }
+
+        throw lastError ?? new InvalidOperationException("Unable to retrieve Copilot/GitHub Models catalog.");
+    }
+
+    internal static IReadOnlyList<LLMModelDescriptor> ParseModelResponse(JsonElement root)
+    {
+        IEnumerable<JsonElement> items = [];
+
+        if (root.ValueKind == JsonValueKind.Array)
+        {
+            items = root.EnumerateArray();
+        }
+        else if (root.ValueKind == JsonValueKind.Object)
+        {
+            if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+                items = data.EnumerateArray();
+            else if (root.TryGetProperty("models", out var models) && models.ValueKind == JsonValueKind.Array)
+                items = models.EnumerateArray();
+        }
+
+        var results = new List<LLMModelDescriptor>();
+        foreach (var item in items)
+        {
+            var id = TryGetString(item, "id")
+                ?? TryGetString(item, "name")
+                ?? TryGetString(item, "model")
+                ?? TryGetString(item, "slug");
+
+            if (string.IsNullOrWhiteSpace(id))
+                continue;
+
+            var displayName = TryGetString(item, "name")
+                ?? TryGetString(item, "friendly_name")
+                ?? id;
+
+            var ownedBy = TryGetString(item, "publisher")
+                ?? TryGetString(item, "owned_by")
+                ?? TryGetString(item, "vendor");
+
+            results.Add(new LLMModelDescriptor(id, displayName, "copilot", ownedBy));
+        }
+
+        return results
+            .GroupBy(m => m.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToArray();
+    }
+
+    private static string? TryGetString(JsonElement element, string name)
+        => element.TryGetProperty(name, out var property) && property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : null;
 }
 

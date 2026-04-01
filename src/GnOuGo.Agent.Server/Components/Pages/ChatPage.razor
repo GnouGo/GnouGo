@@ -67,6 +67,11 @@
             </button>
 
             <div class="sa-chat__topbar-title">
+                @if (!string.IsNullOrWhiteSpace(_active?.AgentName))
+                {
+                    <span class="sa-chat__agent-badge" title="Active agent">🤖 @_active.AgentName</span>
+                    <span style="margin: 0 8px; opacity: 0.4;">|</span>
+                }
                 @(_active?.Title ?? "Chat")
             </div>
 
@@ -174,11 +179,26 @@
                                             {
                                                 <div style="font-size: 0.8em; opacity: 0.7; margin-bottom: 2px;">@field.Description</div>
                                             }
-                                            <input type="text"
-                                                   class="sa-composer__input"
-                                                   style="width: 100%; padding: 6px 10px; border-radius: 6px;"
-                                                   value="@GetFieldValue(field.Name)"
-                                                   @onchange="@((ChangeEventArgs e) => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))" />
+                                            @if (string.Equals(field.Type, "select", StringComparison.OrdinalIgnoreCase) && field.Options is { Count: > 0 })
+                                            {
+                                                <select class="sa-composer__input"
+                                                        style="width: 100%; padding: 6px 10px; border-radius: 6px;"
+                                                        value="@GetFieldValue(field.Name)"
+                                                        @onchange="@((ChangeEventArgs e) => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))">
+                                                    @foreach (var option in field.Options)
+                                                    {
+                                                        <option value="@option">@option</option>
+                                                    }
+                                                </select>
+                                            }
+                                            else
+                                            {
+                                                <input type="text"
+                                                       class="sa-composer__input"
+                                                       style="width: 100%; padding: 6px 10px; border-radius: 6px;"
+                                                       value="@GetFieldValue(field.Name)"
+                                                       @onchange="@((ChangeEventArgs e) => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))" />
+                                            }
                                         </div>
                                     }
                                     <button class="sa-composer__send"
@@ -202,7 +222,7 @@
                     <textarea class="sa-composer__input"
                               @bind="_model.Prompt"
                               @bind:event="oninput"
-                              placeholder="Write a message… (Markdown supported: **bold**, `code`, ```mermaid```)"
+                              placeholder="Write a message or YAML… (/llm, /mcp, /agent, Markdown, YAML supported)"
 
                               rows="1"
                               disabled="@_isStreaming"
@@ -254,6 +274,7 @@
         public string Type { get; set; } = "string";
         public bool Required { get; set; }
         public string? Description { get; set; }
+        public List<string>? Options { get; set; }
         public string? Default { get; set; }
     }
 
@@ -312,8 +333,75 @@
 
     private MarkupString RenderMarkdown(string markdown)
     {
-        var html = Markdig.Markdown.ToHtml(markdown ?? "", MdPipeline);
+        var html = Markdig.Markdown.ToHtml(NormalizeMarkdown(markdown), MdPipeline);
         return (MarkupString)html;
+    }
+
+    private static string NormalizeMarkdown(string? markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+            return markdown ?? "";
+
+        var normalized = markdown.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n');
+
+        var lines = normalized.Split('\n');
+        var output = new List<string>(lines.Length + 8);
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            var trimmed = line.Trim();
+            var previousTrimmed = output.Count == 0 ? "" : output[^1].Trim();
+            var nextTrimmed = i + 1 < lines.Length ? lines[i + 1].Trim() : "";
+
+            if (!string.IsNullOrWhiteSpace(previousTrimmed)
+                && (LooksLikeAtxHeading(trimmed) || LooksLikeTableHeader(trimmed, nextTrimmed)))
+            {
+                output.Add("");
+            }
+
+            output.Add(line);
+        }
+
+        return string.Join("\n", output);
+    }
+
+    private static bool LooksLikeAtxHeading(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line) || !line.StartsWith('#'))
+            return false;
+
+        var index = 0;
+        while (index < line.Length && line[index] == '#')
+            index++;
+
+        return index is > 0 and <= 6
+            && index < line.Length
+            && char.IsWhiteSpace(line[index]);
+    }
+
+    private static bool LooksLikeTableHeader(string line, string nextLine)
+        => line.Contains('|', StringComparison.Ordinal)
+           && LooksLikeTableSeparator(nextLine);
+
+    private static bool LooksLikeTableSeparator(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line) || !line.Contains('-', StringComparison.Ordinal))
+            return false;
+
+        var cells = line.Trim().Trim('|').Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (cells.Length == 0)
+            return false;
+
+        foreach (var cell in cells)
+        {
+            var content = cell.Trim().Trim(':').Replace(" ", "", StringComparison.Ordinal);
+            if (content.Length < 3 || content.Any(ch => ch != '-'))
+                return false;
+        }
+
+        return true;
     }
 
     private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
@@ -350,6 +438,52 @@
                 await ScrollToBottomAsync();
             }
         }
+    }
+
+    private async Task<ChatMessageDto> AppendAssistantContentAsync(
+        ChatMessageDto assistantMsg,
+        string? incomingText,
+        CancellationToken ct)
+    {
+        if (_active is null)
+            return assistantMsg;
+
+        var text = incomingText ?? "";
+        if (string.IsNullOrWhiteSpace(text))
+            return assistantMsg;
+
+        var current = assistantMsg.Content ?? "";
+        if (string.Equals(current, text, StringComparison.Ordinal))
+            return assistantMsg;
+
+        if (!string.IsNullOrEmpty(current) && text.StartsWith(current, StringComparison.Ordinal))
+        {
+            var delta = text[current.Length..];
+            if (!string.IsNullOrEmpty(delta))
+                await TypewriterAppendAsync(delta, assistantMsg, ct);
+        }
+        else if (!string.IsNullOrEmpty(current) && current.StartsWith(text, StringComparison.Ordinal))
+        {
+            return assistantMsg;
+        }
+        else
+        {
+            var separator = NeedsResponseSeparator(current, text) ? "\n\n" : "";
+            await TypewriterAppendAsync(separator + text, assistantMsg, ct);
+        }
+
+        return _active.Messages.LastOrDefault(m =>
+                   string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase))
+               ?? assistantMsg;
+    }
+
+    private static bool NeedsResponseSeparator(string current, string next)
+    {
+        if (string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(next))
+            return false;
+
+        return !char.IsWhiteSpace(current[^1])
+            && !char.IsWhiteSpace(next[0]);
     }
 
     private async Task SendAsync()
@@ -392,12 +526,13 @@
                     if (string.Equals(level, "response", StringComparison.OrdinalIgnoreCase))
                     {
                         // "response" level = final user-facing content (e.g. from configure-providers)
-                        await TypewriterAppendAsync(evt.Text ?? "", assistantMsg, _cts.Token);
-                        assistantMsg = _active.Messages.Last(m =>
-                            string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase));
+                        assistantMsg = await AppendAssistantContentAsync(assistantMsg, evt.Text, _cts.Token);
                     }
                     else
                     {
+                        if (_active is null)
+                            continue;
+
                         // Insert a thinking message before the assistant placeholder
                         var thinkingMsg = new ChatMessageDto("thinking", evt.Text ?? "");
                         var lastIdx = _active.Messages.Count - 1;
@@ -406,13 +541,10 @@
                         await ScrollToBottomAsync();
                     }
                 }
-                else if (evt.Type is "answer")
+                else if (evt.Type is "answer" or "response")
                 {
                     // Typewriter effect for the final answer
-                    await TypewriterAppendAsync(evt.Text ?? "", assistantMsg, _cts.Token);
-                    // Sync the final state
-                    assistantMsg = _active.Messages.Last(m =>
-                        string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase));
+                    assistantMsg = await AppendAssistantContentAsync(assistantMsg, evt.Text, _cts.Token);
                 }
                 else if (evt.Type is "llm.chunk")
                 {
@@ -458,7 +590,17 @@
                         _error = errText;
                     }
                 }
-                else if (evt.Type is "human_input_request")
+                else if (evt.Type is "agent_selected")
+                {
+                    // Update the active session's agent name
+                    if (_active is not null && !string.IsNullOrWhiteSpace(evt.Text))
+                    {
+                        _active = _active with { AgentName = evt.Text };
+                        ReplaceSession(_active);
+                        StateHasChanged();
+                    }
+                }
+                else if (evt.Type == "human_input_request")
                 {
                     // Parse the human input request and show it in the UI
                     var requestJson = JsonNode.Parse(evt.Text ?? "{}")?.AsObject();
@@ -487,6 +629,9 @@
                                     Type = fObj["type"]?.GetValue<string>() ?? "string",
                                     Required = fObj["required"]?.GetValue<bool>() ?? false,
                                     Description = fObj["description"]?.GetValue<string>(),
+                                    Options = fObj["options"] is JsonArray optionsArr
+                                        ? optionsArr.Select(o => o?.GetValue<string>() ?? "").Where(o => !string.IsNullOrWhiteSpace(o)).ToList()
+                                        : null,
                                     Default = fObj["default"]?.GetValue<string>(),
                                 };
                                 model.Fields.Add(field);

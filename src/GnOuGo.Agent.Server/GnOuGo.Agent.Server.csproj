@@ -46,5 +46,6 @@
   <ItemGroup>
     <EmbeddedResource Include="SmartFlow\dynamic-workflow-agent.yaml" />
     <EmbeddedResource Include="SmartFlow\configure-providers-agent.yaml" />
+    <EmbeddedResource Include="SmartFlow\configure-agents-agent.yaml" />
   </ItemGroup>
 </Project>

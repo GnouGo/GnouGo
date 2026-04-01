@@ -1,13 +1,22 @@
 ﻿# Configure LLM Providers & MCP Servers — Agent Edition
 #
-# Adapted from GnOuGo.Flow.Cli/examples/configure-providers.yaml
-# with automatic secret persistence to GnOuGo.KeyVault.Mcp.
+# Sub-command routing for /llm and /mcp with full CRUD support.
+# All configs stored as single JSON keys in KeyVault:
+#   gnougo_llm_(name) and gnougo_mcp_(name)
 #
 # Commands:
-#   /llm      — Configure an LLM provider (OpenAI, Ollama, Copilot)
-#   /mcp      — Configure an MCP server (HTTP or stdio)
-#   /status   — Display current configuration summary (reads from KeyVault)
-#   (empty)   — Show help
+#   /llm          — Show LLM command documentation
+#   /llm list     — List configured LLM providers
+#   /llm models X — List available models for a configured LLM provider
+#   /llm add      — Interactive setup of a new LLM provider
+#   /llm edit X   — Edit existing LLM provider by name or id
+#   /llm remove X — Remove an LLM provider by name or id
+#   /mcp          — Show MCP command documentation
+#   /mcp list     — List configured MCP servers
+#   /mcp add      — Interactive setup of a new MCP server
+#   /mcp edit X   — Edit existing MCP server by name or id
+#   /mcp remove X — Remove an MCP server by name or id
+#   /status       — Display current configuration summary
 
 dsl: 1
 name: configure-providers-agent
@@ -15,7 +24,7 @@ meta:
   author: GnOuGo.Agent
   description: >
     Interactive setup wizard triggered by slash-commands.
-    Secrets are automatically persisted to KeyVault via MCP.
+    Secrets are automatically persisted to KeyVault via MCP as single JSON blobs.
 
 workflows:
   main:
@@ -25,41 +34,59 @@ workflows:
         required: false
         default: ""
         description: >
-          Slash-command to execute: /llm, /mcp, /status.
+          Full slash-command to execute, e.g. /llm, /llm list, /llm add, /mcp edit Github.
 
     steps:
-      - id: resolve_command
+      - id: parse_cmd
         type: set
         input:
-          cmd: "${lower(trim(data.inputs.command ?? ''))}"
+          raw: "${lower(trim(data.inputs.command ?? ''))}"
 
-      - id: debug_cmd
+      # Extract domain (/llm or /mcp), action (list, add, edit, remove), and argument
+      - id: parsed
+        type: set
+        input:
+          domain: "${startsWith(data.steps.parse_cmd.raw, '/mcp') ? 'mcp' : startsWith(data.steps.parse_cmd.raw, '/llm') ? 'llm' : startsWith(data.steps.parse_cmd.raw, '/status') ? 'status' : 'help'}"
+          # Extract action after the domain prefix
+          remainder: "${startsWith(data.steps.parse_cmd.raw, '/mcp') ? trim(substring(data.steps.parse_cmd.raw, 4)) : startsWith(data.steps.parse_cmd.raw, '/llm') ? trim(substring(data.steps.parse_cmd.raw, 4)) : ''}"
+
+      - id: action_parts
+        type: set
+        input:
+          action: "${data.steps.parsed.remainder == '' ? 'help' : startsWith(data.steps.parsed.remainder, 'list') ? 'list' : startsWith(data.steps.parsed.remainder, 'add') ? 'add' : startsWith(data.steps.parsed.remainder, 'edit') ? 'edit' : startsWith(data.steps.parsed.remainder, 'remove') ? 'remove' : 'help'}"
+          argument: "${startsWith(data.steps.parsed.remainder, 'edit ') ? trim(substring(data.steps.parsed.remainder, 5)) : startsWith(data.steps.parsed.remainder, 'remove ') ? trim(substring(data.steps.parsed.remainder, 7)) : ''}"
+
+      - id: debug_parsed
         type: emit
         input:
-          message: "🔍 Detected command: \"${data.steps.resolve_command.cmd}\""
+          message: "🔍 Domain: ${data.steps.parsed.domain} | Action: ${data.steps.action_parts.action} | Arg: ${data.steps.action_parts.argument}"
           level: thinking
 
-      - id: route
+      - id: route_domain
         type: switch
-        expr: "${data.steps.resolve_command.cmd}"
+        expr: "${data.steps.parsed.domain}"
         cases:
-          - value: "/llm"
+          - value: "llm"
             steps:
-              - id: llm_flow
+              - id: llm_route
                 type: workflow.call
                 input:
-                  ref: { kind: local, name: configure_llm }
-                  args: {}
+                  ref: { kind: local, name: llm_router }
+                  args:
+                    action: "${data.steps.action_parts.action}"
+                    argument: "${data.steps.action_parts.argument}"
 
-          - value: "/mcp"
+          - value: "mcp"
             steps:
-              - id: mcp_flow
+              - id: mcp_route
                 type: workflow.call
                 input:
-                  ref: { kind: local, name: configure_mcp }
-                  args: {}
+                  ref: { kind: local, name: mcp_router }
+                  args:
+                    action: "${data.steps.action_parts.action}"
+                    argument: "${data.steps.action_parts.argument}"
 
-          - value: "/status"
+          - value: "status"
             steps:
               - id: status_flow
                 type: workflow.call
@@ -77,18 +104,23 @@ workflows:
 
                 Available commands:
 
-                | Command     | Description                                          |
-                |-------------|------------------------------------------------------|
-                | `/llm`      | Configure an LLM provider (OpenAI, Ollama, Copilot) |
-                | `/mcp`      | Add an MCP server (HTTP or stdio)                    |
-                | `/status`   | Display current configuration summary                |
+                | Command           | Description                                           |
+                |-------------------|-------------------------------------------------------|
+                | `/llm`            | Show LLM command documentation                        |
+                | `/llm list`       | List configured LLM providers                         |
+                | `/llm models <name>` | List available models for a configured LLM provider |
+                | `/llm add`        | Configure a new LLM provider (OpenAI, Ollama, Copilot)|
+                | `/llm edit <name>`| Edit an existing LLM provider                         |
+                | `/llm remove <name>` | Remove an LLM provider                             |
+                | `/mcp`            | Show MCP command documentation                        |
+                | `/mcp list`       | List configured MCP servers                           |
+                | `/mcp add`        | Add a new MCP server (HTTP or stdio)                  |
+                | `/mcp edit <name>`| Edit an existing MCP server                           |
+                | `/mcp remove <name>` | Remove an MCP server                               |
+                | `/status`         | Display current configuration summary                 |
+                | `/agent`          | Show agent command documentation                      |
 
-                **Authentication modes for LLM providers:**
-                - **API Key** — static secret (OpenAI, custom endpoints)
-                - **OpenID Connect** — OAuth2 client_credentials flow
-                - **Copilot / Env** — resolved from `GITHUB_TOKEN` or `COPILOT_API_KEY` env vars
-
-                Type `/llm`, `/mcp`, or `/status` in the chat to get started.
+                Type a command in the chat to get started.
               data: {}
               mode: text
 
@@ -102,45 +134,200 @@ workflows:
       command:
         expr: "${data.inputs.command}"
         type: string
-        description: "The command that was executed"
-      help:
-        expr: "${data.steps.help_text?.text ?? null}"
-        type: string
-        description: "Help text (only when no command was given)"
       llm_saved:
-        expr: "${data.steps.llm_flow?.outputs?.saved ?? false}"
+        expr: "${data.steps.llm_route?.outputs?.saved ?? false}"
         type: boolean
-        description: "Whether the LLM provider was saved (only for /llm command)"
       llm_provider:
-        expr: "${data.steps.llm_flow?.outputs?.provider ?? null}"
+        expr: "${data.steps.llm_route?.outputs?.provider ?? null}"
         type: string
       llm_url:
-        expr: "${data.steps.llm_flow?.outputs?.url ?? null}"
+        expr: "${data.steps.llm_route?.outputs?.url ?? null}"
         type: string
       llm_model:
-        expr: "${data.steps.llm_flow?.outputs?.model ?? null}"
+        expr: "${data.steps.llm_route?.outputs?.model ?? null}"
         type: string
       llm_auth_type:
-        expr: "${data.steps.llm_flow?.outputs?.auth_type ?? null}"
+        expr: "${data.steps.llm_route?.outputs?.auth_type ?? null}"
         type: string
       llm_api_key:
-        expr: "${data.steps.llm_flow?.outputs?.api_key ?? null}"
+        expr: "${data.steps.llm_route?.outputs?.api_key ?? null}"
         type: string
       llm_oidc_issuer:
-        expr: "${data.steps.llm_flow?.outputs?.oidc_issuer ?? null}"
+        expr: "${data.steps.llm_route?.outputs?.oidc_issuer ?? null}"
         type: string
       llm_oidc_client_id:
-        expr: "${data.steps.llm_flow?.outputs?.oidc_client_id ?? null}"
+        expr: "${data.steps.llm_route?.outputs?.oidc_client_id ?? null}"
         type: string
       llm_oidc_scopes:
-        expr: "${data.steps.llm_flow?.outputs?.oidc_scopes ?? null}"
+        expr: "${data.steps.llm_route?.outputs?.oidc_scopes ?? null}"
         type: string
       llm_oidc_client_secret:
-        expr: "${data.steps.llm_flow?.outputs?.oidc_client_secret ?? null}"
+        expr: "${data.steps.llm_route?.outputs?.oidc_client_secret ?? null}"
         type: string
 
   # ══════════════════════════════════════════════════════════════════
-  # SUB-WORKFLOW: /llm — Configure LLM Provider + persist to KeyVault
+  # LLM ROUTER — dispatches /llm sub-commands
+  # ══════════════════════════════════════════════════════════════════
+  llm_router:
+    inputs:
+      action:
+        type: string
+        required: true
+      argument:
+        type: string
+        required: false
+        default: ""
+
+    steps:
+      - id: route
+        type: switch
+        expr: "${data.inputs.action}"
+        cases:
+          - value: "list"
+            steps:
+              - id: llm_list
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: llm_list }
+                  args: {}
+
+          - value: "add"
+            steps:
+              - id: llm_add
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: configure_llm }
+                  args: {}
+
+          - value: "edit"
+            steps:
+              - id: llm_edit
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: llm_edit }
+                  args:
+                    name: "${data.inputs.argument}"
+
+          - value: "remove"
+            steps:
+              - id: llm_remove
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: llm_remove }
+                  args:
+                    name: "${data.inputs.argument}"
+
+        default:
+          - id: llm_help
+            type: template.render
+            input:
+              engine: mustache
+              template: |
+                # 🤖 LLM Provider Commands
+
+                | Command               | Description                                           |
+                |-----------------------|-------------------------------------------------------|
+                | `/llm list`           | List all configured LLM providers                     |
+                | `/llm models <name>`  | Fetch the live model list for a configured provider   |
+                | `/llm add`            | Configure a new LLM provider (OpenAI, Ollama, Copilot)|
+                | `/llm edit <name>`    | Edit an existing LLM provider configuration           |
+                | `/llm remove <name>`  | Remove an LLM provider                                |
+
+                **Authentication modes:**
+                - **API Key** — static secret (OpenAI, custom endpoints)
+                - **OpenID Connect** — OAuth2 client_credentials flow
+                - **Copilot / Env** — resolved from `GITHUB_TOKEN` or `COPILOT_API_KEY` env vars
+
+                All configurations are stored encrypted in KeyVault as `gnougo_llm_(name)`.
+              data: {}
+              mode: text
+          - id: emit_llm_help
+            type: emit
+            input:
+              message: "${data.steps.llm_help.text}"
+              level: response
+
+    outputs:
+      saved:
+        expr: "${data.steps.llm_add?.outputs?.saved ?? false}"
+        type: boolean
+      provider:
+        expr: "${data.steps.llm_add?.outputs?.provider ?? data.steps.llm_edit?.outputs?.provider ?? null}"
+        type: string
+      url:
+        expr: "${data.steps.llm_add?.outputs?.url ?? data.steps.llm_edit?.outputs?.url ?? null}"
+        type: string
+      model:
+        expr: "${data.steps.llm_add?.outputs?.model ?? data.steps.llm_edit?.outputs?.model ?? null}"
+        type: string
+      auth_type:
+        expr: "${data.steps.llm_add?.outputs?.auth_type ?? data.steps.llm_edit?.outputs?.auth_type ?? null}"
+        type: string
+      api_key:
+        expr: "${data.steps.llm_add?.outputs?.api_key ?? data.steps.llm_edit?.outputs?.api_key ?? null}"
+        type: string
+      oidc_issuer:
+        expr: "${data.steps.llm_add?.outputs?.oidc_issuer ?? null}"
+        type: string
+      oidc_client_id:
+        expr: "${data.steps.llm_add?.outputs?.oidc_client_id ?? null}"
+        type: string
+      oidc_scopes:
+        expr: "${data.steps.llm_add?.outputs?.oidc_scopes ?? null}"
+        type: string
+      oidc_client_secret:
+        expr: "${data.steps.llm_add?.outputs?.oidc_client_secret ?? null}"
+        type: string
+
+  # ══════════════════════════════════════════════════════════════════
+  # /llm list — List configured LLM providers from KeyVault
+  # ══════════════════════════════════════════════════════════════════
+  llm_list:
+    inputs: {}
+    steps:
+      - id: think_loading
+        type: emit
+        input:
+          message: "📋 Loading LLM providers from KeyVault…"
+          level: thinking
+
+      - id: list_secrets
+        type: mcp.call
+        input:
+          server: GnOuGo.KeyVault.Mcp
+          method: keyvault_list_secrets
+
+      - id: format_list
+        type: llm.call
+        input:
+          model: gpt-4o-mini
+          temperature: 0.2
+          prompt: >
+            You are a configuration formatter. Given the following secret metadata from KeyVault,
+            list all LLM providers. LLM provider keys start with "gnougo_llm_".
+            Extract the provider name from the key (e.g. "gnougo_llm_openai" → "openai").
+
+            Secret metadata:
+            ${json(data.steps.list_secrets)}
+
+            Format as a Markdown table:
+            # 🤖 Configured LLM Providers
+
+            | Name | Key | Last Updated |
+            |------|-----|-------------|
+
+            If no LLM providers found, say "No LLM providers configured yet. Use `/llm add` to get started."
+
+      - id: emit_list
+        type: emit
+        input:
+          message: "${data.steps.format_list.text}"
+          level: response
+
+    outputs: {}
+
+  # ══════════════════════════════════════════════════════════════════
+  # /llm add — Configure LLM Provider + persist single JSON to KeyVault
   # ══════════════════════════════════════════════════════════════════
   configure_llm:
     inputs: {}
@@ -152,7 +339,6 @@ workflows:
           message: "🤖 Starting LLM provider configuration…"
           level: thinking
 
-      # ── Step 1: Choose provider type ──
       - id: choose_provider
         type: human.input
         input:
@@ -163,7 +349,6 @@ workflows:
             - copilot
           timeout_ms: 300000
 
-      # ── Step 2: Provider-specific defaults ──
       - id: provider_defaults
         type: switch
         expr: "${data.steps.choose_provider.response}"
@@ -200,17 +385,10 @@ workflows:
           model: "${data.steps.defaults_openai?.default_model ?? data.steps.defaults_ollama?.default_model ?? data.steps.defaults_copilot?.default_model ?? ''}"
           auth_modes: "${data.steps.defaults_openai?.auth_modes ?? data.steps.defaults_ollama?.auth_modes ?? data.steps.defaults_copilot?.auth_modes ?? 'none'}"
 
-      - id: think_defaults
-        type: emit
-        input:
-          message: "📡 Provider: ${data.steps.choose_provider.response} | URL: ${data.steps.resolved_defaults.url} | Auth: ${data.steps.resolved_defaults.auth_modes}"
-          level: info
-
-      # ── Step 3: Connection details ──
       - id: configure_connection
         type: human.input
         input:
-          prompt: "Configure ${data.steps.choose_provider.response} connection. Adjust defaults if needed:"
+          prompt: "Configure ${data.steps.choose_provider.response} connection:"
           context: "Default URL: ${data.steps.resolved_defaults.url} | Default model: ${data.steps.resolved_defaults.model}"
           fields:
             - name: url
@@ -225,7 +403,6 @@ workflows:
               default: "${data.steps.resolved_defaults.model}"
           timeout_ms: 300000
 
-      # ── Step 4: Auth mode (skip for ollama) ──
       - id: auth_branch
         type: switch
         cases:
@@ -240,7 +417,6 @@ workflows:
                   oidc_client_id: ""
                   oidc_scopes: ""
                   oidc_client_secret: ""
-
         default:
           - id: choose_auth
             type: human.input
@@ -252,7 +428,6 @@ workflows:
                 - oidc
                 - copilot_env
               timeout_ms: 300000
-
           - id: auth_mode_branch
             type: switch
             cases:
@@ -277,7 +452,6 @@ workflows:
                       oidc_client_id: ""
                       oidc_scopes: ""
                       oidc_client_secret: ""
-
               - when: "${data.steps.choose_auth.response == 'oidc'}"
                 steps:
                   - id: input_oidc
@@ -300,7 +474,7 @@ workflows:
                         - name: client_secret
                           type: string
                           required: false
-                          description: "Client secret (leave empty to use private key)"
+                          description: "Client secret"
                       timeout_ms: 600000
                   - id: auth_oidc
                     type: set
@@ -311,24 +485,18 @@ workflows:
                       oidc_client_id: "${data.steps.input_oidc.client_id}"
                       oidc_scopes: "${data.steps.input_oidc.scopes}"
                       oidc_client_secret: "${data.steps.input_oidc.client_secret ?? ''}"
+              - when: "${data.steps.choose_auth.response == 'copilot_env'}"
+                steps:
+                  - id: auth_copilot_env
+                    type: set
+                    input:
+                      auth_type: "copilot_env"
+                      api_key: ""
+                      oidc_issuer: ""
+                      oidc_client_id: ""
+                      oidc_scopes: ""
+                      oidc_client_secret: ""
 
-            default:
-              - id: auth_copilot_env
-                type: set
-                input:
-                  auth_type: "copilot_env"
-                  api_key: ""
-                  oidc_issuer: ""
-                  oidc_client_id: ""
-                  oidc_scopes: ""
-                  oidc_client_secret: ""
-              - id: think_copilot_env
-                type: emit
-                input:
-                  message: "🔑 Auth via GITHUB_TOKEN or COPILOT_API_KEY env variable."
-                  level: info
-
-      # ── Merge auth result ──
       - id: final_auth
         type: set
         input:
@@ -339,7 +507,6 @@ workflows:
           oidc_scopes: "${data.steps.auth_none?.oidc_scopes ?? data.steps.auth_apikey?.oidc_scopes ?? data.steps.auth_oidc?.oidc_scopes ?? data.steps.auth_copilot_env?.oidc_scopes ?? ''}"
           oidc_client_secret: "${data.steps.auth_none?.oidc_client_secret ?? data.steps.auth_apikey?.oidc_client_secret ?? data.steps.auth_oidc?.oidc_client_secret ?? data.steps.auth_copilot_env?.oidc_client_secret ?? ''}"
 
-      # ── Build summary (shown as a thinking preview before confirm) ──
       - id: llm_summary
         type: template.render
         input:
@@ -359,6 +526,8 @@ workflows:
             | OIDC Scopes    | {{oidc_scopes}}          |
             | OIDC Secret    | {{oidc_secret_status}}   |
             {{/has_oidc}}
+
+            Configuration will be saved as key: `gnougo_llm_{{provider}}`
           data:
             provider: "${data.steps.choose_provider.response}"
             url: "${data.steps.configure_connection.url}"
@@ -378,11 +547,25 @@ workflows:
           message: "${data.steps.llm_summary.text}"
           level: thinking
 
-      # ── Confirm ──
+      # ── Check if key already exists ──
+      - id: check_existing
+        type: mcp.call
+        input:
+          server: GnOuGo.KeyVault.Mcp
+          method: keyvault_get_secret
+          request:
+            key: "gnougo_llm_${data.steps.choose_provider.response}"
+            author: "GnOuGo.Agent"
+
+      - id: existing_check
+        type: set
+        input:
+          already_exists: "${data.steps.check_existing.status == 'ok' && (data.steps.check_existing.response?.Data?.Value != null || data.steps.check_existing.response?.data?.value != null || data.steps.check_existing.response?.Value != null || data.steps.check_existing.response?.value != null)}"
+
       - id: confirm_llm
         type: human.input
         input:
-          prompt: "Save this LLM provider configuration?"
+          prompt: "${data.steps.existing_check.already_exists ? '⚠️ A configuration for this provider already exists. Overwrite?' : 'Save this LLM provider configuration?'}"
           context: "${data.steps.llm_summary.text}"
           choices:
             - save
@@ -394,9 +577,6 @@ workflows:
         input:
           saved: "${data.steps.confirm_llm.response == 'save'}"
 
-      # ════════════════════════════════════════════════════════════
-      # PERSIST TO KEYVAULT (only when saved)
-      # ════════════════════════════════════════════════════════════
       - id: persist_branch
         type: switch
         cases:
@@ -408,110 +588,38 @@ workflows:
                   message: "💾 Saving LLM provider configuration to KeyVault…"
                   level: progress
 
-              # Save provider URL
-              - id: save_url
+              - id: build_json
+                type: template.render
+                input:
+                  engine: mustache
+                  template: >
+                    {"provider":"{{provider}}","url":"{{url}}","model":"{{model}}","auth_type":"{{auth_type}}","api_key":"{{api_key}}","oidc_issuer":"{{oidc_issuer}}","oidc_client_id":"{{oidc_client_id}}","oidc_scopes":"{{oidc_scopes}}","oidc_client_secret":"{{oidc_client_secret}}"}
+                  data:
+                    provider: "${data.steps.choose_provider.response}"
+                    url: "${data.steps.configure_connection.url}"
+                    model: "${data.steps.configure_connection.model}"
+                    auth_type: "${data.steps.final_auth.auth_type}"
+                    api_key: "${data.steps.final_auth.api_key}"
+                    oidc_issuer: "${data.steps.final_auth.oidc_issuer}"
+                    oidc_client_id: "${data.steps.final_auth.oidc_client_id}"
+                    oidc_scopes: "${data.steps.final_auth.oidc_scopes}"
+                    oidc_client_secret: "${data.steps.final_auth.oidc_client_secret}"
+                  mode: text
+
+              - id: save_config
                 type: mcp.call
                 input:
                   server: GnOuGo.KeyVault.Mcp
                   method: keyvault_set_secret
                   request:
-                    key: "llm:${data.steps.choose_provider.response}:url"
-                    value: "${data.steps.configure_connection.url}"
+                    key: "gnougo_llm_${data.steps.choose_provider.response}"
+                    value: "${data.steps.build_json.text}"
                     author: "GnOuGo.Agent"
-
-              # Save provider model
-              - id: save_model
-                type: mcp.call
-                input:
-                  server: GnOuGo.KeyVault.Mcp
-                  method: keyvault_set_secret
-                  request:
-                    key: "llm:${data.steps.choose_provider.response}:model"
-                    value: "${data.steps.configure_connection.model}"
-                    author: "GnOuGo.Agent"
-
-              # Save auth type
-              - id: save_auth_type
-                type: mcp.call
-                input:
-                  server: GnOuGo.KeyVault.Mcp
-                  method: keyvault_set_secret
-                  request:
-                    key: "llm:${data.steps.choose_provider.response}:auth_type"
-                    value: "${data.steps.final_auth.auth_type}"
-                    author: "GnOuGo.Agent"
-
-              # Save API key (if present)
-              - id: save_api_key_branch
-                type: switch
-                cases:
-                  - when: "${data.steps.final_auth.api_key != ''}"
-                    steps:
-                      - id: save_api_key
-                        type: mcp.call
-                        input:
-                          server: GnOuGo.KeyVault.Mcp
-                          method: keyvault_set_secret
-                          request:
-                            key: "llm:${data.steps.choose_provider.response}:api_key"
-                            value: "${data.steps.final_auth.api_key}"
-                            author: "GnOuGo.Agent"
-
-              # Save OIDC fields (if auth_type == oidc)
-              - id: save_oidc_branch
-                type: switch
-                cases:
-                  - when: "${data.steps.final_auth.auth_type == 'oidc'}"
-                    steps:
-                      - id: save_oidc_issuer
-                        type: mcp.call
-                        input:
-                          server: GnOuGo.KeyVault.Mcp
-                          method: keyvault_set_secret
-                          request:
-                            key: "llm:${data.steps.choose_provider.response}:oidc_issuer"
-                            value: "${data.steps.final_auth.oidc_issuer}"
-                            author: "GnOuGo.Agent"
-
-                      - id: save_oidc_client_id
-                        type: mcp.call
-                        input:
-                          server: GnOuGo.KeyVault.Mcp
-                          method: keyvault_set_secret
-                          request:
-                            key: "llm:${data.steps.choose_provider.response}:oidc_client_id"
-                            value: "${data.steps.final_auth.oidc_client_id}"
-                            author: "GnOuGo.Agent"
-
-                      - id: save_oidc_scopes
-                        type: mcp.call
-                        input:
-                          server: GnOuGo.KeyVault.Mcp
-                          method: keyvault_set_secret
-                          request:
-                            key: "llm:${data.steps.choose_provider.response}:oidc_scopes"
-                            value: "${data.steps.final_auth.oidc_scopes}"
-                            author: "GnOuGo.Agent"
-
-                      - id: save_oidc_secret_branch
-                        type: switch
-                        cases:
-                          - when: "${data.steps.final_auth.oidc_client_secret != ''}"
-                            steps:
-                              - id: save_oidc_client_secret
-                                type: mcp.call
-                                input:
-                                  server: GnOuGo.KeyVault.Mcp
-                                  method: keyvault_set_secret
-                                  request:
-                                    key: "llm:${data.steps.choose_provider.response}:oidc_client_secret"
-                                    value: "${data.steps.final_auth.oidc_client_secret}"
-                                    author: "GnOuGo.Agent"
 
               - id: think_saved
                 type: emit
                 input:
-                  message: "✅ LLM provider '${data.steps.choose_provider.response}' saved to KeyVault."
+                  message: "✅ LLM provider '${data.steps.choose_provider.response}' saved to KeyVault as `gnougo_llm_${data.steps.choose_provider.response}`."
                   level: response
 
         default:
@@ -525,27 +633,21 @@ workflows:
       saved:
         expr: "${data.steps.save_result.saved}"
         type: boolean
-        description: "Whether the configuration was saved"
       provider:
         expr: "${data.steps.choose_provider.response}"
         type: string
-        description: "Provider key (openai, ollama, copilot)"
       url:
         expr: "${data.steps.configure_connection?.url ?? ''}"
         type: string
-        description: "Provider endpoint URL"
       model:
         expr: "${data.steps.configure_connection?.model ?? ''}"
         type: string
-        description: "Default model name"
       auth_type:
         expr: "${data.steps.final_auth?.auth_type ?? 'none'}"
         type: string
-        description: "Auth type (api_key, oidc, copilot_env, none)"
       api_key:
         expr: "${data.steps.final_auth?.api_key ?? ''}"
         type: string
-        description: "API key (present only when auth_type == api_key)"
       oidc_issuer:
         expr: "${data.steps.final_auth?.oidc_issuer ?? ''}"
         type: string
@@ -560,19 +662,408 @@ workflows:
         type: string
 
   # ══════════════════════════════════════════════════════════════════
-  # SUB-WORKFLOW: /mcp — Configure MCP Server + persist to KeyVault
+  # /llm edit <name>
+  # ══════════════════════════════════════════════════════════════════
+  llm_edit:
+    inputs:
+      name:
+        type: string
+        required: true
+    steps:
+      - id: resolve_secret_key
+        type: set
+        input:
+          requested_name: "${trim(data.inputs.name)}"
+          secret_key: "${startsWith(trim(data.inputs.name), 'gnougo_llm_') ? trim(data.inputs.name) : 'gnougo_llm_' + trim(data.inputs.name)}"
+      - id: think_loading
+        type: emit
+        input:
+          message: "🔍 Loading LLM provider '${data.steps.resolve_secret_key.requested_name}' from KeyVault…"
+          level: thinking
+      - id: read_existing
+        type: mcp.call
+        input:
+          server: GnOuGo.KeyVault.Mcp
+          method: keyvault_get_secret
+          request:
+            key: "${data.steps.resolve_secret_key.secret_key}"
+            author: "GnOuGo.Agent"
+      - id: resolved_existing
+        type: set
+        input:
+          exists: "${data.steps.read_existing.status == 'ok' && (data.steps.read_existing.response?.Data?.Value != null || data.steps.read_existing.response?.data?.value != null || data.steps.read_existing.response?.Value != null || data.steps.read_existing.response?.value != null)}"
+          config_json: "${data.steps.read_existing.response?.Data?.Value ?? data.steps.read_existing.response?.data?.value ?? data.steps.read_existing.response?.Value ?? data.steps.read_existing.response?.value ?? ''}"
+      - id: check_found
+        type: switch
+        cases:
+          - when: "${!data.steps.resolved_existing.exists}"
+            steps:
+              - id: not_found
+                type: emit
+                input:
+                  message: "❌ LLM provider '${data.steps.resolve_secret_key.requested_name}' not found. Use `/llm list` to see available providers."
+                  level: response
+        default:
+          - id: parse_existing
+            type: set
+            input:
+              config: "${fromJson(data.steps.resolved_existing.config_json)}"
+          - id: edit_connection
+            type: human.input
+            input:
+              prompt: "Edit LLM provider '${data.steps.resolve_secret_key.requested_name}':"
+              fields:
+                - name: url
+                  type: string
+                  required: true
+                  description: "Provider endpoint URL"
+                  default: "${data.steps.parse_existing.config.url}"
+                - name: model
+                  type: string
+                  required: true
+                  description: "Default model name"
+                  default: "${data.steps.parse_existing.config.model}"
+              timeout_ms: 300000
+          - id: edit_auth
+            type: human.input
+            input:
+              prompt: "Edit authentication (current: ${data.steps.parse_existing.config.auth_type}):"
+              choices:
+                - keep_current
+                - api_key
+                - oidc
+                - copilot_env
+              timeout_ms: 300000
+          - id: auth_edit_branch
+            type: switch
+            cases:
+              - when: "${data.steps.edit_auth.response == 'api_key'}"
+                steps:
+                  - id: edit_api_key
+                    type: human.input
+                    input:
+                      prompt: "Enter the new API key:"
+                      fields:
+                        - name: api_key
+                          type: string
+                          required: true
+                          description: "New API key"
+                      timeout_ms: 600000
+                  - id: new_auth_apikey
+                    type: set
+                    input:
+                      auth_type: "api_key"
+                      api_key: "${data.steps.edit_api_key.api_key}"
+                      oidc_issuer: ""
+                      oidc_client_id: ""
+                      oidc_scopes: ""
+                      oidc_client_secret: ""
+              - when: "${data.steps.edit_auth.response == 'oidc'}"
+                steps:
+                  - id: edit_oidc
+                    type: human.input
+                    input:
+                      prompt: "Configure OIDC:"
+                      fields:
+                        - name: issuer
+                          type: string
+                          required: true
+                          description: "OIDC Issuer URL"
+                          default: "${data.steps.parse_existing.config.oidc_issuer ?? ''}"
+                        - name: client_id
+                          type: string
+                          required: true
+                          description: "Client ID"
+                          default: "${data.steps.parse_existing.config.oidc_client_id ?? ''}"
+                        - name: scopes
+                          type: string
+                          required: true
+                          description: "Scopes"
+                          default: "${data.steps.parse_existing.config.oidc_scopes ?? ''}"
+                        - name: client_secret
+                          type: string
+                          required: false
+                          description: "Client secret"
+                      timeout_ms: 600000
+                  - id: new_auth_oidc
+                    type: set
+                    input:
+                      auth_type: "oidc"
+                      api_key: ""
+                      oidc_issuer: "${data.steps.edit_oidc.issuer}"
+                      oidc_client_id: "${data.steps.edit_oidc.client_id}"
+                      oidc_scopes: "${data.steps.edit_oidc.scopes}"
+                      oidc_client_secret: "${data.steps.edit_oidc.client_secret ?? ''}"
+              - when: "${data.steps.edit_auth.response == 'copilot_env'}"
+                steps:
+                  - id: new_auth_copilot
+                    type: set
+                    input:
+                      auth_type: "copilot_env"
+                      api_key: ""
+                      oidc_issuer: ""
+                      oidc_client_id: ""
+                      oidc_scopes: ""
+                      oidc_client_secret: ""
+            default:
+              - id: keep_auth
+                type: set
+                input:
+                  auth_type: "${data.steps.parse_existing.config.auth_type}"
+                  api_key: "${data.steps.parse_existing.config.api_key ?? ''}"
+                  oidc_issuer: "${data.steps.parse_existing.config.oidc_issuer ?? ''}"
+                  oidc_client_id: "${data.steps.parse_existing.config.oidc_client_id ?? ''}"
+                  oidc_scopes: "${data.steps.parse_existing.config.oidc_scopes ?? ''}"
+                  oidc_client_secret: "${data.steps.parse_existing.config.oidc_client_secret ?? ''}"
+          - id: final_edit_auth
+            type: set
+            input:
+              auth_type: "${data.steps.new_auth_apikey?.auth_type ?? data.steps.new_auth_oidc?.auth_type ?? data.steps.new_auth_copilot?.auth_type ?? data.steps.keep_auth?.auth_type ?? 'none'}"
+              api_key: "${data.steps.new_auth_apikey?.api_key ?? data.steps.keep_auth?.api_key ?? ''}"
+              oidc_issuer: "${data.steps.new_auth_oidc?.oidc_issuer ?? data.steps.keep_auth?.oidc_issuer ?? ''}"
+              oidc_client_id: "${data.steps.new_auth_oidc?.oidc_client_id ?? data.steps.keep_auth?.oidc_client_id ?? ''}"
+              oidc_scopes: "${data.steps.new_auth_oidc?.oidc_scopes ?? data.steps.keep_auth?.oidc_scopes ?? ''}"
+              oidc_client_secret: "${data.steps.new_auth_oidc?.oidc_client_secret ?? data.steps.keep_auth?.oidc_client_secret ?? ''}"
+          - id: confirm_edit
+            type: human.input
+            input:
+              prompt: "Save updated LLM provider '${data.steps.resolve_secret_key.requested_name}'?"
+              choices:
+                - save
+                - discard
+              timeout_ms: 300000
+          - id: save_edit_branch
+            type: switch
+            cases:
+              - when: "${data.steps.confirm_edit.response == 'save'}"
+                steps:
+                  - id: build_edit_json
+                    type: template.render
+                    input:
+                      engine: mustache
+                      template: >
+                        {"provider":"{{provider}}","url":"{{url}}","model":"{{model}}","auth_type":"{{auth_type}}","api_key":"{{api_key}}","oidc_issuer":"{{oidc_issuer}}","oidc_client_id":"{{oidc_client_id}}","oidc_scopes":"{{oidc_scopes}}","oidc_client_secret":"{{oidc_client_secret}}"}
+                      data:
+                        provider: "${data.steps.parse_existing.config.provider ?? data.steps.resolve_secret_key.requested_name}"
+                        url: "${data.steps.edit_connection.url}"
+                        model: "${data.steps.edit_connection.model}"
+                        auth_type: "${data.steps.final_edit_auth.auth_type}"
+                        api_key: "${data.steps.final_edit_auth.api_key}"
+                        oidc_issuer: "${data.steps.final_edit_auth.oidc_issuer}"
+                        oidc_client_id: "${data.steps.final_edit_auth.oidc_client_id}"
+                        oidc_scopes: "${data.steps.final_edit_auth.oidc_scopes}"
+                        oidc_client_secret: "${data.steps.final_edit_auth.oidc_client_secret}"
+                      mode: text
+                  - id: save_edit
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.KeyVault.Mcp
+                      method: keyvault_set_secret
+                      request:
+                        key: "${data.steps.resolve_secret_key.secret_key}"
+                        value: "${data.steps.build_edit_json.text}"
+                        author: "GnOuGo.Agent"
+                  - id: emit_edit_saved
+                    type: emit
+                    input:
+                      message: "✅ LLM provider '${data.steps.resolve_secret_key.requested_name}' updated."
+                      level: response
+            default:
+              - id: emit_edit_discarded
+                type: emit
+                input:
+                  message: "❌ Edit discarded."
+                  level: thinking
+    outputs:
+      provider:
+        expr: "${data.steps.parse_existing?.config?.provider ?? data.steps.resolve_secret_key.requested_name}"
+        type: string
+      url:
+        expr: "${data.steps.edit_connection?.url ?? ''}"
+        type: string
+      model:
+        expr: "${data.steps.edit_connection?.model ?? ''}"
+        type: string
+      auth_type:
+        expr: "${data.steps.final_edit_auth?.auth_type ?? ''}"
+        type: string
+      api_key:
+        expr: "${data.steps.final_edit_auth?.api_key ?? ''}"
+        type: string
+
+  # ══════════════════════════════════════════════════════════════════
+  # /llm remove <name>
+  # ══════════════════════════════════════════════════════════════════
+  llm_remove:
+    inputs:
+      name:
+        type: string
+        required: true
+    steps:
+      - id: confirm_remove
+        type: human.input
+        input:
+          prompt: "⚠️ Are you sure you want to remove LLM provider '${data.inputs.name}'?"
+          choices:
+            - confirm
+            - cancel
+          timeout_ms: 300000
+      - id: remove_branch
+        type: switch
+        cases:
+          - when: "${data.steps.confirm_remove.response == 'confirm'}"
+            steps:
+              - id: delete_secret
+                type: mcp.call
+                input:
+                  server: GnOuGo.KeyVault.Mcp
+                  method: keyvault_delete_secret
+                  request:
+                    key: "gnougo_llm_${data.inputs.name}"
+                    author: "GnOuGo.Agent"
+              - id: emit_removed
+                type: emit
+                input:
+                  message: "✅ LLM provider '${data.inputs.name}' removed."
+                  level: response
+        default:
+          - id: emit_cancelled
+            type: emit
+            input:
+              message: "❌ Removal cancelled."
+              level: thinking
+    outputs: {}
+
+  # ══════════════════════════════════════════════════════════════════
+  # MCP ROUTER
+  # ══════════════════════════════════════════════════════════════════
+  mcp_router:
+    inputs:
+      action:
+        type: string
+        required: true
+      argument:
+        type: string
+        required: false
+        default: ""
+    steps:
+      - id: route
+        type: switch
+        expr: "${data.inputs.action}"
+        cases:
+          - value: "list"
+            steps:
+              - id: mcp_list
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: mcp_list }
+                  args: {}
+          - value: "add"
+            steps:
+              - id: mcp_add
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: configure_mcp }
+                  args: {}
+          - value: "edit"
+            steps:
+              - id: mcp_edit
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: mcp_edit }
+                  args:
+                    name: "${data.inputs.argument}"
+          - value: "remove"
+            steps:
+              - id: mcp_remove
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: mcp_remove }
+                  args:
+                    name: "${data.inputs.argument}"
+        default:
+          - id: mcp_help
+            type: template.render
+            input:
+              engine: mustache
+              template: |
+                # 🔌 MCP Server Commands
+
+                | Command               | Description                              |
+                |-----------------------|------------------------------------------|
+                | `/mcp list`           | List all configured MCP servers          |
+                | `/mcp add`            | Add a new MCP server (HTTP or stdio)     |
+                | `/mcp edit <name>`    | Edit an existing MCP server              |
+                | `/mcp remove <name>`  | Remove an MCP server                     |
+
+                **Transport types:**
+                - **HTTP** — connect to an HTTP MCP endpoint with optional auth
+                - **stdio** — launch a local process (e.g. `dotnet run`)
+
+                All configurations are stored encrypted in KeyVault as `gnougo_mcp_(name)`.
+              data: {}
+              mode: text
+          - id: emit_mcp_help
+            type: emit
+            input:
+              message: "${data.steps.mcp_help.text}"
+              level: response
+    outputs: {}
+
+  # ══════════════════════════════════════════════════════════════════
+  # /mcp list
+  # ══════════════════════════════════════════════════════════════════
+  mcp_list:
+    inputs: {}
+    steps:
+      - id: think_loading
+        type: emit
+        input:
+          message: "📋 Loading MCP servers from KeyVault…"
+          level: thinking
+      - id: list_secrets
+        type: mcp.call
+        input:
+          server: GnOuGo.KeyVault.Mcp
+          method: keyvault_list_secrets
+      - id: format_list
+        type: llm.call
+        input:
+          model: gpt-4o-mini
+          temperature: 0.2
+          prompt: >
+            You are a configuration formatter. Given the following secret metadata from KeyVault,
+            list all MCP servers. MCP server keys start with "gnougo_mcp_".
+            Extract the server name from the key (e.g. "gnougo_mcp_github" → "github").
+
+            Secret metadata:
+            ${json(data.steps.list_secrets)}
+
+            Format as Markdown:
+            # 🔌 Configured MCP Servers
+
+            | Name | Key | Last Updated |
+            |------|-----|-------------|
+
+            If no MCP servers found, say "No MCP servers configured yet. Use `/mcp add` to get started."
+      - id: emit_list
+        type: emit
+        input:
+          message: "${data.steps.format_list.text}"
+          level: response
+    outputs: {}
+
+  # ══════════════════════════════════════════════════════════════════
+  # /mcp add
   # ══════════════════════════════════════════════════════════════════
   configure_mcp:
     inputs: {}
-
     steps:
       - id: think_start
         type: emit
         input:
           message: "🔌 Starting MCP server configuration…"
           level: thinking
-
-      # ── Step 1: Transport type ──
       - id: choose_transport
         type: human.input
         input:
@@ -581,7 +1072,6 @@ workflows:
             - http
             - stdio
           timeout_ms: 300000
-
       - id: transport_branch
         type: switch
         cases:
@@ -599,14 +1089,13 @@ workflows:
                     - name: description
                       type: string
                       required: true
-                      description: "Short description of the server's capabilities"
+                      description: "Short description"
                     - name: url
                       type: string
                       required: true
                       description: "HTTP endpoint URL"
                       default: "https://api.githubcopilot.com/mcp/"
                   timeout_ms: 300000
-
               - id: http_auth_choice
                 type: human.input
                 input:
@@ -616,7 +1105,6 @@ workflows:
                     - oidc
                     - none
                   timeout_ms: 300000
-
               - id: http_auth_branch
                 type: switch
                 cases:
@@ -625,7 +1113,7 @@ workflows:
                       - id: http_input_key
                         type: human.input
                         input:
-                          prompt: "Enter the API key for this MCP server:"
+                          prompt: "Enter the API key:"
                           fields:
                             - name: api_key
                               type: string
@@ -641,13 +1129,12 @@ workflows:
                           oidc_client_id: ""
                           oidc_scopes: ""
                           oidc_client_secret: ""
-
                   - when: "${data.steps.http_auth_choice.response == 'oidc'}"
                     steps:
                       - id: http_input_oidc
                         type: human.input
                         input:
-                          prompt: "Configure OpenID Connect for this MCP server:"
+                          prompt: "Configure OIDC for this MCP server:"
                           fields:
                             - name: issuer
                               type: string
@@ -656,11 +1143,11 @@ workflows:
                             - name: client_id
                               type: string
                               required: true
-                              description: "OAuth2 Client ID"
+                              description: "Client ID"
                             - name: scopes
                               type: string
                               required: true
-                              description: "Space-separated scopes"
+                              description: "Scopes"
                             - name: client_secret
                               type: string
                               required: false
@@ -675,7 +1162,6 @@ workflows:
                           oidc_client_id: "${data.steps.http_input_oidc.client_id}"
                           oidc_scopes: "${data.steps.http_input_oidc.scopes}"
                           oidc_client_secret: "${data.steps.http_input_oidc.client_secret ?? ''}"
-
                 default:
                   - id: http_auth_none
                     type: set
@@ -686,7 +1172,6 @@ workflows:
                       oidc_client_id: ""
                       oidc_scopes: ""
                       oidc_client_secret: ""
-
               - id: http_result
                 type: set
                 input:
@@ -702,7 +1187,6 @@ workflows:
                   oidc_client_id: "${data.steps.http_auth_oidc?.oidc_client_id ?? ''}"
                   oidc_scopes: "${data.steps.http_auth_oidc?.oidc_scopes ?? ''}"
                   oidc_client_secret: "${data.steps.http_auth_oidc?.oidc_client_secret ?? ''}"
-
         default:
           - id: configure_stdio
             type: human.input
@@ -712,11 +1196,11 @@ workflows:
                 - name: name
                   type: string
                   required: true
-                  description: "Server name (e.g. Browser, Cmd, Agent)"
+                  description: "Server name"
                 - name: description
                   type: string
                   required: true
-                  description: "Short description of the server's capabilities"
+                  description: "Short description"
                 - name: command
                   type: string
                   required: true
@@ -728,7 +1212,6 @@ workflows:
                   description: "Arguments (comma-separated)"
                   default: "run,--project,C:/path/to/project.csproj"
               timeout_ms: 300000
-
           - id: stdio_result
             type: set
             input:
@@ -744,8 +1227,6 @@ workflows:
               oidc_client_id: ""
               oidc_scopes: ""
               oidc_client_secret: ""
-
-      # ── Merge result ──
       - id: final_mcp
         type: set
         input:
@@ -761,8 +1242,6 @@ workflows:
           oidc_client_id: "${data.steps.http_result?.oidc_client_id ?? data.steps.stdio_result?.oidc_client_id ?? ''}"
           oidc_scopes: "${data.steps.http_result?.oidc_scopes ?? data.steps.stdio_result?.oidc_scopes ?? ''}"
           oidc_client_secret: "${data.steps.http_result?.oidc_client_secret ?? data.steps.stdio_result?.oidc_client_secret ?? ''}"
-
-      # ── Summary ──
       - id: mcp_summary
         type: template.render
         input:
@@ -779,11 +1258,8 @@ workflows:
             {{/has_url}}{{#has_cmd}}| Command     | {{command}}              |
             | Args        | {{args}}                 |
             {{/has_cmd}}| Auth        | {{auth_type}}            |
-            {{#has_key}}| API Key     | ••••••••                 |
-            {{/has_key}}{{#has_oidc}}| OIDC Issuer | {{oidc_issuer}}          |
-            | Client ID   | {{oidc_client_id}}       |
-            | Scopes      | {{oidc_scopes}}          |
-            {{/has_oidc}}
+
+            Configuration will be saved as key: `gnougo_mcp_{{name}}`
           data:
             name: "${data.steps.final_mcp.name}"
             transport: "${data.steps.final_mcp.transport}"
@@ -794,38 +1270,37 @@ workflows:
             command: "${data.steps.final_mcp.command}"
             args: "${data.steps.final_mcp.args}"
             auth_type: "${data.steps.final_mcp.auth_type}"
-            has_key: "${data.steps.final_mcp.api_key != ''}"
-            has_oidc: "${data.steps.final_mcp.auth_type == 'oidc'}"
-            oidc_issuer: "${data.steps.final_mcp.oidc_issuer}"
-            oidc_client_id: "${data.steps.final_mcp.oidc_client_id}"
-            oidc_scopes: "${data.steps.final_mcp.oidc_scopes}"
           mode: text
-
       - id: emit_mcp_summary
         type: emit
         input:
           message: "${data.steps.mcp_summary.text}"
           level: response
-
-      # ── Confirm ──
+      - id: check_existing
+        type: mcp.call
+        input:
+          server: GnOuGo.KeyVault.Mcp
+          method: keyvault_get_secret
+          request:
+            key: "gnougo_mcp_${data.steps.final_mcp.name}"
+            author: "GnOuGo.Agent"
+      - id: existing_check
+        type: set
+        input:
+          already_exists: "${data.steps.check_existing.status == 'ok' && (data.steps.check_existing.response?.Data?.Value != null || data.steps.check_existing.response?.data?.value != null || data.steps.check_existing.response?.Value != null || data.steps.check_existing.response?.value != null)}"
       - id: confirm_mcp
         type: human.input
         input:
-          prompt: "Save this MCP server configuration?"
+          prompt: "${data.steps.existing_check.already_exists ? '⚠️ An MCP server with this name already exists. Overwrite?' : 'Save this MCP server configuration?'}"
           context: "${data.steps.mcp_summary.text}"
           choices:
             - save
             - discard
           timeout_ms: 300000
-
       - id: save_result
         type: set
         input:
           saved: "${data.steps.confirm_mcp.response == 'save'}"
-
-      # ════════════════════════════════════════════════════════════
-      # PERSIST TO KEYVAULT (only when saved)
-      # ════════════════════════════════════════════════════════════
       - id: persist_branch
         type: switch
         cases:
@@ -836,228 +1311,269 @@ workflows:
                 input:
                   message: "💾 Saving MCP server configuration to KeyVault…"
                   level: progress
-
-              # Save transport type
-              - id: save_transport
+              - id: build_json
+                type: template.render
+                input:
+                  engine: mustache
+                  template: >
+                    {"name":"{{name}}","transport":"{{transport}}","description":"{{description}}","url":"{{url}}","command":"{{command}}","args":"{{args}}","auth_type":"{{auth_type}}","api_key":"{{api_key}}","oidc_issuer":"{{oidc_issuer}}","oidc_client_id":"{{oidc_client_id}}","oidc_scopes":"{{oidc_scopes}}","oidc_client_secret":"{{oidc_client_secret}}"}
+                  data:
+                    name: "${data.steps.final_mcp.name}"
+                    transport: "${data.steps.final_mcp.transport}"
+                    description: "${data.steps.final_mcp.description}"
+                    url: "${data.steps.final_mcp.url}"
+                    command: "${data.steps.final_mcp.command}"
+                    args: "${data.steps.final_mcp.args}"
+                    auth_type: "${data.steps.final_mcp.auth_type}"
+                    api_key: "${data.steps.final_mcp.api_key}"
+                    oidc_issuer: "${data.steps.final_mcp.oidc_issuer}"
+                    oidc_client_id: "${data.steps.final_mcp.oidc_client_id}"
+                    oidc_scopes: "${data.steps.final_mcp.oidc_scopes}"
+                    oidc_client_secret: "${data.steps.final_mcp.oidc_client_secret}"
+                  mode: text
+              - id: save_config
                 type: mcp.call
                 input:
                   server: GnOuGo.KeyVault.Mcp
                   method: keyvault_set_secret
                   request:
-                    key: "mcp:${data.steps.final_mcp.name}:transport"
-                    value: "${data.steps.final_mcp.transport}"
+                    key: "gnougo_mcp_${data.steps.final_mcp.name}"
+                    value: "${data.steps.build_json.text}"
                     author: "GnOuGo.Agent"
-
-              # Save description
-              - id: save_description
-                type: mcp.call
-                input:
-                  server: GnOuGo.KeyVault.Mcp
-                  method: keyvault_set_secret
-                  request:
-                    key: "mcp:${data.steps.final_mcp.name}:description"
-                    value: "${data.steps.final_mcp.description}"
-                    author: "GnOuGo.Agent"
-
-              # Save URL (if HTTP)
-              - id: save_url_branch
-                type: switch
-                cases:
-                  - when: "${data.steps.final_mcp.url != ''}"
-                    steps:
-                      - id: save_mcp_url
-                        type: mcp.call
-                        input:
-                          server: GnOuGo.KeyVault.Mcp
-                          method: keyvault_set_secret
-                          request:
-                            key: "mcp:${data.steps.final_mcp.name}:url"
-                            value: "${data.steps.final_mcp.url}"
-                            author: "GnOuGo.Agent"
-
-              # Save command + args (if stdio)
-              - id: save_cmd_branch
-                type: switch
-                cases:
-                  - when: "${data.steps.final_mcp.command != ''}"
-                    steps:
-                      - id: save_mcp_command
-                        type: mcp.call
-                        input:
-                          server: GnOuGo.KeyVault.Mcp
-                          method: keyvault_set_secret
-                          request:
-                            key: "mcp:${data.steps.final_mcp.name}:command"
-                            value: "${data.steps.final_mcp.command}"
-                            author: "GnOuGo.Agent"
-                      - id: save_mcp_args
-                        type: mcp.call
-                        input:
-                          server: GnOuGo.KeyVault.Mcp
-                          method: keyvault_set_secret
-                          request:
-                            key: "mcp:${data.steps.final_mcp.name}:args"
-                            value: "${data.steps.final_mcp.args}"
-                            author: "GnOuGo.Agent"
-
-              # Save auth type
-              - id: save_mcp_auth_type
-                type: mcp.call
-                input:
-                  server: GnOuGo.KeyVault.Mcp
-                  method: keyvault_set_secret
-                  request:
-                    key: "mcp:${data.steps.final_mcp.name}:auth_type"
-                    value: "${data.steps.final_mcp.auth_type}"
-                    author: "GnOuGo.Agent"
-
-              # Save API key (if present)
-              - id: save_mcp_key_branch
-                type: switch
-                cases:
-                  - when: "${data.steps.final_mcp.api_key != ''}"
-                    steps:
-                      - id: save_mcp_api_key
-                        type: mcp.call
-                        input:
-                          server: GnOuGo.KeyVault.Mcp
-                          method: keyvault_set_secret
-                          request:
-                            key: "mcp:${data.steps.final_mcp.name}:api_key"
-                            value: "${data.steps.final_mcp.api_key}"
-                            author: "GnOuGo.Agent"
-
-              # Save OIDC fields (if oidc)
-              - id: save_mcp_oidc_branch
-                type: switch
-                cases:
-                  - when: "${data.steps.final_mcp.auth_type == 'oidc'}"
-                    steps:
-                      - id: save_mcp_oidc_issuer
-                        type: mcp.call
-                        input:
-                          server: GnOuGo.KeyVault.Mcp
-                          method: keyvault_set_secret
-                          request:
-                            key: "mcp:${data.steps.final_mcp.name}:oidc_issuer"
-                            value: "${data.steps.final_mcp.oidc_issuer}"
-                            author: "GnOuGo.Agent"
-                      - id: save_mcp_oidc_client_id
-                        type: mcp.call
-                        input:
-                          server: GnOuGo.KeyVault.Mcp
-                          method: keyvault_set_secret
-                          request:
-                            key: "mcp:${data.steps.final_mcp.name}:oidc_client_id"
-                            value: "${data.steps.final_mcp.oidc_client_id}"
-                            author: "GnOuGo.Agent"
-                      - id: save_mcp_oidc_scopes
-                        type: mcp.call
-                        input:
-                          server: GnOuGo.KeyVault.Mcp
-                          method: keyvault_set_secret
-                          request:
-                            key: "mcp:${data.steps.final_mcp.name}:oidc_scopes"
-                            value: "${data.steps.final_mcp.oidc_scopes}"
-                            author: "GnOuGo.Agent"
-                      - id: save_mcp_oidc_secret_branch
-                        type: switch
-                        cases:
-                          - when: "${data.steps.final_mcp.oidc_client_secret != ''}"
-                            steps:
-                              - id: save_mcp_oidc_client_secret
-                                type: mcp.call
-                                input:
-                                  server: GnOuGo.KeyVault.Mcp
-                                  method: keyvault_set_secret
-                                  request:
-                                    key: "mcp:${data.steps.final_mcp.name}:oidc_client_secret"
-                                    value: "${data.steps.final_mcp.oidc_client_secret}"
-                                    author: "GnOuGo.Agent"
-
               - id: think_saved
                 type: emit
                 input:
                   message: "✅ MCP server '${data.steps.final_mcp.name}' saved to KeyVault."
                   level: response
-
         default:
           - id: think_discarded
             type: emit
             input:
               message: "❌ MCP server configuration discarded."
               level: thinking
-
     outputs:
       saved:
         expr: "${data.steps.save_result.saved}"
         type: boolean
-        description: "Whether the configuration was saved"
 
   # ══════════════════════════════════════════════════════════════════
-  # SUB-WORKFLOW: /status — Show current config from KeyVault
+  # /mcp edit <name>
+  # ══════════════════════════════════════════════════════════════════
+  mcp_edit:
+    inputs:
+      name:
+        type: string
+        required: true
+    steps:
+      - id: resolve_secret_key
+        type: set
+        input:
+          requested_name: "${trim(data.inputs.name)}"
+          secret_key: "${startsWith(trim(data.inputs.name), 'gnougo_mcp_') ? trim(data.inputs.name) : 'gnougo_mcp_' + trim(data.inputs.name)}"
+      - id: read_existing
+        type: mcp.call
+        input:
+          server: GnOuGo.KeyVault.Mcp
+          method: keyvault_get_secret
+          request:
+            key: "${data.steps.resolve_secret_key.secret_key}"
+            author: "GnOuGo.Agent"
+      - id: resolved_existing
+        type: set
+        input:
+          exists: "${data.steps.read_existing.status == 'ok' && (data.steps.read_existing.response?.Data?.Value != null || data.steps.read_existing.response?.data?.value != null || data.steps.read_existing.response?.Value != null || data.steps.read_existing.response?.value != null)}"
+          config_json: "${data.steps.read_existing.response?.Data?.Value ?? data.steps.read_existing.response?.data?.value ?? data.steps.read_existing.response?.Value ?? data.steps.read_existing.response?.value ?? ''}"
+      - id: check_found
+        type: switch
+        cases:
+          - when: "${!data.steps.resolved_existing.exists}"
+            steps:
+              - id: not_found
+                type: emit
+                input:
+                  message: "❌ MCP server '${data.steps.resolve_secret_key.requested_name}' not found. Use `/mcp list`."
+                  level: response
+        default:
+          - id: parse_existing
+            type: set
+            input:
+              config: "${fromJson(data.steps.resolved_existing.config_json)}"
+          - id: edit_fields
+            type: human.input
+            input:
+              prompt: "Edit MCP server '${data.steps.resolve_secret_key.requested_name}':"
+              fields:
+                - name: description
+                  type: string
+                  required: true
+                  description: "Description"
+                  default: "${data.steps.parse_existing.config.description ?? ''}"
+                - name: url
+                  type: string
+                  required: false
+                  description: "URL (HTTP)"
+                  default: "${data.steps.parse_existing.config.url ?? ''}"
+                - name: command
+                  type: string
+                  required: false
+                  description: "Command (stdio)"
+                  default: "${data.steps.parse_existing.config.command ?? ''}"
+                - name: args
+                  type: string
+                  required: false
+                  description: "Args (stdio)"
+                  default: "${data.steps.parse_existing.config.args ?? ''}"
+              timeout_ms: 300000
+          - id: confirm_edit
+            type: human.input
+            input:
+              prompt: "Save updated MCP server '${data.steps.resolve_secret_key.requested_name}'?"
+              choices:
+                - save
+                - discard
+              timeout_ms: 300000
+          - id: save_edit_branch
+            type: switch
+            cases:
+              - when: "${data.steps.confirm_edit.response == 'save'}"
+                steps:
+                  - id: build_edit_json
+                    type: template.render
+                    input:
+                      engine: mustache
+                      template: >
+                        {"name":"{{name}}","transport":"{{transport}}","description":"{{description}}","url":"{{url}}","command":"{{command}}","args":"{{args}}","auth_type":"{{auth_type}}","api_key":"{{api_key}}","oidc_issuer":"{{oidc_issuer}}","oidc_client_id":"{{oidc_client_id}}","oidc_scopes":"{{oidc_scopes}}","oidc_client_secret":"{{oidc_client_secret}}"}
+                      data:
+                        name: "${data.steps.parse_existing.config.name ?? data.steps.resolve_secret_key.requested_name}"
+                        transport: "${data.steps.parse_existing.config.transport}"
+                        description: "${data.steps.edit_fields.description}"
+                        url: "${data.steps.edit_fields.url}"
+                        command: "${data.steps.edit_fields.command}"
+                        args: "${data.steps.edit_fields.args}"
+                        auth_type: "${data.steps.parse_existing.config.auth_type ?? 'none'}"
+                        api_key: "${data.steps.parse_existing.config.api_key ?? ''}"
+                        oidc_issuer: "${data.steps.parse_existing.config.oidc_issuer ?? ''}"
+                        oidc_client_id: "${data.steps.parse_existing.config.oidc_client_id ?? ''}"
+                        oidc_scopes: "${data.steps.parse_existing.config.oidc_scopes ?? ''}"
+                        oidc_client_secret: "${data.steps.parse_existing.config.oidc_client_secret ?? ''}"
+                      mode: text
+                  - id: save_edit
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.KeyVault.Mcp
+                      method: keyvault_set_secret
+                      request:
+                        key: "${data.steps.resolve_secret_key.secret_key}"
+                        value: "${data.steps.build_edit_json.text}"
+                        author: "GnOuGo.Agent"
+                  - id: emit_edit_saved
+                    type: emit
+                    input:
+                      message: "✅ MCP server '${data.steps.resolve_secret_key.requested_name}' updated."
+                      level: response
+            default:
+              - id: emit_edit_discarded
+                type: emit
+                input:
+                  message: "❌ Edit discarded."
+                  level: thinking
+    outputs: {}
+
+  # ══════════════════════════════════════════════════════════════════
+  # /mcp remove <name>
+  # ══════════════════════════════════════════════════════════════════
+  mcp_remove:
+    inputs:
+      name:
+        type: string
+        required: true
+    steps:
+      - id: confirm_remove
+        type: human.input
+        input:
+          prompt: "⚠️ Remove MCP server '${data.inputs.name}'?"
+          choices:
+            - confirm
+            - cancel
+          timeout_ms: 300000
+      - id: remove_branch
+        type: switch
+        cases:
+          - when: "${data.steps.confirm_remove.response == 'confirm'}"
+            steps:
+              - id: delete_secret
+                type: mcp.call
+                input:
+                  server: GnOuGo.KeyVault.Mcp
+                  method: keyvault_delete_secret
+                  request:
+                    key: "gnougo_mcp_${data.inputs.name}"
+                    author: "GnOuGo.Agent"
+              - id: emit_removed
+                type: emit
+                input:
+                  message: "✅ MCP server '${data.inputs.name}' removed."
+                  level: response
+        default:
+          - id: emit_cancelled
+            type: emit
+            input:
+              message: "❌ Removal cancelled."
+              level: thinking
+    outputs: {}
+
+  # ══════════════════════════════════════════════════════════════════
+  # /status — Combined status view
   # ══════════════════════════════════════════════════════════════════
   show_status:
     inputs: {}
-
     steps:
       - id: think_loading
         type: emit
         input:
           message: "📊 Loading configuration from KeyVault…"
           level: thinking
-
-      # Read all secrets metadata from KeyVault
       - id: list_secrets
         type: mcp.call
         input:
           server: GnOuGo.KeyVault.Mcp
           method: keyvault_list_secrets
-
       - id: format_status
         type: llm.call
         input:
           model: gpt-4o-mini
           temperature: 0.2
           prompt: >
-            You are a configuration status formatter. Given the following secret
-            metadata from KeyVault, produce a clean Markdown status report.
+            You are a configuration status formatter. Given secret metadata from KeyVault,
+            produce a clean Markdown status report.
 
-            Secret metadata (keys only, values are encrypted):
+            Secret metadata:
             ${json(data.steps.list_secrets)}
 
             Group secrets by prefix:
-            - Keys starting with "llm:" are LLM provider configurations
-            - Keys starting with "mcp:" are MCP server configurations
-
-            For each provider/server, list the configured fields.
-            If no secrets are found, say "No providers or servers configured yet."
-
-            Use tables and the same format as the example below:
+            - "gnougo_llm_" = LLM provider configurations
+            - "gnougo_mcp_" = MCP server configurations
+            - Other "llm:" or "mcp:" = legacy format
 
             # 📊 Current Configuration Status
 
             ## 🤖 LLM Providers
-            | Provider | Fields configured |
-            |----------|------------------|
-            | openai   | url, model, api_key |
+            | Provider | KeyVault Key |
+            |----------|-------------|
 
             ## 🔌 MCP Servers
-            | Server | Fields configured |
-            |--------|------------------|
-            | Github | transport, url, api_key |
+            | Server | KeyVault Key |
+            |--------|-------------|
 
-            Use `/llm` to configure a provider or `/mcp` to add a server.
-
+            If none found, say "No providers or servers configured yet."
+            End with: Use `/llm add` or `/mcp add` to get started.
       - id: emit_status
         type: emit
         input:
           message: "${data.steps.format_status.text}"
           level: response
-
     outputs:
       text:
         expr: "${data.steps.format_status.text}"
         type: string
-        description: "Status display text"
 

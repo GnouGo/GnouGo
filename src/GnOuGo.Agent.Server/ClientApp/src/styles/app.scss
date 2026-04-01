@@ -214,6 +214,21 @@ html, body {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+}
+
+.sa-chat__agent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: var(--sa-accent, #6366f1);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .sa-chat__topbar-actions { display: flex; align-items: center; gap: 10px; }
@@ -335,6 +350,20 @@ html, body {
   font-size: 14px;
   line-height: 1.45;
   color: var(--sa-text);
+}
+
+.sa-chat__bubble-text.markdown-body {
+  color: inherit;
+  background: transparent;
+
+  --fgColor-default: var(--sa-text);
+  --fgColor-muted: var(--sa-muted);
+  --fgColor-accent: #0969da;
+  --bgColor-default: transparent;
+  --bgColor-muted: var(--sa-surface-2);
+  --bgColor-neutral-muted: rgba(175, 184, 193, 0.2);
+  --borderColor-default: var(--sa-border);
+  --borderColor-muted: var(--sa-border);
 }
 
 /* Empty / errors */
