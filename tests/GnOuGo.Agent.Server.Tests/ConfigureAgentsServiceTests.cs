@@ -56,7 +56,36 @@ public sealed class ConfigureAgentsServiceTests
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
-        Assert.Equal("❌ No LLM provider is configured yet. Use `/llm add` first, then retry `/agent add`.", answer.Text);
+        Assert.Equal("❌ Configure a default LLM provider first. Use `/llm add` to create one, then `/llm default` before retrying `/agent add`.", answer.Text);
+        Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AgentAdd_WithoutConfiguredDefaultProvider_ReturnsGuidanceWithoutCallingLlm()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret("gnougo_llm_ollama", "{\"provider\":\"ollama\",\"url\":\"http://localhost:11434\",\"model\":\"llama3\",\"auth_type\":\"none\"}");
+
+        var service = SmartFlowTestFactory.CreateAgentsService(
+            llm,
+            new FakeMcpClientFactory(new FakeMcpSession("GnOuGo.Agent.Mcp")),
+            new LLMOptions
+            {
+                DefaultProvider = "openai",
+                DefaultModel = "gpt-4o-mini",
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["ollama"] = new() { Url = "http://localhost:11434", Type = "ollama" }
+                }
+            },
+            keyVaultStore);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/agent add", CancellationToken.None));
+
+        var answer = Assert.Single(events);
+        Assert.Equal("answer", answer.Type);
+        Assert.Equal("❌ Configure a default LLM provider first. Use `/llm add` to create one, then `/llm default` before retrying `/agent add`.", answer.Text);
         Assert.Equal(0, llm.CallCount);
     }
 }

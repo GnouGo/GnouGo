@@ -23,6 +23,10 @@
     <ProjectReference Include="..\GnOuGo.Agent.Shared\GnOuGo.Agent.Shared.csproj" />
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="GnOuGo.Agent.Server.Tests" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Markdig" Version="0.38.0" />
@@ -45,7 +49,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="SmartFlow\dynamic-workflow-agent.yaml" />
-    <EmbeddedResource Include="SmartFlow\configure-providers-agent.yaml" />
     <EmbeddedResource Include="SmartFlow\configure-agents-agent.yaml" />
   </ItemGroup>
 </Project>

@@ -117,7 +117,7 @@ workflows:
                 | `/agent select <name>`  | Set as current agent for this chat             |
 
                 **Creating an agent:**
-                - Requires at least one configured LLM provider (`/llm add`)
+                - Requires a configured default LLM provider (`/llm add`, then `/llm default`)
                 1. Choose a name for the agent
                 2. Describe what the agent should do (natural language prompt)
                 3. A workflow YAML is generated from your description
@@ -161,7 +161,6 @@ workflows:
       - id: format_list
         type: llm.call
         input:
-          model: gpt-4o-mini
           temperature: 0.2
           prompt: >
             You are a formatter. Given the following agent list data, produce a clean Markdown table.
@@ -242,8 +241,6 @@ workflows:
       - id: generate_workflow
         type: llm.call
         input:
-          provider: "${data.inputs.agent_llm_provider}"
-          model: "${data.inputs.agent_llm_model}"
           temperature: 0.7
           prompt: >
             You are a GnOuGo.Flow workflow YAML expert. Generate a valid workflow YAML
@@ -260,7 +257,7 @@ workflows:
             - The workflow must be named "${data.steps.input_name.agent_name}"
             - Include an "answer" output with the final result
             - Use available MCP tools when applicable
-            - For llm.call steps use provider "${data.inputs.agent_llm_provider}" and model "${data.inputs.agent_llm_model}" with temperature 0.7
+            - For llm.call steps prefer omitting provider/model so runtime defaults are used automatically; if you must specify them, use provider "${data.inputs.agent_llm_provider}" and model "${data.inputs.agent_llm_model}" with temperature 0.7
             - Keep the workflow concise (under 15 steps)
             - Add the original prompt as a comment at the top
 
@@ -350,8 +347,6 @@ workflows:
               - id: generate_cron
                 type: llm.call
                 input:
-                  provider: "${data.inputs.agent_llm_provider}"
-                  model: "${data.inputs.agent_llm_model}"
                   temperature: 0.2
                   prompt: >
                     Convert the following schedule description to one or more Kubernetes cron expressions

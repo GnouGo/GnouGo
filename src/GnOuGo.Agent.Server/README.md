@@ -25,3 +25,25 @@ npm run dev
 ```
 
 > Note: for simplicity, this repo ships with pre-built assets in `wwwroot/assets`.
+
+## Model catalog cache
+
+The server uses `IMemoryCache` to cache provider model listings for a short duration.
+
+- Service: `ILLMModelCatalog`
+- Default absolute expiration: `30` seconds
+- Configuration section: `ModelCatalogCache`
+
+Example:
+
+```json
+{
+  "ModelCatalogCache": {
+	"Enabled": true,
+	"AbsoluteExpirationSeconds": 30
+  }
+}
+```
+
+The cache key includes the active provider configuration fingerprint, so changing a provider URL or credentials invalidates the cached entry automatically.
+

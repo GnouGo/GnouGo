@@ -1,68 +1,39 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Threading.Channels;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using GnOuGo.AI.Core;
-using GnOuGo.Flow.Core.Compilation;
-using GnOuGo.Flow.Core.Models;
-using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.SmartFlow;
 
 /// <summary>
-/// Runs the configure-providers-agent workflow to interactively configure
-/// LLM providers and MCP servers, persisting secrets to KeyVault via MCP.
-/// Also applies the resulting LLM provider config to <see cref="LLMRuntimeOptionsStore"/>
-/// so subsequent calls use the updated credentials without a restart.
+/// Interactively configures LLM providers and MCP servers using direct,
+/// trusted KeyVault access from the server process.
 /// </summary>
 public sealed class ConfigureProvidersService
 {
     private readonly ILLMClient _llm;
-    private readonly IMcpClientFactory _mcpFactory;
-    private readonly IMemoryCache _mcpCache;
     private readonly AgentHumanInputProvider _humanInput;
     private readonly ILLMModelCatalog _modelCatalog;
+    private readonly IKeyVaultRuntimeConfigStore _keyVaultStore;
     private readonly LLMRuntimeOptionsStore _optionsStore;
-    private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<ConfigureProvidersService> _logger;
-    private readonly string _workflowYaml;
 
     public ConfigureProvidersService(
         ILLMClient llm,
-        IMcpClientFactory mcpFactory,
-        IMemoryCache mcpCache,
         AgentHumanInputProvider humanInput,
         ILLMModelCatalog modelCatalog,
+        IKeyVaultRuntimeConfigStore keyVaultStore,
         LLMRuntimeOptionsStore optionsStore,
-        AgentOTelTelemetry otel,
         ILogger<ConfigureProvidersService> logger)
     {
         _llm = llm;
-        _mcpFactory = mcpFactory;
-        _mcpCache = mcpCache;
         _humanInput = humanInput;
         _modelCatalog = modelCatalog;
+        _keyVaultStore = keyVaultStore;
         _optionsStore = optionsStore;
-        _otel = otel;
         _logger = logger;
-
-        // Load the embedded workflow YAML
-        var asm = typeof(ConfigureProvidersService).Assembly;
-        var resourceName = asm.GetManifestResourceNames()
-            .FirstOrDefault(n => n.EndsWith("configure-providers-agent.yaml", StringComparison.OrdinalIgnoreCase));
-
-        if (resourceName is null)
-            throw new InvalidOperationException(
-                "Embedded resource 'configure-providers-agent.yaml' not found. " +
-                "Available: " + string.Join(", ", asm.GetManifestResourceNames()));
-
-        using var stream = asm.GetManifestResourceStream(resourceName)!;
-        using var reader = new StreamReader(stream);
-        _workflowYaml = reader.ReadToEnd();
     }
 
     /// <summary>
@@ -73,6 +44,13 @@ public sealed class ConfigureProvidersService
         [EnumeratorCancellation] CancellationToken ct)
     {
         var trimmedCommand = command.Trim();
+
+        if (TryParseModelsCommand(trimmedCommand, out var requestedModelProvider))
+        {
+            yield return new SmartFlowEvent("thinking:thinking", "🧠 Loading live model catalog…");
+            yield return new SmartFlowEvent("answer", await RenderModelsCommandResponseAsync(requestedModelProvider, ct));
+            yield break;
+        }
 
         var directResponse = await TryHandleWithoutLlmAsync(trimmedCommand, ct);
         if (directResponse is not null)
@@ -88,6 +66,17 @@ public sealed class ConfigureProvidersService
             yield break;
         }
 
+        const string llmDefaultPrefix = "/llm default";
+        if (trimmedCommand.StartsWith(llmDefaultPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var requestedProvider = trimmedCommand.Length > llmDefaultPrefix.Length
+                ? trimmedCommand[llmDefaultPrefix.Length..].Trim()
+                : string.Empty;
+            await foreach (var evt in ExecuteInteractiveLlmDefaultAsync(requestedProvider, ct))
+                yield return evt;
+            yield break;
+        }
+
         const string llmEditPrefix = "/llm edit";
         if (trimmedCommand.StartsWith(llmEditPrefix, StringComparison.OrdinalIgnoreCase)
             && trimmedCommand.Length > llmEditPrefix.Length)
@@ -98,109 +87,63 @@ public sealed class ConfigureProvidersService
             yield break;
         }
 
-        // Parse and compile the workflow
-        var doc = WorkflowParser.Parse(_workflowYaml);
-        var compiler = new WorkflowCompiler();
-        var compiled = compiler.Compile(doc);
-
-        var entrypoint = compiled.Entrypoint;
-        if (entrypoint is null || !compiled.Workflows.ContainsKey(entrypoint))
-            throw new InvalidOperationException("No entrypoint workflow found in configure-providers-agent.yaml");
-
-        var workflow = compiled.Workflows[entrypoint];
-
-        // Build inputs
-        var inputs = new JsonObject { ["command"] = trimmedCommand };
-        var resolvedInputs = WorkflowInputDefaults.Apply(workflow.Source, inputs);
-
-        // Channel for streaming telemetry events
-        var channel = Channel.CreateUnbounded<SmartFlowEvent>(new UnboundedChannelOptions
+        const string llmRemovePrefix = "/llm remove";
+        if (trimmedCommand.StartsWith(llmRemovePrefix, StringComparison.OrdinalIgnoreCase)
+            && trimmedCommand.Length > llmRemovePrefix.Length)
         {
-            SingleReader = true,
-            SingleWriter = false
-        });
-
-        var telemetry = new CompositeWorkflowTelemetry(
-            new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt)),
-            _otel);
-
-        var engine = new WorkflowEngine
-        {
-            LLMClient = _llm,
-            McpClientFactory = _mcpFactory,
-            McpCache = _mcpCache,
-            Telemetry = telemetry,
-            HumanInputProvider = _humanInput,
-            Logger = _logger,
-            Limits = new ExecutionLimits
-            {
-                LogStepContent = true,
-                RunId = Guid.NewGuid().ToString("N")
-            }
-        };
-
-        RunResult? result = null;
-        Exception? error = null;
-
-        var executionTask = Task.Run(async () =>
-        {
-            try
-            {
-                result = await engine.ExecuteAsync(workflow, resolvedInputs, ct);
-            }
-            catch (Exception ex)
-            {
-                error = ex;
-            }
-            finally
-            {
-                channel.Writer.TryComplete();
-            }
-        }, ct);
-
-        // Stream events as they arrive
-        await foreach (var evt in channel.Reader.ReadAllAsync(ct))
-        {
-            yield return evt;
-        }
-
-        await executionTask;
-
-        if (error is not null)
-        {
-            yield return new SmartFlowEvent("error", error.Message);
+            var requestedProvider = trimmedCommand[llmRemovePrefix.Length..].Trim();
+            await foreach (var evt in ExecuteInteractiveLlmRemoveAsync(requestedProvider, ct))
+                yield return evt;
             yield break;
         }
 
-        // ── Apply LLM config to the runtime store (no restart needed) ──
-        if (result is { Success: true, Outputs: not null })
+        if (string.Equals(trimmedCommand, "/mcp add", StringComparison.OrdinalIgnoreCase))
         {
-            var applied = TryApplyLLMConfig(result.Outputs);
-            if (applied)
-            {
-                // Immediately validate the new credentials with a real API call
-                await foreach (var evt in ValidateConfigAsync(result.Outputs, ct))
-                    yield return evt;
-            }
+            await foreach (var evt in ExecuteInteractiveMcpAddAsync(ct))
+                yield return evt;
+            yield break;
         }
 
-        if (result is { Success: false })
+        const string mcpEditPrefix = "/mcp edit";
+        if (trimmedCommand.StartsWith(mcpEditPrefix, StringComparison.OrdinalIgnoreCase)
+            && trimmedCommand.Length > mcpEditPrefix.Length)
         {
-            var errMsg = result.Error?.Message ?? "Configuration workflow failed";
-            yield return new SmartFlowEvent("error", errMsg);
+            var requestedServer = trimmedCommand[mcpEditPrefix.Length..].Trim();
+            await foreach (var evt in ExecuteInteractiveMcpEditAsync(requestedServer, ct))
+                yield return evt;
+            yield break;
         }
+
+        const string mcpRemovePrefix = "/mcp remove";
+        if (trimmedCommand.StartsWith(mcpRemovePrefix, StringComparison.OrdinalIgnoreCase)
+            && trimmedCommand.Length > mcpRemovePrefix.Length)
+        {
+            var requestedServer = trimmedCommand[mcpRemovePrefix.Length..].Trim();
+            await foreach (var evt in ExecuteInteractiveMcpRemoveAsync(requestedServer, ct))
+                yield return evt;
+            yield break;
+        }
+
+        if (trimmedCommand.StartsWith("/llm", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("answer", RenderLlmHelp(trimmedCommand));
+            yield break;
+        }
+
+        if (trimmedCommand.StartsWith("/mcp", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("answer", RenderMcpHelp(trimmedCommand));
+            yield break;
+        }
+
+        yield return new SmartFlowEvent("answer", RenderWizardHelp());
     }
 
     private async Task<string?> TryHandleWithoutLlmAsync(string command, CancellationToken ct)
     {
         if (string.Equals(command, "/llm list", StringComparison.OrdinalIgnoreCase))
         {
-            var secrets = await LoadKeyVaultSecretsAsync(ct);
-            return RenderSecretTable(
-                secrets,
-                prefix: "gnougo_llm_",
-                title: "# 🤖 Configured LLM Providers",
-                emptyMessage: "No LLM providers configured yet. Use `/llm add` to get started.");
+            return await RenderConfiguredLlmProvidersAsync(ct);
         }
 
         if (string.Equals(command, "/mcp list", StringComparison.OrdinalIgnoreCase))
@@ -219,22 +162,40 @@ public sealed class ConfigureProvidersService
             return RenderStatus(secrets);
         }
 
+        return null;
+    }
+
+    private static bool TryParseModelsCommand(string command, out string requestedProvider)
+    {
         const string modelsPrefix = "/llm models";
         if (command.StartsWith(modelsPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            var requestedProvider = command.Length > modelsPrefix.Length
+            requestedProvider = command.Length > modelsPrefix.Length
                 ? command[modelsPrefix.Length..].Trim()
                 : string.Empty;
+            return true;
+        }
 
-            var resolvedProvider = ResolveConfiguredProviderKey(requestedProvider);
-            if (resolvedProvider is null)
-                return RenderModelsUsage(requestedProvider);
+        requestedProvider = string.Empty;
+        return false;
+    }
 
+    private async Task<string> RenderModelsCommandResponseAsync(string requestedProvider, CancellationToken ct)
+    {
+        var resolvedProvider = ResolveConfiguredProviderKey(requestedProvider);
+        if (resolvedProvider is null)
+            return RenderModelsUsage(requestedProvider);
+
+        try
+        {
             var models = await _modelCatalog.ListModelsAsync(resolvedProvider, ct);
             return RenderModelCatalog(resolvedProvider, models);
         }
-
-        return null;
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not load live model catalog for provider '{Provider}'.", resolvedProvider);
+            return RenderModelCatalogError(resolvedProvider, ex);
+        }
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveLlmAddAsync(
@@ -334,7 +295,126 @@ public sealed class ConfigureProvidersService
         yield return new SmartFlowEvent("answer", $"✅ LLM provider '{provider}' saved to KeyVault as `gnougo_llm_{provider}`.");
 
         var outputs = BuildSavedLlmOutputs(provider, url, model, auth);
-        TryApplyLLMConfig(outputs);
+        TryApplyLlmConfig(outputs);
+        await foreach (var evt in ValidateConfigAsync(outputs, ct))
+            yield return evt;
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveLlmDefaultAsync(
+        string requestedProvider,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var configuredProviders = await LoadConfiguredLlmProvidersAsync(ct);
+        if (configuredProviders.Count == 0)
+        {
+            yield return new SmartFlowEvent(
+                "answer",
+                "❌ No LLM provider is configured yet. Use `/llm add` first, then run `/llm default`." );
+            yield break;
+        }
+
+        var initialProvider = ResolveDefaultSelectionProvider(configuredProviders, requestedProvider);
+        if (initialProvider is null)
+        {
+            yield return new SmartFlowEvent(
+                "answer",
+                $"❌ LLM provider '{requestedProvider}' is not configured. Use `/llm list` to see available providers.");
+            yield break;
+        }
+
+        yield return new SmartFlowEvent("thinking:thinking", "⭐ Configuring the default LLM provider…");
+
+        var runId = Guid.NewGuid().ToString("N");
+        JsonNode? response = null;
+        var providerRequest = CreateFieldsRequest(
+            runId,
+            "llm_default.provider",
+            "Select the default LLM provider:",
+            [
+                new HumanInputFieldDef
+                {
+                    Name = "provider",
+                    Type = "select",
+                    Required = true,
+                    Description = "Configured providers stored in KeyVault",
+                    Options = configuredProviders.Select(p => p.Provider).ToList(),
+                    Default = initialProvider.Provider
+                }
+            ],
+            JsonValue.Create($"Current default: {_optionsStore.Current.DefaultProvider} / {_optionsStore.Current.DefaultModel}"));
+        await foreach (var evt in EmitHumanInputRequestAsync(providerRequest, r => response = r, ct))
+            yield return evt;
+
+        var selectedProvider = ReadFieldResponse(response, providerRequest.Fields!).GetValueOrDefault("provider") ?? initialProvider.Provider;
+        var selectedConfig = configuredProviders.FirstOrDefault(p =>
+            string.Equals(p.Provider, selectedProvider, StringComparison.OrdinalIgnoreCase));
+        if (selectedConfig is null)
+        {
+            yield return new SmartFlowEvent(
+                "answer",
+                $"❌ LLM provider '{selectedProvider}' is not configured. Use `/llm list` to see available providers.");
+            yield break;
+        }
+
+        string? model = null;
+        await foreach (var evt in CollectModelSelectionAsync(
+                           runId,
+                           selectedConfig.Provider,
+                           string.IsNullOrWhiteSpace(selectedConfig.Config.Model)
+                               ? _optionsStore.Current.DefaultModel
+                               : selectedConfig.Config.Model,
+                           BuildProviderOptions(selectedConfig.Provider, selectedConfig.Config.Url, selectedConfig.Config),
+                           selected => model = selected,
+                           ct))
+            yield return evt;
+
+        if (string.IsNullOrWhiteSpace(model))
+            yield break;
+
+        var summary = RenderDefaultProviderSummary(selectedConfig.Provider, model);
+        yield return new SmartFlowEvent("thinking:thinking", summary);
+
+        response = null;
+        var confirmRequest = CreateChoiceRequest(
+            runId,
+            "llm_default.confirm_save",
+            $"Set '{selectedConfig.Provider}' as the default provider?",
+            ["save", "discard"],
+            JsonValue.Create(summary));
+        await foreach (var evt in EmitHumanInputRequestAsync(confirmRequest, r => response = r, ct))
+            yield return evt;
+
+        if (!string.Equals(ReadChoiceResponse(response), "save", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("thinking:thinking", "❌ Default provider update discarded.");
+            yield break;
+        }
+
+        await SaveLlmProviderConfigAsync(selectedConfig.Provider, selectedConfig.Config.Url, model, selectedConfig.Config, ct);
+        _optionsStore.UpdateProvider(
+            providerKey: selectedConfig.Provider,
+            url: selectedConfig.Config.Url,
+            model: model,
+            apiKey: selectedConfig.Config.ApiKey,
+            authType: selectedConfig.Config.AuthType,
+            oidcIssuer: selectedConfig.Config.OidcIssuer,
+            oidcClientId: selectedConfig.Config.OidcClientId,
+            oidcScopes: selectedConfig.Config.OidcScopes,
+            oidcClientSecret: selectedConfig.Config.OidcClientSecret);
+
+        if (!_optionsStore.SetDefaultProvider(selectedConfig.Provider, model))
+        {
+            yield return new SmartFlowEvent(
+                "error",
+                $"Could not set '{selectedConfig.Provider}' as the default provider in runtime settings.");
+            yield break;
+        }
+
+        yield return new SmartFlowEvent(
+            "answer",
+            $"✅ Default LLM provider set to '{selectedConfig.Provider}' with model '{model}'.");
+
+        var outputs = BuildSavedLlmOutputs(selectedConfig.Provider, selectedConfig.Config.Url, model, selectedConfig.Config);
         await foreach (var evt in ValidateConfigAsync(outputs, ct))
             yield return evt;
     }
@@ -435,9 +515,229 @@ public sealed class ConfigureProvidersService
         yield return new SmartFlowEvent("answer", $"✅ LLM provider '{provider}' updated.");
 
         var outputs = BuildSavedLlmOutputs(provider, url, model, auth);
-        TryApplyLLMConfig(outputs);
+        TryApplyLlmConfig(outputs);
         await foreach (var evt in ValidateConfigAsync(outputs, ct))
             yield return evt;
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveLlmRemoveAsync(
+        string requestedProvider,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var provider = ResolveConfiguredProviderKey(requestedProvider) ?? requestedProvider.Trim();
+        if (string.IsNullOrWhiteSpace(provider))
+        {
+            yield return new SmartFlowEvent("answer", "❌ Please specify the provider to remove: `/llm remove <provider>`.");
+            yield break;
+        }
+
+        var existing = await LoadLlmProviderConfigAsync(provider, ct);
+        if (existing is null)
+        {
+            yield return new SmartFlowEvent("answer", $"❌ LLM provider '{requestedProvider}' not found. Use `/llm list` to see available providers.");
+            yield break;
+        }
+
+        var runId = Guid.NewGuid().ToString("N");
+        JsonNode? response = null;
+        var request = CreateChoiceRequest(
+            runId,
+            "llm_remove.confirm",
+            $"⚠️ Remove LLM provider '{provider}'?",
+            ["confirm", "cancel"]);
+
+        await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+            yield return evt;
+
+        if (!string.Equals(ReadChoiceResponse(response), "confirm", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("thinking:thinking", "❌ Removal cancelled.");
+            yield break;
+        }
+
+        var secretKey = await ResolveSecretKeyAsync("gnougo_llm_", provider, ct) ?? $"gnougo_llm_{provider}";
+        var deleted = await _keyVaultStore.DeleteSecretAsync(secretKey, ct);
+        if (!deleted)
+        {
+            yield return new SmartFlowEvent("answer", $"❌ LLM provider '{provider}' could not be removed because it no longer exists.");
+            yield break;
+        }
+
+        _optionsStore.RemoveProvider(provider);
+        yield return new SmartFlowEvent("answer", $"✅ LLM provider '{provider}' removed.");
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveMcpAddAsync(
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        yield return new SmartFlowEvent("thinking:thinking", "🔌 Starting MCP server configuration…");
+
+        var runId = Guid.NewGuid().ToString("N");
+        JsonNode? response = null;
+
+        var transportRequest = CreateChoiceRequest(runId, "mcp_add.transport", "What type of MCP server do you want to configure?", ["http", "stdio"]);
+        await foreach (var evt in EmitHumanInputRequestAsync(transportRequest, r => response = r, ct))
+            yield return evt;
+
+        var transport = ReadChoiceResponse(response);
+        if (string.IsNullOrWhiteSpace(transport))
+            yield break;
+
+        McpServerConfig? config = null;
+        if (string.Equals(transport, "http", StringComparison.OrdinalIgnoreCase))
+        {
+            await foreach (var evt in CollectHttpMcpConfigAsync(runId, null, cfg => config = cfg, ct))
+                yield return evt;
+        }
+        else
+        {
+            await foreach (var evt in CollectStdioMcpConfigAsync(runId, null, cfg => config = cfg, ct))
+                yield return evt;
+        }
+
+        if (config is null)
+            yield break;
+
+        var summary = RenderMcpConfigSummary(config);
+        yield return new SmartFlowEvent("thinking:thinking", summary);
+
+        var existing = await LoadMcpServerConfigAsync(config.Name, ct);
+        response = null;
+        var confirmPrompt = existing is null
+            ? "Save this MCP server configuration?"
+            : "⚠️ An MCP server with this name already exists. Overwrite?";
+        var confirmRequest = CreateChoiceRequest(runId, "mcp_add.confirm_save", confirmPrompt, ["save", "discard"], JsonValue.Create(summary));
+        await foreach (var evt in EmitHumanInputRequestAsync(confirmRequest, r => response = r, ct))
+            yield return evt;
+
+        if (!string.Equals(ReadChoiceResponse(response), "save", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("thinking:thinking", "❌ MCP server configuration discarded.");
+            yield break;
+        }
+
+        yield return new SmartFlowEvent("thinking:progress", "💾 Saving MCP server configuration to KeyVault…");
+        await SaveMcpServerConfigAsync(config, ct);
+        yield return new SmartFlowEvent("answer", $"✅ MCP server '{config.Name}' saved to KeyVault.");
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveMcpEditAsync(
+        string requestedName,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var name = requestedName.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            yield return new SmartFlowEvent("answer", "❌ Please specify the MCP server to edit: `/mcp edit <name>`.");
+            yield break;
+        }
+
+        var existing = await LoadMcpServerConfigAsync(name, ct);
+        if (existing is null)
+        {
+            yield return new SmartFlowEvent("answer", $"❌ MCP server '{requestedName}' not found. Use `/mcp list`.");
+            yield break;
+        }
+
+        var runId = Guid.NewGuid().ToString("N");
+        JsonNode? response = null;
+
+        if (string.Equals(existing.Transport, "http", StringComparison.OrdinalIgnoreCase))
+        {
+            var request = CreateFieldsRequest(
+                runId,
+                "mcp_edit.http",
+                $"Edit MCP server '{existing.Name}':",
+                [
+                    new HumanInputFieldDef { Name = "description", Type = "string", Required = true, Description = "Short description", Default = existing.Description },
+                    new HumanInputFieldDef { Name = "url", Type = "string", Required = true, Description = "HTTP endpoint URL", Default = existing.Url }
+                ]);
+            await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+                yield return evt;
+            var fields = ReadFieldResponse(response, request.Fields!);
+            existing = existing with
+            {
+                Description = fields.GetValueOrDefault("description") ?? existing.Description,
+                Url = fields.GetValueOrDefault("url") ?? existing.Url
+            };
+        }
+        else
+        {
+            var request = CreateFieldsRequest(
+                runId,
+                "mcp_edit.stdio",
+                $"Edit MCP server '{existing.Name}':",
+                [
+                    new HumanInputFieldDef { Name = "description", Type = "string", Required = true, Description = "Short description", Default = existing.Description },
+                    new HumanInputFieldDef { Name = "command", Type = "string", Required = true, Description = "Command to execute", Default = existing.Command },
+                    new HumanInputFieldDef { Name = "args", Type = "string", Required = false, Description = "Arguments (comma-separated)", Default = JoinArgs(existing.Args) }
+                ]);
+            await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+                yield return evt;
+            var fields = ReadFieldResponse(response, request.Fields!);
+            existing = existing with
+            {
+                Description = fields.GetValueOrDefault("description") ?? existing.Description,
+                Command = fields.GetValueOrDefault("command") ?? existing.Command,
+                Args = ParseCommaSeparatedArgs(fields.GetValueOrDefault("args"))
+            };
+        }
+
+        response = null;
+        var summary = RenderMcpConfigSummary(existing);
+        var confirmRequest = CreateChoiceRequest(runId, "mcp_edit.confirm_save", $"Save updated MCP server '{existing.Name}'?", ["save", "discard"], JsonValue.Create(summary));
+        await foreach (var evt in EmitHumanInputRequestAsync(confirmRequest, r => response = r, ct))
+            yield return evt;
+
+        if (!string.Equals(ReadChoiceResponse(response), "save", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("thinking:thinking", "❌ Edit discarded.");
+            yield break;
+        }
+
+        await SaveMcpServerConfigAsync(existing, ct);
+        yield return new SmartFlowEvent("answer", $"✅ MCP server '{existing.Name}' updated.");
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveMcpRemoveAsync(
+        string requestedName,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var name = requestedName.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            yield return new SmartFlowEvent("answer", "❌ Please specify the MCP server to remove: `/mcp remove <name>`.");
+            yield break;
+        }
+
+        var existing = await LoadMcpServerConfigAsync(name, ct);
+        if (existing is null)
+        {
+            yield return new SmartFlowEvent("answer", $"❌ MCP server '{requestedName}' not found. Use `/mcp list`.");
+            yield break;
+        }
+
+        var runId = Guid.NewGuid().ToString("N");
+        JsonNode? response = null;
+        var request = CreateChoiceRequest(runId, "mcp_remove.confirm", $"⚠️ Remove MCP server '{existing.Name}'?", ["confirm", "cancel"]);
+        await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+            yield return evt;
+
+        if (!string.Equals(ReadChoiceResponse(response), "confirm", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("thinking:thinking", "❌ Removal cancelled.");
+            yield break;
+        }
+
+        var secretKey = await ResolveSecretKeyAsync("gnougo_mcp_", existing.Name, ct) ?? $"gnougo_mcp_{existing.Name}";
+        var deleted = await _keyVaultStore.DeleteSecretAsync(secretKey, ct);
+        if (!deleted)
+        {
+            yield return new SmartFlowEvent("answer", $"❌ MCP server '{existing.Name}' could not be removed because it no longer exists.");
+            yield break;
+        }
+
+        yield return new SmartFlowEvent("answer", $"✅ MCP server '{existing.Name}' removed.");
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> CollectModelSelectionAsync(
@@ -516,7 +816,7 @@ public sealed class ConfigureProvidersService
         if (string.Equals(authType, "none", StringComparison.OrdinalIgnoreCase)
             || string.Equals(authType, "copilot_env", StringComparison.OrdinalIgnoreCase))
         {
-            setConfig(new LlmProviderConfig(provider, existing?.Url ?? "", existing?.Model ?? "", authType, "", "", "", "", ""));
+            setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", authType, "", "", "", "", ""));
             yield break;
         }
 
@@ -539,7 +839,7 @@ public sealed class ConfigureProvidersService
             await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
                 yield return evt;
             var apiKey = ReadFieldResponse(response, request.Fields!).GetValueOrDefault("api_key") ?? "";
-            setConfig(new LlmProviderConfig(provider, existing?.Url ?? "", existing?.Model ?? "", "api_key", apiKey, "", "", "", ""));
+            setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", "api_key", apiKey, "", "", "", ""));
             yield break;
         }
 
@@ -559,7 +859,6 @@ public sealed class ConfigureProvidersService
                 yield return evt;
             var fields = ReadFieldResponse(response, request.Fields!);
             setConfig(new LlmProviderConfig(
-                provider,
                 existing?.Url ?? "",
                 existing?.Model ?? "",
                 "oidc",
@@ -571,7 +870,7 @@ public sealed class ConfigureProvidersService
             yield break;
         }
 
-        setConfig(new LlmProviderConfig(provider, existing?.Url ?? "", existing?.Model ?? "", authType, "", "", "", "", ""));
+        setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", authType, "", "", "", "", ""));
     }
 
     private static HumanInputRequest CreateChoiceRequest(string runId, string stepId, string prompt, IReadOnlyList<string> choices, JsonNode? context = null)
@@ -696,42 +995,16 @@ public sealed class ConfigureProvidersService
             ["oidc_client_secret"] = auth.OidcClientSecret
         };
 
-        await using var session = await _mcpFactory.GetClientAsync("GnOuGo.KeyVault.Mcp", ct);
-        var result = await session.CallToolAsync(
-            "keyvault_set_secret",
-            new JsonObject
-            {
-                ["key"] = $"gnougo_llm_{provider}",
-                ["value"] = payload.ToJsonString(),
-                ["author"] = "GnOuGo.Agent"
-            },
-            ct);
-
-        if (result.IsError)
-            throw new InvalidOperationException("KeyVault set_secret MCP call failed.");
+        var secretKey = await ResolveSecretKeyAsync("gnougo_llm_", provider, ct) ?? $"gnougo_llm_{provider}";
+        await _keyVaultStore.SaveSecretValueAsync(secretKey, payload.ToJsonString(), ct);
     }
 
     private async Task<LlmProviderConfig?> LoadLlmProviderConfigAsync(string provider, CancellationToken ct)
     {
         try
         {
-            await using var session = await _mcpFactory.GetClientAsync("GnOuGo.KeyVault.Mcp", ct);
-            var result = await session.CallToolAsync(
-                "keyvault_get_secret",
-                new JsonObject
-                {
-                    ["key"] = $"gnougo_llm_{provider}",
-                    ["author"] = "GnOuGo.Agent"
-                },
-                ct);
-
-            if (result.IsError || result.Content is not JsonObject payload)
-                return null;
-
-            var value = payload["Data"]?["Value"]?.GetValue<string>()
-                ?? payload["data"]?["value"]?.GetValue<string>()
-                ?? payload["Value"]?.GetValue<string>()
-                ?? payload["value"]?.GetValue<string>();
+            var secretKey = await ResolveSecretKeyAsync("gnougo_llm_", provider, ct) ?? $"gnougo_llm_{provider}";
+            var value = await _keyVaultStore.GetSecretValueAsync(secretKey, ct);
 
             if (string.IsNullOrWhiteSpace(value))
                 return null;
@@ -741,7 +1014,6 @@ public sealed class ConfigureProvidersService
                 return null;
 
             return new LlmProviderConfig(
-                Provider: config["provider"]?.GetValue<string>() ?? provider,
                 Url: config["url"]?.GetValue<string>() ?? "",
                 Model: config["model"]?.GetValue<string>() ?? "",
                 AuthType: config["auth_type"]?.GetValue<string>() ?? "none",
@@ -798,8 +1070,275 @@ public sealed class ConfigureProvidersService
         return sb.ToString();
     }
 
+    private async IAsyncEnumerable<SmartFlowEvent> CollectHttpMcpConfigAsync(
+        string runId,
+        McpServerConfig? existing,
+        Action<McpServerConfig?> setConfig,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        JsonNode? response = null;
+        var request = CreateFieldsRequest(
+            runId,
+            existing is null ? "mcp_add.http" : "mcp_edit.http_setup",
+            existing is null ? "Configure the HTTP MCP server:" : $"Configure MCP server '{existing.Name}':",
+            [
+                new HumanInputFieldDef { Name = "name", Type = "string", Required = true, Description = "Server name", Default = existing?.Name ?? "" },
+                new HumanInputFieldDef { Name = "description", Type = "string", Required = true, Description = "Short description", Default = existing?.Description ?? "" },
+                new HumanInputFieldDef { Name = "url", Type = "string", Required = true, Description = "HTTP endpoint URL", Default = existing?.Url ?? "https://api.githubcopilot.com/mcp/" }
+            ]);
+        await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+            yield return evt;
+        var fields = ReadFieldResponse(response, request.Fields!);
+
+        response = null;
+        var authChoices = new List<string> { "api_key", "oidc", "none" };
+        var authRequest = CreateChoiceRequest(runId, "mcp_add.http_auth", "Authentication for this MCP server:", authChoices);
+        await foreach (var evt in EmitHumanInputRequestAsync(authRequest, r => response = r, ct))
+            yield return evt;
+
+        var authType = ReadChoiceResponse(response) ?? "none";
+        McpServerConfig? authConfig = null;
+        await foreach (var evt in CollectMcpAuthConfigAsync(runId, authType, existing, cfg => authConfig = cfg, ct))
+            yield return evt;
+        if (authConfig is null)
+        {
+            setConfig(null);
+            yield break;
+        }
+
+        setConfig(new McpServerConfig(
+            Name: fields.GetValueOrDefault("name") ?? existing?.Name ?? "",
+            Transport: "http",
+            Description: fields.GetValueOrDefault("description") ?? existing?.Description ?? "",
+            Url: fields.GetValueOrDefault("url") ?? existing?.Url ?? "",
+            Command: string.Empty,
+            Args: [],
+            AuthType: authConfig.AuthType,
+            ApiKey: authConfig.ApiKey,
+            OidcIssuer: authConfig.OidcIssuer,
+            OidcClientId: authConfig.OidcClientId,
+            OidcScopes: authConfig.OidcScopes,
+            OidcClientSecret: authConfig.OidcClientSecret));
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> CollectStdioMcpConfigAsync(
+        string runId,
+        McpServerConfig? existing,
+        Action<McpServerConfig?> setConfig,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        JsonNode? response = null;
+        var request = CreateFieldsRequest(
+            runId,
+            existing is null ? "mcp_add.stdio" : "mcp_edit.stdio_setup",
+            existing is null ? "Configure the stdio MCP server:" : $"Configure MCP server '{existing.Name}':",
+            [
+                new HumanInputFieldDef { Name = "name", Type = "string", Required = true, Description = "Server name", Default = existing?.Name ?? "" },
+                new HumanInputFieldDef { Name = "description", Type = "string", Required = true, Description = "Short description", Default = existing?.Description ?? "" },
+                new HumanInputFieldDef { Name = "command", Type = "string", Required = true, Description = "Command to execute", Default = existing?.Command ?? "dotnet" },
+                new HumanInputFieldDef { Name = "args", Type = "string", Required = false, Description = "Arguments (comma-separated)", Default = JoinArgs(existing?.Args) }
+            ]);
+        await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+            yield return evt;
+        var fields = ReadFieldResponse(response, request.Fields!);
+
+        setConfig(new McpServerConfig(
+            Name: fields.GetValueOrDefault("name") ?? existing?.Name ?? "",
+            Transport: "stdio",
+            Description: fields.GetValueOrDefault("description") ?? existing?.Description ?? "",
+            Url: string.Empty,
+            Command: fields.GetValueOrDefault("command") ?? existing?.Command ?? "dotnet",
+            Args: ParseCommaSeparatedArgs(fields.GetValueOrDefault("args")),
+            AuthType: "none",
+            ApiKey: string.Empty,
+            OidcIssuer: string.Empty,
+            OidcClientId: string.Empty,
+            OidcScopes: string.Empty,
+            OidcClientSecret: string.Empty));
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> CollectMcpAuthConfigAsync(
+        string runId,
+        string authType,
+        McpServerConfig? existing,
+        Action<McpServerConfig?> setConfig,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        if (string.Equals(authType, "none", StringComparison.OrdinalIgnoreCase))
+        {
+            setConfig(existing is null
+                ? new McpServerConfig("", "http", "", "", "", [], "none", "", "", "", "", "")
+                : existing with { AuthType = "none", ApiKey = "", OidcIssuer = "", OidcClientId = "", OidcScopes = "", OidcClientSecret = "" });
+            yield break;
+        }
+
+        JsonNode? response = null;
+        if (string.Equals(authType, "api_key", StringComparison.OrdinalIgnoreCase))
+        {
+            var request = CreateFieldsRequest(
+                runId,
+                "mcp.auth.api_key",
+                "Enter the API key:",
+                [ new HumanInputFieldDef { Name = "api_key", Type = "string", Required = true, Description = "API key / bearer token" } ]);
+            await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+                yield return evt;
+            var apiKey = ReadFieldResponse(response, request.Fields!).GetValueOrDefault("api_key") ?? "";
+            setConfig(existing is null
+                ? new McpServerConfig("", "http", "", "", "", [], "api_key", apiKey, "", "", "", "")
+                : existing with { AuthType = "api_key", ApiKey = apiKey, OidcIssuer = "", OidcClientId = "", OidcScopes = "", OidcClientSecret = "" });
+            yield break;
+        }
+
+        if (string.Equals(authType, "oidc", StringComparison.OrdinalIgnoreCase))
+        {
+            var request = CreateFieldsRequest(
+                runId,
+                "mcp.auth.oidc",
+                "Configure OIDC for this MCP server:",
+                [
+                    new HumanInputFieldDef { Name = "issuer", Type = "string", Required = true, Description = "OIDC Issuer URL", Default = existing?.OidcIssuer ?? "" },
+                    new HumanInputFieldDef { Name = "client_id", Type = "string", Required = true, Description = "Client ID", Default = existing?.OidcClientId ?? "" },
+                    new HumanInputFieldDef { Name = "scopes", Type = "string", Required = true, Description = "Scopes", Default = existing?.OidcScopes ?? "" },
+                    new HumanInputFieldDef { Name = "client_secret", Type = "string", Required = false, Description = "Client secret" }
+                ]);
+            await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+                yield return evt;
+            var fields = ReadFieldResponse(response, request.Fields!);
+            setConfig(existing is null
+                ? new McpServerConfig("", "http", "", "", "", [], "oidc", "", fields.GetValueOrDefault("issuer") ?? "", fields.GetValueOrDefault("client_id") ?? "", fields.GetValueOrDefault("scopes") ?? "", fields.GetValueOrDefault("client_secret") ?? "")
+                : existing with
+                {
+                    AuthType = "oidc",
+                    ApiKey = "",
+                    OidcIssuer = fields.GetValueOrDefault("issuer") ?? "",
+                    OidcClientId = fields.GetValueOrDefault("client_id") ?? "",
+                    OidcScopes = fields.GetValueOrDefault("scopes") ?? "",
+                    OidcClientSecret = fields.GetValueOrDefault("client_secret") ?? ""
+                });
+            yield break;
+        }
+
+        setConfig(null);
+    }
+
+    private async Task SaveMcpServerConfigAsync(McpServerConfig config, CancellationToken ct)
+    {
+        var payload = new JsonObject
+        {
+            ["name"] = config.Name,
+            ["transport"] = config.Transport,
+            ["description"] = config.Description,
+            ["url"] = config.Url,
+            ["command"] = config.Command,
+            ["args"] = new JsonArray(config.Args.Select(arg => (JsonNode?)JsonValue.Create(arg)).ToArray()),
+            ["auth_type"] = config.AuthType,
+            ["api_key"] = config.ApiKey,
+            ["oidc_issuer"] = config.OidcIssuer,
+            ["oidc_client_id"] = config.OidcClientId,
+            ["oidc_scopes"] = config.OidcScopes,
+            ["oidc_client_secret"] = config.OidcClientSecret
+        };
+
+        var secretKey = await ResolveSecretKeyAsync("gnougo_mcp_", config.Name, ct) ?? $"gnougo_mcp_{config.Name}";
+        await _keyVaultStore.SaveSecretValueAsync(secretKey, payload.ToJsonString(), ct);
+    }
+
+    private async Task<McpServerConfig?> LoadMcpServerConfigAsync(string name, CancellationToken ct)
+    {
+        var secretKey = await ResolveSecretKeyAsync("gnougo_mcp_", name, ct) ?? $"gnougo_mcp_{name}";
+        var value = await _keyVaultStore.GetSecretValueAsync(secretKey, ct);
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        JsonObject? config;
+        try
+        {
+            config = JsonNode.Parse(value) as JsonObject;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not parse MCP server configuration '{Name}'.", name);
+            return null;
+        }
+
+        if (config is null)
+            return null;
+
+        return new McpServerConfig(
+            Name: config["name"]?.GetValue<string>() ?? name,
+            Transport: config["transport"]?.GetValue<string>() ?? "http",
+            Description: config["description"]?.GetValue<string>() ?? "",
+            Url: config["url"]?.GetValue<string>() ?? "",
+            Command: config["command"]?.GetValue<string>() ?? "",
+            Args: ParseJsonArgs(config["args"]),
+            AuthType: config["auth_type"]?.GetValue<string>() ?? "none",
+            ApiKey: config["api_key"]?.GetValue<string>() ?? "",
+            OidcIssuer: config["oidc_issuer"]?.GetValue<string>() ?? "",
+            OidcClientId: config["oidc_client_id"]?.GetValue<string>() ?? "",
+            OidcScopes: config["oidc_scopes"]?.GetValue<string>() ?? "",
+            OidcClientSecret: config["oidc_client_secret"]?.GetValue<string>() ?? "");
+    }
+
+    private static string RenderMcpConfigSummary(McpServerConfig config)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("## ✅ MCP Server Configured");
+        sb.AppendLine();
+        sb.AppendLine("| Field | Value |");
+        sb.AppendLine("|-------|-------|");
+        sb.AppendLine($"| Name | {EscapeMarkdownCell(config.Name)} |");
+        sb.AppendLine($"| Transport | {EscapeMarkdownCell(config.Transport)} |");
+        sb.AppendLine($"| Description | {EscapeMarkdownCell(config.Description)} |");
+        if (!string.IsNullOrWhiteSpace(config.Url))
+            sb.AppendLine($"| URL | {EscapeMarkdownCell(config.Url)} |");
+        if (!string.IsNullOrWhiteSpace(config.Command))
+        {
+            sb.AppendLine($"| Command | {EscapeMarkdownCell(config.Command)} |");
+            sb.AppendLine($"| Args | {EscapeMarkdownCell(JoinArgs(config.Args))} |");
+        }
+        sb.AppendLine($"| Auth | {EscapeMarkdownCell(config.AuthType)} |");
+        sb.AppendLine();
+        sb.Append($"Configuration will be saved as key: `gnougo_mcp_{config.Name}`");
+        return sb.ToString();
+    }
+
+    private static List<string> ParseCommaSeparatedArgs(string? raw)
+        => string.IsNullOrWhiteSpace(raw)
+            ? []
+            : raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .ToList();
+
+    private static List<string> ParseJsonArgs(JsonNode? node)
+    {
+        if (node is JsonArray array)
+        {
+            return array
+                .Select(item => item?.GetValue<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!)
+                .ToList();
+        }
+
+        return ParseCommaSeparatedArgs(node?.GetValue<string>());
+    }
+
+    private static string JoinArgs(IReadOnlyList<string>? args)
+        => args is { Count: > 0 } ? string.Join(",", args) : string.Empty;
+
+    private async Task<string?> ResolveSecretKeyAsync(string prefix, string logicalName, CancellationToken ct)
+    {
+        var expected = prefix + logicalName;
+        var secrets = await _keyVaultStore.ListSecretsAsync(ct);
+        return secrets
+            .Select(secret => secret.Key)
+            .FirstOrDefault(key => string.Equals(key, expected, StringComparison.OrdinalIgnoreCase));
+    }
+
     private sealed record ProviderDefaults(string Url, string Model, IReadOnlyList<string> AuthModes);
-    private sealed record LlmProviderConfig(string Provider, string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret);
+    private sealed record LlmProviderConfig(string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret);
+    private sealed record McpServerConfig(string Name, string Transport, string Description, string Url, string Command, IReadOnlyList<string> Args, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret);
+    private sealed record ConfiguredLlmProvider(string Provider, KeyVaultSecretSummary Secret, LlmProviderConfig Config);
 
     private string? ResolveConfiguredProviderKey(string requestedProvider)
     {
@@ -845,8 +1384,9 @@ public sealed class ConfigureProvidersService
 
         sb.AppendLine();
         sb.AppendLine("Configured providers:");
+        var defaultProvider = _optionsStore.Current.DefaultProvider;
         foreach (var provider in configuredProviders)
-            sb.AppendLine($"- `{provider}`");
+            sb.AppendLine($"- `{provider}`{(string.Equals(provider, defaultProvider, StringComparison.OrdinalIgnoreCase) ? " (default)" : "")}");
 
         return sb.ToString().TrimEnd();
     }
@@ -873,43 +1413,200 @@ public sealed class ConfigureProvidersService
         return sb.ToString().TrimEnd();
     }
 
-    private async Task<List<KeyVaultSecretSummary>> LoadKeyVaultSecretsAsync(CancellationToken ct)
+    private static string RenderWizardHelp()
     {
-        await using var session = await _mcpFactory.GetClientAsync("GnOuGo.KeyVault.Mcp", ct);
-        var call = await session.CallToolAsync("keyvault_list_secrets", null, ct);
+        var sb = new StringBuilder();
+        sb.AppendLine("# 🔧 GnOuGo Configuration Wizard");
+        sb.AppendLine();
+        sb.AppendLine("Available commands:");
+        sb.AppendLine();
+        sb.AppendLine("| Command | Description |");
+        sb.AppendLine("|---|---|");
+        sb.AppendLine("| `/llm` | Show LLM command documentation |");
+        sb.AppendLine("| `/llm list` | List configured LLM providers |");
+        sb.AppendLine("| `/llm models <name>` | List available models for a configured LLM provider |");
+        sb.AppendLine("| `/llm add` | Configure a new LLM provider |");
+        sb.AppendLine("| `/llm default [name]` | Set or change the default LLM provider/model |");
+        sb.AppendLine("| `/llm edit <name>` | Edit an existing LLM provider |");
+        sb.AppendLine("| `/llm remove <name>` | Remove an LLM provider |");
+        sb.AppendLine("| `/mcp` | Show MCP command documentation |");
+        sb.AppendLine("| `/mcp list` | List configured MCP servers |");
+        sb.AppendLine("| `/mcp add` | Add a new MCP server |");
+        sb.AppendLine("| `/mcp edit <name>` | Edit an existing MCP server |");
+        sb.AppendLine("| `/mcp remove <name>` | Remove an MCP server |");
+        sb.AppendLine("| `/status` | Display current configuration summary |");
+        sb.AppendLine();
+        sb.Append("Type a command in the chat to get started.");
+        return sb.ToString();
+    }
 
-        if (call.IsError)
-            throw new InvalidOperationException("KeyVault list_secrets MCP call failed.");
-
-        var payload = call.Content as JsonObject
-            ?? throw new InvalidOperationException("Unexpected KeyVault MCP response shape.");
-
-        var success = payload["Success"]?.GetValue<bool>() ?? payload["success"]?.GetValue<bool>() ?? false;
-        if (!success)
+    private static string RenderLlmHelp(string command)
+    {
+        var sb = new StringBuilder();
+        if (!string.Equals(command, "/llm", StringComparison.OrdinalIgnoreCase))
         {
-            var error = payload["Error"]?.GetValue<string>() ?? payload["error"]?.GetValue<string>() ?? "Unknown error";
-            throw new InvalidOperationException($"KeyVault list_secrets failed: {error}");
+            sb.AppendLine($"❌ Unknown `/llm` command: `{EscapeBackticks(command)}`");
+            sb.AppendLine();
         }
 
-        var data = payload["Data"] as JsonArray ?? payload["data"] as JsonArray ?? [];
-        var results = new List<KeyVaultSecretSummary>(data.Count);
+        sb.AppendLine("# 🤖 LLM Provider Commands");
+        sb.AppendLine();
+        sb.AppendLine("| Command | Description |");
+        sb.AppendLine("|---|---|");
+        sb.AppendLine("| `/llm list` | List all configured LLM providers |");
+        sb.AppendLine("| `/llm models <name>` | Fetch the live model list for a configured provider |");
+        sb.AppendLine("| `/llm add` | Configure a new LLM provider |");
+        sb.AppendLine("| `/llm default [name]` | Set the default provider/model used by workflows |");
+        sb.AppendLine("| `/llm edit <name>` | Edit an existing LLM provider configuration |");
+        sb.AppendLine("| `/llm remove <name>` | Remove an LLM provider |");
+        sb.AppendLine();
+        sb.AppendLine("**Authentication modes:**");
+        sb.AppendLine("- **API Key** — static secret");
+        sb.AppendLine("- **OpenID Connect** — OAuth2 client_credentials flow");
+        sb.AppendLine("- **Copilot / Env** — resolved from environment variables");
+        sb.AppendLine();
+        sb.Append("All configurations are stored encrypted in KeyVault as `gnougo_llm_(name)`.");
+        return sb.ToString().TrimEnd();
+    }
 
-        foreach (var item in data.OfType<JsonObject>())
+    private static string RenderMcpHelp(string command)
+    {
+        var sb = new StringBuilder();
+        if (!string.Equals(command, "/mcp", StringComparison.OrdinalIgnoreCase))
         {
-            var key = item["Key"]?.GetValue<string>() ?? item["key"]?.GetValue<string>();
-            if (string.IsNullOrWhiteSpace(key))
+            sb.AppendLine($"❌ Unknown `/mcp` command: `{EscapeBackticks(command)}`");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("# 🔌 MCP Server Commands");
+        sb.AppendLine();
+        sb.AppendLine("| Command | Description |");
+        sb.AppendLine("|---|---|");
+        sb.AppendLine("| `/mcp list` | List all configured MCP servers |");
+        sb.AppendLine("| `/mcp add` | Add a new MCP server |");
+        sb.AppendLine("| `/mcp edit <name>` | Edit an existing MCP server |");
+        sb.AppendLine("| `/mcp remove <name>` | Remove an MCP server |");
+        sb.AppendLine();
+        sb.AppendLine("**Transport types:**");
+        sb.AppendLine("- **HTTP** — connect to an HTTP MCP endpoint with optional auth");
+        sb.AppendLine("- **stdio** — launch a local process (for example `dotnet run`)");
+        sb.AppendLine();
+        sb.Append("All configurations are stored encrypted in KeyVault as `gnougo_mcp_(name)`.");
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string RenderModelCatalogError(string provider, Exception error)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"# 🧠 Available Models for `{provider}`");
+        sb.AppendLine();
+        sb.AppendLine("❌ Live model discovery failed.");
+        sb.AppendLine();
+        foreach (var line in FormatModelCatalogErrorLines(error))
+            sb.AppendLine($"> {line}");
+        sb.AppendLine();
+        sb.Append("Check the provider URL and credentials, then retry `/llm models <provider>`.");
+        return sb.ToString().TrimEnd();
+    }
+
+    private static IReadOnlyList<string> FormatModelCatalogErrorLines(Exception error)
+    {
+        if (error is AggregateException aggregate)
+        {
+            var lines = aggregate.Flatten().InnerExceptions
+                .Select(ex => SanitizeErrorLine(ex.Message))
+                .Where(message => !string.IsNullOrWhiteSpace(message))
+                .Distinct(StringComparer.Ordinal)
+                .Take(4)
+                .ToList();
+
+            if (lines.Count > 0)
+                return lines;
+        }
+
+        return [SanitizeErrorLine(error.Message)];
+    }
+
+    private static string SanitizeErrorLine(string message)
+        => message
+            .Replace("\r", " ", StringComparison.Ordinal)
+            .Replace("\n", " ", StringComparison.Ordinal)
+            .Trim();
+
+    private async Task<List<KeyVaultSecretSummary>> LoadKeyVaultSecretsAsync(CancellationToken ct)
+        => (await _keyVaultStore.ListSecretsAsync(ct)).ToList();
+
+    private async Task<List<ConfiguredLlmProvider>> LoadConfiguredLlmProvidersAsync(CancellationToken ct)
+    {
+        var secrets = await LoadKeyVaultSecretsAsync(ct);
+        var providers = new List<ConfiguredLlmProvider>();
+
+        foreach (var secret in secrets
+                     .Where(s => s.Key.StartsWith("gnougo_llm_", StringComparison.OrdinalIgnoreCase))
+                     .OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            var raw = await _keyVaultStore.GetSecretValueAsync(secret.Key, ct);
+            if (string.IsNullOrWhiteSpace(raw))
                 continue;
 
-            results.Add(new KeyVaultSecretSummary(
-                Key: key,
-                CreatedAt: item["CreatedAt"]?.GetValue<string>() ?? item["createdAt"]?.GetValue<string>() ?? item["created_at"]?.GetValue<string>() ?? "",
-                LatestVersion: item["LatestVersion"]?.GetValue<int>()
-                    ?? item["latestVersion"]?.GetValue<int>()
-                    ?? item["latest_version"]?.GetValue<int>()
-                    ?? 0));
+            JsonObject? configJson;
+            try
+            {
+                configJson = JsonNode.Parse(raw) as JsonObject;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not parse configured LLM provider secret '{SecretKey}'.", secret.Key);
+                continue;
+            }
+
+            if (configJson is null)
+                continue;
+
+            var provider = configJson["provider"]?.GetValue<string>() ?? secret.Key["gnougo_llm_".Length..];
+            var config = new LlmProviderConfig(
+                Url: configJson["url"]?.GetValue<string>() ?? string.Empty,
+                Model: configJson["model"]?.GetValue<string>() ?? string.Empty,
+                AuthType: configJson["auth_type"]?.GetValue<string>() ?? "none",
+                ApiKey: configJson["api_key"]?.GetValue<string>() ?? string.Empty,
+                OidcIssuer: configJson["oidc_issuer"]?.GetValue<string>() ?? string.Empty,
+                OidcClientId: configJson["oidc_client_id"]?.GetValue<string>() ?? string.Empty,
+                OidcScopes: configJson["oidc_scopes"]?.GetValue<string>() ?? string.Empty,
+                OidcClientSecret: configJson["oidc_client_secret"]?.GetValue<string>() ?? string.Empty);
+
+            providers.Add(new ConfiguredLlmProvider(provider, secret, config));
         }
 
-        return results;
+        return providers;
+    }
+
+    private async Task<string> RenderConfiguredLlmProvidersAsync(CancellationToken ct)
+    {
+        var providers = await LoadConfiguredLlmProvidersAsync(ct);
+        if (providers.Count == 0)
+            return "# 🤖 Configured LLM Providers\n\nNo LLM providers configured yet. Use `/llm add` to get started.";
+
+        var currentDefaultProvider = _optionsStore.Current.DefaultProvider;
+        var currentDefaultModel = _optionsStore.Current.DefaultModel;
+        var sb = new StringBuilder();
+        sb.AppendLine("# 🤖 Configured LLM Providers");
+        sb.AppendLine();
+        sb.AppendLine("| Provider | Default | Model | Key | Version | Stored |");
+        sb.AppendLine("|----------|---------|-------|-----|---------|--------|");
+
+        foreach (var provider in providers
+                     .OrderByDescending(p => string.Equals(p.Provider, currentDefaultProvider, StringComparison.OrdinalIgnoreCase))
+                     .ThenBy(p => p.Provider, StringComparer.OrdinalIgnoreCase))
+        {
+            var isDefault = string.Equals(provider.Provider, currentDefaultProvider, StringComparison.OrdinalIgnoreCase);
+            var model = string.IsNullOrWhiteSpace(provider.Config.Model)
+                ? isDefault ? currentDefaultModel : ""
+                : provider.Config.Model;
+            sb.AppendLine(
+                $"| {EscapeMarkdownCell(provider.Provider)} | {(isDefault ? "✅ yes" : "") } | {EscapeMarkdownCell(model)} | `{EscapeBackticks(provider.Secret.Key)}` | {provider.Secret.LatestVersion} | {EscapeMarkdownCell(FormatTimestamp(provider.Secret.CreatedAt))} |");
+        }
+
+        return sb.ToString().TrimEnd();
     }
 
     private static string RenderSecretTable(
@@ -942,7 +1639,7 @@ public sealed class ConfigureProvidersService
         return sb.ToString().TrimEnd();
     }
 
-    private static string RenderStatus(IReadOnlyList<KeyVaultSecretSummary> secrets)
+    private string RenderStatus(IReadOnlyList<KeyVaultSecretSummary> secrets)
     {
         var llms = secrets
             .Where(s => s.Key.StartsWith("gnougo_llm_", StringComparison.OrdinalIgnoreCase))
@@ -958,6 +1655,9 @@ public sealed class ConfigureProvidersService
         sb.AppendLine("# 📊 Current Configuration Status");
         sb.AppendLine();
         sb.AppendLine("## 🤖 LLM Providers");
+        sb.AppendLine();
+        sb.AppendLine($"Default provider: `{EscapeBackticks(_optionsStore.Current.DefaultProvider)}`");
+        sb.AppendLine($"Default model: `{EscapeBackticks(_optionsStore.Current.DefaultModel)}`");
         sb.AppendLine();
 
         if (llms.Count == 0)
@@ -997,6 +1697,34 @@ public sealed class ConfigureProvidersService
         return sb.ToString().TrimEnd();
     }
 
+    private ConfiguredLlmProvider? ResolveDefaultSelectionProvider(
+        IReadOnlyList<ConfiguredLlmProvider> providers,
+        string? requestedProvider)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedProvider))
+        {
+            return providers.FirstOrDefault(p =>
+                string.Equals(p.Provider, requestedProvider, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var defaultProvider = _optionsStore.Current.DefaultProvider;
+        return providers.FirstOrDefault(p =>
+                   string.Equals(p.Provider, defaultProvider, StringComparison.OrdinalIgnoreCase))
+               ?? providers.OrderBy(p => p.Provider, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+    }
+
+    private static string RenderDefaultProviderSummary(string provider, string model)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("## ⭐ Review default LLM provider");
+        sb.AppendLine();
+        sb.AppendLine("| Field | Value |");
+        sb.AppendLine("|-------|-------|");
+        sb.AppendLine($"| Provider | {EscapeMarkdownCell(provider)} |");
+        sb.AppendLine($"| Model | {EscapeMarkdownCell(model)} |");
+        return sb.ToString().TrimEnd();
+    }
+
     private static string FormatTimestamp(string value)
         => DateTimeOffset.TryParse(value, out var dto)
             ? dto.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
@@ -1008,11 +1736,10 @@ public sealed class ConfigureProvidersService
     private static string EscapeBackticks(string value)
         => value.Replace("`", "\\`", StringComparison.Ordinal);
 
-    private sealed record KeyVaultSecretSummary(string Key, string CreatedAt, int LatestVersion);
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private bool TryApplyLLMConfig(JsonNode outputs)
+    private bool TryApplyLlmConfig(JsonNode outputs)
     {
         try
         {

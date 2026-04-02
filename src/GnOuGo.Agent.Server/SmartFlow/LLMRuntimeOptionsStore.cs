@@ -86,21 +86,101 @@ public sealed class LLMRuntimeOptionsStore
             if (!string.IsNullOrWhiteSpace(oidcScopes)) existing.Scopes = oidcScopes;
             if (!string.IsNullOrWhiteSpace(oidcClientSecret)) existing.ClientSecret = oidcClientSecret;
 
-            // Update the default model if this is the default provider
-            if (string.Equals(opts.DefaultProvider, providerKey, StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(model))
+            // Use the existing key casing if found, otherwise use the provided key
+            var finalKey = existingKey ?? providerKey;
+            opts.Models[finalKey] = existing;
+
+            var hasConfiguredDefault = opts.Models.Keys.Any(key =>
+                string.Equals(key, opts.DefaultProvider, StringComparison.OrdinalIgnoreCase));
+
+            if (!hasConfiguredDefault)
+            {
+                opts.DefaultProvider = finalKey;
+                if (!string.IsNullOrWhiteSpace(model))
+                    opts.DefaultModel = model;
+            }
+            else if (string.Equals(opts.DefaultProvider, finalKey, StringComparison.OrdinalIgnoreCase)
+                     && !string.IsNullOrWhiteSpace(model))
             {
                 opts.DefaultModel = model;
             }
 
-            // Use the existing key casing if found, otherwise use the provided key
-            var finalKey = existingKey ?? providerKey;
-            opts.Models[finalKey] = existing;
             _current = opts;
         }
 
         Persist();
         _logger.LogInformation("LLM provider '{Provider}' updated at runtime.", providerKey);
+    }
+
+    /// <summary>
+    /// Sets the default provider/model used by runtime workflow execution.
+    /// </summary>
+    public bool SetDefaultProvider(string providerKey, string? model)
+    {
+        string? resolvedProvider;
+
+        lock (_lock)
+        {
+            var opts = DeepClone(_current);
+            resolvedProvider = opts.Models.Keys.FirstOrDefault(key =>
+                string.Equals(key, providerKey, StringComparison.OrdinalIgnoreCase));
+
+            if (resolvedProvider is null)
+                return false;
+
+            opts.DefaultProvider = resolvedProvider;
+            if (!string.IsNullOrWhiteSpace(model))
+                opts.DefaultModel = model;
+
+            _current = opts;
+        }
+
+        Persist();
+        _logger.LogInformation(
+            "LLM default provider set to '{Provider}' with model '{Model}'.",
+            resolvedProvider,
+            string.IsNullOrWhiteSpace(model) ? "<unchanged>" : model);
+        return true;
+    }
+
+    /// <summary>
+    /// Removes a named provider from the live runtime options and persists the change.
+    /// </summary>
+    public bool RemoveProvider(string providerKey)
+    {
+        var removed = false;
+
+        lock (_lock)
+        {
+            var opts = DeepClone(_current);
+            var existingKey = opts.Models.Keys.FirstOrDefault(key =>
+                string.Equals(key, providerKey, StringComparison.OrdinalIgnoreCase));
+
+            if (existingKey is null)
+                return false;
+
+            opts.Models.Remove(existingKey);
+            removed = true;
+
+            if (string.Equals(opts.DefaultProvider, existingKey, StringComparison.OrdinalIgnoreCase))
+            {
+                var nextProvider = opts.Models.Keys
+                    .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
+
+                opts.DefaultProvider = nextProvider ?? string.Empty;
+                opts.DefaultModel = string.Empty;
+            }
+
+            _current = opts;
+        }
+
+        if (!removed)
+            return false;
+
+        Persist();
+        _logger.LogInformation("LLM provider '{Provider}' removed from runtime options.", providerKey);
+        return true;
     }
 
     // ── persistence ────────────────────────────────────────────────

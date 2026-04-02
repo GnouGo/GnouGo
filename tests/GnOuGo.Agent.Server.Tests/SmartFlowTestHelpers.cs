@@ -9,15 +9,57 @@ using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.Tests;
 
+internal sealed class FakeKeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
+{
+    private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, KeyVaultSecretSummary> _summaries = new(StringComparer.OrdinalIgnoreCase);
+    private LLMOptions? _effectiveOptions;
+
+    public FakeKeyVaultRuntimeConfigStore WithEffectiveOptions(LLMOptions options)
+    {
+        _effectiveOptions = options;
+        return this;
+    }
+
+    public FakeKeyVaultRuntimeConfigStore AddSecret(string key, string value, int latestVersion = 1, string? createdAt = null)
+    {
+        _values[key] = value;
+        _summaries[key] = new KeyVaultSecretSummary(key, createdAt ?? DateTimeOffset.UtcNow.ToString("O"), latestVersion);
+        return this;
+    }
+
+    public Task<IReadOnlyList<KeyVaultSecretSummary>> ListSecretsAsync(CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<KeyVaultSecretSummary>>(_summaries.Values.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase).ToList());
+
+    public Task<string?> GetSecretValueAsync(string key, CancellationToken ct)
+        => Task.FromResult(_values.TryGetValue(key, out var value) ? value : null);
+
+    public Task SaveSecretValueAsync(string key, string value, CancellationToken ct)
+    {
+        AddSecret(key, value, _summaries.TryGetValue(key, out var summary) ? summary.LatestVersion + 1 : 1);
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> DeleteSecretAsync(string key, CancellationToken ct)
+    {
+        var removed = _values.Remove(key);
+        _summaries.Remove(key);
+        return Task.FromResult(removed);
+    }
+
+    public Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, bool includeKeyVaultMcp, CancellationToken ct)
+        => Task.FromResult(_effectiveOptions ?? baseOptions);
+}
+
 internal sealed class RecordingLlmClient : ILLMClient
 {
     public int CallCount { get; private set; }
-    public List<LLMRequest> Requests { get; } = new();
+    public LLMRequest? LastRequest { get; private set; }
 
     public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
         CallCount++;
-        Requests.Add(request);
+        LastRequest = request;
         return Task.FromResult(new LLMResponse { Text = "stub-response" });
     }
 }
@@ -116,32 +158,61 @@ internal static class SmartFlowTestFactory
 {
     public static ConfigureProvidersService CreateProvidersService(
         RecordingLlmClient llmClient,
-        IMcpClientFactory mcpFactory,
         ILLMModelCatalog? modelCatalog = null,
         LLMOptions? options = null,
-        AgentHumanInputProvider? humanInput = null)
+        AgentHumanInputProvider? humanInput = null,
+        IKeyVaultRuntimeConfigStore? keyVaultStore = null)
         => new(
             llmClient,
-            mcpFactory,
-            new MemoryCache(new MemoryCacheOptions()),
             humanInput ?? new AgentHumanInputProvider(),
             modelCatalog ?? new FakeModelCatalog(),
+            keyVaultStore ?? new FakeKeyVaultRuntimeConfigStore(),
             CreateRuntimeOptionsStore(options),
-            new AgentOTelTelemetry(),
             NullLogger<ConfigureProvidersService>.Instance);
 
     public static ConfigureAgentsService CreateAgentsService(
         RecordingLlmClient llmClient,
         IMcpClientFactory mcpFactory,
-        LLMOptions? options = null)
-        => new(
+        LLMOptions? options = null,
+        IKeyVaultRuntimeConfigStore? keyVaultStore = null)
+    {
+        var runtimeStore = CreateRuntimeOptionsStore(options);
+        var effectiveKeyVaultStore = keyVaultStore ?? new FakeKeyVaultRuntimeConfigStore();
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(runtimeStore, effectiveKeyVaultStore);
+
+        return new ConfigureAgentsService(
             llmClient,
             mcpFactory,
             new MemoryCache(new MemoryCacheOptions()),
             new AgentHumanInputProvider(),
-            CreateRuntimeOptionsStore(options),
+            effectiveKeyVaultStore,
+            runtimeFactory,
+            runtimeStore,
             new AgentOTelTelemetry(),
             NullLogger<ConfigureAgentsService>.Instance);
+    }
+
+    public static SmartFlowService CreateSmartFlowService(
+        RecordingLlmClient llmClient,
+        IMcpClientFactory mcpFactory,
+        ConfigureProvidersService configureProviders,
+        ConfigureAgentsService configureAgents,
+        LLMOptions? options = null,
+        IKeyVaultRuntimeConfigStore? keyVaultStore = null)
+    {
+        var runtimeStore = CreateRuntimeOptionsStore(options);
+        var effectiveKeyVaultStore = keyVaultStore ?? new FakeKeyVaultRuntimeConfigStore();
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(runtimeStore, effectiveKeyVaultStore);
+
+        return new SmartFlowService(
+            llmClient,
+            new MemoryCache(new MemoryCacheOptions()),
+            runtimeFactory,
+            configureProviders,
+            configureAgents,
+            new AgentOTelTelemetry(),
+            NullLogger<SmartFlowService>.Instance);
+    }
 
     public static LLMRuntimeOptionsStore CreateRuntimeOptionsStore(LLMOptions? options = null)
     {
@@ -149,11 +220,7 @@ internal static class SmartFlowTestFactory
             Options.Create(new LLMOptions()),
             NullLogger<LLMRuntimeOptionsStore>.Instance);
 
-        var field = typeof(LLMRuntimeOptionsStore)
-            .GetField("_current", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Could not access LLMRuntimeOptionsStore._current.");
-
-        field.SetValue(store, options ?? new LLMOptions
+        SetRuntimeOptions(store, options ?? new LLMOptions
         {
             DefaultProvider = "OpenAi",
             DefaultModel = "gpt-4o-mini",
@@ -161,6 +228,15 @@ internal static class SmartFlowTestFactory
         });
 
         return store;
+    }
+
+    public static void SetRuntimeOptions(LLMRuntimeOptionsStore store, LLMOptions options)
+    {
+        var field = typeof(LLMRuntimeOptionsStore)
+            .GetField("_current", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not access LLMRuntimeOptionsStore._current.");
+
+        field.SetValue(store, options);
     }
 
     public static async Task<List<SmartFlowEvent>> CollectAsync(IAsyncEnumerable<SmartFlowEvent> source, CancellationToken ct = default)

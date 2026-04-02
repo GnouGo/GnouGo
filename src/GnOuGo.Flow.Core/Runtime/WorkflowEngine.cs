@@ -26,6 +26,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public IHumanInputProvider? HumanInputProvider { get; set; }
     public IWorkflowCheckpointer? Checkpointer { get; set; }
     public IWorkflowTelemetry Telemetry { get; set; } = NullWorkflowTelemetry.Instance;
+    public LlmRuntimeDefaults LlmDefaults { get; set; } = new();
     public FetchPolicy? FetchPolicy { get; set; }
     public ExecutionLimits Limits { get; set; } = new();
     public CompiledDocument? CompiledDocument { get; private set; }
@@ -624,6 +625,20 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         if (ctx.Data["steps"] is JsonObject so && so.ContainsKey($"__{ctx.Step.Id}_input__"))
             return so[$"__{ctx.Step.Id}_input__"];
         return ctx.Step.Source.Input;
+    }
+
+    /// <summary>
+    /// Resolves the effective LLM provider/model for a step by applying runtime defaults
+    /// when the workflow input omits one or both values.
+    /// </summary>
+    public (string? Provider, string? Model) ResolveLlmTarget(string? provider, string? model)
+    {
+        var resolvedProvider = string.IsNullOrWhiteSpace(provider) ? LlmDefaults.Provider : provider;
+        var resolvedModel = string.IsNullOrWhiteSpace(model) ? LlmDefaults.Model : model;
+
+        return (
+            string.IsNullOrWhiteSpace(resolvedProvider) ? null : resolvedProvider,
+            string.IsNullOrWhiteSpace(resolvedModel) ? null : resolvedModel);
     }
 
     public ExpressionEvaluator Evaluator => _evaluator;

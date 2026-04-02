@@ -445,6 +445,45 @@ workflows:
             Times.Once);
     }
 
+    [Fact]
+    public async Task Execute_LlmCall_UsesRuntimeDefaults_WhenProviderAndModelAreOmitted()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse { Text = "defaulted" });
+
+        var wf = CompileMain(@"
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: ask
+        type: llm.call
+        input:
+          prompt: ""Hello defaults""
+    outputs:
+      answer: ""${data.steps.ask.text}""
+");
+        var engine = CreateEngine(mockLlm.Object);
+        engine.LlmDefaults = new LlmRuntimeDefaults
+        {
+            Provider = "openai",
+            Model = "gpt-4o-mini"
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal("defaulted", result.Outputs!["answer"]!.GetValue<string>());
+        mockLlm.Verify(l => l.CallAsync(
+            It.Is<LLMRequest>(r =>
+                r.Provider == "openai"
+                && r.Model == "gpt-4o-mini"
+                && r.Prompt == "Hello defaults"),
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     // === Workflow Call Tests ===
 
     [Fact]

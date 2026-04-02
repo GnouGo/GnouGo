@@ -5,6 +5,7 @@ namespace GnOuGo.AI.Core;
 
 /// <summary>
 /// LLM provider for OpenAI-compatible APIs (OpenAI, Azure OpenAI, any /v1/chat/completions endpoint).
+/// Uses the same resolved bearer token for inference and model discovery.
 /// </summary>
 public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 {
@@ -24,6 +25,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     {
         var url = OpenAiEndpoints.ChatCompletions(provider.Url);
         var tools = MapTools(request.Tools);
+        var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
 
         byte[] payload = ChatRequestBuilder.OpenAiFull(
             model, request.Prompt, request.Temperature, tools,
@@ -31,9 +33,8 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 
         using var req = HttpRequestHelper.CreateJsonPost(url, payload);
 
-        var apiKey = ResolveApiKey(provider);
-        if (!string.IsNullOrWhiteSpace(apiKey))
-            HttpRequestHelper.SetBearerAuth(req, apiKey);
+        if (!string.IsNullOrWhiteSpace(bearerToken))
+            HttpRequestHelper.SetBearerAuth(req, bearerToken);
 
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
 
@@ -77,10 +78,10 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     {
         var url = OpenAiEndpoints.Models(provider.Url);
         using var req = HttpRequestHelper.CreateGet(url);
+        var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
 
-        var apiKey = ResolveApiKey(provider);
-        if (!string.IsNullOrWhiteSpace(apiKey))
-            HttpRequestHelper.SetBearerAuth(req, apiKey);
+        if (!string.IsNullOrWhiteSpace(bearerToken))
+            HttpRequestHelper.SetBearerAuth(req, bearerToken);
 
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         if (!resp.IsSuccessStatusCode)
@@ -107,7 +108,13 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             }
         }
 
-        return results;
+        return await OpenAiCompatibleModelAvailabilityProbe.FilterUsableModelsAsync(
+            _http,
+            OpenAiEndpoints.ChatCompletions(provider.Url),
+            results,
+            bearerToken,
+            normalizeModel: null,
+            ct);
     }
 
     internal static string? ResolveApiKey(ModelProviderOptions provider)

@@ -25,8 +25,8 @@ public sealed record SmartFlowEvent(string Type, string? Text);
 public sealed class SmartFlowService
 {
     private readonly ILLMClient _llm;
-    private readonly IMcpClientFactory _mcpFactory;
     private readonly IMemoryCache _mcpCache;
+    private readonly SecureWorkflowRuntimeFactory _runtimeFactory;
     private readonly ConfigureProvidersService _configureProviders;
     private readonly ConfigureAgentsService _configureAgents;
     private readonly AgentOTelTelemetry _otel;
@@ -38,16 +38,16 @@ public sealed class SmartFlowService
 
     public SmartFlowService(
         ILLMClient llm,
-        IMcpClientFactory mcpFactory,
         IMemoryCache mcpCache,
+        SecureWorkflowRuntimeFactory runtimeFactory,
         ConfigureProvidersService configureProviders,
         ConfigureAgentsService configureAgents,
         AgentOTelTelemetry otel,
         ILogger<SmartFlowService> logger)
     {
         _llm = llm;
-        _mcpFactory = mcpFactory;
         _mcpCache = mcpCache;
+        _runtimeFactory = runtimeFactory;
         _configureProviders = configureProviders;
         _configureAgents = configureAgents;
         _otel = otel;
@@ -131,10 +131,16 @@ public sealed class SmartFlowService
             new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt)),
             _otel);
 
+        await using var runtime = await _runtimeFactory.CreateAsync(includeKeyVaultMcp: false, ct);
         var engine = new WorkflowEngine
         {
-            LLMClient = _llm,
-            McpClientFactory = _mcpFactory,
+            LLMClient = runtime.LlmClient,
+            LlmDefaults = new LlmRuntimeDefaults
+            {
+                Provider = runtime.Options.DefaultProvider,
+                Model = runtime.Options.DefaultModel
+            },
+            McpClientFactory = runtime.McpClientFactory,
             McpCache = _mcpCache,
             Telemetry = telemetry,
             Logger = _logger,

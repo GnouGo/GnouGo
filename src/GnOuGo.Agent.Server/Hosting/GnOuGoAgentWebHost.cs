@@ -3,9 +3,11 @@ using System.IO;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -17,6 +19,9 @@ using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Shared;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.KeyVault.Core;
+using GnOuGo.KeyVault.Core.Data;
+using GnOuGo.KeyVault.Core.Services;
 
 namespace GnOuGo.Agent.Server.Hosting;
 
@@ -200,10 +205,23 @@ public static class GnOuGoAgentWebHost
         {
             o.SerializerOptions.TypeInfoResolverChain.Insert(0, ChatJsonContext.Default);
         });
+        builder.Services.Configure<ModelCatalogCacheSettings>(
+            builder.Configuration.GetSection(ModelCatalogCacheSettings.SectionName));
+        builder.Services.Configure<KeyVaultSettings>(
+            builder.Configuration.GetSection(KeyVaultSettings.SectionName));
+
+        var keyVaultDbRelativePath = builder.Configuration.GetValue<string>($"{KeyVaultSettings.SectionName}:DatabasePath");
+        var keyVaultDbPath = KeyVaultDatabasePathResolver.Resolve(keyVaultDbRelativePath, AppContext.BaseDirectory);
+        Directory.CreateDirectory(Path.GetDirectoryName(keyVaultDbPath)!);
 
         // --- services ---
         // LLMRuntimeOptionsStore: holds the live LLMOptions (updated by /llm wizard, persisted to user-settings.json)
+        builder.Services.AddMemoryCache();
         builder.Services.AddSingleton<LLMRuntimeOptionsStore>();
+        builder.Services.AddDbContext<KeyVaultDbContext>(options => options.UseSqlite($"Data Source={keyVaultDbPath}"));
+        builder.Services.AddScoped<KeyVaultService>();
+        builder.Services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
+        builder.Services.AddSingleton<SecureWorkflowRuntimeFactory>();
 
         // AgentOTelTelemetry: emits OpenTelemetry traces/metrics for every workflow step
         builder.Services.AddSingleton<AgentOTelTelemetry>();
@@ -219,8 +237,12 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<ILLMModelCatalog>(sp =>
         {
             var store = sp.GetRequiredService<LLMRuntimeOptionsStore>();
+            var cache = sp.GetRequiredService<IMemoryCache>();
+            var settings = sp.GetRequiredService<IOptions<ModelCatalogCacheSettings>>().Value;
+            var logger = sp.GetRequiredService<ILogger<CachedLlmModelCatalog>>();
             var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
-            return new DynamicRoutingLLMModelCatalogAdapter(http, store);
+            var innerCatalog = new DynamicRoutingLLMModelCatalogAdapter(http, store);
+            return new CachedLlmModelCatalog(innerCatalog, store, cache, settings, logger);
         });
         builder.Services.AddSingleton<IMcpClientFactory>(_ =>
         {
@@ -228,7 +250,6 @@ public static class GnOuGoAgentWebHost
                 return new ConfiguredMcpClientFactory(llmOptions.McpServers);
             return new InMemoryMcpClientFactory();
         });
-        builder.Services.AddMemoryCache();
         builder.Services.AddSingleton<AgentHumanInputProvider>();
         builder.Services.AddSingleton<ConfigureProvidersService>();
         builder.Services.AddSingleton<ConfigureAgentsService>();
@@ -240,6 +261,15 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<WordChunker>();
 
         var app = builder.Build();
+
+        using (var scope = app.Services.CreateScope())
+        {
+            var keyVaultDb = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
+            keyVaultDb.Database.EnsureCreated();
+
+            var keyVaultService = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+            keyVaultService.EnsureDefaultKeyPairAsync().GetAwaiter().GetResult();
+        }
 
         if (isDesktopHosted)
         {

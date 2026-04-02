@@ -1,13 +1,14 @@
 ﻿namespace GnOuGo.AI.Core;
 
 /// <summary>
-/// Provider-agnostic service used to retrieve the list of available models
-/// from a configured LLM backend.
+/// Provider-agnostic service used to retrieve the list of models that are both
+/// discoverable and usable with the currently configured LLM backend credentials.
 /// </summary>
 public interface ILLMModelCatalog
 {
     /// <summary>
-    /// Lists models for a configured provider key (for example: <c>openai</c>, <c>ollama</c>, <c>copilot</c>).
+    /// Lists models for a configured provider key (for example: <c>openai</c>, <c>ollama</c>, <c>copilot</c>),
+    /// filtered to the models that can actually be used for chat requests.
     /// </summary>
     Task<IReadOnlyList<LLMModelDescriptor>> ListModelsAsync(string provider, CancellationToken ct = default);
 }
@@ -23,7 +24,8 @@ public interface ILLMModelCatalogProvider
     string ProviderType { get; }
 
     /// <summary>
-    /// Lists models available from the provider using the resolved provider configuration.
+    /// Lists models available from the provider using the resolved provider configuration,
+    /// already filtered to the set the caller can actually use.
     /// </summary>
     Task<IReadOnlyList<LLMModelDescriptor>> ListModelsAsync(ModelProviderOptions provider, CancellationToken ct);
 }

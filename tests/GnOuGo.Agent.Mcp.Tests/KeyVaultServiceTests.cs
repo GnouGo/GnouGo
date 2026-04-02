@@ -1,10 +1,9 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using GnOuGo.KeyVault.Core.Data;
-using GnOuGo.KeyVault.Core.Models;
 using GnOuGo.KeyVault.Core.Services;
 using Xunit;
 
-namespace GnOuGo.KeyVault.Tests;
+namespace GnOuGo.Agent.Mcp.Tests;
 
 public sealed class KeyVaultServiceTests : IAsyncDisposable
 {
@@ -28,8 +27,6 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
         await _db.Database.EnsureDeletedAsync();
         await _db.DisposeAsync();
     }
-
-    // ── Tenant tests ─────────────────────────────────────────────────
 
     [Fact]
     public async Task CreateTenant_ReturnsDto()
@@ -57,8 +54,6 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
         var tenants = await _svc.ListTenantsAsync();
         Assert.DoesNotContain(tenants, x => x.Name == "__default__");
     }
-
-    // ── Secret round-trip ────────────────────────────────────────────
 
     [Fact]
     public async Task SetAndGetSecret_DefaultTenant_RoundTrip()
@@ -94,11 +89,9 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
         var versions = await _svc.GetSecretVersionsAsync("VERSIONED", null);
 
         Assert.Equal(2, versions.Count);
-        Assert.Equal(2, versions[0].Version); // descending order
+        Assert.Equal(2, versions[0].Version);
         Assert.Equal(1, versions[1].Version);
     }
-
-    // ── Multi-tenant isolation ───────────────────────────────────────
 
     [Fact]
     public async Task Secrets_IsolatedPerTenant()
@@ -129,8 +122,6 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
         Assert.Null(result);
     }
 
-    // ── Delete ───────────────────────────────────────────────────────
-
     [Fact]
     public async Task DeleteSecret_SoftDeletes()
     {
@@ -148,8 +139,6 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
         var result = await _svc.DeleteSecretAsync("NOPE", null, "dev");
         Assert.False(result);
     }
-
-    // ── List secrets ─────────────────────────────────────────────────
 
     [Fact]
     public async Task ListSecrets_ReturnsKeys()
@@ -175,8 +164,6 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
         Assert.Single(list);
         Assert.Equal("LIVE", list[0].Key);
     }
-
-    // ── Audit log ────────────────────────────────────────────────────
 
     [Fact]
     public async Task SetSecret_CreatesAuditEntry()
@@ -207,8 +194,6 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
         Assert.Contains(log, e => e.Operation == "CreateTenant" && e.Author == "admin");
     }
 
-    // ── Long values (hybrid encryption) ──────────────────────────────
-
     [Fact]
     public async Task SetAndGetSecret_LargeValue_Works()
     {
@@ -221,4 +206,5 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
         Assert.Equal(longValue, result!.Value);
     }
 }
+
 

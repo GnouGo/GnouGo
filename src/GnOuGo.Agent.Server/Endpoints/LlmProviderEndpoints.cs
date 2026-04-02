@@ -10,7 +10,6 @@ public static class LlmProviderEndpoints
     {
         var current = store.Current;
         var providers = current.Models
-            .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
             .Select(kv => new LlmConfiguredProviderDto(
                 Key: kv.Key,
                 ProviderType: kv.Value.ResolvedType,
@@ -19,6 +18,8 @@ public static class LlmProviderEndpoints
                     ? current.DefaultModel
                     : null,
                 IsDefault: string.Equals(current.DefaultProvider, kv.Key, StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(provider => provider.IsDefault)
+            .ThenBy(provider => provider.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         return Results.Ok(providers);

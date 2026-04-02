@@ -22,6 +22,8 @@ public sealed class ConfigureAgentsService
     private readonly IMcpClientFactory _mcpFactory;
     private readonly IMemoryCache _mcpCache;
     private readonly AgentHumanInputProvider _humanInput;
+    private readonly IKeyVaultRuntimeConfigStore _keyVaultStore;
+    private readonly SecureWorkflowRuntimeFactory _runtimeFactory;
     private readonly LLMRuntimeOptionsStore _optionsStore;
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<ConfigureAgentsService> _logger;
@@ -32,6 +34,8 @@ public sealed class ConfigureAgentsService
         IMcpClientFactory mcpFactory,
         IMemoryCache mcpCache,
         AgentHumanInputProvider humanInput,
+        IKeyVaultRuntimeConfigStore keyVaultStore,
+        SecureWorkflowRuntimeFactory runtimeFactory,
         LLMRuntimeOptionsStore optionsStore,
         AgentOTelTelemetry otel,
         ILogger<ConfigureAgentsService> logger)
@@ -40,6 +44,8 @@ public sealed class ConfigureAgentsService
         _mcpFactory = mcpFactory;
         _mcpCache = mcpCache;
         _humanInput = humanInput;
+        _keyVaultStore = keyVaultStore;
+        _runtimeFactory = runtimeFactory;
         _optionsStore = optionsStore;
         _otel = otel;
         _logger = logger;
@@ -97,7 +103,7 @@ public sealed class ConfigureAgentsService
             {
                 yield return new SmartFlowEvent(
                     "answer",
-                    "❌ No LLM provider is configured yet. Use `/llm add` first, then retry `/agent add`.");
+                    "❌ Configure a default LLM provider first. Use `/llm add` to create one, then `/llm default` before retrying `/agent add`." );
                 yield break;
             }
 
@@ -106,7 +112,7 @@ public sealed class ConfigureAgentsService
 
             yield return new SmartFlowEvent(
                 "thinking:info",
-                $"🤖 Using configured LLM provider '{selection.Provider}' with model '{selection.Model}' for agent creation.");
+                $"🤖 Using default LLM provider '{selection.Provider}' with model '{selection.Model}' for agent creation.");
         }
 
         var resolvedInputs = WorkflowInputDefaults.Apply(workflow.Source, inputs);
@@ -122,10 +128,16 @@ public sealed class ConfigureAgentsService
             new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt)),
             _otel);
 
+        await using var runtime = await _runtimeFactory.CreateAsync(includeKeyVaultMcp: false, ct);
         var engine = new WorkflowEngine
         {
-            LLMClient = _llm,
-            McpClientFactory = _mcpFactory,
+            LLMClient = runtime.LlmClient,
+            LlmDefaults = new LlmRuntimeDefaults
+            {
+                Provider = runtime.Options.DefaultProvider,
+                Model = runtime.Options.DefaultModel
+            },
+            McpClientFactory = runtime.McpClientFactory,
             McpCache = _mcpCache,
             Telemetry = telemetry,
             HumanInputProvider = _humanInput,
@@ -234,32 +246,19 @@ public sealed class ConfigureAgentsService
         if (providers.Count == 0)
             return null;
 
-        var preferred = ResolvePreferredProvider(providers);
-        return preferred;
+        var defaultProvider = _optionsStore.Current.DefaultProvider;
+        if (string.IsNullOrWhiteSpace(defaultProvider))
+            return null;
+
+        return providers.FirstOrDefault(p =>
+            string.Equals(p.Provider, defaultProvider, StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task<List<AgentLlmSelection>> LoadConfiguredLlmProvidersAsync(CancellationToken ct)
     {
-        await using var session = await _mcpFactory.GetClientAsync("GnOuGo.KeyVault.Mcp", ct);
-        var listCall = await session.CallToolAsync("keyvault_list_secrets", null, ct);
-
-        if (listCall.IsError)
-            throw new InvalidOperationException("KeyVault list_secrets MCP call failed.");
-
-        var payload = listCall.Content as JsonObject
-            ?? throw new InvalidOperationException("Unexpected KeyVault MCP response shape.");
-
-        var success = payload["Success"]?.GetValue<bool>() ?? payload["success"]?.GetValue<bool>() ?? false;
-        if (!success)
-        {
-            var error = payload["Error"]?.GetValue<string>() ?? payload["error"]?.GetValue<string>() ?? "Unknown error";
-            throw new InvalidOperationException($"KeyVault list_secrets failed: {error}");
-        }
-
-        var secrets = payload["Data"] as JsonArray ?? payload["data"] as JsonArray ?? [];
+        var secrets = await _keyVaultStore.ListSecretsAsync(ct);
         var providerKeys = secrets
-            .OfType<JsonObject>()
-            .Select(item => item["Key"]?.GetValue<string>() ?? item["key"]?.GetValue<string>())
+            .Select(item => item.Key)
             .Where(key => !string.IsNullOrWhiteSpace(key) && key.StartsWith("gnougo_llm_", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
@@ -271,24 +270,7 @@ public sealed class ConfigureAgentsService
             if (string.IsNullOrWhiteSpace(secretKey))
                 continue;
 
-            var getCall = await session.CallToolAsync(
-                "keyvault_get_secret",
-                new JsonObject
-                {
-                    ["key"] = secretKey,
-                    ["author"] = "GnOuGo.Agent"
-                },
-                ct);
-
-            if (getCall.IsError || getCall.Content is not JsonObject getPayload)
-                continue;
-
-            var getSuccess = getPayload["Success"]?.GetValue<bool>() ?? getPayload["success"]?.GetValue<bool>() ?? false;
-            if (!getSuccess)
-                continue;
-
-            var secretValue = getPayload["Data"]?["Value"]?.GetValue<string>()
-                ?? getPayload["data"]?["value"]?.GetValue<string>();
+            var secretValue = await _keyVaultStore.GetSecretValueAsync(secretKey, ct);
 
             if (string.IsNullOrWhiteSpace(secretValue))
                 continue;
@@ -317,21 +299,6 @@ public sealed class ConfigureAgentsService
         return selections;
     }
 
-    private AgentLlmSelection ResolvePreferredProvider(IReadOnlyList<AgentLlmSelection> providers)
-    {
-        var defaultProvider = _optionsStore.Current.DefaultProvider;
-        if (!string.IsNullOrWhiteSpace(defaultProvider))
-        {
-            var preferred = providers.FirstOrDefault(p =>
-                string.Equals(p.Provider, defaultProvider, StringComparison.OrdinalIgnoreCase));
-            if (preferred is not null)
-                return preferred;
-        }
-
-        return providers
-            .OrderBy(p => p.Provider, StringComparer.OrdinalIgnoreCase)
-            .First();
-    }
 
     private static string FormatTimestamp(string value)
         => DateTimeOffset.TryParse(value, out var dto)

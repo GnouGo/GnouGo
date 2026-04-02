@@ -1,0 +1,102 @@
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using GnOuGo.AI.Core;
+using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.KeyVault.Core.Data;
+using GnOuGo.KeyVault.Core.Services;
+
+namespace GnOuGo.Agent.Server.Tests;
+
+public sealed class KeyVaultRuntimeConfigStoreTests
+{
+    [Fact]
+    public async Task BuildEffectiveOptionsAsync_LoadsTrustedSecretsAndHidesKeyVaultMcpForWorkflowRuntime()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-keyvault-tests-{Guid.NewGuid():N}.db");
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDbContext<KeyVaultDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
+        services.AddScoped<KeyVaultService>();
+        services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
+
+        await using var provider = services.BuildServiceProvider();
+
+        try
+        {
+            await using (var scope = provider.CreateAsyncScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
+                await db.Database.EnsureCreatedAsync();
+
+                var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+                await keyVault.EnsureDefaultKeyPairAsync();
+                await keyVault.SetSecretAsync(
+                    "gnougo_llm_openai",
+                    "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4.1\",\"auth_type\":\"api_key\",\"api_key\":\"top-secret\"}",
+                    null,
+                    "test",
+                    CancellationToken.None);
+                await keyVault.SetSecretAsync(
+                    "gnougo_mcp_github",
+                    "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"GitHub automation\",\"url\":\"https://api.githubcopilot.com/mcp/\",\"auth_type\":\"api_key\",\"api_key\":\"gh-secret\"}",
+                    null,
+                    "test",
+                    CancellationToken.None);
+                await keyVault.SetSecretAsync(
+                    "gnougo_mcp_gnougo.keyvault.mcp",
+                    "{\"name\":\"GnOuGo.KeyVault.Mcp\",\"transport\":\"stdio\",\"description\":\"secret manager\",\"command\":\"dotnet\",\"args\":\"run,--project,src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj\"}",
+                    null,
+                    "test",
+                    CancellationToken.None);
+            }
+
+            var store = provider.GetRequiredService<IKeyVaultRuntimeConfigStore>();
+            var baseOptions = new LLMOptions
+            {
+                DefaultProvider = "openai",
+                DefaultModel = "gpt-4o-mini",
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase),
+                McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["GnOuGo.KeyVault.Mcp"] = new()
+                    {
+                        Type = "stdio",
+                        Command = "dotnet",
+                        Args = ["run", "--project", "src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj"]
+                    }
+                }
+            };
+
+            var effective = await store.BuildEffectiveOptionsAsync(baseOptions, includeKeyVaultMcp: false, CancellationToken.None);
+
+            Assert.True(effective.Models.TryGetValue("openai", out var providerConfig));
+            Assert.NotNull(providerConfig);
+            Assert.Equal("https://api.openai.com/v1", providerConfig.Url);
+            Assert.Equal("top-secret", providerConfig.ApiKey);
+            Assert.Equal("gpt-4.1", effective.DefaultModel);
+
+            Assert.True(effective.McpServers.TryGetValue("Github", out var github));
+            Assert.NotNull(github);
+            Assert.Equal("http", github.Type);
+            Assert.Equal("https://api.githubcopilot.com/mcp/", github.Url);
+            Assert.Equal("gh-secret", github.ApiKey);
+            Assert.DoesNotContain(effective.McpServers.Keys, key => string.Equals(key, "GnOuGo.KeyVault.Mcp", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(dbPath))
+                    File.Delete(dbPath);
+            }
+            catch (IOException)
+            {
+                // Best-effort cleanup for a temporary SQLite file.
+            }
+        }
+    }
+}
+
+
+

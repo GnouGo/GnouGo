@@ -1,7 +1,7 @@
-using GnOuGo.KeyVault.Core.Services;
+﻿using GnOuGo.KeyVault.Core.Services;
 using Xunit;
 
-namespace GnOuGo.KeyVault.Tests;
+namespace GnOuGo.Agent.Mcp.Tests;
 
 public sealed class CryptoServiceTests
 {
@@ -24,14 +24,13 @@ public sealed class CryptoServiceTests
         var decrypted = CryptoService.Decrypt(encrypted, priv);
 
         Assert.Equal(original, decrypted);
-        Assert.NotEqual(original, encrypted); // must be different
+        Assert.NotEqual(original, encrypted);
     }
 
     [Fact]
     public void EncryptDecrypt_RoundTrip_LongText()
     {
         var (pub, priv) = CryptoService.GenerateKeyPair();
-        // A value well beyond the RSA-2048 limit of ~245 bytes
         var original = new string('A', 5000) + "🔐" + new string('Z', 5000);
 
         var encrypted = CryptoService.Encrypt(original, pub);
@@ -72,7 +71,6 @@ public sealed class CryptoServiceTests
         var enc1 = CryptoService.Encrypt(original, pub);
         var enc2 = CryptoService.Encrypt(original, pub);
 
-        // AES-GCM uses random nonce + random AES key → different each time
         Assert.NotEqual(enc1, enc2);
     }
 
@@ -84,7 +82,6 @@ public sealed class CryptoServiceTests
 
         var encrypted = CryptoService.Encrypt("secret", pub1);
 
-        // Trying to decrypt with a different private key should throw
         Assert.ThrowsAny<Exception>(() => CryptoService.Decrypt(encrypted, priv2));
     }
 
@@ -97,4 +94,5 @@ public sealed class CryptoServiceTests
         Assert.NotEqual(pub1, pub2);
     }
 }
+
 

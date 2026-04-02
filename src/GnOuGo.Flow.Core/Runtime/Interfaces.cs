@@ -40,6 +40,16 @@ public sealed class LLMRequest
 }
 
 /// <summary>
+/// Runtime defaults applied to LLM-capable steps when a workflow omits
+/// <c>provider</c> and/or <c>model</c> in step input.
+/// </summary>
+public sealed class LlmRuntimeDefaults
+{
+    public string? Provider { get; set; }
+    public string? Model { get; set; }
+}
+
+/// <summary>
 /// A tool definition that can be provided to an LLM for function calling.
 /// </summary>
 public sealed class LLMTool

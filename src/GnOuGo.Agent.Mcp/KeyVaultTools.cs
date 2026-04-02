@@ -1,17 +1,15 @@
 ﻿using System.ComponentModel;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
-using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Core.Services;
 
-namespace GnOuGo.KeyVault.Mcp;
+namespace GnOuGo.Agent.Mcp;
 
 /// <summary>
 /// MCP tool definitions for the KeyVault secret manager.
-/// Exposes tenant management, secret storage (write-only), secret metadata,
-/// version history, and audit log. Secret values are never returned.
+/// Exposes tenant management, secret storage, secret metadata,
+/// version history, and audit log.
 /// </summary>
 [McpServerToolType]
 public sealed class KeyVaultTools
@@ -24,8 +22,6 @@ public sealed class KeyVaultTools
         _scopeFactory = scopeFactory;
         _logger = logger;
     }
-
-    // ── Tenant tools ─────────────────────────────────────────────────
 
     [McpServerTool(Name = "keyvault_list_tenants"), Description("Lists all active tenants in the key vault.")]
     public async Task<KeyVaultResult> ListTenantsAsync(CancellationToken ct = default)
@@ -86,14 +82,16 @@ public sealed class KeyVaultTools
         }
     }
 
-    // ── Secret tools ─────────────────────────────────────────────────
-
-    [McpServerTool(Name = "keyvault_set_secret"), Description("Creates or updates a secret. The value is encrypted at rest using RSA+AES-GCM. Returns metadata only (the value is never echoed back).")]
+    [McpServerTool(Name = "keyvault_set_secret"), Description("Creates or updates a secret. The value is encrypted at rest using RSA+AES-GCM. Returns metadata only.")]
     public async Task<KeyVaultResult> SetSecretAsync(
-        [Description("Secret key (unique name within the tenant scope).")] string key,
-        [Description("Plain-text value to encrypt and store.")] string value,
-        [Description("Author or user setting the secret.")] string author,
-        [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
+        [Description("Secret key (unique name within the tenant scope).")]
+        string key,
+        [Description("Plain-text value to encrypt and store.")]
+        string value,
+        [Description("Author or user setting the secret.")]
+        string author,
+        [Description("Optional tenant identifier. Omit for the default tenant.")]
+        Guid? tenantId = null,
         CancellationToken ct = default)
     {
         try
@@ -101,7 +99,6 @@ public sealed class KeyVaultTools
             await using var scope = _scopeFactory.CreateAsyncScope();
             var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
             var result = await svc.SetSecretAsync(key, value, tenantId, author, ct);
-            // Return metadata only — never echo the secret value
             return KeyVaultResult.Ok(new
             {
                 result.Id,
@@ -118,9 +115,10 @@ public sealed class KeyVaultTools
         }
     }
 
-    [McpServerTool(Name = "keyvault_list_secrets"), Description("Lists secret metadata (key, tenant, latest version) without revealing values.")]
+    [McpServerTool(Name = "keyvault_list_secrets"), Description("Lists secret metadata without revealing values.")]
     public async Task<KeyVaultResult> ListSecretsAsync(
-        [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
+        [Description("Optional tenant identifier. Omit for the default tenant.")]
+        Guid? tenantId = null,
         CancellationToken ct = default)
     {
         try
@@ -137,11 +135,14 @@ public sealed class KeyVaultTools
         }
     }
 
-    [McpServerTool(Name = "keyvault_get_secret"), Description("Reads a secret value by its key. Returns the decrypted value along with metadata. An audit entry is created for every read.")]
+    [McpServerTool(Name = "keyvault_get_secret"), Description("Reads a secret value by its key and returns the decrypted value with metadata.")]
     public async Task<KeyVaultResult> GetSecretAsync(
-        [Description("Secret key to read.")] string key,
-        [Description("Author or user reading the secret.")] string author,
-        [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
+        [Description("Secret key to read.")]
+        string key,
+        [Description("Author or user reading the secret.")]
+        string author,
+        [Description("Optional tenant identifier. Omit for the default tenant.")]
+        Guid? tenantId = null,
         CancellationToken ct = default)
     {
         try
@@ -171,9 +172,12 @@ public sealed class KeyVaultTools
 
     [McpServerTool(Name = "keyvault_delete_secret"), Description("Soft-deletes a secret by its key.")]
     public async Task<KeyVaultResult> DeleteSecretAsync(
-        [Description("Secret key to delete.")] string key,
-        [Description("Author or user performing the deletion.")] string author,
-        [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
+        [Description("Secret key to delete.")]
+        string key,
+        [Description("Author or user performing the deletion.")]
+        string author,
+        [Description("Optional tenant identifier. Omit for the default tenant.")]
+        Guid? tenantId = null,
         CancellationToken ct = default)
     {
         try
@@ -192,10 +196,12 @@ public sealed class KeyVaultTools
         }
     }
 
-    [McpServerTool(Name = "keyvault_get_secret_versions"), Description("Returns the version history of a secret (version number, creation date, author) without revealing values.")]
+    [McpServerTool(Name = "keyvault_get_secret_versions"), Description("Returns the version history of a secret without revealing values.")]
     public async Task<KeyVaultResult> GetSecretVersionsAsync(
-        [Description("Secret key.")] string key,
-        [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
+        [Description("Secret key.")]
+        string key,
+        [Description("Optional tenant identifier. Omit for the default tenant.")]
+        Guid? tenantId = null,
         CancellationToken ct = default)
     {
         try
@@ -212,14 +218,16 @@ public sealed class KeyVaultTools
         }
     }
 
-    // ── Audit tool ───────────────────────────────────────────────────
-
-    [McpServerTool(Name = "keyvault_get_audit_log"), Description("Returns the audit trail for the key vault. Supports filtering by tenant and secret key, with pagination.")]
+    [McpServerTool(Name = "keyvault_get_audit_log"), Description("Returns the audit trail for the key vault.")]
     public async Task<KeyVaultResult> GetAuditLogAsync(
-        [Description("Optional tenant identifier to filter by.")] Guid? tenantId = null,
-        [Description("Optional secret key to filter by.")] string? key = null,
-        [Description("Number of entries to skip (default 0).")] int skip = 0,
-        [Description("Number of entries to return (default 50).")] int take = 50,
+        [Description("Optional tenant identifier to filter by.")]
+        Guid? tenantId = null,
+        [Description("Optional secret key to filter by.")]
+        string? key = null,
+        [Description("Number of entries to skip (default 0).")]
+        int skip = 0,
+        [Description("Number of entries to return (default 50).")]
+        int take = 50,
         CancellationToken ct = default)
     {
         try
@@ -237,7 +245,6 @@ public sealed class KeyVaultTools
     }
 }
 
-/// <summary>Simple wrapper returned by every MCP tool.</summary>
 public sealed record KeyVaultResult(bool Success, object? Data, string? Error = null)
 {
     public static KeyVaultResult Ok(object? data) => new(true, data);
