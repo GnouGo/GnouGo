@@ -69,16 +69,15 @@ var host = builder.Build();
 using (var scope = host.Services.CreateScope())
 {
     var agentDb = scope.ServiceProvider.GetRequiredService<AgentDbContext>();
-    await agentDb.Database.EnsureCreatedAsync();
-
     var diffDb = scope.ServiceProvider.GetRequiredService<DiffDbContext>();
-    await diffDb.Database.EnsureCreatedAsync();
-
     var keyVaultDb = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-    await keyVaultDb.Database.EnsureCreatedAsync();
-
     var keyVaultService = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-    await keyVaultService.EnsureDefaultKeyPairAsync();
+
+    await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(
+        agentDb,
+        diffDb,
+        keyVaultDb,
+        keyVaultService);
 }
 
 var startupLogger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Agent.Mcp.Startup");

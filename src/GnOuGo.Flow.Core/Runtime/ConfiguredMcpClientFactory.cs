@@ -246,18 +246,25 @@ internal sealed class McpSessionAdapter : IMcpSession
         var dict = new Dictionary<string, object?>(obj.Count);
         foreach (var kv in obj)
         {
-            dict[kv.Key] = kv.Value switch
-            {
-                null => null,
-                JsonValue jv when jv.TryGetValue<string>(out var s) => s,
-                JsonValue jv when jv.TryGetValue<bool>(out var b) => b,
-                JsonValue jv when jv.TryGetValue<int>(out var i) => i,
-                JsonValue jv when jv.TryGetValue<long>(out var l) => l,
-                JsonValue jv when jv.TryGetValue<double>(out var d) => d,
-                _ => kv.Value.ToJsonString()
-            };
+            dict[kv.Key] = ConvertArgumentValue(kv.Value);
         }
         return dict;
+    }
+
+    private static object? ConvertArgumentValue(JsonNode? value)
+    {
+        return value switch
+        {
+            null => null,
+            JsonValue jv when jv.TryGetValue<string>(out var s) => s,
+            JsonValue jv when jv.TryGetValue<bool>(out var b) => b,
+            JsonValue jv when jv.TryGetValue<int>(out var i) => i,
+            JsonValue jv when jv.TryGetValue<long>(out var l) => l,
+            JsonValue jv when jv.TryGetValue<double>(out var d) => d,
+            JsonArray arr => arr.Select(ConvertArgumentValue).ToList(),
+            JsonObject obj => obj.ToDictionary(kvp => kvp.Key, kvp => ConvertArgumentValue(kvp.Value)),
+            _ => value.ToJsonString()
+        };
     }
 
     private static JsonNode? BuildContent(CallToolResult result)

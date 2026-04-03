@@ -136,9 +136,9 @@ workflows:
 
     outputs:
       agent_selected:
-        expr: "${data.steps.agent_select?.outputs?.agent_name ?? null}"
+        expr: "${data.steps.agent_select?.outputs?.agent_name ?? data.steps.agent_add?.outputs?.agent_name ?? null}"
         type: string
-        description: "Name of the selected agent (only for /agent select)"
+        description: "Name of the selected agent after /agent add or /agent select"
 
   # ══════════════════════════════════════════════════════════════════
   # /agent list
@@ -436,13 +436,29 @@ workflows:
             originalPrompt: "${data.steps.input_prompt.description}"
             scheduleDescription: "${data.steps.final_schedule_data.schedule_description}"
 
-      - id: emit_saved
-        type: emit
-        input:
-          message: "✅ Agent '${data.steps.input_name.agent_name}' created successfully!\n\nUse `/agent select ${data.steps.input_name.agent_name}` to activate it in this chat."
-          level: response
+      - id: save_agent_branch
+        type: switch
+        cases:
+          - when: "${data.steps.save_agent.response.success != true}"
+            steps:
+              - id: emit_save_failed
+                type: emit
+                input:
+                  message: "❌ Failed to create agent '${data.steps.input_name.agent_name}'. ${data.steps.save_agent.response.error_message ?? 'Unknown error.'}"
+                  level: response
 
-    outputs: {}
+        default:
+          - id: emit_saved
+            type: emit
+            input:
+              message: "✅ Agent '${data.steps.input_name.agent_name}' created successfully and is now the active agent for this chat."
+              level: response
+
+    outputs:
+      agent_name:
+        expr: "${data.steps.save_agent.response.success == true ? data.steps.input_name.agent_name : ''}"
+        type: string
+        description: "Name of the newly created agent when creation succeeds"
 
   # ══════════════════════════════════════════════════════════════════
   # /agent edit <name>
@@ -471,7 +487,7 @@ workflows:
       - id: check_found
         type: switch
         cases:
-          - when: "${data.steps.find_agent.success != true}"
+          - when: "${data.steps.find_agent.response.success != true}"
             steps:
               - id: not_found
                 type: emit
@@ -483,7 +499,7 @@ workflows:
           - id: show_current
             type: emit
             input:
-              message: "📝 Current workflow for '${data.steps.find_agent.agent.name}':\n\n```yaml\n${data.steps.find_agent.agent.workflow}\n```"
+              message: "📝 Current workflow for '${data.steps.find_agent.response.agent.name}':\n\n```yaml\n${data.steps.find_agent.response.agent.workflow}\n```"
               level: thinking
 
           - id: edit_choice
@@ -510,7 +526,7 @@ workflows:
                           type: string
                           required: true
                           description: "Workflow YAML"
-                          default: "${data.steps.find_agent.agent.workflow}"
+                          default: "${data.steps.find_agent.response.agent.workflow}"
                       timeout_ms: 600000
                   - id: new_workflow
                     type: set
@@ -521,12 +537,12 @@ workflows:
               - id: keep_workflow
                 type: set
                 input:
-                  workflow: "${data.steps.find_agent.agent.workflow}"
+                  workflow: "${data.steps.find_agent.response.agent.workflow}"
 
           - id: final_edit_workflow
             type: set
             input:
-              workflow: "${data.steps.new_workflow?.workflow ?? data.steps.keep_workflow?.workflow ?? data.steps.find_agent.agent.workflow}"
+              workflow: "${data.steps.new_workflow?.workflow ?? data.steps.keep_workflow?.workflow ?? data.steps.find_agent.response.agent.workflow}"
 
           - id: confirm_edit
             type: human.input
@@ -548,16 +564,28 @@ workflows:
                       server: GnOuGo.Agent.Mcp
                       method: agent_update
                       request:
-                        id: "${data.steps.find_agent.agent.id}"
-                        name: "${data.steps.find_agent.agent.name}"
+                        id: "${data.steps.find_agent.response.agent.id}"
+                        name: "${data.steps.find_agent.response.agent.name}"
                         workflow: "${data.steps.final_edit_workflow.workflow}"
-                        schedules: "${data.steps.find_agent.agent.schedules}"
+                        schedules: "${data.steps.find_agent.response.agent.schedules}"
 
-                  - id: emit_updated
-                    type: emit
-                    input:
-                      message: "✅ Agent '${data.inputs.name}' updated."
-                      level: response
+                  - id: save_update_result
+                    type: switch
+                    cases:
+                      - when: "${data.steps.save_update.response.success != true}"
+                        steps:
+                          - id: emit_update_failed
+                            type: emit
+                            input:
+                              message: "❌ Failed to update agent '${data.inputs.name}'. ${data.steps.save_update.response.error_message ?? 'Unknown error.'}"
+                              level: response
+
+                    default:
+                      - id: emit_updated
+                        type: emit
+                        input:
+                          message: "✅ Agent '${data.inputs.name}' updated."
+                          level: response
 
             default:
               - id: emit_edit_discarded
@@ -589,7 +617,7 @@ workflows:
       - id: check_found
         type: switch
         cases:
-          - when: "${data.steps.find_agent.success != true}"
+          - when: "${data.steps.find_agent.response.success != true}"
             steps:
               - id: not_found
                 type: emit
@@ -618,13 +646,25 @@ workflows:
                       server: GnOuGo.Agent.Mcp
                       method: agent_delete
                       request:
-                        id: "${data.steps.find_agent.agent.id}"
+                        id: "${data.steps.find_agent.response.agent.id}"
 
-                  - id: emit_removed
-                    type: emit
-                    input:
-                      message: "✅ Agent '${data.inputs.name}' removed."
-                      level: response
+                  - id: delete_agent_result
+                    type: switch
+                    cases:
+                      - when: "${data.steps.delete_agent.response.success != true}"
+                        steps:
+                          - id: emit_remove_failed
+                            type: emit
+                            input:
+                              message: "❌ Failed to remove agent '${data.inputs.name}'. ${data.steps.delete_agent.response.error_message ?? 'Unknown error.'}"
+                              level: response
+
+                    default:
+                      - id: emit_removed
+                        type: emit
+                        input:
+                          message: "✅ Agent '${data.inputs.name}' removed."
+                          level: response
 
             default:
               - id: emit_cancelled
@@ -656,7 +696,7 @@ workflows:
       - id: check_found
         type: switch
         cases:
-          - when: "${data.steps.find_agent.success != true}"
+          - when: "${data.steps.find_agent.response.success != true}"
             steps:
               - id: not_found
                 type: emit
@@ -672,12 +712,12 @@ workflows:
           - id: emit_selected
             type: emit
             input:
-              message: "✅ Agent '${data.steps.find_agent.agent.name}' is now the active agent for this chat."
+              message: "✅ Agent '${data.steps.find_agent.response.agent.name}' is now the active agent for this chat."
               level: response
           - id: selected_result
             type: set
             input:
-              agent_name: "${data.steps.find_agent.agent.name}"
+              agent_name: "${data.steps.find_agent.response.agent.name}"
 
     outputs:
       agent_name:

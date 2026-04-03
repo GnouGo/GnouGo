@@ -1,9 +1,121 @@
-﻿using GnOuGo.AI.Core;
+﻿using System.Reflection;
+using System.Text.Json.Nodes;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
+using GnOuGo.AI.Core;
+using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class ConfigureAgentsServiceTests
 {
+    [Fact]
+    public async Task ExecuteAsync_AgentAdd_WhenCreationSucceeds_SelectsCreatedAgentByDefault()
+    {
+        var llm = new RecordingLlmClient();
+        var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_add", new JsonObject
+            {
+                ["success"] = true,
+                ["agent"] = SmartFlowTestFactory.AgentSummary(
+                    "12345678-1234-1234-1234-1234567890ab",
+                    "slimfaas",
+                    0,
+                    "2026-04-01T12:35:00+00:00")
+            });
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId.EndsWith("input_name", StringComparison.Ordinal)
+                    ? new JsonObject { ["agent_name"] = "slimfaas" }
+                    : request.StepId.EndsWith("input_prompt", StringComparison.Ordinal)
+                        ? new JsonObject { ["description"] = "Explain SlimFaas" }
+                        : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
+                            ? new JsonObject { ["response"] = "approve" }
+                            : request.StepId.EndsWith("want_schedules", StringComparison.Ordinal)
+                                ? new JsonObject { ["response"] = "no" }
+                                : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId.EndsWith("want_schedules", StringComparison.Ordinal))
+                    break;
+            }
+        }, token);
+
+        var (result, events) = await ExecuteConfigureAgentsWorkflowByNameAsync(llm, "agent_add", new JsonObject(), humanInput, agentMcp);
+        try
+        {
+            await responder;
+        }
+        catch (OperationCanceledException)
+        {
+            // The workflow already completed; the background request reader can still be awaiting more items.
+        }
+
+        Assert.True(result.Success);
+        Assert.Equal("slimfaas", result.Outputs?["agent_name"]?.GetValue<string>());
+        Assert.Contains(events, evt =>
+            evt.Type == "thinking:response" &&
+            evt.Text == "✅ Agent 'slimfaas' created successfully and is now the active agent for this chat.");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AgentSelect_WhenAgentExists_EmitsAnswerAndAgentSelected()
+    {
+        var llm = new RecordingLlmClient();
+        var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_get_by_name", new JsonObject
+            {
+                ["success"] = true,
+                ["agent"] = SmartFlowTestFactory.AgentSummary(
+                    "12345678-1234-1234-1234-1234567890ab",
+                    "slimfaas",
+                    0,
+                    "2026-04-01T12:35:00+00:00")
+            });
+
+        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/agent select slimfaas", null, agentMcp);
+
+        Assert.True(result.Success);
+        Assert.Equal("slimfaas", result.Outputs?["agent_selected"]?.GetValue<string>());
+        Assert.Contains(events, evt =>
+            evt.Type == "thinking:response" &&
+            evt.Text == "✅ Agent 'slimfaas' is now the active agent for this chat.");
+        Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AgentSelect_WhenAgentDoesNotExist_ReturnsNotFoundMessage()
+    {
+        var llm = new RecordingLlmClient();
+        var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_get_by_name", new JsonObject
+            {
+                ["success"] = false,
+                ["error_code"] = "NOT_FOUND",
+                ["error_message"] = "Agent 'slimfaas' not found."
+            });
+
+        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/agent select slimfaas", null, agentMcp);
+
+        Assert.True(result.Success);
+        Assert.Equal(string.Empty, result.Outputs?["agent_selected"]?.GetValue<string>());
+        Assert.Contains(events, evt =>
+            evt.Type == "thinking:response" &&
+            evt.Text == "❌ Agent 'slimfaas' not found. Use `/agent list` to see available agents.");
+        Assert.Equal(0, llm.CallCount);
+    }
+
     [Fact]
     public async Task ExecuteAsync_AgentList_ReturnsDeterministicMarkdownWithoutCallingLlm()
     {
@@ -65,7 +177,7 @@ public sealed class ConfigureAgentsServiceTests
     {
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
-            .AddSecret("gnougo_llm_ollama", "{\"provider\":\"ollama\",\"url\":\"http://localhost:11434\",\"model\":\"llama3\",\"auth_type\":\"none\"}");
+            .AddSecret("LLM--Models--ollama", "{\"provider\":\"ollama\",\"url\":\"http://localhost:11434\",\"model\":\"llama3\",\"authType\":\"none\"}");
 
         var service = SmartFlowTestFactory.CreateAgentsService(
             llm,
@@ -87,6 +199,60 @@ public sealed class ConfigureAgentsServiceTests
         Assert.Equal("answer", answer.Type);
         Assert.Equal("❌ Configure a default LLM provider first. Use `/llm add` to create one, then `/llm default` before retrying `/agent add`.", answer.Text);
         Assert.Equal(0, llm.CallCount);
+    }
+
+    private static async Task<(RunResult Result, List<SmartFlowEvent> Events)> ExecuteConfigureAgentsWorkflowAsync(
+        RecordingLlmClient llm,
+        string command,
+        AgentHumanInputProvider? humanInput = null,
+        params IMcpSession[] sessions)
+        => await ExecuteConfigureAgentsWorkflowByNameAsync(
+            llm,
+            workflowName: "main",
+            new JsonObject { ["command"] = command },
+            humanInput,
+            sessions);
+
+    private static async Task<(RunResult Result, List<SmartFlowEvent> Events)> ExecuteConfigureAgentsWorkflowByNameAsync(
+        RecordingLlmClient llm,
+        string workflowName,
+        JsonObject inputs,
+        AgentHumanInputProvider? humanInput = null,
+        params IMcpSession[] sessions)
+    {
+        var service = SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory(sessions));
+        var workflowYaml = (string)(typeof(ConfigureAgentsService)
+            .GetField("_workflowYaml", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?.GetValue(service)
+            ?? throw new InvalidOperationException("Could not read configure-agents workflow YAML."));
+
+        var doc = WorkflowParser.Parse(workflowYaml);
+        var compiler = new WorkflowCompiler();
+        var compiled = compiler.Compile(doc);
+        var workflow = compiled.Workflows[workflowName];
+
+        var events = new List<SmartFlowEvent>();
+        var effectiveHumanInput = humanInput ?? new AgentHumanInputProvider();
+        var engine = new WorkflowEngine
+        {
+            LLMClient = llm,
+            LlmDefaults = new LlmRuntimeDefaults
+            {
+                Provider = "openai",
+                Model = "gpt-4o-mini"
+            },
+            McpClientFactory = new FakeMcpClientFactory(sessions),
+            McpCache = new MemoryCache(new MemoryCacheOptions()),
+            HumanInputProvider = effectiveHumanInput,
+            Telemetry = new AgentStreamingTelemetry(events.Add),
+            Logger = NullLogger<ConfigureAgentsService>.Instance,
+            Limits = new ExecutionLimits { LogStepContent = true }
+        };
+
+        var resolvedInputs = WorkflowInputDefaults.Apply(workflow.Source, inputs);
+
+        var result = await engine.ExecuteAsync(workflow, resolvedInputs, CancellationToken.None);
+        return (result, events);
     }
 }
 

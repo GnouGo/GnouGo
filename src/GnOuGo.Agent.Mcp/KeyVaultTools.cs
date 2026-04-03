@@ -8,8 +8,8 @@ namespace GnOuGo.Agent.Mcp;
 
 /// <summary>
 /// MCP tool definitions for the KeyVault secret manager.
-/// Exposes tenant management, secret storage, secret metadata,
-/// version history, and audit log.
+/// Exposes tenant listing/creation, secret storage, secret metadata,
+/// and direct access to the latest decrypted secret value.
 /// </summary>
 [McpServerToolType]
 public sealed class KeyVaultTools
@@ -56,28 +56,6 @@ public sealed class KeyVaultTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "keyvault_create_tenant failed for name={Name}", name);
-            throw;
-        }
-    }
-
-    [McpServerTool(Name = "keyvault_delete_tenant"), Description("Soft-deletes a tenant by its identifier.")]
-    public async Task<KeyVaultResult> DeleteTenantAsync(
-        [Description("Unique identifier of the tenant to delete.")] Guid tenantId,
-        [Description("Author or user performing the deletion.")] string author,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-            var deleted = await svc.DeleteTenantAsync(tenantId, author, ct);
-            return deleted
-                ? KeyVaultResult.Ok("Tenant deleted.")
-                : KeyVaultResult.NotFound("Tenant not found.");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "keyvault_delete_tenant failed for tenantId={TenantId}", tenantId);
             throw;
         }
     }
@@ -135,7 +113,7 @@ public sealed class KeyVaultTools
         }
     }
 
-    [McpServerTool(Name = "keyvault_get_secret"), Description("Reads a secret value by its key and returns the decrypted value with metadata.")]
+    [McpServerTool(Name = "keyvault_get_secret"), Description("Reads the latest version of a secret by its key and returns the decrypted value with metadata.")]
     public async Task<KeyVaultResult> GetSecretAsync(
         [Description("Secret key to read.")]
         string key,
@@ -192,54 +170,6 @@ public sealed class KeyVaultTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "keyvault_delete_secret failed for key={Key}", key);
-            throw;
-        }
-    }
-
-    [McpServerTool(Name = "keyvault_get_secret_versions"), Description("Returns the version history of a secret without revealing values.")]
-    public async Task<KeyVaultResult> GetSecretVersionsAsync(
-        [Description("Secret key.")]
-        string key,
-        [Description("Optional tenant identifier. Omit for the default tenant.")]
-        Guid? tenantId = null,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-            var versions = await svc.GetSecretVersionsAsync(key, tenantId, ct);
-            return KeyVaultResult.Ok(versions);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "keyvault_get_secret_versions failed for key={Key}", key);
-            throw;
-        }
-    }
-
-    [McpServerTool(Name = "keyvault_get_audit_log"), Description("Returns the audit trail for the key vault.")]
-    public async Task<KeyVaultResult> GetAuditLogAsync(
-        [Description("Optional tenant identifier to filter by.")]
-        Guid? tenantId = null,
-        [Description("Optional secret key to filter by.")]
-        string? key = null,
-        [Description("Number of entries to skip (default 0).")]
-        int skip = 0,
-        [Description("Number of entries to return (default 50).")]
-        int take = 50,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-            var entries = await svc.GetAuditLogAsync(tenantId, key, skip, take, ct);
-            return KeyVaultResult.Ok(entries);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "keyvault_get_audit_log failed");
             throw;
         }
     }

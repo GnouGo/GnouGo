@@ -1,5 +1,4 @@
-﻿using System.Text.Json.Nodes;
-using GnOuGo.AI.Core;
+﻿using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.SmartFlow;
@@ -17,9 +16,9 @@ public sealed class SecureWorkflowRuntimeFactory
         _keyVaultStore = keyVaultStore;
     }
 
-    internal async Task<SecureWorkflowRuntimeSession> CreateAsync(bool includeKeyVaultMcp, CancellationToken ct)
+    internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
     {
-        var options = await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, includeKeyVaultMcp, ct);
+        var options = await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, ct);
         var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
         IMcpClientFactory mcpFactory = options.McpServers.Count > 0
             ? new ConfiguredMcpClientFactory(options.McpServers)

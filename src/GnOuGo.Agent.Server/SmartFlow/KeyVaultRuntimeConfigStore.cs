@@ -12,7 +12,7 @@ public interface IKeyVaultRuntimeConfigStore
     Task<string?> GetSecretValueAsync(string key, CancellationToken ct);
     Task SaveSecretValueAsync(string key, string value, CancellationToken ct);
     Task<bool> DeleteSecretAsync(string key, CancellationToken ct);
-    Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, bool includeKeyVaultMcp, CancellationToken ct);
+    Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, CancellationToken ct);
 }
 
 public sealed record KeyVaultSecretSummary(string Key, string CreatedAt, int LatestVersion);
@@ -72,36 +72,38 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
     public Task<bool> DeleteSecretAsync(string key, CancellationToken ct)
         => DeleteSecretValueAsync(key, ct);
 
-    public async Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, bool includeKeyVaultMcp, CancellationToken ct)
+    public async Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, CancellationToken ct)
     {
         var effective = CloneOptions(baseOptions);
         var summaries = await ListSecretsAsync(ct);
 
-        foreach (var secret in summaries.Where(s => s.Key.StartsWith("gnougo_llm_", StringComparison.OrdinalIgnoreCase)))
+        foreach (var secret in KeyVaultConfigNaming.SelectPreferredSecrets(summaries, KeyVaultConfigSecretKind.LlmProvider))
         {
             var config = await LoadSecretJsonAsync(secret.Key, ct);
             if (config is null)
                 continue;
 
-            var provider = config["provider"]?.GetValue<string>() ?? secret.Key["gnougo_llm_".Length..];
-            var url = config["url"]?.GetValue<string>() ?? string.Empty;
+            var provider = ReadConfigString(config, "provider")
+                ?? KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.LlmProvider, secret.Key)
+                ?? string.Empty;
+            var url = ReadConfigString(config, "url") ?? string.Empty;
             if (string.IsNullOrWhiteSpace(provider) || string.IsNullOrWhiteSpace(url))
                 continue;
 
-            var authType = config["auth_type"]?.GetValue<string>() ?? "none";
-            var model = config["model"]?.GetValue<string>() ?? string.Empty;
+            var authType = ReadConfigString(config, "authType", "auth_type") ?? "none";
+            var model = ReadConfigString(config, "model") ?? string.Empty;
 
             effective.Models[provider] = new ModelProviderOptions
             {
                 Url = url,
                 Type = provider,
                 ApiKey = string.Equals(authType, "api_key", StringComparison.OrdinalIgnoreCase)
-                    ? config["api_key"]?.GetValue<string>()
+                    ? ReadConfigString(config, "apiKey", "api_key")
                     : null,
-                Issuer = config["oidc_issuer"]?.GetValue<string>(),
-                ClientId = config["oidc_client_id"]?.GetValue<string>(),
-                Scopes = config["oidc_scopes"]?.GetValue<string>(),
-                ClientSecret = config["oidc_client_secret"]?.GetValue<string>()
+                Issuer = ReadConfigString(config, "oidcIssuer", "oidc_issuer"),
+                ClientId = ReadConfigString(config, "oidcClientId", "oidc_client_id"),
+                Scopes = ReadConfigString(config, "oidcScopes", "oidc_scopes"),
+                ClientSecret = ReadConfigString(config, "oidcClientSecret", "oidc_client_secret")
             };
 
             if (string.Equals(effective.DefaultProvider, provider, StringComparison.OrdinalIgnoreCase)
@@ -111,44 +113,35 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
             }
         }
 
-        if (!includeKeyVaultMcp)
-        {
-            var keyVaultServerKey = effective.McpServers.Keys
-                .FirstOrDefault(name => string.Equals(name, "GnOuGo.KeyVault.Mcp", StringComparison.OrdinalIgnoreCase));
-            if (keyVaultServerKey is not null)
-                effective.McpServers.Remove(keyVaultServerKey);
-        }
-
-        foreach (var secret in summaries.Where(s => s.Key.StartsWith("gnougo_mcp_", StringComparison.OrdinalIgnoreCase)))
+        foreach (var secret in KeyVaultConfigNaming.SelectPreferredSecrets(summaries, KeyVaultConfigSecretKind.McpServer))
         {
             var config = await LoadSecretJsonAsync(secret.Key, ct);
             if (config is null)
                 continue;
 
-            var name = config["name"]?.GetValue<string>() ?? secret.Key["gnougo_mcp_".Length..];
+            var name = ReadConfigString(config, "name")
+                ?? KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.McpServer, secret.Key)
+                ?? string.Empty;
             if (string.IsNullOrWhiteSpace(name))
                 continue;
 
-            if (!includeKeyVaultMcp && string.Equals(name, "GnOuGo.KeyVault.Mcp", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            var transport = config["transport"]?.GetValue<string>() ?? "http";
-            var authType = config["auth_type"]?.GetValue<string>() ?? "none";
+            var transport = ReadConfigString(config, "transport") ?? "http";
+            var authType = ReadConfigString(config, "authType", "auth_type") ?? "none";
 
             effective.McpServers[name] = new McpServerOptions
             {
                 Type = transport,
-                Description = config["description"]?.GetValue<string>(),
-                Url = config["url"]?.GetValue<string>() ?? string.Empty,
-                Command = config["command"]?.GetValue<string>(),
+                Description = ReadConfigString(config, "description"),
+                Url = ReadConfigString(config, "url") ?? string.Empty,
+                Command = ReadConfigString(config, "command"),
                 Args = ParseArgs(config["args"]),
                 ApiKey = string.Equals(authType, "api_key", StringComparison.OrdinalIgnoreCase)
-                    ? config["api_key"]?.GetValue<string>()
+                    ? ReadConfigString(config, "apiKey", "api_key")
                     : null,
-                Issuer = config["oidc_issuer"]?.GetValue<string>(),
-                ClientId = config["oidc_client_id"]?.GetValue<string>(),
-                Scopes = config["oidc_scopes"]?.GetValue<string>(),
-                ClientSecret = config["oidc_client_secret"]?.GetValue<string>()
+                Issuer = ReadConfigString(config, "oidcIssuer", "oidc_issuer"),
+                ClientId = ReadConfigString(config, "oidcClientId", "oidc_client_id"),
+                Scopes = ReadConfigString(config, "oidcScopes", "oidc_scopes"),
+                ClientSecret = ReadConfigString(config, "oidcClientSecret", "oidc_client_secret")
             };
         }
 
@@ -175,6 +168,13 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
             return null;
         }
     }
+
+    private static string? ReadConfigString(JsonObject config, string propertyName, string? legacyPropertyName = null)
+        => TryGetString(config, propertyName)
+           ?? (legacyPropertyName is null ? null : TryGetString(config, legacyPropertyName));
+
+    private static string? TryGetString(JsonObject config, string propertyName)
+        => config[propertyName]?.GetValue<string>();
 
     private static List<string>? ParseArgs(JsonNode? node)
     {

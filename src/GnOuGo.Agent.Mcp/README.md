@@ -6,7 +6,20 @@ Stdio-based MCP server for agent data, chat history, diff-related tools, and Key
 
 - Agent management tools
 - Chat history tools
-- KeyVault secret-management tools
+- KeyVault secret-management tools with direct latest-secret retrieval
+
+## KeyVault MCP tools
+
+The KeyVault MCP surface is intentionally small:
+
+- list tenants
+- create tenant
+- list secrets
+- set secret
+- get secret (returns the latest decrypted secret value)
+- delete secret
+
+Tenant deletion, audit-log retrieval, and secret-version history remain available in `GnOuGo.KeyVault.Server`, but are not exposed through this MCP surface.
 
 ## Configuration
 

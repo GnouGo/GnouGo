@@ -1,4 +1,5 @@
-﻿using GnOuGo.Agent.Server.SmartFlow;
+﻿using System.Reflection;
+using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Endpoints;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Shared;
@@ -10,6 +11,108 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class ConfigureProvidersServiceTests
 {
+    [Fact]
+    public void ShouldUseInjectedModelCatalog_ReturnsFalse_WhenMatchingRuntimeOpenAiHasNoAuthButWizardDoes()
+    {
+        var llm = new RecordingLlmClient();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = "openai",
+            DefaultModel = "gpt-4o-mini",
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai" }
+            }
+        });
+
+        var service = new ConfigureProvidersService(
+            llm,
+            new AgentHumanInputProvider(),
+            new FakeModelCatalog(),
+            new FakeKeyVaultRuntimeConfigStore(),
+            runtimeStore,
+            NullLogger<ConfigureProvidersService>.Instance);
+
+        var useInjected = ConfigureProvidersServiceTestHelpers.InvokeShouldUseInjectedModelCatalog(
+            service,
+            "openai",
+            new ModelProviderOptions
+            {
+                Url = "https://api.openai.com/v1",
+                Type = "openai",
+                ApiKey = "wizard-secret"
+            });
+
+        Assert.False(useInjected);
+    }
+
+    [Fact]
+    public void ShouldUseInjectedModelCatalog_ReturnsTrue_WhenRuntimeProviderDoesNotExist()
+    {
+        var llm = new RecordingLlmClient();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = string.Empty,
+            DefaultModel = string.Empty,
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+        });
+
+        var service = new ConfigureProvidersService(
+            llm,
+            new AgentHumanInputProvider(),
+            new FakeModelCatalog(),
+            new FakeKeyVaultRuntimeConfigStore(),
+            runtimeStore,
+            NullLogger<ConfigureProvidersService>.Instance);
+
+        var useInjected = ConfigureProvidersServiceTestHelpers.InvokeShouldUseInjectedModelCatalog(
+            service,
+            "openai",
+            new ModelProviderOptions
+            {
+                Url = "https://api.openai.com/v1",
+                Type = "openai",
+                ApiKey = "wizard-secret"
+            });
+
+        Assert.True(useInjected);
+    }
+
+    [Fact]
+    public void ShouldUseInjectedModelCatalog_ReturnsTrue_WhenRuntimeProviderHasMatchingAuth()
+    {
+        var llm = new RecordingLlmClient();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = "openai",
+            DefaultModel = "gpt-4o-mini",
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "runtime-secret" }
+            }
+        });
+
+        var service = new ConfigureProvidersService(
+            llm,
+            new AgentHumanInputProvider(),
+            new FakeModelCatalog(),
+            new FakeKeyVaultRuntimeConfigStore(),
+            runtimeStore,
+            NullLogger<ConfigureProvidersService>.Instance);
+
+        var useInjected = ConfigureProvidersServiceTestHelpers.InvokeShouldUseInjectedModelCatalog(
+            service,
+            "openai",
+            new ModelProviderOptions
+            {
+                Url = "https://api.openai.com/v1",
+                Type = "openai",
+                ApiKey = "wizard-secret"
+            });
+
+        Assert.True(useInjected);
+    }
+
     [Fact]
     public async Task ExecuteAsync_LlmHelp_ReturnsDeterministicMarkdownWithoutCallingLlm()
     {
@@ -45,9 +148,9 @@ public sealed class ConfigureProvidersServiceTests
     {
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
-            .AddSecret("gnougo_llm_copilot", "{}", 3, "2026-04-01T12:13:24.4824726+00:00")
-            .AddSecret("gnougo_llm_openai", "{}", 1, "2026-03-26T17:16:58.7030088+00:00")
-            .AddSecret("gnougo_mcp_github", "{}", 2, "2026-04-01T12:15:00+00:00");
+            .AddSecret("LLM--Models--copilot", "{}", 3, "2026-04-01T12:13:24.4824726+00:00")
+            .AddSecret("LLM--Models--openai", "{}", 1, "2026-03-26T17:16:58.7030088+00:00")
+            .AddSecret("LLM--McpServers--github", "{}", 2, "2026-04-01T12:15:00+00:00");
 
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
@@ -60,10 +163,10 @@ public sealed class ConfigureProvidersServiceTests
         Assert.NotNull(answer.Text);
         Assert.Contains("# 🤖 Configured LLM Providers", answer.Text);
         Assert.Contains("| Provider | Default | Model | Key | Version | Stored |", answer.Text);
-        Assert.Contains("| openai | ✅ yes | gpt-4o-mini | `gnougo_llm_openai` | 1 |", answer.Text);
+        Assert.Contains("| openai | ✅ yes | gpt-4o-mini | `LLM--Models--openai` | 1 |", answer.Text);
         Assert.Contains("| copilot |", answer.Text);
-        Assert.Contains("`gnougo_llm_copilot`", answer.Text);
-        Assert.DoesNotContain("gnougo_mcp_github", answer.Text, StringComparison.Ordinal);
+        Assert.Contains("`LLM--Models--copilot`", answer.Text);
+        Assert.DoesNotContain("LLM--McpServers--github", answer.Text, StringComparison.Ordinal);
         Assert.Equal(0, llm.CallCount);
     }
 
@@ -76,7 +179,7 @@ public sealed class ConfigureProvidersServiceTests
                 new LLMModelDescriptor("llama3", "llama3", "ollama", "ollama"),
                 new LLMModelDescriptor("llama3:8b", "llama3:8b", "ollama", "ollama"));
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
-            .AddSecret("gnougo_llm_ollama", "{\"provider\":\"ollama\",\"url\":\"http://localhost:11434\",\"model\":\"llama3\",\"auth_type\":\"none\"}");
+            .AddSecret("LLM--Models--ollama", "{\"provider\":\"ollama\",\"url\":\"http://localhost:11434\",\"model\":\"llama3\",\"authType\":\"none\"}");
         var humanInput = new AgentHumanInputProvider();
         var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
         {
@@ -124,10 +227,10 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("ollama", runtimeStore.Current.DefaultProvider);
         Assert.Equal("llama3:8b", runtimeStore.Current.DefaultModel);
 
-        var configJson = await keyVaultStore.GetSecretValueAsync("gnougo_llm_ollama", CancellationToken.None);
+        var configJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--ollama", CancellationToken.None);
         var config = JsonNode.Parse(configJson!)?.AsObject();
         Assert.NotNull(config);
-        Assert.Equal("llama3:8b", config!["model"]?.GetValue<string>());
+        Assert.Equal("llama3:8b", config["model"]?.GetValue<string>());
         Assert.Equal(0, llm.CallCount);
     }
 
@@ -136,9 +239,9 @@ public sealed class ConfigureProvidersServiceTests
     {
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
-            .AddSecret("gnougo_mcp_github", "{}", 4, "2026-04-01T12:15:00+00:00")
-            .AddSecret("gnougo_mcp_slack", "{}", 2, "2026-04-01T12:16:00+00:00")
-            .AddSecret("gnougo_llm_openai", "{}", 1, "2026-03-26T17:16:58.7030088+00:00");
+            .AddSecret("LLM--McpServers--github", "{}", 4, "2026-04-01T12:15:00+00:00")
+            .AddSecret("LLM--McpServers--slack", "{}", 2, "2026-04-01T12:16:00+00:00")
+            .AddSecret("LLM--Models--openai", "{}", 1, "2026-03-26T17:16:58.7030088+00:00");
 
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
@@ -150,9 +253,9 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("answer", answer.Type);
         Assert.NotNull(answer.Text);
         Assert.Contains("# 🔌 Configured MCP Servers", answer.Text);
-        Assert.Contains("| github | `gnougo_mcp_github` | 4 |", answer.Text);
-        Assert.Contains("| slack | `gnougo_mcp_slack` | 2 |", answer.Text);
-        Assert.DoesNotContain("gnougo_llm_openai", answer.Text, StringComparison.Ordinal);
+        Assert.Contains("| github | `LLM--McpServers--github` | 4 |", answer.Text);
+        Assert.Contains("| slack | `LLM--McpServers--slack` | 2 |", answer.Text);
+        Assert.DoesNotContain("LLM--Models--openai", answer.Text, StringComparison.Ordinal);
         Assert.Equal(0, llm.CallCount);
     }
 
@@ -161,8 +264,8 @@ public sealed class ConfigureProvidersServiceTests
     {
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
-            .AddSecret("gnougo_llm_openai", "{}", 2, "2026-04-01T12:10:00+00:00")
-            .AddSecret("gnougo_mcp_github", "{}", 5, "2026-04-01T12:11:00+00:00");
+            .AddSecret("LLM--Models--openai", "{}", 2, "2026-04-01T12:10:00+00:00")
+            .AddSecret("LLM--McpServers--github", "{}", 5, "2026-04-01T12:11:00+00:00");
 
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
@@ -176,8 +279,8 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Contains("# 📊 Current Configuration Status", answer.Text);
         Assert.Contains("## 🤖 LLM Providers", answer.Text);
         Assert.Contains("## 🔌 MCP Servers", answer.Text);
-        Assert.Contains("`gnougo_llm_openai`", answer.Text);
-        Assert.Contains("`gnougo_mcp_github`", answer.Text);
+        Assert.Contains("`LLM--Models--openai`", answer.Text);
+        Assert.Contains("`LLM--McpServers--github`", answer.Text);
         Assert.Equal(0, llm.CallCount);
     }
 
@@ -362,12 +465,188 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Contains(events, evt => evt.Type == "human_input_request" && evt.Text?.Contains("llm_model.select.ollama", StringComparison.Ordinal) == true);
         Assert.DoesNotContain(events, evt => evt.Type == "human_input_request" && evt.Text?.Contains("llm_model.manual.ollama", StringComparison.Ordinal) == true);
 
-        var configJson = await keyVaultStore.GetSecretValueAsync("gnougo_llm_ollama", CancellationToken.None);
+        var configJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--ollama", CancellationToken.None);
         Assert.NotNull(configJson);
         var config = JsonNode.Parse(configJson)?.AsObject();
         Assert.NotNull(config);
         Assert.Equal("llama3:8b", config["model"]?.GetValue<string>());
         Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LlmAdd_WhenFirstProviderIsCreated_SetsItAsDefault()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
+        var modelCatalog = new FakeModelCatalog()
+            .Add("openai",
+                new LLMModelDescriptor("gpt-4o-mini", "gpt-4o-mini", "openai", "openai"));
+
+        var humanInput = new AgentHumanInputProvider();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = string.Empty,
+            DefaultModel = string.Empty,
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+        });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "llm_add.provider" => new JsonObject { ["response"] = "openai" },
+                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1" },
+                    "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
+                    "llm.auth.api_key" => new JsonObject { ["api_key"] = "test-secret" },
+                    "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-4o-mini" },
+                    "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId == "llm_add.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = new ConfigureProvidersService(
+            llm,
+            humanInput,
+            modelCatalog,
+            keyVaultStore,
+            runtimeStore,
+            NullLogger<ConfigureProvidersService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
+        await responder;
+
+        Assert.Equal("openai", runtimeStore.Current.DefaultProvider);
+        Assert.Equal("gpt-4o-mini", runtimeStore.Current.DefaultModel);
+        Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "⭐ Provider 'openai' was set as the default LLM with model 'gpt-4o-mini'.");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LlmAdd_WhenOverwritingExistingProviderAndDefaultIsStale_RepairsDefaultSelection()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret("gnougo_llm_openai", "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4o-mini\",\"auth_type\":\"api_key\",\"api_key\":\"old-secret\"}");
+        var modelCatalog = new FakeModelCatalog()
+            .Add("openai",
+                new LLMModelDescriptor("gpt-5-search-api", "gpt-5-search-api", "openai", "openai"));
+
+        var humanInput = new AgentHumanInputProvider();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = "copilot",
+            DefaultModel = "gpt-4o",
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["copilot"] = new() { Url = "https://models.github.ai/inference", Type = "copilot" },
+                ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "runtime-secret" }
+            }
+        });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "llm_add.provider" => new JsonObject { ["response"] = "openai" },
+                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1" },
+                    "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
+                    "llm.auth.api_key" => new JsonObject { ["api_key"] = "new-secret" },
+                    "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-5-search-api" },
+                    "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId == "llm_add.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = new ConfigureProvidersService(
+            llm,
+            humanInput,
+            modelCatalog,
+            keyVaultStore,
+            runtimeStore,
+            NullLogger<ConfigureProvidersService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
+        await responder;
+
+        Assert.Equal("openai", runtimeStore.Current.DefaultProvider);
+        Assert.Equal("gpt-5-search-api", runtimeStore.Current.DefaultModel);
+        Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "⭐ Provider 'openai' was set as the default LLM with model 'gpt-5-search-api'.");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LlmAdd_ValidationOmitsTemperatureForSavedProvider()
+    {   
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
+        var modelCatalog = new FakeModelCatalog()
+            .Add("openai",
+                new LLMModelDescriptor("gpt-5-search-api", "gpt-5-search-api", "openai", "openai"));
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "llm_add.provider" => new JsonObject { ["response"] = "openai" },
+                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1" },
+                    "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
+                    "llm.auth.api_key" => new JsonObject { ["api_key"] = "test-secret" },
+                    "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-5-search-api" },
+                    "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId == "llm_add.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            llm,
+            modelCatalog,
+            new LLMOptions
+            {
+                DefaultProvider = "openai",
+                DefaultModel = "gpt-4o-mini",
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+            },
+            humanInput,
+            keyVaultStore);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
+        await responder;
+
+        Assert.Equal(1, llm.CallCount);
+        Assert.NotNull(llm.LastRequest);
+        Assert.Equal("openai", llm.LastRequest!.Provider);
+        Assert.Equal("gpt-5-search-api", llm.LastRequest.Model);
+        Assert.Null(llm.LastRequest.Temperature);
+        Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'openai' is ready.");
     }
 
     [Fact]
@@ -411,6 +690,7 @@ public sealed class ConfigureProvidersServiceTests
 
         Assert.Contains(events, evt => evt.Type == "answer" && evt.Text == "✅ LLM provider 'openai' removed.");
         Assert.Null(await keyVaultStore.GetSecretValueAsync("gnougo_llm_openai", CancellationToken.None));
+        Assert.Null(await keyVaultStore.GetSecretValueAsync("LLM--Models--openai", CancellationToken.None));
         Assert.Equal(0, llm.CallCount);
     }
 
@@ -456,7 +736,7 @@ public sealed class ConfigureProvidersServiceTests
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp add", token), token);
         await responder;
 
-        var savedJson = await keyVaultStore.GetSecretValueAsync("gnougo_mcp_GithubLocal", CancellationToken.None);
+        var savedJson = await keyVaultStore.GetSecretValueAsync("LLM--McpServers--GithubLocal", CancellationToken.None);
         Assert.NotNull(savedJson);
         var saved = JsonNode.Parse(savedJson)?.AsObject();
         Assert.NotNull(saved);
@@ -506,14 +786,15 @@ public sealed class ConfigureProvidersServiceTests
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp edit Github", token), token);
         await responder;
 
-        var savedJson = await keyVaultStore.GetSecretValueAsync("gnougo_mcp_Github", CancellationToken.None);
+        var savedJson = await keyVaultStore.GetSecretValueAsync("LLM--McpServers--Github", CancellationToken.None);
         Assert.NotNull(savedJson);
         var saved = JsonNode.Parse(savedJson)?.AsObject();
         Assert.NotNull(saved);
         Assert.Equal("Updated description", saved["description"]?.GetValue<string>());
         Assert.Equal("https://api.githubcopilot.com/mcp/", saved["url"]?.GetValue<string>());
-        Assert.Equal("api_key", saved["auth_type"]?.GetValue<string>());
-        Assert.Equal("gh-secret", saved["api_key"]?.GetValue<string>());
+        Assert.Equal("api_key", saved["authType"]?.GetValue<string>());
+        Assert.Equal("gh-secret", saved["apiKey"]?.GetValue<string>());
+        Assert.Null(await keyVaultStore.GetSecretValueAsync("gnougo_mcp_Github", CancellationToken.None));
         Assert.Contains(events, evt => evt.Type == "answer" && evt.Text == "✅ MCP server 'Github' updated.");
         Assert.Equal(0, llm.CallCount);
     }
@@ -550,7 +831,26 @@ public sealed class ConfigureProvidersServiceTests
 
         Assert.Contains(events, evt => evt.Type == "answer" && evt.Text == "✅ MCP server 'Github' removed.");
         Assert.Null(await keyVaultStore.GetSecretValueAsync("gnougo_mcp_Github", CancellationToken.None));
+        Assert.Null(await keyVaultStore.GetSecretValueAsync("LLM--McpServers--Github", CancellationToken.None));
         Assert.Equal(0, llm.CallCount);
+    }
+}
+
+file static class ConfigureProvidersServiceTestHelpers
+{
+    public static bool InvokeShouldUseInjectedModelCatalog(
+        ConfigureProvidersService service,
+        string provider,
+        ModelProviderOptions providerOptions)
+    {
+        var method = typeof(ConfigureProvidersService).GetMethod(
+            "ShouldUseInjectedModelCatalog",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        var value = method.Invoke(service, [provider, providerOptions]);
+        Assert.NotNull(value);
+        return (bool)value;
     }
 }
 

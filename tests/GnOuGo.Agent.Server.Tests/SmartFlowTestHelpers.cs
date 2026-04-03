@@ -47,8 +47,10 @@ internal sealed class FakeKeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigSto
         return Task.FromResult(removed);
     }
 
-    public Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, bool includeKeyVaultMcp, CancellationToken ct)
-        => Task.FromResult(_effectiveOptions ?? baseOptions);
+    public Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, CancellationToken ct)
+    {
+        return Task.FromResult<LLMOptions>(_effectiveOptions ?? baseOptions);
+    }
 }
 
 internal sealed class RecordingLlmClient : ILLMClient

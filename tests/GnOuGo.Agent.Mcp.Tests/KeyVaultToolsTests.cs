@@ -67,6 +67,36 @@ public sealed class KeyVaultToolsTests : IAsyncDisposable
         Assert.False(result.Success);
         Assert.Equal("Secret 'missing' not found.", result.Error);
     }
+
+    [Fact]
+    public async Task GetSecret_ReturnsLatestVersionValue()
+    {
+        var tenant = await _tools.CreateTenantAsync("versioned-test-tenant", "tester");
+        var tenantId = (Guid)tenant.Data!.GetType().GetProperty("Id")!.GetValue(tenant.Data)!;
+
+        await _tools.SetSecretAsync("versioned", "v1", "tester", tenantId);
+        await _tools.SetSecretAsync("versioned", "v2", "tester", tenantId);
+
+        var result = await _tools.GetSecretAsync("versioned", "tester", tenantId);
+
+        Assert.True(result.Success);
+        Assert.NotNull(result.Data);
+
+        var payloadType = result.Data!.GetType();
+        var value = payloadType.GetProperty("Value")!.GetValue(result.Data)?.ToString();
+        var version = (int)payloadType.GetProperty("Version")!.GetValue(result.Data)!;
+
+        Assert.Equal("v2", value);
+        Assert.Equal(2, version);
+    }
+
+    [Fact]
+    public void KeyVaultTools_DoesNotExposeRemovedManagementOrLegacyMethods()
+    {
+        Assert.Null(typeof(KeyVaultTools).GetMethod("DeleteTenantAsync"));
+        Assert.Null(typeof(KeyVaultTools).GetMethod("GetAuditLogAsync"));
+        Assert.Null(typeof(KeyVaultTools).GetMethod("GetSecretVersionsAsync"));
+    }
 }
 
 

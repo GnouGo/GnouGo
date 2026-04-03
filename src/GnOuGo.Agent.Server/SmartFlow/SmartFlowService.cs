@@ -131,7 +131,7 @@ public sealed class SmartFlowService
             new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt)),
             _otel);
 
-        await using var runtime = await _runtimeFactory.CreateAsync(includeKeyVaultMcp: false, ct);
+        await using var runtime = await _runtimeFactory.CreateAsync(ct);
         var engine = new WorkflowEngine
         {
             LLMClient = runtime.LlmClient,

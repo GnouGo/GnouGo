@@ -128,7 +128,7 @@ public sealed class ConfigureAgentsService
             new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt)),
             _otel);
 
-        await using var runtime = await _runtimeFactory.CreateAsync(includeKeyVaultMcp: false, ct);
+        await using var runtime = await _runtimeFactory.CreateAsync(ct);
         var engine = new WorkflowEngine
         {
             LLMClient = runtime.LlmClient,
@@ -257,15 +257,10 @@ public sealed class ConfigureAgentsService
     private async Task<List<AgentLlmSelection>> LoadConfiguredLlmProvidersAsync(CancellationToken ct)
     {
         var secrets = await _keyVaultStore.ListSecretsAsync(ct);
-        var providerKeys = secrets
-            .Select(item => item.Key)
-            .Where(key => !string.IsNullOrWhiteSpace(key) && key.StartsWith("gnougo_llm_", StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var providerSecrets = KeyVaultConfigNaming.SelectPreferredSecrets(secrets, KeyVaultConfigSecretKind.LlmProvider);
 
-        var selections = new List<AgentLlmSelection>(providerKeys.Count);
-        foreach (var secretKey in providerKeys)
+        var selections = new List<AgentLlmSelection>(providerSecrets.Count);
+        foreach (var secretKey in providerSecrets.Select(secret => secret.Key))
         {
             if (string.IsNullOrWhiteSpace(secretKey))
                 continue;
@@ -281,7 +276,11 @@ public sealed class ConfigureAgentsService
 
             var normalizedSecretKey = secretKey;
             var provider = config?["provider"]?.GetValue<string>()
-                ?? normalizedSecretKey["gnougo_llm_".Length..];
+                ?? KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.LlmProvider, normalizedSecretKey)
+                ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(provider))
+                continue;
 
             var model = config?["model"]?.GetValue<string>();
             if (string.IsNullOrWhiteSpace(model))

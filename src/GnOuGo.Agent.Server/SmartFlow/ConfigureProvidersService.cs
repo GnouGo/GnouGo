@@ -151,7 +151,7 @@ public sealed class ConfigureProvidersService
             var secrets = await LoadKeyVaultSecretsAsync(ct);
             return RenderSecretTable(
                 secrets,
-                prefix: "gnougo_mcp_",
+                kind: KeyVaultConfigSecretKind.McpServer,
                 title: "# 🔌 Configured MCP Servers",
                 emptyMessage: "No MCP servers configured yet. Use `/mcp add` to get started.");
         }
@@ -275,7 +275,12 @@ public sealed class ConfigureProvidersService
         var summary = RenderLlmConfigSummary(provider, url, model, auth);
         yield return new SmartFlowEvent("thinking:thinking", summary);
 
-        var alreadyExists = await LoadLlmProviderConfigAsync(provider, ct) is not null;
+        var configuredProvidersBeforeSave = await LoadConfiguredLlmProvidersAsync(ct);
+        var alreadyExists = configuredProvidersBeforeSave.Any(existing =>
+            string.Equals(existing.Provider, provider, StringComparison.OrdinalIgnoreCase));
+        var hasValidConfiguredDefault = configuredProvidersBeforeSave.Any(existing =>
+            string.Equals(existing.Provider, _optionsStore.Current.DefaultProvider, StringComparison.OrdinalIgnoreCase));
+        var shouldPromoteAsDefault = !hasValidConfiguredDefault;
         response = null;
         var confirmPrompt = alreadyExists
             ? "⚠️ A configuration for this provider already exists. Overwrite?"
@@ -292,10 +297,20 @@ public sealed class ConfigureProvidersService
 
         yield return new SmartFlowEvent("thinking:progress", "💾 Saving LLM provider configuration to KeyVault…");
         await SaveLlmProviderConfigAsync(provider, url, model, auth, ct);
-        yield return new SmartFlowEvent("answer", $"✅ LLM provider '{provider}' saved to KeyVault as `gnougo_llm_{provider}`.");
+        yield return new SmartFlowEvent(
+            "answer",
+            $"✅ LLM provider '{provider}' saved to KeyVault as `{KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider)}`.");
 
         var outputs = BuildSavedLlmOutputs(provider, url, model, auth);
         TryApplyLlmConfig(outputs);
+
+        if (shouldPromoteAsDefault && _optionsStore.SetDefaultProvider(provider, model))
+        {
+            yield return new SmartFlowEvent(
+                "thinking:response",
+                $"⭐ Provider '{provider}' was set as the default LLM with model '{model}'.");
+        }
+
         await foreach (var evt in ValidateConfigAsync(outputs, ct))
             yield return evt;
     }
@@ -555,7 +570,8 @@ public sealed class ConfigureProvidersService
             yield break;
         }
 
-        var secretKey = await ResolveSecretKeyAsync("gnougo_llm_", provider, ct) ?? $"gnougo_llm_{provider}";
+        var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.LlmProvider, provider, ct)
+            ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider);
         var deleted = await _keyVaultStore.DeleteSecretAsync(secretKey, ct);
         if (!deleted)
         {
@@ -729,7 +745,8 @@ public sealed class ConfigureProvidersService
             yield break;
         }
 
-        var secretKey = await ResolveSecretKeyAsync("gnougo_mcp_", existing.Name, ct) ?? $"gnougo_mcp_{existing.Name}";
+        var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.McpServer, existing.Name, ct)
+            ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.McpServer, existing.Name);
         var deleted = await _keyVaultStore.DeleteSecretAsync(secretKey, ct);
         if (!deleted)
         {
@@ -940,13 +957,22 @@ public sealed class ConfigureProvidersService
 
     private async Task<IReadOnlyList<LLMModelDescriptor>> DiscoverModelsAsync(string provider, ModelProviderOptions providerOptions, CancellationToken ct)
     {
-        try
+        if (ShouldUseInjectedModelCatalog(provider, providerOptions))
         {
-            return await _modelCatalog.ListModelsAsync(provider, ct);
+            try
+            {
+                return await _modelCatalog.ListModelsAsync(provider, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Injected model catalog could not list models for '{Provider}', trying temporary provider settings.", provider);
+            }
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogDebug(ex, "Injected model catalog could not list models for '{Provider}', trying temporary provider settings.", provider);
+            _logger.LogDebug(
+                "Skipping injected model catalog for '{Provider}' because runtime credentials do not match the interactive provider settings.",
+                provider);
         }
 
         using var http = new HttpClient();
@@ -959,6 +985,34 @@ public sealed class ConfigureProvidersService
         var catalog = new RoutingLLMModelCatalog(http, options);
         return await catalog.ListModelsAsync(provider, ct);
     }
+
+    private bool ShouldUseInjectedModelCatalog(string provider, ModelProviderOptions providerOptions)
+    {
+        var runtimeProvider = _optionsStore.Current.ResolveProvider(provider);
+        if (runtimeProvider is null)
+            return true;
+
+        if (!string.Equals(NormalizeUrl(runtimeProvider.Url), NormalizeUrl(providerOptions.Url), StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (!RequiresExplicitAuth(providerOptions))
+            return true;
+
+        return HasUsableAuth(runtimeProvider);
+    }
+
+    private static bool RequiresExplicitAuth(ModelProviderOptions providerOptions)
+        => !string.Equals(providerOptions.ResolvedType, "ollama", StringComparison.OrdinalIgnoreCase)
+           && !string.Equals(providerOptions.ResolvedType, "copilot", StringComparison.OrdinalIgnoreCase);
+
+    private static bool HasUsableAuth(ModelProviderOptions providerOptions)
+        => !string.IsNullOrWhiteSpace(providerOptions.ApiKey)
+           || (!string.IsNullOrWhiteSpace(providerOptions.Issuer)
+               && !string.IsNullOrWhiteSpace(providerOptions.ClientId)
+               && !string.IsNullOrWhiteSpace(providerOptions.Scopes));
+
+    private static string NormalizeUrl(string? url)
+        => string.IsNullOrWhiteSpace(url) ? string.Empty : url.Trim().TrimEnd('/');
 
     private static ProviderDefaults GetProviderDefaults(string provider)
         => provider.ToLowerInvariant() switch
@@ -987,23 +1041,32 @@ public sealed class ConfigureProvidersService
             ["provider"] = provider,
             ["url"] = url,
             ["model"] = model,
-            ["auth_type"] = auth.AuthType,
-            ["api_key"] = auth.ApiKey,
-            ["oidc_issuer"] = auth.OidcIssuer,
-            ["oidc_client_id"] = auth.OidcClientId,
-            ["oidc_scopes"] = auth.OidcScopes,
-            ["oidc_client_secret"] = auth.OidcClientSecret
+            ["authType"] = auth.AuthType,
+            ["apiKey"] = auth.ApiKey,
+            ["oidcIssuer"] = auth.OidcIssuer,
+            ["oidcClientId"] = auth.OidcClientId,
+            ["oidcScopes"] = auth.OidcScopes,
+            ["oidcClientSecret"] = auth.OidcClientSecret
         };
 
-        var secretKey = await ResolveSecretKeyAsync("gnougo_llm_", provider, ct) ?? $"gnougo_llm_{provider}";
-        await _keyVaultStore.SaveSecretValueAsync(secretKey, payload.ToJsonString(), ct);
+        var preferredSecretKey = KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider);
+        var existingSecretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.LlmProvider, provider, ct);
+
+        await _keyVaultStore.SaveSecretValueAsync(preferredSecretKey, payload.ToJsonString(), ct);
+
+        if (!string.IsNullOrWhiteSpace(existingSecretKey)
+            && !string.Equals(existingSecretKey, preferredSecretKey, StringComparison.OrdinalIgnoreCase))
+        {
+            await _keyVaultStore.DeleteSecretAsync(existingSecretKey, ct);
+        }
     }
 
     private async Task<LlmProviderConfig?> LoadLlmProviderConfigAsync(string provider, CancellationToken ct)
     {
         try
         {
-            var secretKey = await ResolveSecretKeyAsync("gnougo_llm_", provider, ct) ?? $"gnougo_llm_{provider}";
+            var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.LlmProvider, provider, ct)
+                ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider);
             var value = await _keyVaultStore.GetSecretValueAsync(secretKey, ct);
 
             if (string.IsNullOrWhiteSpace(value))
@@ -1014,14 +1077,14 @@ public sealed class ConfigureProvidersService
                 return null;
 
             return new LlmProviderConfig(
-                Url: config["url"]?.GetValue<string>() ?? "",
-                Model: config["model"]?.GetValue<string>() ?? "",
-                AuthType: config["auth_type"]?.GetValue<string>() ?? "none",
-                ApiKey: config["api_key"]?.GetValue<string>() ?? "",
-                OidcIssuer: config["oidc_issuer"]?.GetValue<string>() ?? "",
-                OidcClientId: config["oidc_client_id"]?.GetValue<string>() ?? "",
-                OidcScopes: config["oidc_scopes"]?.GetValue<string>() ?? "",
-                OidcClientSecret: config["oidc_client_secret"]?.GetValue<string>() ?? "");
+                Url: ReadConfigString(config, "url") ?? "",
+                Model: ReadConfigString(config, "model") ?? "",
+                AuthType: ReadConfigString(config, "authType", "auth_type") ?? "none",
+                ApiKey: ReadConfigString(config, "apiKey", "api_key") ?? "",
+                OidcIssuer: ReadConfigString(config, "oidcIssuer", "oidc_issuer") ?? "",
+                OidcClientId: ReadConfigString(config, "oidcClientId", "oidc_client_id") ?? "",
+                OidcScopes: ReadConfigString(config, "oidcScopes", "oidc_scopes") ?? "",
+                OidcClientSecret: ReadConfigString(config, "oidcClientSecret", "oidc_client_secret") ?? "");
         }
         catch (Exception ex)
             {
@@ -1066,7 +1129,7 @@ public sealed class ConfigureProvidersService
             sb.AppendLine($"| OIDC Secret | {(string.IsNullOrWhiteSpace(auth.OidcClientSecret) ? "(none)" : "••••••••")} |");
         }
         sb.AppendLine();
-        sb.Append($"Configuration will be saved as key: `gnougo_llm_{provider}`");
+        sb.Append($"Configuration will be saved as key: `{KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider)}`");
         return sb.ToString();
     }
 
@@ -1231,21 +1294,30 @@ public sealed class ConfigureProvidersService
             ["url"] = config.Url,
             ["command"] = config.Command,
             ["args"] = new JsonArray(config.Args.Select(arg => (JsonNode?)JsonValue.Create(arg)).ToArray()),
-            ["auth_type"] = config.AuthType,
-            ["api_key"] = config.ApiKey,
-            ["oidc_issuer"] = config.OidcIssuer,
-            ["oidc_client_id"] = config.OidcClientId,
-            ["oidc_scopes"] = config.OidcScopes,
-            ["oidc_client_secret"] = config.OidcClientSecret
+            ["authType"] = config.AuthType,
+            ["apiKey"] = config.ApiKey,
+            ["oidcIssuer"] = config.OidcIssuer,
+            ["oidcClientId"] = config.OidcClientId,
+            ["oidcScopes"] = config.OidcScopes,
+            ["oidcClientSecret"] = config.OidcClientSecret
         };
 
-        var secretKey = await ResolveSecretKeyAsync("gnougo_mcp_", config.Name, ct) ?? $"gnougo_mcp_{config.Name}";
-        await _keyVaultStore.SaveSecretValueAsync(secretKey, payload.ToJsonString(), ct);
+        var preferredSecretKey = KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.McpServer, config.Name);
+        var existingSecretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.McpServer, config.Name, ct);
+
+        await _keyVaultStore.SaveSecretValueAsync(preferredSecretKey, payload.ToJsonString(), ct);
+
+        if (!string.IsNullOrWhiteSpace(existingSecretKey)
+            && !string.Equals(existingSecretKey, preferredSecretKey, StringComparison.OrdinalIgnoreCase))
+        {
+            await _keyVaultStore.DeleteSecretAsync(existingSecretKey, ct);
+        }
     }
 
     private async Task<McpServerConfig?> LoadMcpServerConfigAsync(string name, CancellationToken ct)
     {
-        var secretKey = await ResolveSecretKeyAsync("gnougo_mcp_", name, ct) ?? $"gnougo_mcp_{name}";
+        var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.McpServer, name, ct)
+            ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.McpServer, name);
         var value = await _keyVaultStore.GetSecretValueAsync(secretKey, ct);
         if (string.IsNullOrWhiteSpace(value))
             return null;
@@ -1265,18 +1337,18 @@ public sealed class ConfigureProvidersService
             return null;
 
         return new McpServerConfig(
-            Name: config["name"]?.GetValue<string>() ?? name,
-            Transport: config["transport"]?.GetValue<string>() ?? "http",
-            Description: config["description"]?.GetValue<string>() ?? "",
-            Url: config["url"]?.GetValue<string>() ?? "",
-            Command: config["command"]?.GetValue<string>() ?? "",
+            Name: ReadConfigString(config, "name") ?? name,
+            Transport: ReadConfigString(config, "transport") ?? "http",
+            Description: ReadConfigString(config, "description") ?? "",
+            Url: ReadConfigString(config, "url") ?? "",
+            Command: ReadConfigString(config, "command") ?? "",
             Args: ParseJsonArgs(config["args"]),
-            AuthType: config["auth_type"]?.GetValue<string>() ?? "none",
-            ApiKey: config["api_key"]?.GetValue<string>() ?? "",
-            OidcIssuer: config["oidc_issuer"]?.GetValue<string>() ?? "",
-            OidcClientId: config["oidc_client_id"]?.GetValue<string>() ?? "",
-            OidcScopes: config["oidc_scopes"]?.GetValue<string>() ?? "",
-            OidcClientSecret: config["oidc_client_secret"]?.GetValue<string>() ?? "");
+            AuthType: ReadConfigString(config, "authType", "auth_type") ?? "none",
+            ApiKey: ReadConfigString(config, "apiKey", "api_key") ?? "",
+            OidcIssuer: ReadConfigString(config, "oidcIssuer", "oidc_issuer") ?? "",
+            OidcClientId: ReadConfigString(config, "oidcClientId", "oidc_client_id") ?? "",
+            OidcScopes: ReadConfigString(config, "oidcScopes", "oidc_scopes") ?? "",
+            OidcClientSecret: ReadConfigString(config, "oidcClientSecret", "oidc_client_secret") ?? "");
     }
 
     private static string RenderMcpConfigSummary(McpServerConfig config)
@@ -1298,7 +1370,7 @@ public sealed class ConfigureProvidersService
         }
         sb.AppendLine($"| Auth | {EscapeMarkdownCell(config.AuthType)} |");
         sb.AppendLine();
-        sb.Append($"Configuration will be saved as key: `gnougo_mcp_{config.Name}`");
+        sb.Append($"Configuration will be saved as key: `{KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.McpServer, config.Name)}`");
         return sb.ToString();
     }
 
@@ -1326,13 +1398,10 @@ public sealed class ConfigureProvidersService
     private static string JoinArgs(IReadOnlyList<string>? args)
         => args is { Count: > 0 } ? string.Join(",", args) : string.Empty;
 
-    private async Task<string?> ResolveSecretKeyAsync(string prefix, string logicalName, CancellationToken ct)
+    private async Task<string?> ResolveSecretKeyAsync(KeyVaultConfigSecretKind kind, string logicalName, CancellationToken ct)
     {
-        var expected = prefix + logicalName;
         var secrets = await _keyVaultStore.ListSecretsAsync(ct);
-        return secrets
-            .Select(secret => secret.Key)
-            .FirstOrDefault(key => string.Equals(key, expected, StringComparison.OrdinalIgnoreCase));
+        return KeyVaultConfigNaming.ResolveExistingSecretKey(secrets, kind, logicalName);
     }
 
     private sealed record ProviderDefaults(string Url, string Model, IReadOnlyList<string> AuthModes);
@@ -1465,7 +1534,7 @@ public sealed class ConfigureProvidersService
         sb.AppendLine("- **OpenID Connect** — OAuth2 client_credentials flow");
         sb.AppendLine("- **Copilot / Env** — resolved from environment variables");
         sb.AppendLine();
-        sb.Append("All configurations are stored encrypted in KeyVault as `gnougo_llm_(name)`.");
+        sb.Append($"All configurations are stored encrypted in KeyVault using the .NET convention `{KeyVaultConfigNaming.GetDisplayConvention(KeyVaultConfigSecretKind.LlmProvider)}`.");
         return sb.ToString().TrimEnd();
     }
 
@@ -1491,7 +1560,7 @@ public sealed class ConfigureProvidersService
         sb.AppendLine("- **HTTP** — connect to an HTTP MCP endpoint with optional auth");
         sb.AppendLine("- **stdio** — launch a local process (for example `dotnet run`)");
         sb.AppendLine();
-        sb.Append("All configurations are stored encrypted in KeyVault as `gnougo_mcp_(name)`.");
+        sb.Append($"All configurations are stored encrypted in KeyVault using the .NET convention `{KeyVaultConfigNaming.GetDisplayConvention(KeyVaultConfigSecretKind.McpServer)}`.");
         return sb.ToString().TrimEnd();
     }
 
@@ -1541,9 +1610,7 @@ public sealed class ConfigureProvidersService
         var secrets = await LoadKeyVaultSecretsAsync(ct);
         var providers = new List<ConfiguredLlmProvider>();
 
-        foreach (var secret in secrets
-                     .Where(s => s.Key.StartsWith("gnougo_llm_", StringComparison.OrdinalIgnoreCase))
-                     .OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase))
+        foreach (var secret in KeyVaultConfigNaming.SelectPreferredSecrets(secrets, KeyVaultConfigSecretKind.LlmProvider))
         {
             var raw = await _keyVaultStore.GetSecretValueAsync(secret.Key, ct);
             if (string.IsNullOrWhiteSpace(raw))
@@ -1563,16 +1630,18 @@ public sealed class ConfigureProvidersService
             if (configJson is null)
                 continue;
 
-            var provider = configJson["provider"]?.GetValue<string>() ?? secret.Key["gnougo_llm_".Length..];
+            var provider = ReadConfigString(configJson, "provider")
+                ?? KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.LlmProvider, secret.Key)
+                ?? string.Empty;
             var config = new LlmProviderConfig(
-                Url: configJson["url"]?.GetValue<string>() ?? string.Empty,
-                Model: configJson["model"]?.GetValue<string>() ?? string.Empty,
-                AuthType: configJson["auth_type"]?.GetValue<string>() ?? "none",
-                ApiKey: configJson["api_key"]?.GetValue<string>() ?? string.Empty,
-                OidcIssuer: configJson["oidc_issuer"]?.GetValue<string>() ?? string.Empty,
-                OidcClientId: configJson["oidc_client_id"]?.GetValue<string>() ?? string.Empty,
-                OidcScopes: configJson["oidc_scopes"]?.GetValue<string>() ?? string.Empty,
-                OidcClientSecret: configJson["oidc_client_secret"]?.GetValue<string>() ?? string.Empty);
+                Url: ReadConfigString(configJson, "url") ?? string.Empty,
+                Model: ReadConfigString(configJson, "model") ?? string.Empty,
+                AuthType: ReadConfigString(configJson, "authType", "auth_type") ?? "none",
+                ApiKey: ReadConfigString(configJson, "apiKey", "api_key") ?? string.Empty,
+                OidcIssuer: ReadConfigString(configJson, "oidcIssuer", "oidc_issuer") ?? string.Empty,
+                OidcClientId: ReadConfigString(configJson, "oidcClientId", "oidc_client_id") ?? string.Empty,
+                OidcScopes: ReadConfigString(configJson, "oidcScopes", "oidc_scopes") ?? string.Empty,
+                OidcClientSecret: ReadConfigString(configJson, "oidcClientSecret", "oidc_client_secret") ?? string.Empty);
 
             providers.Add(new ConfiguredLlmProvider(provider, secret, config));
         }
@@ -1611,14 +1680,11 @@ public sealed class ConfigureProvidersService
 
     private static string RenderSecretTable(
         IReadOnlyList<KeyVaultSecretSummary> secrets,
-        string prefix,
+        KeyVaultConfigSecretKind kind,
         string title,
         string emptyMessage)
     {
-        var matching = secrets
-            .Where(s => s.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var matching = KeyVaultConfigNaming.SelectPreferredSecrets(secrets, kind);
 
         if (matching.Count == 0)
             return $"{title}\n\n{emptyMessage}";
@@ -1631,7 +1697,7 @@ public sealed class ConfigureProvidersService
 
         foreach (var secret in matching)
         {
-            var name = secret.Key[prefix.Length..];
+            var name = KeyVaultConfigNaming.TryGetLogicalName(kind, secret.Key) ?? secret.Key;
             var stored = FormatTimestamp(secret.CreatedAt);
             sb.AppendLine($"| {EscapeMarkdownCell(name)} | `{EscapeBackticks(secret.Key)}` | {secret.LatestVersion} | {EscapeMarkdownCell(stored)} |");
         }
@@ -1642,13 +1708,11 @@ public sealed class ConfigureProvidersService
     private string RenderStatus(IReadOnlyList<KeyVaultSecretSummary> secrets)
     {
         var llms = secrets
-            .Where(s => s.Key.StartsWith("gnougo_llm_", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase)
+            .Where(s => KeyVaultConfigNaming.MatchesSecretKey(KeyVaultConfigSecretKind.LlmProvider, s.Key))
             .ToList();
 
         var mcps = secrets
-            .Where(s => s.Key.StartsWith("gnougo_mcp_", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase)
+            .Where(s => KeyVaultConfigNaming.MatchesSecretKey(KeyVaultConfigSecretKind.McpServer, s.Key))
             .ToList();
 
         var sb = new StringBuilder();
@@ -1668,9 +1732,10 @@ public sealed class ConfigureProvidersService
         {
             sb.AppendLine("| Provider | KeyVault Key | Version | Stored |");
             sb.AppendLine("|----------|--------------|---------|--------|");
-            foreach (var item in llms)
+            foreach (var item in KeyVaultConfigNaming.SelectPreferredSecrets(llms, KeyVaultConfigSecretKind.LlmProvider))
             {
-                sb.AppendLine($"| {EscapeMarkdownCell(item.Key["gnougo_llm_".Length..])} | `{EscapeBackticks(item.Key)}` | {item.LatestVersion} | {EscapeMarkdownCell(FormatTimestamp(item.CreatedAt))} |");
+                var provider = KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.LlmProvider, item.Key) ?? item.Key;
+                sb.AppendLine($"| {EscapeMarkdownCell(provider)} | `{EscapeBackticks(item.Key)}` | {item.LatestVersion} | {EscapeMarkdownCell(FormatTimestamp(item.CreatedAt))} |");
             }
         }
 
@@ -1686,9 +1751,10 @@ public sealed class ConfigureProvidersService
         {
             sb.AppendLine("| Server | KeyVault Key | Version | Stored |");
             sb.AppendLine("|--------|--------------|---------|--------|");
-            foreach (var item in mcps)
+            foreach (var item in KeyVaultConfigNaming.SelectPreferredSecrets(mcps, KeyVaultConfigSecretKind.McpServer))
             {
-                sb.AppendLine($"| {EscapeMarkdownCell(item.Key["gnougo_mcp_".Length..])} | `{EscapeBackticks(item.Key)}` | {item.LatestVersion} | {EscapeMarkdownCell(FormatTimestamp(item.CreatedAt))} |");
+                var server = KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.McpServer, item.Key) ?? item.Key;
+                sb.AppendLine($"| {EscapeMarkdownCell(server)} | `{EscapeBackticks(item.Key)}` | {item.LatestVersion} | {EscapeMarkdownCell(FormatTimestamp(item.CreatedAt))} |");
             }
         }
 
@@ -1735,6 +1801,13 @@ public sealed class ConfigureProvidersService
 
     private static string EscapeBackticks(string value)
         => value.Replace("`", "\\`", StringComparison.Ordinal);
+
+    private static string? ReadConfigString(JsonObject config, string propertyName, string? legacyPropertyName = null)
+        => TryGetString(config, propertyName)
+           ?? (legacyPropertyName is null ? null : TryGetString(config, legacyPropertyName));
+
+    private static string? TryGetString(JsonObject config, string propertyName)
+        => config[propertyName]?.GetValue<string>();
 
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -1822,7 +1895,6 @@ public sealed class ConfigureProvidersService
                 Provider    = provider,
                 Model       = string.IsNullOrWhiteSpace(model) ? "gpt-4o-mini" : model,
                 Prompt      = "Reply with the single word: ok",
-                Temperature = 0.0,
             }, ct);
         }
         catch (Exception ex)
