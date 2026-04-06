@@ -1,13 +1,7 @@
-using System;
-using System.IO;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using GnOuGo.Agent.Server.Components;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -379,7 +373,7 @@ public static class GnOuGoAgentWebHost
         // In published Desktop/NativeAOT builds the static web assets manifest
         // may be absent; MapStaticAssets() is only called when the manifest exists,
         // but interactive SSR is always available.
-        app.MapRazorComponents<GnOuGo.Agent.Server.Components.App>()
+        app.MapRazorComponents<App>()
             .AddInteractiveServerRenderMode();
 
         return app;
@@ -433,7 +427,7 @@ public static class GnOuGoAgentWebHost
     /// with the resolved full path so subprocesses use the correct dotnet installation.
     /// </summary>
     private static void SubstituteDotnetCommand(
-        Dictionary<string, GnOuGo.AI.Core.McpServerOptions> servers,
+        Dictionary<string, McpServerOptions> servers,
         string dotnetExe)
     {
         if (dotnetExe is "dotnet" or "dotnet.exe") return; // nothing to substitute
@@ -456,7 +450,7 @@ public static class GnOuGoAgentWebHost
     /// which may not match the relative path written in appsettings.json.
     /// </summary>
     private static void ResolveRelativeMcpProjectPaths(
-        Dictionary<string, GnOuGo.AI.Core.McpServerOptions> servers)
+        Dictionary<string, McpServerOptions> servers)
     {
         var solutionRoot = FindSolutionRoot(AppContext.BaseDirectory);
         if (solutionRoot is null) return;

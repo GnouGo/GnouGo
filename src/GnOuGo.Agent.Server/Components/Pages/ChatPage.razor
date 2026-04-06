@@ -4,16 +4,12 @@
 @using System.Text.Json.Nodes
 @using System.Threading
 @using Markdig
-@using Microsoft.AspNetCore.Components
-@using Microsoft.AspNetCore.Components.Forms
-@using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
 @using GnOuGo.Agent.Server.Components.Tracing
-@using GnOuGo.Agent.Shared
 
-@inject IJSRuntime JS
-@inject GnOuGo.Agent.Server.SmartFlow.SmartFlowService SmartFlow
-@inject GnOuGo.Agent.Server.SmartFlow.AgentHumanInputProvider HumanInputProvider
+@inject IJSRuntime Js
+@inject SmartFlowService SmartFlow
+@inject AgentHumanInputProvider HumanInputProvider
 
 <div class="sa-app">
     <aside class="sa-app__sidebar sa-sidebar @( _sidebarOpen ? "sa-sidebar--open" : "")">
@@ -199,7 +195,7 @@
                                                 <select class="sa-composer__input"
                                                         style="width: 100%; padding: 6px 10px; border-radius: 6px;"
                                                         value="@GetFieldValue(field.Name)"
-                                                        @onchange="@((ChangeEventArgs e) => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))">
+                                                        @onchange="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))">
                                                     @foreach (var option in field.Options)
                                                     {
                                                         <option value="@option">@option</option>
@@ -212,7 +208,7 @@
                                                        class="sa-composer__input"
                                                        style="width: 100%; padding: 6px 10px; border-radius: 6px;"
                                                        value="@GetFieldValue(field.Name)"
-                                                       @onchange="@((ChangeEventArgs e) => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))" />
+                                                       @onchange="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))" />
                                             }
                                         </div>
                                     }
@@ -353,15 +349,20 @@
             _needsMarkdownEnhance = false;
             try
             {
-                await JS.InvokeVoidAsync("GnOuGo.Agent.markdown.enhance", "chatMessages");
+                await Js.InvokeVoidAsync("GnOuGo.Agent.markdown.enhance", "chatMessages");
             }
-            catch { }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+            {
+            }
         }
     }
 
     private MarkupString RenderMarkdown(string markdown)
     {
-        var html = Markdig.Markdown.ToHtml(NormalizeMarkdown(markdown), MdPipeline);
+        var html = Markdown.ToHtml(NormalizeMarkdown(markdown), MdPipeline);
         return (MarkupString)html;
     }
 
@@ -504,7 +505,7 @@
         if (string.IsNullOrWhiteSpace(text))
             return assistantMsg;
 
-        var current = assistantMsg.Content ?? "";
+        var current = assistantMsg.Content;
         if (string.Equals(current, text, StringComparison.Ordinal))
             return assistantMsg;
 
@@ -544,7 +545,7 @@
         if (_isStreaming) return;
 
         _error = "";
-        var prompt = _model.Prompt?.Trim() ?? "";
+        var prompt = _model.Prompt.Trim();
         if (string.IsNullOrWhiteSpace(prompt))
             return;
 
@@ -782,7 +783,13 @@
                         ReplaceSession(_active);
                     }
                 }
-                catch { /* ignore title generation failures */ }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception)
+                {
+                    // Ignore title generation failures.
+                }
             }
         }
         catch (OperationCanceledException)
@@ -945,7 +952,7 @@
 
     private async Task LoadStoreAsync()
     {
-        var json = await JS.InvokeAsync<string?>("GnOuGo.Agent.storage.load", StorageKeyV2);
+        var json = await Js.InvokeAsync<string?>("GnOuGo.Agent.storage.load", StorageKeyV2);
         if (!string.IsNullOrWhiteSpace(json))
         {
             var saved = JsonSerializer.Deserialize(json, ChatJsonContext.Default.ChatStoreDto);
@@ -954,7 +961,7 @@
             return;
         }
 
-        var legacy = await JS.InvokeAsync<string?>("GnOuGo.Agent.storage.load", LegacyStorageKey);
+        var legacy = await Js.InvokeAsync<string?>("GnOuGo.Agent.storage.load", LegacyStorageKey);
         if (!string.IsNullOrWhiteSpace(legacy))
         {
             var msgs = JsonSerializer.Deserialize(legacy, ChatJsonContext.Default.ListChatMessageDto)
@@ -969,7 +976,7 @@
 
             _store = new ChatStoreDto(session.Id, new List<ChatSessionDto> { session });
 
-            await JS.InvokeVoidAsync("GnOuGo.Agent.storage.clear", LegacyStorageKey);
+            await Js.InvokeVoidAsync("GnOuGo.Agent.storage.clear", LegacyStorageKey);
             await PersistAsync();
         }
     }
@@ -1022,7 +1029,7 @@
     private async Task PersistAsync()
     {
         var json = JsonSerializer.Serialize(_store, ChatJsonContext.Default.ChatStoreDto);
-        await JS.InvokeVoidAsync("GnOuGo.Agent.storage.save", StorageKeyV2, json);
+        await Js.InvokeVoidAsync("GnOuGo.Agent.storage.save", StorageKeyV2, json);
     }
 
     private void OpenTraceSidebar(ChatMessageDto msg)
@@ -1055,8 +1062,16 @@
 
     private async Task ScrollToBottomAsync()
     {
-        try { await JS.InvokeVoidAsync("GnOuGo.Agent.scrollToBottom", "chatMessages"); }
-        catch { }
+        try
+        {
+            await Js.InvokeVoidAsync("GnOuGo.Agent.scrollToBottom", "chatMessages");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+        {
+        }
     }
 }
 
