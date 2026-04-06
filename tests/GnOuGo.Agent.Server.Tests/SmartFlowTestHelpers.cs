@@ -4,8 +4,11 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using GnOuGo.AI.Core;
+using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.Flow.Core.Runtime;
+using OtlpTenantCollector.Services;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -163,13 +166,15 @@ internal static class SmartFlowTestFactory
         ILLMModelCatalog? modelCatalog = null,
         LLMOptions? options = null,
         AgentHumanInputProvider? humanInput = null,
-        IKeyVaultRuntimeConfigStore? keyVaultStore = null)
+        IKeyVaultRuntimeConfigStore? keyVaultStore = null,
+        AgentOTelTelemetry? telemetry = null)
         => new(
             llmClient,
             humanInput ?? new AgentHumanInputProvider(),
             modelCatalog ?? new FakeModelCatalog(),
             keyVaultStore ?? new FakeKeyVaultRuntimeConfigStore(),
             CreateRuntimeOptionsStore(options),
+            telemetry ?? CreateTelemetry(),
             NullLogger<ConfigureProvidersService>.Instance);
 
     public static ConfigureAgentsService CreateAgentsService(
@@ -190,7 +195,7 @@ internal static class SmartFlowTestFactory
             effectiveKeyVaultStore,
             runtimeFactory,
             runtimeStore,
-            new AgentOTelTelemetry(),
+            CreateTelemetry(),
             NullLogger<ConfigureAgentsService>.Instance);
     }
 
@@ -212,8 +217,33 @@ internal static class SmartFlowTestFactory
             runtimeFactory,
             configureProviders,
             configureAgents,
-            new AgentOTelTelemetry(),
+            CreateTelemetry(),
             NullLogger<SmartFlowService>.Instance);
+    }
+
+    private static AgentOTelTelemetry CreateTelemetry()
+        => CreateTelemetryHarness().Telemetry;
+
+    public static TelemetryHarness CreateTelemetryHarness()
+    {
+        var queue = new TelemetryIngestQueue(new AppOptions(
+            DbPath: "ignored.db",
+            BatchSize: 100,
+            FlushSeconds: 1,
+            ChannelCapacity: 1024,
+            RetentionSweepSeconds: 60,
+            DevModeEnabled: true));
+
+        var telemetry = new AgentOTelTelemetry(new CollectorTracePersistence(
+            queue,
+            new TestOptionsMonitor<OpenTelemetrySettings>(new OpenTelemetrySettings
+            {
+                Enabled = false,
+                ServiceName = "GnOuGo.Agent.Server"
+            }),
+            NullLogger<CollectorTracePersistence>.Instance));
+
+        return new TelemetryHarness(telemetry, queue);
     }
 
     public static LLMRuntimeOptionsStore CreateRuntimeOptionsStore(LLMOptions? options = null)
@@ -304,4 +334,13 @@ internal static class SmartFlowTestFactory
         };
     }
 }
+
+internal sealed class TestOptionsMonitor<T>(T currentValue) : IOptionsMonitor<T> where T : class
+{
+    public T CurrentValue => currentValue;
+    public T Get(string? name) => currentValue;
+    public IDisposable? OnChange(Action<T, string?> listener) => null;
+}
+
+internal sealed record TelemetryHarness(AgentOTelTelemetry Telemetry, TelemetryIngestQueue Queue);
 

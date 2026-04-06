@@ -47,6 +47,7 @@ public class WorkflowTelemetryTests
     private sealed class TestSpan : IWorkflowSpan, IStepSpan
     {
         public string Name { get; init; } = "";
+        public string? ParentName { get; init; }
         public bool Disposed { get; private set; }
         public Dictionary<string, object?> Attributes { get; } = new();
         public List<(string Name, IReadOnlyList<KeyValuePair<string, object?>>? Attributes)> SpanEvents { get; } = new();
@@ -74,10 +75,10 @@ public class WorkflowTelemetryTests
             Events.Add(("WorkflowEnd", result));
         }
 
-        public IStepSpan StepStart(IWorkflowSpan workflowSpan, StepTelemetryInfo info)
+        public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info)
         {
             Events.Add(("StepStart", info));
-            var span = new TestSpan { Name = info.StepId };
+            var span = new TestSpan { Name = info.StepId, ParentName = (parentSpan as TestSpan)?.Name };
             StepSpans.Add(span);
             return span;
         }
@@ -463,6 +464,47 @@ workflows:
 
         Assert.Equal(3, stepEnds.Count);
         Assert.All(stepEnds, s => Assert.Equal(StepStatus.Succeeded, s!.Status));
+    }
+
+    [Fact]
+    public async Task CustomTelemetry_NestedSequence_KeepsChildStepsUnderParentStepSpan()
+    {
+        var recording = new RecordingTelemetry();
+
+        var wf = CompileMain(@"
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: seq
+        type: sequence
+        steps:
+          - id: a
+            type: template.render
+            input:
+              engine: mustache
+              template: A
+              mode: text
+          - id: b
+            type: template.render
+            input:
+              engine: mustache
+              template: B
+              mode: text
+");
+
+        var engine = new WorkflowEngine { Telemetry = recording };
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+
+        var seqSpan = recording.StepSpans.Single(s => s.Name == "seq");
+        var aSpan = recording.StepSpans.Single(s => s.Name == "a");
+        var bSpan = recording.StepSpans.Single(s => s.Name == "b");
+
+        Assert.Equal("main", seqSpan.ParentName);
+        Assert.Equal("seq", aSpan.ParentName);
+        Assert.Equal("seq", bSpan.ParentName);
     }
 
     [Fact]

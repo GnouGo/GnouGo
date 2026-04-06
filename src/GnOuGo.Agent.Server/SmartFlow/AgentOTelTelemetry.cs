@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.AI.Core.Telemetry;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
@@ -16,17 +17,29 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
 {
     public const string ActivitySourceName = "GnOuGo.Flow.Workflow";
     public const string MeterName         = "GnOuGo.Flow.Workflow";
+    public const string CorrelationIdTagName = "gnougo.agent.chat.correlation_id";
+    public const string ConversationIdTagName = "gen_ai.conversation.id";
 
     private readonly ActivitySource _source;
+    private readonly ActivityListener _listener;
     private readonly Meter _meter;
+    private readonly CollectorTracePersistence _collectorTracePersistence;
     private readonly Counter<long>      _stepCounter;
     private readonly Histogram<double>  _stepDuration;
     private readonly Counter<long>      _tokenUsage;
     private readonly Histogram<double>  _workflowDuration;
 
-    public AgentOTelTelemetry()
+    public AgentOTelTelemetry(CollectorTracePersistence collectorTracePersistence)
     {
+        _collectorTracePersistence = collectorTracePersistence;
         _source = new ActivitySource(ActivitySourceName, "1.0.0");
+        _listener = new ActivityListener
+        {
+            ShouldListenTo = source => string.Equals(source.Name, ActivitySourceName, StringComparison.Ordinal),
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            SampleUsingParentId = static (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded
+        };
+        ActivitySource.AddActivityListener(_listener);
         _meter  = new Meter(MeterName, "1.0.0");
 
         _stepCounter      = _meter.CreateCounter<long>("gnougo-flow.step.count",
@@ -41,10 +54,41 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
 
     // ── IWorkflowTelemetry ───────────────────────────────────────────────────
 
+    public ChatTraceScope StartChatMessageActivity(string correlationId, string task)
+    {
+        var trimmed = task.Trim();
+        var isCommand = trimmed.StartsWith("/", StringComparison.Ordinal);
+        var activity = StartRootChatActivity(isCommand ? "chat.command" : "chat.message", correlationId);
+
+        activity.SetTag(CorrelationIdTagName, correlationId);
+        activity.SetTag(ConversationIdTagName, correlationId);
+        activity.SetTag("gnougo.agent.chat.kind", isCommand ? "command" : "prompt");
+        activity.SetTag("gnougo.agent.chat.input_length", task.Length);
+
+        if (isCommand)
+        {
+            var commandName = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(commandName))
+                activity.SetTag("gnougo.agent.chat.command", commandName);
+        }
+
+        activity.AddBaggage(CorrelationIdTagName, correlationId);
+        activity.AddBaggage(ConversationIdTagName, correlationId);
+        return new ChatTraceScope(activity, _collectorTracePersistence);
+    }
+
+    public ActivityScope StartActivityScope(string name, ActivityKind kind = ActivityKind.Internal)
+    {
+        var activity = StartActivity(name, kind, Activity.Current);
+        ApplyCorrelationTags(activity);
+        return new ActivityScope(activity, _collectorTracePersistence);
+    }
+
     public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info)
     {
-        var a = _source.StartActivity("workflow", ActivityKind.Internal);
-        if (a is null) return new WfSpan(null);
+        var a = StartActivity("workflow", ActivityKind.Internal, Activity.Current);
+        ApplyCorrelationTags(a);
         a.SetTag("gnougo-flow.workflow.name", info.WorkflowName);
         if (info.DocumentName is not null) a.SetTag("gnougo-flow.document.name", info.DocumentName);
         return new WfSpan(a);
@@ -65,17 +109,14 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         _workflowDuration.Record(result.Duration.TotalSeconds,
             new KeyValuePair<string, object?>("gnougo-flow.workflow.name",    ws.Activity.GetTagItem("gnougo-flow.workflow.name")),
             new KeyValuePair<string, object?>("gnougo-flow.workflow.success", result.Success));
+        _collectorTracePersistence.Persist(ws.Activity);
     }
 
-    public IStepSpan StepStart(IWorkflowSpan workflowSpan, StepTelemetryInfo info)
+    public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info)
     {
-        var parent = (workflowSpan as WfSpan)?.Activity;
-        var a = parent is not null
-            ? _source.StartActivity(SpanName(info), ActivityKind.Client,
-                new ActivityContext(parent.TraceId, parent.SpanId, ActivityTraceFlags.Recorded))
-            : _source.StartActivity(SpanName(info), ActivityKind.Client);
-
-        if (a is null) return new StSpan(null);
+        var parent = ResolveParentActivity(parentSpan);
+        var a = StartActivity(SpanName(info), ActivityKind.Client, parent);
+        ApplyCorrelationTags(a);
         a.SetTag("gnougo-flow.step.id",   info.StepId);
         a.SetTag("gnougo-flow.step.type", info.StepType);
         a.SetTag("gnougo-flow.step.call_depth", info.CallDepth);
@@ -136,10 +177,13 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
             _tokenUsage.Add(result.GenAiOutputTokens.Value,
                 new KeyValuePair<string, object?>("gen_ai.token.type",        "output"),
                 new KeyValuePair<string, object?>("gen_ai.request.model",     model));
+
+        _collectorTracePersistence.Persist(ss.Activity);
     }
 
     public void Dispose()
     {
+        _listener.Dispose();
         _source.Dispose();
         _meter.Dispose();
     }
@@ -155,7 +199,127 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         return $"{info.StepType} {info.StepId}";
     }
 
+    private static void ApplyCorrelationTags(Activity activity)
+    {
+        var correlationId = activity.GetBaggageItem(CorrelationIdTagName);
+        if (!string.IsNullOrWhiteSpace(correlationId))
+        {
+            activity.SetTag(CorrelationIdTagName, correlationId);
+            activity.SetTag(ConversationIdTagName, correlationId);
+        }
+    }
+
+    private static Activity? ResolveParentActivity(ITelemetrySpan parentSpan)
+        => parentSpan switch
+        {
+            WfSpan workflowSpan => workflowSpan.Activity,
+            StSpan stepSpan => stepSpan.Activity,
+            _ => null
+        };
+
+    private Activity StartActivity(string name, ActivityKind kind, Activity? parent)
+    {
+        Activity? activity;
+        if (parent is not null)
+        {
+            activity = _source.StartActivity(
+                name,
+                kind,
+                new ActivityContext(parent.TraceId, parent.SpanId, ActivityTraceFlags.Recorded));
+
+            if (activity is null)
+            {
+                activity = new Activity(name)
+                    .SetIdFormat(ActivityIdFormat.W3C)
+                    .SetParentId(parent.TraceId, parent.SpanId, ActivityTraceFlags.Recorded)
+                    .Start();
+            }
+        }
+        else
+        {
+            activity = _source.StartActivity(name, kind)
+                ?? new Activity(name).SetIdFormat(ActivityIdFormat.W3C).Start();
+        }
+
+        return activity;
+    }
+
+    private Activity StartRootChatActivity(string name, string correlationId)
+    {
+        if (correlationId.Length == 32)
+        {
+            try
+            {
+                var traceId = ActivityTraceId.CreateFromString(correlationId.AsSpan());
+                var syntheticParent = ActivitySpanId.CreateRandom();
+                var context = new ActivityContext(traceId, syntheticParent, ActivityTraceFlags.Recorded);
+                var activity = _source.StartActivity(name, ActivityKind.Internal, context);
+                if (activity is not null)
+                    return activity;
+
+                return new Activity(name)
+                    .SetIdFormat(ActivityIdFormat.W3C)
+                    .SetParentId(traceId, syntheticParent, ActivityTraceFlags.Recorded)
+                    .Start();
+            }
+            catch
+            {
+                // Fallback below when the correlation identifier is not valid W3C trace-id hex.
+            }
+        }
+
+        return StartActivity(name, ActivityKind.Internal, parent: null);
+    }
+
     // ── Span wrappers ────────────────────────────────────────────────────────
+
+    public sealed class ChatTraceScope(Activity activity, CollectorTracePersistence collectorTracePersistence) : IDisposable
+    {
+        public Activity Activity { get; } = activity;
+        public string TraceId => Activity.TraceId.ToHexString();
+
+        public void SetStatus(ActivityStatusCode code, string? description = null)
+        {
+            Activity.SetStatus(code, description);
+        }
+
+        public void Dispose()
+        {
+            collectorTracePersistence.Persist(Activity);
+            Activity.Dispose();
+        }
+    }
+
+    public sealed class ActivityScope(Activity activity, CollectorTracePersistence collectorTracePersistence) : IDisposable
+    {
+        public Activity Activity { get; } = activity;
+
+        public void SetTag(string key, object? value)
+            => Activity.SetTag(key, value);
+
+        public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
+        {
+            if (attributes is not null)
+            {
+                var tags = new ActivityTagsCollection();
+                foreach (var kv in attributes)
+                    tags[kv.Key] = kv.Value;
+                Activity.AddEvent(new ActivityEvent(name, tags: tags));
+                return;
+            }
+
+            Activity.AddEvent(new ActivityEvent(name));
+        }
+
+        public void SetStatus(ActivityStatusCode code, string? description = null)
+            => Activity.SetStatus(code, description);
+
+        public void Dispose()
+        {
+            collectorTracePersistence.Persist(Activity);
+            Activity.Dispose();
+        }
+    }
 
     private sealed class WfSpan(Activity? activity) : IWorkflowSpan
     {
@@ -167,7 +331,11 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
     {
         public Activity? Activity { get; } = activity;
 
-        public void SetAttribute(string key, object? value) => Activity?.SetTag(key, value);
+        public void SetAttribute(string key, object? value)
+        {
+            if (Activity is null) return;
+            Activity.SetTag(key, value);
+        }
 
         public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
         {

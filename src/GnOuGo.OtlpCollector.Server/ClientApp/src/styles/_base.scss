@@ -2,6 +2,8 @@
 // Base Styles - Reset, Typography, Global
 // ============================================================================
 
+@use './variables' as *;
+
 :root {
   font-family: $font-family-base;
   font-size: $font-size-base;

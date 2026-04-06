@@ -1,4 +1,5 @@
 @page "/"
+@using System.Diagnostics
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using System.Threading
@@ -6,6 +7,8 @@
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using GnOuGo.Agent.Server.Components.Tracing
 @using GnOuGo.Agent.Shared
 
 @inject IJSRuntime JS
@@ -122,6 +125,18 @@
                             <div class="sa-chat__bubble">
                                 <div class="sa-chat__bubble-meta">
                                     <span class="sa-chat__bubble-role">@((isUser ? "You" : "GnOuGo.Agent"))</span>
+                                    @if (!isUser)
+                                    {
+                                        var isTraceSelected = ReferenceEquals(_selectedTraceMessage, msg)
+                                                              || (!string.IsNullOrWhiteSpace(_selectedTraceMessage?.MessageId)
+                                                                  && string.Equals(_selectedTraceMessage?.MessageId, msg.MessageId, StringComparison.Ordinal));
+                                        <button class="sa-chat__bubble-action @(isTraceSelected && _traceSidebarOpen ? "sa-chat__bubble-action--active" : "")"
+                                                type="button"
+                                                title="Open trace debug sidebar"
+                                                @onclick="() => OpenTraceSidebar(msg)">
+                                            🔎 Trace
+                                        </button>
+                                    }
                                 </div>
 
                                 <div class="sa-chat__bubble-text markdown-body">
@@ -249,6 +264,10 @@
             </EditForm>
         </footer>
     </main>
+
+    <ChatTraceSidebar Message="_selectedTraceMessage"
+                      IsOpen="_traceSidebarOpen"
+                      OnClose="CloseTraceSidebarAsync" />
 </div>
 
 @code
@@ -293,12 +312,15 @@
     private bool _sidebarOpen;
     private bool _isStreaming;
     private string _error = "";
+    private bool _browserStatePending = true;
 
     private CancellationTokenSource? _cts;
     private bool _needsMarkdownEnhance;
 
     private HumanInputModel? _pendingHumanInput;
     private readonly Dictionary<string, string> _fieldValues = new();
+    private bool _traceSidebarOpen;
+    private ChatMessageDto? _selectedTraceMessage;
 
     /// <summary>Accumulates all HITL prompt+response pairs so they can be grouped
     /// into a single message at the end of the flow.</summary>
@@ -311,13 +333,19 @@
     {
         if (firstRender)
         {
-            await LoadStoreAsync();
             EnsureActiveSession();
+        }
 
-            _needsMarkdownEnhance = true;
-            StateHasChanged();
-
-            await ScrollToBottomAsync();
+        if (_browserStatePending)
+        {
+            var initialized = await TryInitializeBrowserStateAsync();
+            if (initialized)
+            {
+                _needsMarkdownEnhance = true;
+                StateHasChanged();
+                await ScrollToBottomAsync();
+                return;
+            }
         }
 
         if (_needsMarkdownEnhance && !_isStreaming)
@@ -440,6 +468,30 @@
         }
     }
 
+    private async Task<bool> TryInitializeBrowserStateAsync()
+    {
+        try
+        {
+            await LoadStoreAsync();
+            EnsureActiveSession();
+            _browserStatePending = false;
+            return true;
+        }
+        catch (JSDisconnectedException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+        {
+            return false;
+        }
+    }
+
+    private static bool IsDeferredJavaScriptInterop(InvalidOperationException ex)
+        => ex.Message.Contains("prerender", StringComparison.OrdinalIgnoreCase)
+           || ex.Message.Contains("statically rendered", StringComparison.OrdinalIgnoreCase)
+           || ex.Message.Contains("JavaScript interop", StringComparison.OrdinalIgnoreCase);
+
     private async Task<ChatMessageDto> AppendAssistantContentAsync(
         ChatMessageDto assistantMsg,
         string? incomingText,
@@ -497,13 +549,14 @@
             return;
 
         _model.Prompt = "";
+        var correlationId = ActivityTraceId.CreateRandom().ToHexString();
 
         // Add user message
-        var userMsg = new ChatMessageDto("user", prompt);
+        var userMsg = new ChatMessageDto("user", prompt, MessageId: Guid.NewGuid().ToString("N"), CorrelationId: correlationId);
         _active.Messages.Add(userMsg);
 
         // Placeholder assistant message
-        var assistantMsg = new ChatMessageDto("assistant", "");
+        var assistantMsg = new ChatMessageDto("assistant", "", MessageId: Guid.NewGuid().ToString("N"), CorrelationId: correlationId);
         _active.Messages.Add(assistantMsg);
 
         TouchActive();
@@ -517,8 +570,21 @@
 
         try
         {
-            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, _cts.Token))
+            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, _cts.Token))
             {
+                if (evt.Type is "trace.started")
+                {
+                    assistantMsg = assistantMsg with
+                    {
+                        CorrelationId = evt.CorrelationId ?? assistantMsg.CorrelationId,
+                        TraceId = evt.TraceId
+                    };
+                    ReplaceLastAssistant(assistantMsg);
+                    TouchActive();
+                    StateHasChanged();
+                    continue;
+                }
+
                 if (evt.Type.StartsWith("thinking:", StringComparison.Ordinal))
                 {
                     var level = evt.Type.AsSpan(9).ToString(); // after "thinking:"
@@ -563,7 +629,10 @@
                         var timeoutMsg = new ChatMessageDto("assistant",
                             "⏱️ **Human input timed out.** The workflow was waiting for your response, "
                             + "but no input was received within the allowed time. "
-                            + "Please try again — the workflow will re-prompt you for the required information.");
+                            + "Please try again — the workflow will re-prompt you for the required information.",
+                            assistantMsg.MessageId,
+                            assistantMsg.CorrelationId,
+                            assistantMsg.TraceId);
 
                         // Replace the empty assistant placeholder (if any) instead of inserting alongside it
                         var replaced = false;
@@ -573,12 +642,26 @@
                                 && string.IsNullOrWhiteSpace(_active.Messages[i].Content))
                             {
                                 _active.Messages[i] = timeoutMsg;
+                                if (_selectedTraceMessage is not null
+                                    && !string.IsNullOrWhiteSpace(_selectedTraceMessage.MessageId)
+                                    && string.Equals(_selectedTraceMessage.MessageId, timeoutMsg.MessageId, StringComparison.Ordinal))
+                                {
+                                    _selectedTraceMessage = timeoutMsg;
+                                }
                                 replaced = true;
                                 break;
                             }
                         }
                         if (!replaced)
+                        {
                             _active.Messages.Add(timeoutMsg);
+                            if (_selectedTraceMessage is not null
+                                && !string.IsNullOrWhiteSpace(_selectedTraceMessage.MessageId)
+                                && string.Equals(_selectedTraceMessage.MessageId, timeoutMsg.MessageId, StringComparison.Ordinal))
+                            {
+                                _selectedTraceMessage = timeoutMsg;
+                            }
+                        }
 
                         _pendingHumanInput = null;
                         _fieldValues.Clear();
@@ -801,6 +884,12 @@
             if (string.Equals(_active.Messages[i].Role, "assistant", StringComparison.OrdinalIgnoreCase))
             {
                 _active.Messages[i] = assistantMsg;
+                if (_selectedTraceMessage is not null
+                    && !string.IsNullOrWhiteSpace(_selectedTraceMessage.MessageId)
+                    && string.Equals(_selectedTraceMessage.MessageId, assistantMsg.MessageId, StringComparison.Ordinal))
+                {
+                    _selectedTraceMessage = assistantMsg;
+                }
                 return;
             }
         }
@@ -819,13 +908,14 @@
             UpdatedAtUnixMs: now,
             Messages: new List<ChatMessageDto>
             {
-                new("assistant", "New chat started. Ask me anything — I'll stream the answer as it's generated.")
+                    new("assistant", "New chat started. Ask me anything — I'll stream the answer as it's generated.", Guid.NewGuid().ToString("N"))
             });
 
         // Put it on top.
         _store.Sessions.Insert(0, session);
         _store = _store with { ActiveId = session.Id };
         _active = session;
+        CloseTraceSidebar();
 
         CloseSidebar();
 
@@ -843,6 +933,7 @@
         {
             _store = _store with { ActiveId = id };
             _active = _store.Sessions.FirstOrDefault(s => s.Id == id);
+            CloseTraceSidebar();
 
             CloseSidebar();
             await PersistAsync();
@@ -894,7 +985,7 @@
                 UpdatedAtUnixMs: now,
                 Messages: new List<ChatMessageDto>
                 {
-                    new("assistant", "Hi! I'm GnOuGo.Agent. Ask me anything — I'll stream the answer as it's generated.")
+                    new("assistant", "Hi! I'm GnOuGo.Agent. Ask me anything — I'll stream the answer as it's generated.", Guid.NewGuid().ToString("N"))
                 });
 
             _store.Sessions.Add(session);
@@ -932,6 +1023,25 @@
     {
         var json = JsonSerializer.Serialize(_store, ChatJsonContext.Default.ChatStoreDto);
         await JS.InvokeVoidAsync("GnOuGo.Agent.storage.save", StorageKeyV2, json);
+    }
+
+    private void OpenTraceSidebar(ChatMessageDto msg)
+    {
+        _selectedTraceMessage = msg;
+        _traceSidebarOpen = true;
+    }
+
+    private void CloseTraceSidebar()
+    {
+        _traceSidebarOpen = false;
+        _selectedTraceMessage = null;
+    }
+
+    private Task CloseTraceSidebarAsync()
+    {
+        CloseTraceSidebar();
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private static string FormatUpdatedAt(long unixMs)

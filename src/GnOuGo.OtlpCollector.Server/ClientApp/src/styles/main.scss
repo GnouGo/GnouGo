@@ -5,32 +5,32 @@
 // The build output is copied to wwwroot/assets/
 
 // Variables
-@import './variables';
+@use './variables' as *;
 
 // Base styles
-@import './base';
+@use './base' as *;
 
 // Components (BEM blocks)
-@import './components/navigation';
-@import './components/header';
-@import './components/button';
-@import './components/panel'; 
-@import './components/field';
-@import './components/badge';
-@import './components/grid';
-@import './components/error';
-@import './components/trace-list';
-@import './components/trace-item';
-@import './components/trace-detail';
-@import './components/span-tree';
-@import './components/span-node';
-@import './components/attributes';
-@import './components/tenant-list';
-@import './components/tenant-card';
-@import './components/create-tenant-form';
-@import './components/genai';
-@import './components/genai-split';
-@import './components/timeline';
-@import './components/logs';
-@import './components/log-filters';
-@import './components/modal';
+@use './components/navigation' as *;
+@use './components/header' as *;
+@use './components/button' as *;
+@use './components/panel' as *;
+@use './components/field' as *;
+@use './components/badge' as *;
+@use './components/grid' as *;
+@use './components/error' as *;
+@use './components/trace-list' as *;
+@use './components/trace-item' as *;
+@use './components/trace-detail' as *;
+@use './components/span-tree' as *;
+@use './components/span-node' as *;
+@use './components/attributes' as *;
+@use './components/tenant-list' as *;
+@use './components/tenant-card' as *;
+@use './components/create-tenant-form' as *;
+@use './components/genai' as *;
+@use './components/genai-split' as *;
+@use './components/timeline' as *;
+@use './components/logs' as *;
+@use './components/log-filters' as *;
+@use './components/modal' as *;

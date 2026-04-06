@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
@@ -16,7 +17,18 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 /// <summary>
 /// Event emitted during a SmartFlow workflow execution for streaming to the UI.
 /// </summary>
-public sealed record SmartFlowEvent(string Type, string? Text);
+public sealed record SmartFlowEvent(
+    string Type,
+    string? Text,
+    string? CorrelationId = null,
+    string? TraceId = null)
+{
+    public static SmartFlowEvent TraceStarted(string correlationId, string traceId)
+        => new("trace.started", null, correlationId, traceId);
+
+    public SmartFlowEvent WithCorrelation(string correlationId)
+        => string.IsNullOrWhiteSpace(CorrelationId) ? this with { CorrelationId = correlationId } : this;
+}
 
 /// <summary>
 /// Wraps the GnOuGo.Flow workflow engine to execute the dynamic-workflow-agent
@@ -73,6 +85,38 @@ public sealed class SmartFlowService
     /// </summary>
     public async IAsyncEnumerable<SmartFlowEvent> ExecuteAsync(
         string task,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        await foreach (var evt in ExecuteAsync(task, correlationId: null, ct))
+            yield return evt;
+    }
+
+    public async IAsyncEnumerable<SmartFlowEvent> ExecuteAsync(
+        string task,
+        string? correlationId,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var effectiveCorrelationId = string.IsNullOrWhiteSpace(correlationId)
+            ? ActivityTraceId.CreateRandom().ToHexString()
+            : correlationId.Trim();
+
+        using var messageTrace = _otel.StartChatMessageActivity(effectiveCorrelationId, task);
+        yield return SmartFlowEvent.TraceStarted(effectiveCorrelationId, messageTrace.TraceId);
+
+        var hasError = false;
+
+        await foreach (var evt in ExecuteCoreAsync(task, effectiveCorrelationId, ct))
+        {
+            hasError |= string.Equals(evt.Type, "error", StringComparison.OrdinalIgnoreCase);
+            yield return evt.WithCorrelation(effectiveCorrelationId);
+        }
+
+        messageTrace.SetStatus(hasError ? ActivityStatusCode.Error : ActivityStatusCode.Ok);
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteCoreAsync(
+        string task,
+        string correlationId,
         [EnumeratorCancellation] CancellationToken ct)
     {
         // ── Slash command routing ──
@@ -144,7 +188,11 @@ public sealed class SmartFlowService
             McpCache = _mcpCache,
             Telemetry = telemetry,
             Logger = _logger,
-            Limits = new ExecutionLimits { LogStepContent = true }
+            Limits = new ExecutionLimits
+            {
+                LogStepContent = true,
+                RunId = correlationId
+            }
         };
 
         RunResult? result = null;

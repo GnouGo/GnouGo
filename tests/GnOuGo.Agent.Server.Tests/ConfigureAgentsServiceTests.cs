@@ -18,6 +18,20 @@ public sealed class ConfigureAgentsServiceTests
     {
         var llm = new RecordingLlmClient();
         var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_get_by_name", (arguments, _) =>
+            {
+                Assert.Equal("slimfaas", arguments?["name"]?.GetValue<string>());
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject
+                    {
+                        ["success"] = false,
+                        ["error_code"] = "NOT_FOUND",
+                        ["error_message"] = "Agent 'slimfaas' not found."
+                    }
+                });
+            })
             .OnTool("agent_add", new JsonObject
             {
                 ["success"] = true,
@@ -26,6 +40,131 @@ public sealed class ConfigureAgentsServiceTests
                     "slimfaas",
                     0,
                     "2026-04-01T12:35:00+00:00")
+            });
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId.EndsWith("input_name", StringComparison.Ordinal)
+                    ? new JsonObject { ["agent_name"] = " slimfaas " }
+                    : request.StepId.EndsWith("input_prompt", StringComparison.Ordinal)
+                        ? new JsonObject { ["description"] = "Explain SlimFaas" }
+                        : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
+                            ? new JsonObject { ["response"] = "approve" }
+                            : request.StepId.EndsWith("want_schedules", StringComparison.Ordinal)
+                                ? new JsonObject { ["response"] = "no" }
+                                : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId.EndsWith("want_schedules", StringComparison.Ordinal))
+                    break;
+            }
+        }, token);
+
+        var (result, events) = await ExecuteConfigureAgentsWorkflowByNameAsync(llm, "agent_add", new JsonObject(), humanInput, agentMcp);
+        try
+        {
+            await responder;
+        }
+        catch (OperationCanceledException)
+        {
+            // The workflow already completed; the background request reader can still be awaiting more items.
+        }
+
+        Assert.True(result.Success);
+        Assert.Equal("slimfaas", result.Outputs?["agent_name"]?.GetValue<string>());
+        Assert.Contains(events, evt =>
+            evt.Type == "thinking:response" &&
+            evt.Text == "✅ Agent 'slimfaas' created successfully and is now the active agent for this chat.");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AgentAdd_WhenNameAlreadyExistsAfterNameEntry_EmitsConflictMessageAndStopsEarly()
+    {
+        var llm = new RecordingLlmClient();
+        var agentAddCalls = 0;
+        string? unexpectedStepId = null;
+
+        var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_get_by_name", (arguments, _) =>
+            {
+                Assert.Equal("dailyreporter", arguments?["name"]?.GetValue<string>());
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject
+                    {
+                        ["success"] = true,
+                        ["agent"] = SmartFlowTestFactory.AgentSummary(
+                            "12345678-1234-1234-1234-1234567890ab",
+                            "DailyReporter",
+                            1,
+                            "2026-04-01T12:35:00+00:00")
+                    }
+                });
+            })
+            .OnTool("agent_add", (_, _) =>
+            {
+                agentAddCalls++;
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject { ["success"] = true }
+                });
+            });
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                if (request.StepId.EndsWith("input_name", StringComparison.Ordinal))
+                {
+                    humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject { ["agent_name"] = " dailyreporter " });
+                    break;
+                }
+
+                unexpectedStepId = request.StepId;
+                break;
+            }
+        }, token);
+
+        var (result, events) = await ExecuteConfigureAgentsWorkflowByNameAsync(llm, "agent_add", new JsonObject(), humanInput, agentMcp);
+        await responder;
+
+        Assert.True(result.Success);
+        Assert.Equal(string.Empty, result.Outputs?["agent_name"]?.GetValue<string>());
+        Assert.Null(unexpectedStepId);
+        Assert.Equal(0, llm.CallCount);
+        Assert.Equal(0, agentAddCalls);
+        Assert.Contains(events, evt =>
+            evt.Type == "thinking:response" &&
+            evt.Text == "❌ Agent 'DailyReporter' already exists. Use `/agent edit DailyReporter` to update it or choose another name.");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AgentAdd_WhenSaveReportsNameAlreadyExists_EmitsConflictMessage()
+    {
+        var llm = new RecordingLlmClient();
+        var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_get_by_name", new JsonObject
+            {
+                ["success"] = false,
+                ["error_code"] = "NOT_FOUND",
+                ["error_message"] = "Agent 'slimfaas' not found."
+            })
+            .OnTool("agent_add", new JsonObject
+            {
+                ["success"] = false,
+                ["error_code"] = "ALREADY_EXISTS",
+                ["error_message"] = "An agent named 'slimfaas' already exists."
             });
 
         var humanInput = new AgentHumanInputProvider();
@@ -63,10 +202,11 @@ public sealed class ConfigureAgentsServiceTests
         }
 
         Assert.True(result.Success);
-        Assert.Equal("slimfaas", result.Outputs?["agent_name"]?.GetValue<string>());
+        Assert.Equal(string.Empty, result.Outputs?["agent_name"]?.GetValue<string>());
+        Assert.True(llm.CallCount > 0);
         Assert.Contains(events, evt =>
             evt.Type == "thinking:response" &&
-            evt.Text == "✅ Agent 'slimfaas' created successfully and is now the active agent for this chat.");
+            evt.Text == "❌ Failed to create agent 'slimfaas'. An agent named 'slimfaas' already exists.");
     }
 
     [Fact]
@@ -114,6 +254,193 @@ public sealed class ConfigureAgentsServiceTests
             evt.Type == "thinking:response" &&
             evt.Text == "❌ Agent 'slimfaas' not found. Use `/agent list` to see available agents.");
         Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AgentEdit_WhenNameChangesAndIsAvailable_RenamesAgent()
+    {
+        var llm = new RecordingLlmClient();
+        var updateCalls = 0;
+
+        var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_get_by_name", (arguments, _) =>
+            {
+                var name = arguments?["name"]?.GetValue<string>();
+                JsonObject content;
+
+                if (string.Equals(name, "slimfaas", StringComparison.Ordinal))
+                {
+                    content = new JsonObject
+                    {
+                        ["success"] = true,
+                        ["agent"] = SmartFlowTestFactory.AgentSummary(
+                            "12345678-1234-1234-1234-1234567890ab",
+                            "slimfaas",
+                            0,
+                            "2026-04-01T12:35:00+00:00")
+                    };
+                }
+                else if (string.Equals(name, "slimfaas-prod", StringComparison.Ordinal))
+                {
+                    content = new JsonObject
+                    {
+                        ["success"] = false,
+                        ["error_code"] = "NOT_FOUND",
+                        ["error_message"] = "Agent 'slimfaas-prod' not found."
+                    };
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Unexpected name lookup: {name}");
+                }
+
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = content
+                });
+            })
+            .OnTool("agent_update", (arguments, _) =>
+            {
+                updateCalls++;
+                Assert.Equal("12345678-1234-1234-1234-1234567890ab", arguments?["id"]?.GetValue<string>());
+                Assert.Equal("slimfaas-prod", arguments?["name"]?.GetValue<string>());
+
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject { ["success"] = true }
+                });
+            });
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId.EndsWith("edit_name", StringComparison.Ordinal)
+                    ? new JsonObject { ["agent_name"] = " slimfaas-prod " }
+                    : request.StepId.EndsWith("edit_choice", StringComparison.Ordinal)
+                        ? new JsonObject { ["response"] = "workflow" }
+                        : request.StepId.EndsWith("edit_workflow", StringComparison.Ordinal)
+                            ? new JsonObject { ["yaml"] = "dsl: 1\nname: slimfaas-prod\nworkflows: {}" }
+                            : request.StepId.EndsWith("confirm_edit", StringComparison.Ordinal)
+                                ? new JsonObject { ["response"] = "save" }
+                                : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId.EndsWith("confirm_edit", StringComparison.Ordinal))
+                    break;
+            }
+        }, token);
+
+        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/agent edit slimfaas", humanInput, agentMcp);
+        await responder;
+
+        Assert.True(result.Success);
+        Assert.Equal(0, llm.CallCount);
+        Assert.Equal(1, updateCalls);
+        Assert.Contains(events, evt =>
+            evt.Type == "thinking:response" &&
+            evt.Text == "✅ Agent 'slimfaas-prod' updated.");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AgentEdit_WhenRenamedNameAlreadyExists_StopsBeforeSave()
+    {
+        var llm = new RecordingLlmClient();
+        var updateCalls = 0;
+        string? unexpectedStepId = null;
+
+        var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_get_by_name", (arguments, _) =>
+            {
+                var name = arguments?["name"]?.GetValue<string>();
+                JsonObject content;
+
+                if (string.Equals(name, "slimfaas", StringComparison.Ordinal))
+                {
+                    content = new JsonObject
+                    {
+                        ["success"] = true,
+                        ["agent"] = SmartFlowTestFactory.AgentSummary(
+                            "12345678-1234-1234-1234-1234567890ab",
+                            "slimfaas",
+                            0,
+                            "2026-04-01T12:35:00+00:00")
+                    };
+                }
+                else if (string.Equals(name, "dailyreporter", StringComparison.Ordinal))
+                {
+                    content = new JsonObject
+                    {
+                        ["success"] = true,
+                        ["agent"] = SmartFlowTestFactory.AgentSummary(
+                            "87654321-4321-4321-4321-ba0987654321",
+                            "DailyReporter",
+                            1,
+                            "2026-04-01T12:40:00+00:00")
+                    };
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Unexpected name lookup: {name}");
+                }
+
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = content
+                });
+            })
+            .OnTool("agent_update", (_, _) =>
+            {
+                updateCalls++;
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject { ["success"] = true }
+                });
+            });
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                if (request.StepId.EndsWith("edit_name", StringComparison.Ordinal))
+                {
+                    humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject { ["agent_name"] = " dailyreporter " });
+                    continue;
+                }
+
+                unexpectedStepId = request.StepId;
+                break;
+            }
+        }, token);
+
+        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/agent edit slimfaas", humanInput, agentMcp);
+        try
+        {
+            await responder;
+        }
+        catch (OperationCanceledException)
+        {
+            // The workflow already completed; the background request reader can still be awaiting more items.
+        }
+
+        Assert.True(result.Success);
+        Assert.Equal(0, llm.CallCount);
+        Assert.Equal(0, updateCalls);
+        Assert.Null(unexpectedStepId);
+        Assert.Contains(events, evt =>
+            evt.Type == "thinking:response" &&
+            evt.Text == "❌ Agent 'DailyReporter' already exists. Use `/agent edit DailyReporter` to update it or choose another name.");
     }
 
     [Fact]

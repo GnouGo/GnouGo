@@ -97,7 +97,7 @@ public sealed class WorkflowCallExecutor : IStepExecutor
             ["env"] = ctx.Data["env"]?.DeepClone() ?? new JsonObject()
         };
 
-        await ctx.Engine.ExecuteStepsAsync(subWorkflow.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, newCallStack, ct);
+        await ctx.Engine.ExecuteStepsAsync(subWorkflow.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, newCallStack, ct, ctx.TelemetrySpan);
 
         // Evaluate outputs
         JsonNode? outputs;
@@ -181,7 +181,7 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         };
 
         var result = new RunResult { Success = true };
-        await ctx.Engine.ExecuteStepsAsync(compiledWf.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, ctx.CallStack, ct);
+        await ctx.Engine.ExecuteStepsAsync(compiledWf.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, ctx.CallStack, ct, ctx.TelemetrySpan);
 
         return new JsonObject
         {

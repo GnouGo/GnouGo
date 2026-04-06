@@ -65,7 +65,7 @@ public sealed class WorkflowExecuteExecutor : IStepExecutor
         };
 
         var result = new RunResult { Success = true };
-        await ctx.Engine.ExecuteStepsAsync(workflow.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, ctx.CallStack, ct);
+        await ctx.Engine.ExecuteStepsAsync(workflow.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, ctx.CallStack, ct, ctx.TelemetrySpan);
 
         // Evaluate typed outputs if declared
         JsonNode? outputs;

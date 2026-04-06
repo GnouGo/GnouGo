@@ -24,6 +24,7 @@
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.OtlpCollector.Server\GnOuGo.OtlpCollector.Server.csproj" AdditionalProperties="SkipClientBuild=true" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="GnOuGo.Agent.Server.Tests" />

@@ -38,7 +38,7 @@ public sealed class SequenceExecutor : IStepExecutor
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "sequence step requires 'steps'");
 
         var result = new RunResult { Success = true };
-        await ctx.Engine.ExecuteStepsAsync(subSteps, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct);
+        await ctx.Engine.ExecuteStepsAsync(subSteps, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
 
         // Return the collected step outputs
         var outputs = new JsonObject();

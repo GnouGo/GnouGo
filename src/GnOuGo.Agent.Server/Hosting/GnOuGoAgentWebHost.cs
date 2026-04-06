@@ -16,12 +16,14 @@ using OpenTelemetry.Trace;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.Endpoints;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.Agent.Shared;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.KeyVault.Core;
 using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Core.Services;
+using OtlpTenantCollector.Hosting;
 
 namespace GnOuGo.Agent.Server.Hosting;
 
@@ -127,6 +129,8 @@ public static class GnOuGoAgentWebHost
         // OpenTelemetry configuration
         builder.Services.Configure<OpenTelemetrySettings>(
             builder.Configuration.GetSection(OpenTelemetrySettings.SectionName));
+        builder.Services.Configure<TraceDebugSettings>(
+            builder.Configuration.GetSection(TraceDebugSettings.SectionName));
 
         var otelSettings = builder.Configuration
             .GetSection(OpenTelemetrySettings.SectionName)
@@ -209,22 +213,26 @@ public static class GnOuGoAgentWebHost
             builder.Configuration.GetSection(ModelCatalogCacheSettings.SectionName));
         builder.Services.Configure<KeyVaultSettings>(
             builder.Configuration.GetSection(KeyVaultSettings.SectionName));
+        builder.Services.AddOtlpCollectorCore(builder.Configuration);
 
-        var keyVaultDbRelativePath = builder.Configuration.GetValue<string>($"{KeyVaultSettings.SectionName}:DatabasePath");
+        var keyVaultDbRelativePath = builder.Configuration.GetValue<string>("KeyVault:DatabasePath")
+            ?? "data/gnougo-keyvault.db";
         var keyVaultDbPath = KeyVaultDatabasePathResolver.Resolve(keyVaultDbRelativePath, AppContext.BaseDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(keyVaultDbPath)!);
 
         // --- services ---
         // LLMRuntimeOptionsStore: holds the live LLMOptions (updated by /llm wizard, persisted to user-settings.json)
         builder.Services.AddMemoryCache();
+        builder.Services.AddHttpClient(TraceDebugService.HttpClientName);
+        builder.Services.AddSingleton<LocalTraceDebugStore>();
         builder.Services.AddSingleton<LLMRuntimeOptionsStore>();
         builder.Services.AddDbContext<KeyVaultDbContext>(options => options.UseSqlite($"Data Source={keyVaultDbPath}"));
         builder.Services.AddScoped<KeyVaultService>();
         builder.Services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
         builder.Services.AddSingleton<SecureWorkflowRuntimeFactory>();
+        builder.Services.AddSingleton<CollectorTracePersistence>();
+        builder.Services.AddSingleton<ILoggerProvider, CollectorLoggerProvider>();
 
-        // AgentOTelTelemetry: emits OpenTelemetry traces/metrics for every workflow step
-        builder.Services.AddSingleton<AgentOTelTelemetry>();
 
         builder.Services.AddSingleton<ILLMClient>(sp =>
         {
@@ -251,9 +259,11 @@ public static class GnOuGoAgentWebHost
             return new InMemoryMcpClientFactory();
         });
         builder.Services.AddSingleton<AgentHumanInputProvider>();
+        builder.Services.AddSingleton<AgentOTelTelemetry>();
         builder.Services.AddSingleton<ConfigureProvidersService>();
         builder.Services.AddSingleton<ConfigureAgentsService>();
         builder.Services.AddSingleton<SmartFlowService>();
+        builder.Services.AddSingleton<TraceDebugService>();
 
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
@@ -271,6 +281,8 @@ public static class GnOuGoAgentWebHost
             keyVaultService.EnsureDefaultKeyPairAsync().GetAwaiter().GetResult();
         }
 
+        app.Services.InitializeOtlpCollectorAsync().GetAwaiter().GetResult();
+
         if (isDesktopHosted)
         {
             app.Use(async (context, next) =>
@@ -279,7 +291,6 @@ public static class GnOuGoAgentWebHost
                 var shouldTrace =
                     path == "/" ||
                     path == "/health" ||
-                    path.StartsWith("/desktop/boot-log", StringComparison.OrdinalIgnoreCase) ||
                     path.StartsWith("/desktop/page-loaded", StringComparison.OrdinalIgnoreCase) ||
                     path.StartsWith("/desktop/client-ready", StringComparison.OrdinalIgnoreCase) ||
                     path.StartsWith("/_framework", StringComparison.OrdinalIgnoreCase) ||
@@ -339,13 +350,14 @@ public static class GnOuGoAgentWebHost
         app.MapPost("/api/chat/stream", ChatEndpoints.StreamAsync);
         app.MapGet("/api/llm/providers", LlmProviderEndpoints.ListProviders);
         app.MapGet("/api/llm/providers/{provider}/models", LlmProviderEndpoints.ListModelsAsync);
+        app.MapOtlpCollectorApi(includeReceivers: true, includeHealthEndpoint: false);
         app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
         app.MapGet("/desktop/boot-log/{token}", (string token, string? step, string? detail) =>
         {
             if (!string.IsNullOrWhiteSpace(token))
             {
                 var safeStep = string.IsNullOrWhiteSpace(step) ? "<unknown>" : step.Trim();
-                var safeDetail = string.IsNullOrWhiteSpace(detail) ? string.Empty : detail.Trim();
+                var safeDetail = string.IsNullOrWhiteSpace(detail) ? "<none>" : detail.Trim();
                 Log($"BOOT token={token} step={safeStep} detail={safeDetail}");
             }
 

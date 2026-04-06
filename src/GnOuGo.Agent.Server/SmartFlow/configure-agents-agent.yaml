@@ -210,253 +210,306 @@ workflows:
               description: "Agent name (e.g. code-reviewer, daily-reporter)"
           timeout_ms: 300000
 
-      # Step 2: Describe the agent purpose
-      - id: input_prompt
-        type: human.input
-        input:
-          prompt: "Describe what this agent should do (natural language):"
-          fields:
-            - name: description
-              type: string
-              required: true
-              description: "Describe the agent's purpose and behavior. This prompt will be used to generate a workflow YAML."
-          timeout_ms: 600000
-
-      - id: think_generating
-        type: emit
-        input:
-          message: "⚙️ Generating workflow YAML from your description using ${data.inputs.agent_llm_provider}/${data.inputs.agent_llm_model}…"
-          level: thinking
-
-      # Step 3: Generate workflow YAML from the description
-      - id: discover_mcp
-        type: mcp.list
-        input:
-          servers:
-            - "*"
-          include:
-            - tools
-            - prompts
-
-      - id: generate_workflow
-        type: llm.call
-        input:
-          temperature: 0.7
-          prompt: >
-            You are a GnOuGo.Flow workflow YAML expert. Generate a valid workflow YAML
-            for an agent based on the user's description below.
-
-            Agent name: ${data.steps.input_name.agent_name}
-            Description: ${data.steps.input_prompt.description}
-
-            Available MCP capabilities:
-            ${data.steps.discover_mcp.text}
-
-            Rules:
-            - Use DSL version 1
-            - The workflow must be named "${data.steps.input_name.agent_name}"
-            - Include an "answer" output with the final result
-            - Use available MCP tools when applicable
-            - For llm.call steps prefer omitting provider/model so runtime defaults are used automatically; if you must specify them, use provider "${data.inputs.agent_llm_provider}" and model "${data.inputs.agent_llm_model}" with temperature 0.7
-            - Keep the workflow concise (under 15 steps)
-            - Add the original prompt as a comment at the top
-
-            Return ONLY the YAML, no markdown code fences, no explanation.
-
-      - id: emit_workflow
-        type: emit
-        input:
-          message: "📝 Generated workflow:\n\n```yaml\n${data.steps.generate_workflow.text}\n```"
-          level: thinking
-
-      # Step 4: Review workflow
-      - id: review_workflow
-        type: human.input
-        input:
-          prompt: "Review the generated workflow. You can approve it or modify it by pasting corrected YAML."
-          context: "${data.steps.generate_workflow.text}"
-          choices:
-            - approve
-            - modify
-          timeout_ms: 600000
-
-      - id: workflow_branch
-        type: switch
-        cases:
-          - when: "${data.steps.review_workflow.response == 'modify'}"
-            steps:
-              - id: custom_workflow
-                type: human.input
-                input:
-                  prompt: "Paste your modified workflow YAML below:"
-                  fields:
-                    - name: yaml
-                      type: string
-                      required: true
-                      description: "Modified workflow YAML"
-                      default: "${data.steps.generate_workflow.text}"
-                  timeout_ms: 600000
-              - id: final_workflow_modified
-                type: set
-                input:
-                  workflow: "${data.steps.custom_workflow.yaml}"
-
-        default:
-          - id: final_workflow_approved
-            type: set
-            input:
-              workflow: "${data.steps.generate_workflow.text}"
-
-      - id: final_workflow
+      - id: normalized_name
         type: set
         input:
-          workflow: "${data.steps.final_workflow_modified?.workflow ?? data.steps.final_workflow_approved?.workflow ?? data.steps.generate_workflow.text}"
+          agent_name: "${trim(data.steps.input_name.agent_name)}"
 
-      # Step 5: Schedules
-      - id: want_schedules
-        type: human.input
-        input:
-          prompt: "Would you like to add schedules (cron jobs) to this agent?"
-          choices:
-            - yes
-            - no
-          timeout_ms: 300000
-
-      - id: schedule_branch
-        type: switch
-        cases:
-          - when: "${data.steps.want_schedules.response == 'yes'}"
-            steps:
-              - id: describe_schedule
-                type: human.input
-                input:
-                  prompt: "Describe when this agent should run (e.g. 'every day at 8am', 'every Monday at noon'):"
-                  fields:
-                    - name: schedule_text
-                      type: string
-                      required: true
-                      description: "Natural language schedule description"
-                  timeout_ms: 300000
-
-              - id: think_cron
-                type: emit
-                input:
-                  message: "⏰ Generating cron expression…"
-                  level: thinking
-
-              - id: generate_cron
-                type: llm.call
-                input:
-                  temperature: 0.2
-                  prompt: >
-                    Convert the following schedule description to one or more Kubernetes cron expressions
-                    (5 fields: minute hour day-of-month month day-of-week).
-
-                    Description: ${data.steps.describe_schedule.schedule_text}
-
-                    Return a JSON array of objects with "name" and "cron" fields.
-                    Example: [{"name":"daily-8am","cron":"0 8 * * *"}]
-
-                    Return ONLY the JSON array, no explanation.
-
-              - id: review_cron
-                type: human.input
-                input:
-                  prompt: "Review the generated schedule(s):"
-                  context: "${data.steps.generate_cron.text}"
-                  choices:
-                    - approve
-                    - modify
-                  timeout_ms: 300000
-
-              - id: cron_branch
-                type: switch
-                cases:
-                  - when: "${data.steps.review_cron.response == 'modify'}"
-                    steps:
-                      - id: custom_cron
-                        type: human.input
-                        input:
-                          prompt: "Enter the schedule JSON (array of {name, cron}):"
-                          fields:
-                            - name: schedules_json
-                              type: string
-                              required: true
-                              description: "JSON array of schedules"
-                              default: "${data.steps.generate_cron.text}"
-                          timeout_ms: 300000
-                      - id: final_schedules_modified
-                        type: set
-                        input:
-                          schedules_json: "${data.steps.custom_cron.schedules_json}"
-                          schedule_description: "${data.steps.describe_schedule.schedule_text}"
-
-                default:
-                  - id: final_schedules_approved
-                    type: set
-                    input:
-                      schedules_json: "${data.steps.generate_cron.text}"
-                      schedule_description: "${data.steps.describe_schedule.schedule_text}"
-
-              - id: merged_schedules
-                type: set
-                input:
-                  schedules_json: "${data.steps.final_schedules_modified?.schedules_json ?? data.steps.final_schedules_approved?.schedules_json ?? '[]'}"
-                  schedule_description: "${data.steps.final_schedules_modified?.schedule_description ?? data.steps.final_schedules_approved?.schedule_description ?? ''}"
-
-        default:
-          - id: no_schedules
-            type: set
-            input:
-              schedules_json: "[]"
-              schedule_description: ""
-
-      - id: final_schedule_data
-        type: set
-        input:
-          schedules_json: "${data.steps.merged_schedules?.schedules_json ?? data.steps.no_schedules?.schedules_json ?? '[]'}"
-          schedule_description: "${data.steps.merged_schedules?.schedule_description ?? data.steps.no_schedules?.schedule_description ?? ''}"
-
-      # Step 6: Save agent via MCP
-      - id: think_saving
-        type: emit
-        input:
-          message: "💾 Saving agent '${data.steps.input_name.agent_name}'…"
-          level: progress
-
-      - id: save_agent
+      - id: check_name_available
         type: mcp.call
         input:
           server: GnOuGo.Agent.Mcp
-          method: agent_add
+          method: agent_get_by_name
           request:
-            name: "${data.steps.input_name.agent_name}"
-            workflow: "${data.steps.final_workflow.workflow}"
-            schedules: "${fromJson(data.steps.final_schedule_data.schedules_json)}"
-            originalPrompt: "${data.steps.input_prompt.description}"
-            scheduleDescription: "${data.steps.final_schedule_data.schedule_description}"
+            name: "${data.steps.normalized_name.agent_name}"
 
-      - id: save_agent_branch
+      - id: check_name_available_branch
         type: switch
         cases:
-          - when: "${data.steps.save_agent.response.success != true}"
+          - when: "${data.steps.normalized_name.agent_name == ''}"
             steps:
-              - id: emit_save_failed
+              - id: emit_invalid_name
                 type: emit
                 input:
-                  message: "❌ Failed to create agent '${data.steps.input_name.agent_name}'. ${data.steps.save_agent.response.error_message ?? 'Unknown error.'}"
+                  message: "❌ Agent name cannot be empty. Please retry `/agent add` with a non-empty name."
                   level: response
+              - id: invalid_name_result
+                type: set
+                input:
+                  agent_name: ""
+
+          - when: "${data.steps.check_name_available.response.success == true}"
+            steps:
+              - id: emit_duplicate_name
+                type: emit
+                input:
+                  message: "❌ Agent '${data.steps.check_name_available.response.agent.name}' already exists. Use `/agent edit ${data.steps.check_name_available.response.agent.name}` to update it or choose another name."
+                  level: response
+              - id: duplicate_name_result
+                type: set
+                input:
+                  agent_name: ""
+
+          - when: "${data.steps.check_name_available.response.success != true && data.steps.check_name_available.response.error_code != 'NOT_FOUND'}"
+            steps:
+              - id: emit_name_check_failed
+                type: emit
+                input:
+                  message: "❌ Could not verify whether agent name '${data.steps.normalized_name.agent_name}' is available. ${data.steps.check_name_available.response.error_message ?? 'Unknown error.'}"
+                  level: response
+              - id: name_check_failed_result
+                type: set
+                input:
+                  agent_name: ""
 
         default:
-          - id: emit_saved
+          # Step 2: Describe the agent purpose
+          - id: input_prompt
+            type: human.input
+            input:
+              prompt: "Describe what this agent should do (natural language):"
+              fields:
+                - name: description
+                  type: string
+                  required: true
+                  description: "Describe the agent's purpose and behavior. This prompt will be used to generate a workflow YAML."
+              timeout_ms: 600000
+
+          - id: think_generating
             type: emit
             input:
-              message: "✅ Agent '${data.steps.input_name.agent_name}' created successfully and is now the active agent for this chat."
-              level: response
+              message: "⚙️ Generating workflow YAML from your description using ${data.inputs.agent_llm_provider}/${data.inputs.agent_llm_model}…"
+              level: thinking
+
+          # Step 3: Generate workflow YAML from the description
+          - id: discover_mcp
+            type: mcp.list
+            input:
+              servers:
+                - "*"
+              include:
+                - tools
+                - prompts
+
+          - id: generate_workflow
+            type: llm.call
+            input:
+              temperature: 0.7
+              prompt: >
+                You are a GnOuGo.Flow workflow YAML expert. Generate a valid workflow YAML
+                for an agent based on the user's description below.
+
+                Agent name: ${data.steps.normalized_name.agent_name}
+                Description: ${data.steps.input_prompt.description}
+
+                Available MCP capabilities:
+                ${data.steps.discover_mcp.text}
+
+                Rules:
+                - Use DSL version 1
+                - The workflow must be named "${data.steps.normalized_name.agent_name}"
+                - Include an "answer" output with the final result
+                - Use available MCP tools when applicable
+                - For llm.call steps prefer omitting provider/model so runtime defaults are used automatically; if you must specify them, use provider "${data.inputs.agent_llm_provider}" and model "${data.inputs.agent_llm_model}" with temperature 0.7
+                - Keep the workflow concise (under 15 steps)
+                - Add the original prompt as a comment at the top
+
+                Return ONLY the YAML, no markdown code fences, no explanation.
+
+          - id: emit_workflow
+            type: emit
+            input:
+              message: "📝 Generated workflow:\n\n```yaml\n${data.steps.generate_workflow.text}\n```"
+              level: thinking
+
+          # Step 4: Review workflow
+          - id: review_workflow
+            type: human.input
+            input:
+              prompt: "Review the generated workflow. You can approve it or modify it by pasting corrected YAML."
+              context: "${data.steps.generate_workflow.text}"
+              choices:
+                - approve
+                - modify
+              timeout_ms: 600000
+
+          - id: workflow_branch
+            type: switch
+            cases:
+              - when: "${data.steps.review_workflow.response == 'modify'}"
+                steps:
+                  - id: custom_workflow
+                    type: human.input
+                    input:
+                      prompt: "Paste your modified workflow YAML below:"
+                      fields:
+                        - name: yaml
+                          type: string
+                          required: true
+                          description: "Modified workflow YAML"
+                          default: "${data.steps.generate_workflow.text}"
+                      timeout_ms: 600000
+                  - id: final_workflow_modified
+                    type: set
+                    input:
+                      workflow: "${data.steps.custom_workflow.yaml}"
+
+            default:
+              - id: final_workflow_approved
+                type: set
+                input:
+                  workflow: "${data.steps.generate_workflow.text}"
+
+          - id: final_workflow
+            type: set
+            input:
+              workflow: "${data.steps.final_workflow_modified?.workflow ?? data.steps.final_workflow_approved?.workflow ?? data.steps.generate_workflow.text}"
+
+          # Step 5: Schedules
+          - id: want_schedules
+            type: human.input
+            input:
+              prompt: "Would you like to add schedules (cron jobs) to this agent?"
+              choices:
+                - yes
+                - no
+              timeout_ms: 300000
+
+          - id: schedule_branch
+            type: switch
+            cases:
+              - when: "${data.steps.want_schedules.response == 'yes'}"
+                steps:
+                  - id: describe_schedule
+                    type: human.input
+                    input:
+                      prompt: "Describe when this agent should run (e.g. 'every day at 8am', 'every Monday at noon'):"
+                      fields:
+                        - name: schedule_text
+                          type: string
+                          required: true
+                          description: "Natural language schedule description"
+                      timeout_ms: 300000
+
+                  - id: think_cron
+                    type: emit
+                    input:
+                      message: "⏰ Generating cron expression…"
+                      level: thinking
+
+                  - id: generate_cron
+                    type: llm.call
+                    input:
+                      temperature: 0.2
+                      prompt: >
+                        Convert the following schedule description to one or more Kubernetes cron expressions
+                        (5 fields: minute hour day-of-month month day-of-week).
+
+                        Description: ${data.steps.describe_schedule.schedule_text}
+
+                        Return a JSON array of objects with "name" and "cron" fields.
+                        Example: [{"name":"daily-8am","cron":"0 8 * * *"}]
+
+                        Return ONLY the JSON array, no explanation.
+
+                  - id: review_cron
+                    type: human.input
+                    input:
+                      prompt: "Review the generated schedule(s):"
+                      context: "${data.steps.generate_cron.text}"
+                      choices:
+                        - approve
+                        - modify
+                      timeout_ms: 300000
+
+                  - id: cron_branch
+                    type: switch
+                    cases:
+                      - when: "${data.steps.review_cron.response == 'modify'}"
+                        steps:
+                          - id: custom_cron
+                            type: human.input
+                            input:
+                              prompt: "Enter the schedule JSON (array of {name, cron}):"
+                              fields:
+                                - name: schedules_json
+                                  type: string
+                                  required: true
+                                  description: "JSON array of schedules"
+                                  default: "${data.steps.generate_cron.text}"
+                              timeout_ms: 300000
+                          - id: final_schedules_modified
+                            type: set
+                            input:
+                              schedules_json: "${data.steps.custom_cron.schedules_json}"
+                              schedule_description: "${data.steps.describe_schedule.schedule_text}"
+
+                    default:
+                      - id: final_schedules_approved
+                        type: set
+                        input:
+                          schedules_json: "${data.steps.generate_cron.text}"
+                          schedule_description: "${data.steps.describe_schedule.schedule_text}"
+
+                  - id: merged_schedules
+                    type: set
+                    input:
+                      schedules_json: "${data.steps.final_schedules_modified?.schedules_json ?? data.steps.final_schedules_approved?.schedules_json ?? '[]'}"
+                      schedule_description: "${data.steps.final_schedules_modified?.schedule_description ?? data.steps.final_schedules_approved?.schedule_description ?? ''}"
+
+            default:
+              - id: no_schedules
+                type: set
+                input:
+                  schedules_json: "[]"
+                  schedule_description: ""
+
+          - id: final_schedule_data
+            type: set
+            input:
+              schedules_json: "${data.steps.merged_schedules?.schedules_json ?? data.steps.no_schedules?.schedules_json ?? '[]'}"
+              schedule_description: "${data.steps.merged_schedules?.schedule_description ?? data.steps.no_schedules?.schedule_description ?? ''}"
+
+          # Step 6: Save agent via MCP
+          - id: think_saving
+            type: emit
+            input:
+              message: "💾 Saving agent '${data.steps.normalized_name.agent_name}'…"
+              level: progress
+
+          - id: save_agent
+            type: mcp.call
+            input:
+              server: GnOuGo.Agent.Mcp
+              method: agent_add
+              request:
+                name: "${data.steps.normalized_name.agent_name}"
+                workflow: "${data.steps.final_workflow.workflow}"
+                schedules: "${fromJson(data.steps.final_schedule_data.schedules_json)}"
+                originalPrompt: "${data.steps.input_prompt.description}"
+                scheduleDescription: "${data.steps.final_schedule_data.schedule_description}"
+
+          - id: save_agent_branch
+            type: switch
+            cases:
+              - when: "${data.steps.save_agent.response.success != true}"
+                steps:
+                  - id: emit_save_failed
+                    type: emit
+                    input:
+                      message: "❌ Failed to create agent '${data.steps.normalized_name.agent_name}'. ${data.steps.save_agent.response.error_message ?? 'Unknown error.'}"
+                      level: response
+
+            default:
+              - id: emit_saved
+                type: emit
+                input:
+                  message: "✅ Agent '${data.steps.normalized_name.agent_name}' created successfully and is now the active agent for this chat."
+                  level: response
 
     outputs:
       agent_name:
-        expr: "${data.steps.save_agent.response.success == true ? data.steps.input_name.agent_name : ''}"
+        expr: "${data.steps.save_agent?.response?.success == true ? data.steps.normalized_name.agent_name : data.steps.invalid_name_result?.agent_name ?? data.steps.duplicate_name_result?.agent_name ?? data.steps.name_check_failed_result?.agent_name ?? ''}"
         type: string
         description: "Name of the newly created agent when creation succeeds"
 
@@ -502,97 +555,152 @@ workflows:
               message: "📝 Current workflow for '${data.steps.find_agent.response.agent.name}':\n\n```yaml\n${data.steps.find_agent.response.agent.workflow}\n```"
               level: thinking
 
-          - id: edit_choice
+          - id: edit_name
             type: human.input
             input:
-              prompt: "What would you like to edit?"
-              choices:
-                - workflow
-                - schedules
-                - both
+              prompt: "Update the agent name if needed, or keep the current value:"
+              fields:
+                - name: agent_name
+                  type: string
+                  required: true
+                  description: "Agent name"
+                  default: "${data.steps.find_agent.response.agent.name}"
               timeout_ms: 300000
 
-          - id: edit_branch
-            type: switch
-            cases:
-              - when: "${data.steps.edit_choice.response == 'workflow' || data.steps.edit_choice.response == 'both'}"
-                steps:
-                  - id: edit_workflow
-                    type: human.input
-                    input:
-                      prompt: "Enter the new workflow YAML (or modify the existing one):"
-                      fields:
-                        - name: yaml
-                          type: string
-                          required: true
-                          description: "Workflow YAML"
-                          default: "${data.steps.find_agent.response.agent.workflow}"
-                      timeout_ms: 600000
-                  - id: new_workflow
-                    type: set
-                    input:
-                      workflow: "${data.steps.edit_workflow.yaml}"
-
-            default:
-              - id: keep_workflow
-                type: set
-                input:
-                  workflow: "${data.steps.find_agent.response.agent.workflow}"
-
-          - id: final_edit_workflow
+          - id: normalized_edit_name
             type: set
             input:
-              workflow: "${data.steps.new_workflow?.workflow ?? data.steps.keep_workflow?.workflow ?? data.steps.find_agent.response.agent.workflow}"
+              original_name: "${trim(data.steps.find_agent.response.agent.name)}"
+              agent_name: "${trim(data.steps.edit_name.agent_name ?? data.steps.find_agent.response.agent.name)}"
+              name_changed: "${lower(trim(data.steps.edit_name.agent_name ?? data.steps.find_agent.response.agent.name)) != lower(trim(data.steps.find_agent.response.agent.name))}"
 
-          - id: confirm_edit
-            type: human.input
+          - id: check_edited_name_available
+            type: mcp.call
             input:
-              prompt: "Save the updated agent '${data.inputs.name}'?"
-              choices:
-                - save
-                - discard
-              timeout_ms: 300000
+              server: GnOuGo.Agent.Mcp
+              method: agent_get_by_name
+              request:
+                name: "${data.steps.normalized_edit_name.agent_name}"
 
-          - id: save_edit_branch
+          - id: check_edited_name_available_branch
             type: switch
             cases:
-              - when: "${data.steps.confirm_edit.response == 'save'}"
+              - when: "${data.steps.normalized_edit_name.agent_name == ''}"
                 steps:
-                  - id: save_update
-                    type: mcp.call
+                  - id: emit_invalid_edit_name
+                    type: emit
                     input:
-                      server: GnOuGo.Agent.Mcp
-                      method: agent_update
-                      request:
-                        id: "${data.steps.find_agent.response.agent.id}"
-                        name: "${data.steps.find_agent.response.agent.name}"
-                        workflow: "${data.steps.final_edit_workflow.workflow}"
-                        schedules: "${data.steps.find_agent.response.agent.schedules}"
+                      message: "❌ Agent name cannot be empty. Please retry `/agent edit ${data.inputs.name}` with a non-empty name."
+                      level: response
 
-                  - id: save_update_result
-                    type: switch
-                    cases:
-                      - when: "${data.steps.save_update.response.success != true}"
-                        steps:
-                          - id: emit_update_failed
-                            type: emit
-                            input:
-                              message: "❌ Failed to update agent '${data.inputs.name}'. ${data.steps.save_update.response.error_message ?? 'Unknown error.'}"
-                              level: response
+              - when: "${data.steps.normalized_edit_name.name_changed == true && data.steps.check_edited_name_available.response.success == true}"
+                steps:
+                  - id: emit_duplicate_edit_name
+                    type: emit
+                    input:
+                      message: "❌ Agent '${data.steps.check_edited_name_available.response.agent.name}' already exists. Use `/agent edit ${data.steps.check_edited_name_available.response.agent.name}` to update it or choose another name."
+                      level: response
 
-                    default:
-                      - id: emit_updated
-                        type: emit
-                        input:
-                          message: "✅ Agent '${data.inputs.name}' updated."
-                          level: response
+              - when: "${data.steps.normalized_edit_name.name_changed == true && data.steps.check_edited_name_available.response.success != true && data.steps.check_edited_name_available.response.error_code != 'NOT_FOUND'}"
+                steps:
+                  - id: emit_edit_name_check_failed
+                    type: emit
+                    input:
+                      message: "❌ Could not verify whether agent name '${data.steps.normalized_edit_name.agent_name}' is available. ${data.steps.check_edited_name_available.response.error_message ?? 'Unknown error.'}"
+                      level: response
 
             default:
-              - id: emit_edit_discarded
-                type: emit
+              - id: edit_choice
+                type: human.input
                 input:
-                  message: "❌ Edit discarded."
-                  level: thinking
+                  prompt: "What would you like to edit?"
+                  choices:
+                    - workflow
+                    - schedules
+                    - both
+                  timeout_ms: 300000
+
+              - id: edit_branch
+                type: switch
+                cases:
+                  - when: "${data.steps.edit_choice.response == 'workflow' || data.steps.edit_choice.response == 'both'}"
+                    steps:
+                      - id: edit_workflow
+                        type: human.input
+                        input:
+                          prompt: "Enter the new workflow YAML (or modify the existing one):"
+                          fields:
+                            - name: yaml
+                              type: string
+                              required: true
+                              description: "Workflow YAML"
+                              default: "${data.steps.find_agent.response.agent.workflow}"
+                          timeout_ms: 600000
+                      - id: new_workflow
+                        type: set
+                        input:
+                          workflow: "${data.steps.edit_workflow.yaml}"
+
+                default:
+                  - id: keep_workflow
+                    type: set
+                    input:
+                      workflow: "${data.steps.find_agent.response.agent.workflow}"
+
+              - id: final_edit_workflow
+                type: set
+                input:
+                  workflow: "${data.steps.new_workflow?.workflow ?? data.steps.keep_workflow?.workflow ?? data.steps.find_agent.response.agent.workflow}"
+
+              - id: confirm_edit
+                type: human.input
+                input:
+                  prompt: "Save the updated agent '${data.steps.normalized_edit_name.agent_name}'?"
+                  choices:
+                    - save
+                    - discard
+                  timeout_ms: 300000
+
+              - id: save_edit_branch
+                type: switch
+                cases:
+                  - when: "${data.steps.confirm_edit.response == 'save'}"
+                    steps:
+                      - id: save_update
+                        type: mcp.call
+                        input:
+                          server: GnOuGo.Agent.Mcp
+                          method: agent_update
+                          request:
+                            id: "${data.steps.find_agent.response.agent.id}"
+                            name: "${data.steps.normalized_edit_name.agent_name}"
+                            workflow: "${data.steps.final_edit_workflow.workflow}"
+                            schedules: "${data.steps.find_agent.response.agent.schedules}"
+
+                      - id: save_update_result
+                        type: switch
+                        cases:
+                          - when: "${data.steps.save_update.response.success != true}"
+                            steps:
+                              - id: emit_update_failed
+                                type: emit
+                                input:
+                                  message: "❌ Failed to update agent '${data.steps.normalized_edit_name.agent_name}'. ${data.steps.save_update.response.error_message ?? 'Unknown error.'}"
+                                  level: response
+
+                        default:
+                          - id: emit_updated
+                            type: emit
+                            input:
+                              message: "✅ Agent '${data.steps.normalized_edit_name.agent_name}' updated."
+                              level: response
+
+                default:
+                  - id: emit_edit_discarded
+                    type: emit
+                    input:
+                      message: "❌ Edit discarded."
+                      level: thinking
 
     outputs: {}
 

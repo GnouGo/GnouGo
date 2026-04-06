@@ -53,10 +53,15 @@ public sealed class StreamingWorkflowTelemetry : IWorkflowTelemetry
 			Summary: GetSummarySnapshot()));
 	}
 
-	public IStepSpan StepStart(IWorkflowSpan workflowSpan, StepTelemetryInfo info)
+	public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info)
 	{
-		var innerWorkflowSpan = workflowSpan is StreamingWorkflowSpan streamingSpan ? streamingSpan.Inner : workflowSpan;
-		var innerStepSpan = _inner.StepStart(innerWorkflowSpan, info);
+		var innerParentSpan = parentSpan switch
+		{
+			StreamingWorkflowSpan streamingSpan => streamingSpan.Inner,
+			StreamingStepSpan streamingStepSpan => streamingStepSpan.Inner,
+			_ => parentSpan
+		};
+		var innerStepSpan = _inner.StepStart(innerParentSpan, info);
 
 		Emit("step.started", new StepStartedStreamData(
 			StepId: info.StepId,

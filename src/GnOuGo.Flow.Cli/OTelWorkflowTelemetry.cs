@@ -95,9 +95,9 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
 
     // -- Step span --
 
-    public IStepSpan StepStart(IWorkflowSpan workflowSpan, StepTelemetryInfo info)
+    public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info)
     {
-        var parentActivity = (workflowSpan as OTelWorkflowSpan)?.Activity;
+        var parentActivity = ResolveParentActivity(parentSpan);
 
         // Start step as child of workflow
         Activity? activity;
@@ -208,6 +208,14 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
             return info.GenAiOperationName;
         return $"{info.StepType} {info.StepId}";
     }
+
+    private static Activity? ResolveParentActivity(ITelemetrySpan parentSpan)
+        => parentSpan switch
+        {
+            OTelWorkflowSpan workflowSpan => workflowSpan.Activity,
+            OTelStepSpan stepSpan => stepSpan.Activity,
+            _ => null
+        };
 
     public void Dispose()
     {

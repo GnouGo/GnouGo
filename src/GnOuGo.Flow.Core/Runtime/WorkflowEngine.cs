@@ -302,10 +302,10 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         int callDepth,
         HashSet<string> callStack,
         CancellationToken ct,
-        IWorkflowSpan? workflowSpan = null,
+        ITelemetrySpan? parentSpan = null,
         int startFromIndex = 0)
     {
-        workflowSpan ??= NullWorkflowTelemetry.Instance.WorkflowStart(new WorkflowTelemetryInfo());
+        parentSpan ??= NullWorkflowTelemetry.Instance.WorkflowStart(new WorkflowTelemetryInfo());
 
         for (var stepIndex = startFromIndex; stepIndex < steps.Count; stepIndex++)
         {
@@ -337,7 +337,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                     var guardResult = _interpolator.Interpolate(step.Source.If, data);
                     if (!ExpressionEvaluator.GetBool(guardResult))
                     {
-                        stepSpan ??= Telemetry.StepStart(workflowSpan, new StepTelemetryInfo
+                        stepSpan ??= Telemetry.StepStart(parentSpan, new StepTelemetryInfo
                         {
                             StepId = step.Id,
                             StepType = step.Type,
@@ -382,7 +382,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                     Input = resolvedInput?.DeepClone(),
                     CallDepth = callDepth
                 };
-                stepSpan = Telemetry.StepStart(workflowSpan, stepTelemetryInfo);
+                stepSpan = Telemetry.StepStart(parentSpan, stepTelemetryInfo);
 
                 Logger.LogDebug("Step '{StepId}' ({StepType}) starting at depth {CallDepth}",
                     step.Id, step.Type, callDepth);
@@ -455,7 +455,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             }
             catch (WorkflowRuntimeException ex)
             {
-                stepSpan ??= Telemetry.StepStart(workflowSpan, new StepTelemetryInfo
+                stepSpan ??= Telemetry.StepStart(parentSpan, new StepTelemetryInfo
                 {
                     StepId = step.Id,
                     StepType = step.Type,

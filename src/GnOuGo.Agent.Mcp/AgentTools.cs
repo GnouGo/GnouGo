@@ -48,6 +48,11 @@ public sealed class AgentTools
                 ["agent"] = SerializeAgent(agent)
             };
         }
+        catch (DuplicateAgentNameException ex)
+        {
+            _logger.LogWarning(ex, "agent_add duplicate name");
+            return ErrorResult("ALREADY_EXISTS", ex.Message);
+        }
         catch (ArgumentException ex)
         {
             _logger.LogWarning(ex, "agent_add validation error");
@@ -92,6 +97,11 @@ public sealed class AgentTools
                 ["success"] = true,
                 ["agent"] = SerializeAgent(agent)
             };
+        }
+        catch (DuplicateAgentNameException ex)
+        {
+            _logger.LogWarning(ex, "agent_update duplicate name");
+            return ErrorResult("ALREADY_EXISTS", ex.Message);
         }
         catch (ArgumentException ex)
         {

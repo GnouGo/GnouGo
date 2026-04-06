@@ -38,6 +38,9 @@ public sealed class AgentRepository : IAgentRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(workflow);
 
+        var normalizedName = NormalizeName(name);
+        await EnsureNameAvailableAsync(normalizedName, excludedAgentId: null, ct);
+
         // Ensure every schedule has an id
         foreach (var s in schedules)
         {
@@ -49,7 +52,7 @@ public sealed class AgentRepository : IAgentRepository
         var agent = new AgentDefinition
         {
             Id = Guid.NewGuid(),
-            Name = name.Trim(),
+            Name = normalizedName,
             Workflow = workflow,
             OriginalPrompt = originalPrompt,
             ScheduleDescription = scheduleDescription,
@@ -71,6 +74,9 @@ public sealed class AgentRepository : IAgentRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(workflow);
 
+        var normalizedName = NormalizeName(name);
+        await EnsureNameAvailableAsync(normalizedName, id, ct);
+
         var agent = await _db.Agents.FindAsync([id], ct)
             ?? throw new KeyNotFoundException($"Agent '{id}' not found.");
 
@@ -81,7 +87,7 @@ public sealed class AgentRepository : IAgentRepository
                 s.Id = Guid.NewGuid().ToString("N")[..12];
         }
 
-        agent.Name = name.Trim();
+        agent.Name = normalizedName;
         agent.Workflow = workflow;
         agent.OriginalPrompt = originalPrompt;
         agent.ScheduleDescription = scheduleDescription;
@@ -99,8 +105,11 @@ public sealed class AgentRepository : IAgentRepository
         => await _db.Agents.OrderBy(a => a.Name).ToListAsync(ct);
 
     public async Task<AgentDefinition?> GetByNameAsync(string name, CancellationToken ct = default)
-        => await _db.Agents.FirstOrDefaultAsync(
-            a => a.Name.ToLower() == name.Trim().ToLower(), ct);
+    {
+        var normalizedName = NormalizeName(name);
+        return await _db.Agents.FirstOrDefaultAsync(
+            a => a.Name.ToUpper() == normalizedName.ToUpper(), ct);
+    }
 
     public async Task DeleteAgentAsync(Guid id, CancellationToken ct = default)
     {
@@ -121,6 +130,21 @@ public sealed class AgentRepository : IAgentRepository
     /// <summary>Deserialize the schedules JSON from an <see cref="AgentDefinition"/>.</summary>
     public static List<Schedule> DeserializeSchedules(string schedulesJson)
         => JsonSerializer.Deserialize<List<Schedule>>(schedulesJson, JsonOptions) ?? [];
+
+    private async Task EnsureNameAvailableAsync(string normalizedName, Guid? excludedAgentId, CancellationToken ct)
+    {
+        var existingAgent = await _db.Agents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                a => a.Name.ToUpper() == normalizedName.ToUpper()
+                    && (!excludedAgentId.HasValue || a.Id != excludedAgentId.Value),
+                ct);
+
+        if (existingAgent is not null)
+            throw new DuplicateAgentNameException(normalizedName);
+    }
+
+    private static string NormalizeName(string name) => name.Trim();
 
     // ── Diff helpers ─────────────────────────────────────────────────
 

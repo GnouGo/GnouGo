@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Diagnostics;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Endpoints;
 using GnOuGo.AI.Core;
@@ -6,6 +7,7 @@ using GnOuGo.Agent.Shared;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Logging.Abstractions;
+using OtlpTenantCollector.Models;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -31,6 +33,7 @@ public sealed class ConfigureProvidersServiceTests
             new FakeModelCatalog(),
             new FakeKeyVaultRuntimeConfigStore(),
             runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var useInjected = ConfigureProvidersServiceTestHelpers.InvokeShouldUseInjectedModelCatalog(
@@ -63,6 +66,7 @@ public sealed class ConfigureProvidersServiceTests
             new FakeModelCatalog(),
             new FakeKeyVaultRuntimeConfigStore(),
             runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var useInjected = ConfigureProvidersServiceTestHelpers.InvokeShouldUseInjectedModelCatalog(
@@ -98,6 +102,7 @@ public sealed class ConfigureProvidersServiceTests
             new FakeModelCatalog(),
             new FakeKeyVaultRuntimeConfigStore(),
             runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var useInjected = ConfigureProvidersServiceTestHelpers.InvokeShouldUseInjectedModelCatalog(
@@ -218,6 +223,7 @@ public sealed class ConfigureProvidersServiceTests
             modelCatalog,
             keyVaultStore,
             runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm default", token), token);
@@ -520,6 +526,7 @@ public sealed class ConfigureProvidersServiceTests
             modelCatalog,
             keyVaultStore,
             runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
@@ -582,6 +589,7 @@ public sealed class ConfigureProvidersServiceTests
             modelCatalog,
             keyVaultStore,
             runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
             NullLogger<ConfigureProvidersService>.Instance);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
@@ -833,6 +841,335 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Null(await keyVaultStore.GetSecretValueAsync("gnougo_mcp_Github", CancellationToken.None));
         Assert.Null(await keyVaultStore.GetSecretValueAsync("LLM--McpServers--Github", CancellationToken.None));
         Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_Status_PersistsDirectCommandSpansUnderCurrentChatTrace()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret("LLM--Models--openai", "{}", 2, "2026-04-01T12:10:00+00:00")
+            .AddSecret("LLM--McpServers--github", "{}", 5, "2026-04-01T12:11:00+00:00");
+        var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            llm,
+            keyVaultStore: keyVaultStore,
+            telemetry: telemetryHarness.Telemetry);
+
+        var correlationId = ActivityTraceId.CreateRandom().ToHexString();
+        using (var chatTrace = telemetryHarness.Telemetry.StartChatMessageActivity(correlationId, "/status"))
+        {
+            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/status", CancellationToken.None));
+            Assert.Single(events);
+            chatTrace.SetStatus(ActivityStatusCode.Ok);
+        }
+
+        var spans = DrainPersistedSpans(telemetryHarness.Queue);
+        Assert.True(spans.Count >= 3);
+
+        var traceIds = spans.Select(span => Convert.ToHexString(span.TraceId).ToLowerInvariant()).Distinct(StringComparer.Ordinal).ToList();
+        Assert.Single(traceIds);
+        Assert.Contains(spans, span => span.Name == "configure.providers.status");
+        Assert.Contains(spans, span => span.Name == "configure.providers.status.render");
+        Assert.Contains(spans, span => span.Name == "keyvault.list_secrets");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LlmModels_PersistsModelCatalogDiscoverySpansUnderCurrentChatTrace()
+    {
+        var llm = new RecordingLlmClient();
+        var modelCatalog = new FakeModelCatalog()
+            .Add("openai", new LLMModelDescriptor("gpt-4o", "gpt-4o", "openai", "openai"));
+        var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            llm,
+            modelCatalog,
+            new LLMOptions
+            {
+                DefaultProvider = "openai",
+                DefaultModel = "gpt-4o",
+                Models = new Dictionary<string, ModelProviderOptions>
+                {
+                    ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "secret" }
+                }
+            },
+            telemetry: telemetryHarness.Telemetry);
+
+        var correlationId = ActivityTraceId.CreateRandom().ToHexString();
+        using (var chatTrace = telemetryHarness.Telemetry.StartChatMessageActivity(correlationId, "/llm models openai"))
+        {
+            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm models openai", CancellationToken.None));
+            Assert.Equal(2, events.Count);
+            chatTrace.SetStatus(ActivityStatusCode.Ok);
+        }
+
+        var spans = DrainPersistedSpans(telemetryHarness.Queue);
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.models");
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.models.render");
+        Assert.Contains(spans, span => span.Name == "llm.model_catalog.list");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LlmAdd_PersistsInteractiveWizardSpansUnderCurrentChatTrace()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
+        var modelCatalog = new FakeModelCatalog()
+            .Add("openai", new LLMModelDescriptor("gpt-4o-mini", "gpt-4o-mini", "openai", "openai"));
+        var humanInput = new AgentHumanInputProvider();
+        var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "llm_add.provider" => new JsonObject { ["response"] = "openai" },
+                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1" },
+                    "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
+                    "llm.auth.api_key" => new JsonObject { ["api_key"] = "test-secret" },
+                    "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-4o-mini" },
+                    "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId == "llm_add.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            llm,
+            modelCatalog,
+            new LLMOptions
+            {
+                DefaultProvider = string.Empty,
+                DefaultModel = string.Empty,
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+            },
+            humanInput,
+            keyVaultStore,
+            telemetryHarness.Telemetry);
+
+        var correlationId = ActivityTraceId.CreateRandom().ToHexString();
+        using (var chatTrace = telemetryHarness.Telemetry.StartChatMessageActivity(correlationId, "/llm add"))
+        {
+            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
+            Assert.NotEmpty(events);
+            chatTrace.SetStatus(ActivityStatusCode.Ok);
+        }
+
+        await responder;
+
+        var spans = DrainPersistedSpans(telemetryHarness.Queue);
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.add.interactive");
+        Assert.Contains(spans, span => span.Name == "configure.providers.human_input.request");
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.auth.collect");
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.model.select");
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.save");
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.validate");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LlmEdit_PersistsInteractiveWizardSpansUnderCurrentChatTrace()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret("LLM--Models--openai", "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4o-mini\",\"authType\":\"api_key\",\"apiKey\":\"old-secret\"}");
+        var modelCatalog = new FakeModelCatalog()
+            .Add("openai", new LLMModelDescriptor("gpt-5-search-api", "gpt-5-search-api", "openai", "openai"));
+        var humanInput = new AgentHumanInputProvider();
+        var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "llm_edit.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1" },
+                    "llm_edit.auth_mode" => new JsonObject { ["response"] = "api_key" },
+                    "llm.auth.api_key" => new JsonObject { ["api_key"] = "new-secret" },
+                    "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-5-search-api" },
+                    "llm_edit.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId == "llm_edit.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            llm,
+            modelCatalog,
+            new LLMOptions
+            {
+                DefaultProvider = "openai",
+                DefaultModel = "gpt-4o-mini",
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "runtime-secret" }
+                }
+            },
+            humanInput,
+            keyVaultStore,
+            telemetry: telemetryHarness.Telemetry);
+
+        var correlationId = ActivityTraceId.CreateRandom().ToHexString();
+        using (var chatTrace = telemetryHarness.Telemetry.StartChatMessageActivity(correlationId, "/llm edit openai"))
+        {
+            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm edit openai", token), token);
+            Assert.NotEmpty(events);
+            chatTrace.SetStatus(ActivityStatusCode.Ok);
+        }
+
+        await responder;
+
+        var spans = DrainPersistedSpans(telemetryHarness.Queue);
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.edit.interactive");
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.load_existing");
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.auth.collect");
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.model.select");
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.save");
+        Assert.Contains(spans, span => span.Name == "configure.providers.llm.validate");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpAdd_PersistsInteractiveWizardSpansUnderCurrentChatTrace()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
+        var humanInput = new AgentHumanInputProvider();
+        var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "mcp_add.transport" => new JsonObject { ["response"] = "stdio" },
+                    "mcp_add.stdio" => new JsonObject
+                    {
+                        ["name"] = "GithubLocal",
+                        ["description"] = "Local GitHub MCP",
+                        ["command"] = "dotnet",
+                        ["args"] = "run,--project,src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj"
+                    },
+                    "mcp_add.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId == "mcp_add.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            llm,
+            humanInput: humanInput,
+            keyVaultStore: keyVaultStore,
+            telemetry: telemetryHarness.Telemetry);
+
+        var correlationId = ActivityTraceId.CreateRandom().ToHexString();
+        using (var chatTrace = telemetryHarness.Telemetry.StartChatMessageActivity(correlationId, "/mcp add"))
+        {
+            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp add", token), token);
+            Assert.NotEmpty(events);
+            chatTrace.SetStatus(ActivityStatusCode.Ok);
+        }
+
+        await responder;
+
+        var spans = DrainPersistedSpans(telemetryHarness.Queue);
+        Assert.Contains(spans, span => span.Name == "configure.providers.mcp.add.interactive");
+        Assert.Contains(spans, span => span.Name == "configure.providers.human_input.request");
+        Assert.Contains(spans, span => span.Name == "configure.providers.mcp.stdio.collect");
+        Assert.Contains(spans, span => span.Name == "configure.providers.mcp.save");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpEdit_PersistsInteractiveWizardSpansUnderCurrentChatTrace()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret("LLM--McpServers--Github", "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"Old description\",\"url\":\"https://old.example/mcp\",\"authType\":\"api_key\",\"apiKey\":\"gh-secret\"}");
+        var humanInput = new AgentHumanInputProvider();
+        var telemetryHarness = SmartFlowTestFactory.CreateTelemetryHarness();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "mcp_edit.http" => new JsonObject
+                    {
+                        ["description"] = "Updated description",
+                        ["url"] = "https://api.githubcopilot.com/mcp/"
+                    },
+                    "mcp_edit.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId == "mcp_edit.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            llm,
+            humanInput: humanInput,
+            keyVaultStore: keyVaultStore,
+            telemetry: telemetryHarness.Telemetry);
+
+        var correlationId = ActivityTraceId.CreateRandom().ToHexString();
+        using (var chatTrace = telemetryHarness.Telemetry.StartChatMessageActivity(correlationId, "/mcp edit Github"))
+        {
+            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp edit Github", token), token);
+            Assert.NotEmpty(events);
+            chatTrace.SetStatus(ActivityStatusCode.Ok);
+        }
+
+        await responder;
+
+        var spans = DrainPersistedSpans(telemetryHarness.Queue);
+        Assert.Contains(spans, span => span.Name == "configure.providers.mcp.edit.interactive");
+        Assert.Contains(spans, span => span.Name == "configure.providers.mcp.load_existing");
+        Assert.Contains(spans, span => span.Name == "configure.providers.human_input.request");
+        Assert.Contains(spans, span => span.Name == "configure.providers.mcp.save");
+    }
+
+    private static List<SpanRow> DrainPersistedSpans(OtlpTenantCollector.Services.TelemetryIngestQueue queue)
+    {
+        var spans = new List<SpanRow>();
+        while (queue.Channel.Reader.TryRead(out var row))
+        {
+            if (row is SpanRow span)
+                spans.Add(span);
+        }
+
+        return spans;
     }
 }
 

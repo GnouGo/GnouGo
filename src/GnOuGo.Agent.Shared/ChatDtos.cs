@@ -2,7 +2,12 @@ using System.Collections.Generic;
 
 namespace GnOuGo.Agent.Shared;
 
-public sealed record ChatMessageDto(string Role, string Content);
+public sealed record ChatMessageDto(
+    string Role,
+    string Content,
+    string? MessageId = null,
+    string? CorrelationId = null,
+    string? TraceId = null);
 
 public sealed record ChatStreamRequestDto(IReadOnlyList<ChatMessageDto> Messages);
 

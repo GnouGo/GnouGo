@@ -90,7 +90,7 @@ public sealed class SwitchExecutor : IStepExecutor
             if (matched)
             {
                 var result = new RunResult { Success = true };
-                await ctx.Engine.ExecuteStepsAsync(c.Steps, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct);
+                await ctx.Engine.ExecuteStepsAsync(c.Steps, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
                 return ctx.Data["steps"]?.DeepClone();
             }
         }
@@ -99,7 +99,7 @@ public sealed class SwitchExecutor : IStepExecutor
         if (ctx.Step.Default != null && ctx.Step.Default.Count > 0)
         {
             var result = new RunResult { Success = true };
-            await ctx.Engine.ExecuteStepsAsync(ctx.Step.Default, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct);
+            await ctx.Engine.ExecuteStepsAsync(ctx.Step.Default, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
             return ctx.Data["steps"]?.DeepClone();
         }
 

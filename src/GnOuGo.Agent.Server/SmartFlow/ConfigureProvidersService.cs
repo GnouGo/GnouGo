@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,7 @@ public sealed class ConfigureProvidersService
     private readonly ILLMModelCatalog _modelCatalog;
     private readonly IKeyVaultRuntimeConfigStore _keyVaultStore;
     private readonly LLMRuntimeOptionsStore _optionsStore;
+    private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<ConfigureProvidersService> _logger;
 
     public ConfigureProvidersService(
@@ -26,6 +28,7 @@ public sealed class ConfigureProvidersService
         ILLMModelCatalog modelCatalog,
         IKeyVaultRuntimeConfigStore keyVaultStore,
         LLMRuntimeOptionsStore optionsStore,
+        AgentOTelTelemetry otel,
         ILogger<ConfigureProvidersService> logger)
     {
         _llm = llm;
@@ -33,6 +36,7 @@ public sealed class ConfigureProvidersService
         _modelCatalog = modelCatalog;
         _keyVaultStore = keyVaultStore;
         _optionsStore = optionsStore;
+        _otel = otel;
         _logger = logger;
     }
 
@@ -44,6 +48,8 @@ public sealed class ConfigureProvidersService
         [EnumeratorCancellation] CancellationToken ct)
     {
         var trimmedCommand = command.Trim();
+        var traceDescriptor = DescribeCommand(trimmedCommand);
+        using var commandTrace = StartCommandTrace(traceDescriptor, trimmedCommand);
 
         if (TryParseModelsCommand(trimmedCommand, out var requestedModelProvider))
         {
@@ -139,27 +145,119 @@ public sealed class ConfigureProvidersService
         yield return new SmartFlowEvent("answer", RenderWizardHelp());
     }
 
+    private AgentOTelTelemetry.ActivityScope StartCommandTrace(CommandTraceDescriptor descriptor, string command)
+    {
+        var scope = _otel.StartActivityScope(descriptor.SpanName);
+        scope.SetTag("gnougo.agent.command.route", "configure_providers");
+        scope.SetTag("gnougo.agent.command.name", command);
+        scope.SetTag("gnougo.agent.command.mode", descriptor.Mode);
+
+        if (!string.IsNullOrWhiteSpace(descriptor.Domain))
+            scope.SetTag("gnougo.agent.command.domain", descriptor.Domain);
+        if (!string.IsNullOrWhiteSpace(descriptor.Action))
+            scope.SetTag("gnougo.agent.command.action", descriptor.Action);
+        if (!string.IsNullOrWhiteSpace(descriptor.Argument))
+            scope.SetTag("gnougo.agent.command.argument", descriptor.Argument);
+
+        scope.AddEvent("gnougo.agent.command.received", [
+            new KeyValuePair<string, object?>("gnougo.agent.command.route", "configure_providers"),
+            new KeyValuePair<string, object?>("gnougo.agent.command.name", command),
+            new KeyValuePair<string, object?>("gnougo.agent.command.mode", descriptor.Mode)
+        ]);
+
+        return scope;
+    }
+
+    private AgentOTelTelemetry.ActivityScope StartNestedTrace(string spanName, string operation, ActivityKind kind = ActivityKind.Internal)
+    {
+        var scope = _otel.StartActivityScope(spanName, kind);
+        scope.SetTag("gnougo.agent.command.route", "configure_providers");
+        scope.SetTag("gnougo.agent.command.operation", operation);
+        return scope;
+    }
+
+    private AgentOTelTelemetry.ActivityScope StartConfigureFlowTrace(
+        string spanName,
+        string kind,
+        string action,
+        string runId,
+        string? targetName = null)
+    {
+        var scope = StartNestedTrace(spanName, $"{kind}.{action}.interactive");
+        scope.SetTag("gnougo.agent.configure.kind", kind);
+        scope.SetTag("gnougo.agent.configure.action", action);
+        scope.SetTag("gnougo.agent.configure.run_id", runId);
+        if (!string.IsNullOrWhiteSpace(targetName))
+            scope.SetTag("gnougo.agent.configure.target_name", targetName);
+        return scope;
+    }
+
+    private static string GetHumanInputPromptKind(HumanInputRequest request)
+        => request.Fields is { Count: > 0 }
+            ? "fields"
+            : request.Choices is { Count: > 0 }
+                ? "choice"
+                : "prompt";
+
+    private static CommandTraceDescriptor DescribeCommand(string command)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            return new CommandTraceDescriptor("configure.providers.unknown", null, null, null, "direct");
+
+        var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+            return new CommandTraceDescriptor("configure.providers.unknown", null, null, null, "direct");
+
+        var domain = parts[0].TrimStart('/').ToLowerInvariant();
+        var action = parts.Length > 1 ? parts[1].ToLowerInvariant() : domain is "llm" or "mcp" ? "help" : domain;
+        var argument = parts.Length > 2 ? string.Join(' ', parts.Skip(2)) : null;
+        var mode = action is "add" or "edit" or "remove" or "default" ? "interactive" : "direct";
+
+        var spanName = domain switch
+        {
+            "llm" => $"configure.providers.llm.{action}",
+            "mcp" => $"configure.providers.mcp.{action}",
+            "status" => "configure.providers.status",
+            _ => "configure.providers.help"
+        };
+
+        return new CommandTraceDescriptor(spanName, domain, action, argument, mode);
+    }
+
+    private sealed record CommandTraceDescriptor(string SpanName, string? Domain, string? Action, string? Argument, string Mode);
+
     private async Task<string?> TryHandleWithoutLlmAsync(string command, CancellationToken ct)
     {
         if (string.Equals(command, "/llm list", StringComparison.OrdinalIgnoreCase))
         {
-            return await RenderConfiguredLlmProvidersAsync(ct);
+            using var span = StartNestedTrace("configure.providers.llm.list.render", "llm.list");
+            var result = await RenderConfiguredLlmProvidersAsync(ct);
+            span.SetStatus(ActivityStatusCode.Ok);
+            return result;
         }
 
         if (string.Equals(command, "/mcp list", StringComparison.OrdinalIgnoreCase))
         {
+            using var span = StartNestedTrace("configure.providers.mcp.list.render", "mcp.list");
             var secrets = await LoadKeyVaultSecretsAsync(ct);
-            return RenderSecretTable(
+            var result = RenderSecretTable(
                 secrets,
                 kind: KeyVaultConfigSecretKind.McpServer,
                 title: "# 🔌 Configured MCP Servers",
                 emptyMessage: "No MCP servers configured yet. Use `/mcp add` to get started.");
+            span.SetTag("gnougo.agent.keyvault.secret_count", secrets.Count);
+            span.SetStatus(ActivityStatusCode.Ok);
+            return result;
         }
 
         if (string.Equals(command, "/status", StringComparison.OrdinalIgnoreCase))
         {
+            using var span = StartNestedTrace("configure.providers.status.render", "status");
             var secrets = await LoadKeyVaultSecretsAsync(ct);
-            return RenderStatus(secrets);
+            var result = RenderStatus(secrets);
+            span.SetTag("gnougo.agent.keyvault.secret_count", secrets.Count);
+            span.SetStatus(ActivityStatusCode.Ok);
+            return result;
         }
 
         return null;
@@ -182,18 +280,37 @@ public sealed class ConfigureProvidersService
 
     private async Task<string> RenderModelsCommandResponseAsync(string requestedProvider, CancellationToken ct)
     {
+        using var span = StartNestedTrace("configure.providers.llm.models.render", "llm.models");
+        span.SetTag("gnougo.agent.command.argument", requestedProvider);
+
         var resolvedProvider = ResolveConfiguredProviderKey(requestedProvider);
         if (resolvedProvider is null)
+        {
+            span.SetStatus(ActivityStatusCode.Error, "Configured provider not found.");
             return RenderModelsUsage(requestedProvider);
+        }
+
+        span.SetTag("gen_ai.system", resolvedProvider);
 
         try
         {
+            using var discoverySpan = StartNestedTrace("llm.model_catalog.list", "llm.model_catalog.list", ActivityKind.Client);
+            discoverySpan.SetTag("gen_ai.system", resolvedProvider);
+
             var models = await _modelCatalog.ListModelsAsync(resolvedProvider, ct);
+
+            discoverySpan.SetTag("gnougo.agent.llm.model_count", models.Count);
+            discoverySpan.SetStatus(ActivityStatusCode.Ok);
+            span.SetTag("gnougo.agent.llm.model_count", models.Count);
+            span.SetStatus(ActivityStatusCode.Ok);
             return RenderModelCatalog(resolvedProvider, models);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not load live model catalog for provider '{Provider}'.", resolvedProvider);
+            span.SetStatus(ActivityStatusCode.Error, ex.Message);
+            span.SetTag("error.type", ex.GetType().FullName);
+            span.SetTag("error.message", ex.Message);
             return RenderModelCatalogError(resolvedProvider, ex);
         }
     }
@@ -201,9 +318,9 @@ public sealed class ConfigureProvidersService
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveLlmAddAsync(
         [EnumeratorCancellation] CancellationToken ct)
     {
-        yield return new SmartFlowEvent("thinking:thinking", "🤖 Starting LLM provider configuration…");
-
         var runId = Guid.NewGuid().ToString("N");
+        using var flowSpan = StartConfigureFlowTrace("configure.providers.llm.add.interactive", "llm", "add", runId);
+        yield return new SmartFlowEvent("thinking:thinking", "🤖 Starting LLM provider configuration…");
         JsonNode? response = null;
 
         var providerRequest = CreateChoiceRequest(runId, "llm_add.provider", "Select the LLM provider to configure:", ["openai", "ollama", "copilot"]);
@@ -213,6 +330,9 @@ public sealed class ConfigureProvidersService
         var provider = ReadChoiceResponse(response);
         if (string.IsNullOrWhiteSpace(provider))
             yield break;
+
+        flowSpan.SetTag("gnougo.agent.configure.target_name", provider);
+        flowSpan.SetTag("gen_ai.system", provider);
 
         var defaults = GetProviderDefaults(provider);
         response = null;
@@ -258,6 +378,8 @@ public sealed class ConfigureProvidersService
             authType = ReadChoiceResponse(response) ?? defaults.AuthModes[0];
         }
 
+        flowSpan.SetTag("gnougo.agent.llm.auth_type", authType);
+
         LlmProviderConfig? auth = null;
         await foreach (var evt in CollectAuthConfigAsync(runId, provider, authType, null, cfg => auth = cfg, ct))
             yield return evt;
@@ -272,6 +394,8 @@ public sealed class ConfigureProvidersService
         if (string.IsNullOrWhiteSpace(model))
             yield break;
 
+        flowSpan.SetTag("gen_ai.request.model", model);
+
         var summary = RenderLlmConfigSummary(provider, url, model, auth);
         yield return new SmartFlowEvent("thinking:thinking", summary);
 
@@ -281,6 +405,7 @@ public sealed class ConfigureProvidersService
         var hasValidConfiguredDefault = configuredProvidersBeforeSave.Any(existing =>
             string.Equals(existing.Provider, _optionsStore.Current.DefaultProvider, StringComparison.OrdinalIgnoreCase));
         var shouldPromoteAsDefault = !hasValidConfiguredDefault;
+        flowSpan.SetTag("gnougo.agent.configure.overwrite", alreadyExists);
         response = null;
         var confirmPrompt = alreadyExists
             ? "⚠️ A configuration for this provider already exists. Overwrite?"
@@ -313,6 +438,8 @@ public sealed class ConfigureProvidersService
 
         await foreach (var evt in ValidateConfigAsync(outputs, ct))
             yield return evt;
+
+        flowSpan.SetStatus(ActivityStatusCode.Ok);
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveLlmDefaultAsync(
@@ -445,6 +572,9 @@ public sealed class ConfigureProvidersService
             yield break;
         }
 
+        var runId = Guid.NewGuid().ToString("N");
+        using var flowSpan = StartConfigureFlowTrace("configure.providers.llm.edit.interactive", "llm", "edit", runId, provider);
+        flowSpan.SetTag("gen_ai.system", provider);
         yield return new SmartFlowEvent("thinking:thinking", $"🔍 Loading LLM provider '{provider}' from KeyVault…");
         var existing = await LoadLlmProviderConfigAsync(provider, ct);
         if (existing is null)
@@ -453,7 +583,6 @@ public sealed class ConfigureProvidersService
             yield break;
         }
 
-        var runId = Guid.NewGuid().ToString("N");
         JsonNode? response = null;
 
         var connectionRequest = CreateFieldsRequest(
@@ -493,6 +622,7 @@ public sealed class ConfigureProvidersService
             yield return evt;
 
         var authSelection = ReadChoiceResponse(response) ?? "keep_current";
+        flowSpan.SetTag("gnougo.agent.llm.auth_type", authSelection);
         LlmProviderConfig? auth = existing;
         if (!string.Equals(authSelection, "keep_current", StringComparison.OrdinalIgnoreCase))
         {
@@ -510,6 +640,8 @@ public sealed class ConfigureProvidersService
 
         if (string.IsNullOrWhiteSpace(model))
             yield break;
+
+        flowSpan.SetTag("gen_ai.request.model", model);
 
         var summary = RenderLlmConfigSummary(provider, url, model, auth);
         yield return new SmartFlowEvent("thinking:thinking", summary);
@@ -533,6 +665,8 @@ public sealed class ConfigureProvidersService
         TryApplyLlmConfig(outputs);
         await foreach (var evt in ValidateConfigAsync(outputs, ct))
             yield return evt;
+
+        flowSpan.SetStatus(ActivityStatusCode.Ok);
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveLlmRemoveAsync(
@@ -586,9 +720,9 @@ public sealed class ConfigureProvidersService
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveMcpAddAsync(
         [EnumeratorCancellation] CancellationToken ct)
     {
-        yield return new SmartFlowEvent("thinking:thinking", "🔌 Starting MCP server configuration…");
-
         var runId = Guid.NewGuid().ToString("N");
+        using var flowSpan = StartConfigureFlowTrace("configure.providers.mcp.add.interactive", "mcp", "add", runId);
+        yield return new SmartFlowEvent("thinking:thinking", "🔌 Starting MCP server configuration…");
         JsonNode? response = null;
 
         var transportRequest = CreateChoiceRequest(runId, "mcp_add.transport", "What type of MCP server do you want to configure?", ["http", "stdio"]);
@@ -598,6 +732,8 @@ public sealed class ConfigureProvidersService
         var transport = ReadChoiceResponse(response);
         if (string.IsNullOrWhiteSpace(transport))
             yield break;
+
+        flowSpan.SetTag("mcp.transport", transport);
 
         McpServerConfig? config = null;
         if (string.Equals(transport, "http", StringComparison.OrdinalIgnoreCase))
@@ -614,10 +750,14 @@ public sealed class ConfigureProvidersService
         if (config is null)
             yield break;
 
+        flowSpan.SetTag("gnougo.agent.configure.target_name", config.Name);
+        flowSpan.SetTag("mcp.server.name", config.Name);
+
         var summary = RenderMcpConfigSummary(config);
         yield return new SmartFlowEvent("thinking:thinking", summary);
 
         var existing = await LoadMcpServerConfigAsync(config.Name, ct);
+        flowSpan.SetTag("gnougo.agent.configure.overwrite", existing is not null);
         response = null;
         var confirmPrompt = existing is null
             ? "Save this MCP server configuration?"
@@ -635,6 +775,7 @@ public sealed class ConfigureProvidersService
         yield return new SmartFlowEvent("thinking:progress", "💾 Saving MCP server configuration to KeyVault…");
         await SaveMcpServerConfigAsync(config, ct);
         yield return new SmartFlowEvent("answer", $"✅ MCP server '{config.Name}' saved to KeyVault.");
+        flowSpan.SetStatus(ActivityStatusCode.Ok);
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveMcpEditAsync(
@@ -647,16 +788,16 @@ public sealed class ConfigureProvidersService
             yield return new SmartFlowEvent("answer", "❌ Please specify the MCP server to edit: `/mcp edit <name>`.");
             yield break;
         }
-
+        var runId = Guid.NewGuid().ToString("N");
+        using var flowSpan = StartConfigureFlowTrace("configure.providers.mcp.edit.interactive", "mcp", "edit", runId, name);
         var existing = await LoadMcpServerConfigAsync(name, ct);
         if (existing is null)
         {
             yield return new SmartFlowEvent("answer", $"❌ MCP server '{requestedName}' not found. Use `/mcp list`.");
             yield break;
         }
-
-        var runId = Guid.NewGuid().ToString("N");
         JsonNode? response = null;
+        flowSpan.SetTag("mcp.transport", existing.Transport);
 
         if (string.Equals(existing.Transport, "http", StringComparison.OrdinalIgnoreCase))
         {
@@ -713,6 +854,7 @@ public sealed class ConfigureProvidersService
 
         await SaveMcpServerConfigAsync(existing, ct);
         yield return new SmartFlowEvent("answer", $"✅ MCP server '{existing.Name}' updated.");
+        flowSpan.SetStatus(ActivityStatusCode.Ok);
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveMcpRemoveAsync(
@@ -765,6 +907,9 @@ public sealed class ConfigureProvidersService
         Action<string?> setModel,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        using var span = StartNestedTrace("configure.providers.llm.model.select", "llm.model.select");
+        span.SetTag("gnougo.agent.configure.run_id", runId);
+        span.SetTag("gen_ai.system", provider);
         IReadOnlyList<LLMModelDescriptor>? models = null;
         try
         {
@@ -773,10 +918,16 @@ public sealed class ConfigureProvidersService
         catch (Exception ex)
         {
             _logger.LogInformation(ex, "Model discovery failed for provider '{Provider}', falling back to manual model entry.", provider);
+            span.AddEvent("gnougo.agent.llm.model.discovery_failed", [
+                new KeyValuePair<string, object?>("error.type", ex.GetType().FullName),
+                new KeyValuePair<string, object?>("error.message", ex.Message)
+            ]);
         }
 
         if (models is { Count: > 0 })
         {
+            span.SetTag("gnougo.agent.model.discovery.mode", "live");
+            span.SetTag("gnougo.agent.llm.model_count", models.Count);
             JsonNode? response = null;
             var options = models.Select(m => m.Id).Distinct(StringComparer.OrdinalIgnoreCase).Take(100).ToList();
             var request = CreateFieldsRequest(
@@ -797,10 +948,14 @@ public sealed class ConfigureProvidersService
                 JsonValue.Create($"{models.Count} model(s) available."));
             await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
                 yield return evt;
-            setModel(ReadFieldResponse(response, request.Fields!).GetValueOrDefault("model"));
+            var selectedModel = ReadFieldResponse(response, request.Fields!).GetValueOrDefault("model");
+            setModel(selectedModel);
+            span.SetTag("gen_ai.request.model", selectedModel);
+            span.SetStatus(ActivityStatusCode.Ok);
             yield break;
         }
 
+        span.SetTag("gnougo.agent.model.discovery.mode", "manual");
         JsonNode? fallbackResponse = null;
         var fallbackRequest = CreateFieldsRequest(
             runId,
@@ -819,7 +974,10 @@ public sealed class ConfigureProvidersService
             JsonValue.Create("Live model discovery was unavailable, so please enter the model manually."));
         await foreach (var evt in EmitHumanInputRequestAsync(fallbackRequest, r => fallbackResponse = r, ct))
             yield return evt;
-        setModel(ReadFieldResponse(fallbackResponse, fallbackRequest.Fields!).GetValueOrDefault("model"));
+        var manualModel = ReadFieldResponse(fallbackResponse, fallbackRequest.Fields!).GetValueOrDefault("model");
+        setModel(manualModel);
+        span.SetTag("gen_ai.request.model", manualModel);
+        span.SetStatus(ActivityStatusCode.Ok);
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> CollectAuthConfigAsync(
@@ -830,10 +988,15 @@ public sealed class ConfigureProvidersService
         Action<LlmProviderConfig?> setConfig,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        using var span = StartNestedTrace("configure.providers.llm.auth.collect", "llm.auth.collect");
+        span.SetTag("gnougo.agent.configure.run_id", runId);
+        span.SetTag("gen_ai.system", provider);
+        span.SetTag("gnougo.agent.llm.auth_type", authType);
         if (string.Equals(authType, "none", StringComparison.OrdinalIgnoreCase)
             || string.Equals(authType, "copilot_env", StringComparison.OrdinalIgnoreCase))
         {
             setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", authType, "", "", "", "", ""));
+            span.SetStatus(ActivityStatusCode.Ok);
             yield break;
         }
 
@@ -857,6 +1020,7 @@ public sealed class ConfigureProvidersService
                 yield return evt;
             var apiKey = ReadFieldResponse(response, request.Fields!).GetValueOrDefault("api_key") ?? "";
             setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", "api_key", apiKey, "", "", "", ""));
+            span.SetStatus(ActivityStatusCode.Ok);
             yield break;
         }
 
@@ -884,10 +1048,12 @@ public sealed class ConfigureProvidersService
                 fields.GetValueOrDefault("client_id") ?? "",
                 fields.GetValueOrDefault("scopes") ?? "",
                 fields.GetValueOrDefault("client_secret") ?? ""));
+            span.SetStatus(ActivityStatusCode.Ok);
             yield break;
         }
 
         setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", authType, "", "", "", "", ""));
+        span.SetStatus(ActivityStatusCode.Ok);
     }
 
     private static HumanInputRequest CreateChoiceRequest(string runId, string stepId, string prompt, IReadOnlyList<string> choices, JsonNode? context = null)
@@ -917,8 +1083,18 @@ public sealed class ConfigureProvidersService
         Action<JsonNode?> captureResponse,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        using var span = StartNestedTrace("configure.providers.human_input.request", "human_input.request");
+        span.SetTag("gnougo.agent.configure.run_id", request.RunId);
+        span.SetTag("gnougo.agent.configure.step_id", request.StepId);
+        span.SetTag("gnougo.agent.configure.prompt_kind", GetHumanInputPromptKind(request));
+        span.SetTag("gnougo.agent.configure.choice_count", request.Choices?.Count ?? 0);
+        span.SetTag("gnougo.agent.configure.field_count", request.Fields?.Count ?? 0);
+        span.SetTag("gnougo.agent.configure.timeout_ms", request.TimeoutMs);
         yield return new SmartFlowEvent("human_input_request", BuildHumanInputPayload(request).ToJsonString());
-        captureResponse(await _humanInput.RequestInputAsync(request, ct));
+        var response = await _humanInput.RequestInputAsync(request, ct);
+        captureResponse(response);
+        span.SetTag("gnougo.agent.configure.response_received", response is not null);
+        span.SetStatus(ActivityStatusCode.Ok);
     }
 
     private static JsonNode BuildHumanInputPayload(HumanInputRequest request)
@@ -957,15 +1133,25 @@ public sealed class ConfigureProvidersService
 
     private async Task<IReadOnlyList<LLMModelDescriptor>> DiscoverModelsAsync(string provider, ModelProviderOptions providerOptions, CancellationToken ct)
     {
+        using var span = StartNestedTrace("llm.model_catalog.list", "llm.model_catalog.list", ActivityKind.Client);
+        span.SetTag("gen_ai.system", provider);
         if (ShouldUseInjectedModelCatalog(provider, providerOptions))
         {
             try
             {
-                return await _modelCatalog.ListModelsAsync(provider, ct);
+                var models = await _modelCatalog.ListModelsAsync(provider, ct);
+                span.SetTag("gnougo.agent.model.discovery.source", "runtime_catalog");
+                span.SetTag("gnougo.agent.llm.model_count", models.Count);
+                span.SetStatus(ActivityStatusCode.Ok);
+                return models;
             }
             catch (Exception ex)
             {
                 _logger.LogDebug(ex, "Injected model catalog could not list models for '{Provider}', trying temporary provider settings.", provider);
+                span.AddEvent("gnougo.agent.llm.model.runtime_catalog_failed", [
+                    new KeyValuePair<string, object?>("error.type", ex.GetType().FullName),
+                    new KeyValuePair<string, object?>("error.message", ex.Message)
+                ]);
             }
         }
         else
@@ -973,6 +1159,7 @@ public sealed class ConfigureProvidersService
             _logger.LogDebug(
                 "Skipping injected model catalog for '{Provider}' because runtime credentials do not match the interactive provider settings.",
                 provider);
+            span.SetTag("gnougo.agent.model.discovery.source", "temporary_catalog");
         }
 
         using var http = new HttpClient();
@@ -983,7 +1170,10 @@ public sealed class ConfigureProvidersService
         };
         options.Models[provider] = providerOptions;
         var catalog = new RoutingLLMModelCatalog(http, options);
-        return await catalog.ListModelsAsync(provider, ct);
+        var discovered = await catalog.ListModelsAsync(provider, ct);
+        span.SetTag("gnougo.agent.llm.model_count", discovered.Count);
+        span.SetStatus(ActivityStatusCode.Ok);
+        return discovered;
     }
 
     private bool ShouldUseInjectedModelCatalog(string provider, ModelProviderOptions providerOptions)
@@ -1036,6 +1226,11 @@ public sealed class ConfigureProvidersService
 
     private async Task SaveLlmProviderConfigAsync(string provider, string url, string model, LlmProviderConfig auth, CancellationToken ct)
     {
+        using var span = StartNestedTrace("configure.providers.llm.save", "llm.save", ActivityKind.Client);
+        span.SetTag("gnougo.agent.configure.target_name", provider);
+        span.SetTag("gen_ai.system", provider);
+        span.SetTag("gen_ai.request.model", model);
+        span.SetTag("gnougo.agent.llm.auth_type", auth.AuthType);
         var payload = new JsonObject
         {
             ["provider"] = provider,
@@ -1051,6 +1246,8 @@ public sealed class ConfigureProvidersService
 
         var preferredSecretKey = KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider);
         var existingSecretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.LlmProvider, provider, ct);
+        span.SetTag("keyvault.secret.key", preferredSecretKey);
+        span.SetTag("gnougo.agent.configure.overwrite", !string.IsNullOrWhiteSpace(existingSecretKey));
 
         await _keyVaultStore.SaveSecretValueAsync(preferredSecretKey, payload.ToJsonString(), ct);
 
@@ -1059,24 +1256,38 @@ public sealed class ConfigureProvidersService
         {
             await _keyVaultStore.DeleteSecretAsync(existingSecretKey, ct);
         }
+
+        span.SetStatus(ActivityStatusCode.Ok);
     }
 
     private async Task<LlmProviderConfig?> LoadLlmProviderConfigAsync(string provider, CancellationToken ct)
     {
+        using var span = StartNestedTrace("configure.providers.llm.load_existing", "llm.load_existing", ActivityKind.Client);
+        span.SetTag("gnougo.agent.configure.target_name", provider);
+        span.SetTag("gen_ai.system", provider);
         try
         {
             var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.LlmProvider, provider, ct)
                 ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider);
+            span.SetTag("keyvault.secret.key", secretKey);
             var value = await _keyVaultStore.GetSecretValueAsync(secretKey, ct);
 
             if (string.IsNullOrWhiteSpace(value))
+            {
+                span.SetTag("gnougo.agent.configure.found_existing", false);
+                span.SetStatus(ActivityStatusCode.Ok);
                 return null;
+            }
 
             var config = JsonNode.Parse(value) as JsonObject;
             if (config is null)
+            {
+                span.SetTag("gnougo.agent.configure.found_existing", false);
+                span.SetStatus(ActivityStatusCode.Error, "Stored secret is not a JSON object.");
                 return null;
+            }
 
-            return new LlmProviderConfig(
+            var result = new LlmProviderConfig(
                 Url: ReadConfigString(config, "url") ?? "",
                 Model: ReadConfigString(config, "model") ?? "",
                 AuthType: ReadConfigString(config, "authType", "auth_type") ?? "none",
@@ -1085,10 +1296,18 @@ public sealed class ConfigureProvidersService
                 OidcClientId: ReadConfigString(config, "oidcClientId", "oidc_client_id") ?? "",
                 OidcScopes: ReadConfigString(config, "oidcScopes", "oidc_scopes") ?? "",
                 OidcClientSecret: ReadConfigString(config, "oidcClientSecret", "oidc_client_secret") ?? "");
+            span.SetTag("gnougo.agent.configure.found_existing", true);
+            span.SetTag("gnougo.agent.llm.auth_type", result.AuthType);
+            span.SetTag("gen_ai.request.model", result.Model);
+            span.SetStatus(ActivityStatusCode.Ok);
+            return result;
         }
         catch (Exception ex)
             {
             _logger.LogDebug(ex, "Could not load existing LLM config for provider '{Provider}'.", provider);
+            span.SetStatus(ActivityStatusCode.Error, ex.Message);
+            span.SetTag("error.type", ex.GetType().FullName);
+            span.SetTag("error.message", ex.Message);
             return null;
         }
     }
@@ -1139,6 +1358,11 @@ public sealed class ConfigureProvidersService
         Action<McpServerConfig?> setConfig,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        using var span = StartNestedTrace("configure.providers.mcp.http.collect", "mcp.http.collect");
+        span.SetTag("gnougo.agent.configure.run_id", runId);
+        span.SetTag("mcp.transport", "http");
+        if (!string.IsNullOrWhiteSpace(existing?.Name))
+            span.SetTag("gnougo.agent.configure.target_name", existing.Name);
         JsonNode? response = null;
         var request = CreateFieldsRequest(
             runId,
@@ -1160,6 +1384,7 @@ public sealed class ConfigureProvidersService
             yield return evt;
 
         var authType = ReadChoiceResponse(response) ?? "none";
+        span.SetTag("gnougo.agent.mcp.auth_type", authType);
         McpServerConfig? authConfig = null;
         await foreach (var evt in CollectMcpAuthConfigAsync(runId, authType, existing, cfg => authConfig = cfg, ct))
             yield return evt;
@@ -1182,6 +1407,7 @@ public sealed class ConfigureProvidersService
             OidcClientId: authConfig.OidcClientId,
             OidcScopes: authConfig.OidcScopes,
             OidcClientSecret: authConfig.OidcClientSecret));
+        span.SetStatus(ActivityStatusCode.Ok);
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> CollectStdioMcpConfigAsync(
@@ -1190,6 +1416,11 @@ public sealed class ConfigureProvidersService
         Action<McpServerConfig?> setConfig,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        using var span = StartNestedTrace("configure.providers.mcp.stdio.collect", "mcp.stdio.collect");
+        span.SetTag("gnougo.agent.configure.run_id", runId);
+        span.SetTag("mcp.transport", "stdio");
+        if (!string.IsNullOrWhiteSpace(existing?.Name))
+            span.SetTag("gnougo.agent.configure.target_name", existing.Name);
         JsonNode? response = null;
         var request = CreateFieldsRequest(
             runId,
@@ -1218,6 +1449,7 @@ public sealed class ConfigureProvidersService
             OidcClientId: string.Empty,
             OidcScopes: string.Empty,
             OidcClientSecret: string.Empty));
+        span.SetStatus(ActivityStatusCode.Ok);
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> CollectMcpAuthConfigAsync(
@@ -1227,11 +1459,15 @@ public sealed class ConfigureProvidersService
         Action<McpServerConfig?> setConfig,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        using var span = StartNestedTrace("configure.providers.mcp.auth.collect", "mcp.auth.collect");
+        span.SetTag("gnougo.agent.configure.run_id", runId);
+        span.SetTag("gnougo.agent.mcp.auth_type", authType);
         if (string.Equals(authType, "none", StringComparison.OrdinalIgnoreCase))
         {
             setConfig(existing is null
                 ? new McpServerConfig("", "http", "", "", "", [], "none", "", "", "", "", "")
                 : existing with { AuthType = "none", ApiKey = "", OidcIssuer = "", OidcClientId = "", OidcScopes = "", OidcClientSecret = "" });
+            span.SetStatus(ActivityStatusCode.Ok);
             yield break;
         }
 
@@ -1249,6 +1485,7 @@ public sealed class ConfigureProvidersService
             setConfig(existing is null
                 ? new McpServerConfig("", "http", "", "", "", [], "api_key", apiKey, "", "", "", "")
                 : existing with { AuthType = "api_key", ApiKey = apiKey, OidcIssuer = "", OidcClientId = "", OidcScopes = "", OidcClientSecret = "" });
+            span.SetStatus(ActivityStatusCode.Ok);
             yield break;
         }
 
@@ -1278,14 +1515,21 @@ public sealed class ConfigureProvidersService
                     OidcScopes = fields.GetValueOrDefault("scopes") ?? "",
                     OidcClientSecret = fields.GetValueOrDefault("client_secret") ?? ""
                 });
+            span.SetStatus(ActivityStatusCode.Ok);
             yield break;
         }
 
         setConfig(null);
+        span.SetStatus(ActivityStatusCode.Error, $"Unsupported MCP auth type '{authType}'.");
     }
 
     private async Task SaveMcpServerConfigAsync(McpServerConfig config, CancellationToken ct)
     {
+        using var span = StartNestedTrace("configure.providers.mcp.save", "mcp.save", ActivityKind.Client);
+        span.SetTag("gnougo.agent.configure.target_name", config.Name);
+        span.SetTag("mcp.server.name", config.Name);
+        span.SetTag("mcp.transport", config.Transport);
+        span.SetTag("gnougo.agent.mcp.auth_type", config.AuthType);
         var payload = new JsonObject
         {
             ["name"] = config.Name,
@@ -1304,6 +1548,8 @@ public sealed class ConfigureProvidersService
 
         var preferredSecretKey = KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.McpServer, config.Name);
         var existingSecretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.McpServer, config.Name, ct);
+        span.SetTag("keyvault.secret.key", preferredSecretKey);
+        span.SetTag("gnougo.agent.configure.overwrite", !string.IsNullOrWhiteSpace(existingSecretKey));
 
         await _keyVaultStore.SaveSecretValueAsync(preferredSecretKey, payload.ToJsonString(), ct);
 
@@ -1312,15 +1558,24 @@ public sealed class ConfigureProvidersService
         {
             await _keyVaultStore.DeleteSecretAsync(existingSecretKey, ct);
         }
+
+        span.SetStatus(ActivityStatusCode.Ok);
     }
 
     private async Task<McpServerConfig?> LoadMcpServerConfigAsync(string name, CancellationToken ct)
     {
+        using var span = StartNestedTrace("configure.providers.mcp.load_existing", "mcp.load_existing", ActivityKind.Client);
+        span.SetTag("gnougo.agent.configure.target_name", name);
         var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.McpServer, name, ct)
             ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.McpServer, name);
+        span.SetTag("keyvault.secret.key", secretKey);
         var value = await _keyVaultStore.GetSecretValueAsync(secretKey, ct);
         if (string.IsNullOrWhiteSpace(value))
+        {
+            span.SetTag("gnougo.agent.configure.found_existing", false);
+            span.SetStatus(ActivityStatusCode.Ok);
             return null;
+        }
 
         JsonObject? config;
         try
@@ -1330,13 +1585,20 @@ public sealed class ConfigureProvidersService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not parse MCP server configuration '{Name}'.", name);
+            span.SetStatus(ActivityStatusCode.Error, ex.Message);
+            span.SetTag("error.type", ex.GetType().FullName);
+            span.SetTag("error.message", ex.Message);
             return null;
         }
 
         if (config is null)
+        {
+            span.SetTag("gnougo.agent.configure.found_existing", false);
+            span.SetStatus(ActivityStatusCode.Error, "Stored secret is not a JSON object.");
             return null;
+        }
 
-        return new McpServerConfig(
+        var result = new McpServerConfig(
             Name: ReadConfigString(config, "name") ?? name,
             Transport: ReadConfigString(config, "transport") ?? "http",
             Description: ReadConfigString(config, "description") ?? "",
@@ -1349,6 +1611,11 @@ public sealed class ConfigureProvidersService
             OidcClientId: ReadConfigString(config, "oidcClientId", "oidc_client_id") ?? "",
             OidcScopes: ReadConfigString(config, "oidcScopes", "oidc_scopes") ?? "",
             OidcClientSecret: ReadConfigString(config, "oidcClientSecret", "oidc_client_secret") ?? "");
+        span.SetTag("gnougo.agent.configure.found_existing", true);
+        span.SetTag("mcp.transport", result.Transport);
+        span.SetTag("gnougo.agent.mcp.auth_type", result.AuthType);
+        span.SetStatus(ActivityStatusCode.Ok);
+        return result;
     }
 
     private static string RenderMcpConfigSummary(McpServerConfig config)
@@ -1603,18 +1870,32 @@ public sealed class ConfigureProvidersService
             .Trim();
 
     private async Task<List<KeyVaultSecretSummary>> LoadKeyVaultSecretsAsync(CancellationToken ct)
-        => (await _keyVaultStore.ListSecretsAsync(ct)).ToList();
+    {
+        using var span = StartNestedTrace("keyvault.list_secrets", "keyvault.list_secrets", ActivityKind.Client);
+        var secrets = (await _keyVaultStore.ListSecretsAsync(ct)).ToList();
+        span.SetTag("gnougo.agent.keyvault.secret_count", secrets.Count);
+        span.SetStatus(ActivityStatusCode.Ok);
+        return secrets;
+    }
 
     private async Task<List<ConfiguredLlmProvider>> LoadConfiguredLlmProvidersAsync(CancellationToken ct)
     {
+        using var span = StartNestedTrace("configure.providers.llm.load_configured", "llm.load_configured");
         var secrets = await LoadKeyVaultSecretsAsync(ct);
         var providers = new List<ConfiguredLlmProvider>();
 
         foreach (var secret in KeyVaultConfigNaming.SelectPreferredSecrets(secrets, KeyVaultConfigSecretKind.LlmProvider))
         {
+            using var secretSpan = StartNestedTrace("keyvault.get_secret", "keyvault.get_secret", ActivityKind.Client);
+            secretSpan.SetTag("keyvault.secret.key", secret.Key);
+
             var raw = await _keyVaultStore.GetSecretValueAsync(secret.Key, ct);
             if (string.IsNullOrWhiteSpace(raw))
+            {
+                secretSpan.SetTag("keyvault.secret.empty", true);
+                secretSpan.SetStatus(ActivityStatusCode.Ok);
                 continue;
+            }
 
             JsonObject? configJson;
             try
@@ -1624,11 +1905,18 @@ public sealed class ConfigureProvidersService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Could not parse configured LLM provider secret '{SecretKey}'.", secret.Key);
+                secretSpan.SetStatus(ActivityStatusCode.Error, ex.Message);
+                secretSpan.SetTag("error.type", ex.GetType().FullName);
+                secretSpan.SetTag("error.message", ex.Message);
                 continue;
             }
 
             if (configJson is null)
+            {
+                secretSpan.SetTag("keyvault.secret.invalid_shape", true);
+                secretSpan.SetStatus(ActivityStatusCode.Error, "Secret payload is not a JSON object.");
                 continue;
+            }
 
             var provider = ReadConfigString(configJson, "provider")
                 ?? KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.LlmProvider, secret.Key)
@@ -1644,8 +1932,12 @@ public sealed class ConfigureProvidersService
                 OidcClientSecret: ReadConfigString(configJson, "oidcClientSecret", "oidc_client_secret") ?? string.Empty);
 
             providers.Add(new ConfiguredLlmProvider(provider, secret, config));
+            secretSpan.SetTag("gnougo.agent.llm.provider", provider);
+            secretSpan.SetStatus(ActivityStatusCode.Ok);
         }
 
+        span.SetTag("gnougo.agent.llm.provider_count", providers.Count);
+        span.SetStatus(ActivityStatusCode.Ok);
         return providers;
     }
 
@@ -1873,11 +2165,18 @@ public sealed class ConfigureProvidersService
         var provider  = outputs["llm_provider"]?.GetValue<string>() ?? "";
         var model     = outputs["llm_model"]?.GetValue<string>() ?? "";
         var authType  = outputs["llm_auth_type"]?.GetValue<string>() ?? "none";
+        using var span = StartNestedTrace("configure.providers.llm.validate", "llm.validate", ActivityKind.Client);
+        span.SetTag("gen_ai.system", provider);
+        span.SetTag("gen_ai.request.model", model);
+        span.SetTag("gnougo.agent.llm.auth_type", authType);
 
         // Skip validation for providers that don't require a key
         if (string.Equals(authType, "none", StringComparison.OrdinalIgnoreCase)
             || string.Equals(authType, "copilot_env", StringComparison.OrdinalIgnoreCase))
         {
+            span.SetTag("gnougo.agent.validation.skipped", true);
+            span.SetTag("gnougo.agent.validation.result", "skipped");
+            span.SetStatus(ActivityStatusCode.Ok);
             yield return new SmartFlowEvent("thinking:info",
                 $"✅ Provider '{provider}' saved. No API key required — skipping validation.");
             yield break;
@@ -1906,15 +2205,21 @@ public sealed class ConfigureProvidersService
                     : ex.Message;
 
             _logger.LogWarning("LLM provider '{Provider}' validation failed: {Error}", provider, ex.Message);
+            span.SetTag("error.type", ex.GetType().FullName);
+            span.SetTag("error.message", ex.Message);
         }
 
         if (validationError is null)
         {
+            span.SetTag("gnougo.agent.validation.result", "success");
+            span.SetStatus(ActivityStatusCode.Ok);
             yield return new SmartFlowEvent("thinking:response",
                 $"✅ Credentials validated. Provider '{provider}' is ready.");
         }
         else
         {
+            span.SetTag("gnougo.agent.validation.result", "failed");
+            span.SetStatus(ActivityStatusCode.Error, validationError);
             yield return new SmartFlowEvent("thinking:response",
                 $"⚠️ Validation failed for '{provider}': {validationError}\n\nThe configuration was saved — run `/llm` again to correct it.");
         }
