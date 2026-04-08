@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
 using OtlpTenantCollector.Models;
 using OtlpTenantCollector.Services;
@@ -10,9 +11,11 @@ namespace OtlpTenantCollector.Web;
 
 public static class OtlpHttpReceiver
 {
-    public static void MapOtlpHttpReceiver(this WebApplication app, bool includeHealthEndpoint = true)
+    public static IEndpointRouteBuilder MapOtlpHttpReceiver(this IEndpointRouteBuilder endpoints, bool includeHealthEndpoint = true)
     {
-        app.MapPost("/v1/traces", async (
+        ArgumentNullException.ThrowIfNull(endpoints);
+
+        endpoints.MapPost("/v1/traces", async (
             HttpRequest req,
             TelemetryIngestQueue queue,
             ILogger<OtlpHttpReceiverMarker> logger,
@@ -26,7 +29,7 @@ public static class OtlpHttpReceiver
             return await ProcessTracesAsync(tenantId, req, queue, logger, ct);
         });
 
-        app.MapPost("/v1/logs", async (
+        endpoints.MapPost("/v1/logs", async (
             HttpRequest req,
             TelemetryIngestQueue queue,
             ILogger<OtlpHttpReceiverMarker> logger,
@@ -40,9 +43,9 @@ public static class OtlpHttpReceiver
             return await ProcessLogsAsync(tenantId, req, queue, logger, ct);
         });
 
-        app.MapPost("/v1/metrics", () => Results.Bytes(Array.Empty<byte>(), "application/x-protobuf"));
+        endpoints.MapPost("/v1/metrics", () => Results.Bytes(Array.Empty<byte>(), "application/x-protobuf"));
 
-        app.MapPost("/{tenantId}/v1/traces", async (
+        endpoints.MapPost("/{tenantId}/v1/traces", async (
             string tenantId,
             HttpRequest req,
             TelemetryIngestQueue queue,
@@ -55,7 +58,7 @@ public static class OtlpHttpReceiver
             return await ProcessTracesAsync(parsedTenantId, req, queue, logger, ct);
         });
 
-        app.MapPost("/{tenantId}/v1/logs", async (
+        endpoints.MapPost("/{tenantId}/v1/logs", async (
             string tenantId,
             HttpRequest req,
             TelemetryIngestQueue queue,
@@ -68,13 +71,15 @@ public static class OtlpHttpReceiver
             return await ProcessLogsAsync(parsedTenantId, req, queue, logger, ct);
         });
 
-        app.MapPost("/{tenantId}/v1/metrics", (string tenantId) =>
+        endpoints.MapPost("/{tenantId}/v1/metrics", (string tenantId) =>
             Guid.TryParse(tenantId, out _)
                 ? Results.Bytes(Array.Empty<byte>(), "application/x-protobuf")
                 : Results.BadRequest(new { error = "Invalid tenant ID format" }));
 
         if (includeHealthEndpoint)
-            app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+            endpoints.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+        return endpoints;
     }
 
     private static async Task<IResult> ProcessTracesAsync(
@@ -90,7 +95,7 @@ public static class OtlpHttpReceiver
         var payload = await ReadBodyAsync(req, ct);
         var exportReq = OpenTelemetry.Proto.Collector.Trace.V1.ExportTraceServiceRequest.Parser.ParseFrom(payload);
 
-        logger.LogInformation(
+        logger.LogDebug(
             "[OTLP HTTP] Received {ResourceSpansCount} ResourceSpans for tenant {TenantId}",
             exportReq.ResourceSpans.Count,
             tenantId);
@@ -111,7 +116,7 @@ public static class OtlpHttpReceiver
                 var scopeName = scopeSpans.Scope?.Name ?? "unknown";
                 totalSpans += scopeSpans.Spans.Count;
 
-                logger.LogInformation(
+                logger.LogDebug(
                     "[OTLP HTTP] Processing {SpansCount} spans — service='{ServiceName}' scope='{ScopeName}'",
                     scopeSpans.Spans.Count,
                     serviceName,
@@ -186,7 +191,7 @@ public static class OtlpHttpReceiver
                         ct);
 
                     var durationMs = (endUnixNs - startUnixNs) / 1_000_000.0;
-                    logger.LogInformation(
+                    logger.LogDebug(
                         "[OTLP HTTP] Span '{SpanName}' service='{ServiceName}' scope='{ScopeName}' kind={Kind} duration={Duration}ms status={StatusCode} attrs={AttrCount} events={EventCount}",
                         spanName,
                         serviceName,
@@ -200,7 +205,7 @@ public static class OtlpHttpReceiver
             }
         }
 
-        logger.LogInformation("[OTLP HTTP] Enqueued {TotalSpans} spans total for tenant {TenantId}", totalSpans, tenantId);
+        logger.LogDebug("[OTLP HTTP] Enqueued {TotalSpans} spans total for tenant {TenantId}", totalSpans, tenantId);
         return Results.Bytes(Array.Empty<byte>(), "application/x-protobuf");
     }
 
@@ -217,7 +222,7 @@ public static class OtlpHttpReceiver
         var payload = await ReadBodyAsync(req, ct);
         var exportReq = OpenTelemetry.Proto.Collector.Logs.V1.ExportLogsServiceRequest.Parser.ParseFrom(payload);
 
-        logger.LogInformation(
+        logger.LogDebug(
             "[OTLP HTTP] Received {ResourceLogsCount} ResourceLogs for tenant {TenantId}",
             exportReq.ResourceLogs.Count,
             tenantId);
@@ -238,7 +243,7 @@ public static class OtlpHttpReceiver
                 var scopeName = scopeLogs.Scope?.Name ?? "unknown";
                 totalLogs += scopeLogs.LogRecords.Count;
 
-                logger.LogInformation(
+                logger.LogDebug(
                     "[OTLP HTTP] Processing {LogsCount} logs — service='{ServiceName}' scope='{ScopeName}'",
                     scopeLogs.LogRecords.Count,
                     serviceName,
@@ -264,7 +269,7 @@ public static class OtlpHttpReceiver
                         ServiceName: serviceName),
                         ct);
 
-                    logger.LogInformation(
+                    logger.LogDebug(
                         "[OTLP HTTP] Log service='{ServiceName}' scope='{ScopeName}' severity={SeverityText}({SeverityNumber}) attrs={AttrCount} body='{BodyPreview}'",
                         serviceName,
                         scopeName,
@@ -276,7 +281,7 @@ public static class OtlpHttpReceiver
             }
         }
 
-        logger.LogInformation("[OTLP HTTP] Enqueued {TotalLogs} logs total for tenant {TenantId}", totalLogs, tenantId);
+        logger.LogDebug("[OTLP HTTP] Enqueued {TotalLogs} logs total for tenant {TenantId}", totalLogs, tenantId);
         return Results.Bytes(Array.Empty<byte>(), "application/x-protobuf");
     }
 

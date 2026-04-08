@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
 using OtlpTenantCollector.Data;
 using OtlpTenantCollector.Services;
@@ -63,21 +64,31 @@ public static class OtlpCollectorHostingExtensions
         await efStore.InitializeAsync(devMode: devModeOpts.Enabled);
     }
 
+    public static IEndpointRouteBuilder MapOtlpGrpcReceivers(this IEndpointRouteBuilder endpoints)
+    {
+        ArgumentNullException.ThrowIfNull(endpoints);
+
+        endpoints.MapGrpcService<OtlpTraceGrpcService>();
+        endpoints.MapGrpcService<OtlpLogsGrpcService>();
+        endpoints.MapGrpcService<OtlpMetricsGrpcService>();
+        return endpoints;
+    }
+
     public static IEndpointRouteBuilder MapOtlpCollectorApi(
-        this WebApplication app,
+        this IEndpointRouteBuilder endpoints,
         bool includeReceivers = true,
         bool includeHealthEndpoint = true)
     {
+        ArgumentNullException.ThrowIfNull(endpoints);
+
         if (includeReceivers)
         {
-            app.MapGrpcService<OtlpTraceGrpcService>();
-            app.MapGrpcService<OtlpLogsGrpcService>();
-            app.MapGrpcService<OtlpMetricsGrpcService>();
-            app.MapOtlpHttpReceiver(includeHealthEndpoint);
+            endpoints.MapOtlpGrpcReceivers();
+            endpoints.MapOtlpHttpReceiver(includeHealthEndpoint);
         }
 
-        app.MapTenantApi();
-        return app;
+        endpoints.MapTenantApi();
+        return endpoints;
     }
 }
 

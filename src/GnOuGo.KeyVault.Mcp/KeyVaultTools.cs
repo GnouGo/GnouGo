@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 using GnOuGo.KeyVault.Core.Services;
 
-namespace GnOuGo.Agent.Mcp;
+namespace GnOuGo.KeyVault.Mcp;
 
 /// <summary>
 /// MCP tool definitions for the KeyVault secret manager.
@@ -62,14 +62,10 @@ public sealed class KeyVaultTools
 
     [McpServerTool(Name = "keyvault_set_secret"), Description("Creates or updates a secret. The value is encrypted at rest using RSA+AES-GCM. Returns metadata only.")]
     public async Task<KeyVaultResult> SetSecretAsync(
-        [Description("Secret key (unique name within the tenant scope).")]
-        string key,
-        [Description("Plain-text value to encrypt and store.")]
-        string value,
-        [Description("Author or user setting the secret.")]
-        string author,
-        [Description("Optional tenant identifier. Omit for the default tenant.")]
-        Guid? tenantId = null,
+        [Description("Secret key (unique name within the tenant scope).")] string key,
+        [Description("Plain-text value to encrypt and store.")] string value,
+        [Description("Author or user setting the secret.")] string author,
+        [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
         CancellationToken ct = default)
     {
         try
@@ -95,8 +91,7 @@ public sealed class KeyVaultTools
 
     [McpServerTool(Name = "keyvault_list_secrets"), Description("Lists secret metadata without revealing values.")]
     public async Task<KeyVaultResult> ListSecretsAsync(
-        [Description("Optional tenant identifier. Omit for the default tenant.")]
-        Guid? tenantId = null,
+        [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
         CancellationToken ct = default)
     {
         try
@@ -115,12 +110,9 @@ public sealed class KeyVaultTools
 
     [McpServerTool(Name = "keyvault_get_secret"), Description("Reads the latest version of a secret by its key and returns the decrypted value with metadata.")]
     public async Task<KeyVaultResult> GetSecretAsync(
-        [Description("Secret key to read.")]
-        string key,
-        [Description("Author or user reading the secret.")]
-        string author,
-        [Description("Optional tenant identifier. Omit for the default tenant.")]
-        Guid? tenantId = null,
+        [Description("Secret key to read.")] string key,
+        [Description("Author or user reading the secret.")] string author,
+        [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
         CancellationToken ct = default)
     {
         try
@@ -150,12 +142,9 @@ public sealed class KeyVaultTools
 
     [McpServerTool(Name = "keyvault_delete_secret"), Description("Soft-deletes a secret by its key.")]
     public async Task<KeyVaultResult> DeleteSecretAsync(
-        [Description("Secret key to delete.")]
-        string key,
-        [Description("Author or user performing the deletion.")]
-        string author,
-        [Description("Optional tenant identifier. Omit for the default tenant.")]
-        Guid? tenantId = null,
+        [Description("Secret key to delete.")] string key,
+        [Description("Author or user performing the deletion.")] string author,
+        [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
         CancellationToken ct = default)
     {
         try

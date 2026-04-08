@@ -151,6 +151,8 @@ public sealed class TraceDebugService
             var spanDtos = spans
                 .Select(OtlpJson.SpanRecordToDto)
                 .Select(MapSpan)
+                .GroupBy(s => s.SpanId, StringComparer.Ordinal)
+                .Select(g => g.First())
                 .ToList();
 
             return new TraceGroupDto(

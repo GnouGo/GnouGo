@@ -65,7 +65,7 @@ public sealed class CollectorLoggerProvider : ILoggerProvider, ISupportExternalS
 
         public bool IsEnabled(LogLevel logLevel)
             => logLevel != LogLevel.None
-               && !_categoryName.StartsWith("OtlpTenantCollector", StringComparison.Ordinal)
+               && EmbeddedCollectorLogCategoryFilter.ShouldCapture(_categoryName)
                && !_categoryName.StartsWith(typeof(CollectorLoggerProvider).Namespace ?? string.Empty, StringComparison.Ordinal);
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)

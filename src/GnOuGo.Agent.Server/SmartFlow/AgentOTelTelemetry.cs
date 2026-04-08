@@ -24,20 +24,26 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
     private readonly ActivityListener _listener;
     private readonly Meter _meter;
     private readonly CollectorTracePersistence _collectorTracePersistence;
+    private readonly LocalTraceDebugStore _localTraceStore;
     private readonly Counter<long>      _stepCounter;
     private readonly Histogram<double>  _stepDuration;
     private readonly Counter<long>      _tokenUsage;
     private readonly Histogram<double>  _workflowDuration;
 
-    public AgentOTelTelemetry(CollectorTracePersistence collectorTracePersistence)
+    public AgentOTelTelemetry(
+        CollectorTracePersistence collectorTracePersistence,
+        LocalTraceDebugStore localTraceStore)
     {
         _collectorTracePersistence = collectorTracePersistence;
+        _localTraceStore = localTraceStore;
         _source = new ActivitySource(ActivitySourceName, "1.0.0");
         _listener = new ActivityListener
         {
             ShouldListenTo = source => string.Equals(source.Name, ActivitySourceName, StringComparison.Ordinal),
             Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            SampleUsingParentId = static (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded
+            SampleUsingParentId = static (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStarted = activity => _localTraceStore.Track(activity),
+            ActivityStopped = activity => _localTraceStore.Complete(activity)
         };
         ActivitySource.AddActivityListener(_listener);
         _meter  = new Meter(MeterName, "1.0.0");

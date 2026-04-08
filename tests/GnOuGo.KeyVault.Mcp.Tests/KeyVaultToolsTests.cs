@@ -4,9 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Core.Services;
-using Xunit;
 
-namespace GnOuGo.Agent.Mcp.Tests;
+namespace GnOuGo.KeyVault.Mcp.Tests;
 
 public sealed class KeyVaultToolsTests : IAsyncDisposable
 {
@@ -98,6 +97,4 @@ public sealed class KeyVaultToolsTests : IAsyncDisposable
         Assert.Null(typeof(KeyVaultTools).GetMethod("GetSecretVersionsAsync"));
     }
 }
-
-
 

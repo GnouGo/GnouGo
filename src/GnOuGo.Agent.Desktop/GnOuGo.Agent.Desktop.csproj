@@ -28,7 +28,7 @@
     <ProjectReference Include="..\GnOuGo.Agent.Server\GnOuGo.Agent.Server.csproj" />
   </ItemGroup>
 
-  <!-- Ensure the web UI static assets and configuration are present next to the desktop binary -->
+  <!-- Ensure the web UI static assets and the Agent.Server appsettings (including mounted MCP endpoint placeholders) are present next to the desktop binary -->
     <ItemGroup>
     <Content Include="..\GnOuGo.Agent.Server\appsettings*.json">
       <Link>%(Filename)%(Extension)</Link>

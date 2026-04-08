@@ -45,7 +45,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                     CancellationToken.None);
                 await keyVault.SetSecretAsync(
                     "LLM--McpServers--GnOuGo.KeyVault.Mcp",
-                    "{\"name\":\"GnOuGo.KeyVault.Mcp\",\"transport\":\"stdio\",\"description\":\"secret manager\",\"command\":\"dotnet\",\"args\":\"run,--project,src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj\"}",
+                    "{\"name\":\"GnOuGo.KeyVault.Mcp\",\"transport\":\"http\",\"description\":\"secret manager\",\"url\":\"http://127.0.0.1:0/mcp/keyvault\"}",
                     null,
                     "test",
                     CancellationToken.None);
@@ -61,9 +61,8 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                 {
                     ["GnOuGo.KeyVault.Mcp"] = new()
                     {
-                        Type = "stdio",
-                        Command = "dotnet",
-                        Args = ["run", "--project", "src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj"]
+                        Type = "http",
+                        Url = "http://127.0.0.1:0/mcp/keyvault"
                     }
                 }
             };
@@ -83,8 +82,8 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal("gh-secret", github.ApiKey);
             Assert.True(effective.McpServers.TryGetValue("GnOuGo.KeyVault.Mcp", out var keyVaultServer));
             Assert.NotNull(keyVaultServer);
-            Assert.Equal("stdio", keyVaultServer.Type);
-            Assert.Equal("dotnet", keyVaultServer.Command);
+            Assert.Equal("http", keyVaultServer.Type);
+            Assert.Equal("http://127.0.0.1:0/mcp/keyvault", keyVaultServer.Url);
         }
         finally
         {

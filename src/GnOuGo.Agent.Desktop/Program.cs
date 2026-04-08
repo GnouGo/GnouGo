@@ -66,11 +66,14 @@ internal static class Program
         app.StartAsync(cts.Token).GetAwaiter().GetResult();
         Log("Web host StartAsync completed");
 
-        var url = ResolveServerUrl(app);
+        var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
+        var url = ResolveServerUrl(publishedEndpoints);
         var appUrl = $"{url}/?desktopToken={desktopToken}";
         var healthUrl = $"{url}/health";
         var bootLogUrl = $"{url}/desktop/boot-log/{desktopToken}";
         Log($"ServerUrl={url}");
+        Log($"TelemetryGrpcUrl={publishedEndpoints.TelemetryGrpcBaseAddress ?? "<disabled>"}");
+        Log($"TelemetryHttpUrl={publishedEndpoints.TelemetryHttpBaseAddress ?? "<disabled>"}");
         Log($"AppUrl={appUrl}");
         Log($"HealthUrl={healthUrl}");
         Log($"BootLogUrl={bootLogUrl}");
@@ -440,32 +443,12 @@ internal static class Program
         return healthOk;
     }
 
-    private static string ResolveServerUrl(WebApplication app)
+    private static string ResolveServerUrl(GnOuGoAgentWebHost.PublishedAgentEndpoints publishedEndpoints)
     {
-        var addressesFeature = app.Services
-            .GetRequiredService<IServer>()
-            .Features
-            .Get<IServerAddressesFeature>();
+        if (!string.IsNullOrWhiteSpace(publishedEndpoints.AppBaseAddress))
+            return publishedEndpoints.AppBaseAddress;
 
-        if (addressesFeature is null || addressesFeature.Addresses.Count == 0)
-        {
-            throw new InvalidOperationException("The local server did not publish any bound addresses.");
-        }
-
-        foreach (var address in addressesFeature.Addresses)
-        {
-            if (address.StartsWith("http://127.0.0.1:", StringComparison.OrdinalIgnoreCase))
-            {
-                return address.TrimEnd('/');
-            }
-        }
-
-        foreach (var address in addressesFeature.Addresses)
-        {
-            return address.TrimEnd('/');
-        }
-
-        throw new InvalidOperationException("The local server did not publish a usable bound address.");
+        throw new InvalidOperationException("The local server did not publish a usable main application address.");
     }
 
     private static void Log(string message)

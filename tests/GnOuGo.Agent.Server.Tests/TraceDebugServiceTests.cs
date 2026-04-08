@@ -106,6 +106,53 @@ public sealed class TraceDebugServiceTests
         Assert.Contains(snapshot.Trace.Spans, span => span.Name == "workflow");
     }
 
+    [Fact]
+    public async Task GetSnapshotAsync_DeduplicatesSpansBySpanId_WhenDualWritePathProducesDuplicates()
+    {
+        await using var host = await CollectorTestHost.CreateAsync();
+        var settings = new OpenTelemetrySettings { Enabled = true, ServiceName = "GnOuGo.Agent.Server" };
+        var traceIdHex = "44444444444444444444444444444444";
+
+        // Simulate dual write: same spanId "5555555555555555" stored twice
+        await host.AddSpansAsync(
+            CreateSpan(
+                traceIdHex,
+                "5555555555555555",
+                parentSpanIdHex: null,
+                name: "chat.message",
+                correlationId: "corr-dedup",
+                serviceName: settings.ServiceName,
+                startUnixNs: 1_710_000_000_000_000_000,
+                endUnixNs: 1_710_000_000_500_000_000),
+            CreateSpan(
+                traceIdHex,
+                "5555555555555555",
+                parentSpanIdHex: null,
+                name: "chat.message",
+                correlationId: "corr-dedup",
+                serviceName: settings.ServiceName,
+                startUnixNs: 1_710_000_000_000_000_000,
+                endUnixNs: 1_710_000_000_500_000_000),
+            CreateSpan(
+                traceIdHex,
+                "6666666666666666",
+                parentSpanIdHex: "5555555555555555",
+                name: "workflow",
+                correlationId: "corr-dedup",
+                serviceName: settings.ServiceName,
+                startUnixNs: 1_710_000_000_100_000_000,
+                endUnixNs: 1_710_000_000_400_000_000));
+
+        var service = CreateService(host.Services, settings);
+
+        var snapshot = await service.GetSnapshotAsync(null, traceIdHex, CancellationToken.None);
+
+        Assert.NotNull(snapshot.Trace);
+        Assert.Equal(2, snapshot.Trace!.Spans.Count);
+        Assert.Single(snapshot.Trace.Spans, span => span.SpanId == "5555555555555555");
+        Assert.Single(snapshot.Trace.Spans, span => span.SpanId == "6666666666666666");
+    }
+
     private static TraceDebugService CreateService(
         IServiceProvider services,
         OpenTelemetrySettings openTelemetrySettings,

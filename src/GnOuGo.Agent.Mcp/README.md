@@ -1,25 +1,14 @@
 ﻿# GnOuGo.Agent.Mcp
 
-Stdio-based MCP server for agent data, chat history, diff-related tools, and KeyVault tools.
+HTTP-based MCP server for agent data, chat history, and diff-related tools.
 
 ## Hosted tool domains
 
 - Agent management tools
 - Chat history tools
-- KeyVault secret-management tools with direct latest-secret retrieval
+- Data and diff helpers
 
-## KeyVault MCP tools
-
-The KeyVault MCP surface is intentionally small:
-
-- list tenants
-- create tenant
-- list secrets
-- set secret
-- get secret (returns the latest decrypted secret value)
-- delete secret
-
-Tenant deletion, audit-log retrieval, and secret-version history remain available in `GnOuGo.KeyVault.Server`, but are not exposed through this MCP surface.
+KeyVault tools now live in the dedicated HTTP project `GnOuGo.KeyVault.Mcp`.
 
 ## Configuration
 
@@ -29,39 +18,61 @@ Tenant deletion, audit-log retrieval, and secret-version history remain availabl
 {
   "Agent": {
     "DatabasePath": "data/gnougo-agent.db"
-  },
-  "KeyVault": {
-    "DatabasePath": "data/gnougo-keyvault.db"
   }
 }
 ```
 
-## Consumer configuration
+## HTTP routes
 
-Consumers should launch this MCP server over stdio, for example:
+### Standalone host (`GnOuGo.Agent.Mcp`)
+
+The standalone MCP host maps the protocol endpoint at:
+
+- `/mcp`
+- development URL: `http://127.0.0.1:5198/mcp`
+
+Consumer example:
 
 ```json
 {
-  "Type": "stdio",
-  "Command": "dotnet",
-  "Args": [
-    "run",
-    "--project",
-    "src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj"
-  ]
+  "Type": "http",
+  "Url": "http://127.0.0.1:5198/mcp"
 }
 ```
+
+### Mounted inside `GnOuGo.Agent.Server`
+
+When the Blazor agent server hosts the MCP services in-process, the same tools are mounted at:
+
+- `/mcp/agent`
+
+Default `GnOuGo.Agent.Server/appsettings.json` placeholder:
+
+```json
+{
+  "LLM": {
+    "McpServers": {
+      "GnOuGo.Agent.Mcp": {
+        "Type": "http",
+        "Url": "http://127.0.0.1:0/mcp/agent"
+      }
+    }
+  }
+}
+```
+
+At runtime, `GnOuGo.Agent.Server` replaces port `0` with the actual local listening port.
 
 ## Run
 
 ```powershell
-Set-Location "src/GnOuGo.Agent.Mcp"
+Set-Location "C:\github\GnouGo\src\GnOuGo.Agent.Mcp"
 dotnet run
 ```
 
 ## Test
 
 ```powershell
-dotnet test "tests/GnOuGo.Agent.Mcp.Tests/GnOuGo.Agent.Mcp.Tests.csproj"
+dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Mcp.Tests\GnOuGo.Agent.Mcp.Tests.csproj"
 ```
 

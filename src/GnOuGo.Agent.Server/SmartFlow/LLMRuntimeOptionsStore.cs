@@ -183,6 +183,29 @@ public sealed class LLMRuntimeOptionsStore
         return true;
     }
 
+    /// <summary>
+    /// Updates or inserts an MCP server in memory without persisting the change.
+    /// Intended for runtime-only endpoint normalization such as loopback/self-hosted MCP mounts.
+    /// </summary>
+    public void UpsertTransientMcpServer(string serverName, McpServerOptions options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(serverName);
+        ArgumentNullException.ThrowIfNull(options);
+
+        lock (_lock)
+        {
+            var snapshot = DeepClone(_current);
+            snapshot.McpServers[serverName] = CloneMcpServerOptions(options);
+            _current = snapshot;
+        }
+
+        _logger.LogInformation(
+            "Transient MCP server '{ServerName}' updated at runtime with transport '{Transport}' and url '{Url}'.",
+            serverName,
+            options.Type,
+            options.Url);
+    }
+
     // ── persistence ────────────────────────────────────────────────
 
     private void LoadPersisted()
@@ -278,8 +301,23 @@ public sealed class LLMRuntimeOptionsStore
             };
         }
         foreach (var kv in src.McpServers)
-            clone.McpServers[kv.Key] = kv.Value;
+            clone.McpServers[kv.Key] = CloneMcpServerOptions(kv.Value);
         return clone;
     }
+
+    private static McpServerOptions CloneMcpServerOptions(McpServerOptions source)
+        => new()
+        {
+            Type = source.Type,
+            Description = source.Description,
+            Url = source.Url,
+            ApiKey = source.ApiKey,
+            Issuer = source.Issuer,
+            ClientId = source.ClientId,
+            ClientSecret = source.ClientSecret,
+            Scopes = source.Scopes,
+            Command = source.Command,
+            Args = source.Args is null ? null : [.. source.Args]
+        };
 }
 

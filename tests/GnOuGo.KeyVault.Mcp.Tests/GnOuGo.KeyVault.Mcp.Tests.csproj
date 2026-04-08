@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" />
+    <ProjectReference Include="..\..\src\GnOuGo.KeyVault.Mcp\GnOuGo.KeyVault.Mcp.csproj" />
     <ProjectReference Include="..\..\src\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
   </ItemGroup>
 
@@ -25,4 +25,5 @@
   </ItemGroup>
 
 </Project>
+
 
