@@ -10,6 +10,22 @@ from gnougo_flow_core.models import LLMRequest, LLMResponse, LLMToolCall
 from .settings import OpenAiSettings
 
 
+def _normalize_openai_json_schema(schema: Any, *, strict: bool) -> Any:
+    def walk(node: Any) -> Any:
+        if isinstance(node, list):
+            return [walk(item) for item in node]
+        if not isinstance(node, dict):
+            return node
+
+        normalized = {key: walk(value) for key, value in node.items()}
+        if normalized.get("type") == "object" and strict:
+            # OpenAI strict json_schema requires explicit additionalProperties=false.
+            normalized["additionalProperties"] = False
+        return normalized
+
+    return walk(schema)
+
+
 class OpenAiLlmClient:
     def __init__(self, settings: OpenAiSettings) -> None:
         if not settings.api_key:
@@ -46,12 +62,14 @@ class OpenAiLlmClient:
             kwargs["tool_choice"] = "auto"
 
         if request.structured_output_schema is not None:
+            strict_schema = bool(request.structured_output_strict)
+            schema = _normalize_openai_json_schema(request.structured_output_schema, strict=strict_schema)
             kwargs["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
                     "name": "structured_output",
-                    "schema": request.structured_output_schema,
-                    "strict": bool(request.structured_output_strict),
+                    "schema": schema,
+                    "strict": strict_schema,
                 },
             }
 
