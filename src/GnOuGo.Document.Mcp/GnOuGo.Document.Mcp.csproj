@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+<<<<<<<< HEAD:src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj
     <InternalsVisibleTo Include="GnOuGo.Document.Mcp.Tests" />
   </ItemGroup>
 
@@ -23,6 +24,21 @@
 
     <!-- PDF text extraction -->
     <PackageReference Include="PdfPig" Version="0.*" />
+========
+    <InternalsVisibleTo Include="GnOuGo.Agent.Mcp.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0-preview.1.25080.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0-preview.1.25080.5" />
+    <PackageReference Include="ModelContextProtocol" Version="1.0.0" />
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GnOuGo.Diff.Core\GnOuGo.Diff.Core.csproj" />
+>>>>>>>> main:src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj
   </ItemGroup>
 
   <ItemGroup>

@@ -37,8 +37,8 @@ public sealed class CommandExecutionHost
             var command = _policy.GetRequiredCommand(commandName);
             var shell = _policy.ResolveShell(command.Shell);
             var parameters = ParseParameters(parametersJson);
-            var script = _policy.RenderScript(command, parameters);
             var workingDirectory = _policy.ResolveWorkingDirectory(command.WorkingDirectory);
+            var script = _policy.RenderScript(command, parameters, workingDirectory);
             var effectiveTimeoutMs = _policy.ResolveTimeoutMs(command, timeoutMs);
             var outputLimit = _policy.ResolveOutputLimit(command);
             var environment = _policy.BuildEnvironment();
