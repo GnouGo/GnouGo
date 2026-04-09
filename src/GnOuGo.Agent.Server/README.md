@@ -4,6 +4,11 @@ This solution contains:
 - **GnOuGo.Agent.Server**: Blazor (server interactive) UI + Minimal API streaming endpoint
 - **GnOuGo.Agent.Shared**: shared DTOs
 
+## Architecture
+
+This component is independently testable per `AGENTS.md` rules.
+It references `GnOuGo.Agent.Mcp`, `GnOuGo.KeyVault.Mcp`, and `GnOuGo.OtlpCollector.Server` as project dependencies, mounting their services in-process to minimise coupling while exposing everything through a single host.
+
 ## Mounted MCP endpoints
 
 `GnOuGo.Agent.Server` hosts the local MCP HTTP services in-process and mounts them on dedicated routes:
@@ -67,6 +72,27 @@ Configuration lives in `appsettings.json`:
 ```
 
 When the embedded collector is enabled, the OpenTelemetry exporters are automatically repointed to the local telemetry listener.
+
+## Circular logging guard
+
+Embedding the OTLP collector in the same process that generates telemetry creates a potential feedback loop:
+
+1. An application log is captured by `CollectorLoggerProvider` or the OpenTelemetry SDK log exporter.
+2. The log is written to the `TelemetryIngestQueue`.
+3. `TelemetryBatchWriter` flushes the batch to SQLite via EF Core.
+4. EF Core logs the `INSERT INTO log_records` command.
+5. Without a guard, step 4's log re-enters step 1, creating infinite growth.
+
+`EmbeddedCollectorLogCategoryFilter` breaks this cycle by suppressing the following log category prefixes from both `CollectorLoggerProvider` and `OpenTelemetryLoggerProvider`:
+
+- `OtlpTenantCollector` — batch writer, EF store, gRPC/HTTP receivers
+- `Microsoft.EntityFrameworkCore` — all EF Core database commands
+- `Microsoft.AspNetCore.Hosting.Diagnostics` — ASP.NET host-level request logs
+- `Microsoft.AspNetCore.Routing.EndpointMiddleware` — endpoint routing logs
+- `Grpc.AspNetCore.Server` — gRPC transport logs
+- `System.Net.Http.HttpClient` — outbound HTTP (OTLP exporter traffic)
+
+Additionally, `appsettings.json` sets these categories to `Warning` level globally so they do not spam the console output either.
 
 ## Frontend (SCSS + offline JS via Vite)
 

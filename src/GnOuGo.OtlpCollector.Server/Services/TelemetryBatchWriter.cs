@@ -59,7 +59,7 @@ public sealed class TelemetryBatchWriter : BackgroundService
                             if (row is SpanRow s) 
                             {
                                 spans.Add(s);
-                                _logger.LogInformation("Added span to batch: {SpanName}, TenantId={TenantId}", s.Name, s.TenantId);
+                                _logger.LogDebug("Added span to batch: {SpanName}, TenantId={TenantId}", s.Name, s.TenantId);
                             }
                             else if (row is LogRow l) 
                             {
@@ -110,7 +110,7 @@ public sealed class TelemetryBatchWriter : BackgroundService
     {
         if (spans.Count == 0 && logs.Count == 0) return;
 
-        _logger.LogInformation("Starting flush: {SpanCount} spans, {LogCount} logs", spans.Count, logs.Count);
+        _logger.LogDebug("Starting flush: {SpanCount} spans, {LogCount} logs", spans.Count, logs.Count);
 
         try
         {
@@ -121,9 +121,7 @@ public sealed class TelemetryBatchWriter : BackgroundService
             if (spans.Count > 0)
             {
                 var spanEntities = spans.Select(TelemetryMapper.ToEntity).ToList();
-                _logger.LogInformation("Inserting {Count} span entities into database", spanEntities.Count);
                 store.AddSpansAsync(spanEntities).GetAwaiter().GetResult();
-                _logger.LogInformation("Successfully inserted {Count} spans", spanEntities.Count);
             }
 
             // Convertir LogRow -> LogRecordEntity
@@ -133,7 +131,7 @@ public sealed class TelemetryBatchWriter : BackgroundService
                 store.AddLogsAsync(logEntities).GetAwaiter().GetResult();
             }
 
-            _logger.LogInformation("Flushed batch successfully: {SpanCount} spans, {LogCount} logs", spans.Count, logs.Count);
+            _logger.LogDebug("Flushed {SpanCount} spans, {LogCount} logs", spans.Count, logs.Count);
 
             // Notify SSE subscribers that new data is available
             _eventBus.NotifyFlushed(spans.Count, logs.Count);

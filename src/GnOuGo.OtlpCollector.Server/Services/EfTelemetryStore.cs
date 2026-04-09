@@ -164,7 +164,7 @@ public class EfTelemetryStore
                 var durationMs = (endUnixNs - startUnixNs) / 1_000_000.0;
                 var service = g.FirstOrDefault()?.ServiceName ?? "unknown-service";
                 
-                _logger.LogInformation("[EfTelemetryStore] TraceId={TraceId}, Service={ServiceName}: StartUnixNs={Start}, EndUnixNs={End}, DurationMs={Duration}",
+                _logger.LogDebug("[EfTelemetryStore] TraceId={TraceId}, Service={ServiceName}: StartUnixNs={Start}, EndUnixNs={End}, DurationMs={Duration}",
                     g.Key.Substring(0, 16), service, startUnixNs, endUnixNs, durationMs);
                 
                 return new TraceSummaryDto(

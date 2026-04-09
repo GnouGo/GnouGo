@@ -2,6 +2,11 @@
 
 HTTP-based MCP server for encrypted KeyVault secret management.
 
+## Architecture
+
+This component is independently publishable, testable, and deployable per `AGENTS.md` rules.
+It can run as a standalone HTTP MCP host or be mounted inside `GnOuGo.Agent.Server`.
+
 ## Hosted tools
 
 - `keyvault_list_tenants`

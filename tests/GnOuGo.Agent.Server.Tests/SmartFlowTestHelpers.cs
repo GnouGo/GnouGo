@@ -241,7 +241,12 @@ internal static class SmartFlowTestFactory
                 Enabled = false,
                 ServiceName = "GnOuGo.Agent.Server"
             }),
-            NullLogger<CollectorTracePersistence>.Instance));
+            NullLogger<CollectorTracePersistence>.Instance),
+            new LocalTraceDebugStore(new TestOptionsMonitor<OpenTelemetrySettings>(new OpenTelemetrySettings
+            {
+                Enabled = false,
+                ServiceName = "GnOuGo.Agent.Server"
+            })));
 
         return new TelemetryHarness(telemetry, queue);
     }

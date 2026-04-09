@@ -2,11 +2,20 @@
 
 HTTP-based MCP server for agent data, chat history, and diff-related tools.
 
-## Hosted tool domains
+## Architecture
 
-- Agent management tools
-- Chat history tools
-- Data and diff helpers
+This component is independently publishable, testable, and deployable per `AGENTS.md` rules.
+It can run as a standalone HTTP MCP host or be mounted inside `GnOuGo.Agent.Server`.
+
+## Hosted tools
+
+- `agent_add` — Create a new agent with name, workflow, and optional schedules
+- `agent_update` — Update an existing agent's name, workflow, and schedules
+- `agent_list` — List all agents
+- `agent_delete` — Delete an agent by identifier
+- `agent_get_by_name` — Get an agent by name (case-insensitive)
+- `user_chat_history_append` — Append messages to a chat conversation
+- `user_chat_history_get` — Retrieve chat history messages for a conversation
 
 KeyVault tools now live in the dedicated HTTP project `GnOuGo.KeyVault.Mcp`.
 
