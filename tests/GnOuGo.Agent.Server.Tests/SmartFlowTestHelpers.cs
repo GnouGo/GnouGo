@@ -217,6 +217,7 @@ internal static class SmartFlowTestFactory
             runtimeFactory,
             configureProviders,
             configureAgents,
+            new AgentHumanInputProvider(),
             CreateTelemetry(),
             NullLogger<SmartFlowService>.Instance);
     }

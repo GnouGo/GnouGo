@@ -308,6 +308,8 @@ workflows:
                 Rules:
                 - Use DSL version 1
                 - The workflow must be named "${data.steps.normalized_name.agent_name}"
+                - The main workflow MUST declare a required string input named "task"
+                - The workflow must use data.inputs.task as the main user request text
                 - Include an "answer" output with the final result
                 - Use available MCP tools when applicable
                 - For llm.call steps prefer omitting provider/model so runtime defaults are used automatically; if you must specify them, use provider "${data.inputs.agent_llm_provider}" and model "${data.inputs.agent_llm_model}" with temperature 0.7

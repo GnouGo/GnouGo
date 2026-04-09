@@ -37,6 +37,13 @@ The default placeholders in `appsettings.json` intentionally use port `0`:
 
 At startup, the server replaces port `0` with the actual bound local address and republishes those URLs through the runtime MCP configuration store.
 
+`GnOuGo.Agent.Server` also uses the mounted `GnOuGo.Agent.Mcp` endpoint as the persistence API for local user defaults:
+
+- `user_config_get` — hydrate persisted `default_llm_provider`, `default_llm_model`, and `default_agent`
+- `user_config_set` — save updated defaults after `/llm default`, `/llm add` auto-promotion, or `/agent select`
+
+The persisted values live in the Agent MCP SQLite database (`Agent:DatabasePath`) rather than only in browser state.
+
 Standalone MCP hosts still expose `/mcp` directly in their own projects:
 
 - `GnOuGo.Agent.Mcp` → `http://127.0.0.1:5198/mcp`

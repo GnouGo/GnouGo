@@ -72,6 +72,10 @@
             <div class="sa-trace-summary__hero">
                 <div class="sa-trace-summary__hero-title">Live trace for this answer</div>
                 <div class="sa-trace-summary__hero-text">Every GnOuGo response carries a client-generated correlation identifier that is propagated through the RAG workflow and exposed here in OpenTelemetry GenAI format.</div>
+                @if (!string.IsNullOrWhiteSpace(_snapshot.Message) && !string.Equals(_snapshot.Message, "Trace loaded.", StringComparison.Ordinal))
+                {
+                    <div class="sa-trace-summary__hero-text">@_snapshot.Message</div>
+                }
             </div>
 
             <div class="sa-trace-summary__kpis">
@@ -204,6 +208,10 @@
                                     <tbody>
                                         <tr><td>Correlation</td><td><code>@(Message.CorrelationId ?? "n/a")</code></td></tr>
                                         <tr><td>Trace</td><td><code>@trace.TraceId</code></td></tr>
+                                        @if (!string.IsNullOrWhiteSpace(_snapshot.Message) && !string.Equals(_snapshot.Message, "Trace loaded.", StringComparison.Ordinal))
+                                        {
+                                            <tr><td>Aggregation</td><td>@_snapshot.Message</td></tr>
+                                        }
                                         <tr><td>Start</td><td>@trace.StartUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</td></tr>
                                         <tr><td>End</td><td>@trace.EndUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</td></tr>
                                     </tbody>
@@ -450,7 +458,7 @@
             return;
 
         try { _refreshCts.Cancel(); }
-        catch { }
+        catch (ObjectDisposedException) { }
         _refreshCts.Dispose();
         _refreshCts = null;
     }
@@ -598,7 +606,6 @@
             CompletionTokens: totalCompletion,
             EstimatedCost: estimatedCost,
             TraceDurationMs: traceDuration,
-            LlmDurationMs: llmDuration,
             LlmCalls: llmMetrics.Count,
             LlmMetrics: llmMetrics,
             Providers: providers,
@@ -845,7 +852,6 @@
         long CompletionTokens,
         decimal EstimatedCost,
         double TraceDurationMs,
-        double LlmDurationMs,
         int LlmCalls,
         List<LlmCallModel> LlmMetrics,
         List<string> Providers,

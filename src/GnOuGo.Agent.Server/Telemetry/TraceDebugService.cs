@@ -60,40 +60,19 @@ public sealed class TraceDebugService
         }
 
         var resolvedTraceId = string.IsNullOrWhiteSpace(traceId) ? null : traceId.Trim();
-        if (!string.IsNullOrWhiteSpace(resolvedTraceId))
+        var traceIds = await ResolveCandidateTraceIdsAsync(correlationId, resolvedTraceId).ConfigureAwait(false);
+        var trace = await TryGetMergedTraceAsync(traceIds).ConfigureAwait(false);
+        if (trace is not null)
         {
-            var trace = await TryGetTraceAsync(resolvedTraceId).ConfigureAwait(false);
-            if (trace is not null)
-            {
-                return new TraceDebugSnapshot(
-                    availability,
-                    correlationId,
-                    resolvedTraceId,
-                    Trace: trace,
-                    Pending: false,
-                    Message: "Trace loaded.");
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(correlationId))
-        {
-            resolvedTraceId = _localTraceStore.ResolveTraceId(correlationId)
-                ?? await TryResolveTraceIdByCorrelationIdAsync(correlationId).ConfigureAwait(false);
-
-            if (!string.IsNullOrWhiteSpace(resolvedTraceId))
-            {
-                var trace = await TryGetTraceAsync(resolvedTraceId).ConfigureAwait(false);
-                if (trace is not null)
-                {
-                    return new TraceDebugSnapshot(
-                        availability,
-                        correlationId,
-                        resolvedTraceId,
-                        Trace: trace,
-                        Pending: false,
-                        Message: "Trace loaded.");
-                }
-            }
+            return new TraceDebugSnapshot(
+                availability,
+                correlationId,
+                trace.TraceId,
+                Trace: trace,
+                Pending: false,
+                Message: traceIds.Count > 1
+                    ? $"Trace loaded from {traceIds.Count} related traces."
+                    : "Trace loaded.");
         }
 
         return new TraceDebugSnapshot(
@@ -105,7 +84,33 @@ public sealed class TraceDebugService
             Message: BuildPendingMessage());
     }
 
-    private async Task<string?> TryResolveTraceIdByCorrelationIdAsync(string correlationId)
+    private async Task<IReadOnlyList<string>> ResolveCandidateTraceIdsAsync(string? correlationId, string? traceId)
+    {
+        var candidates = new List<string>();
+        AddCandidate(traceId);
+
+        if (!string.IsNullOrWhiteSpace(correlationId))
+        {
+            foreach (var localTraceId in _localTraceStore.ResolveTraceIds(correlationId))
+                AddCandidate(localTraceId);
+
+            foreach (var persistedTraceId in await TryResolveTraceIdsByCorrelationIdAsync(correlationId).ConfigureAwait(false))
+                AddCandidate(persistedTraceId);
+        }
+
+        return candidates;
+
+        void AddCandidate(string? candidate)
+        {
+            if (string.IsNullOrWhiteSpace(candidate))
+                return;
+
+            if (!candidates.Contains(candidate, StringComparer.OrdinalIgnoreCase))
+                candidates.Add(candidate);
+        }
+    }
+
+    private async Task<IReadOnlyList<string>> TryResolveTraceIdsByCorrelationIdAsync(string correlationId)
     {
         try
         {
@@ -114,7 +119,7 @@ public sealed class TraceDebugService
             var serviceName = _openTelemetrySettings.CurrentValue.ServiceName;
             var traces = await store.GetRecentTracesAsync(
                 tenantId: ResolveTenantId(),
-                limit: 50,
+                limit: 200,
                 serviceName: serviceName,
                 startUtc: null,
                 endUtc: null,
@@ -123,14 +128,52 @@ public sealed class TraceDebugService
 
             return traces
                 .OrderByDescending(t => t.EndUtc)
-                .FirstOrDefault()
-                ?.TraceId;
+                .Select(t => t.TraceId)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Could not resolve trace id for correlation '{CorrelationId}'.", correlationId);
-            return null;
+            _logger.LogDebug(ex, "Could not resolve trace ids for correlation '{CorrelationId}'.", correlationId);
+            return [];
         }
+    }
+
+    private async Task<TraceGroupDto?> TryGetMergedTraceAsync(IReadOnlyList<string> traceIds)
+    {
+        if (traceIds.Count == 0)
+            return null;
+
+        var groups = new List<TraceGroupDto>(traceIds.Count);
+        foreach (var traceId in traceIds)
+        {
+            var trace = await TryGetTraceAsync(traceId).ConfigureAwait(false);
+            if (trace is not null)
+                groups.Add(trace);
+        }
+
+        if (groups.Count == 0)
+            return null;
+
+        if (groups.Count == 1)
+            return groups[0];
+
+        var spans = groups
+            .SelectMany(group => group.Spans)
+            .GroupBy(span => span.SpanId, StringComparer.Ordinal)
+            .Select(group => group
+                .OrderByDescending(span => span.EndUtc)
+                .ThenByDescending(span => span.Attributes.Count)
+                .ThenByDescending(span => span.Events.Count)
+                .First())
+            .OrderBy(span => span.StartUtc)
+            .ToList();
+
+        return new TraceGroupDto(
+            TraceId: traceIds[0],
+            StartUtc: spans.Min(span => span.StartUtc),
+            EndUtc: spans.Max(span => span.EndUtc),
+            Spans: spans);
     }
 
     private async Task<TraceGroupDto?> TryGetTraceAsync(string traceId)

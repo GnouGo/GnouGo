@@ -16,6 +16,8 @@ It can run as a standalone HTTP MCP host or be mounted inside `GnOuGo.Agent.Serv
 - `agent_get_by_name` — Get an agent by name (case-insensitive)
 - `user_chat_history_append` — Append messages to a chat conversation
 - `user_chat_history_get` — Retrieve chat history messages for a conversation
+- `user_config_get` — Read persisted local user defaults (default LLM + default agent)
+- `user_config_set` — Persist local user defaults (default LLM + default agent)
 
 KeyVault tools now live in the dedicated HTTP project `GnOuGo.KeyVault.Mcp`.
 
@@ -30,6 +32,12 @@ KeyVault tools now live in the dedicated HTTP project `GnOuGo.KeyVault.Mcp`.
   }
 }
 ```
+
+The same SQLite database now stores:
+
+- agent definitions,
+- diff revisions,
+- persisted user defaults (`default_llm_provider`, `default_llm_model`, `default_agent`).
 
 ## HTTP routes
 

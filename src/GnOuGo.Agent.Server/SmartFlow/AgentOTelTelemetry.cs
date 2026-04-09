@@ -215,6 +215,22 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         }
     }
 
+    private static void PropagateCorrelationFromParent(Activity parent, Activity activity)
+    {
+        var correlationId = parent.GetTagItem(CorrelationIdTagName) as string
+            ?? parent.GetBaggageItem(CorrelationIdTagName)
+            ?? parent.GetTagItem(ConversationIdTagName) as string
+            ?? parent.GetBaggageItem(ConversationIdTagName);
+
+        if (string.IsNullOrWhiteSpace(correlationId))
+            return;
+
+        activity.AddBaggage(CorrelationIdTagName, correlationId);
+        activity.AddBaggage(ConversationIdTagName, correlationId);
+        activity.SetTag(CorrelationIdTagName, correlationId);
+        activity.SetTag(ConversationIdTagName, correlationId);
+    }
+
     private static Activity? ResolveParentActivity(ITelemetrySpan parentSpan)
         => parentSpan switch
         {
@@ -240,6 +256,8 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
                     .SetParentId(parent.TraceId, parent.SpanId, ActivityTraceFlags.Recorded)
                     .Start();
             }
+
+            PropagateCorrelationFromParent(parent, activity);
         }
         else
         {

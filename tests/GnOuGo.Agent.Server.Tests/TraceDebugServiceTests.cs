@@ -153,6 +153,88 @@ public sealed class TraceDebugServiceTests
         Assert.Single(snapshot.Trace.Spans, span => span.SpanId == "6666666666666666");
     }
 
+    [Fact]
+    public async Task GetSnapshotAsync_MergesAllRelatedTraces_WhenCorrelationIdMatchesMultipleStoredTraces()
+    {
+        await using var host = await CollectorTestHost.CreateAsync();
+        var settings = new OpenTelemetrySettings { Enabled = true, ServiceName = "GnOuGo.Agent.Server" };
+
+        await host.AddSpansAsync(
+            CreateSpan(
+                traceIdHex: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                spanIdHex: "1111111111111111",
+                parentSpanIdHex: null,
+                name: "chat.message",
+                correlationId: "corr-merged",
+                serviceName: settings.ServiceName,
+                startUnixNs: 1_710_000_000_000_000_000,
+                endUnixNs: 1_710_000_000_100_000_000),
+            CreateSpan(
+                traceIdHex: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                spanIdHex: "2222222222222222",
+                parentSpanIdHex: null,
+                name: "workflow",
+                correlationId: "corr-merged",
+                serviceName: settings.ServiceName,
+                startUnixNs: 1_710_000_000_110_000_000,
+                endUnixNs: 1_710_000_000_400_000_000),
+            CreateSpan(
+                traceIdHex: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                spanIdHex: "3333333333333333",
+                parentSpanIdHex: "2222222222222222",
+                name: "chat.completions gpt-4o-mini",
+                correlationId: "corr-merged",
+                serviceName: settings.ServiceName,
+                startUnixNs: 1_710_000_000_200_000_000,
+                endUnixNs: 1_710_000_000_350_000_000));
+
+        var service = CreateService(host.Services, settings);
+
+        var snapshot = await service.GetSnapshotAsync("corr-merged", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", CancellationToken.None);
+
+        Assert.NotNull(snapshot.Trace);
+        Assert.False(snapshot.Pending);
+        Assert.Equal("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", snapshot.TraceId);
+        Assert.Equal(3, snapshot.Trace!.Spans.Count);
+        Assert.Contains(snapshot.Trace.Spans, span => span.Name == "chat.message");
+        Assert.Contains(snapshot.Trace.Spans, span => span.Name == "workflow");
+        Assert.Contains(snapshot.Trace.Spans, span => span.Name == "chat.completions gpt-4o-mini");
+        Assert.Contains("2 related traces", snapshot.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GetSnapshotAsync_MergesLocalTracesForSameCorrelation_WhenRootTraceIdIsAlreadyKnown()
+    {
+        await using var host = await CollectorTestHost.CreateAsync();
+        var settings = new OpenTelemetrySettings { Enabled = true, ServiceName = "GnOuGo.Agent.Server" };
+        var localStore = new LocalTraceDebugStore(new StaticOptionsMonitor<OpenTelemetrySettings>(settings));
+
+        using var root = new Activity("chat.message")
+            .SetIdFormat(ActivityIdFormat.W3C)
+            .Start();
+        root.SetTag(AgentOTelTelemetry.CorrelationIdTagName, "corr-local-merged");
+        localStore.Track(root);
+
+        using var secondary = new Activity("workflow")
+            .SetIdFormat(ActivityIdFormat.W3C)
+            .Start();
+        secondary.SetTag(AgentOTelTelemetry.CorrelationIdTagName, "corr-local-merged");
+        secondary.SetTag("gen_ai.request.model", "gpt-4o-mini");
+        localStore.Track(secondary);
+        localStore.Complete(secondary);
+        localStore.Complete(root);
+
+        var service = CreateService(host.Services, settings, localStore);
+
+        var snapshot = await service.GetSnapshotAsync("corr-local-merged", root.TraceId.ToHexString(), CancellationToken.None);
+
+        Assert.NotNull(snapshot.Trace);
+        Assert.Equal(root.TraceId.ToHexString(), snapshot.TraceId);
+        Assert.Equal(2, snapshot.Trace!.Spans.Count);
+        Assert.Contains(snapshot.Trace.Spans, span => span.Name == "chat.message");
+        Assert.Contains(snapshot.Trace.Spans, span => span.Name == "workflow");
+    }
+
     private static TraceDebugService CreateService(
         IServiceProvider services,
         OpenTelemetrySettings openTelemetrySettings,
@@ -261,10 +343,12 @@ public sealed class TraceDebugServiceTests
 
             try
             {
-                if (File.Exists(_dbPath))
-                    File.Delete(_dbPath);
+                File.Delete(_dbPath);
             }
-            catch
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
             {
             }
         }

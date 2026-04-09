@@ -30,6 +30,7 @@ public static class AgentMcpHostingExtensions
             options.UseSqlite($"Data Source={databasePath}"));
         services.AddScoped<DiffService>();
         services.AddScoped<IAgentRepository, AgentRepository>();
+        services.AddScoped<IUserConfigRepository, UserConfigRepository>();
         services.AddSingleton<InMemoryChatHistoryStore>();
         return services;
     }

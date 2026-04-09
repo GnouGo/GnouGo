@@ -1,7 +1,14 @@
 ﻿using System.Reflection;
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using GnOuGo.Agent.Mcp;
+using GnOuGo.Agent.Mcp.Data;
+using GnOuGo.Agent.Mcp.Models;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Compilation;
@@ -232,6 +239,109 @@ public sealed class ConfigureAgentsServiceTests
             evt.Type == "thinking:response" &&
             evt.Text == "✅ Agent 'slimfaas' is now the active agent for this chat.");
         Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AgentSelect_PersistsDefaultAgentViaMountedAgentMcp()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-select-{Guid.NewGuid():N}.db");
+        var app = AgentMcpWebHost.Build([
+            $"--Agent:DatabasePath={dbPath}"
+        ], urls: "http://127.0.0.1:0");
+
+        try
+        {
+            await app.StartAsync();
+            var address = app.Services
+                .GetRequiredService<IServer>()
+                .Features
+                .Get<IServerAddressesFeature>()!
+                .Addresses
+                .First()
+                .TrimEnd('/');
+
+            await SeedAgentAsync(dbPath, "slimfaas");
+
+            var llm = new RecordingLlmClient();
+            var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+            {
+                DefaultProvider = "openai",
+                DefaultModel = "gpt-4o-mini",
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase),
+                McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [AgentMcpHostingExtensions.ServerName] = new()
+                    {
+                        Type = "http",
+                        Url = $"{address}/mcp",
+                        Description = "Test Agent MCP"
+                    }
+                }
+            });
+            var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
+            var runtimeFactory = new SecureWorkflowRuntimeFactory(runtimeStore, keyVaultStore);
+            var userConfigClient = new AgentUserConfigMcpClient(runtimeStore, NullLogger<AgentUserConfigMcpClient>.Instance);
+
+            var service = new ConfigureAgentsService(
+                llm,
+                new FakeMcpClientFactory(),
+                new MemoryCache(new MemoryCacheOptions()),
+                new AgentHumanInputProvider(),
+                keyVaultStore,
+                runtimeFactory,
+                runtimeStore,
+                SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+                NullLogger<ConfigureAgentsService>.Instance,
+                userConfigClient);
+
+            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/agent select slimfaas", CancellationToken.None));
+
+            Assert.Contains(events, evt => evt.Type == "agent_selected" && evt.Text == "slimfaas");
+
+            await using var db = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
+                .UseSqlite($"Data Source={dbPath}")
+                .Options);
+
+            var config = await db.UserConfigs.SingleAsync();
+            Assert.Equal("slimfaas", config.DefaultAgent);
+            Assert.Null(config.DefaultLlmProvider);
+            Assert.Null(config.DefaultLlmModel);
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+
+            try
+            {
+                File.Delete(dbPath);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+    }
+
+    private static async Task SeedAgentAsync(string dbPath, string name)
+    {
+        await using var db = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
+            .UseSqlite($"Data Source={dbPath}")
+            .Options);
+
+        db.Agents.Add(new AgentDefinition
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            Workflow = "dsl: 1\nname: slimfaas\nworkflows:\n  main:\n    outputs: {}",
+            SchedulesJson = "[]",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+
+        await db.SaveChangesAsync();
     }
 
     [Fact]

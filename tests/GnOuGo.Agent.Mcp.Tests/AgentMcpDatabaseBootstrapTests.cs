@@ -35,6 +35,7 @@ public sealed class AgentMcpDatabaseBootstrapTests : IAsyncDisposable
             _diffDb);
 
         Assert.True(await TableExistsAsync(_agentConnection, "Agents"));
+        Assert.True(await TableExistsAsync(_agentConnection, "UserConfigs"));
         Assert.True(await TableExistsAsync(_agentConnection, "DiffEntries"));
     }
 
@@ -49,6 +50,7 @@ public sealed class AgentMcpDatabaseBootstrapTests : IAsyncDisposable
             _diffDb);
 
         Assert.True(await TableExistsAsync(_agentConnection, "Agents"));
+        Assert.True(await TableExistsAsync(_agentConnection, "UserConfigs"));
         Assert.True(await TableExistsAsync(_agentConnection, "DiffEntries"));
     }
 

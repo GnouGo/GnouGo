@@ -44,6 +44,27 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
 
             Assert.Contains(tools, tool => tool.Name == "agent_list");
             Assert.Contains(tools, tool => tool.Name == "user_chat_history_append");
+            Assert.Contains(tools, tool => tool.Name == "user_config_get");
+            Assert.Contains(tools, tool => tool.Name == "user_config_set");
+
+            var setResult = await session.CallToolAsync("user_config_set", new System.Text.Json.Nodes.JsonObject
+            {
+                ["defaultLlmProvider"] = "ollama",
+                ["defaultLlmModel"] = "llama3:8b",
+                ["defaultAgent"] = "slimfaas"
+            }, CancellationToken.None);
+
+            Assert.False(setResult.IsError);
+
+            var getResult = await session.CallToolAsync("user_config_get", null, CancellationToken.None);
+            Assert.False(getResult.IsError);
+
+            var payload = Assert.IsType<System.Text.Json.Nodes.JsonObject>(getResult.Content);
+            Assert.True(payload["success"]!.GetValue<bool>());
+            var config = Assert.IsType<System.Text.Json.Nodes.JsonObject>(payload["config"]);
+            Assert.Equal("ollama", config["default_llm_provider"]!.GetValue<string>());
+            Assert.Equal("llama3:8b", config["default_llm_model"]!.GetValue<string>());
+            Assert.Equal("slimfaas", config["default_agent"]!.GetValue<string>());
         }
         finally
         {

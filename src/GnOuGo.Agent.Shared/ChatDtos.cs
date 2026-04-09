@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace GnOuGo.Agent.Shared;
 
 public sealed record ChatMessageDto(
@@ -9,7 +7,9 @@ public sealed record ChatMessageDto(
     string? CorrelationId = null,
     string? TraceId = null);
 
-public sealed record ChatStreamRequestDto(IReadOnlyList<ChatMessageDto> Messages);
+public sealed record ChatStreamRequestDto(
+    IReadOnlyList<ChatMessageDto> Messages,
+    string? AgentName = null);
 
 // Browser-side persisted store (localStorage)
 public sealed record ChatSessionDto(

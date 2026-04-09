@@ -62,6 +62,32 @@ public sealed class LocalTraceDebugStore
     public string? ResolveTraceId(string correlationId)
         => _correlationIndex.TryGetValue(correlationId, out var traceId) ? traceId : null;
 
+    public IReadOnlyList<string> ResolveTraceIds(string correlationId)
+    {
+        if (string.IsNullOrWhiteSpace(correlationId))
+            return [];
+
+        return _traces
+            .Values
+            .Select(trace =>
+            {
+                lock (trace.SyncRoot)
+                {
+                    return new
+                    {
+                        trace.TraceId,
+                        trace.CorrelationId,
+                        trace.LastUpdatedUtc
+                    };
+                }
+            })
+            .Where(trace => string.Equals(trace.CorrelationId, correlationId, StringComparison.Ordinal))
+            .OrderByDescending(trace => trace.LastUpdatedUtc)
+            .Select(trace => trace.TraceId)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
     public TraceGroupDto? GetTrace(string traceId)
     {
         if (!_traces.TryGetValue(traceId, out var trace))

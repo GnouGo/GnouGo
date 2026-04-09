@@ -25,6 +25,7 @@ public sealed class ConfigureAgentsService
     private readonly IKeyVaultRuntimeConfigStore _keyVaultStore;
     private readonly SecureWorkflowRuntimeFactory _runtimeFactory;
     private readonly LLMRuntimeOptionsStore _optionsStore;
+    private readonly AgentUserConfigMcpClient? _userConfigClient;
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<ConfigureAgentsService> _logger;
     private readonly string _workflowYaml;
@@ -38,7 +39,8 @@ public sealed class ConfigureAgentsService
         SecureWorkflowRuntimeFactory runtimeFactory,
         LLMRuntimeOptionsStore optionsStore,
         AgentOTelTelemetry otel,
-        ILogger<ConfigureAgentsService> logger)
+        ILogger<ConfigureAgentsService> logger,
+        AgentUserConfigMcpClient? userConfigClient = null)
     {
         _llm = llm;
         _mcpFactory = mcpFactory;
@@ -47,6 +49,7 @@ public sealed class ConfigureAgentsService
         _keyVaultStore = keyVaultStore;
         _runtimeFactory = runtimeFactory;
         _optionsStore = optionsStore;
+        _userConfigClient = userConfigClient;
         _otel = otel;
         _logger = logger;
 
@@ -188,6 +191,9 @@ public sealed class ConfigureAgentsService
             var agentName = result.Outputs["agent_selected"]?.GetValue<string>();
             if (!string.IsNullOrWhiteSpace(agentName))
             {
+                if (_userConfigClient is not null)
+                    await _userConfigClient.SetAsync(defaultAgent: agentName, ct: ct);
+
                 yield return new SmartFlowEvent("agent_selected", agentName);
             }
         }

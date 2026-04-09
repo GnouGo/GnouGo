@@ -19,6 +19,7 @@ public sealed class ConfigureProvidersService
     private readonly ILLMModelCatalog _modelCatalog;
     private readonly IKeyVaultRuntimeConfigStore _keyVaultStore;
     private readonly LLMRuntimeOptionsStore _optionsStore;
+    private readonly AgentUserConfigMcpClient? _userConfigClient;
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<ConfigureProvidersService> _logger;
 
@@ -29,13 +30,15 @@ public sealed class ConfigureProvidersService
         IKeyVaultRuntimeConfigStore keyVaultStore,
         LLMRuntimeOptionsStore optionsStore,
         AgentOTelTelemetry otel,
-        ILogger<ConfigureProvidersService> logger)
+        ILogger<ConfigureProvidersService> logger,
+        AgentUserConfigMcpClient? userConfigClient = null)
     {
         _llm = llm;
         _humanInput = humanInput;
         _modelCatalog = modelCatalog;
         _keyVaultStore = keyVaultStore;
         _optionsStore = optionsStore;
+        _userConfigClient = userConfigClient;
         _otel = otel;
         _logger = logger;
     }
@@ -431,6 +434,7 @@ public sealed class ConfigureProvidersService
 
         if (shouldPromoteAsDefault && _optionsStore.SetDefaultProvider(provider, model))
         {
+            await PersistRuntimeDefaultLlmAsync(ct);
             yield return new SmartFlowEvent(
                 "thinking:response",
                 $"⭐ Provider '{provider}' was set as the default LLM with model '{model}'.");
@@ -551,6 +555,8 @@ public sealed class ConfigureProvidersService
                 $"Could not set '{selectedConfig.Provider}' as the default provider in runtime settings.");
             yield break;
         }
+
+        await PersistRuntimeDefaultLlmAsync(ct);
 
         yield return new SmartFlowEvent(
             "answer",
@@ -714,7 +720,22 @@ public sealed class ConfigureProvidersService
         }
 
         _optionsStore.RemoveProvider(provider);
+        await PersistRuntimeDefaultLlmAsync(ct);
         yield return new SmartFlowEvent("answer", $"✅ LLM provider '{provider}' removed.");
+    }
+
+    private async Task PersistRuntimeDefaultLlmAsync(CancellationToken ct)
+    {
+        if (_userConfigClient is null)
+            return;
+
+        var current = _optionsStore.Current;
+        var clearDefaultLlm = string.IsNullOrWhiteSpace(current.DefaultProvider);
+        await _userConfigClient.SetAsync(
+            defaultLlmProvider: clearDefaultLlm ? null : current.DefaultProvider,
+            defaultLlmModel: clearDefaultLlm ? null : current.DefaultModel,
+            clearDefaultLlm: clearDefaultLlm,
+            ct: ct);
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveMcpAddAsync(

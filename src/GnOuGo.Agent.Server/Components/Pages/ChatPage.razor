@@ -10,6 +10,7 @@
 @inject IJSRuntime Js
 @inject SmartFlowService SmartFlow
 @inject AgentHumanInputProvider HumanInputProvider
+@inject AgentUserConfigMcpClient UserConfigClient
 
 <div class="sa-app">
     <aside class="sa-app__sidebar sa-sidebar @( _sidebarOpen ? "sa-sidebar--open" : "")">
@@ -66,9 +67,9 @@
             </button>
 
             <div class="sa-chat__topbar-title">
-                @if (!string.IsNullOrWhiteSpace(_active?.AgentName))
+                @if (!string.IsNullOrWhiteSpace(_defaultAgentName))
                 {
-                    <span class="sa-chat__agent-badge" title="Active agent">🤖 @_active.AgentName</span>
+                    <span class="sa-chat__agent-badge" title="Active agent">🤖 @_defaultAgentName</span>
                     <span style="margin: 0 8px; opacity: 0.4;">|</span>
                 }
                 @(_active?.Title ?? "Chat")
@@ -304,6 +305,7 @@
     private readonly ComposeModel _model = new();
     private ChatStoreDto _store = new("", new List<ChatSessionDto>());
     private ChatSessionDto? _active;
+    private string? _defaultAgentName;
 
     private bool _sidebarOpen;
     private bool _isStreaming;
@@ -329,6 +331,8 @@
     {
         if (firstRender)
         {
+            var snapshot = await UserConfigClient.GetAsync();
+            _defaultAgentName = snapshot.DefaultAgent;
             EnsureActiveSession();
         }
 
@@ -474,7 +478,10 @@
         try
         {
             await LoadStoreAsync();
+            var sessionsChanged = SyncSessionsToDefaultAgent();
             EnsureActiveSession();
+            if (sessionsChanged)
+                await PersistAsync();
             _browserStatePending = false;
             return true;
         }
@@ -571,7 +578,7 @@
 
         try
         {
-            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, _cts.Token))
+            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, agentName: null, _cts.Token))
             {
                 if (evt.Type is "trace.started")
                 {
@@ -676,11 +683,10 @@
                 }
                 else if (evt.Type is "agent_selected")
                 {
-                    // Update the active session's agent name
-                    if (_active is not null && !string.IsNullOrWhiteSpace(evt.Text))
+                    if (!string.IsNullOrWhiteSpace(evt.Text))
                     {
-                        _active = _active with { AgentName = evt.Text };
-                        ReplaceSession(_active);
+                        _defaultAgentName = evt.Text;
+                        SyncSessionsToDefaultAgent();
                         StateHasChanged();
                     }
                 }
@@ -916,7 +922,8 @@
             Messages: new List<ChatMessageDto>
             {
                     new("assistant", "New chat started. Ask me anything — I'll stream the answer as it's generated.", Guid.NewGuid().ToString("N"))
-            });
+            },
+            AgentName: _defaultAgentName);
 
         // Put it on top.
         _store.Sessions.Insert(0, session);
@@ -993,7 +1000,8 @@
                 Messages: new List<ChatMessageDto>
                 {
                     new("assistant", "Hi! I'm GnOuGo.Agent. Ask me anything — I'll stream the answer as it's generated.", Guid.NewGuid().ToString("N"))
-                });
+                },
+                AgentName: _defaultAgentName);
 
             _store.Sessions.Add(session);
             _store = _store with { ActiveId = session.Id };
@@ -1004,6 +1012,30 @@
 
         _active = _store.Sessions.FirstOrDefault(s => s.Id == _store.ActiveId) ?? _store.Sessions[0];
         _store = _store with { ActiveId = _active.Id };
+    }
+
+    private bool SyncSessionsToDefaultAgent()
+    {
+        var changed = false;
+
+        for (var i = 0; i < _store.Sessions.Count; i++)
+        {
+            var session = _store.Sessions[i];
+            if (string.Equals(session.AgentName, _defaultAgentName, StringComparison.Ordinal))
+                continue;
+
+            _store.Sessions[i] = session with { AgentName = _defaultAgentName };
+            changed = true;
+        }
+
+        if (_active is not null)
+        {
+            var updatedActive = _store.Sessions.FirstOrDefault(s => s.Id == _active.Id);
+            if (updatedActive is not null)
+                _active = updatedActive;
+        }
+
+        return changed;
     }
 
     private void TouchActive()

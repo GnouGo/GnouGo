@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using GnOuGo.AI.Core;
 
@@ -9,8 +8,10 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 /// <summary>
 /// Singleton that holds the live <see cref="LLMOptions"/> and allows runtime updates
 /// (e.g. from the /llm configure wizard) without restarting the server.
-/// Changes are persisted to <c>user-settings.json</c> in the GnOuGo.Agent app-data folder
-/// so they survive restarts.
+/// Provider and MCP server definitions are persisted to <c>user-settings.json</c>
+/// in the GnOuGo.Agent app-data folder so they survive restarts.
+/// Default provider/model selection is hydrated separately from the Agent MCP
+/// user-config persistence layer.
 /// </summary>
 public sealed class LLMRuntimeOptionsStore
 {
@@ -29,7 +30,7 @@ public sealed class LLMRuntimeOptionsStore
             "GnOuGo.Agent",
             "user-settings.json");
 
-        // Start from appsettings, then overlay persisted user settings
+        // Start from appsettings, then overlay persisted provider + MCP definitions.
         _current = DeepClone(initialOptions.Value);
         LoadPersisted();
     }
@@ -148,8 +149,6 @@ public sealed class LLMRuntimeOptionsStore
     /// </summary>
     public bool RemoveProvider(string providerKey)
     {
-        var removed = false;
-
         lock (_lock)
         {
             var opts = DeepClone(_current);
@@ -160,7 +159,6 @@ public sealed class LLMRuntimeOptionsStore
                 return false;
 
             opts.Models.Remove(existingKey);
-            removed = true;
 
             if (string.Equals(opts.DefaultProvider, existingKey, StringComparison.OrdinalIgnoreCase))
             {
@@ -174,9 +172,6 @@ public sealed class LLMRuntimeOptionsStore
 
             _current = opts;
         }
-
-        if (!removed)
-            return false;
 
         Persist();
         _logger.LogInformation("LLM provider '{Provider}' removed from runtime options.", providerKey);
@@ -221,8 +216,8 @@ public sealed class LLMRuntimeOptionsStore
             var persisted = llmNode.Deserialize<LLMOptions>();
             if (persisted is null) return;
 
-            // Overlay: persisted values win over appsettings defaults
-            // Use case-insensitive matching to avoid creating duplicate entries
+            // Overlay: persisted provider and MCP definitions win over appsettings defaults.
+            // Default provider/model are intentionally NOT loaded from this file anymore.
             lock (_lock)
             {
                 foreach (var kv in persisted.Models)
@@ -242,13 +237,12 @@ public sealed class LLMRuntimeOptionsStore
                     var finalKey = existingKey ?? kv.Key;
                     _current.Models[finalKey] = kv.Value;
                 }
-                if (!string.IsNullOrWhiteSpace(persisted.DefaultProvider))
-                    _current.DefaultProvider = persisted.DefaultProvider;
-                if (!string.IsNullOrWhiteSpace(persisted.DefaultModel))
-                    _current.DefaultModel = persisted.DefaultModel;
+
+                foreach (var kv in persisted.McpServers)
+                    _current.McpServers[kv.Key] = CloneMcpServerOptions(kv.Value);
             }
 
-            _logger.LogInformation("Loaded persisted LLM settings from {Path}.", _settingsPath);
+            _logger.LogInformation("Loaded persisted provider settings from {Path}.", _settingsPath);
         }
         catch (Exception ex)
         {
@@ -265,7 +259,11 @@ public sealed class LLMRuntimeOptionsStore
 
             Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
 
-            // Write as { "LLM": { ... } } so it can be layered on top of appsettings.json
+            snapshot.DefaultProvider = string.Empty;
+            snapshot.DefaultModel = string.Empty;
+
+            // Write as { "LLM": { ... } } but without persisted default provider/model,
+            // which now come from the Agent MCP user config storage.
             var wrapper = new JsonObject
             {
                 ["LLM"] = JsonSerializer.SerializeToNode(snapshot)

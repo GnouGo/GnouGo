@@ -133,15 +133,6 @@ public static class GnOuGoAgentWebHost
             builder.WebHost.UseUrls(primaryUrls);
         }
 
-        // --- config ---
-        // Layer in the persisted user-settings.json (written by LLMRuntimeOptionsStore after /llm wizard).
-        // This ensures wizard-saved API keys survive restarts and are visible in IOptions<LLMOptions>.
-        var userSettingsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "GnOuGo.Agent",
-            "user-settings.json");
-        builder.Configuration.AddJsonFile(userSettingsPath, optional: true, reloadOnChange: false);
-
         // LLM + MCP configuration (same structure as GnOuGo.Flow.Server)
         var llmOptions = builder.Configuration.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
 
@@ -275,6 +266,7 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddHttpClient(TraceDebugService.HttpClientName);
         builder.Services.AddSingleton<LocalTraceDebugStore>();
         builder.Services.AddSingleton<LLMRuntimeOptionsStore>();
+        builder.Services.AddSingleton<AgentUserConfigMcpClient>();
         builder.Services.AddAgentMcpPersistence(agentDbPath);
         builder.Services.AddAgentMcpHttpServer();
         builder.Services.AddDbContext<KeyVaultDbContext>(options => options.UseSqlite($"Data Source={keyVaultDbPath}"));
@@ -338,7 +330,7 @@ public static class GnOuGoAgentWebHost
 
         app.Services.InitializeOtlpCollectorAsync().GetAwaiter().GetResult();
 
-        app.Lifetime.ApplicationStarted.Register(() => ConfigureMountedMcpServers(app));
+        app.Lifetime.ApplicationStarted.Register(() => _ = InitializeMountedAgentServicesAsync(app));
 
         if (isDesktopHosted)
         {
@@ -617,6 +609,39 @@ public static class GnOuGoAgentWebHost
     {
         foreach (var registration in MountedMcpRegistrations)
             TryConfigureMountedMcpServer(app, registration);
+    }
+
+    private static async Task InitializeMountedAgentServicesAsync(WebApplication app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        ConfigureMountedMcpServers(app);
+
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            var userConfigClient = scope.ServiceProvider.GetRequiredService<AgentUserConfigMcpClient>();
+            var runtimeOptions = scope.ServiceProvider.GetRequiredService<LLMRuntimeOptionsStore>();
+            var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("GnOuGo.Agent.Server.UserConfigBootstrap");
+
+            var snapshot = await userConfigClient.GetAsync(CancellationToken.None);
+            if (!string.IsNullOrWhiteSpace(snapshot.DefaultLlmProvider))
+            {
+                if (!runtimeOptions.SetDefaultProvider(snapshot.DefaultLlmProvider, snapshot.DefaultLlmModel))
+                {
+                    logger.LogWarning(
+                        "Persisted default LLM provider '{Provider}' could not be applied because it is not configured in runtime options.",
+                        snapshot.DefaultLlmProvider);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            var logger = app.Services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("GnOuGo.Agent.Server.UserConfigBootstrap");
+            logger.LogWarning(ex, "Could not hydrate persisted user defaults from Agent MCP.");
+        }
     }
 
     private static void MapMountedMcpEndpoints(WebApplication app)

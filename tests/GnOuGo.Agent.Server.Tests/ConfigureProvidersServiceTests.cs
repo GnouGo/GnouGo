@@ -1,9 +1,15 @@
 ﻿using System.Reflection;
 using System.Diagnostics;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Endpoints;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Shared;
+using GnOuGo.Agent.Mcp;
+using GnOuGo.Agent.Mcp.Data;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -238,6 +244,114 @@ public sealed class ConfigureProvidersServiceTests
         Assert.NotNull(config);
         Assert.Equal("llama3:8b", config["model"]?.GetValue<string>());
         Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LlmDefault_PersistsDefaultLlmViaMountedAgentMcp()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-providers-{Guid.NewGuid():N}.db");
+        var app = AgentMcpWebHost.Build([
+            $"--Agent:DatabasePath={dbPath}"
+        ], urls: "http://127.0.0.1:0");
+
+        try
+        {
+            await app.StartAsync();
+            var address = app.Services
+                .GetRequiredService<IServer>()
+                .Features
+                .Get<IServerAddressesFeature>()!
+                .Addresses
+                .First()
+                .TrimEnd('/');
+
+            var llm = new RecordingLlmClient();
+            var modelCatalog = new FakeModelCatalog()
+                .Add("ollama",
+                    new LLMModelDescriptor("llama3", "llama3", "ollama", "ollama"),
+                    new LLMModelDescriptor("llama3:8b", "llama3:8b", "ollama", "ollama"));
+            var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+                .AddSecret("LLM--Models--ollama", "{\"provider\":\"ollama\",\"url\":\"http://localhost:11434\",\"model\":\"llama3\",\"authType\":\"none\"}");
+            var humanInput = new AgentHumanInputProvider();
+            var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+            {
+                DefaultProvider = "openai",
+                DefaultModel = "gpt-4o-mini",
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["ollama"] = new() { Url = "http://localhost:11434", Type = "ollama" }
+                },
+                McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [AgentMcpHostingExtensions.ServerName] = new()
+                    {
+                        Type = "http",
+                        Url = $"{address}/mcp",
+                        Description = "Test Agent MCP"
+                    }
+                }
+            });
+            var userConfigClient = new AgentUserConfigMcpClient(runtimeStore, NullLogger<AgentUserConfigMcpClient>.Instance);
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var token = cts.Token;
+            var responder = Task.Run(async () =>
+            {
+                await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+                {
+                    JsonNode response = request.StepId switch
+                    {
+                        "llm_default.provider" => new JsonObject { ["provider"] = "ollama" },
+                        "llm_model.select.ollama" => new JsonObject { ["model"] = "llama3:8b" },
+                        "llm_default.confirm_save" => new JsonObject { ["response"] = "save" },
+                        _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                    };
+
+                    humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                    if (request.StepId == "llm_default.confirm_save")
+                        break;
+                }
+            }, token);
+
+            var service = new ConfigureProvidersService(
+                llm,
+                humanInput,
+                modelCatalog,
+                keyVaultStore,
+                runtimeStore,
+                SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+                NullLogger<ConfigureProvidersService>.Instance,
+                userConfigClient);
+
+            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm default", token), token);
+            await responder;
+
+            Assert.Contains(events, evt => evt.Type == "answer" && evt.Text == "✅ Default LLM provider set to 'ollama' with model 'llama3:8b'.");
+
+            await using var db = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
+                .UseSqlite($"Data Source={dbPath}")
+                .Options);
+
+            var config = await db.UserConfigs.SingleAsync(token);
+            Assert.Equal("ollama", config.DefaultLlmProvider);
+            Assert.Equal("llama3:8b", config.DefaultLlmModel);
+            Assert.Null(config.DefaultAgent);
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+
+            try
+            {
+                if (File.Exists(dbPath))
+                    File.Delete(dbPath);
+            }
+            catch
+            {
+            }
+        }
     }
 
     [Fact]
