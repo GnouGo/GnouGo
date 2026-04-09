@@ -1,0 +1,34 @@
+{
+  "openai": {
+    "api_key": "sk-your-key",
+    "model": "gpt-5.4",
+    "base_url": null,
+    "organization": null,
+    "timeout_seconds": 60
+  },
+  "llm": {
+    "mcp_servers": {
+      "GnOuGo.Browser.Mcp": {
+        "type": "stdio",
+        "description": "Web navigation via Playwright.NET MCP server",
+        "command": "dotnet",
+        "args": [
+          "run",
+          "--project",
+          "src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj"
+        ]
+      },
+      "GnOuGo.Cmd.Mcp": {
+        "type": "stdio",
+        "description": "Secure allowlisted command execution via stdio MCP server",
+        "command": "dotnet",
+        "args": [
+          "run",
+          "--project",
+          "src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj"
+        ]
+      }
+    }
+  }
+}
+

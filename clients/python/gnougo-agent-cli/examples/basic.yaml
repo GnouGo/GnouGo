@@ -1,0 +1,25 @@
+dsl: 1
+name: basic-cli-example
+workflows:
+  main:
+    inputs:
+      name: { type: string, required: true }
+    steps:
+      - id: init
+        type: set
+        input:
+          user_name: "${data.inputs.name}"
+      - id: greet
+        type: template.render
+        input:
+          template: "Hello {{name}} from gnougo-agent-cli"
+          data:
+            name: "${data.steps.init.user_name}"
+      - id: announce
+        type: emit
+        input:
+          message: "Generated greeting for ${data.steps.init.user_name}"
+          level: info
+    outputs:
+      greeting: "${data.steps.greet.text}"
+
