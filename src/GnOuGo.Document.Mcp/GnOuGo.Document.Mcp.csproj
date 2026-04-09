@@ -10,7 +10,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-<<<<<<<< HEAD:src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj
     <InternalsVisibleTo Include="GnOuGo.Document.Mcp.Tests" />
   </ItemGroup>
 
@@ -24,7 +23,6 @@
 
     <!-- PDF text extraction -->
     <PackageReference Include="PdfPig" Version="0.*" />
-========
     <InternalsVisibleTo Include="GnOuGo.Agent.Mcp.Tests" />
   </ItemGroup>
 
@@ -38,7 +36,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.Diff.Core\GnOuGo.Diff.Core.csproj" />
->>>>>>>> main:src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj
   </ItemGroup>
 
   <ItemGroup>

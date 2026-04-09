@@ -9,11 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-<<<<<<<< HEAD:tests/GnOuGo.Document.Mcp.Tests/GnOuGo.Document.Mcp.Tests.csproj
     <ProjectReference Include="..\..\src\GnOuGo.Document.Mcp\GnOuGo.Document.Mcp.csproj" />
-========
     <ProjectReference Include="..\..\src\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" />
->>>>>>>> main:tests/GnOuGo.Agent.Mcp.Tests/GnOuGo.Agent.Mcp.Tests.csproj
   </ItemGroup>
 
   <ItemGroup>
