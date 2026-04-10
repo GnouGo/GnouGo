@@ -30,7 +30,7 @@ workflows:
           - id: analyze
             type: llm.call
             input:
-              model: gpt-4o-mini
+              model: gpt-5.4-mini
               temperature: 0.7
               prompt: >
                 Analyze task and propose a concise markdown plan in 3-7 steps.
@@ -59,7 +59,7 @@ workflows:
         type: workflow.plan
         input:
           generator:
-            model: gpt-4o
+            model: gpt-5.4
             instruction: >
               Build a workflow named generated that solves this task:
               ${data.inputs.task}
@@ -86,7 +86,7 @@ workflows:
       - id: format
         type: llm.call
         input:
-          model: gpt-4o-mini
+          model: gpt-5.4
           prompt: >
             User task: ${data.inputs.task}
 

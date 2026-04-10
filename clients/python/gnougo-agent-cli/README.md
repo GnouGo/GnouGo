@@ -89,6 +89,26 @@ Vous pouvez exporter les spans via OTLP HTTP:
 uv run gnougo-agent run examples/basic.yaml --inputs '{"name":"World"}' --otlp-endpoint http://localhost:4318/v1/traces
 ```
 
+Configuration par defaut via `settings.example.json`:
+
+```json
+{
+  "telemetry": {
+	"enabled": true,
+	"service_name": "gnougo-agent-cli",
+	"otlp_endpoint": "http://localhost:4318/v1/traces",
+	"protocol": "http/protobuf",
+	"tenant_id": ""
+  }
+}
+```
+
+Priorite de resolution:
+
+- `--otlp-endpoint` (option CLI)
+- `telemetry.otlp_endpoint` dans les settings
+- sinon, pas d'export OTLP
+
 ## Notes de parite
 
 - Le CLI utilise `gnougo-flow-core`; il peut brancher un LLM OpenAI réel ou un stub.

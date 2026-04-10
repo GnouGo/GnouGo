@@ -6,6 +6,13 @@
     "organization": null,
     "timeout_seconds": 60
   },
+  "telemetry": {
+    "enabled": true,
+    "service_name": "gnougo-agent-cli",
+    "otlp_endpoint": "http://localhost:4318/v1/traces",
+    "protocol": "http/protobuf",
+    "tenant_id": ""
+  },
   "llm": {
     "mcp_servers": {
       "GnOuGo.Browser.Mcp": {

@@ -1,6 +1,42 @@
 from __future__ import annotations
 
+from typing import Any
+
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
+
+
+def _parse_bool_string(value: str) -> bool | None:
+    normalized = value.strip().lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
+    return None
+
+
+def _switch_values_equal(expected: Any, actual: Any) -> bool:
+    if expected is None:
+        return actual is None
+
+    if isinstance(expected, bool):
+        if isinstance(actual, bool):
+            return expected == actual
+        if isinstance(actual, str):
+            parsed = _parse_bool_string(actual)
+            return parsed is not None and expected == parsed
+        return False
+
+    if isinstance(expected, (int, float)) and not isinstance(expected, bool):
+        if isinstance(actual, (int, float)) and not isinstance(actual, bool):
+            return float(expected) == float(actual)
+        if isinstance(actual, str):
+            try:
+                return float(expected) == float(actual.strip())
+            except ValueError:
+                return False
+        return False
+
+    return str(expected) == ExpressionEvaluator.get_string(actual)
 
 class SwitchExecutor:
     step_type = "switch"
@@ -45,8 +81,9 @@ Output: merged `data.steps` after selected branch execution.
 
         for case in ctx.step.cases:
             matched = False
-            if expr_value is not None and case.source.value is not None:
-                matched = str(case.source.value) == ExpressionEvaluator.get_string(expr_value)
+            has_case_value = "value" in case.source.model_fields_set
+            if has_case_value and ctx.step.source.expr is not None:
+                matched = _switch_values_equal(case.source.value, expr_value)
             elif case.source.when is not None:
                 matched = ExpressionEvaluator.get_bool(ctx.engine.interpolator.interpolate(case.source.when, ctx.data))
 

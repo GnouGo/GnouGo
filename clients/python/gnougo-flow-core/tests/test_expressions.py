@@ -25,3 +25,12 @@ def test_expression_list_content_compatibility() -> None:
     assert evaluator.evaluate("data.steps.tool.response.content[0].text", data) == "hello"
 
 
+def test_expression_to_json_alias_is_supported() -> None:
+    evaluator = ExpressionEvaluator()
+    data = {"inputs": {}, "steps": {}, "env": {}}
+
+    expected = evaluator.evaluate("json({'ok': true, 'n': 2})", data)
+    actual = evaluator.evaluate("toJson({'ok': true, 'n': 2})", data)
+    assert actual == expected
+
+

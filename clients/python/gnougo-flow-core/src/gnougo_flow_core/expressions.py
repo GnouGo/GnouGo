@@ -78,6 +78,7 @@ class BuiltInFunctions:
             "substring": BuiltInFunctions.substring,
             "toNumber": BuiltInFunctions.to_number,
             "json": lambda v: json.dumps(v, default=_json_default),
+            "toJson": lambda v: json.dumps(v, default=_json_default),
             "fromJson": lambda s: json.loads(s) if str(s).strip() else None,
             "now": lambda: datetime.now().isoformat(),
             "formatDate": BuiltInFunctions.format_date,
