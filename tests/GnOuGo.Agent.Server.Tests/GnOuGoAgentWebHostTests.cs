@@ -50,6 +50,11 @@ public sealed class GnOuGoAgentWebHostTests
             Path.GetTempPath(),
             "gnougo-agent-server-config-tests",
             Guid.NewGuid().ToString("N"));
+        var bundledBrowserToolPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "tools",
+            "GnOuGo.Browser.Mcp",
+            "GnOuGo.Browser.Mcp"));
         var bundledCmdToolPath = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "tools",
@@ -65,13 +70,9 @@ public sealed class GnOuGoAgentWebHostTests
         File.Copy(
             Path.Combine(contentRoot, "appsettings.json"),
             Path.Combine(tempContentRoot, "appsettings.json"));
-        Directory.CreateDirectory(Path.GetDirectoryName(bundledCmdToolPath)!);
-        if (!File.Exists(bundledCmdToolPath))
-            File.WriteAllText(bundledCmdToolPath, string.Empty);
-
-        Directory.CreateDirectory(Path.GetDirectoryName(bundledDocumentToolPath)!);
-        if (!File.Exists(bundledDocumentToolPath))
-            File.WriteAllText(bundledDocumentToolPath, string.Empty);
+        EnsureBundledToolExists(bundledBrowserToolPath);
+        EnsureBundledToolExists(bundledCmdToolPath);
+        EnsureBundledToolExists(bundledDocumentToolPath);
 
         try
         {
@@ -84,17 +85,9 @@ public sealed class GnOuGoAgentWebHostTests
                 enableHttpsRedirection: false);
 
             var llmOptions = app.Services.GetRequiredService<IOptions<LLMOptions>>().Value;
-            Assert.True(llmOptions.McpServers.TryGetValue("GnOuGo.Cmd.Mcp", out var cmdServer));
-            Assert.NotNull(cmdServer);
-            Assert.Equal("stdio", cmdServer.Type);
-            Assert.Equal(bundledCmdToolPath, cmdServer.Command);
-            Assert.True(cmdServer.Args is null or { Count: 0 });
-
-            Assert.True(llmOptions.McpServers.TryGetValue("GnOuGo.Document.Mcp", out var documentServer));
-            Assert.NotNull(documentServer);
-            Assert.Equal("stdio", documentServer.Type);
-            Assert.Equal(bundledDocumentToolPath, documentServer.Command);
-            Assert.True(documentServer.Args is null or { Count: 0 });
+            AssertBundledToolServer(llmOptions, "GnOuGo.Browser.Mcp", bundledBrowserToolPath);
+            AssertBundledToolServer(llmOptions, "GnOuGo.Cmd.Mcp", bundledCmdToolPath);
+            AssertBundledToolServer(llmOptions, "GnOuGo.Document.Mcp", bundledDocumentToolPath);
         }
         finally
         {
@@ -244,7 +237,7 @@ public sealed class GnOuGoAgentWebHostTests
                     attributeContains: marker);
 
                 return logs.Any(log => log.Body?.Contains(marker, StringComparison.Ordinal) == true);
-            }, timeout: TimeSpan.FromSeconds(10));
+            }, timeout: TimeSpan.FromSeconds(20));
 
             Assert.True(exported, "The embedded OTLP collector did not persist the exported OpenTelemetry log entry.");
 

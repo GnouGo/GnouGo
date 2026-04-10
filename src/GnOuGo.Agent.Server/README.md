@@ -51,12 +51,17 @@ Standalone MCP hosts still expose `/mcp` directly in their own projects:
 
 ## Bundled stdio MCP tools
 
-The base `appsettings.json` now enables both `GnOuGo.Cmd.Mcp` and `GnOuGo.Document.Mcp` for non-development runs using bundled executable paths:
+The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, and `GnOuGo.Document.Mcp` for non-development runs using bundled executable paths:
 
 ```json
 {
   "LLM": {
 	"McpServers": {
+	  "GnOuGo.Browser.Mcp": {
+		"Type": "stdio",
+		"Command": "tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp",
+		"Args": []
+	  },
 	  "GnOuGo.Cmd.Mcp": {
 		"Type": "stdio",
 		"Command": "tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp",
@@ -76,10 +81,10 @@ During local source-based development, `appsettings.Development.json` still over
 
 Published outputs now bundle the MCP stdio tools under `tools/`:
 
-- `GnOuGo.Agent.Server` publish output includes `tools/GnOuGo.Cmd.Mcp/` and `tools/GnOuGo.Document.Mcp/`
+- `GnOuGo.Agent.Server` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, and `tools/GnOuGo.Document.Mcp/`
 - `GnOuGo.Agent.Desktop` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, and `tools/GnOuGo.Document.Mcp/`
 
-This keeps the command and document MCP servers available in packaged server, desktop, and container runs without requiring the repository source tree.
+This keeps the browser, command, and document MCP servers available in packaged server, desktop, and container runs without requiring the repository source tree.
 
 ## Embedded OTLP collector
 

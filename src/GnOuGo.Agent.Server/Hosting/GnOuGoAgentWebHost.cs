@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using System.Net;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Server.Components;
+using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -174,6 +175,7 @@ public static class GnOuGoAgentWebHost
         var otelSettings = builder.Configuration
             .GetSection(OpenTelemetrySettings.SectionName)
             .Get<OpenTelemetrySettings>() ?? new OpenTelemetrySettings();
+        var devModeEnabled = builder.Configuration.GetValue<bool>("DevMode:Enabled");
 
         if (otelSettings.Enabled)
         {
@@ -243,12 +245,15 @@ public static class GnOuGoAgentWebHost
                 logging.IncludeFormattedMessage = true;
                 logging.IncludeScopes = true;
                 logging.ParseStateValues = true;
-                logging.AddOtlpExporter(o =>
+                logging.AddOtlpExporter((o, processor) =>
                 {
                     o.Endpoint = exporterEndpoint;
                     o.Protocol = protocol;
                     if (!string.IsNullOrWhiteSpace(otelSettings.TenantId))
                         o.Headers = $"X-Tenant-Id={otelSettings.TenantId}";
+
+                    if (collectorEndpointSettings.Enabled && devModeEnabled)
+                        processor.ExportProcessorType = ExportProcessorType.Simple;
                 });
             });
         }

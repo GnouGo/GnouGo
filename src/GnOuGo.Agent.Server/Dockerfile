@@ -31,8 +31,9 @@ RUN npm run build
 # This avoids QEMU emulation which can crash during dotnet build.
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
-# bash + python3 are needed by the GeneratePricingCatalog target in GnOuGo.AI.Core
-RUN apt-get update && apt-get install -y --no-install-recommends bash python3 && rm -rf /var/lib/apt/lists/*
+# bash + python3 are needed by the GeneratePricingCatalog target in GnOuGo.AI.Core.
+# nodejs + npm are needed when publishing the bundled GnOuGo.Browser.Mcp tool.
+RUN apt-get update && apt-get install -y --no-install-recommends bash python3 nodejs npm && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 # Copy global.json for SDK version pinning
@@ -44,18 +45,20 @@ COPY scripts/ scripts/
 # Copy csproj files for layer caching (server + shared/project dependencies)
 COPY src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj src/GnOuGo.Agent.Server/
 COPY src/GnOuGo.Agent.Shared/GnOuGo.Agent.Shared.csproj src/GnOuGo.Agent.Shared/
+COPY src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj src/GnOuGo.Agent.Mcp/
 COPY src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj src/GnOuGo.AI.Core/
 COPY src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj src/GnOuGo.Auth.Core/
+COPY src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj src/GnOuGo.Browser.Mcp/
 COPY ["src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj", "src/GnOuGo.Cmd.Mcp/"]
+COPY src/GnOuGo.Diff.Core/GnOuGo.Diff.Core.csproj src/GnOuGo.Diff.Core/
+COPY src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj src/GnOuGo.Document.Mcp/
 COPY src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj src/GnOuGo.Flow.Core/
+COPY src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj src/GnOuGo.KeyVault.Core/
+COPY src/GnOuGo.KeyVault.Mcp/GnOuGo.KeyVault.Mcp.csproj src/GnOuGo.KeyVault.Mcp/
+COPY src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj src/GnOuGo.OtlpCollector.Server/
 RUN dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj
 # Copy full source
-COPY src/GnOuGo.Agent.Server/ src/GnOuGo.Agent.Server/
-COPY src/GnOuGo.Agent.Shared/ src/GnOuGo.Agent.Shared/
-COPY src/GnOuGo.AI.Core/ src/GnOuGo.AI.Core/
-COPY src/GnOuGo.Auth.Core/ src/GnOuGo.Auth.Core/
-COPY ["src/GnOuGo.Cmd.Mcp/", "src/GnOuGo.Cmd.Mcp/"]
-COPY src/GnOuGo.Flow.Core/ src/GnOuGo.Flow.Core/
+COPY src/ src/
 # Overlay pre-built ClientApp output (wwwroot/ui) from stage 1.
 # Other static assets (favicon.svg, assets/, js/) come from source.
 COPY --from=clientapp /build/wwwroot/ui src/GnOuGo.Agent.Server/wwwroot/ui/

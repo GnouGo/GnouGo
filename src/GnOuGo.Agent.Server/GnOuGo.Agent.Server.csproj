@@ -53,8 +53,10 @@
   <Target Name="PublishBundledServerTools" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
     <PropertyGroup>
       <BundledServerToolsRoot>$([System.IO.Path]::GetFullPath('$(PublishDir)tools'))</BundledServerToolsRoot>
+      <BundledBrowserToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Browser.Mcp'))</BundledBrowserToolDir>
       <BundledCmdToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Cmd.Mcp'))</BundledCmdToolDir>
       <BundledDocumentToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Document.Mcp'))</BundledDocumentToolDir>
+      <BundledBrowserToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj'))</BundledBrowserToolProject>
       <BundledCmdToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj'))</BundledCmdToolProject>
       <BundledDocumentToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Document.Mcp\GnOuGo.Document.Mcp.csproj'))</BundledDocumentToolProject>
       <BundledCmdToolRidArg Condition="'$(RuntimeIdentifier)' != ''">-r $(RuntimeIdentifier)</BundledCmdToolRidArg>
@@ -63,6 +65,7 @@
 
     <Message Importance="high" Text="Publishing bundled server MCP tools into $(BundledServerToolsRoot)..." />
 
+    <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
     <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
     <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
   </Target>

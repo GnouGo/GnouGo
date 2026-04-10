@@ -17,6 +17,8 @@ internal static class TelemetryTestHostArgs
         [
             "--DevMode:Enabled=true",
             "--OpenTelemetry:Enabled=true",
+            "--Ingest:BatchSize=1",
+            "--Ingest:FlushSeconds=1",
             "--OtlpCollector:Host=127.0.0.1",
             $"--OtlpCollector:GrpcPort={grpcPort}",
             $"--OtlpCollector:HttpPort={httpPort}",
