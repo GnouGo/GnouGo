@@ -115,7 +115,7 @@ jobs:
           if-no-files-found: error
 
   desktop_aot:
-    name: Desktop AOT (${{ matrix.rid }})
+    name: Desktop Trimmed (${{ matrix.rid }})
     strategy:
       fail-fast: false
       matrix:
@@ -150,7 +150,7 @@ jobs:
           npm ci
           npm run build
 
-      - name: Publish Desktop (NativeAOT)
+      - name: Publish Desktop (self-contained trimmed)
         shell: pwsh
         run: |
           dotnet restore
@@ -159,7 +159,6 @@ jobs:
             -r ${{ matrix.rid }} `
             --self-contained true `
             -o artifacts/publish/desktop/${{ matrix.rid }} `
-            /p:PublishAot=true `
             /p:PublishTrimmed=true `
             /p:InvariantGlobalization=true
 

@@ -54,4 +54,8 @@
     <EmbeddedResource Include="SmartFlow\dynamic-workflow-agent.yaml" />
     <EmbeddedResource Include="SmartFlow\configure-agents-agent.yaml" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="ClientApp\package.json;ClientApp\package-lock.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
+  </ItemGroup>
 </Project>

@@ -53,7 +53,7 @@ public static class KeyVaultMcpHostingExtensions
 
         await using var scope = services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-        await db.Database.EnsureCreatedAsync(ct);
+        await KeyVaultDatabaseBootstrap.EnsureCreatedAsync(db, ct);
 
         var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
         await keyVault.EnsureDefaultKeyPairAsync();

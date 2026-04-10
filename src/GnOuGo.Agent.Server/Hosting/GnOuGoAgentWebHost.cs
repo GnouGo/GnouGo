@@ -269,8 +269,7 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<AgentUserConfigMcpClient>();
         builder.Services.AddAgentMcpPersistence(agentDbPath);
         builder.Services.AddAgentMcpHttpServer();
-        builder.Services.AddDbContext<KeyVaultDbContext>(options => options.UseSqlite($"Data Source={keyVaultDbPath}"));
-        builder.Services.AddScoped<KeyVaultService>();
+        builder.Services.AddKeyVaultMcpPersistence(keyVaultDbPath);
         builder.Services.AddKeyVaultMcpHttpServer();
         builder.Services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
         builder.Services.AddSingleton<SecureWorkflowRuntimeFactory>();
@@ -322,7 +321,7 @@ public static class GnOuGoAgentWebHost
         using (var scope = app.Services.CreateScope())
         {
             var keyVaultDb = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-            keyVaultDb.Database.EnsureCreated();
+            KeyVaultDatabaseBootstrap.EnsureCreatedAsync(keyVaultDb).GetAwaiter().GetResult();
 
             var keyVaultService = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
             keyVaultService.EnsureDefaultKeyPairAsync().GetAwaiter().GetResult();

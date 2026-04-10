@@ -28,7 +28,7 @@ public sealed class KeyVaultToolsTests : IAsyncDisposable
 
         using var scope = _provider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-        db.Database.EnsureCreated();
+        KeyVaultDatabaseBootstrap.EnsureCreatedAsync(db).GetAwaiter().GetResult();
         var service = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
         service.EnsureDefaultKeyPairAsync().GetAwaiter().GetResult();
 
