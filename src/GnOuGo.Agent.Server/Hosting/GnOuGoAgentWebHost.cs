@@ -103,6 +103,13 @@ public static class GnOuGoAgentWebHost
                 optional: true,
                 reloadOnChange: false);
 
+            // Desktop-specific publish overrides (for example bundled MCP tools under ./tools)
+            // should win over both appsettings.json and appsettings.Development.json when present.
+            builder.Configuration.AddJsonFile(
+                Path.Combine(contentRoot, "appsettings.Desktop.json"),
+                optional: true,
+                reloadOnChange: false);
+
             // Ensure static web assets are available when running as a library host.
             // In published / NativeAOT builds the development manifest may be absent;
             // UseStaticFiles() + the copied wwwroot is sufficient in that case.
@@ -143,10 +150,11 @@ public static class GnOuGoAgentWebHost
         EnsureDotnetRootEnv(dotnetExe);
         SubstituteDotnetCommand(llmOptions.McpServers, dotnetExe);
         ResolveRelativeMcpProjectPaths(llmOptions.McpServers);
+        ResolveRelativeMcpCommandPaths(llmOptions.McpServers);
 
-        // Bind LLMOptions for IOptions<LLMOptions> (used by LLMRuntimeOptionsStore)
-        builder.Services.Configure<LLMOptions>(
-            builder.Configuration.GetSection(LLMOptions.SectionName));
+        // Register the normalized LLM options so runtime services receive the same MCP
+        // configuration after command/path resolution.
+        builder.Services.AddSingleton<IOptions<LLMOptions>>(_ => Options.Create(llmOptions));
 
         // OpenTelemetry configuration
         builder.Services.Configure<OpenTelemetrySettings>(
@@ -590,6 +598,39 @@ public static class GnOuGoAgentWebHost
                 if (File.Exists(absPath))
                     cfg.Args[i + 1] = absPath;
             }
+        }
+    }
+
+    /// <summary>
+    /// Resolves relative stdio MCP command paths from the current application base directory.
+    /// This allows published desktop builds to ship bundled tools under ./tools and launch
+    /// them correctly regardless of the process working directory.
+    /// </summary>
+    private static void ResolveRelativeMcpCommandPaths(
+        Dictionary<string, McpServerOptions> servers)
+    {
+        foreach (var cfg in servers.Values)
+        {
+            if (!string.Equals(cfg.Type, "stdio", StringComparison.OrdinalIgnoreCase)) continue;
+            if (string.IsNullOrWhiteSpace(cfg.Command)) continue;
+            if (Path.IsPathRooted(cfg.Command)) continue;
+
+            var normalizedCommand = cfg.Command.Replace('/', Path.DirectorySeparatorChar)
+                                               .Replace('\\', Path.DirectorySeparatorChar);
+            var resolvedCommand = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, normalizedCommand));
+
+            if (File.Exists(resolvedCommand))
+            {
+                cfg.Command = resolvedCommand;
+                continue;
+            }
+
+            if (!OperatingSystem.IsWindows() || !string.IsNullOrWhiteSpace(Path.GetExtension(resolvedCommand)))
+                continue;
+
+            var windowsExecutable = resolvedCommand + ".exe";
+            if (File.Exists(windowsExecutable))
+                cfg.Command = windowsExecutable;
         }
     }
 
