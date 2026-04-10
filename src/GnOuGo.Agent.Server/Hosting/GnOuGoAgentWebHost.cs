@@ -110,6 +110,13 @@ public static class GnOuGoAgentWebHost
                 optional: true,
                 reloadOnChange: false);
 
+            // Re-apply command-line arguments after the extra desktop JSON layers so
+            // ad-hoc/test overrides (ports, paths, feature flags) still take precedence.
+            if (args.Length > 0)
+            {
+                builder.Configuration.AddCommandLine(args);
+            }
+
             // Ensure static web assets are available when running as a library host.
             // In published / NativeAOT builds the development manifest may be absent;
             // UseStaticFiles() + the copied wwwroot is sufficient in that case.

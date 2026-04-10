@@ -46,6 +46,7 @@ COPY src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj src/GnOuGo.Agent.Server/
 COPY src/GnOuGo.Agent.Shared/GnOuGo.Agent.Shared.csproj src/GnOuGo.Agent.Shared/
 COPY src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj src/GnOuGo.AI.Core/
 COPY src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj src/GnOuGo.Auth.Core/
+COPY ["src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj", "src/GnOuGo.Cmd.Mcp/"]
 COPY src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj src/GnOuGo.Flow.Core/
 RUN dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj
 # Copy full source
@@ -53,6 +54,7 @@ COPY src/GnOuGo.Agent.Server/ src/GnOuGo.Agent.Server/
 COPY src/GnOuGo.Agent.Shared/ src/GnOuGo.Agent.Shared/
 COPY src/GnOuGo.AI.Core/ src/GnOuGo.AI.Core/
 COPY src/GnOuGo.Auth.Core/ src/GnOuGo.Auth.Core/
+COPY ["src/GnOuGo.Cmd.Mcp/", "src/GnOuGo.Cmd.Mcp/"]
 COPY src/GnOuGo.Flow.Core/ src/GnOuGo.Flow.Core/
 # Overlay pre-built ClientApp output (wwwroot/ui) from stage 1.
 # Other static assets (favicon.svg, assets/, js/) come from source.

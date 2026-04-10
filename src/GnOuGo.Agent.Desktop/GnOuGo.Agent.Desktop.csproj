@@ -35,6 +35,9 @@
     <DesktopBundledTool Include="..\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj">
       <ToolName>GnOuGo.Cmd.Mcp</ToolName>
     </DesktopBundledTool>
+    <DesktopBundledTool Include="..\GnOuGo.Document.Mcp\GnOuGo.Document.Mcp.csproj">
+      <ToolName>GnOuGo.Document.Mcp</ToolName>
+    </DesktopBundledTool>
   </ItemGroup>
 
   <!-- Ensure the web UI static assets and the Agent.Server appsettings (including mounted MCP endpoint placeholders) are present next to the desktop binary -->
@@ -90,19 +93,24 @@
       <BundledToolsRoot>$([System.IO.Path]::GetFullPath('$(PublishDir)tools'))</BundledToolsRoot>
       <BundledBrowserToolDir>$([System.IO.Path]::Combine('$(BundledToolsRoot)', 'GnOuGo.Browser.Mcp'))</BundledBrowserToolDir>
       <BundledCmdToolDir>$([System.IO.Path]::Combine('$(BundledToolsRoot)', 'GnOuGo.Cmd.Mcp'))</BundledCmdToolDir>
+      <BundledDocumentToolDir>$([System.IO.Path]::Combine('$(BundledToolsRoot)', 'GnOuGo.Document.Mcp'))</BundledDocumentToolDir>
       <BundledBrowserToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj'))</BundledBrowserToolProject>
       <BundledCmdToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj'))</BundledCmdToolProject>
+      <BundledDocumentToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Document.Mcp\GnOuGo.Document.Mcp.csproj'))</BundledDocumentToolProject>
       <BundledBrowserToolExecutable>$([System.IO.Path]::Combine('$(BundledBrowserToolDir)', 'GnOuGo.Browser.Mcp$(BundledToolExecutableExtension)'))</BundledBrowserToolExecutable>
       <BundledCmdToolExecutable>$([System.IO.Path]::Combine('$(BundledCmdToolDir)', 'GnOuGo.Cmd.Mcp$(BundledToolExecutableExtension)'))</BundledCmdToolExecutable>
+      <BundledDocumentToolExecutable>$([System.IO.Path]::Combine('$(BundledDocumentToolDir)', 'GnOuGo.Document.Mcp$(BundledToolExecutableExtension)'))</BundledDocumentToolExecutable>
     </PropertyGroup>
 
     <Message Importance="high" Text="Publishing bundled desktop MCP tools into $(BundledToolsRoot) for $(RuntimeIdentifier)..." />
 
     <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) -r $(RuntimeIdentifier) --self-contained true -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false" />
     <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) -r $(RuntimeIdentifier) --self-contained true -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false" />
+    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) -r $(RuntimeIdentifier) --self-contained true -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false" />
 
     <Error Condition="!Exists('$(BundledBrowserToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Browser.Mcp in $(BundledBrowserToolDir)." />
     <Error Condition="!Exists('$(BundledCmdToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Cmd.Mcp in $(BundledCmdToolDir)." />
+    <Error Condition="!Exists('$(BundledDocumentToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Document.Mcp in $(BundledDocumentToolDir)." />
   </Target>
 
 

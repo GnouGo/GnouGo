@@ -100,6 +100,20 @@ jobs:
           dotnet restore
           dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64
 
+      - name: Validate bundled server tools
+        shell: pwsh
+        run: |
+          $requiredTools = @(
+            "artifacts/publish/server/linux-x64/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp",
+            "artifacts/publish/server/linux-x64/tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp"
+          )
+
+          foreach ($path in $requiredTools) {
+            if (-not (Test-Path $path)) {
+              throw "Missing bundled server tool: $path"
+            }
+          }
+
       - name: Zip Server output
         shell: pwsh
         run: |
@@ -161,6 +175,22 @@ jobs:
             -o artifacts/publish/desktop/${{ matrix.rid }} `
             /p:PublishTrimmed=true `
             /p:InvariantGlobalization=true
+
+      - name: Validate bundled desktop tools
+        shell: pwsh
+        run: |
+          $toolExtension = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
+          $requiredTools = @(
+            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp$toolExtension",
+            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp$toolExtension",
+            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp$toolExtension"
+          )
+
+          foreach ($path in $requiredTools) {
+            if (-not (Test-Path $path)) {
+              throw "Missing bundled desktop tool: $path"
+            }
+          }
 
       - name: Zip Desktop output
         shell: pwsh

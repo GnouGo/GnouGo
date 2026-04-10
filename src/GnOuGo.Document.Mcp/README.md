@@ -39,6 +39,15 @@ dotnet test tests/GnOuGo.Document.Mcp.Tests/
 dotnet run --project src/GnOuGo.Document.Mcp/
 ```
 
+## Bundled Agent publishes
+
+`GnOuGo.Document.Mcp` is also bundled by:
+
+- `GnOuGo.Agent.Server` publishes under `tools/GnOuGo.Document.Mcp/`
+- `GnOuGo.Agent.Desktop` publishes under `tools/GnOuGo.Document.Mcp/`
+
+This allows packaged agent/server builds to start the document MCP server without requiring the source tree.
+
 ## Configuration (`appsettings.json`)
 
 ```json

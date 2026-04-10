@@ -49,6 +49,38 @@ Standalone MCP hosts still expose `/mcp` directly in their own projects:
 - `GnOuGo.Agent.Mcp` → `http://127.0.0.1:5198/mcp`
 - `GnOuGo.KeyVault.Mcp` → `http://127.0.0.1:5197/mcp`
 
+## Bundled stdio MCP tools
+
+The base `appsettings.json` now enables both `GnOuGo.Cmd.Mcp` and `GnOuGo.Document.Mcp` for non-development runs using bundled executable paths:
+
+```json
+{
+  "LLM": {
+	"McpServers": {
+	  "GnOuGo.Cmd.Mcp": {
+		"Type": "stdio",
+		"Command": "tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp",
+		"Args": []
+	  },
+	  "GnOuGo.Document.Mcp": {
+		"Type": "stdio",
+		"Command": "tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp",
+		"Args": []
+	  }
+	}
+  }
+}
+```
+
+During local source-based development, `appsettings.Development.json` still overrides these entries to use `dotnet run --project ...`.
+
+Published outputs now bundle the MCP stdio tools under `tools/`:
+
+- `GnOuGo.Agent.Server` publish output includes `tools/GnOuGo.Cmd.Mcp/` and `tools/GnOuGo.Document.Mcp/`
+- `GnOuGo.Agent.Desktop` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, and `tools/GnOuGo.Document.Mcp/`
+
+This keeps the command and document MCP servers available in packaged server, desktop, and container runs without requiring the repository source tree.
+
 ## Embedded OTLP collector
 
 `GnOuGo.Agent.Server` now embeds `GnOuGo.OtlpCollector.Server` by design, in the same process, but on dedicated telemetry ports.

@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using GnOuGo.Agent.Server.Hosting;
+using GnOuGo.AI.Core;
 using OtlpTenantCollector.Services;
 using System.Net;
 
@@ -38,6 +40,125 @@ public sealed class GnOuGoAgentWebHostTests
         var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
         var logger = loggerFactory.CreateLogger("GnOuGo.Agent.Server.Tests.Boot");
         logger.LogInformation("Collector-backed logging should resolve successfully during desktop host boot.");
+    }
+
+    [Fact]
+    public void Build_WhenServerRunsOutsideDevelopment_LoadsBundledStdIoMcpServersFromBaseConfig()
+    {
+        var contentRoot = GetServerContentRoot();
+        var tempContentRoot = Path.Combine(
+            Path.GetTempPath(),
+            "gnougo-agent-server-config-tests",
+            Guid.NewGuid().ToString("N"));
+        var bundledCmdToolPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "tools",
+            "GnOuGo.Cmd.Mcp",
+            "GnOuGo.Cmd.Mcp"));
+        var bundledDocumentToolPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "tools",
+            "GnOuGo.Document.Mcp",
+            "GnOuGo.Document.Mcp"));
+
+        Directory.CreateDirectory(tempContentRoot);
+        File.Copy(
+            Path.Combine(contentRoot, "appsettings.json"),
+            Path.Combine(tempContentRoot, "appsettings.json"));
+        Directory.CreateDirectory(Path.GetDirectoryName(bundledCmdToolPath)!);
+        if (!File.Exists(bundledCmdToolPath))
+            File.WriteAllText(bundledCmdToolPath, string.Empty);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(bundledDocumentToolPath)!);
+        if (!File.Exists(bundledDocumentToolPath))
+            File.WriteAllText(bundledDocumentToolPath, string.Empty);
+
+        try
+        {
+            var args = TelemetryTestHostArgs.Create();
+
+            using var app = GnOuGoAgentWebHost.Build(
+                args,
+                urls: "http://127.0.0.1:0",
+                contentRoot: tempContentRoot,
+                enableHttpsRedirection: false);
+
+            var llmOptions = app.Services.GetRequiredService<IOptions<LLMOptions>>().Value;
+            Assert.True(llmOptions.McpServers.TryGetValue("GnOuGo.Cmd.Mcp", out var cmdServer));
+            Assert.NotNull(cmdServer);
+            Assert.Equal("stdio", cmdServer.Type);
+            Assert.Equal(bundledCmdToolPath, cmdServer.Command);
+            Assert.True(cmdServer.Args is null or { Count: 0 });
+
+            Assert.True(llmOptions.McpServers.TryGetValue("GnOuGo.Document.Mcp", out var documentServer));
+            Assert.NotNull(documentServer);
+            Assert.Equal("stdio", documentServer.Type);
+            Assert.Equal(bundledDocumentToolPath, documentServer.Command);
+            Assert.True(documentServer.Args is null or { Count: 0 });
+        }
+        finally
+        {
+            if (Directory.Exists(tempContentRoot))
+                Directory.Delete(tempContentRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Build_WhenDesktopHosted_LoadsBundledDesktopStdIoMcpServersFromDesktopConfig()
+    {
+        var contentRoot = GetServerContentRoot();
+        var tempContentRoot = Path.Combine(
+            Path.GetTempPath(),
+            "gnougo-agent-server-desktop-config-tests",
+            Guid.NewGuid().ToString("N"));
+        var bundledBrowserToolPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "tools",
+            "GnOuGo.Browser.Mcp",
+            "GnOuGo.Browser.Mcp"));
+        var bundledCmdToolPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "tools",
+            "GnOuGo.Cmd.Mcp",
+            "GnOuGo.Cmd.Mcp"));
+        var bundledDocumentToolPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "tools",
+            "GnOuGo.Document.Mcp",
+            "GnOuGo.Document.Mcp"));
+
+        Directory.CreateDirectory(tempContentRoot);
+        File.Copy(
+            Path.Combine(contentRoot, "appsettings.json"),
+            Path.Combine(tempContentRoot, "appsettings.json"));
+        File.Copy(
+            Path.Combine(contentRoot, "appsettings.Desktop.json"),
+            Path.Combine(tempContentRoot, "appsettings.Desktop.json"));
+
+        EnsureBundledToolExists(bundledBrowserToolPath);
+        EnsureBundledToolExists(bundledCmdToolPath);
+        EnsureBundledToolExists(bundledDocumentToolPath);
+
+        try
+        {
+            var args = TelemetryTestHostArgs.Create();
+
+            using var app = GnOuGoAgentWebHost.Build(
+                args,
+                urls: "http://127.0.0.1:0",
+                contentRoot: tempContentRoot,
+                enableHttpsRedirection: false);
+
+            var llmOptions = app.Services.GetRequiredService<IOptions<LLMOptions>>().Value;
+            AssertBundledToolServer(llmOptions, "GnOuGo.Browser.Mcp", bundledBrowserToolPath);
+            AssertBundledToolServer(llmOptions, "GnOuGo.Cmd.Mcp", bundledCmdToolPath);
+            AssertBundledToolServer(llmOptions, "GnOuGo.Document.Mcp", bundledDocumentToolPath);
+        }
+        finally
+        {
+            if (Directory.Exists(tempContentRoot))
+                Directory.Delete(tempContentRoot, recursive: true);
+        }
     }
 
     [Fact]
@@ -209,6 +330,22 @@ public sealed class GnOuGoAgentWebHostTests
             return "<empty>";
 
         return value.Length <= maxLength ? value : value[..maxLength] + "…";
+    }
+
+    private static void EnsureBundledToolExists(string bundledToolPath)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(bundledToolPath)!);
+        if (!File.Exists(bundledToolPath))
+            File.WriteAllText(bundledToolPath, string.Empty);
+    }
+
+    private static void AssertBundledToolServer(LLMOptions llmOptions, string serverName, string expectedCommand)
+    {
+        Assert.True(llmOptions.McpServers.TryGetValue(serverName, out var server));
+        Assert.NotNull(server);
+        Assert.Equal("stdio", server.Type);
+        Assert.Equal(expectedCommand, server.Command);
+        Assert.True(server.Args is null or { Count: 0 });
     }
 
     private static async Task<bool> WaitForAsync(Func<Task<bool>> predicate, TimeSpan timeout)
