@@ -262,8 +262,8 @@ public sealed class ConfigureProvidersServiceTests
                 .Features
                 .Get<IServerAddressesFeature>()!
                 .Addresses
-                .First()
-                .TrimEnd('/');
+                .Select(TestServerAddressResolver.NormalizeBaseAddress)
+                .First();
 
             var llm = new RecordingLlmClient();
             var modelCatalog = new FakeModelCatalog()

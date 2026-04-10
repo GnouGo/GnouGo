@@ -30,8 +30,8 @@ public sealed class SmartFlowServiceTests
                 .Features
                 .Get<IServerAddressesFeature>()!
                 .Addresses
-                .First()
-                .TrimEnd('/');
+                .Select(TestServerAddressResolver.NormalizeBaseAddress)
+                .First();
 
             await SeedAgentAndUserConfigAsync(dbPath);
 
@@ -103,8 +103,8 @@ public sealed class SmartFlowServiceTests
                 .Features
                 .Get<IServerAddressesFeature>()!
                 .Addresses
-                .First()
-                .TrimEnd('/');
+                .Select(TestServerAddressResolver.NormalizeBaseAddress)
+                .First();
 
             await SeedAgentAndUserConfigAsync(dbPath);
             await SeedAgentAsync(dbPath, "legacy-agent", "LEGACY");
@@ -178,8 +178,8 @@ public sealed class SmartFlowServiceTests
                 .Features
                 .Get<IServerAddressesFeature>()!
                 .Addresses
-                .First()
-                .TrimEnd('/');
+                .Select(TestServerAddressResolver.NormalizeBaseAddress)
+                .First();
 
             await SeedUserConfigAsync(dbPath, "missing-agent");
 
@@ -252,8 +252,8 @@ public sealed class SmartFlowServiceTests
                 .Features
                 .Get<IServerAddressesFeature>()!
                 .Addresses
-                .First()
-                .TrimEnd('/');
+                .Select(TestServerAddressResolver.NormalizeBaseAddress)
+                .First();
 
             await SeedAgentAndUserConfigAsync(dbPath);
 

@@ -467,6 +467,7 @@ public static class GnOuGoAgentWebHost
             .Select(address => Uri.TryCreate(address, UriKind.Absolute, out var uri) ? uri : null)
             .Where(static uri => uri is not null)
             .Cast<Uri>()
+            .Select(NormalizePublishedAddress)
             .ToList();
 
         var appBaseAddress = SelectPreferredHttpAddress(parsedAddresses, uri => !IsCollectorPort(uri.Port, collectorSettings));
@@ -731,11 +732,46 @@ public static class GnOuGoAgentWebHost
         if (!IsCollectorPort(requestUri.Port, collectorEndpointSettings))
             return false;
 
-        var clientHost = collectorEndpointSettings.GetClientHost();
-        return requestUri.Host.Equals(clientHost, StringComparison.OrdinalIgnoreCase)
-            || (IPAddress.TryParse(requestUri.Host, out var requestIp)
+        var requestHost = NormalizePublishedHost(requestUri.Host);
+        var clientHost = NormalizePublishedHost(collectorEndpointSettings.GetClientHost());
+        return requestHost.Equals(clientHost, StringComparison.OrdinalIgnoreCase)
+            || (IPAddress.TryParse(requestHost, out var requestIp)
                 && IPAddress.TryParse(clientHost, out var clientIp)
                 && Equals(requestIp, clientIp));
+    }
+
+    private static Uri NormalizePublishedAddress(Uri address)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+
+        var normalizedHost = NormalizePublishedHost(address.Host);
+        if (string.Equals(normalizedHost, address.Host, StringComparison.OrdinalIgnoreCase))
+            return address;
+
+        var builder = new UriBuilder(address)
+        {
+            Host = normalizedHost
+        };
+
+        return builder.Uri;
+    }
+
+    private static string NormalizePublishedHost(string? host)
+    {
+        var normalizedHost = (host ?? string.Empty).Trim().Trim('[', ']');
+        if (string.IsNullOrWhiteSpace(normalizedHost))
+            return normalizedHost;
+
+        if (normalizedHost is "0.0.0.0" or "*" or "+" or "::" or "::0")
+            return "127.0.0.1";
+
+        if (IPAddress.TryParse(normalizedHost, out var ipAddress)
+            && (IPAddress.Any.Equals(ipAddress) || IPAddress.IPv6Any.Equals(ipAddress)))
+        {
+            return "127.0.0.1";
+        }
+
+        return normalizedHost;
     }
 
     private static bool IsCollectorPort(int? port, OtlpCollectorEndpointSettings collectorEndpointSettings)

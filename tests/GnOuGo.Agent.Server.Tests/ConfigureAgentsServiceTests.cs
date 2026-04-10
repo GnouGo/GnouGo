@@ -257,8 +257,8 @@ public sealed class ConfigureAgentsServiceTests
                 .Features
                 .Get<IServerAddressesFeature>()!
                 .Addresses
-                .First()
-                .TrimEnd('/');
+                .Select(TestServerAddressResolver.NormalizeBaseAddress)
+                .First();
 
             await SeedAgentAsync(dbPath, "slimfaas");
 

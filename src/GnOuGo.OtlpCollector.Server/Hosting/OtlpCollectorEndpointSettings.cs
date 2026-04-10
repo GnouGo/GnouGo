@@ -23,19 +23,42 @@ public sealed class OtlpCollectorEndpointSettings
     public bool ExposeHealthEndpoint { get; set; } = true;
 
     public Uri GetGrpcEndpoint()
-        => new($"http://{GetClientHost()}:{GrpcPort}");
+        => BuildClientEndpoint(GrpcPort);
 
     public Uri GetHttpEndpoint()
-        => new($"http://{GetClientHost()}:{HttpPort}");
+        => BuildClientEndpoint(HttpPort);
 
     public string GetClientHost()
-        => Host switch
-        {
-            "0.0.0.0" => "127.0.0.1",
-            "*" => "127.0.0.1",
-            "+" => "127.0.0.1",
-            _ => Host
-        };
+        => NormalizeClientHost(Host);
+
+    internal static string NormalizeClientHost(string? host)
+    {
+        var normalizedHost = UnwrapHost(host);
+
+        if (IsWildcardOrUnspecifiedHost(normalizedHost))
+            return "127.0.0.1";
+
+        return normalizedHost;
+    }
+
+    internal static bool IsWildcardOrUnspecifiedHost(string? host)
+    {
+        var normalizedHost = UnwrapHost(host);
+        if (string.IsNullOrWhiteSpace(normalizedHost))
+            return false;
+
+        if (normalizedHost is "0.0.0.0" or "*" or "+" or "::" or "::0")
+            return true;
+
+        return IPAddress.TryParse(normalizedHost, out var ipAddress)
+               && (IPAddress.Any.Equals(ipAddress) || IPAddress.IPv6Any.Equals(ipAddress));
+    }
+
+    internal static string UnwrapHost(string? host)
+        => (host ?? string.Empty).Trim().Trim('[', ']');
+
+    private Uri BuildClientEndpoint(int port)
+        => new UriBuilder(Uri.UriSchemeHttp, GetClientHost(), port).Uri;
 }
 
 public static class OtlpCollectorEndpointSettingsExtensions
@@ -69,13 +92,14 @@ public static class OtlpCollectorEndpointSettingsExtensions
     public static string BuildRequireHostPattern(this OtlpCollectorEndpointSettings settings, int port)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        return settings.Host switch
-        {
-            "0.0.0.0" => $"*:{port}",
-            "*" => $"*:{port}",
-            "+" => $"*:{port}",
-            _ => $"{settings.Host}:{port}"
-        };
+
+        if (OtlpCollectorEndpointSettings.IsWildcardOrUnspecifiedHost(settings.Host))
+            return $"*:{port}";
+
+        var host = OtlpCollectorEndpointSettings.UnwrapHost(settings.Host);
+        return IPAddress.TryParse(host, out var ipAddress) && ipAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6
+            ? $"[{host}]:{port}"
+            : $"{host}:{port}";
     }
 
     public static void ConfigureListener(
@@ -90,6 +114,8 @@ public static class OtlpCollectorEndpointSettingsExtensions
         if (string.IsNullOrWhiteSpace(host))
             throw new InvalidOperationException($"{OtlpCollectorEndpointSettings.SectionName}:Host is required.");
 
+        host = OtlpCollectorEndpointSettings.UnwrapHost(host);
+
         if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase))
         {
             options.ListenLocalhost(port, listen =>
@@ -100,9 +126,7 @@ public static class OtlpCollectorEndpointSettingsExtensions
             return;
         }
 
-        if (string.Equals(host, "0.0.0.0", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(host, "*", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(host, "+", StringComparison.OrdinalIgnoreCase))
+        if (OtlpCollectorEndpointSettings.IsWildcardOrUnspecifiedHost(host))
         {
             options.ListenAnyIP(port, listen =>
             {
