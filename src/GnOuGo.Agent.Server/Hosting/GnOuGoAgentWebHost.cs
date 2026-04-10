@@ -265,7 +265,13 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddMemoryCache();
         builder.Services.AddHttpClient(TraceDebugService.HttpClientName);
         builder.Services.AddSingleton<LocalTraceDebugStore>();
-        builder.Services.AddSingleton<LLMRuntimeOptionsStore>();
+        builder.Services.AddSingleton<LLMRuntimeOptionsStore>(sp =>
+        {
+            var initialOptions = sp.GetRequiredService<IOptions<LLMOptions>>();
+            var logger = sp.GetRequiredService<ILogger<LLMRuntimeOptionsStore>>();
+            var settingsPath = builder.Configuration.GetValue<string>("Agent:UserSettingsPath");
+            return new LLMRuntimeOptionsStore(initialOptions, logger, settingsPath);
+        });
         builder.Services.AddSingleton<AgentUserConfigMcpClient>();
         builder.Services.AddAgentMcpPersistence(agentDbPath);
         builder.Services.AddAgentMcpHttpServer();

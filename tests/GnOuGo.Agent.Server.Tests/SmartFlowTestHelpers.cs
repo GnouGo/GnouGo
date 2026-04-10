@@ -256,7 +256,8 @@ internal static class SmartFlowTestFactory
     {
         var store = new LLMRuntimeOptionsStore(
             Options.Create(new LLMOptions()),
-            NullLogger<LLMRuntimeOptionsStore>.Instance);
+            NullLogger<LLMRuntimeOptionsStore>.Instance,
+            CreateIsolatedUserSettingsPath());
 
         SetRuntimeOptions(store, options ?? new LLMOptions
         {
@@ -266,6 +267,13 @@ internal static class SmartFlowTestFactory
         });
 
         return store;
+    }
+
+    private static string CreateIsolatedUserSettingsPath()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), "gnougo-agent-server-tests", "runtime-settings");
+        Directory.CreateDirectory(baseDir);
+        return Path.Combine(baseDir, $"{Guid.NewGuid():N}.json");
     }
 
     public static void SetRuntimeOptions(LLMRuntimeOptionsStore store, LLMOptions options)

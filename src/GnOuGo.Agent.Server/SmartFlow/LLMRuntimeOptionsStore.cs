@@ -19,16 +19,15 @@ public sealed class LLMRuntimeOptionsStore
     private readonly string _settingsPath;
     private LLMOptions _current;
     private readonly object _lock = new();
+    private readonly HashSet<string> _transientMcpServers = new(StringComparer.OrdinalIgnoreCase);
 
     public LLMRuntimeOptionsStore(
         IOptions<LLMOptions> initialOptions,
-        ILogger<LLMRuntimeOptionsStore> logger)
+        ILogger<LLMRuntimeOptionsStore> logger,
+        string? settingsPath = null)
     {
         _logger = logger;
-        _settingsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "GnOuGo.Agent",
-            "user-settings.json");
+        _settingsPath = ResolveSettingsPath(settingsPath);
 
         // Start from appsettings, then overlay persisted provider + MCP definitions.
         _current = DeepClone(initialOptions.Value);
@@ -192,6 +191,7 @@ public sealed class LLMRuntimeOptionsStore
             var snapshot = DeepClone(_current);
             snapshot.McpServers[serverName] = CloneMcpServerOptions(options);
             _current = snapshot;
+            _transientMcpServers.Add(serverName);
         }
 
         _logger.LogInformation(
@@ -255,12 +255,20 @@ public sealed class LLMRuntimeOptionsStore
         try
         {
             LLMOptions snapshot;
-            lock (_lock) snapshot = DeepClone(_current);
+            string[] transientServerNames;
+            lock (_lock)
+            {
+                snapshot = DeepClone(_current);
+                transientServerNames = _transientMcpServers.ToArray();
+            }
 
             Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
 
             snapshot.DefaultProvider = string.Empty;
             snapshot.DefaultModel = string.Empty;
+
+            foreach (var transientServerName in transientServerNames)
+                snapshot.McpServers.Remove(transientServerName);
 
             // Write as { "LLM": { ... } } but without persisted default provider/model,
             // which now come from the Agent MCP user config storage.
@@ -317,5 +325,20 @@ public sealed class LLMRuntimeOptionsStore
             Command = source.Command,
             Args = source.Args is null ? null : [.. source.Args]
         };
+
+    private static string ResolveSettingsPath(string? settingsPath)
+    {
+        if (!string.IsNullOrWhiteSpace(settingsPath))
+        {
+            return Path.IsPathRooted(settingsPath)
+                ? settingsPath
+                : Path.GetFullPath(settingsPath);
+        }
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "GnOuGo.Agent",
+            "user-settings.json");
+    }
 }
 
