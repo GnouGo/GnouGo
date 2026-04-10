@@ -108,3 +108,56 @@ async def test_runtime_llm_mcp_and_plan_execute() -> None:
     assert result.outputs["mcp_tool"] == "search"
     assert result.outputs["planned_ok"] is True
 
+
+@pytest.mark.asyncio
+async def test_runtime_execute_supports_to_json_alias_in_generated_workflow_outputs() -> None:
+    yaml_text = """
+    dsl: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "make a simple workflow"
+          - id: execute
+            type: workflow.execute
+            input:
+              from_step: plan
+        outputs:
+          planned_json: "${data.steps.execute.outputs.built_json}"
+    """
+
+    generated_yaml = """
+    dsl: 1
+    workflows:
+      main:
+        steps:
+          - id: built
+            type: set
+            input:
+              ok: true
+              count: 2
+        outputs:
+          built_json: "${toJson(data.steps.built)}"
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CaptureFixedPlanLlm(generated_yaml)
+    compiled = WorkflowCompiler().compile(WorkflowParser.parse(yaml_text))
+    result = await engine.execute_async(compiled.workflows["main"], {})
+
+    assert result.success is True
+    assert '"ok": true' in result.outputs["planned_json"]
+
+
+class CaptureFixedPlanLlm:
+    def __init__(self, yaml_text: str) -> None:
+        self._yaml_text = yaml_text
+
+    async def call_async(self, request):
+        return LLMResponse(text=self._yaml_text)
+
+

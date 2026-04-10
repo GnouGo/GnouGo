@@ -42,9 +42,27 @@ class LlmSettings(SettingsModel):
     )
 
 
+class TelemetrySettings(SettingsModel):
+    enabled: bool = Field(default=True, validation_alias=AliasChoices("enabled", "Enabled"))
+    service_name: str = Field(
+        default="gnougo-agent-cli",
+        validation_alias=AliasChoices("service_name", "ServiceName"),
+    )
+    otlp_endpoint: str | None = Field(
+        default="http://localhost:4318/v1/traces",
+        validation_alias=AliasChoices("otlp_endpoint", "OtlpEndpoint", "endpoint", "Endpoint"),
+    )
+    protocol: str | None = Field(default="http/protobuf", validation_alias=AliasChoices("protocol", "Protocol"))
+    tenant_id: str | None = Field(default=None, validation_alias=AliasChoices("tenant_id", "TenantId"))
+
+
 class AgentCliSettings(SettingsModel):
     openai: OpenAiSettings = Field(default_factory=OpenAiSettings)
     llm: LlmSettings = Field(default_factory=LlmSettings, validation_alias=AliasChoices("llm", "LLM"))
+    telemetry: TelemetrySettings = Field(
+        default_factory=TelemetrySettings,
+        validation_alias=AliasChoices("telemetry", "Telemetry", "open_telemetry", "OpenTelemetry"),
+    )
     mcp_servers: dict[str, McpServerSettings] = Field(default_factory=dict)
     workspace_root: str | None = None
 

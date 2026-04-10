@@ -52,6 +52,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         {
             var contentFormat = NormalizeFormat(format);
             var limit = maxCharacters.GetValueOrDefault(_settings.MaxContentCharacters);
+            var selectorTimeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             if (limit <= 0)
                 throw new InvalidOperationException("maxCharacters must be greater than zero.");
 
@@ -73,7 +74,8 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
                 statusCode = response?.Status;
             }
 
-            var locator = await ResolveLocatorAsync(page, selector);
+            var locatorResolution = await ResolveContentLocatorAsync(page, selector, selectorTimeout);
+            var locator = locatorResolution.Locator;
             var rawContent = contentFormat switch
             {
                 "html" => await locator.EvaluateAsync<string>("element => element.outerHTML"),
@@ -92,6 +94,9 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
                 Title: await page.TitleAsync(),
                 StatusCode: statusCode,
                 Selector: selector,
+                ResolvedSelector: locatorResolution.ResolvedSelector,
+                FallbackApplied: locatorResolution.FallbackApplied,
+                FallbackReason: locatorResolution.FallbackReason,
                 Format: contentFormat,
                 Content: content,
                 Truncated: truncated,
@@ -114,7 +119,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         {
             var page = GetRequiredPage();
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
-            var locator = await ResolveLocatorAsync(page, selector);
+            var locator = await ResolveLocatorAsync(page, selector, timeout);
             var submitted = await DetermineSubmittedAsync(locator);
             var beforeUrl = page.Url;
             var navigationObservation = ObserveMainFrameNavigation(page);
@@ -165,7 +170,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         {
             var page = GetRequiredPage();
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
-            var locator = await ResolveLocatorAsync(page, selector);
+            var locator = await ResolveLocatorAsync(page, selector, timeout);
             var beforeUrl = page.Url;
             var triggeredNavigation = false;
             var navigationType = BrowserActionSemantics.NavigationTypeNone;
@@ -273,7 +278,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
             var page = GetRequiredPage();
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             var normalizedKey = NormalizeRequiredValue(key, nameof(key));
-            var locator = await ResolveLocatorAsync(page, selector);
+            var locator = await ResolveLocatorAsync(page, selector, timeout);
             var beforeUrl = page.Url;
             var navigationObservation = ObserveMainFrameNavigation(page);
 
@@ -323,7 +328,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
             var page = GetRequiredPage();
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             var normalizedValue = NormalizeRequiredValue(value, nameof(value));
-            var locator = await ResolveLocatorAsync(page, selector);
+            var locator = await ResolveLocatorAsync(page, selector, timeout);
             var selectedValues = await locator.SelectOptionAsync(new[] { normalizedValue }, new LocatorSelectOptionOptions
             {
                 Timeout = timeout
@@ -560,14 +565,125 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         return _page;
     }
 
-    private async Task<ILocator> ResolveLocatorAsync(IPage page, string? selector)
+    private async Task<ContentLocatorResolution> ResolveContentLocatorAsync(
+        IPage page,
+        string? selector,
+        float timeoutMs)
+    {
+        var requestedSelector = string.IsNullOrWhiteSpace(selector) ? "body" : selector.Trim();
+        var candidates = BuildContentSelectorCandidates(requestedSelector);
+        var failures = new List<string>(candidates.Count);
+
+        foreach (var candidate in candidates)
+        {
+            var attempt = await TryResolveLocatorAsync(page, candidate, timeoutMs);
+            if (attempt.Locator is not null)
+            {
+                var usedFallback = !string.Equals(candidate, requestedSelector, StringComparison.Ordinal);
+                var fallbackReason = usedFallback
+                    ? $"Selector '{requestedSelector}' was not available; fallback to '{candidate}'."
+                    : null;
+                return new ContentLocatorResolution(attempt.Locator, candidate, usedFallback, fallbackReason);
+            }
+
+            failures.Add($"{candidate}: {attempt.FailureReason}");
+        }
+
+        var title = await TryGetPageTitleAsync(page);
+        var htmlSnippet = await TryGetHtmlSnippetAsync(page, 220);
+        throw new InvalidOperationException(
+            $"No content selector could be resolved. Tried [{string.Join("; ", failures)}]. PageUrl='{page.Url}', Title='{title ?? "<unknown>"}', HtmlSnippet='{htmlSnippet}'.");
+    }
+
+    private async Task<ILocator> ResolveLocatorAsync(IPage page, string? selector, float timeoutMs)
     {
         var normalizedSelector = string.IsNullOrWhiteSpace(selector) ? "body" : selector.Trim();
-        var locator = page.Locator(normalizedSelector).First;
-        if (await locator.CountAsync() == 0)
-            throw new InvalidOperationException($"No element matched selector '{normalizedSelector}'.");
+        var resolution = await TryResolveLocatorAsync(page, normalizedSelector, timeoutMs);
+        if (resolution.Locator is null)
+            throw new InvalidOperationException(
+                $"No element matched selector '{normalizedSelector}' within {timeoutMs}ms. {resolution.FailureReason}");
 
-        return locator;
+        return resolution.Locator;
+    }
+
+    private static async Task<LocatorResolution> TryResolveLocatorAsync(IPage page, string selector, float timeoutMs)
+    {
+        try
+        {
+            var locator = page.Locator(selector).First;
+            await locator.WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Attached,
+                Timeout = timeoutMs
+            });
+
+            if (await locator.CountAsync() == 0)
+                return new LocatorResolution(null, "selector resolved but no elements were found");
+
+            return new LocatorResolution(locator, null);
+        }
+        catch (PlaywrightException ex)
+        {
+            return new LocatorResolution(null, NormalizeSelectorError(ex));
+        }
+        catch (TimeoutException)
+        {
+            return new LocatorResolution(null, "timeout while waiting for selector");
+        }
+    }
+
+    private static List<string> BuildContentSelectorCandidates(string requestedSelector)
+    {
+        var candidates = new List<string> { requestedSelector };
+        if (!string.Equals(requestedSelector, "body", StringComparison.OrdinalIgnoreCase))
+            candidates.Add("body");
+        if (!string.Equals(requestedSelector, "html", StringComparison.OrdinalIgnoreCase))
+            candidates.Add("html");
+        return candidates;
+    }
+
+    private static string NormalizeSelectorError(PlaywrightException exception)
+    {
+        var message = exception.Message.Trim();
+        if (message.Contains("Timeout", StringComparison.OrdinalIgnoreCase))
+            return "timeout while waiting for selector";
+        if (message.Contains("Unexpected token", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Unknown engine", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Invalid selector", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"invalid selector syntax ({message})";
+        }
+
+        return message;
+    }
+
+    private static async Task<string?> TryGetPageTitleAsync(IPage page)
+    {
+        try
+        {
+            return await page.TitleAsync();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static async Task<string> TryGetHtmlSnippetAsync(IPage page, int maxCharacters)
+    {
+        try
+        {
+            var html = await page.ContentAsync();
+            var normalized = NormalizeText(html);
+            if (normalized.Length <= maxCharacters)
+                return normalized;
+
+            return normalized[..maxCharacters];
+        }
+        catch (Exception ex)
+        {
+            return $"<unavailable: {ex.GetType().Name}>";
+        }
     }
 
     private static async Task<ILocator> ResolveTextLocatorAsync(IPage page, string text, bool exact)
@@ -723,10 +839,21 @@ public sealed record BrowserContentResult(
     string? Title,
     int? StatusCode,
     string? Selector,
+    string ResolvedSelector,
+    bool FallbackApplied,
+    string? FallbackReason,
     string Format,
     string Content,
     bool Truncated,
     int MaxCharacters);
+
+internal sealed record LocatorResolution(ILocator? Locator, string? FailureReason);
+
+internal sealed record ContentLocatorResolution(
+    ILocator Locator,
+    string ResolvedSelector,
+    bool FallbackApplied,
+    string? FallbackReason);
 
 public sealed record BrowserActionResult(
     string Action,

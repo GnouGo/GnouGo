@@ -52,7 +52,7 @@ class OutputDef(BaseModel):
 
 
 class SwitchCaseDef(BaseModel):
-    value: str | None = None
+    value: bool | int | float | str | None = None
     when: str | None = None
     steps: list["StepDef"] = Field(default_factory=list)
 

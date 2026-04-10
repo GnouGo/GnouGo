@@ -29,6 +29,17 @@ def _load_example(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _resolve_telemetry_config(settings, otlp_endpoint_override: str | None) -> TelemetryConfig:
+    endpoint = otlp_endpoint_override
+    if endpoint is None and settings.telemetry.enabled:
+        endpoint = settings.telemetry.otlp_endpoint
+
+    return TelemetryConfig(
+        service_name=settings.telemetry.service_name,
+        otlp_endpoint=endpoint,
+    )
+
+
 async def _run_async(
     workflow_file: Path,
     workflow_name: str | None,
@@ -38,8 +49,8 @@ async def _run_async(
     llm_mode: str,
     mcp_mode: str,
 ) -> int:
-    setup_tracing(TelemetryConfig(otlp_endpoint=otlp_endpoint))
     settings = load_settings(settings_file)
+    setup_tracing(_resolve_telemetry_config(settings, otlp_endpoint))
     yaml_text = workflow_file.read_text(encoding="utf-8")
     doc = WorkflowParser.parse(yaml_text)
     compiled = WorkflowCompiler().compile(doc)

@@ -60,3 +60,79 @@ async def test_runtime_executes_set_template_loop_and_switch() -> None:
     assert result.outputs["text"] == "Hello Alice"
     assert result.outputs["picked"] == "alice"
 
+
+@pytest.mark.asyncio
+async def test_runtime_switch_supports_boolean_numeric_and_null_case_values() -> None:
+    yaml_text = """
+    dsl: 1
+    workflows:
+      bool_case:
+        steps:
+          - id: route
+            type: switch
+            expr: "${data.inputs.flag}"
+            cases:
+              - value: true
+                steps:
+                  - id: picked
+                    type: set
+                    input: { value: "bool" }
+            default:
+              - id: picked_default
+                type: set
+                input: { value: "default" }
+        outputs:
+          picked: "${data.steps.picked.value}"
+
+      number_case:
+        steps:
+          - id: route
+            type: switch
+            expr: "${data.inputs.code}"
+            cases:
+              - value: 2
+                steps:
+                  - id: picked
+                    type: set
+                    input: { value: "number" }
+            default:
+              - id: picked_default
+                type: set
+                input: { value: "default" }
+        outputs:
+          picked: "${data.steps.picked.value}"
+
+      null_case:
+        steps:
+          - id: route
+            type: switch
+            expr: "${data.inputs.optional}"
+            cases:
+              - value: null
+                steps:
+                  - id: picked
+                    type: set
+                    input: { value: "null" }
+            default:
+              - id: picked_default
+                type: set
+                input: { value: "default" }
+        outputs:
+          picked: "${data.steps.picked.value}"
+    """
+
+    compiled = WorkflowCompiler().compile(WorkflowParser.parse(yaml_text))
+    engine = WorkflowEngine()
+
+    bool_result = await engine.execute_async(compiled.workflows["bool_case"], {"flag": True})
+    number_result = await engine.execute_async(compiled.workflows["number_case"], {"code": 2})
+    null_result = await engine.execute_async(compiled.workflows["null_case"], {"optional": None})
+
+    assert bool_result.success is True
+    assert bool_result.outputs["picked"] == "bool"
+    assert number_result.success is True
+    assert number_result.outputs["picked"] == "number"
+    assert null_result.success is True
+    assert null_result.outputs["picked"] == "null"
+
+
