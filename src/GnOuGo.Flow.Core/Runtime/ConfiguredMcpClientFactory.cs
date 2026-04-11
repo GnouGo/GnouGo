@@ -79,14 +79,21 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
     private static HttpClientTransport CreateHttpTransport(McpServerOptions config)
     {
         var endpoint = new Uri(config.Url.TrimEnd('/'));
+        var preferHttp2 = string.Equals(endpoint.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
         var httpClient = new HttpClient(new SocketsHttpHandler
         {
-            EnableMultipleHttp2Connections = true
+            EnableMultipleHttp2Connections = preferHttp2
         })
         {
             Timeout = TimeSpan.FromMinutes(5),
-            DefaultRequestVersion = HttpVersion.Version20,
-            DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher
+            // Locally mounted MCP HTTP endpoints are exposed over plain HTTP during
+            // tests/desktop hosting, where forcing HTTP/2 can stall streamable HTTP
+            // initialization. Prefer HTTP/1.1 for clear-text endpoints and allow
+            // HTTP/2 only for HTTPS endpoints where ALPN negotiation is available.
+            DefaultRequestVersion = preferHttp2 ? HttpVersion.Version20 : HttpVersion.Version11,
+            DefaultVersionPolicy = preferHttp2
+                ? HttpVersionPolicy.RequestVersionOrHigher
+                : HttpVersionPolicy.RequestVersionExact
         };
 
         if (!string.IsNullOrWhiteSpace(config.ApiKey))

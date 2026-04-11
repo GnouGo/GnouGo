@@ -2,8 +2,10 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Caching.Memory;
 using GnOuGo.Agent.Mcp;
+using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Shared;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
@@ -41,6 +43,7 @@ public sealed class SmartFlowService
     private readonly ConfigureAgentsService _configureAgents;
     private readonly AgentHumanInputProvider _humanInput;
     private readonly AgentUserConfigMcpClient? _userConfigClient;
+    private readonly IUserConfigRepository? _userConfigRepository;
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<SmartFlowService> _logger;
     private readonly string _workflowYaml;
@@ -48,6 +51,7 @@ public sealed class SmartFlowService
     /// <summary>Slash commands that route to the configure-providers workflow.</summary>
     private static readonly string[] ProviderCommands = { "/llm", "/mcp", "/status" };
 
+    [ActivatorUtilitiesConstructor]
     public SmartFlowService(
         ILLMClient llm,
         IMemoryCache mcpCache,
@@ -58,6 +62,31 @@ public sealed class SmartFlowService
         AgentOTelTelemetry otel,
         ILogger<SmartFlowService> logger,
         AgentUserConfigMcpClient? userConfigClient = null)
+        : this(
+            llm,
+            mcpCache,
+            runtimeFactory,
+            configureProviders,
+            configureAgents,
+            humanInput,
+            userConfigRepository: null,
+            otel,
+            logger,
+            userConfigClient)
+    {
+    }
+
+    public SmartFlowService(
+        ILLMClient llm,
+        IMemoryCache mcpCache,
+        SecureWorkflowRuntimeFactory runtimeFactory,
+        ConfigureProvidersService configureProviders,
+        ConfigureAgentsService configureAgents,
+        AgentHumanInputProvider humanInput,
+        IUserConfigRepository? userConfigRepository,
+        AgentOTelTelemetry otel,
+        ILogger<SmartFlowService> logger,
+        AgentUserConfigMcpClient? userConfigClient = null)
     {
         _llm = llm;
         _mcpCache = mcpCache;
@@ -65,6 +94,7 @@ public sealed class SmartFlowService
         _configureProviders = configureProviders;
         _configureAgents = configureAgents;
         _humanInput = humanInput;
+        _userConfigRepository = userConfigRepository;
         _userConfigClient = userConfigClient;
         _otel = otel;
         _logger = logger;
@@ -346,9 +376,11 @@ public sealed class SmartFlowService
             ? null
             : requestedAgentName.Trim();
 
-        if (_userConfigClient is not null)
+        if (_userConfigRepository is not null || _userConfigClient is not null)
         {
-            var snapshot = await _userConfigClient.GetAsync(ct);
+            var snapshot = _userConfigRepository is not null
+                ? ToAgentUserConfigSnapshot(await _userConfigRepository.GetAsync(ct: ct))
+                : await _userConfigClient!.GetAsync(ct);
             var persistedDefaultAgent = string.IsNullOrWhiteSpace(snapshot.DefaultAgent)
                 ? null
                 : snapshot.DefaultAgent.Trim();
@@ -370,6 +402,13 @@ public sealed class SmartFlowService
 
         return normalizedRequestedAgentName;
     }
+
+    private static AgentUserConfigSnapshot ToAgentUserConfigSnapshot(UserConfigSnapshot snapshot)
+        => new(
+            snapshot.DefaultLlmProvider,
+            snapshot.DefaultLlmModel,
+            snapshot.DefaultAgent,
+            snapshot.UpdatedAt);
 
     private async Task<AgentWorkflowLoadResult> LoadAgentWorkflowAsync(
         SecureWorkflowRuntimeSession runtime,

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using System.Net;
 using GnOuGo.Agent.Mcp;
+using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.Components;
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
@@ -706,12 +707,12 @@ public static class GnOuGoAgentWebHost
         try
         {
             using var scope = app.Services.CreateScope();
-            var userConfigClient = scope.ServiceProvider.GetRequiredService<AgentUserConfigMcpClient>();
+            var userConfigs = scope.ServiceProvider.GetRequiredService<IUserConfigRepository>();
             var runtimeOptions = scope.ServiceProvider.GetRequiredService<LLMRuntimeOptionsStore>();
             var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
                 .CreateLogger("GnOuGo.Agent.Server.UserConfigBootstrap");
 
-            var snapshot = await userConfigClient.GetAsync(CancellationToken.None);
+            var snapshot = await userConfigs.GetAsync(ct: CancellationToken.None);
             if (!string.IsNullOrWhiteSpace(snapshot.DefaultLlmProvider))
             {
                 if (!runtimeOptions.SetDefaultProvider(snapshot.DefaultLlmProvider, snapshot.DefaultLlmModel))
