@@ -29,28 +29,37 @@
        Idempotent: skips if VERSION file already matches OtlpProtoVersion.
        ═══════════════════════════════════════════════════════════════════════ -->
   <Target Name="EnsureOtlpProtos" BeforeTargets="PrepareForBuild">
+    <ItemGroup>
+      <_RequiredOtlpProto Include="opentelemetry/proto/common/v1/common.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/resource/v1/resource.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/trace/v1/trace.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/logs/v1/logs.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/metrics/v1/metrics.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/collector/trace/v1/trace_service.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/collector/logs/v1/logs_service.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/collector/metrics/v1/metrics_service.proto" />
+      <_MissingOtlpProto Include="@(_RequiredOtlpProto)"
+                         Condition="!Exists('$(OtlpProtoDir)/%(Identity)')" />
+    </ItemGroup>
+
     <!-- Read current version if file exists -->
     <ReadLinesFromFile File="$(OtlpProtoVersionFile)" Condition="Exists('$(OtlpProtoVersionFile)')">
       <Output TaskParameter="Lines" ItemName="_CurrentProtoVersion" />
     </ReadLinesFromFile>
 
-    <!-- Skip download if version matches -->
+    <!-- Skip download only if version matches and all required files are present -->
     <PropertyGroup>
-      <_ProtoUpToDate Condition="'@(_CurrentProtoVersion)' == '$(OtlpProtoVersion)'">true</_ProtoUpToDate>
+      <_ProtoUpToDate Condition="'@(_CurrentProtoVersion)' == '$(OtlpProtoVersion)' and '@(_MissingOtlpProto)' == ''">true</_ProtoUpToDate>
     </PropertyGroup>
     <Message Importance="normal" Text="OpenTelemetry Proto $(OtlpProtoVersion) already present — skipping download."
              Condition="'$(_ProtoUpToDate)' == 'true'" />
+    <Message Importance="high"
+             Text="OpenTelemetry Proto $(OtlpProtoVersion) will be refreshed because required files are missing: @(_MissingOtlpProto, ', ')"
+             Condition="'$(_ProtoUpToDate)' != 'true' and '@(_MissingOtlpProto)' != ''" />
 
     <!-- Download each proto file if not up to date -->
     <ItemGroup Condition="'$(_ProtoUpToDate)' != 'true'">
-      <_OtlpProtoFile Include="opentelemetry/proto/common/v1/common.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/resource/v1/resource.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/trace/v1/trace.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/logs/v1/logs.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/metrics/v1/metrics.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/collector/trace/v1/trace_service.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/collector/logs/v1/logs_service.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/collector/metrics/v1/metrics_service.proto" />
+      <_OtlpProtoFile Include="@(_RequiredOtlpProto)" />
     </ItemGroup>
 
     <Message Importance="high" Text="Downloading OpenTelemetry Proto $(OtlpProtoVersion) ..."
