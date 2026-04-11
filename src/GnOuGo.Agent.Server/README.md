@@ -140,7 +140,7 @@ Additionally, `appsettings.json` sets these categories to `Warning` level global
 
 ## Frontend (SCSS + offline JS via Vite)
 
-The UI styles and client helpers are bundled with **Vite** into `wwwroot/assets/app.css` and `wwwroot/assets/app.js`.
+The UI styles and client helpers are bundled with **Vite** into `wwwroot/ui/app.css` and `wwwroot/ui/app.js`.
 
 ### Build frontend once
 

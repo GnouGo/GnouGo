@@ -73,7 +73,8 @@ public static class AgentMcpHostingExtensions
         ArgumentNullException.ThrowIfNull(endpoints);
         ArgumentException.ThrowIfNullOrWhiteSpace(pattern);
 
-        return endpoints.MapMcp(pattern);
+        return endpoints.MapMcp(pattern)
+            .DisableAntiforgery();
     }
 }
 

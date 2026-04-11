@@ -27,11 +27,24 @@ using GnOuGo.KeyVault.Mcp;
 using GnOuGo.KeyVault.Core.Services;
 using OtlpTenantCollector.Hosting;
 using OtlpTenantCollector.Web;
+using System.Net.Http.Headers;
 
 namespace GnOuGo.Agent.Server.Hosting;
 
 public static class GnOuGoAgentWebHost
 {
+    private static readonly HttpClient MountedMcpProxyHttpClient = new(new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false,
+        AutomaticDecompression = DecompressionMethods.None,
+        UseCookies = false
+    })
+    {
+        Timeout = Timeout.InfiniteTimeSpan,
+        DefaultRequestVersion = HttpVersion.Version11,
+        DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact
+    };
+
     private static readonly MountedMcpRegistration AgentMcpRegistration = new(
         AgentMcpHostingExtensions.ServerName,
         "/mcp/agent",
@@ -135,7 +148,6 @@ public static class GnOuGoAgentWebHost
         var primaryUrls = string.IsNullOrWhiteSpace(urls)
             ? builder.Configuration[WebHostDefaults.ServerUrlsKey] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
             : urls;
-        var primaryListenerCount = SplitUrls(primaryUrls).Count();
         var collectorEndpointSettings = builder.WebHost.ConfigureEmbeddedCollectorEndpoints(builder.Configuration);
 
         if (collectorEndpointSettings.Enabled)
@@ -165,9 +177,6 @@ public static class GnOuGoAgentWebHost
         // Register the normalized LLM options so runtime services receive the same MCP
         // configuration after command/path resolution.
         builder.Services.AddSingleton<IOptions<LLMOptions>>(_ => Options.Create(llmOptions));
-        builder.Services.AddSingleton(new PublishedEndpointSelectionInfo(
-            primaryListenerCount,
-            collectorEndpointSettings.Enabled));
 
         // OpenTelemetry configuration
         builder.Services.Configure<OpenTelemetrySettings>(
@@ -299,9 +308,7 @@ public static class GnOuGoAgentWebHost
         });
         builder.Services.AddSingleton<AgentUserConfigMcpClient>();
         builder.Services.AddAgentMcpPersistence(agentDbPath);
-        builder.Services.AddAgentMcpHttpServer();
         builder.Services.AddKeyVaultMcpPersistence(keyVaultDbPath);
-        builder.Services.AddKeyVaultMcpHttpServer();
         builder.Services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
         builder.Services.AddSingleton<SecureWorkflowRuntimeFactory>();
         builder.Services.AddSingleton<CollectorTracePersistence>();
@@ -360,7 +367,14 @@ public static class GnOuGoAgentWebHost
 
         app.Services.InitializeOtlpCollectorAsync().GetAwaiter().GetResult();
 
-        app.Lifetime.ApplicationStarted.Register(() => _ = InitializeMountedAgentServicesAsync(app));
+        var mountedMcpHosts = StartMountedMcpHosts(args);
+
+        app.Lifetime.ApplicationStopping.Register(() =>
+        {
+            StopMountedMcpHostsAsync(mountedMcpHosts).GetAwaiter().GetResult();
+        });
+
+        app.Lifetime.ApplicationStarted.Register(() => _ = InitializeMountedAgentServicesAsync(app, mountedMcpHosts));
 
         if (isDesktopHosted)
         {
@@ -442,7 +456,7 @@ public static class GnOuGoAgentWebHost
             telemetryHttp.MapTenantApi();
         }
 
-        MapMountedMcpEndpoints(app);
+        MapMountedMcpEndpoints(app, mountedMcpHosts);
         app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
         app.MapGet("/desktop/boot-log/{token}", (string token, string? step, string? detail) =>
         {
@@ -500,29 +514,6 @@ public static class GnOuGoAgentWebHost
             .Cast<Uri>()
             .Select(NormalizePublishedAddress)
             .ToList();
-
-        var selectionInfo = app.Services.GetService<PublishedEndpointSelectionInfo>();
-        if (selectionInfo is not null && parsedAddresses.Count >= selectionInfo.PrimaryListenerCount)
-        {
-            var appCandidates = parsedAddresses.Take(selectionInfo.PrimaryListenerCount).ToList();
-            var appBaseAddressByOrder = SelectPreferredHttpAddress(appCandidates, static _ => true);
-
-            if (!string.IsNullOrWhiteSpace(appBaseAddressByOrder))
-            {
-                var remaining = parsedAddresses.Skip(selectionInfo.PrimaryListenerCount).ToList();
-                var telemetryGrpcBaseAddressByOrder = selectionInfo.CollectorEnabled && remaining.Count > 0
-                    ? remaining[0].ToString().TrimEnd('/')
-                    : null;
-                var telemetryHttpBaseAddressByOrder = selectionInfo.CollectorEnabled && remaining.Count > 1
-                    ? remaining[1].ToString().TrimEnd('/')
-                    : null;
-
-                return new PublishedAgentEndpoints(
-                    appBaseAddressByOrder,
-                    telemetryGrpcBaseAddressByOrder,
-                    telemetryHttpBaseAddressByOrder);
-            }
-        }
 
         var appBaseAddress = SelectPreferredHttpAddress(parsedAddresses, uri => !IsCollectorPort(uri.Port, collectorSettings));
         var telemetryGrpcBaseAddress = collectorSettings.Enabled
@@ -692,17 +683,17 @@ public static class GnOuGoAgentWebHost
         return null;
     }
 
-    private static void ConfigureMountedMcpServers(WebApplication app)
+    private static void ConfigureMountedMcpServers(WebApplication app, MountedMcpHosts mountedMcpHosts)
     {
         foreach (var registration in MountedMcpRegistrations)
-            TryConfigureMountedMcpServer(app, registration);
+            TryConfigureMountedMcpServer(app, registration, mountedMcpHosts);
     }
 
-    private static async Task InitializeMountedAgentServicesAsync(WebApplication app)
+    private static async Task InitializeMountedAgentServicesAsync(WebApplication app, MountedMcpHosts mountedMcpHosts)
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        ConfigureMountedMcpServers(app);
+        ConfigureMountedMcpServers(app, mountedMcpHosts);
 
         try
         {
@@ -731,19 +722,128 @@ public static class GnOuGoAgentWebHost
         }
     }
 
-    private static void MapMountedMcpEndpoints(WebApplication app)
+    private static void MapMountedMcpEndpoints(WebApplication app, MountedMcpHosts mountedMcpHosts)
     {
-        app.MapAgentMcp(AgentMcpRegistration.RoutePrefix);
-        app.MapKeyVaultMcp(KeyVaultMcpRegistration.RoutePrefix);
+        MapMountedMcpProxy(app, AgentMcpRegistration.RoutePrefix, mountedMcpHosts.AgentBaseAddress);
+        MapMountedMcpProxy(app, KeyVaultMcpRegistration.RoutePrefix, mountedMcpHosts.KeyVaultBaseAddress);
+    }
+
+    private static void MapMountedMcpProxy(WebApplication app, string routePrefix, Uri targetBaseAddress)
+    {
+        app.Map(routePrefix, context => ProxyMountedMcpRequestAsync(context, targetBaseAddress, path: null))
+            .DisableAntiforgery();
+
+        app.Map($"{routePrefix}/{{**path}}", (HttpContext context, string path) =>
+                ProxyMountedMcpRequestAsync(context, targetBaseAddress, path))
+            .DisableAntiforgery();
+    }
+
+    private static async Task ProxyMountedMcpRequestAsync(HttpContext context, Uri targetBaseAddress, string? path)
+    {
+        var relativePath = string.IsNullOrWhiteSpace(path) ? string.Empty : "/" + path.TrimStart('/');
+        var targetUri = new Uri($"{targetBaseAddress.ToString().TrimEnd('/')}{relativePath}{context.Request.QueryString}");
+
+        using var request = new HttpRequestMessage(new HttpMethod(context.Request.Method), targetUri);
+
+        var hasBody = context.Request.ContentLength > 0 || context.Request.Headers.ContainsKey("Transfer-Encoding");
+        if (hasBody)
+        {
+            request.Content = new StreamContent(context.Request.Body);
+            if (!string.IsNullOrWhiteSpace(context.Request.ContentType))
+            {
+                request.Content.Headers.TryAddWithoutValidation("Content-Type", context.Request.ContentType);
+            }
+        }
+
+        foreach (var header in context.Request.Headers)
+        {
+            if (string.Equals(header.Key, "Host", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!(request.Content?.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray()) ?? false))
+            {
+                request.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray());
+            }
+        }
+
+        using var response = await MountedMcpProxyHttpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            context.RequestAborted);
+
+        context.Response.StatusCode = (int)response.StatusCode;
+
+        foreach (var header in response.Headers)
+        {
+            context.Response.Headers[header.Key] = header.Value.ToArray();
+        }
+
+        foreach (var header in response.Content.Headers)
+        {
+            context.Response.Headers[header.Key] = header.Value.ToArray();
+        }
+
+        context.Response.Headers.Remove("transfer-encoding");
+
+        await response.Content.CopyToAsync(context.Response.Body, context.RequestAborted);
+    }
+
+    private static MountedMcpHosts StartMountedMcpHosts(string[] args)
+    {
+        var agentApp = AgentMcpWebHost.Build(args, urls: "http://127.0.0.1:0", routePrefix: AgentMcpRegistration.RoutePrefix);
+        agentApp.StartAsync().GetAwaiter().GetResult();
+
+        var keyVaultApp = KeyVaultMcpWebHost.Build(args, urls: "http://127.0.0.1:0", routePrefix: KeyVaultMcpRegistration.RoutePrefix);
+        keyVaultApp.StartAsync().GetAwaiter().GetResult();
+
+        return new MountedMcpHosts(
+            agentApp,
+            ResolveSingleListeningBaseAddress(agentApp, AgentMcpRegistration.RoutePrefix),
+            keyVaultApp,
+            ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpRegistration.RoutePrefix));
+    }
+
+    private static async Task StopMountedMcpHostsAsync(MountedMcpHosts mountedMcpHosts)
+    {
+        await mountedMcpHosts.AgentApp.StopAsync();
+        await mountedMcpHosts.KeyVaultApp.StopAsync();
+        await mountedMcpHosts.AgentApp.DisposeAsync();
+        await mountedMcpHosts.KeyVaultApp.DisposeAsync();
+    }
+
+    private static Uri ResolveSingleListeningBaseAddress(WebApplication app, string routePrefix)
+    {
+        var address = app.Services
+            .GetRequiredService<IServer>()
+            .Features
+            .Get<IServerAddressesFeature>()?
+            .Addresses
+            .FirstOrDefault();
+
+        if (!Uri.TryCreate(address, UriKind.Absolute, out var baseAddress))
+        {
+            throw new InvalidOperationException($"Could not resolve a listening address for mounted MCP host '{routePrefix}'.");
+        }
+
+        return new Uri($"{baseAddress.ToString().TrimEnd('/')}{routePrefix}");
     }
 
     private static void TryConfigureMountedMcpServer(
         WebApplication app,
-        MountedMcpRegistration registration)
+        MountedMcpRegistration registration,
+        MountedMcpHosts mountedMcpHosts)
     {
         try
         {
-            var baseAddress = ResolvePublishedEndpoints(app).AppBaseAddress;
+            var baseAddress = registration.ServerName switch
+            {
+                "GnOuGo.Agent.Mcp" => mountedMcpHosts.AgentBaseAddress.ToString().TrimEnd('/'),
+                "GnOuGo.KeyVault.Mcp" => mountedMcpHosts.KeyVaultBaseAddress.ToString().TrimEnd('/'),
+                _ => null
+            };
+
             if (string.IsNullOrWhiteSpace(baseAddress))
                 return;
 
@@ -757,7 +857,7 @@ public static class GnOuGoAgentWebHost
                 {
                     Type = "http",
                     Description = existing?.Description ?? registration.DefaultDescription,
-                    Url = $"{baseAddress}{registration.RoutePrefix}",
+                    Url = baseAddress,
                     ApiKey = existing?.ApiKey,
                     Issuer = existing?.Issuer,
                     ClientId = existing?.ClientId,
@@ -779,9 +879,12 @@ public static class GnOuGoAgentWebHost
         string DefaultDescription,
         string LoggerName);
 
-    private sealed record PublishedEndpointSelectionInfo(
-        int PrimaryListenerCount,
-        bool CollectorEnabled);
+    private sealed record MountedMcpHosts(
+        WebApplication AgentApp,
+        Uri AgentBaseAddress,
+        WebApplication KeyVaultApp,
+        Uri KeyVaultBaseAddress);
+
 
     public sealed record PublishedAgentEndpoints(
         string? AppBaseAddress,

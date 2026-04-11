@@ -5,7 +5,7 @@ namespace GnOuGo.Agent.Mcp;
 
 public static class AgentMcpWebHost
 {
-    public static WebApplication Build(string[] args, string? urls = null)
+    public static WebApplication Build(string[] args, string? urls = null, string routePrefix = AgentMcpHostingExtensions.DefaultRoutePrefix)
     {
         var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -29,7 +29,7 @@ public static class AgentMcpWebHost
         app.Services.InitializeAgentMcpAsync().GetAwaiter().GetResult();
 
         app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-        app.MapAgentMcp();
+        app.MapAgentMcp(routePrefix);
 
         var logger = app.Services.GetRequiredService<ILoggerFactory>()
             .CreateLogger("GnOuGo.Agent.Mcp.Startup");
@@ -37,7 +37,7 @@ public static class AgentMcpWebHost
             "GnOuGo.Agent.Mcp HTTP server configured — baseDirectory={BaseDirectory}, agentDb={AgentDbPath}, routePrefix={RoutePrefix}.",
             AppContext.BaseDirectory,
             dbPath,
-            AgentMcpHostingExtensions.DefaultRoutePrefix);
+            routePrefix);
 
         return app;
     }

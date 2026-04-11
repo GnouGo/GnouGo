@@ -61,32 +61,8 @@ public sealed class SmartFlowService
         AgentHumanInputProvider humanInput,
         AgentOTelTelemetry otel,
         ILogger<SmartFlowService> logger,
-        AgentUserConfigMcpClient? userConfigClient = null)
-        : this(
-            llm,
-            mcpCache,
-            runtimeFactory,
-            configureProviders,
-            configureAgents,
-            humanInput,
-            userConfigRepository: null,
-            otel,
-            logger,
-            userConfigClient)
-    {
-    }
-
-    public SmartFlowService(
-        ILLMClient llm,
-        IMemoryCache mcpCache,
-        SecureWorkflowRuntimeFactory runtimeFactory,
-        ConfigureProvidersService configureProviders,
-        ConfigureAgentsService configureAgents,
-        AgentHumanInputProvider humanInput,
-        IUserConfigRepository? userConfigRepository,
-        AgentOTelTelemetry otel,
-        ILogger<SmartFlowService> logger,
-        AgentUserConfigMcpClient? userConfigClient = null)
+        AgentUserConfigMcpClient? userConfigClient = null,
+        IUserConfigRepository? userConfigRepository = null)
     {
         _llm = llm;
         _mcpCache = mcpCache;
@@ -114,6 +90,30 @@ public sealed class SmartFlowService
         _workflowYaml = reader.ReadToEnd();
     }
 
+
+    public SmartFlowService(
+        ILLMClient llm,
+        IMemoryCache mcpCache,
+        SecureWorkflowRuntimeFactory runtimeFactory,
+        ConfigureProvidersService configureProviders,
+        ConfigureAgentsService configureAgents,
+        AgentHumanInputProvider humanInput,
+        AgentOTelTelemetry otel,
+        ILogger<SmartFlowService> logger,
+        AgentUserConfigMcpClient? userConfigClient)
+        : this(
+            llm,
+            mcpCache,
+            runtimeFactory,
+            configureProviders,
+            configureAgents,
+            humanInput,
+            otel,
+            logger,
+            userConfigClient,
+            userConfigRepository: null)
+    {
+    }
     /// <summary>
     /// Executes the resolved workflow for the given user task and streams events.
     /// </summary>

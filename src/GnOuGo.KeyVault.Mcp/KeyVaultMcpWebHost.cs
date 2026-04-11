@@ -6,7 +6,7 @@ namespace GnOuGo.KeyVault.Mcp;
 
 public static class KeyVaultMcpWebHost
 {
-    public static WebApplication Build(string[] args, string? urls = null)
+    public static WebApplication Build(string[] args, string? urls = null, string routePrefix = KeyVaultMcpHostingExtensions.DefaultRoutePrefix)
     {
         var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -25,7 +25,7 @@ public static class KeyVaultMcpWebHost
         app.Services.InitializeKeyVaultMcpAsync().GetAwaiter().GetResult();
 
         app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-        app.MapKeyVaultMcp();
+        app.MapKeyVaultMcp(routePrefix);
 
         var logger = app.Services.GetRequiredService<ILoggerFactory>()
             .CreateLogger("GnOuGo.KeyVault.Mcp.Startup");
@@ -33,7 +33,7 @@ public static class KeyVaultMcpWebHost
             "GnOuGo.KeyVault.Mcp HTTP server configured — baseDirectory={BaseDirectory}, keyVaultDb={KeyVaultDbPath}, routePrefix={RoutePrefix}.",
             AppContext.BaseDirectory,
             dbPath,
-            KeyVaultMcpHostingExtensions.DefaultRoutePrefix);
+            routePrefix);
 
         return app;
     }
