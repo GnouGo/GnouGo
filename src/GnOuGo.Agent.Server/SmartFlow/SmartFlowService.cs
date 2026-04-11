@@ -43,7 +43,8 @@ public sealed class SmartFlowService
     private readonly ConfigureAgentsService _configureAgents;
     private readonly AgentHumanInputProvider _humanInput;
     private readonly AgentUserConfigMcpClient? _userConfigClient;
-    private readonly IUserConfigRepository? _userConfigRepository;
+
+    private readonly IServiceScopeFactory? _scopeFactory;
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<SmartFlowService> _logger;
     private readonly string _workflowYaml;
@@ -62,7 +63,7 @@ public sealed class SmartFlowService
         AgentOTelTelemetry otel,
         ILogger<SmartFlowService> logger,
         AgentUserConfigMcpClient? userConfigClient = null,
-        IUserConfigRepository? userConfigRepository = null)
+        IServiceScopeFactory? scopeFactory = null)
     {
         _llm = llm;
         _mcpCache = mcpCache;
@@ -70,8 +71,8 @@ public sealed class SmartFlowService
         _configureProviders = configureProviders;
         _configureAgents = configureAgents;
         _humanInput = humanInput;
-        _userConfigRepository = userConfigRepository;
         _userConfigClient = userConfigClient;
+        _scopeFactory = scopeFactory;
         _otel = otel;
         _logger = logger;
 
@@ -111,7 +112,7 @@ public sealed class SmartFlowService
             otel,
             logger,
             userConfigClient,
-            userConfigRepository: null)
+            scopeFactory: null)
     {
     }
     /// <summary>
@@ -376,11 +377,9 @@ public sealed class SmartFlowService
             ? null
             : requestedAgentName.Trim();
 
-        if (_userConfigRepository is not null || _userConfigClient is not null)
+        var snapshot = await TryGetUserConfigSnapshotAsync(ct);
+        if (snapshot is not null)
         {
-            var snapshot = _userConfigRepository is not null
-                ? ToAgentUserConfigSnapshot(await _userConfigRepository.GetAsync(ct: ct))
-                : await _userConfigClient!.GetAsync(ct);
             var persistedDefaultAgent = string.IsNullOrWhiteSpace(snapshot.DefaultAgent)
                 ? null
                 : snapshot.DefaultAgent.Trim();
@@ -401,6 +400,28 @@ public sealed class SmartFlowService
         }
 
         return normalizedRequestedAgentName;
+    }
+
+    private async Task<AgentUserConfigSnapshot?> TryGetUserConfigSnapshotAsync(CancellationToken ct)
+    {
+        AgentUserConfigSnapshot? snapshot = null;
+
+        if (_userConfigClient is not null)
+        {
+            snapshot = await _userConfigClient.GetAsync(ct);
+            if (!string.IsNullOrWhiteSpace(snapshot.DefaultAgent))
+                return snapshot;
+        }
+
+        if (_scopeFactory is null)
+            return snapshot;
+
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var repository = scope.ServiceProvider.GetService<IUserConfigRepository>();
+        if (repository is null)
+            return snapshot;
+
+        return ToAgentUserConfigSnapshot(await repository.GetAsync(ct: ct));
     }
 
     private static AgentUserConfigSnapshot ToAgentUserConfigSnapshot(UserConfigSnapshot snapshot)
