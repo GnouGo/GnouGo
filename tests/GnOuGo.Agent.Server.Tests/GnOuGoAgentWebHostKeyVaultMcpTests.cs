@@ -17,6 +17,7 @@ public sealed class GnOuGoAgentWebHostKeyVaultMcpTests
         try
         {
             await app.StartAsync();
+            var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
 
             var store = app.Services.GetRequiredService<LLMRuntimeOptionsStore>();
             McpServerOptions? keyVault = null;
@@ -31,7 +32,7 @@ public sealed class GnOuGoAgentWebHostKeyVaultMcpTests
 
             Assert.NotNull(keyVault);
             Assert.Equal("http", keyVault!.Type);
-            Assert.Contains("/mcp/keyvault", keyVault.Url, StringComparison.Ordinal);
+            Assert.Equal($"{publishedEndpoints.AppBaseAddress}/mcp/keyvault", keyVault.Url);
             Assert.DoesNotContain(":0/", keyVault.Url, StringComparison.Ordinal);
 
             await using var factory = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)

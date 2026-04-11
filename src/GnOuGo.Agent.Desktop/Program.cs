@@ -13,7 +13,7 @@ using GnOuGo.Agent.Server.Hosting;
 
 internal static class Program
 {
-    private const string RequestedServerUrl = "http://127.0.0.1:0";
+    private const string RequestedServerUrl = "http://127.0.0.1:58443";
     private static readonly string DiagnosticsDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "GnOuGo.Agent",
@@ -59,32 +59,14 @@ internal static class Program
         Log($"DesktopWwwRoot={desktopWwwRoot} Exists={Directory.Exists(desktopWwwRoot)}");
         Log($"WebViewDataPath={webViewDataPath}");
 
-        using var cts = new CancellationTokenSource();
-        var app = GnOuGoAgentWebHost.Build(args, urls: RequestedServerUrl, contentRoot: AppContext.BaseDirectory, enableHttpsRedirection: false);
-        Log("Web host built");
-
-        app.StartAsync(cts.Token).GetAwaiter().GetResult();
-        Log("Web host StartAsync completed");
-
-        var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
-        var url = ResolveServerUrl(publishedEndpoints);
+        var url = RequestedServerUrl.TrimEnd('/');
         var appUrl = $"{url}/?desktopToken={desktopToken}";
         var healthUrl = $"{url}/health";
         var bootLogUrl = $"{url}/desktop/boot-log/{desktopToken}";
-        Log($"ServerUrl={url}");
-        Log($"TelemetryGrpcUrl={publishedEndpoints.TelemetryGrpcBaseAddress ?? "<disabled>"}");
-        Log($"TelemetryHttpUrl={publishedEndpoints.TelemetryHttpBaseAddress ?? "<disabled>"}");
+        Log($"RequestedServerBaseUrl={url}");
         Log($"AppUrl={appUrl}");
         Log($"HealthUrl={healthUrl}");
         Log($"BootLogUrl={bootLogUrl}");
-
-        if (!ProbeServer(url))
-        {
-            throw new InvalidOperationException($"The local server did not become ready at {url}.");
-        }
-
-        var serverTask = app.WaitForShutdownAsync();
-        Log("Web host WaitForShutdownAsync registered");
 
         var window = new PhotinoWindow();
         Log("PhotinoWindow created");
@@ -295,6 +277,41 @@ internal static class Program
         window.RegisterSizeChangedHandler((_, size) => Log($"WindowSizeChanged={size.Width}x{size.Height}"));
         window.RegisterLocationChangedHandler((_, pos) => Log($"WindowLocationChanged={pos.X},{pos.Y}"));
 
+        using var cts = new CancellationTokenSource();
+        var app = GnOuGoAgentWebHost.Build(args, urls: RequestedServerUrl, contentRoot: AppContext.BaseDirectory, enableHttpsRedirection: false);
+        Log("Web host built");
+
+        Task? serverTask = null;
+        var startupThread = new Thread(() =>
+        {
+            try
+            {
+                app.StartAsync(cts.Token).GetAwaiter().GetResult();
+                Log("Web host StartAsync completed");
+
+                var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
+                Log($"PublishedServerUrl={publishedEndpoints.AppBaseAddress ?? "<unresolved>"}");
+                Log($"TelemetryGrpcUrl={publishedEndpoints.TelemetryGrpcBaseAddress ?? "<disabled>"}");
+                Log($"TelemetryHttpUrl={publishedEndpoints.TelemetryHttpBaseAddress ?? "<disabled>"}");
+
+                if (!ProbeServer(url))
+                {
+                    throw new InvalidOperationException($"The local server did not become ready at {url}.");
+                }
+
+                serverTask = app.WaitForShutdownAsync();
+                Log("Web host WaitForShutdownAsync registered");
+            }
+            catch (Exception ex)
+            {
+                Log($"Desktop server startup failed: {ex}");
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "GnOuGo.Agent.DesktopServerStartup"
+        };
+
         var fallbackThread = new Thread(() =>
         {
             try
@@ -359,6 +376,7 @@ internal static class Program
             IsBackground = true,
             Name = "GnOuGo.Agent.DesktopFallback"
         };
+        startupThread.Start();
         fallbackThread.Start();
 
         window.RegisterWindowClosingHandler((_, _) =>

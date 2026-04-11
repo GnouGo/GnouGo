@@ -29,12 +29,13 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
         try
         {
             await app.StartAsync();
+            var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
 
             var agentMcp = await WaitForMountedAgentMcpAsync(app.Services, CancellationToken.None);
 
             Assert.NotNull(agentMcp);
             Assert.Equal("http", agentMcp!.Type);
-            Assert.Contains("/mcp/agent", agentMcp.Url, StringComparison.Ordinal);
+            Assert.Equal($"{publishedEndpoints.AppBaseAddress}/mcp/agent", agentMcp.Url);
             Assert.DoesNotContain(":0/", agentMcp.Url, StringComparison.Ordinal);
         }
         finally
@@ -56,12 +57,13 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
         try
         {
             await app.StartAsync();
+            var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
 
             var agentMcp = await WaitForMountedAgentMcpAsync(app.Services, CancellationToken.None);
 
             Assert.NotNull(agentMcp);
             Assert.Equal("http", agentMcp!.Type);
-            Assert.Contains("/mcp/agent", agentMcp.Url, StringComparison.Ordinal);
+            Assert.Equal($"{publishedEndpoints.AppBaseAddress}/mcp/agent", agentMcp.Url);
             Assert.DoesNotContain(":0/", agentMcp.Url, StringComparison.Ordinal);
 
             await using var factory = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)

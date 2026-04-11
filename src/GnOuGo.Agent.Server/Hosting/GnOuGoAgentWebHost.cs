@@ -353,7 +353,7 @@ public static class GnOuGoAgentWebHost
 
         builder.Services.AddSingleton<WordChunker>();
         var capturedArgs = args;
-        builder.Services.AddSingleton<MountedMcpHostsHolder>(sp => new MountedMcpHostsHolder(capturedArgs, sp));
+        builder.Services.AddSingleton<MountedMcpHostsHolder>(sp => new MountedMcpHostsHolder(capturedArgs, sp, startInBackground: isDesktopHosted));
         builder.Services.AddHostedService(sp => sp.GetRequiredService<MountedMcpHostsHolder>());
 
         var app = builder.Build();
@@ -374,6 +374,7 @@ public static class GnOuGoAgentWebHost
         // Mounted MCP sub-hosts are started/stopped by the MountedMcpHostsHolder
         // IHostedService — no direct startup here.
         var mountedMcpHostsHolder = app.Services.GetRequiredService<MountedMcpHostsHolder>();
+        app.Lifetime.ApplicationStarted.Register(() => _ = InitializeMountedAgentServicesAsync(app));
 
         if (isDesktopHosted)
         {
@@ -682,25 +683,26 @@ public static class GnOuGoAgentWebHost
         return null;
     }
 
-    private static void ConfigureMountedMcpServers(WebApplication app, MountedMcpHosts mountedMcpHosts)
+    private static void ConfigureMountedMcpServers(WebApplication app)
     {
+        var publishedEndpoints = ResolvePublishedEndpoints(app);
+        if (string.IsNullOrWhiteSpace(publishedEndpoints.AppBaseAddress))
+            return;
+
         foreach (var registration in MountedMcpRegistrations)
-            TryConfigureMountedMcpServer(app, registration, mountedMcpHosts);
+            TryConfigureMountedMcpServer(app, registration, publishedEndpoints.AppBaseAddress);
     }
 
-    private static async Task InitializeMountedAgentServicesAsync(WebApplication app, MountedMcpHosts mountedMcpHosts)
+    private static async Task InitializeMountedAgentServicesAsync(WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
-        await InitializeMountedAgentServicesFromHolderAsync(app.Services, mountedMcpHosts);
+        ConfigureMountedMcpServers(app);
+        await InitializeMountedAgentServicesFromServicesAsync(app.Services);
     }
 
-    private static async Task InitializeMountedAgentServicesFromHolderAsync(IServiceProvider services, MountedMcpHosts mountedMcpHosts)
+    private static async Task InitializeMountedAgentServicesFromServicesAsync(IServiceProvider services)
     {
         ArgumentNullException.ThrowIfNull(services);
-
-        // Configure mounted MCP server URLs in the runtime options store
-        foreach (var registration in MountedMcpRegistrations)
-            TryConfigureMountedMcpServerFromServices(services, registration, mountedMcpHosts);
 
         try
         {
@@ -829,6 +831,32 @@ public static class GnOuGoAgentWebHost
             ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpRegistration.RoutePrefix));
     }
 
+    private static async Task<MountedMcpHosts> StartMountedMcpHostsAsync(string[] args, CancellationToken cancellationToken)
+    {
+        var subHostArgs = FilterArgsForSubHosts(args);
+
+        var agentApp = AgentMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: AgentMcpRegistration.RoutePrefix);
+        await agentApp.StartAsync(cancellationToken);
+
+        try
+        {
+            var keyVaultApp = KeyVaultMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: KeyVaultMcpRegistration.RoutePrefix);
+            await keyVaultApp.StartAsync(cancellationToken);
+
+            return new MountedMcpHosts(
+                agentApp,
+                ResolveSingleListeningBaseAddress(agentApp, AgentMcpRegistration.RoutePrefix),
+                keyVaultApp,
+                ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpRegistration.RoutePrefix));
+        }
+        catch
+        {
+            await agentApp.StopAsync(cancellationToken);
+            await agentApp.DisposeAsync();
+            throw;
+        }
+    }
+
     private static async Task StopMountedMcpHostsAsync(MountedMcpHosts mountedMcpHosts)
     {
         await mountedMcpHosts.AgentApp.StopAsync();
@@ -879,22 +907,17 @@ public static class GnOuGoAgentWebHost
     private static void TryConfigureMountedMcpServer(
         WebApplication app,
         MountedMcpRegistration registration,
-        MountedMcpHosts mountedMcpHosts)
-        => TryConfigureMountedMcpServerFromServices(app.Services, registration, mountedMcpHosts);
+        string appBaseAddress)
+        => TryConfigureMountedMcpServerFromServices(app.Services, registration, appBaseAddress);
 
     private static void TryConfigureMountedMcpServerFromServices(
         IServiceProvider services,
         MountedMcpRegistration registration,
-        MountedMcpHosts mountedMcpHosts)
+        string appBaseAddress)
     {
         try
         {
-            var baseAddress = registration.ServerName switch
-            {
-                "GnOuGo.Agent.Mcp" => mountedMcpHosts.AgentBaseAddress.ToString().TrimEnd('/'),
-                "GnOuGo.KeyVault.Mcp" => mountedMcpHosts.KeyVaultBaseAddress.ToString().TrimEnd('/'),
-                _ => null
-            };
+            var baseAddress = $"{appBaseAddress.TrimEnd('/')}{registration.RoutePrefix}";
 
             if (string.IsNullOrWhiteSpace(baseAddress))
                 return;
@@ -947,12 +970,16 @@ public static class GnOuGoAgentWebHost
     {
         private readonly string[] _args;
         private readonly IServiceProvider _services;
+        private readonly bool _startInBackground;
         private MountedMcpHosts? _hosts;
+        private Task? _startupTask;
+        private CancellationTokenSource? _startupCancellation;
 
-        public MountedMcpHostsHolder(string[] args, IServiceProvider services)
+        public MountedMcpHostsHolder(string[] args, IServiceProvider services, bool startInBackground)
         {
             _args = args;
             _services = services;
+            _startInBackground = startInBackground;
         }
 
         public MountedMcpHosts? Hosts => _hosts;
@@ -961,18 +988,65 @@ public static class GnOuGoAgentWebHost
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
+            if (_startInBackground)
+            {
+                _startupCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                _startupTask = StartMountedHostsInBackgroundAsync(_startupCancellation.Token);
+                return Task.CompletedTask;
+            }
+
             _hosts = StartMountedMcpHosts(_args);
-            // Fire-and-forget initialization (same pattern as the original ApplicationStarted callback)
-            _ = InitializeMountedAgentServicesFromHolderAsync(_services, _hosts);
             return Task.CompletedTask;
         }
 
         public async Task StopAsync(CancellationToken cancellationToken)
         {
+            if (_startupCancellation is not null)
+            {
+                try
+                {
+                    await _startupCancellation.CancelAsync();
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
+
+            if (_startupTask is not null)
+            {
+                try
+                {
+                    await _startupTask;
+                }
+                catch (OperationCanceledException)
+                {
+                    // ignore
+                }
+            }
+
             if (_hosts is not null)
             {
                 await StopMountedMcpHostsAsync(_hosts);
                 _hosts = null;
+            }
+        }
+
+        private async Task StartMountedHostsInBackgroundAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                _hosts = await StartMountedMcpHostsAsync(_args, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var logger = _services.GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("GnOuGo.Agent.Server.MountedMcpHostsHolder");
+                logger.LogWarning(ex, "Mounted MCP sub-host startup failed.");
             }
         }
     }
