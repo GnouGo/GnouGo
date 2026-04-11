@@ -139,9 +139,10 @@ public static class GnOuGoAgentWebHost
             {
                 builder.WebHost.UseStaticWebAssets();
             }
-            catch (InvalidOperationException)
+            catch (Exception)
             {
-                // Manifest not found – expected in published Desktop builds.
+                // Manifest not found or references non-existent paths — expected in published Desktop builds.
+                // UseStaticFiles() + the copied wwwroot/ folder is sufficient.
             }
         }
 

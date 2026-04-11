@@ -8,6 +8,8 @@
 
     <!-- Desktop app packaging -->
     <PublishTrimmed>true</PublishTrimmed>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- Required for Blazor interactive endpoints during NativeAOT -->
     <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
@@ -78,13 +80,21 @@
     <Copy SourceFiles="@(_ServerStaticWebAssets)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Condition="'@(_ServerStaticWebAssets)' != ''" />
   </Target>
 
-  <Target Name="CopyServerStaticWebAssetsManifestsToPublish" AfterTargets="Publish">
+  <!--
+    Do NOT copy staticwebassets manifests to the publish output.
+    These manifests contain absolute paths from the build machine's NuGet cache
+    (e.g. C:\Users\runneradmin\.nuget\packages\...) and cause DirectoryNotFoundException
+    when the published app runs on a different machine.
+    Published builds serve static assets from the physical wwwroot/ folder via UseStaticFiles().
+  -->
+
+  <!-- Clean up any staticwebassets manifests that leaked into the publish output from the build step -->
+  <Target Name="RemoveStaticWebAssetsManifestsFromPublish" AfterTargets="Publish" BeforeTargets="PublishBundledDesktopTools">
     <ItemGroup>
-      <_ServerStaticWebAssetsPublish Include="..\GnOuGo.Agent.Server\bin\$(Configuration)\$(TargetFramework)\*.staticwebassets.*.json" />
-      <_ServerStaticWebAssetsPublish Include="..\GnOuGo.Agent.Server\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\*.staticwebassets.*.json" Condition="'$(RuntimeIdentifier)' != ''" />
+      <_PublishManifestsToRemove Include="$(PublishDir)*.staticwebassets.*.json" />
     </ItemGroup>
-    <Message Importance="high" Text="CopyServerStaticWebAssetsManifestsToPublish: found @(_ServerStaticWebAssetsPublish->Count()) manifest(s) -> $(PublishDir)" />
-    <Copy SourceFiles="@(_ServerStaticWebAssetsPublish)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" Condition="'@(_ServerStaticWebAssetsPublish)' != ''" />
+    <Delete Files="@(_PublishManifestsToRemove)" Condition="'@(_PublishManifestsToRemove)' != ''" />
+    <Message Importance="high" Text="Removed @(_PublishManifestsToRemove->Count()) staticwebassets manifest(s) from publish output." />
   </Target>
 
   <Target Name="PublishBundledDesktopTools" AfterTargets="Publish" Condition="'$(PublishDir)' != '' and '$(RuntimeIdentifier)' != ''">
@@ -106,9 +116,9 @@
 
     <Message Importance="high" Text="Publishing bundled desktop MCP tools into $(BundledToolsRoot) for $(RuntimeIdentifier)..." />
 
-    <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
-    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
-    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
+    <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
+    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
+    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
 
     <Error Condition="!Exists('$(BundledBrowserToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Browser.Mcp in $(BundledBrowserToolDir)." />
     <Error Condition="!Exists('$(BundledCmdToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Cmd.Mcp in $(BundledCmdToolDir)." />
