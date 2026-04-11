@@ -89,7 +89,7 @@
 
   <Target Name="PublishBundledDesktopTools" AfterTargets="Publish" Condition="'$(PublishDir)' != '' and '$(RuntimeIdentifier)' != ''">
     <PropertyGroup>
-      <BundledToolExecutableExtension Condition="$([MSBuild]::IsOSPlatform('Windows'))">.exe</BundledToolExecutableExtension>
+      <BundledToolExecutableExtension Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-'))">.exe</BundledToolExecutableExtension>
       <BundledToolsRoot>$([System.IO.Path]::GetFullPath('$(PublishDir)tools'))</BundledToolsRoot>
       <BundledBrowserToolDir>$([System.IO.Path]::Combine('$(BundledToolsRoot)', 'GnOuGo.Browser.Mcp'))</BundledBrowserToolDir>
       <BundledCmdToolDir>$([System.IO.Path]::Combine('$(BundledToolsRoot)', 'GnOuGo.Cmd.Mcp'))</BundledCmdToolDir>
@@ -97,6 +97,8 @@
       <BundledBrowserToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj'))</BundledBrowserToolProject>
       <BundledCmdToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj'))</BundledCmdToolProject>
       <BundledDocumentToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Document.Mcp\GnOuGo.Document.Mcp.csproj'))</BundledDocumentToolProject>
+      <BundledDesktopToolRidArg>-r $(RuntimeIdentifier)</BundledDesktopToolRidArg>
+      <BundledDesktopToolSelfContainedArg>--self-contained true</BundledDesktopToolSelfContainedArg>
       <BundledBrowserToolExecutable>$([System.IO.Path]::Combine('$(BundledBrowserToolDir)', 'GnOuGo.Browser.Mcp$(BundledToolExecutableExtension)'))</BundledBrowserToolExecutable>
       <BundledCmdToolExecutable>$([System.IO.Path]::Combine('$(BundledCmdToolDir)', 'GnOuGo.Cmd.Mcp$(BundledToolExecutableExtension)'))</BundledCmdToolExecutable>
       <BundledDocumentToolExecutable>$([System.IO.Path]::Combine('$(BundledDocumentToolDir)', 'GnOuGo.Document.Mcp$(BundledToolExecutableExtension)'))</BundledDocumentToolExecutable>
@@ -104,9 +106,9 @@
 
     <Message Importance="high" Text="Publishing bundled desktop MCP tools into $(BundledToolsRoot) for $(RuntimeIdentifier)..." />
 
-    <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) -r $(RuntimeIdentifier) --self-contained true -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false" />
-    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) -r $(RuntimeIdentifier) --self-contained true -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false" />
-    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) -r $(RuntimeIdentifier) --self-contained true -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false" />
+    <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
+    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
+    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
 
     <Error Condition="!Exists('$(BundledBrowserToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Browser.Mcp in $(BundledBrowserToolDir)." />
     <Error Condition="!Exists('$(BundledCmdToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Cmd.Mcp in $(BundledCmdToolDir)." />

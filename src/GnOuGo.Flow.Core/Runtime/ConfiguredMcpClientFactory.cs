@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -77,7 +78,16 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
 
     private static HttpClientTransport CreateHttpTransport(McpServerOptions config)
     {
-        var httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+        var endpoint = new Uri(config.Url.TrimEnd('/'));
+        var httpClient = new HttpClient(new SocketsHttpHandler
+        {
+            EnableMultipleHttp2Connections = true
+        })
+        {
+            Timeout = TimeSpan.FromMinutes(5),
+            DefaultRequestVersion = HttpVersion.Version20,
+            DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher
+        };
 
         if (!string.IsNullOrWhiteSpace(config.ApiKey))
         {
@@ -87,7 +97,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
 
         return new HttpClientTransport(new HttpClientTransportOptions
         {
-            Endpoint = new Uri(config.Url.TrimEnd('/')),
+            Endpoint = endpoint,
             Name = "GnOuGo.Flow"
         }, httpClient);
     }

@@ -134,6 +134,7 @@ public static class GnOuGoAgentWebHost
         var primaryUrls = string.IsNullOrWhiteSpace(urls)
             ? builder.Configuration[WebHostDefaults.ServerUrlsKey] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
             : urls;
+        var primaryListenerCount = SplitUrls(primaryUrls).Count();
         var collectorEndpointSettings = builder.WebHost.ConfigureEmbeddedCollectorEndpoints(builder.Configuration);
 
         if (collectorEndpointSettings.Enabled)
@@ -163,6 +164,9 @@ public static class GnOuGoAgentWebHost
         // Register the normalized LLM options so runtime services receive the same MCP
         // configuration after command/path resolution.
         builder.Services.AddSingleton<IOptions<LLMOptions>>(_ => Options.Create(llmOptions));
+        builder.Services.AddSingleton(new PublishedEndpointSelectionInfo(
+            primaryListenerCount,
+            collectorEndpointSettings.Enabled));
 
         // OpenTelemetry configuration
         builder.Services.Configure<OpenTelemetrySettings>(
@@ -496,6 +500,29 @@ public static class GnOuGoAgentWebHost
             .Select(NormalizePublishedAddress)
             .ToList();
 
+        var selectionInfo = app.Services.GetService<PublishedEndpointSelectionInfo>();
+        if (selectionInfo is not null && parsedAddresses.Count >= selectionInfo.PrimaryListenerCount)
+        {
+            var appCandidates = parsedAddresses.Take(selectionInfo.PrimaryListenerCount).ToList();
+            var appBaseAddressByOrder = SelectPreferredHttpAddress(appCandidates, static _ => true);
+
+            if (!string.IsNullOrWhiteSpace(appBaseAddressByOrder))
+            {
+                var remaining = parsedAddresses.Skip(selectionInfo.PrimaryListenerCount).ToList();
+                var telemetryGrpcBaseAddressByOrder = selectionInfo.CollectorEnabled && remaining.Count > 0
+                    ? remaining[0].ToString().TrimEnd('/')
+                    : null;
+                var telemetryHttpBaseAddressByOrder = selectionInfo.CollectorEnabled && remaining.Count > 1
+                    ? remaining[1].ToString().TrimEnd('/')
+                    : null;
+
+                return new PublishedAgentEndpoints(
+                    appBaseAddressByOrder,
+                    telemetryGrpcBaseAddressByOrder,
+                    telemetryHttpBaseAddressByOrder);
+            }
+        }
+
         var appBaseAddress = SelectPreferredHttpAddress(parsedAddresses, uri => !IsCollectorPort(uri.Port, collectorSettings));
         var telemetryGrpcBaseAddress = collectorSettings.Enabled
             ? SelectPreferredHttpAddress(parsedAddresses, uri => uri.Port == collectorSettings.GrpcPort)
@@ -750,6 +777,10 @@ public static class GnOuGoAgentWebHost
         string RoutePrefix,
         string DefaultDescription,
         string LoggerName);
+
+    private sealed record PublishedEndpointSelectionInfo(
+        int PrimaryListenerCount,
+        bool CollectorEnabled);
 
     public sealed record PublishedAgentEndpoints(
         string? AppBaseAddress,
