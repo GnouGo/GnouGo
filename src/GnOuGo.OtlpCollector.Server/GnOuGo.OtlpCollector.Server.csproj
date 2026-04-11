@@ -133,9 +133,9 @@
   </Target>
 
   <!-- Target: Build le frontend React et copie vers wwwroot -->
-  <Target Name="BuildClientApp" AfterTargets="EnsureNodeModules" BeforeTargets="Build">
+  <Target Name="BuildClientApp" AfterTargets="EnsureNodeModules" BeforeTargets="Build" Condition="'$(SkipClientBuild)' != 'true'">
     <Message Text="🔨 Construction du frontend React..." Importance="high" />
-    <Exec Command="$(NpmCommand) run build" WorkingDirectory="$(ClientAppDir)" Condition="'$(SkipClientBuild)' != 'true'" />
+    <Exec Command="$(NpmCommand) run build" WorkingDirectory="$(ClientAppDir)" />
     <Message Text="✅ Frontend construit et copié vers wwwroot/" Importance="high" />
   </Target>
 

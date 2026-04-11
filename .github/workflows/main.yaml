@@ -30,10 +30,15 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Ensure OTLP proto files
+        run: |
+          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
+          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
+
       - name: Run .NET unit tests
         run: |
-          dotnet restore
-          dotnet test
+          dotnet restore /p:SkipClientBuild=true
+          dotnet test -m:1 --no-restore /p:SkipClientBuild=true
 
   docker_builds:
     name: Docker Build (${{ matrix.name }})
