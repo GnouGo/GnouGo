@@ -87,6 +87,11 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Ensure OTLP proto files
+        run: |
+          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
+          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -102,8 +107,8 @@ jobs:
 
       - name: Publish Server
         run: |
-          dotnet restore
-          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64
+          dotnet restore -r linux-x64 /p:SkipClientBuild=true
+          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64 --no-restore /p:SkipClientBuild=true
 
       - name: Validate bundled server tools
         shell: pwsh
@@ -156,6 +161,12 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Ensure OTLP proto files
+        shell: pwsh
+        run: |
+          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
+          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
+
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -173,12 +184,14 @@ jobs:
       - name: Publish Desktop (self-contained trimmed)
         shell: pwsh
         run: |
-          dotnet restore
+          dotnet restore -r ${{ matrix.rid }} /p:SkipClientBuild=true
           dotnet publish src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj `
             -c Release `
             -r ${{ matrix.rid }} `
             --self-contained true `
             -o artifacts/publish/desktop/${{ matrix.rid }} `
+            --no-restore `
+            /p:SkipClientBuild=true `
             /p:PublishTrimmed=true `
             /p:InvariantGlobalization=true
 
