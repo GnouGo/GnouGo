@@ -127,6 +127,7 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 - `exists(val)` → true if val is non-null
 - `coalesce(a, b, ...)` → returns first non-null argument
 - `len(val)` → length of string or array (returns 0 for null)
+- `length(val)` → alias for `len(val)`
 - `lower(s)` → lowercase string
 - `upper(s)` → uppercase string
 - `trim(s)` → trims whitespace from both ends
@@ -134,8 +135,11 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 - `startsWith(s, prefix)` → true if s starts with prefix
 - `endsWith(s, suffix)` → true if s ends with suffix
 - `replace(s, old, new)` → replaces all occurrences of old with new in s
+- `substring(s, start)` → returns characters from position start to end
+- `substring(s, start, length)` → returns length characters starting at position start
 - `toNumber(val)` → converts value to number
 - `json(val)` → serializes value to JSON string
+- `fromJson(s)` → parses a JSON string into a node (object, array, or value)
 - `now()` → returns the current local date/time as an ISO-8601 string
 - `base64(val)` → encodes the UTF-8 string value as Base64
 - `formatDate(dateStr, fmt)` → formats a date string (default fmt: "yyyy-MM-dd"); also accepts unix ms timestamps

@@ -28,7 +28,7 @@ public interface IWorkflowTelemetry
     /// Called when a step starts execution.
     /// Returns a context object that must be passed to <see cref="StepEnd"/>.
     /// </summary>
-    IStepSpan StepStart(IWorkflowSpan workflowSpan, StepTelemetryInfo info);
+    IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info);
 
     /// <summary>
     /// Called when a step finishes execution (success, failure, or skipped).
@@ -37,9 +37,16 @@ public interface IWorkflowTelemetry
 }
 
 /// <summary>
+/// Opaque handle representing an in-flight telemetry span.
+/// </summary>
+public interface ITelemetrySpan : IDisposable
+{
+}
+
+/// <summary>
 /// Opaque handle representing an in-flight workflow trace span.
 /// </summary>
-public interface IWorkflowSpan : IDisposable
+public interface IWorkflowSpan : ITelemetrySpan
 {
 }
 
@@ -47,7 +54,7 @@ public interface IWorkflowSpan : IDisposable
 /// Opaque handle representing an in-flight step trace span.
 /// Executors can call <see cref="SetAttribute"/> to attach GenAI semantic attributes.
 /// </summary>
-public interface IStepSpan : IDisposable
+public interface IStepSpan : ITelemetrySpan
 {
     /// <summary>
     /// Set a telemetry attribute on this span.
@@ -166,7 +173,7 @@ public sealed class NullWorkflowTelemetry : IWorkflowTelemetry
 
     public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info) => NullSpan.Instance;
     public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result) { }
-    public IStepSpan StepStart(IWorkflowSpan workflowSpan, StepTelemetryInfo info) => NullSpan.Instance;
+    public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info) => NullSpan.Instance;
     public void StepEnd(IStepSpan span, StepResultInfo result) { }
 
     private sealed class NullSpan : IWorkflowSpan, IStepSpan

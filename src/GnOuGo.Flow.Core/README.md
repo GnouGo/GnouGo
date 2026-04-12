@@ -816,6 +816,7 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 | `exists(val)` | `true` if val is non-null |
 | `coalesce(a, b, ...)` | Returns first non-null argument |
 | `len(val)` | Length of string or array (0 for null) |
+| `length(val)` | Alias for `len(val)` |
 | `lower(s)` | Lowercase string |
 | `upper(s)` | Uppercase string |
 | `trim(s)` | Trims whitespace |
@@ -823,8 +824,11 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 | `startsWith(s, prefix)` | `true` if `s` starts with prefix |
 | `endsWith(s, suffix)` | `true` if `s` ends with suffix |
 | `replace(s, old, new)` | Replaces all occurrences |
+| `substring(s, start)` | Characters from position `start` to end |
+| `substring(s, start, len)` | `len` characters starting at `start` |
 | `toNumber(val)` | Converts to number |
 | `json(val)` | Serializes value to JSON string |
+| `fromJson(s)` | Parses a JSON string into a node |
 | `now()` | Returns the current local date/time as an ISO-8601 string |
 | `base64(val)` | Encodes the UTF-8 string value as Base64 |
 | `formatDate(dateStr, fmt)` | Formats a date string (default: `yyyy-MM-dd`) |

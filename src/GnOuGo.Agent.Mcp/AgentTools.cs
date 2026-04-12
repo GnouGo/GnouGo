@@ -31,18 +31,27 @@ public sealed class AgentTools
         string workflow,
         [Description("Array of schedules, each with 'name' (string) and 'cron' (string, Kubernetes cron format). " +
                      "Example: [{\"name\":\"daily\",\"cron\":\"0 8 * * *\"}]. Omit for no schedules.")]
-        Schedule[]? schedules = null)
+        Schedule[]? schedules = null,
+        [Description("Original natural-language prompt used to generate the workflow.")]
+        string? originalPrompt = null,
+        [Description("Human-readable schedule description before cron conversion.")]
+        string? scheduleDescription = null)
     {
         try
         {
             var list = schedules?.ToList() ?? [];
-            var agent = await _repo.AddAgentAsync(name, workflow, list);
+            var agent = await _repo.AddAgentAsync(name, workflow, list, originalPrompt, scheduleDescription);
 
             return new JsonObject
             {
                 ["success"] = true,
                 ["agent"] = SerializeAgent(agent)
             };
+        }
+        catch (DuplicateAgentNameException ex)
+        {
+            _logger.LogWarning(ex, "agent_add duplicate name");
+            return ErrorResult("ALREADY_EXISTS", ex.Message);
         }
         catch (ArgumentException ex)
         {
@@ -69,7 +78,11 @@ public sealed class AgentTools
         [Description("New workflow definition text (required).")]
         string workflow,
         [Description("Array of schedules, each with 'name' and 'cron'. Pass an empty array to clear schedules.")]
-        Schedule[]? schedules = null)
+        Schedule[]? schedules = null,
+        [Description("Original natural-language prompt used to generate the workflow.")]
+        string? originalPrompt = null,
+        [Description("Human-readable schedule description before cron conversion.")]
+        string? scheduleDescription = null)
     {
         try
         {
@@ -77,13 +90,18 @@ public sealed class AgentTools
                 throw new ArgumentException("'id' must be a valid GUID.");
 
             var list = schedules?.ToList() ?? [];
-            var agent = await _repo.UpdateAgentAsync(agentId, name, workflow, list);
+            var agent = await _repo.UpdateAgentAsync(agentId, name, workflow, list, originalPrompt, scheduleDescription);
 
             return new JsonObject
             {
                 ["success"] = true,
                 ["agent"] = SerializeAgent(agent)
             };
+        }
+        catch (DuplicateAgentNameException ex)
+        {
+            _logger.LogWarning(ex, "agent_update duplicate name");
+            return ErrorResult("ALREADY_EXISTS", ex.Message);
         }
         catch (ArgumentException ex)
         {
@@ -167,6 +185,34 @@ public sealed class AgentTools
         }
     }
 
+    // ── Get Agent By Name ────────────────────────────────────────────
+
+    [McpServerTool(Name = "agent_get_by_name"), Description(
+        "Get an agent by its name (case-insensitive). " +
+        "Returns { success, agent } or { success: false, error_code, error_message }.")]
+    public async Task<JsonObject> AgentGetByName(
+        [Description("Agent name (required).")]
+        string name)
+    {
+        try
+        {
+            var agent = await _repo.GetByNameAsync(name);
+            if (agent is null)
+                return ErrorResult("NOT_FOUND", $"Agent '{name}' not found.");
+
+            return new JsonObject
+            {
+                ["success"] = true,
+                ["agent"] = SerializeAgent(agent)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "agent_get_by_name unexpected error");
+            return ErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────
 
 
@@ -179,6 +225,8 @@ public sealed class AgentTools
             ["id"] = agent.Id.ToString(),
             ["name"] = agent.Name,
             ["workflow"] = agent.Workflow,
+            ["original_prompt"] = agent.OriginalPrompt,
+            ["schedule_description"] = agent.ScheduleDescription,
             ["schedules"] = schedulesNode,
             ["created_at"] = agent.CreatedAt.ToString("o"),
             ["updated_at"] = agent.UpdatedAt.ToString("o")

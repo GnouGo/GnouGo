@@ -347,15 +347,20 @@ public sealed class McpCallExecutor : IStepExecutor
             ?? throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork,
                 "mcp.call prompt mode requires an LLM client");
 
-        var model = input["model"]?.GetValue<string>()
-            ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
-                "mcp.call prompt mode requires 'model'");
+        var requestedProvider = input["provider"]?.GetValue<string>();
+        var requestedModel = input["model"]?.GetValue<string>();
+        var (provider, model) = ctx.Engine.ResolveLlmTarget(requestedProvider, requestedModel);
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                "mcp.call prompt mode requires 'model' unless WorkflowEngine.LlmDefaults.Model is configured");
+        }
         var prompt = input["prompt"] != null ? ExpressionEvaluator.GetString(input["prompt"]!) : null;
         if (string.IsNullOrWhiteSpace(prompt))
             throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
                 "mcp.call prompt mode requires a non-empty 'prompt'");
 
-        var provider = input["provider"]?.GetValue<string>();
         double? temperature = null;
         if (input.TryGetPropertyValue("temperature", out var tempNode) && tempNode != null)
             temperature = ExpressionEvaluator.GetNumber(tempNode);
@@ -365,7 +370,7 @@ public sealed class McpCallExecutor : IStepExecutor
         var capabilities = await ResolveSelectableCapabilitiesAsync(session, session.ServerName, input, defaultKind, singleMethod, batchMethods, ctx, ct);
         if (capabilities.Count == 0)
         {
-            ctx.SetTelemetryAttribute("gen_ai.system", provider ?? "openai");
+            ctx.SetTelemetryAttribute("gen_ai.system", provider ?? "default");
             ctx.SetTelemetryAttribute("gen_ai.request.model", model);
             ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", "stop");
             return new JsonObject
@@ -378,7 +383,7 @@ public sealed class McpCallExecutor : IStepExecutor
             };
         }
 
-        ctx.SetTelemetryAttribute("gen_ai.system", provider ?? "openai");
+        ctx.SetTelemetryAttribute("gen_ai.system", provider ?? "default");
         ctx.SetTelemetryAttribute("gen_ai.request.model", model);
         if (temperature.HasValue)
             ctx.SetTelemetryAttribute("gen_ai.request.temperature", temperature.Value);

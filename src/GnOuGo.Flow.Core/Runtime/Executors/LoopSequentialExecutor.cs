@@ -81,7 +81,7 @@ public sealed class LoopSequentialExecutor : IStepExecutor
 
             // Execute iteration
             var result = new RunResult { Success = true };
-            await ctx.Engine.ExecuteStepsAsync(subSteps, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct);
+            await ctx.Engine.ExecuteStepsAsync(subSteps, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
 
             iterations.Add(ctx.Data["steps"]?.DeepClone() ?? new JsonObject());
             iteration++;

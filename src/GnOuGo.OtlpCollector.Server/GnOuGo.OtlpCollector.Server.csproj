@@ -18,8 +18,8 @@
          The EnsureOtlpProtos target below downloads the files automatically.
          ═══════════════════════════════════════════════════════════════════ -->
     <OtlpProtoVersion>v1.4.0</OtlpProtoVersion>
-    <OtlpProtoDir>$(MSBuildProjectDirectory)\Protos\otlp-proto</OtlpProtoDir>
-    <OtlpProtoVersionFile>$(OtlpProtoDir)\VERSION</OtlpProtoVersionFile>
+    <OtlpProtoDir>$(MSBuildProjectDirectory)/Protos/otlp-proto</OtlpProtoDir>
+    <OtlpProtoVersionFile>$(OtlpProtoDir)/VERSION</OtlpProtoVersionFile>
     <OtlpProtoBaseUrl>https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/$(OtlpProtoVersion)</OtlpProtoBaseUrl>
   </PropertyGroup>
 
@@ -29,38 +29,47 @@
        Idempotent: skips if VERSION file already matches OtlpProtoVersion.
        ═══════════════════════════════════════════════════════════════════════ -->
   <Target Name="EnsureOtlpProtos" BeforeTargets="PrepareForBuild">
+    <ItemGroup>
+      <_RequiredOtlpProto Include="opentelemetry/proto/common/v1/common.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/resource/v1/resource.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/trace/v1/trace.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/logs/v1/logs.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/metrics/v1/metrics.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/collector/trace/v1/trace_service.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/collector/logs/v1/logs_service.proto" />
+      <_RequiredOtlpProto Include="opentelemetry/proto/collector/metrics/v1/metrics_service.proto" />
+      <_MissingOtlpProto Include="@(_RequiredOtlpProto)"
+                         Condition="!Exists('$(OtlpProtoDir)/%(Identity)')" />
+    </ItemGroup>
+
     <!-- Read current version if file exists -->
     <ReadLinesFromFile File="$(OtlpProtoVersionFile)" Condition="Exists('$(OtlpProtoVersionFile)')">
       <Output TaskParameter="Lines" ItemName="_CurrentProtoVersion" />
     </ReadLinesFromFile>
 
-    <!-- Skip download if version matches -->
+    <!-- Skip download only if version matches and all required files are present -->
     <PropertyGroup>
-      <_ProtoUpToDate Condition="'@(_CurrentProtoVersion)' == '$(OtlpProtoVersion)'">true</_ProtoUpToDate>
+      <_ProtoUpToDate Condition="'@(_CurrentProtoVersion)' == '$(OtlpProtoVersion)' and '@(_MissingOtlpProto)' == ''">true</_ProtoUpToDate>
     </PropertyGroup>
     <Message Importance="normal" Text="OpenTelemetry Proto $(OtlpProtoVersion) already present — skipping download."
              Condition="'$(_ProtoUpToDate)' == 'true'" />
+    <Message Importance="high"
+             Text="OpenTelemetry Proto $(OtlpProtoVersion) will be refreshed because required files are missing: @(_MissingOtlpProto, ', ')"
+             Condition="'$(_ProtoUpToDate)' != 'true' and '@(_MissingOtlpProto)' != ''" />
 
     <!-- Download each proto file if not up to date -->
     <ItemGroup Condition="'$(_ProtoUpToDate)' != 'true'">
-      <_OtlpProtoFile Include="opentelemetry/proto/common/v1/common.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/resource/v1/resource.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/trace/v1/trace.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/logs/v1/logs.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/metrics/v1/metrics.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/collector/trace/v1/trace_service.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/collector/logs/v1/logs_service.proto" />
-      <_OtlpProtoFile Include="opentelemetry/proto/collector/metrics/v1/metrics_service.proto" />
+      <_OtlpProtoFile Include="@(_RequiredOtlpProto)" />
     </ItemGroup>
 
     <Message Importance="high" Text="Downloading OpenTelemetry Proto $(OtlpProtoVersion) ..."
              Condition="'$(_ProtoUpToDate)' != 'true'" />
 
-    <MakeDir Directories="$(OtlpProtoDir)\$([System.IO.Path]::GetDirectoryName('%(_OtlpProtoFile.Identity)'))"
+    <MakeDir Directories="$(OtlpProtoDir)/$([System.IO.Path]::GetDirectoryName('%(_OtlpProtoFile.Identity)').Replace('\', '/'))"
              Condition="'$(_ProtoUpToDate)' != 'true'" />
 
     <DownloadFile SourceUrl="$(OtlpProtoBaseUrl)/%(_OtlpProtoFile.Identity)"
-                  DestinationFolder="$(OtlpProtoDir)\$([System.IO.Path]::GetDirectoryName('%(_OtlpProtoFile.Identity)'))"
+                  DestinationFolder="$(OtlpProtoDir)/$([System.IO.Path]::GetDirectoryName('%(_OtlpProtoFile.Identity)').Replace('\', '/'))"
                   DestinationFileName="$([System.IO.Path]::GetFileName('%(_OtlpProtoFile.Identity)'))"
                   SkipUnchangedFiles="false"
                   Condition="'$(_ProtoUpToDate)' != 'true'" />
@@ -70,7 +79,7 @@
 
     <!-- Register proto files for Grpc.Tools compilation (needed when files were just downloaded) -->
     <ItemGroup Condition="'$(_ProtoUpToDate)' != 'true'">
-      <Protobuf Include="$(OtlpProtoDir)\opentelemetry\proto\**\*.proto"
+      <Protobuf Include="$(OtlpProtoDir)/opentelemetry/proto/**/*.proto"
                 ProtoRoot="$(OtlpProtoDir)"
                 GrpcServices="Server" />
     </ItemGroup>
@@ -85,21 +94,21 @@
       Change OtlpProtoVersion above to bump. Manual: Protos/download-protos.ps1 -Force
       The glob below picks up pre-existing files; the target above handles first-time download.
     -->
-    <Protobuf Include="Protos\otlp-proto\opentelemetry\proto\**\*.proto"
-              ProtoRoot="Protos\otlp-proto"
+    <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/**/*.proto"
+              ProtoRoot="Protos/otlp-proto"
               GrpcServices="Server" />
-    <PackageReference Include="Grpc.Tools" Version="2.71.0">
+    <PackageReference Include="Grpc.Tools" Version="2.80.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Google.Protobuf" Version="3.30.2" />
+    <PackageReference Include="Google.Protobuf" Version="3.34.1" />
 
     <!-- gRPC server -->
-    <PackageReference Include="Grpc.AspNetCore" Version="2.71.0" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.76.0" />
 
     <!-- SQLite with Entity Framework Core -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.1" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.1">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -108,6 +117,12 @@
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="appsettings*.json" CopyToPublishDirectory="Never" />
+    <Content Update="ClientApp\package.json;ClientApp\package-lock.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
+    <None Update="ClientApp\package.json;ClientApp\package-lock.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
+  </ItemGroup>
   
 
   <!-- ============================================ -->
@@ -115,7 +130,7 @@
   <!-- ============================================ -->
   
   <PropertyGroup>
-    <ClientAppDir>$(MSBuildProjectDirectory)\ClientApp</ClientAppDir>
+    <ClientAppDir>$(MSBuildProjectDirectory)/ClientApp</ClientAppDir>
     <NpmCommand Condition="'$(OS)' == 'Windows_NT'">npm.cmd</NpmCommand>
     <NpmCommand Condition="'$(OS)' != 'Windows_NT'">npm</NpmCommand>
   </PropertyGroup>
@@ -123,21 +138,21 @@
   <!-- Target: Installer les dépendances npm si node_modules n'existe pas -->
   <Target Name="EnsureNodeModules" BeforeTargets="Build" Condition="'$(SkipClientBuild)' != 'true'">
     <Message Text="🔍 Vérification des dépendances npm..." Importance="high" />
-    <Exec Command="$(NpmCommand) install" WorkingDirectory="$(ClientAppDir)" Condition="!Exists('$(ClientAppDir)\node_modules')" />
+    <Exec Command="$(NpmCommand) install" WorkingDirectory="$(ClientAppDir)" Condition="!Exists('$(ClientAppDir)/node_modules')" />
   </Target>
 
   <!-- Target: Build le frontend React et copie vers wwwroot -->
-  <Target Name="BuildClientApp" AfterTargets="EnsureNodeModules" BeforeTargets="Build">
+  <Target Name="BuildClientApp" AfterTargets="EnsureNodeModules" BeforeTargets="Build" Condition="'$(SkipClientBuild)' != 'true'">
     <Message Text="🔨 Construction du frontend React..." Importance="high" />
-    <Exec Command="$(NpmCommand) run build" WorkingDirectory="$(ClientAppDir)" Condition="'$(SkipClientBuild)' != 'true'" />
+    <Exec Command="$(NpmCommand) run build" WorkingDirectory="$(ClientAppDir)" />
     <Message Text="✅ Frontend construit et copié vers wwwroot/" Importance="high" />
   </Target>
 
   <!-- Target: Nettoyer le build du frontend lors du Clean -->
   <Target Name="CleanClientApp" AfterTargets="Clean">
     <Message Text="🧹 Nettoyage du build frontend..." Importance="high" />
-    <RemoveDir Directories="$(ClientAppDir)\dist" />
-    <RemoveDir Directories="$(MSBuildProjectDirectory)\wwwroot\assets" />
+    <RemoveDir Directories="$(ClientAppDir)/dist" />
+    <RemoveDir Directories="$(MSBuildProjectDirectory)/wwwroot/assets" />
   </Target>
 
 </Project>

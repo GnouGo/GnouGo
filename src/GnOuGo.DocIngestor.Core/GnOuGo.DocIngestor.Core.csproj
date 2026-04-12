@@ -28,12 +28,12 @@
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.*" />
     <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.*" />
       <!-- SQLite store (MIT) -->
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.*" />
-    <PackageReference Include="PdfPig.Rendering.Skia" Version="0.1.12.2" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.5" />
+    <PackageReference Include="PdfPig.Rendering.Skia" Version="0.1.14.2" />
     <PackageReference Include="SkiaSharp" Version="3.*" />
 
     <!-- OpenTelemetry for GenAI instrumentation -->
-    <PackageReference Include="OpenTelemetry.Api" Version="1.10.*" />
+    <PackageReference Include="OpenTelemetry.Api" Version="1.15.2" />
   </ItemGroup>
 
   <!-- Reco Linux (surtout en container/minimal images) -->

@@ -37,8 +37,10 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         var validate = input["validate"] as JsonObject;
         var onInvalid = input["on_invalid"] as JsonObject;
 
-        var model = generator["model"]?.GetValue<string>() ?? "gpt-4";
-        var provider = generator["provider"]?.GetValue<string>();
+        var requestedModel = generator["model"]?.GetValue<string>();
+        var requestedProvider = generator["provider"]?.GetValue<string>();
+        var (provider, model) = ctx.Engine.ResolveLlmTarget(requestedProvider, requestedModel);
+        model ??= "gpt-4";
         var instruction = generator["instruction"]?.GetValue<string>() ?? "";
         var generatorContext = generator["context"]?.GetValue<string>() ?? "";
 

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -77,7 +78,23 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
 
     private static HttpClientTransport CreateHttpTransport(McpServerOptions config)
     {
-        var httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+        var endpoint = new Uri(config.Url.TrimEnd('/'));
+        var preferHttp2 = string.Equals(endpoint.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+            || IsLoopbackHttpEndpoint(endpoint);
+        var httpClient = new HttpClient(new SocketsHttpHandler
+        {
+            EnableMultipleHttp2Connections = true
+        })
+        {
+            Timeout = TimeSpan.FromMinutes(5),
+            // Mounted/local MCP endpoints may require HTTP/2 even over loopback HTTP
+            // (h2/h2c). Keep those endpoints on HTTP/2 negotiation so the MCP client
+            // does not downgrade to the legacy SSE/session-header flow.
+            DefaultRequestVersion = preferHttp2 ? HttpVersion.Version20 : HttpVersion.Version11,
+            DefaultVersionPolicy = preferHttp2
+                ? HttpVersionPolicy.RequestVersionOrHigher
+                : HttpVersionPolicy.RequestVersionOrLower
+        };
 
         if (!string.IsNullOrWhiteSpace(config.ApiKey))
         {
@@ -87,9 +104,20 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
 
         return new HttpClientTransport(new HttpClientTransportOptions
         {
-            Endpoint = new Uri(config.Url.TrimEnd('/')),
+            Endpoint = endpoint,
             Name = "GnOuGo.Flow"
         }, httpClient);
+    }
+
+    private static bool IsLoopbackHttpEndpoint(Uri endpoint)
+    {
+        if (!string.Equals(endpoint.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (endpoint.IsLoopback)
+            return true;
+
+        return IPAddress.TryParse(endpoint.Host, out var address) && IPAddress.IsLoopback(address);
     }
 
     private static StdioClientTransport CreateStdioTransport(McpServerOptions config)
@@ -246,18 +274,25 @@ internal sealed class McpSessionAdapter : IMcpSession
         var dict = new Dictionary<string, object?>(obj.Count);
         foreach (var kv in obj)
         {
-            dict[kv.Key] = kv.Value switch
-            {
-                null => null,
-                JsonValue jv when jv.TryGetValue<string>(out var s) => s,
-                JsonValue jv when jv.TryGetValue<bool>(out var b) => b,
-                JsonValue jv when jv.TryGetValue<int>(out var i) => i,
-                JsonValue jv when jv.TryGetValue<long>(out var l) => l,
-                JsonValue jv when jv.TryGetValue<double>(out var d) => d,
-                _ => kv.Value.ToJsonString()
-            };
+            dict[kv.Key] = ConvertArgumentValue(kv.Value);
         }
         return dict;
+    }
+
+    private static object? ConvertArgumentValue(JsonNode? value)
+    {
+        return value switch
+        {
+            null => null,
+            JsonValue jv when jv.TryGetValue<string>(out var s) => s,
+            JsonValue jv when jv.TryGetValue<bool>(out var b) => b,
+            JsonValue jv when jv.TryGetValue<int>(out var i) => i,
+            JsonValue jv when jv.TryGetValue<long>(out var l) => l,
+            JsonValue jv when jv.TryGetValue<double>(out var d) => d,
+            JsonArray arr => arr.Select(ConvertArgumentValue).ToList(),
+            JsonObject obj => obj.ToDictionary(kvp => kvp.Key, kvp => ConvertArgumentValue(kvp.Value)),
+            _ => value.ToJsonString()
+        };
     }
 
     private static JsonNode? BuildContent(CallToolResult result)

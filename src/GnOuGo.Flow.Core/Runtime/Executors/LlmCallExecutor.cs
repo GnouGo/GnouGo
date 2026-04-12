@@ -14,7 +14,7 @@ public sealed class LlmCallExecutor : IStepExecutor
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]
     {
-        new(ErrorCodes.InputValidation, false, "The input object is malformed or required `model`/`prompt` fields are missing."),
+        new(ErrorCodes.InputValidation, false, "The input object is malformed or the required `prompt` field is missing, and no runtime default `model` is available."),
         new(ErrorCodes.LlmTimeout, true, "The LLM request timed out. This is retryable and is a good candidate for `retry`."),
         new(ErrorCodes.LlmNetwork, true, "A transient network failure occurred while calling the LLM provider."),
         new(ErrorCodes.LlmNetwork, false, "The LLM client is not configured or the provider failed in a non-transient way.")
@@ -22,13 +22,13 @@ public sealed class LlmCallExecutor : IStepExecutor
 
     public string DslSnippet => """
         ### llm.call — Call a language model
-        IMPORTANT: use `prompt` (NOT `messages`). `model` and `prompt` are REQUIRED.
+        IMPORTANT: use `prompt` (NOT `messages`). `prompt` is REQUIRED. `model` is required unless the runtime injects a default model.
         Basic call:
         ```yaml
         - id: summarize
           type: llm.call
           input:
-            model: gpt-4                        # required
+            model: gpt-4                        # optional when runtime defaults are configured
             prompt: "Summarize: ${data.steps.prev.text}"  # required — plain string
             system: "You are a helpful assistant."  # optional
             temperature: 0.7                     # optional
@@ -62,22 +62,29 @@ public sealed class LlmCallExecutor : IStepExecutor
         var input = ctx.Engine.GetResolvedInput(ctx) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "llm.call input must be object");
 
-        var model = input["model"]?.GetValue<string>()
-            ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "llm.call requires 'model'");
+        var requestedProvider = input["provider"]?.GetValue<string>();
+        var requestedModel = input["model"]?.GetValue<string>();
+        var (provider, model) = ctx.Engine.ResolveLlmTarget(requestedProvider, requestedModel);
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                "llm.call requires 'model' unless WorkflowEngine.LlmDefaults.Model is configured");
+        }
 
         var prompt = input["prompt"]?.GetValue<string>()
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "llm.call requires 'prompt'");
 
         var request = new LLMRequest
         {
-            Provider = input["provider"]?.GetValue<string>(),
+            Provider = provider,
             Model = model,
             Prompt = prompt,
         };
 
         // ── Telemetry: record request attributes ──
         ctx.SetTelemetryAttribute("gen_ai.operation.name", "chat");
-        ctx.SetTelemetryAttribute("gen_ai.system", request.Provider ?? "openai");
+        ctx.SetTelemetryAttribute("gen_ai.system", request.Provider ?? "default");
         ctx.SetTelemetryAttribute("gen_ai.request.model", model);
 
         if (ctx.Limits.LogStepContent)

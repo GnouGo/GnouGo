@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using OtlpTenantCollector.Data;
 using OtlpTenantCollector.Models;
 
@@ -27,13 +28,9 @@ public class EfTelemetryStore
         try
         {
             if (devMode)
-            {
-                // En dev, on recrée toujours la DB pour avoir un schéma propre
-                await _context.Database.EnsureDeletedAsync();
                 _logger.LogWarning("[DevMode] Database dropped and will be recreated with current schema.");
-            }
 
-            await _context.Database.EnsureCreatedAsync();
+            await TelemetryDatabaseBootstrap.EnsureInitializedAsync(_context, resetSchema: devMode);
             _logger.LogInformation("Database initialized successfully");
         }
         catch (Exception ex)
@@ -164,7 +161,7 @@ public class EfTelemetryStore
                 var durationMs = (endUnixNs - startUnixNs) / 1_000_000.0;
                 var service = g.FirstOrDefault()?.ServiceName ?? "unknown-service";
                 
-                _logger.LogInformation("[EfTelemetryStore] TraceId={TraceId}, Service={ServiceName}: StartUnixNs={Start}, EndUnixNs={End}, DurationMs={Duration}",
+                _logger.LogDebug("[EfTelemetryStore] TraceId={TraceId}, Service={ServiceName}: StartUnixNs={Start}, EndUnixNs={End}, DurationMs={Duration}",
                     g.Key.Substring(0, 16), service, startUnixNs, endUnixNs, durationMs);
                 
                 return new TraceSummaryDto(
@@ -209,15 +206,21 @@ public class EfTelemetryStore
             {
                 try
                 {
-                    var attributes = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(s.AttributesJson);
-                    if (attributes == null) return false;
-                    
-                    if (attributes.TryGetValue(attributeKey, out var value))
+                    if (string.IsNullOrWhiteSpace(s.AttributesJson))
+                        return false;
+
+                    using var attributes = JsonDocument.Parse(s.AttributesJson);
+                    if (!attributes.RootElement.TryGetProperty(attributeKey, out var value))
+                        return false;
+
+                    var valueStr = value.ValueKind switch
                     {
-                        var valueStr = value?.ToString() ?? "";
-                        return valueStr.Equals(attributeValue, StringComparison.OrdinalIgnoreCase);
-                    }
-                    return false;
+                        JsonValueKind.String => value.GetString() ?? string.Empty,
+                        JsonValueKind.Null => string.Empty,
+                        _ => value.ToString()
+                    };
+
+                    return valueStr.Equals(attributeValue, StringComparison.OrdinalIgnoreCase);
                 }
                 catch
                 {

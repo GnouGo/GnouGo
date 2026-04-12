@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging.Abstractions;
+using GnOuGo.Agent.Mcp.Services;
 using Xunit;
 
 namespace GnOuGo.Agent.Mcp.Tests;
@@ -7,11 +8,12 @@ namespace GnOuGo.Agent.Mcp.Tests;
 public class DataToolsTests
 {
     private readonly InMemoryChatHistoryStore _store = new();
+    private readonly InMemoryUserConfigRepository _userConfigs = new();
     private readonly DataTools _tools;
 
     public DataToolsTests()
     {
-        _tools = new DataTools(_store, NullLogger<DataTools>.Instance);
+        _tools = new DataTools(_store, _userConfigs, NullLogger<DataTools>.Instance);
     }
 
     // ── ChatHistoryAppend ────────────────────────────────────────────
@@ -218,6 +220,71 @@ public class DataToolsTests
         Assert.Equal("user", messages[1]!.AsObject()["role"]!.GetValue<string>());
         Assert.Equal("assistant", messages[2]!.AsObject()["role"]!.GetValue<string>());
         Assert.Equal("4", messages[2]!.AsObject()["content"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task UserConfigGet_ReturnsEmptyConfig_WhenNothingWasSaved()
+    {
+        var result = await _tools.UserConfigGet();
+
+        Assert.True(result["success"]!.GetValue<bool>());
+        var config = result["config"]!.AsObject();
+        Assert.Null(config["default_llm_provider"]);
+        Assert.Null(config["default_llm_model"]);
+        Assert.Null(config["default_agent"]);
+    }
+
+    [Fact]
+    public async Task UserConfigSet_SavesAndReturnsDefaultValues()
+    {
+        var result = await _tools.UserConfigSet(
+            defaultLlmProvider: "ollama",
+            defaultLlmModel: "llama3:8b",
+            defaultAgent: "slimfaas");
+
+        Assert.True(result["success"]!.GetValue<bool>());
+        var config = result["config"]!.AsObject();
+        Assert.Equal("ollama", config["default_llm_provider"]!.GetValue<string>());
+        Assert.Equal("llama3:8b", config["default_llm_model"]!.GetValue<string>());
+        Assert.Equal("slimfaas", config["default_agent"]!.GetValue<string>());
+        Assert.NotNull(config["updated_at"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task UserConfigSet_ClearsSelectedValues_WhenRequested()
+    {
+        await _tools.UserConfigSet(defaultLlmProvider: "openai", defaultLlmModel: "gpt-4o-mini", defaultAgent: "slimfaas");
+
+        var result = await _tools.UserConfigSet(clearDefaultLlm: true, clearDefaultAgent: true);
+
+        var config = result["config"]!.AsObject();
+        Assert.Null(config["default_llm_provider"]);
+        Assert.Null(config["default_llm_model"]);
+        Assert.Null(config["default_agent"]);
+    }
+
+    private sealed class InMemoryUserConfigRepository : IUserConfigRepository
+    {
+        private UserConfigSnapshot _snapshot = new(null, null, null, null);
+
+        public Task<UserConfigSnapshot> GetAsync(Guid? tenantId = null, CancellationToken ct = default)
+            => Task.FromResult(_snapshot);
+
+        public Task<UserConfigSnapshot> SetAsync(UserConfigUpdate update, Guid? tenantId = null, CancellationToken ct = default)
+        {
+            var provider = update.ClearDefaultLlm
+                ? null
+                : string.IsNullOrWhiteSpace(update.DefaultLlmProvider) ? _snapshot.DefaultLlmProvider : update.DefaultLlmProvider.Trim();
+            var model = update.ClearDefaultLlm
+                ? null
+                : string.IsNullOrWhiteSpace(update.DefaultLlmModel) ? _snapshot.DefaultLlmModel : update.DefaultLlmModel.Trim();
+            var agent = update.ClearDefaultAgent
+                ? null
+                : string.IsNullOrWhiteSpace(update.DefaultAgent) ? _snapshot.DefaultAgent : update.DefaultAgent.Trim();
+
+            _snapshot = new UserConfigSnapshot(provider, model, agent, DateTimeOffset.UtcNow);
+            return Task.FromResult(_snapshot);
+        }
     }
 }
 

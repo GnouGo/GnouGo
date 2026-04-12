@@ -1,0 +1,45 @@
+[project]
+name = "gnougo-agent-cli"
+version = "0.1.0"
+description = "CLI utilities for running GnOuGo Flow workflows"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "gnougo-flow-core>=0.1.0",
+  "opentelemetry-api>=1.28.2",
+  "opentelemetry-sdk>=1.28.2",
+  "opentelemetry-exporter-otlp-proto-http>=1.28.2",
+  "pydantic>=2.7.0",
+  "PyYAML>=6.0.1",
+  "rich>=13.7.1",
+  "typer>=0.16.0",
+  "openai>=2.30.0",
+  "axa-fr-app-settings>=0.4.0",
+  "mcp>=1.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+  "ruff>=0.6.0",
+]
+
+[project.scripts]
+gnougo-agent = "gnougo_agent_cli.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.24.2"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+gnougo-flow-core = { path = "../gnougo-flow-core", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+

@@ -24,7 +24,7 @@ meta:
       - Combining static and dynamic workflows in one document
     
     Requires:
-      - LLM.Models.OpenAi configured with a valid API key
+      - A default LLM provider/model configured at runtime
       - Optional for file export: `GnOuGo.Cmd.Mcp` configured with `write_markdown_file`
     
     Usage:
@@ -74,7 +74,6 @@ workflows:
           - id: analyze
             type: llm.call
             input:
-              model: gpt-5.4-mini
               temperature: 0.7
               prompt: >
                 ${data._loop.index == 0
@@ -117,7 +116,6 @@ workflows:
         type: workflow.plan
         input:
           generator:
-            model: gpt-5.4
             instruction: >
               Create a workflow that accomplishes the following task:
               ${coalesce(data.inputs.task, "no task provided")}
@@ -137,17 +135,19 @@ workflows:
               Use multiple steps if the task naturally decomposes into sub-tasks.
               
               IMPORTANT RULES:
-              - For llm.call: "model" and "prompt" are REQUIRED fields under "input:".
+              - For llm.call: "prompt" is REQUIRED under "input:".
                 Do NOT use "messages". Use "prompt" as a plain string.
+              - Omit provider/model on llm.call when runtime defaults should apply.
+                Specify them only when a step must override the defaults.
               - For template.render: "engine", "template", and "mode" are required.
-              - All llm.call steps must use model "gpt-5.4-mini" with temperature 0.7.
+              - Generated llm.call steps should normally reuse runtime defaults and use temperature 0.7 unless a specific override is necessary.
               - Outputs MUST reference step results via the pattern data.steps.STEP_ID.text
               - llm.call output has field "text", template.render output has field "text"
               - The workflow outputs section must define "answer" referencing the final step text output.
             context: >
-              The user wants a fully automated workflow. Each LLM call should use
-              model "gpt-5.4-mini" with temperature 0.7. The final output must be
-              a field called "answer" with the complete result.
+              The user wants a fully automated workflow. Generated llm.call steps should
+              reuse runtime LLM defaults when possible and use temperature 0.7 by default.
+              The final output must be a field called "answer" with the complete result.
           
           policy:
             allowed_step_types:
@@ -209,7 +209,6 @@ workflows:
       - id: format
         type: llm.call
         input:
-          model: gpt-5.4
           temperature: 0.3
           prompt: >
             The user asked: "${data.inputs.task}"

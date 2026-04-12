@@ -35,21 +35,63 @@ public sealed class CommandPolicy
                 $"Command '{normalizedName}' is not allowed. Use cmd_list_allowed_commands to inspect the configured allowlist.");
         }
 
+        command = ApplyOsOverride(command);
+
         if (string.IsNullOrWhiteSpace(command.Script))
             throw new InvalidOperationException($"Allowed command '{normalizedName}' has no configured script.");
 
         return command;
     }
 
+    /// <summary>
+    /// Returns the effective command settings after applying any OS-specific override.
+    /// Shell and Script are replaced when the override provides them; Parameters are merged
+    /// (OS-specific entries take precedence over base entries).
+    /// </summary>
+    private static AllowedCommandSettings ApplyOsOverride(AllowedCommandSettings command)
+    {
+        if (command.OsOverrides.Count == 0)
+            return command;
+
+        var osKey = OperatingSystem.IsWindows() ? "windows"
+            : OperatingSystem.IsLinux() ? "linux"
+            : OperatingSystem.IsMacOS() ? "macos"
+            : null;
+
+        if (osKey is null || !command.OsOverrides.TryGetValue(osKey, out var ovr))
+            return command;
+
+        // Build merged parameters: start with base, then overlay OS-specific entries.
+        var mergedParams = new Dictionary<string, CommandParameterSettings>(command.Parameters, StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in ovr.Parameters)
+            mergedParams[kv.Key] = kv.Value;
+
+        return new AllowedCommandSettings
+        {
+            Description = command.Description,
+            Shell = !string.IsNullOrWhiteSpace(ovr.Shell) ? ovr.Shell! : command.Shell,
+            Script = !string.IsNullOrWhiteSpace(ovr.Script) ? ovr.Script! : command.Script,
+            WorkingDirectory = command.WorkingDirectory,
+            TimeoutMs = command.TimeoutMs,
+            MaxOutputCharacters = command.MaxOutputCharacters,
+            Parameters = mergedParams,
+            OsOverrides = command.OsOverrides   // keep for introspection if needed
+        };
+    }
+
     public IReadOnlyList<CmdAllowedCommandInfo> ListAllowedCommands()
         => _settings.AllowedCommands
             .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(kv => new CmdAllowedCommandInfo(
-                Name: kv.Key,
-                Description: kv.Value.Description,
-                Shell: kv.Value.Shell,
-                WorkingDirectory: ResolveWorkingDirectory(kv.Value.WorkingDirectory),
-                Parameters: kv.Value.Parameters.Keys.OrderBy(static p => p, StringComparer.OrdinalIgnoreCase).ToArray()))
+            .Select(kv =>
+            {
+                var effective = ApplyOsOverride(kv.Value);
+                return new CmdAllowedCommandInfo(
+                    Name: kv.Key,
+                    Description: effective.Description,
+                    Shell: effective.Shell,
+                    WorkingDirectory: ResolveWorkingDirectory(effective.WorkingDirectory),
+                    Parameters: effective.Parameters.Keys.OrderBy(static p => p, StringComparer.OrdinalIgnoreCase).ToArray());
+            })
             .ToArray();
 
     public CmdPolicyInfo DescribePolicy()
@@ -104,7 +146,9 @@ public sealed class CommandPolicy
             "powershell" => ResolveKnownShell(normalized, OperatingSystem.IsWindows()
                 ? ["powershell.exe", "pwsh.exe"]
                 : ["pwsh", "powershell"]),
-            "sh" => ResolveKnownShell(normalized, ["sh", "/bin/sh"]),
+            "sh" => ResolveKnownShell(normalized, ["/bin/sh", "sh"]),
+            "bash" => ResolveKnownShell(normalized, ["/bin/bash", "bash"]),
+            "zsh" => ResolveKnownShell(normalized, ["/bin/zsh", "zsh"]),
             "cmd" => ResolveKnownShell(normalized, OperatingSystem.IsWindows()
                 ? ["cmd.exe"]
                 : throw new InvalidOperationException("Shell 'cmd' is only available on Windows.")),
@@ -222,7 +266,7 @@ public sealed class CommandPolicy
         return normalized switch
         {
             "powershell" => $"'{value.Replace("'", "''", StringComparison.Ordinal)}'",
-            "sh" => $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'",
+            "sh" or "bash" or "zsh" => $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'",
             "cmd" => "\"" + CmdEscapeSpecialChars(value) + "\"",
             _ => throw new InvalidOperationException($"Shell '{normalized}' is not supported for escaping.")
         };
@@ -397,7 +441,7 @@ public sealed class CommandPolicy
                 return logicalName switch
                 {
                     "powershell" => new ShellLaunchInfo(logicalName, resolvedPath, script => $"-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"{script.Replace("\"", "\\\"", StringComparison.Ordinal)}\""),
-                    "sh" => new ShellLaunchInfo(logicalName, resolvedPath, script => $"-c \"{script.Replace("\"", "\\\"", StringComparison.Ordinal)}\""),
+                    "sh" or "bash" or "zsh" => new ShellLaunchInfo(logicalName, resolvedPath, script => $"-c \"{script.Replace("\"", "\\\"", StringComparison.Ordinal)}\""),
                     "cmd" => new ShellLaunchInfo(logicalName, resolvedPath, script => $"/C \"{script.Replace("\"", "\\\"", StringComparison.Ordinal)}\""),
                     _ => throw new InvalidOperationException($"Shell '{logicalName}' is not supported.")
                 };

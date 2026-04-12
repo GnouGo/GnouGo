@@ -1,39 +1,26 @@
 ﻿# GnOuGo.KeyVault.Mcp
 
-`GnOuGo.KeyVault.Mcp` is a **stdio** MCP server that exposes the GnOuGo KeyVault secret manager as a set of MCP tools. It depends on `GnOuGo.KeyVault.Core` and uses SQLite for persistence with hybrid RSA + AES-GCM encryption.
+HTTP-based MCP server for encrypted KeyVault secret management.
 
-> **Security note:** secret values are **never returned** by any tool. The `keyvault_set_secret` tool stores secrets but only echoes back metadata (id, key, version, tenant, timestamp).
+## Architecture
 
-## Exposed Tools
+This component is independently publishable, testable, and deployable per `AGENTS.md` rules.
+It can run as a standalone HTTP MCP host or be mounted inside `GnOuGo.Agent.Server`.
 
-| Tool | Description |
-|------|-------------|
-| `keyvault_list_tenants` | Lists all active tenants. |
-| `keyvault_create_tenant` | Creates a tenant with a dedicated RSA key pair. |
-| `keyvault_delete_tenant` | Soft-deletes a tenant. |
-| `keyvault_set_secret` | Creates or updates an encrypted secret (write-only, returns metadata). |
-| `keyvault_list_secrets` | Lists secret metadata (key, tenant, version) without values. |
-| `keyvault_delete_secret` | Soft-deletes a secret. |
-| `keyvault_get_secret_versions` | Returns version history of a secret without values. |
-| `keyvault_get_audit_log` | Returns the audit trail with optional filters and pagination. |
+## Hosted tools
 
-## Build
+- `keyvault_list_tenants`
+- `keyvault_create_tenant`
+- `keyvault_list_secrets`
+- `keyvault_set_secret`
+- `keyvault_get_secret`
+- `keyvault_delete_secret`
 
-```bash
-dotnet build src/GnOuGo.KeyVault.Mcp
-```
-
-## Run
-
-```bash
-dotnet run --project src/GnOuGo.KeyVault.Mcp
-```
-
-The server communicates over **stdin/stdout** using the MCP JSON-RPC protocol. All diagnostic logs are emitted to **stderr**.
+This MCP surface stays intentionally narrow. Tenant deletion, audit log access, and secret version history remain outside this MCP contract.
 
 ## Configuration
 
-Configuration is loaded from `appsettings.json` (copied next to the binary):
+`appsettings.json`
 
 ```json
 {
@@ -43,24 +30,58 @@ Configuration is loaded from `appsettings.json` (copied next to the binary):
 }
 ```
 
-- `DatabasePath` — relative (to the binary) or absolute path to the SQLite database. The directory is created automatically.
+## HTTP routes
 
-## MCP Client Integration
+### Standalone host (`GnOuGo.KeyVault.Mcp`)
 
-Example configuration for an MCP client (e.g., Claude Desktop, GnOuGo.Flow):
+By default, the standalone host exposes MCP over HTTP under:
+
+- `/mcp`
+- development URL: `http://127.0.0.1:5197/mcp`
+
+Consumer example:
 
 ```json
 {
-  "mcpServers": {
-    "keyvault": {
-      "command": "dotnet",
-      "args": ["run", "--project", "src/GnOuGo.KeyVault.Mcp"]
+  "Type": "http",
+  "Url": "http://127.0.0.1:5197/mcp"
+}
+```
+
+### Mounted inside `GnOuGo.Agent.Server`
+
+When the local agent server hosts the KeyVault MCP surface in-process, it is mounted at:
+
+- `/mcp/keyvault`
+
+Default `GnOuGo.Agent.Server/appsettings.json` placeholder:
+
+```json
+{
+  "LLM": {
+    "McpServers": {
+      "GnOuGo.KeyVault.Mcp": {
+        "Type": "http",
+        "Url": "http://127.0.0.1:0/mcp/keyvault"
+      }
     }
   }
 }
 ```
 
-## Tests
+At runtime, `GnOuGo.Agent.Server` replaces port `0` with the actual local listening port.
 
-Unit tests for the underlying service live in `tests/GnOuGo.KeyVault.Tests/`.
+## Run
+
+```powershell
+Set-Location "C:\github\GnouGo\src\GnOuGo.KeyVault.Mcp"
+dotnet run
+```
+
+## Test
+
+```powershell
+dotnet test "C:\github\GnouGo\tests\GnOuGo.KeyVault.Mcp.Tests\GnOuGo.KeyVault.Mcp.Tests.csproj"
+```
+
 

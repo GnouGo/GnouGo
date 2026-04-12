@@ -22,6 +22,15 @@ public static class OpenAiEndpoints
             ? b + "/embeddings"
             : b + "/v1/embeddings";
     }
+
+    /// <summary>Builds the models URL (appends /v1/models if needed).</summary>
+    public static string Models(string endpointUrl)
+    {
+        var b = endpointUrl.TrimEnd('/');
+        return b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
+            ? b + "/models"
+            : b + "/v1/models";
+    }
 }
 
 /// <summary>
@@ -36,6 +45,10 @@ public static class OllamaEndpoints
     /// <summary>Builds the Ollama embed URL (/api/embed).</summary>
     public static string Embed(string baseUrl)
         => baseUrl.TrimEnd('/') + "/api/embed";
+
+    /// <summary>Builds the Ollama model tags URL (/api/tags).</summary>
+    public static string Tags(string baseUrl)
+        => baseUrl.TrimEnd('/') + "/api/tags";
 }
 
 /// <summary>
@@ -54,6 +67,37 @@ public static class CopilotEndpoints
         if (b.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
             return b;
         return b + "/chat/completions";
+    }
+
+    /// <summary>
+    /// Builds candidate URLs for model discovery.
+    /// GitHub Models commonly exposes a catalog endpoint, while proxies may expose an OpenAI-style /models route.
+    /// </summary>
+    public static IReadOnlyList<string> ModelListCandidates(string? baseUrl = null)
+    {
+        var original = string.IsNullOrWhiteSpace(baseUrl) ? DefaultBase : baseUrl;
+        var b = original.TrimEnd('/');
+
+        if (b.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+            b = b[..^"/chat/completions".Length];
+
+        var candidates = new List<string>();
+
+        if (b.EndsWith("/inference", StringComparison.OrdinalIgnoreCase))
+        {
+            var root = b[..^"/inference".Length].TrimEnd('/');
+            if (!string.IsNullOrWhiteSpace(root))
+                candidates.Add(root + "/catalog/models");
+        }
+
+        if (b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+            candidates.Add(b + "/models");
+        else
+            candidates.Add(b + "/models");
+
+        return candidates
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }
 

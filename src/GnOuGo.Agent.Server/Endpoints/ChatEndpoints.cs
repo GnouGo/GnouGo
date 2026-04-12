@@ -1,7 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Shared;
 
@@ -29,7 +25,7 @@ public static class ChatEndpoints
                 }
             }
 
-            var text = await smartFlow.CompleteAsync(lastUserMsg, ct).ConfigureAwait(false);
+            var text = await smartFlow.CompleteAsync(lastUserMsg, request.AgentName, ct).ConfigureAwait(false);
             return Results.Ok(new { text });
         }
         catch (Exception ex)
@@ -68,7 +64,7 @@ public static class ChatEndpoints
                 }
             }
 
-            await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, ct).ConfigureAwait(false))
+            await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, request.AgentName, ct).ConfigureAwait(false))
             {
                 // SSE format: "event: <type>\ndata: <text>\n\n"
                 await ctx.Response.WriteAsync($"event: {evt.Type}\ndata: {evt.Text ?? ""}\n\n", ct).ConfigureAwait(false);

@@ -18,7 +18,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-    await db.Database.EnsureCreatedAsync();
+    await KeyVaultDatabaseBootstrap.EnsureCreatedAsync(db);
     var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
     await svc.EnsureDefaultKeyPairAsync();
 }

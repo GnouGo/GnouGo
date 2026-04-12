@@ -20,7 +20,7 @@ public sealed class AgentStreamingTelemetry : IWorkflowTelemetry
 
     public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result) { }
 
-    public IStepSpan StepStart(IWorkflowSpan workflowSpan, StepTelemetryInfo info) =>
+    public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info) =>
         new AgentStepSpan(info, _emit);
 
     public void StepEnd(IStepSpan span, StepResultInfo result)

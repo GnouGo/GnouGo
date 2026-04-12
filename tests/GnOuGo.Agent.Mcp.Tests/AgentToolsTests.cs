@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -84,6 +83,17 @@ public class AgentToolsTests : IDisposable
         Assert.Equal("INVALID_INPUT", result["error_code"]!.GetValue<string>());
     }
 
+    [Fact]
+    public async Task AgentAdd_ReturnsAlreadyExists_WhenNameAlreadyExistsIgnoringCase()
+    {
+        await _tools.AgentAdd("DailyReporter", "wf");
+
+        var result = await _tools.AgentAdd(" dailyreporter ", "wf2");
+
+        Assert.False(result["success"]!.GetValue<bool>());
+        Assert.Equal("ALREADY_EXISTS", result["error_code"]!.GetValue<string>());
+    }
+
     // ── agent_list ───────────────────────────────────────────────────
 
     [Fact]
@@ -141,6 +151,19 @@ public class AgentToolsTests : IDisposable
 
         Assert.False(result["success"]!.GetValue<bool>());
         Assert.Equal("INVALID_INPUT", result["error_code"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task AgentUpdate_ReturnsAlreadyExists_WhenRenamingToExistingName()
+    {
+        await _tools.AgentAdd("Alpha", "wf1");
+        var second = await _tools.AgentAdd("Bravo", "wf2");
+        var secondId = second["agent"]!.AsObject()["id"]!.GetValue<string>();
+
+        var result = await _tools.AgentUpdate(secondId, " alpha ", "wf3");
+
+        Assert.False(result["success"]!.GetValue<bool>());
+        Assert.Equal("ALREADY_EXISTS", result["error_code"]!.GetValue<string>());
     }
 
     // ── agent_delete ─────────────────────────────────────────────────

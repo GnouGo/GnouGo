@@ -20,12 +20,10 @@ meta:
       - Policy enforcement (allowed step types, max steps)
       - Automatic re-prompting on validation errors (up to 3 attempts)
       - Execution of the generated workflow (workflow.execute)
-      - Optional human-approved Markdown export through `GnOuGo.Cmd.Mcp`
       - Combining static and dynamic workflows in one document
     
     Requires:
       - LLM.Models.OpenAi configured with a valid API key
-      - Optional for file export: `GnOuGo.Cmd.Mcp` configured with `write_markdown_file`
     
     Usage:
       gnougo-flow run examples/dynamic-workflow-agent.yaml -i task="Write a haiku about Kubernetes, then translate it to French"
@@ -39,11 +37,6 @@ workflows:
         type: string
         required: true
         description: A natural-language description of the task to accomplish
-      markdown_timestamp_format:
-        type: string
-        required: false
-        default: dd_MM_yyyy
-        description: .NET date/time pattern used in the default Markdown export filename, for example dd_MM_yyyy or dd_MM_yyyy_HH_mm_ss
     
     steps:
       # ──────────────────────────────────────────────────────────
@@ -218,66 +211,10 @@ workflows:
             ${json(data.steps.run.outputs)}
             
             Please format this into a clean, well-structured response for the user.
-            Use markdown formatting. Be concise but complete.
-            Start directly with the answer, do not mention that a workflow was used.
+            Use rich Markdown formatting (headings, bold, lists, code blocks where relevant).
+            Be concise but complete. Start directly with the answer, do not mention that a workflow was used.
 
-      # ──────────────────────────────────────────────────────────
-      # Phase 7: Optional human-approved Markdown export
-      # ──────────────────────────────────────────────────────────
-      - id: ask_markdown_export
-        type: human.input
-        input:
-          prompt: |
-            The final answer is ready.
-            Do you want to save it as a Markdown file?
-          context: "${data.steps.format.text}"
-          choices:
-            - save
-            - skip
 
-      - id: ask_markdown_path
-        type: human.input
-        if: "${data.steps.ask_markdown_export.response == 'save'}"
-        input:
-          prompt: "Enter the relative .md path to create inside the GnOuGo workspace:"
-          fields:
-            - name: file_path
-              type: string
-              required: true
-              default: "${'exports/final-answer-' + formatDate(now(), data.inputs.markdown_timestamp_format) + '.md'}"
-              description: Relative Markdown file path. The default includes the current date, and you can use formats such as dd_MM_yyyy or dd_MM_yyyy_HH_mm_ss.
-
-      - id: render_markdown_export
-        type: template.render
-        if: "${data.steps.ask_markdown_export.response == 'save'}"
-        input:
-          engine: mustache
-          mode: text
-          template: |
-            # Final Answer
-
-            **Task**
-
-            {{task}}
-
-            ---
-
-            {{{answer}}}
-          data:
-            task: "${data.inputs.task}"
-            answer: "${data.steps.format.text}"
-
-      - id: save_markdown_file
-        type: mcp.call
-        if: "${data.steps.ask_markdown_export.response == 'save'}"
-        input:
-          server: GnOuGo.Cmd.Mcp
-          method: cmd_run
-          request:
-            commandName: write_markdown_file
-            parametersJson: "${json({ path: data.steps.ask_markdown_path.file_path, contentBase64: base64(data.steps.render_markdown_export.text) })}"
-            timeoutMs: 30000
-    
     outputs:
       task:
         expr: "${data.inputs.task}"
@@ -286,7 +223,7 @@ workflows:
       answer:
         expr: "${data.steps.format.text}"
         type: string
-        description: Final formatted answer
+        description: Final formatted answer in Markdown
       approved_approach:
         expr: "${data.steps.analyze.text}"
         type: string
@@ -299,20 +236,7 @@ workflows:
         expr: "${data.steps.generate.yaml}"
         type: string
         description: Generated YAML workflow source
-      markdown_export_requested:
-        expr: "${data.steps.ask_markdown_export?.response == 'save'}"
-        type: boolean
-        description: Whether the user asked to save the final answer as Markdown
-      markdown_export_path:
-        expr: "${data.steps.ask_markdown_path?.file_path}"
-        type: string
-        description: Relative Markdown file path requested by the user, if any
-      markdown_export_result:
-        expr: "${data.steps.save_markdown_file?.response}"
-        type: object
-        description: Result returned by the MCP command server when saving the Markdown file
       meta:
         model: "${data.steps.generate.meta.model}"
         attempts: "${data.steps.generate.meta.attempt}"
         steps_executed: "${data.steps.run.run.steps_executed}"
-        markdown_saved: "${data.steps.ask_markdown_export?.response == 'save'}"

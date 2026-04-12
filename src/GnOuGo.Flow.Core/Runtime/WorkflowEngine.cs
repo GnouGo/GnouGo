@@ -26,6 +26,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public IHumanInputProvider? HumanInputProvider { get; set; }
     public IWorkflowCheckpointer? Checkpointer { get; set; }
     public IWorkflowTelemetry Telemetry { get; set; } = NullWorkflowTelemetry.Instance;
+    public LlmRuntimeDefaults LlmDefaults { get; set; } = new();
     public FetchPolicy? FetchPolicy { get; set; }
     public ExecutionLimits Limits { get; set; } = new();
     public CompiledDocument? CompiledDocument { get; private set; }
@@ -301,10 +302,10 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         int callDepth,
         HashSet<string> callStack,
         CancellationToken ct,
-        IWorkflowSpan? workflowSpan = null,
+        ITelemetrySpan? parentSpan = null,
         int startFromIndex = 0)
     {
-        workflowSpan ??= NullWorkflowTelemetry.Instance.WorkflowStart(new WorkflowTelemetryInfo());
+        parentSpan ??= NullWorkflowTelemetry.Instance.WorkflowStart(new WorkflowTelemetryInfo());
 
         for (var stepIndex = startFromIndex; stepIndex < steps.Count; stepIndex++)
         {
@@ -336,7 +337,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                     var guardResult = _interpolator.Interpolate(step.Source.If, data);
                     if (!ExpressionEvaluator.GetBool(guardResult))
                     {
-                        stepSpan ??= Telemetry.StepStart(workflowSpan, new StepTelemetryInfo
+                        stepSpan ??= Telemetry.StepStart(parentSpan, new StepTelemetryInfo
                         {
                             StepId = step.Id,
                             StepType = step.Type,
@@ -381,7 +382,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                     Input = resolvedInput?.DeepClone(),
                     CallDepth = callDepth
                 };
-                stepSpan = Telemetry.StepStart(workflowSpan, stepTelemetryInfo);
+                stepSpan = Telemetry.StepStart(parentSpan, stepTelemetryInfo);
 
                 Logger.LogDebug("Step '{StepId}' ({StepType}) starting at depth {CallDepth}",
                     step.Id, step.Type, callDepth);
@@ -454,7 +455,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             }
             catch (WorkflowRuntimeException ex)
             {
-                stepSpan ??= Telemetry.StepStart(workflowSpan, new StepTelemetryInfo
+                stepSpan ??= Telemetry.StepStart(parentSpan, new StepTelemetryInfo
                 {
                     StepId = step.Id,
                     StepType = step.Type,
@@ -624,6 +625,20 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         if (ctx.Data["steps"] is JsonObject so && so.ContainsKey($"__{ctx.Step.Id}_input__"))
             return so[$"__{ctx.Step.Id}_input__"];
         return ctx.Step.Source.Input;
+    }
+
+    /// <summary>
+    /// Resolves the effective LLM provider/model for a step by applying runtime defaults
+    /// when the workflow input omits one or both values.
+    /// </summary>
+    public (string? Provider, string? Model) ResolveLlmTarget(string? provider, string? model)
+    {
+        var resolvedProvider = string.IsNullOrWhiteSpace(provider) ? LlmDefaults.Provider : provider;
+        var resolvedModel = string.IsNullOrWhiteSpace(model) ? LlmDefaults.Model : model;
+
+        return (
+            string.IsNullOrWhiteSpace(resolvedProvider) ? null : resolvedProvider,
+            string.IsNullOrWhiteSpace(resolvedModel) ? null : resolvedModel);
     }
 
     public ExpressionEvaluator Evaluator => _evaluator;

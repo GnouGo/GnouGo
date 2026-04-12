@@ -5,8 +5,9 @@ namespace GnOuGo.AI.Core;
 
 /// <summary>
 /// LLM provider for OpenAI-compatible APIs (OpenAI, Azure OpenAI, any /v1/chat/completions endpoint).
+/// Uses the same resolved bearer token for inference and model discovery.
 /// </summary>
-public sealed class OpenAiLLMProvider : ILLMProvider
+public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 {
     private readonly HttpClient _http;
 
@@ -24,6 +25,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider
     {
         var url = OpenAiEndpoints.ChatCompletions(provider.Url);
         var tools = MapTools(request.Tools);
+        var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
 
         byte[] payload = ChatRequestBuilder.OpenAiFull(
             model, request.Prompt, request.Temperature, tools,
@@ -31,11 +33,8 @@ public sealed class OpenAiLLMProvider : ILLMProvider
 
         using var req = HttpRequestHelper.CreateJsonPost(url, payload);
 
-        var apiKey = provider.ApiKey;
-        if (string.IsNullOrWhiteSpace(apiKey))
-            apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-        if (!string.IsNullOrWhiteSpace(apiKey))
-            HttpRequestHelper.SetBearerAuth(req, apiKey);
+        if (!string.IsNullOrWhiteSpace(bearerToken))
+            HttpRequestHelper.SetBearerAuth(req, bearerToken);
 
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
 
@@ -73,5 +72,57 @@ public sealed class OpenAiLLMProvider : ILLMProvider
 
     private static List<LLMToolDef>? MapTools(IReadOnlyList<LLMToolDef>? tools)
         => tools is { Count: > 0 } ? tools as List<LLMToolDef> ?? new List<LLMToolDef>(tools) : null;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<LLMModelDescriptor>> ListModelsAsync(ModelProviderOptions provider, CancellationToken ct)
+    {
+        var url = OpenAiEndpoints.Models(provider.Url);
+        using var req = HttpRequestHelper.CreateGet(url);
+        var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
+
+        if (!string.IsNullOrWhiteSpace(bearerToken))
+            HttpRequestHelper.SetBearerAuth(req, bearerToken);
+
+        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
+            throw new HttpRequestException(
+                $"OpenAI model list call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+        }
+
+        await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+        using var json = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+        var results = new List<LLMModelDescriptor>();
+        if (json.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in data.EnumerateArray())
+            {
+                var id = item.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+                if (string.IsNullOrWhiteSpace(id))
+                    continue;
+
+                var ownedBy = item.TryGetProperty("owned_by", out var ownedByEl) ? ownedByEl.GetString() : null;
+                results.Add(new LLMModelDescriptor(id, id, ProviderType, ownedBy));
+            }
+        }
+
+        return await OpenAiCompatibleModelAvailabilityProbe.FilterUsableModelsAsync(
+            _http,
+            OpenAiEndpoints.ChatCompletions(provider.Url),
+            results,
+            bearerToken,
+            normalizeModel: null,
+            ct);
+    }
+
+    internal static string? ResolveApiKey(ModelProviderOptions provider)
+    {
+        if (!string.IsNullOrWhiteSpace(provider.ApiKey))
+            return provider.ApiKey;
+
+        return Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+    }
 }
 

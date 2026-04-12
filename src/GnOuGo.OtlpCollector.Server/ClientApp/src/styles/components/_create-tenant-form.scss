@@ -2,6 +2,8 @@
 // Create Tenant Form Component (BEM)
 // ============================================================================
 
+@use '../variables' as *;
+
 .create-tenant-form {
   display: flex;
   flex-direction: column;

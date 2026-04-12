@@ -100,6 +100,18 @@ public class AgentRepositoryTests : IDisposable
         Assert.Equal("padded", agent.Name);
     }
 
+    [Fact]
+    public async Task AddAgent_ThrowsWhenNameAlreadyExists_IgnoringCaseAndWhitespace()
+    {
+        await _repo.AddAgentAsync("DailyReporter", "wf", []);
+
+        var ex = await Assert.ThrowsAsync<DuplicateAgentNameException>(
+            () => _repo.AddAgentAsync("  dailyreporter  ", "wf-2", []));
+
+        Assert.Equal("DailyReporter", (await _repo.ListAgentsAsync()).Single().Name);
+        Assert.Equal("An agent named 'dailyreporter' already exists.", ex.Message);
+    }
+
     // ── ListAgents ───────────────────────────────────────────────────
 
     [Fact]
@@ -160,6 +172,19 @@ public class AgentRepositoryTests : IDisposable
 
         var updated = await _repo.UpdateAgentAsync(created.Id, "Agent", "wf2", []);
         Assert.True(updated.UpdatedAt >= createdTime);
+    }
+
+    [Fact]
+    public async Task UpdateAgent_ThrowsWhenRenamingToExistingName_IgnoringCase()
+    {
+        await _repo.AddAgentAsync("Alpha", "wf", []);
+        var second = await _repo.AddAgentAsync("Bravo", "wf", []);
+
+        var ex = await Assert.ThrowsAsync<DuplicateAgentNameException>(
+            () => _repo.UpdateAgentAsync(second.Id, " alpha ", "wf-2", []));
+
+        Assert.Equal("An agent named 'alpha' already exists.", ex.Message);
+        Assert.Equal("Bravo", (await _repo.ListAgentsAsync()).Single(a => a.Id == second.Id).Name);
     }
 
     // ── DeleteAgent ──────────────────────────────────────────────────

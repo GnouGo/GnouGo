@@ -1,11 +1,14 @@
-using System;
-using System.IO;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using System.Net;
+using GnOuGo.Agent.Mcp;
+using GnOuGo.Agent.Mcp.Services;
+using GnOuGo.Agent.Server.Components;
+using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -14,14 +17,53 @@ using OpenTelemetry.Trace;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.Endpoints;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.Agent.Shared;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.KeyVault.Core;
+using GnOuGo.KeyVault.Core.Data;
+using GnOuGo.KeyVault.Mcp;
+using GnOuGo.KeyVault.Core.Services;
+using OtlpTenantCollector.Hosting;
+using OtlpTenantCollector.Web;
+using System.Net.Http.Headers;
 
 namespace GnOuGo.Agent.Server.Hosting;
 
 public static class GnOuGoAgentWebHost
 {
+    private static readonly HttpClient MountedMcpProxyHttpClient = new(new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false,
+        AutomaticDecompression = DecompressionMethods.None,
+        UseCookies = false,
+        EnableMultipleHttp2Connections = true
+    })
+    {
+        Timeout = Timeout.InfiniteTimeSpan,
+        DefaultRequestVersion = HttpVersion.Version20,
+        DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher
+    };
+
+    private static readonly MountedMcpRegistration AgentMcpRegistration = new(
+        AgentMcpHostingExtensions.ServerName,
+        "/mcp/agent",
+        "Agent management and chat history via locally mounted MCP HTTP endpoint",
+        "GnOuGo.Agent.Server.AgentMcpMount");
+
+    private static readonly MountedMcpRegistration KeyVaultMcpRegistration = new(
+        KeyVaultMcpHostingExtensions.ServerName,
+        "/mcp/keyvault",
+        "Encrypted secret manager via locally mounted MCP HTTP endpoint",
+        "GnOuGo.Agent.Server.KeyVaultMcpMount");
+
+    private static readonly IReadOnlyList<MountedMcpRegistration> MountedMcpRegistrations =
+    [
+        AgentMcpRegistration,
+        KeyVaultMcpRegistration
+    ];
+
     public static WebApplication Build(
         string[] args,
         string? urls = null,
@@ -77,6 +119,20 @@ public static class GnOuGoAgentWebHost
                 optional: true,
                 reloadOnChange: false);
 
+            // Desktop-specific publish overrides (for example bundled MCP tools under ./tools)
+            // should win over both appsettings.json and appsettings.Development.json when present.
+            builder.Configuration.AddJsonFile(
+                Path.Combine(contentRoot, "appsettings.Desktop.json"),
+                optional: true,
+                reloadOnChange: false);
+
+            // Re-apply command-line arguments after the extra desktop JSON layers so
+            // ad-hoc/test overrides (ports, paths, feature flags) still take precedence.
+            if (args.Length > 0)
+            {
+                builder.Configuration.AddCommandLine(args);
+            }
+
             // Ensure static web assets are available when running as a library host.
             // In published / NativeAOT builds the development manifest may be absent;
             // UseStaticFiles() + the copied wwwroot is sufficient in that case.
@@ -84,25 +140,29 @@ public static class GnOuGoAgentWebHost
             {
                 builder.WebHost.UseStaticWebAssets();
             }
-            catch (InvalidOperationException)
+            catch (Exception)
             {
-                // Manifest not found – expected in published Desktop builds.
+                // Manifest not found or references non-existent paths — expected in published Desktop builds.
+                // UseStaticFiles() + the copied wwwroot/ folder is sufficient.
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(urls))
-        {
-            builder.WebHost.UseUrls(urls);
-        }
+        var primaryUrls = string.IsNullOrWhiteSpace(urls)
+            ? builder.Configuration[WebHostDefaults.ServerUrlsKey] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
+            : urls;
+        var collectorEndpointSettings = builder.WebHost.ConfigureEmbeddedCollectorEndpoints(builder.Configuration);
 
-        // --- config ---
-        // Layer in the persisted user-settings.json (written by LLMRuntimeOptionsStore after /llm wizard).
-        // This ensures wizard-saved API keys survive restarts and are visible in IOptions<LLMOptions>.
-        var userSettingsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "GnOuGo.Agent",
-            "user-settings.json");
-        builder.Configuration.AddJsonFile(userSettingsPath, optional: true, reloadOnChange: false);
+        if (collectorEndpointSettings.Enabled)
+        {
+            builder.WebHost.ConfigureKestrel(options =>
+            {
+                ConfigurePrimaryAndCollectorListeners(options, primaryUrls, collectorEndpointSettings);
+            });
+        }
+        else if (!string.IsNullOrWhiteSpace(primaryUrls))
+        {
+            builder.WebHost.UseUrls(primaryUrls);
+        }
 
         // LLM + MCP configuration (same structure as GnOuGo.Flow.Server)
         var llmOptions = builder.Configuration.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
@@ -114,24 +174,34 @@ public static class GnOuGoAgentWebHost
         EnsureDotnetRootEnv(dotnetExe);
         SubstituteDotnetCommand(llmOptions.McpServers, dotnetExe);
         ResolveRelativeMcpProjectPaths(llmOptions.McpServers);
+        ResolveRelativeMcpCommandPaths(llmOptions.McpServers);
 
-        // Bind LLMOptions for IOptions<LLMOptions> (used by LLMRuntimeOptionsStore)
-        builder.Services.Configure<LLMOptions>(
-            builder.Configuration.GetSection(LLMOptions.SectionName));
+        // Register the normalized LLM options so runtime services receive the same MCP
+        // configuration after command/path resolution.
+        builder.Services.AddSingleton<IOptions<LLMOptions>>(_ => Options.Create(llmOptions));
 
         // OpenTelemetry configuration
         builder.Services.Configure<OpenTelemetrySettings>(
             builder.Configuration.GetSection(OpenTelemetrySettings.SectionName));
+        builder.Services.Configure<TraceDebugSettings>(
+            builder.Configuration.GetSection(TraceDebugSettings.SectionName));
+        builder.Services.Configure<OtlpCollectorEndpointSettings>(
+            builder.Configuration.GetSection(OtlpCollectorEndpointSettings.SectionName));
 
         var otelSettings = builder.Configuration
             .GetSection(OpenTelemetrySettings.SectionName)
             .Get<OpenTelemetrySettings>() ?? new OpenTelemetrySettings();
+        var devModeEnabled = builder.Configuration.GetValue<bool>("DevMode:Enabled");
 
         if (otelSettings.Enabled)
         {
+            builder.Logging.AddFilter<OpenTelemetryLoggerProvider>((category, _) =>
+                EmbeddedCollectorLogCategoryFilter.ShouldCapture(category));
+
             var protocol = otelSettings.Protocol.Equals("HttpProtobuf", StringComparison.OrdinalIgnoreCase)
                 ? OtlpExportProtocol.HttpProtobuf
                 : OtlpExportProtocol.Grpc;
+            var exporterEndpoint = ResolveOtlpExporterEndpoint(otelSettings, collectorEndpointSettings, protocol);
 
             var resourceBuilder = ResourceBuilder.CreateDefault()
                 .AddService(otelSettings.ServiceName, serviceVersion: "1.0.0")
@@ -150,14 +220,20 @@ public static class GnOuGoAgentWebHost
 
                     if (otelSettings.IncludeAspNetCoreTraces)
                     {
-                        tracing.AddAspNetCoreInstrumentation();
+                        tracing.AddAspNetCoreInstrumentation(options =>
+                        {
+                            options.Filter = httpContext => !IsTelemetryRequest(httpContext.Request, collectorEndpointSettings);
+                        });
                     }
 
                     tracing
-                        .AddHttpClientInstrumentation()
+                        .AddHttpClientInstrumentation(options =>
+                        {
+                            options.FilterHttpRequestMessage = request => !IsCollectorRequestUri(request.RequestUri, collectorEndpointSettings);
+                        })
                         .AddOtlpExporter(o =>
                         {
-                            o.Endpoint = new Uri(otelSettings.OtlpEndpoint);
+                            o.Endpoint = exporterEndpoint;
                             o.Protocol = protocol;
                             if (!string.IsNullOrWhiteSpace(otelSettings.TenantId))
                                 o.Headers = $"X-Tenant-Id={otelSettings.TenantId}";
@@ -172,7 +248,7 @@ public static class GnOuGoAgentWebHost
                         .AddHttpClientInstrumentation()
                         .AddOtlpExporter(o =>
                         {
-                            o.Endpoint = new Uri(otelSettings.OtlpEndpoint);
+                            o.Endpoint = exporterEndpoint;
                             o.Protocol = protocol;
                             if (!string.IsNullOrWhiteSpace(otelSettings.TenantId))
                                 o.Headers = $"X-Tenant-Id={otelSettings.TenantId}";
@@ -185,12 +261,19 @@ public static class GnOuGoAgentWebHost
                 logging.IncludeFormattedMessage = true;
                 logging.IncludeScopes = true;
                 logging.ParseStateValues = true;
-                logging.AddOtlpExporter(o =>
+                logging.AddOtlpExporter((o, processor) =>
                 {
-                    o.Endpoint = new Uri(otelSettings.OtlpEndpoint);
+                    o.Endpoint = exporterEndpoint;
                     o.Protocol = protocol;
                     if (!string.IsNullOrWhiteSpace(otelSettings.TenantId))
                         o.Headers = $"X-Tenant-Id={otelSettings.TenantId}";
+
+                    if (collectorEndpointSettings.Enabled)
+                    {
+                        processor.BatchExportProcessorOptions.ScheduledDelayMilliseconds = 200;
+                        processor.BatchExportProcessorOptions.MaxQueueSize = 256;
+                        processor.BatchExportProcessorOptions.MaxExportBatchSize = 32;
+                    }
                 });
             });
         }
@@ -200,13 +283,43 @@ public static class GnOuGoAgentWebHost
         {
             o.SerializerOptions.TypeInfoResolverChain.Insert(0, ChatJsonContext.Default);
         });
+        builder.Services.Configure<ModelCatalogCacheSettings>(
+            builder.Configuration.GetSection(ModelCatalogCacheSettings.SectionName));
+        builder.Services.Configure<KeyVaultSettings>(
+            builder.Configuration.GetSection(KeyVaultSettings.SectionName));
+        builder.Services.AddOtlpCollectorCore(builder.Configuration);
+
+        var agentDbRelativePath = builder.Configuration.GetValue<string>("Agent:DatabasePath")
+            ?? AgentMcpHostingExtensions.DefaultDatabasePath;
+        var agentDbPath = Path.IsPathRooted(agentDbRelativePath)
+            ? agentDbRelativePath
+            : Path.Combine(AppContext.BaseDirectory, agentDbRelativePath);
+        var keyVaultDbRelativePath = builder.Configuration.GetValue<string>("KeyVault:DatabasePath")
+            ?? "data/gnougo-keyvault.db";
+        var keyVaultDbPath = KeyVaultDatabasePathResolver.Resolve(keyVaultDbRelativePath, AppContext.BaseDirectory);
+        Directory.CreateDirectory(Path.GetDirectoryName(agentDbPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(keyVaultDbPath)!);
 
         // --- services ---
         // LLMRuntimeOptionsStore: holds the live LLMOptions (updated by /llm wizard, persisted to user-settings.json)
-        builder.Services.AddSingleton<LLMRuntimeOptionsStore>();
+        builder.Services.AddMemoryCache();
+        builder.Services.AddHttpClient(TraceDebugService.HttpClientName);
+        builder.Services.AddSingleton<LocalTraceDebugStore>();
+        builder.Services.AddSingleton<LLMRuntimeOptionsStore>(sp =>
+        {
+            var initialOptions = sp.GetRequiredService<IOptions<LLMOptions>>();
+            var logger = sp.GetRequiredService<ILogger<LLMRuntimeOptionsStore>>();
+            var settingsPath = builder.Configuration.GetValue<string>("Agent:UserSettingsPath");
+            return new LLMRuntimeOptionsStore(initialOptions, logger, settingsPath);
+        });
+        builder.Services.AddSingleton<AgentUserConfigMcpClient>();
+        builder.Services.AddAgentMcpPersistence(agentDbPath);
+        builder.Services.AddKeyVaultMcpPersistence(keyVaultDbPath);
+        builder.Services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
+        builder.Services.AddSingleton<SecureWorkflowRuntimeFactory>();
+        builder.Services.AddSingleton<CollectorTracePersistence>();
+        builder.Services.AddSingleton<ILoggerProvider, CollectorLoggerProvider>();
 
-        // AgentOTelTelemetry: emits OpenTelemetry traces/metrics for every workflow step
-        builder.Services.AddSingleton<AgentOTelTelemetry>();
 
         builder.Services.AddSingleton<ILLMClient>(sp =>
         {
@@ -216,23 +329,57 @@ public static class GnOuGoAgentWebHost
             // so a /llm wizard update takes effect for the very next message.
             return new DynamicRoutingLLMClientAdapter(http, store);
         });
-        builder.Services.AddSingleton<IMcpClientFactory>(_ =>
+        builder.Services.AddSingleton<ILLMModelCatalog>(sp =>
         {
-            if (llmOptions.McpServers.Count > 0)
-                return new ConfiguredMcpClientFactory(llmOptions.McpServers);
+            var store = sp.GetRequiredService<LLMRuntimeOptionsStore>();
+            var cache = sp.GetRequiredService<IMemoryCache>();
+            var settings = sp.GetRequiredService<IOptions<ModelCatalogCacheSettings>>().Value;
+            var logger = sp.GetRequiredService<ILogger<CachedLlmModelCatalog>>();
+            var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
+            var innerCatalog = new DynamicRoutingLLMModelCatalogAdapter(http, store);
+            return new CachedLlmModelCatalog(innerCatalog, store, cache, settings, logger);
+        });
+        builder.Services.AddSingleton<IMcpClientFactory>(sp =>
+        {
+            var runtimeOptions = sp.GetRequiredService<LLMRuntimeOptionsStore>().Current;
+            if (runtimeOptions.McpServers.Count > 0)
+                return new ConfiguredMcpClientFactory(runtimeOptions.McpServers);
             return new InMemoryMcpClientFactory();
         });
-        builder.Services.AddMemoryCache();
         builder.Services.AddSingleton<AgentHumanInputProvider>();
+        builder.Services.AddSingleton<AgentOTelTelemetry>();
         builder.Services.AddSingleton<ConfigureProvidersService>();
+        builder.Services.AddSingleton<ConfigureAgentsService>();
         builder.Services.AddSingleton<SmartFlowService>();
+        builder.Services.AddSingleton<TraceDebugService>();
 
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
 
         builder.Services.AddSingleton<WordChunker>();
+        var capturedArgs = args;
+        builder.Services.AddSingleton<MountedMcpHostsHolder>(sp => new MountedMcpHostsHolder(capturedArgs, sp, startInBackground: isDesktopHosted));
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<MountedMcpHostsHolder>());
 
         var app = builder.Build();
+
+        app.Services.InitializeAgentMcpAsync().GetAwaiter().GetResult();
+
+        using (var scope = app.Services.CreateScope())
+        {
+            var keyVaultDb = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
+            KeyVaultDatabaseBootstrap.EnsureCreatedAsync(keyVaultDb).GetAwaiter().GetResult();
+
+            var keyVaultService = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+            keyVaultService.EnsureDefaultKeyPairAsync().GetAwaiter().GetResult();
+        }
+
+        app.Services.InitializeOtlpCollectorAsync().GetAwaiter().GetResult();
+
+        // Mounted MCP sub-hosts are started/stopped by the MountedMcpHostsHolder
+        // IHostedService — no direct startup here.
+        var mountedMcpHostsHolder = app.Services.GetRequiredService<MountedMcpHostsHolder>();
+        app.Lifetime.ApplicationStarted.Register(() => _ = InitializeMountedAgentServicesAsync(app));
 
         if (isDesktopHosted)
         {
@@ -242,7 +389,6 @@ public static class GnOuGoAgentWebHost
                 var shouldTrace =
                     path == "/" ||
                     path == "/health" ||
-                    path.StartsWith("/desktop/boot-log", StringComparison.OrdinalIgnoreCase) ||
                     path.StartsWith("/desktop/page-loaded", StringComparison.OrdinalIgnoreCase) ||
                     path.StartsWith("/desktop/client-ready", StringComparison.OrdinalIgnoreCase) ||
                     path.StartsWith("/_framework", StringComparison.OrdinalIgnoreCase) ||
@@ -300,13 +446,29 @@ public static class GnOuGoAgentWebHost
         // --- API ---
         app.MapPost("/api/chat", ChatEndpoints.CompleteAsync);
         app.MapPost("/api/chat/stream", ChatEndpoints.StreamAsync);
+        app.MapGet("/api/llm/providers", LlmProviderEndpoints.ListProviders);
+        app.MapGet("/api/llm/providers/{provider}/models", LlmProviderEndpoints.ListModelsAsync);
+
+        if (collectorEndpointSettings.Enabled)
+        {
+            var telemetryGrpc = app.MapGroup(string.Empty);
+            telemetryGrpc.RequireHost(collectorEndpointSettings.BuildRequireHostPattern(collectorEndpointSettings.GrpcPort));
+            telemetryGrpc.MapOtlpGrpcReceivers();
+
+            var telemetryHttp = app.MapGroup(string.Empty);
+            telemetryHttp.RequireHost(collectorEndpointSettings.BuildRequireHostPattern(collectorEndpointSettings.HttpPort));
+            telemetryHttp.MapOtlpHttpReceiver(includeHealthEndpoint: collectorEndpointSettings.ExposeHealthEndpoint);
+            telemetryHttp.MapTenantApi();
+        }
+
+        MapMountedMcpEndpoints(app, mountedMcpHostsHolder);
         app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
         app.MapGet("/desktop/boot-log/{token}", (string token, string? step, string? detail) =>
         {
             if (!string.IsNullOrWhiteSpace(token))
             {
                 var safeStep = string.IsNullOrWhiteSpace(step) ? "<unknown>" : step.Trim();
-                var safeDetail = string.IsNullOrWhiteSpace(detail) ? string.Empty : detail.Trim();
+                var safeDetail = string.IsNullOrWhiteSpace(detail) ? "<none>" : detail.Trim();
                 Log($"BOOT token={token} step={safeStep} detail={safeDetail}");
             }
 
@@ -328,10 +490,45 @@ public static class GnOuGoAgentWebHost
         // In published Desktop/NativeAOT builds the static web assets manifest
         // may be absent; MapStaticAssets() is only called when the manifest exists,
         // but interactive SSR is always available.
-        app.MapRazorComponents<GnOuGo.Agent.Server.Components.App>()
+        app.MapRazorComponents<App>()
             .AddInteractiveServerRenderMode();
 
         return app;
+    }
+
+    public static PublishedAgentEndpoints ResolvePublishedEndpoints(WebApplication app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        var addresses = app.Services
+            .GetRequiredService<IServer>()
+            .Features
+            .Get<IServerAddressesFeature>()?
+            .Addresses;
+
+        if (addresses is null || addresses.Count == 0)
+            return new PublishedAgentEndpoints(null, null, null);
+
+        var collectorSettings = app.Services
+            .GetRequiredService<IOptions<OtlpCollectorEndpointSettings>>()
+            .Value;
+
+        var parsedAddresses = addresses
+            .Select(address => Uri.TryCreate(address, UriKind.Absolute, out var uri) ? uri : null)
+            .Where(static uri => uri is not null)
+            .Cast<Uri>()
+            .Select(NormalizePublishedAddress)
+            .ToList();
+
+        var appBaseAddress = SelectPreferredHttpAddress(parsedAddresses, uri => !IsCollectorPort(uri.Port, collectorSettings));
+        var telemetryGrpcBaseAddress = collectorSettings.Enabled
+            ? SelectPreferredHttpAddress(parsedAddresses, uri => uri.Port == collectorSettings.GrpcPort)
+            : null;
+        var telemetryHttpBaseAddress = collectorSettings.Enabled
+            ? SelectPreferredHttpAddress(parsedAddresses, uri => uri.Port == collectorSettings.HttpPort)
+            : null;
+
+        return new PublishedAgentEndpoints(appBaseAddress, telemetryGrpcBaseAddress, telemetryHttpBaseAddress);
     }
 
     // ── Dotnet resolution helpers ─────────────────────────────────────────────
@@ -382,7 +579,7 @@ public static class GnOuGoAgentWebHost
     /// with the resolved full path so subprocesses use the correct dotnet installation.
     /// </summary>
     private static void SubstituteDotnetCommand(
-        Dictionary<string, GnOuGo.AI.Core.McpServerOptions> servers,
+        Dictionary<string, McpServerOptions> servers,
         string dotnetExe)
     {
         if (dotnetExe is "dotnet" or "dotnet.exe") return; // nothing to substitute
@@ -405,7 +602,7 @@ public static class GnOuGoAgentWebHost
     /// which may not match the relative path written in appsettings.json.
     /// </summary>
     private static void ResolveRelativeMcpProjectPaths(
-        Dictionary<string, GnOuGo.AI.Core.McpServerOptions> servers)
+        Dictionary<string, McpServerOptions> servers)
     {
         var solutionRoot = FindSolutionRoot(AppContext.BaseDirectory);
         if (solutionRoot is null) return;
@@ -441,6 +638,39 @@ public static class GnOuGoAgentWebHost
     }
 
     /// <summary>
+    /// Resolves relative stdio MCP command paths from the current application base directory.
+    /// This allows published desktop builds to ship bundled tools under ./tools and launch
+    /// them correctly regardless of the process working directory.
+    /// </summary>
+    private static void ResolveRelativeMcpCommandPaths(
+        Dictionary<string, McpServerOptions> servers)
+    {
+        foreach (var cfg in servers.Values)
+        {
+            if (!string.Equals(cfg.Type, "stdio", StringComparison.OrdinalIgnoreCase)) continue;
+            if (string.IsNullOrWhiteSpace(cfg.Command)) continue;
+            if (Path.IsPathRooted(cfg.Command)) continue;
+
+            var normalizedCommand = cfg.Command.Replace('/', Path.DirectorySeparatorChar)
+                                               .Replace('\\', Path.DirectorySeparatorChar);
+            var resolvedCommand = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, normalizedCommand));
+
+            if (File.Exists(resolvedCommand))
+            {
+                cfg.Command = resolvedCommand;
+                continue;
+            }
+
+            if (!OperatingSystem.IsWindows() || !string.IsNullOrWhiteSpace(Path.GetExtension(resolvedCommand)))
+                continue;
+
+            var windowsExecutable = resolvedCommand + ".exe";
+            if (File.Exists(windowsExecutable))
+                cfg.Command = windowsExecutable;
+        }
+    }
+
+    /// <summary>
     /// Walks up the directory tree from <paramref name="start"/> looking for the
     /// solution root — identified by the presence of <c>global.json</c> or any <c>.sln</c> file.
     /// </summary>
@@ -455,6 +685,618 @@ public static class GnOuGoAgentWebHost
 
             dir = dir.Parent;
         }
+        return null;
+    }
+
+    private static void ConfigureMountedMcpServers(WebApplication app)
+    {
+        var publishedEndpoints = ResolvePublishedEndpoints(app);
+        if (string.IsNullOrWhiteSpace(publishedEndpoints.AppBaseAddress))
+            return;
+
+        foreach (var registration in MountedMcpRegistrations)
+            TryConfigureMountedMcpServer(app, registration, publishedEndpoints.AppBaseAddress);
+    }
+
+    private static async Task InitializeMountedAgentServicesAsync(WebApplication app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        ConfigureMountedMcpServers(app);
+        await InitializeMountedAgentServicesFromServicesAsync(app.Services);
+    }
+
+    private static async Task InitializeMountedAgentServicesFromServicesAsync(IServiceProvider services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        try
+        {
+            using var scope = services.CreateScope();
+            var userConfigs = scope.ServiceProvider.GetRequiredService<IUserConfigRepository>();
+            var runtimeOptions = scope.ServiceProvider.GetRequiredService<LLMRuntimeOptionsStore>();
+            var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("GnOuGo.Agent.Server.UserConfigBootstrap");
+
+            var snapshot = await userConfigs.GetAsync(ct: CancellationToken.None);
+            if (!string.IsNullOrWhiteSpace(snapshot.DefaultLlmProvider))
+            {
+                if (!runtimeOptions.SetDefaultProvider(snapshot.DefaultLlmProvider, snapshot.DefaultLlmModel))
+                {
+                    logger.LogWarning(
+                        "Persisted default LLM provider '{Provider}' could not be applied because it is not configured in runtime options.",
+                        snapshot.DefaultLlmProvider);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            var logger = services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("GnOuGo.Agent.Server.UserConfigBootstrap");
+            logger.LogWarning(ex, "Could not hydrate persisted user defaults from Agent MCP.");
+        }
+    }
+
+    private static void MapMountedMcpEndpoints(WebApplication app, MountedMcpHostsHolder holder)
+    {
+        MapMountedMcpProxy(app, AgentMcpRegistration.RoutePrefix, () => holder.AgentBaseAddress);
+        MapMountedMcpProxy(app, KeyVaultMcpRegistration.RoutePrefix, () => holder.KeyVaultBaseAddress);
+    }
+
+    private static void MapMountedMcpProxy(WebApplication app, string routePrefix, Func<Uri?> resolveTarget)
+    {
+        app.Map(routePrefix, context =>
+            {
+                var target = resolveTarget();
+                return target is null
+                    ? Task.FromResult(Results.StatusCode(503))
+                    : ProxyMountedMcpRequestAsync(context, target, path: null);
+            })
+            .DisableAntiforgery();
+
+        app.Map($"{routePrefix}/{{**path}}", (HttpContext context, string path) =>
+            {
+                var target = resolveTarget();
+                return target is null
+                    ? Task.FromResult(Results.StatusCode(503))
+                    : ProxyMountedMcpRequestAsync(context, target, path);
+            })
+            .DisableAntiforgery();
+    }
+
+    private static async Task ProxyMountedMcpRequestAsync(HttpContext context, Uri targetBaseAddress, string? path)
+    {
+        var relativePath = string.IsNullOrWhiteSpace(path) ? string.Empty : "/" + path.TrimStart('/');
+        var targetUri = new Uri($"{targetBaseAddress.ToString().TrimEnd('/')}{relativePath}{context.Request.QueryString}");
+
+        using var request = new HttpRequestMessage(new HttpMethod(context.Request.Method), targetUri);
+
+        var hasBody = context.Request.ContentLength > 0 || context.Request.Headers.ContainsKey("Transfer-Encoding");
+        if (hasBody)
+        {
+            request.Content = new StreamContent(context.Request.Body);
+            if (!string.IsNullOrWhiteSpace(context.Request.ContentType))
+            {
+                request.Content.Headers.TryAddWithoutValidation("Content-Type", context.Request.ContentType);
+            }
+        }
+
+        foreach (var header in context.Request.Headers)
+        {
+            if (ShouldSkipProxyRequestHeader(header.Key, hasBody))
+            {
+                continue;
+            }
+
+            if (!(request.Content?.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray()) ?? false))
+            {
+                request.Headers.TryAddWithoutValidation(header.Key, header.Value.ToArray());
+            }
+        }
+
+        using var response = await MountedMcpProxyHttpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            context.RequestAborted);
+
+        context.Response.StatusCode = (int)response.StatusCode;
+
+        foreach (var header in response.Headers)
+        {
+            context.Response.Headers[header.Key] = RewriteProxyResponseHeaderValues(
+                context,
+                targetBaseAddress,
+                header.Key,
+                header.Value).ToArray();
+        }
+
+        foreach (var header in response.Content.Headers)
+        {
+            context.Response.Headers[header.Key] = RewriteProxyResponseHeaderValues(
+                context,
+                targetBaseAddress,
+                header.Key,
+                header.Value).ToArray();
+        }
+
+        context.Response.Headers.Remove("transfer-encoding");
+
+        await response.Content.CopyToAsync(context.Response.Body, context.RequestAborted);
+    }
+
+    private static bool ShouldSkipProxyRequestHeader(string headerName, bool hasBody)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(headerName);
+
+        if (headerName.Equals("Host", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Connection", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Keep-Alive", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Proxy-Connection", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Upgrade", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("TE", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Trailer", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Proxy-Authorization", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Proxy-Authenticate", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!hasBody)
+            return false;
+
+        return headerName.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Content-Length", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> RewriteProxyResponseHeaderValues(
+        HttpContext context,
+        Uri targetBaseAddress,
+        string headerName,
+        IEnumerable<string> values)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(targetBaseAddress);
+        ArgumentNullException.ThrowIfNull(headerName);
+        ArgumentNullException.ThrowIfNull(values);
+
+        if (!headerName.Equals("Location", StringComparison.OrdinalIgnoreCase)
+            && !headerName.Equals("Content-Location", StringComparison.OrdinalIgnoreCase))
+        {
+            return values;
+        }
+
+        var publicOrigin = new Uri($"{context.Request.Scheme}://{context.Request.Host}");
+        var upstreamOrigin = new Uri($"{targetBaseAddress.Scheme}://{targetBaseAddress.Authority}");
+
+        return values.Select(value => RewriteProxyResponseHeaderValue(value, upstreamOrigin, publicOrigin));
+    }
+
+    private static string RewriteProxyResponseHeaderValue(string value, Uri upstreamOrigin, Uri publicOrigin)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var absolute)
+            || !Uri.Compare(absolute, upstreamOrigin, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase).Equals(0))
+        {
+            return value;
+        }
+
+        var builder = new UriBuilder(absolute)
+        {
+            Scheme = publicOrigin.Scheme,
+            Host = publicOrigin.Host,
+            Port = publicOrigin.IsDefaultPort ? -1 : publicOrigin.Port
+        };
+
+        return builder.Uri.ToString();
+    }
+
+    private static MountedMcpHosts StartMountedMcpHosts(string[] args)
+    {
+        // Strip OtlpCollector / OpenTelemetry args that only the main host needs.
+        // Sub-hosts do not configure collector endpoints and must not inherit them,
+        // otherwise CreateSlimBuilder(args) may bleed config that causes port
+        // collisions or unwanted listener bindings.
+        var subHostArgs = FilterArgsForSubHosts(args);
+
+        var agentApp = AgentMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: AgentMcpHostingExtensions.DefaultRoutePrefix);
+        agentApp.StartAsync().GetAwaiter().GetResult();
+
+        var keyVaultApp = KeyVaultMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: KeyVaultMcpHostingExtensions.DefaultRoutePrefix);
+        keyVaultApp.StartAsync().GetAwaiter().GetResult();
+
+        return new MountedMcpHosts(
+            agentApp,
+            ResolveSingleListeningBaseAddress(agentApp, AgentMcpHostingExtensions.DefaultRoutePrefix),
+            keyVaultApp,
+            ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpHostingExtensions.DefaultRoutePrefix));
+    }
+
+    private static async Task<MountedMcpHosts> StartMountedMcpHostsAsync(string[] args, CancellationToken cancellationToken)
+    {
+        var subHostArgs = FilterArgsForSubHosts(args);
+
+        var agentApp = AgentMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: AgentMcpHostingExtensions.DefaultRoutePrefix);
+        await agentApp.StartAsync(cancellationToken);
+
+        try
+        {
+            var keyVaultApp = KeyVaultMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: KeyVaultMcpHostingExtensions.DefaultRoutePrefix);
+            await keyVaultApp.StartAsync(cancellationToken);
+
+            return new MountedMcpHosts(
+                agentApp,
+                ResolveSingleListeningBaseAddress(agentApp, AgentMcpHostingExtensions.DefaultRoutePrefix),
+                keyVaultApp,
+                ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpHostingExtensions.DefaultRoutePrefix));
+        }
+        catch
+        {
+            await agentApp.StopAsync(cancellationToken);
+            await agentApp.DisposeAsync();
+            throw;
+        }
+    }
+
+    private static async Task StopMountedMcpHostsAsync(MountedMcpHosts mountedMcpHosts)
+    {
+        await mountedMcpHosts.AgentApp.StopAsync();
+        await mountedMcpHosts.KeyVaultApp.StopAsync();
+        await mountedMcpHosts.AgentApp.DisposeAsync();
+        await mountedMcpHosts.KeyVaultApp.DisposeAsync();
+    }
+
+    /// <summary>
+    /// Returns a copy of <paramref name="args"/> with OtlpCollector / OpenTelemetry /
+    /// Ingest / TraceDebug args removed and explicit <c>--OtlpCollector:Enabled=false</c>
+    /// / <c>--OpenTelemetry:Enabled=false</c> appended.
+    /// This prevents mounted MCP sub-hosts from inheriting collector configuration
+    /// that only the main host should use.
+    /// </summary>
+    private static string[] FilterArgsForSubHosts(string[] args)
+    {
+        static bool IsMainHostOnlyArg(string arg) =>
+            arg.StartsWith("--OtlpCollector:", StringComparison.OrdinalIgnoreCase) ||
+            arg.StartsWith("--OpenTelemetry:", StringComparison.OrdinalIgnoreCase) ||
+            arg.StartsWith("--Ingest:", StringComparison.OrdinalIgnoreCase) ||
+            arg.StartsWith("--TraceDebug:", StringComparison.OrdinalIgnoreCase) ||
+            arg.StartsWith("--Database:", StringComparison.OrdinalIgnoreCase);
+
+        var filtered = args.Where(a => !IsMainHostOnlyArg(a)).ToList();
+        filtered.Add("--OtlpCollector:Enabled=false");
+        filtered.Add("--OpenTelemetry:Enabled=false");
+        return filtered.ToArray();
+    }
+
+    private static Uri ResolveSingleListeningBaseAddress(WebApplication app, string routePrefix)
+    {
+        var address = app.Services
+            .GetRequiredService<IServer>()
+            .Features
+            .Get<IServerAddressesFeature>()?
+            .Addresses
+            .FirstOrDefault();
+
+        if (!Uri.TryCreate(address, UriKind.Absolute, out var baseAddress))
+        {
+            throw new InvalidOperationException($"Could not resolve a listening address for mounted MCP host '{routePrefix}'.");
+        }
+
+        return new Uri($"{baseAddress.ToString().TrimEnd('/')}{routePrefix}");
+    }
+
+    private static void TryConfigureMountedMcpServer(
+        WebApplication app,
+        MountedMcpRegistration registration,
+        string appBaseAddress)
+        => TryConfigureMountedMcpServerFromServices(app.Services, registration, appBaseAddress);
+
+    private static void TryConfigureMountedMcpServerFromServices(
+        IServiceProvider services,
+        MountedMcpRegistration registration,
+        string appBaseAddress)
+    {
+        try
+        {
+            var baseAddress = $"{appBaseAddress.TrimEnd('/')}{registration.RoutePrefix}";
+
+            if (string.IsNullOrWhiteSpace(baseAddress))
+                return;
+
+            var optionsStore = services.GetRequiredService<LLMRuntimeOptionsStore>();
+            var current = optionsStore.Current;
+            current.McpServers.TryGetValue(registration.ServerName, out var existing);
+
+            optionsStore.UpsertTransientMcpServer(
+                registration.ServerName,
+                new McpServerOptions
+                {
+                    Type = "http",
+                    Description = existing?.Description ?? registration.DefaultDescription,
+                    Url = baseAddress,
+                    ApiKey = existing?.ApiKey,
+                    Issuer = existing?.Issuer,
+                    ClientId = existing?.ClientId,
+                    ClientSecret = existing?.ClientSecret,
+                    Scopes = existing?.Scopes
+                });
+        }
+        catch (Exception ex)
+        {
+            var logger = services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger(registration.LoggerName);
+            logger.LogWarning(ex, "Could not repoint the mounted MCP endpoint '{ServerName}'.", registration.ServerName);
+        }
+    }
+
+    private sealed record MountedMcpRegistration(
+        string ServerName,
+        string RoutePrefix,
+        string DefaultDescription,
+        string LoggerName);
+
+    private sealed record MountedMcpHosts(
+        WebApplication AgentApp,
+        Uri AgentBaseAddress,
+        WebApplication KeyVaultApp,
+        Uri KeyVaultBaseAddress);
+
+    /// <summary>
+    /// Manages the lifecycle of mounted MCP sub-hosts (Agent, KeyVault).
+    /// Registered as <see cref="IHostedService"/> so sub-hosts only start when the main app
+    /// starts and are stopped when the main app stops — preventing resource leaks in tests
+    /// that call <c>Build()</c> without <c>StartAsync()</c>.
+    /// </summary>
+    private sealed class MountedMcpHostsHolder : IHostedService
+    {
+        private readonly string[] _args;
+        private readonly IServiceProvider _services;
+        private readonly bool _startInBackground;
+        private MountedMcpHosts? _hosts;
+        private Task? _startupTask;
+        private CancellationTokenSource? _startupCancellation;
+
+        public MountedMcpHostsHolder(string[] args, IServiceProvider services, bool startInBackground)
+        {
+            _args = args;
+            _services = services;
+            _startInBackground = startInBackground;
+        }
+
+        public MountedMcpHosts? Hosts => _hosts;
+        public Uri? AgentBaseAddress => _hosts?.AgentBaseAddress;
+        public Uri? KeyVaultBaseAddress => _hosts?.KeyVaultBaseAddress;
+
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            if (_startInBackground)
+            {
+                _startupCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                _startupTask = StartMountedHostsInBackgroundAsync(_startupCancellation.Token);
+                return Task.CompletedTask;
+            }
+
+            _hosts = StartMountedMcpHosts(_args);
+            return Task.CompletedTask;
+        }
+
+        public async Task StopAsync(CancellationToken cancellationToken)
+        {
+            if (_startupCancellation is not null)
+            {
+                try
+                {
+                    await _startupCancellation.CancelAsync();
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
+
+            if (_startupTask is not null)
+            {
+                try
+                {
+                    await _startupTask;
+                }
+                catch (OperationCanceledException)
+                {
+                    // ignore
+                }
+            }
+
+            if (_hosts is not null)
+            {
+                await StopMountedMcpHostsAsync(_hosts);
+                _hosts = null;
+            }
+        }
+
+        private async Task StartMountedHostsInBackgroundAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                _hosts = await StartMountedMcpHostsAsync(_args, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var logger = _services.GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("GnOuGo.Agent.Server.MountedMcpHostsHolder");
+                logger.LogWarning(ex, "Mounted MCP sub-host startup failed.");
+            }
+        }
+    }
+
+
+    public sealed record PublishedAgentEndpoints(
+        string? AppBaseAddress,
+        string? TelemetryGrpcBaseAddress,
+        string? TelemetryHttpBaseAddress);
+
+    private static Uri ResolveOtlpExporterEndpoint(
+        OpenTelemetrySettings otelSettings,
+        OtlpCollectorEndpointSettings collectorEndpointSettings,
+        OtlpExportProtocol protocol)
+    {
+        ArgumentNullException.ThrowIfNull(otelSettings);
+        ArgumentNullException.ThrowIfNull(collectorEndpointSettings);
+
+        if (collectorEndpointSettings.Enabled)
+        {
+            return protocol == OtlpExportProtocol.HttpProtobuf
+                ? collectorEndpointSettings.GetHttpEndpoint()
+                : collectorEndpointSettings.GetGrpcEndpoint();
+        }
+
+        return new Uri(otelSettings.OtlpEndpoint);
+    }
+
+    private static bool IsTelemetryRequest(HttpRequest request, OtlpCollectorEndpointSettings collectorEndpointSettings)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(collectorEndpointSettings);
+
+        return collectorEndpointSettings.Enabled
+            && IsCollectorPort(request.Host.Port, collectorEndpointSettings);
+    }
+
+    private static bool IsCollectorRequestUri(Uri? requestUri, OtlpCollectorEndpointSettings collectorEndpointSettings)
+    {
+        if (requestUri is null || !collectorEndpointSettings.Enabled)
+            return false;
+
+        if (!IsCollectorPort(requestUri.Port, collectorEndpointSettings))
+            return false;
+
+        var requestHost = NormalizePublishedHost(requestUri.Host);
+        var clientHost = NormalizePublishedHost(collectorEndpointSettings.GetClientHost());
+        return requestHost.Equals(clientHost, StringComparison.OrdinalIgnoreCase)
+            || (IPAddress.TryParse(requestHost, out var requestIp)
+                && IPAddress.TryParse(clientHost, out var clientIp)
+                && Equals(requestIp, clientIp));
+    }
+
+    private static Uri NormalizePublishedAddress(Uri address)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+
+        var normalizedHost = NormalizePublishedHost(address.Host);
+        if (string.Equals(normalizedHost, address.Host, StringComparison.OrdinalIgnoreCase))
+            return address;
+
+        var builder = new UriBuilder(address)
+        {
+            Host = normalizedHost
+        };
+
+        return builder.Uri;
+    }
+
+    private static string NormalizePublishedHost(string? host)
+    {
+        var normalizedHost = (host ?? string.Empty).Trim().Trim('[', ']');
+        if (string.IsNullOrWhiteSpace(normalizedHost))
+            return normalizedHost;
+
+        if (normalizedHost is "0.0.0.0" or "*" or "+" or "::" or "::0")
+            return "127.0.0.1";
+
+        if (IPAddress.TryParse(normalizedHost, out var ipAddress)
+            && (IPAddress.Any.Equals(ipAddress) || IPAddress.IPv6Any.Equals(ipAddress)))
+        {
+            return "127.0.0.1";
+        }
+
+        return normalizedHost;
+    }
+
+    private static bool IsCollectorPort(int? port, OtlpCollectorEndpointSettings collectorEndpointSettings)
+        => port.HasValue
+           && collectorEndpointSettings.Enabled
+           && (port.Value == collectorEndpointSettings.GrpcPort || port.Value == collectorEndpointSettings.HttpPort);
+
+    private static void ConfigurePrimaryAndCollectorListeners(
+        KestrelServerOptions options,
+        string? primaryUrls,
+        OtlpCollectorEndpointSettings collectorEndpointSettings)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(collectorEndpointSettings);
+
+        foreach (var primaryUrl in SplitUrls(primaryUrls))
+            ConfigurePrimaryListener(options, primaryUrl);
+
+        options.ConfigureListener(collectorEndpointSettings.Host, collectorEndpointSettings.GrpcPort, HttpProtocols.Http2);
+        options.ConfigureListener(collectorEndpointSettings.Host, collectorEndpointSettings.HttpPort, HttpProtocols.Http1AndHttp2);
+    }
+
+    private static void ConfigurePrimaryListener(KestrelServerOptions options, string url)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        var normalizedUrl = url
+            .Trim()
+            .Replace("://*", "://0.0.0.0", StringComparison.Ordinal)
+            .Replace("://+", "://0.0.0.0", StringComparison.Ordinal);
+
+        if (!Uri.TryCreate(normalizedUrl, UriKind.Absolute, out var uri))
+            throw new InvalidOperationException($"Could not parse primary server URL '{url}'.");
+
+        var isHttps = string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+        options.ConfigureListener(uri.Host, uri.Port, HttpProtocols.Http1AndHttp2, listen =>
+        {
+            if (isHttps)
+                listen.UseHttps();
+        });
+    }
+
+    private static IEnumerable<string> SplitUrls(string? urls)
+    {
+        if (string.IsNullOrWhiteSpace(urls))
+        {
+            yield return "http://localhost:5000";
+            yield break;
+        }
+
+        foreach (var url in urls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            yield return url;
+    }
+
+    private static string? SelectPreferredHttpAddress(IEnumerable<Uri> addresses, Func<Uri, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(addresses);
+        ArgumentNullException.ThrowIfNull(predicate);
+
+        foreach (var address in addresses)
+        {
+            if (!string.Equals(address.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!predicate(address))
+                continue;
+
+            if (address.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase))
+                return address.ToString().TrimEnd('/');
+        }
+
+        foreach (var address in addresses)
+        {
+            if (!string.Equals(address.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (predicate(address))
+                return address.ToString().TrimEnd('/');
+        }
+
+        foreach (var address in addresses)
+        {
+            if (predicate(address))
+                return address.ToString().TrimEnd('/');
+        }
+
         return null;
     }
 }

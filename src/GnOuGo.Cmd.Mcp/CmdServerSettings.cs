@@ -20,7 +20,10 @@ public sealed class CmdServerSettings
         "TMP",
         "TEMP",
         "USERPROFILE",
-        "HOME"
+        "HOME",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "ProgramData"
     ];
 
     public Dictionary<string, AllowedCommandSettings> AllowedCommands { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -29,11 +32,27 @@ public sealed class CmdServerSettings
 public sealed class AllowedCommandSettings
 {
     public string? Description { get; set; }
-    public string Shell { get; set; } = "powershell";
+    public string Shell { get; set; } = "sh";
     public string Script { get; set; } = "";
     public string? WorkingDirectory { get; set; }
     public int? TimeoutMs { get; set; }
     public int? MaxOutputCharacters { get; set; }
+    public Dictionary<string, CommandParameterSettings> Parameters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Per-OS overrides. Keys are "windows", "linux", "macos" (case-insensitive).
+    /// Only Shell and Script are overridable; Parameters are merged (OS-specific values take precedence).
+    /// </summary>
+    public Dictionary<string, OsCommandOverride> OsOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+/// <summary>
+/// OS-specific override for an allowed command (Shell and/or Script).
+/// </summary>
+public sealed class OsCommandOverride
+{
+    public string? Shell { get; set; }
+    public string? Script { get; set; }
     public Dictionary<string, CommandParameterSettings> Parameters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 

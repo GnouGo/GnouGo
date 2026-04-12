@@ -8,13 +8,13 @@ namespace GnOuGo.AI.Core;
 /// Uses the OpenAI-compatible chat completions endpoint exposed by GitHub.
 ///
 /// Endpoint: https://models.github.ai/inference  (or custom via config)
-/// Auth: Bearer token — GitHub PAT, GITHUB_TOKEN env var, or Copilot OAuth token.
+/// Auth: Bearer token — API key, OIDC access token, GitHub PAT, GITHUB_TOKEN env var, or Copilot OAuth token.
 ///
 /// Model names may use the "vendor/model" convention (e.g. "openai/gpt-4.1")
 /// or plain names (e.g. "gpt-4.1", "o4-mini", "claude-sonnet-4").
 /// The provider strips the vendor prefix before sending to the API.
 /// </summary>
-public sealed class CopilotLLMProvider : ILLMProvider
+public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 {
     /// <summary>
     /// Default GitHub Models inference endpoint.
@@ -31,7 +31,9 @@ public sealed class CopilotLLMProvider : ILLMProvider
     /// <inheritdoc />
     public string ProviderType => "copilot";
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Sends a chat completion request to the GitHub Models / Copilot provider.
+    /// </summary>
     public async Task<LLMClientResponse> CallAsync(
         string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
     {
@@ -45,6 +47,7 @@ public sealed class CopilotLLMProvider : ILLMProvider
 
         // Resolve the actual model name — strip vendor prefix if present (e.g. "openai/gpt-4.1" → "gpt-4.1")
         var resolvedModel = StripVendorPrefix(model);
+        var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveToken, ct);
 
         var tools = MapTools(request.Tools);
 
@@ -54,10 +57,8 @@ public sealed class CopilotLLMProvider : ILLMProvider
 
         using var req = HttpRequestHelper.CreateJsonPost(url, payload);
 
-        // Auth: config ApiKey > GITHUB_TOKEN env var
-        var token = ResolveToken(provider);
-        if (!string.IsNullOrWhiteSpace(token))
-            HttpRequestHelper.SetBearerAuth(req, token);
+        if (!string.IsNullOrWhiteSpace(bearerToken))
+            HttpRequestHelper.SetBearerAuth(req, bearerToken);
 
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
 
@@ -95,7 +96,7 @@ public sealed class CopilotLLMProvider : ILLMProvider
     }
 
     /// <summary>
-    /// Resolves the authentication token for the Copilot provider.
+    /// Resolves fallback authentication tokens for the Copilot provider.
     /// Priority: config ApiKey → GITHUB_TOKEN env var → COPILOT_API_KEY env var.
     /// </summary>
     internal static string? ResolveToken(ModelProviderOptions provider)
@@ -153,5 +154,112 @@ public sealed class CopilotLLMProvider : ILLMProvider
 
     private static List<LLMToolDef>? MapTools(IReadOnlyList<LLMToolDef>? tools)
         => tools is { Count: > 0 } ? tools as List<LLMToolDef> ?? new List<LLMToolDef>(tools) : null;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<LLMModelDescriptor>> ListModelsAsync(ModelProviderOptions provider, CancellationToken ct)
+    {
+        var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveToken, ct);
+        Exception? lastError = null;
+
+        foreach (var candidate in CopilotEndpoints.ModelListCandidates(provider.Url))
+        {
+            try
+            {
+                using var req = GnOuGo.AI.Core.HttpRequestHelper.CreateGet(candidate);
+                if (!string.IsNullOrWhiteSpace(bearerToken))
+                    HttpRequestHelper.SetBearerAuth(req, bearerToken);
+
+                using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
+                    lastError = new HttpRequestException(
+                        $"Copilot/GitHub Models list call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+
+                    if ((int)resp.StatusCode is 404 or 405 or 501)
+                        continue;
+
+                    throw lastError;
+                }
+
+                await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+                using var json = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+                var models = ParseModelResponse(json.RootElement);
+                return await OpenAiCompatibleModelAvailabilityProbe.FilterUsableModelsAsync(
+                    _http,
+                    BuildChatCompletionsUrl(provider.Url),
+                    models,
+                    bearerToken,
+                    StripVendorPrefix,
+                    ct);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                if (IsNonRetryableModelDiscoveryError(ex))
+                    throw;
+
+                lastError = ex;
+            }
+        }
+
+        throw lastError ?? new InvalidOperationException("Unable to retrieve Copilot/GitHub Models catalog.");
+    }
+
+    internal static IReadOnlyList<LLMModelDescriptor> ParseModelResponse(JsonElement root)
+    {
+        IEnumerable<JsonElement> items = [];
+
+        if (root.ValueKind == JsonValueKind.Array)
+        {
+            items = root.EnumerateArray();
+        }
+        else if (root.ValueKind == JsonValueKind.Object)
+        {
+            if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+                items = data.EnumerateArray();
+            else if (root.TryGetProperty("models", out var models) && models.ValueKind == JsonValueKind.Array)
+                items = models.EnumerateArray();
+        }
+
+        var results = new List<LLMModelDescriptor>();
+        foreach (var item in items)
+        {
+            var id = TryGetString(item, "id")
+                ?? TryGetString(item, "name")
+                ?? TryGetString(item, "model")
+                ?? TryGetString(item, "slug");
+
+            if (string.IsNullOrWhiteSpace(id))
+                continue;
+
+            var displayName = TryGetString(item, "name")
+                ?? TryGetString(item, "friendly_name")
+                ?? id;
+
+            var ownedBy = TryGetString(item, "publisher")
+                ?? TryGetString(item, "owned_by")
+                ?? TryGetString(item, "vendor");
+
+            results.Add(new LLMModelDescriptor(id, displayName, "copilot", ownedBy));
+        }
+
+        return results
+            .GroupBy(m => m.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToArray();
+    }
+
+    private static string? TryGetString(JsonElement element, string name)
+        => element.TryGetProperty(name, out var property) && property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : null;
+
+    private static bool IsNonRetryableModelDiscoveryError(Exception ex)
+    {
+        var message = ex.Message;
+        return message.Contains("401 Unauthorized", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("rate-limited", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("Too many requests", StringComparison.OrdinalIgnoreCase);
+    }
 }
 

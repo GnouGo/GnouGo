@@ -82,7 +82,7 @@ public sealed class OtlpTraceGrpcService : OpenTelemetry.Proto.Collector.Trace.V
             var serviceName = rs.Resource?.Attributes
                 .FirstOrDefault(a => a.Key == "service.name")?.Value?.StringValue ?? "unknown-service";
 
-            _logger.LogInformation("[OTLP gRPC] ResourceSpans tenant={TenantId} service='{ServiceName}' scopeCount={ScopeCount}",
+            _logger.LogDebug("[OTLP gRPC] ResourceSpans tenant={TenantId} service='{ServiceName}' scopeCount={ScopeCount}",
                 tenantId, serviceName, rs.ScopeSpans.Count);
 
             foreach (var ss in rs.ScopeSpans)
@@ -91,7 +91,7 @@ public sealed class OtlpTraceGrpcService : OpenTelemetry.Proto.Collector.Trace.V
                 var scopeName = ss.Scope?.Name ?? "unknown";
                 totalSpans += ss.Spans.Count;
 
-                _logger.LogInformation("[OTLP gRPC] Processing {SpansCount} spans — service='{ServiceName}' scope='{ScopeName}'",
+                _logger.LogDebug("[OTLP gRPC] Processing {SpansCount} spans — service='{ServiceName}' scope='{ScopeName}'",
                     ss.Spans.Count, serviceName, scopeName);
 
                 foreach (var s in ss.Spans)
@@ -112,7 +112,7 @@ public sealed class OtlpTraceGrpcService : OpenTelemetry.Proto.Collector.Trace.V
                         {
                             spanName = !string.IsNullOrWhiteSpace(scopeName) ? scopeName : $"span-{s.Kind}";
                         }
-                        _logger.LogInformation("[OTLP gRPC] Span sans nom → fallback: '{FallbackName}'", spanName);
+                        _logger.LogDebug("[OTLP gRPC] Span sans nom → fallback: '{FallbackName}'", spanName);
                     }
 
                     // Utiliser OtlpJson.ToJsonEvents pour garantir la préservation des clés
@@ -152,24 +152,24 @@ public sealed class OtlpTraceGrpcService : OpenTelemetry.Proto.Collector.Trace.V
                     var dbSystem      = s.Attributes.FirstOrDefault(a => a.Key == "db.system")?.Value?.StringValue;
                     var dbOp          = s.Attributes.FirstOrDefault(a => a.Key == "db.operation")?.Value?.StringValue;
 
-                    _logger.LogInformation(
+                    _logger.LogDebug(
                         "[OTLP gRPC] Span '{SpanName}' service='{ServiceName}' scope='{ScopeName}' kind={Kind} duration={Duration}ms status={StatusCode} attrs={AttrCount} events={EventCount}",
                         spanName, serviceName, scopeName, (int)s.Kind, durationMs, statusCode, s.Attributes.Count, s.Events.Count);
 
                     if (genAiSystem != null)
-                        _logger.LogInformation(
+                        _logger.LogDebug(
                             "[OTLP gRPC]   gen_ai: system={System} op={Op} model={Model} input_tokens={InTok} output_tokens={OutTok}",
                             genAiSystem, genAiOp, genAiModel,
                             genAiInTok != null ? OtlpJson.AnyValueToObject(genAiInTok) : null,
                             genAiOutTok != null ? OtlpJson.AnyValueToObject(genAiOutTok) : null);
 
                     if (dbSystem != null)
-                        _logger.LogInformation(
+                        _logger.LogDebug(
                             "[OTLP gRPC]   db: system={System} op={Op}",
                             dbSystem, dbOp);
 
                     if (s.Events.Count > 0)
-                        _logger.LogInformation(
+                        _logger.LogDebug(
                             "[OTLP gRPC]   events: {EventNames}",
                             string.Join(", ", s.Events.Select(e => e.Name)));
 
@@ -195,7 +195,7 @@ public sealed class OtlpTraceGrpcService : OpenTelemetry.Proto.Collector.Trace.V
             }
         }
 
-        _logger.LogInformation("[OTLP gRPC] Enqueued {TotalSpans} spans total pour tenant {TenantId}", totalSpans, tenantId);
+        _logger.LogDebug("[OTLP gRPC] Enqueued {TotalSpans} spans total pour tenant {TenantId}", totalSpans, tenantId);
         return new OpenTelemetry.Proto.Collector.Trace.V1.ExportTraceServiceResponse();
     }
 
@@ -242,7 +242,7 @@ public sealed class OtlpLogsGrpcService : OpenTelemetry.Proto.Collector.Logs.V1.
                 var scopeName = sl.Scope?.Name ?? "unknown";
                 totalLogs += sl.LogRecords.Count;
 
-                _logger.LogInformation("[OTLP gRPC] Processing {LogsCount} logs — service='{ServiceName}' scope='{ScopeName}'",
+                _logger.LogDebug("[OTLP gRPC] Processing {LogsCount} logs — service='{ServiceName}' scope='{ScopeName}'",
                     sl.LogRecords.Count, serviceName, scopeName);
 
                 foreach (var lr in sl.LogRecords)
@@ -260,7 +260,7 @@ public sealed class OtlpLogsGrpcService : OpenTelemetry.Proto.Collector.Logs.V1.
 
                     var bodyPreview = body?.Length > 80 ? body[..80] + "…" : body;
 
-                    _logger.LogInformation(
+                    _logger.LogDebug(
                         "[OTLP gRPC] Log service='{ServiceName}' scope='{ScopeName}' severity={SeverityText}({SeverityNumber}) attrs={AttrCount} body='{BodyPreview}'",
                         serviceName, scopeName, lr.SeverityText, (int)lr.SeverityNumber, lr.Attributes.Count, bodyPreview);
 
@@ -281,7 +281,7 @@ public sealed class OtlpLogsGrpcService : OpenTelemetry.Proto.Collector.Logs.V1.
             }
         }
 
-        _logger.LogInformation("[OTLP gRPC] Enqueued {TotalLogs} logs total pour tenant {TenantId}", totalLogs, tenantId);
+        _logger.LogDebug("[OTLP gRPC] Enqueued {TotalLogs} logs total pour tenant {TenantId}", totalLogs, tenantId);
         return new OpenTelemetry.Proto.Collector.Logs.V1.ExportLogsServiceResponse();
     }
 }

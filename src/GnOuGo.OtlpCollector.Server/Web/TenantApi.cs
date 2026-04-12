@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
 using OtlpTenantCollector.Models;
 using OtlpTenantCollector.Services;
@@ -14,10 +16,12 @@ public static class TenantApi
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
     };
 
-    public static void MapTenantApi(this WebApplication app)
+    public static IEndpointRouteBuilder MapTenantApi(this IEndpointRouteBuilder endpoints)
     {
+        ArgumentNullException.ThrowIfNull(endpoints);
+
         // ── SSE real-time stream ──────────────────────────────────────────
-        app.MapGet("/api/tenants/traces/stream", async (
+        endpoints.MapGet("/api/tenants/traces/stream", async (
             Guid? tenantId,
             int? limit,
             string? serviceName,
@@ -81,7 +85,7 @@ public static class TenantApi
             }
         });
 
-        app.MapPost("/api/admin/tenants", async (CreateTenantRequest req, EfTelemetryStore store) =>
+        endpoints.MapPost("/api/admin/tenants", async (CreateTenantRequest req, EfTelemetryStore store) =>
         {
             var tenantId = Guid.CreateVersion7();
             
@@ -96,7 +100,7 @@ public static class TenantApi
             return Results.Ok(new TenantCreatedResponse(tenantId, req.Name.Trim(), req.RetentionMinutes));
         });
 
-        app.MapGet("/api/admin/tenants", async (EfTelemetryStore store) =>
+        endpoints.MapGet("/api/admin/tenants", async (EfTelemetryStore store) =>
         {
             var tenants = await store.GetAllTenantsAsync();
             return Results.Ok(tenants.Select(t => new
@@ -108,7 +112,7 @@ public static class TenantApi
             }));
         });
 
-        app.MapDelete("/api/admin/tenants/{tenantId:guid}", async (Guid tenantId, EfTelemetryStore store) =>
+        endpoints.MapDelete("/api/admin/tenants/{tenantId:guid}", async (Guid tenantId, EfTelemetryStore store) =>
         {
             var tenant = await store.GetTenantAsync(tenantId);
             if (tenant is null)
@@ -120,7 +124,7 @@ public static class TenantApi
 
         // Purge all telemetry data for a tenant (keeps the tenant)
         // tenantId is optional query param — null means "no tenant" (DevMode)
-        app.MapDelete("/api/tenants/data", async (Guid? tenantId, EfTelemetryStore store, IOptions<DevModeOptions> devOpts) =>
+        endpoints.MapDelete("/api/tenants/data", async (Guid? tenantId, EfTelemetryStore store, IOptions<DevModeOptions> devOpts) =>
         {
             if (tenantId is null && !devOpts.Value.Enabled)
                 return Results.BadRequest(new { error = "tenantId query parameter is required" });
@@ -137,7 +141,7 @@ public static class TenantApi
         });
 
         // Traces endpoints — tenantId is optional query param
-        app.MapGet("/api/tenants/traces/recent", async (
+        endpoints.MapGet("/api/tenants/traces/recent", async (
             Guid? tenantId, 
             int? limit, 
             string? serviceName,
@@ -155,7 +159,7 @@ public static class TenantApi
             return Results.Ok(await store.GetRecentTracesAsync(tenantId, l, serviceName, startUtc, endUtc, traceIdFilter, attributeContains));
         });
 
-        app.MapGet("/api/tenants/traces/{traceId}", async (
+        endpoints.MapGet("/api/tenants/traces/{traceId}", async (
             string traceId,
             Guid? tenantId,
             EfTelemetryStore store,
@@ -181,7 +185,7 @@ public static class TenantApi
         });
 
         // Logs endpoints — tenantId is optional query param
-        app.MapGet("/api/tenants/logs/recent", async (
+        endpoints.MapGet("/api/tenants/logs/recent", async (
             Guid? tenantId, 
             int? limit, 
             string? serviceName,
@@ -218,7 +222,7 @@ public static class TenantApi
         });
 
         // ── SSE real-time stream for logs ──────────────────────────────────
-        app.MapGet("/api/tenants/logs/stream", async (
+        endpoints.MapGet("/api/tenants/logs/stream", async (
             Guid? tenantId,
             int? limit,
             string? serviceName,
@@ -301,7 +305,7 @@ public static class TenantApi
             }
         });
 
-        app.MapGet("/api/tenants/traces/{traceId}/logs", async (
+        endpoints.MapGet("/api/tenants/traces/{traceId}/logs", async (
             string traceId,
             Guid? tenantId,
             EfTelemetryStore store,
@@ -329,6 +333,8 @@ public static class TenantApi
 
             return Results.Ok(logDtos);
         });
+
+        return endpoints;
     }
 
     public sealed record CreateTenantRequest(string Name, int RetentionMinutes);

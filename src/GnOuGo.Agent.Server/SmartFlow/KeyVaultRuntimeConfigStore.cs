@@ -1,0 +1,251 @@
+﻿using System.Text.Json.Nodes;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using GnOuGo.AI.Core;
+using GnOuGo.KeyVault.Core.Services;
+
+namespace GnOuGo.Agent.Server.SmartFlow;
+
+public interface IKeyVaultRuntimeConfigStore
+{
+    Task<IReadOnlyList<KeyVaultSecretSummary>> ListSecretsAsync(CancellationToken ct);
+    Task<string?> GetSecretValueAsync(string key, CancellationToken ct);
+    Task SaveSecretValueAsync(string key, string value, CancellationToken ct);
+    Task<bool> DeleteSecretAsync(string key, CancellationToken ct);
+    Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, CancellationToken ct);
+}
+
+public sealed record KeyVaultSecretSummary(string Key, string CreatedAt, int LatestVersion);
+
+public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
+{
+    private const string DefaultAuthor = "GnOuGo.Agent.Server";
+
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<KeyVaultRuntimeConfigStore> _logger;
+
+    public KeyVaultRuntimeConfigStore(
+        IServiceScopeFactory scopeFactory,
+        ILogger<KeyVaultRuntimeConfigStore> logger)
+    {
+        _scopeFactory = scopeFactory;
+        _logger = logger;
+    }
+
+    public async Task<IReadOnlyList<KeyVaultSecretSummary>> ListSecretsAsync(CancellationToken ct)
+    {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+        var secrets = await service.ListSecretsAsync(null, ct);
+
+        return secrets
+            .OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(s => new KeyVaultSecretSummary(
+                s.Key,
+                s.CreatedAt.ToString("O"),
+                s.LatestVersion))
+            .ToList();
+    }
+
+    public async Task<string?> GetSecretValueAsync(string key, CancellationToken ct)
+    {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+        var secret = await service.GetSecretAsync(key, null, DefaultAuthor, ct);
+        return secret?.Value;
+    }
+
+    public async Task SaveSecretValueAsync(string key, string value, CancellationToken ct)
+    {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+        await service.SetSecretAsync(key, value, null, DefaultAuthor, ct);
+    }
+
+    public async Task<bool> DeleteSecretValueAsync(string key, CancellationToken ct)
+    {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+        return await service.DeleteSecretAsync(key, null, DefaultAuthor, ct);
+    }
+
+    public Task<bool> DeleteSecretAsync(string key, CancellationToken ct)
+        => DeleteSecretValueAsync(key, ct);
+
+    public async Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, CancellationToken ct)
+    {
+        var effective = CloneOptions(baseOptions);
+        var summaries = await ListSecretsAsync(ct);
+
+        foreach (var secret in KeyVaultConfigNaming.SelectPreferredSecrets(summaries, KeyVaultConfigSecretKind.LlmProvider))
+        {
+            var config = await LoadSecretJsonAsync(secret.Key, ct);
+            if (config is null)
+                continue;
+
+            var provider = ReadConfigString(config, "provider")
+                ?? KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.LlmProvider, secret.Key)
+                ?? string.Empty;
+            var url = ReadConfigString(config, "url") ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(provider) || string.IsNullOrWhiteSpace(url))
+                continue;
+
+            var authType = ReadConfigString(config, "authType", "auth_type") ?? "none";
+            var model = ReadConfigString(config, "model") ?? string.Empty;
+
+            effective.Models[provider] = new ModelProviderOptions
+            {
+                Url = url,
+                Type = provider,
+                ApiKey = string.Equals(authType, "api_key", StringComparison.OrdinalIgnoreCase)
+                    ? ReadConfigString(config, "apiKey", "api_key")
+                    : null,
+                Issuer = ReadConfigString(config, "oidcIssuer", "oidc_issuer"),
+                ClientId = ReadConfigString(config, "oidcClientId", "oidc_client_id"),
+                Scopes = ReadConfigString(config, "oidcScopes", "oidc_scopes"),
+                ClientSecret = ReadConfigString(config, "oidcClientSecret", "oidc_client_secret")
+            };
+
+            if (string.Equals(effective.DefaultProvider, provider, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(model))
+            {
+                effective.DefaultModel = model;
+            }
+        }
+
+        foreach (var secret in KeyVaultConfigNaming.SelectPreferredSecrets(summaries, KeyVaultConfigSecretKind.McpServer))
+        {
+            var config = await LoadSecretJsonAsync(secret.Key, ct);
+            if (config is null)
+                continue;
+
+            var name = ReadConfigString(config, "name")
+                ?? KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.McpServer, secret.Key)
+                ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+
+            var transport = ReadConfigString(config, "transport") ?? "http";
+            var authType = ReadConfigString(config, "authType", "auth_type") ?? "none";
+
+            effective.McpServers[name] = new McpServerOptions
+            {
+                Type = transport,
+                Description = ReadConfigString(config, "description"),
+                Url = ReadConfigString(config, "url") ?? string.Empty,
+                Command = ReadConfigString(config, "command"),
+                Args = ParseArgs(config["args"]),
+                ApiKey = string.Equals(authType, "api_key", StringComparison.OrdinalIgnoreCase)
+                    ? ReadConfigString(config, "apiKey", "api_key")
+                    : null,
+                Issuer = ReadConfigString(config, "oidcIssuer", "oidc_issuer"),
+                ClientId = ReadConfigString(config, "oidcClientId", "oidc_client_id"),
+                Scopes = ReadConfigString(config, "oidcScopes", "oidc_scopes"),
+                ClientSecret = ReadConfigString(config, "oidcClientSecret", "oidc_client_secret")
+            };
+        }
+
+        if (!effective.Models.ContainsKey(effective.DefaultProvider)
+            && effective.Models.Count > 0)
+        {
+            var fallback = effective.Models.Keys.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).First();
+            effective.DefaultProvider = fallback;
+        }
+
+        return effective;
+    }
+
+    private async Task<JsonObject?> LoadSecretJsonAsync(string key, CancellationToken ct)
+    {
+        try
+        {
+            var raw = await GetSecretValueAsync(key, ct);
+            return string.IsNullOrWhiteSpace(raw) ? null : JsonNode.Parse(raw) as JsonObject;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not parse KeyVault configuration secret '{Key}'.", key);
+            return null;
+        }
+    }
+
+    private static string? ReadConfigString(JsonObject config, string propertyName, string? legacyPropertyName = null)
+        => TryGetString(config, propertyName)
+           ?? (legacyPropertyName is null ? null : TryGetString(config, legacyPropertyName));
+
+    private static string? TryGetString(JsonObject config, string propertyName)
+        => config[propertyName]?.GetValue<string>();
+
+    private static List<string>? ParseArgs(JsonNode? node)
+    {
+        if (node is JsonArray array)
+        {
+            var values = array
+                .Select(item => item?.GetValue<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!)
+                .ToList();
+            return values.Count == 0 ? null : values;
+        }
+
+        if (node is null)
+            return null;
+
+        var raw = node.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var valuesFromString = raw
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .ToList();
+
+        return valuesFromString.Count == 0 ? null : valuesFromString;
+    }
+
+    private static LLMOptions CloneOptions(LLMOptions source)
+    {
+        var clone = new LLMOptions
+        {
+            DefaultProvider = source.DefaultProvider,
+            DefaultModel = source.DefaultModel,
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase),
+            McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+        };
+
+        foreach (var kv in source.Models)
+        {
+            clone.Models[kv.Key] = new ModelProviderOptions
+            {
+                Url = kv.Value.Url,
+                ApiKey = kv.Value.ApiKey,
+                Type = kv.Value.Type,
+                Issuer = kv.Value.Issuer,
+                ClientId = kv.Value.ClientId,
+                ClientSecret = kv.Value.ClientSecret,
+                Scopes = kv.Value.Scopes
+            };
+        }
+
+        foreach (var kv in source.McpServers)
+        {
+            clone.McpServers[kv.Key] = new McpServerOptions
+            {
+                Type = kv.Value.Type,
+                Description = kv.Value.Description,
+                Url = kv.Value.Url,
+                ApiKey = kv.Value.ApiKey,
+                Issuer = kv.Value.Issuer,
+                ClientId = kv.Value.ClientId,
+                ClientSecret = kv.Value.ClientSecret,
+                Scopes = kv.Value.Scopes,
+                Command = kv.Value.Command,
+                Args = kv.Value.Args is null ? null : [.. kv.Value.Args]
+            };
+        }
+
+        return clone;
+    }
+}
+
+

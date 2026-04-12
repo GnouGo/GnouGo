@@ -8,6 +8,10 @@ namespace GnOuGo.AI.Core;
 /// </summary>
 public static class HttpRequestHelper
 {
+    /// <summary>Creates a GET request.</summary>
+    public static HttpRequestMessage CreateGet(string url)
+        => new(HttpMethod.Get, url);
+
     /// <summary>Creates a POST request with JSON payload.</summary>
     public static HttpRequestMessage CreateJsonPost(string url, byte[] jsonPayload)
     {

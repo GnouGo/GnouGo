@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using GnOuGo.AI.Core;
 
@@ -9,8 +8,10 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 /// <summary>
 /// Singleton that holds the live <see cref="LLMOptions"/> and allows runtime updates
 /// (e.g. from the /llm configure wizard) without restarting the server.
-/// Changes are persisted to <c>user-settings.json</c> in the GnOuGo.Agent app-data folder
-/// so they survive restarts.
+/// Provider and MCP server definitions are persisted to <c>user-settings.json</c>
+/// in the GnOuGo.Agent app-data folder so they survive restarts.
+/// Default provider/model selection is hydrated separately from the Agent MCP
+/// user-config persistence layer.
 /// </summary>
 public sealed class LLMRuntimeOptionsStore
 {
@@ -18,18 +19,17 @@ public sealed class LLMRuntimeOptionsStore
     private readonly string _settingsPath;
     private LLMOptions _current;
     private readonly object _lock = new();
+    private readonly HashSet<string> _transientMcpServers = new(StringComparer.OrdinalIgnoreCase);
 
     public LLMRuntimeOptionsStore(
         IOptions<LLMOptions> initialOptions,
-        ILogger<LLMRuntimeOptionsStore> logger)
+        ILogger<LLMRuntimeOptionsStore> logger,
+        string? settingsPath = null)
     {
         _logger = logger;
-        _settingsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "GnOuGo.Agent",
-            "user-settings.json");
+        _settingsPath = ResolveSettingsPath(settingsPath);
 
-        // Start from appsettings, then overlay persisted user settings
+        // Start from appsettings, then overlay persisted provider + MCP definitions.
         _current = DeepClone(initialOptions.Value);
         LoadPersisted();
     }
@@ -86,21 +86,119 @@ public sealed class LLMRuntimeOptionsStore
             if (!string.IsNullOrWhiteSpace(oidcScopes)) existing.Scopes = oidcScopes;
             if (!string.IsNullOrWhiteSpace(oidcClientSecret)) existing.ClientSecret = oidcClientSecret;
 
-            // Update the default model if this is the default provider
-            if (string.Equals(opts.DefaultProvider, providerKey, StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(model))
+            // Use the existing key casing if found, otherwise use the provided key
+            var finalKey = existingKey ?? providerKey;
+            opts.Models[finalKey] = existing;
+
+            var hasConfiguredDefault = opts.Models.Keys.Any(key =>
+                string.Equals(key, opts.DefaultProvider, StringComparison.OrdinalIgnoreCase));
+
+            if (!hasConfiguredDefault)
+            {
+                opts.DefaultProvider = finalKey;
+                if (!string.IsNullOrWhiteSpace(model))
+                    opts.DefaultModel = model;
+            }
+            else if (string.Equals(opts.DefaultProvider, finalKey, StringComparison.OrdinalIgnoreCase)
+                     && !string.IsNullOrWhiteSpace(model))
             {
                 opts.DefaultModel = model;
             }
 
-            // Use the existing key casing if found, otherwise use the provided key
-            var finalKey = existingKey ?? providerKey;
-            opts.Models[finalKey] = existing;
             _current = opts;
         }
 
         Persist();
         _logger.LogInformation("LLM provider '{Provider}' updated at runtime.", providerKey);
+    }
+
+    /// <summary>
+    /// Sets the default provider/model used by runtime workflow execution.
+    /// </summary>
+    public bool SetDefaultProvider(string providerKey, string? model)
+    {
+        string? resolvedProvider;
+
+        lock (_lock)
+        {
+            var opts = DeepClone(_current);
+            resolvedProvider = opts.Models.Keys.FirstOrDefault(key =>
+                string.Equals(key, providerKey, StringComparison.OrdinalIgnoreCase));
+
+            if (resolvedProvider is null)
+                return false;
+
+            opts.DefaultProvider = resolvedProvider;
+            if (!string.IsNullOrWhiteSpace(model))
+                opts.DefaultModel = model;
+
+            _current = opts;
+        }
+
+        Persist();
+        _logger.LogInformation(
+            "LLM default provider set to '{Provider}' with model '{Model}'.",
+            resolvedProvider,
+            string.IsNullOrWhiteSpace(model) ? "<unchanged>" : model);
+        return true;
+    }
+
+    /// <summary>
+    /// Removes a named provider from the live runtime options and persists the change.
+    /// </summary>
+    public bool RemoveProvider(string providerKey)
+    {
+        lock (_lock)
+        {
+            var opts = DeepClone(_current);
+            var existingKey = opts.Models.Keys.FirstOrDefault(key =>
+                string.Equals(key, providerKey, StringComparison.OrdinalIgnoreCase));
+
+            if (existingKey is null)
+                return false;
+
+            opts.Models.Remove(existingKey);
+
+            if (string.Equals(opts.DefaultProvider, existingKey, StringComparison.OrdinalIgnoreCase))
+            {
+                var nextProvider = opts.Models.Keys
+                    .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
+
+                opts.DefaultProvider = nextProvider ?? string.Empty;
+                opts.DefaultModel = string.Empty;
+            }
+
+            _current = opts;
+        }
+
+        Persist();
+        _logger.LogInformation("LLM provider '{Provider}' removed from runtime options.", providerKey);
+        return true;
+    }
+
+    /// <summary>
+    /// Updates or inserts an MCP server in memory without persisting the change.
+    /// Intended for runtime-only endpoint normalization such as loopback/self-hosted MCP mounts.
+    /// </summary>
+    public void UpsertTransientMcpServer(string serverName, McpServerOptions options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(serverName);
+        ArgumentNullException.ThrowIfNull(options);
+
+        lock (_lock)
+        {
+            var snapshot = DeepClone(_current);
+            snapshot.McpServers[serverName] = CloneMcpServerOptions(options);
+            _current = snapshot;
+            _transientMcpServers.Add(serverName);
+        }
+
+        _logger.LogInformation(
+            "Transient MCP server '{ServerName}' updated at runtime with transport '{Transport}' and url '{Url}'.",
+            serverName,
+            options.Type,
+            options.Url);
     }
 
     // ── persistence ────────────────────────────────────────────────
@@ -118,8 +216,8 @@ public sealed class LLMRuntimeOptionsStore
             var persisted = llmNode.Deserialize<LLMOptions>();
             if (persisted is null) return;
 
-            // Overlay: persisted values win over appsettings defaults
-            // Use case-insensitive matching to avoid creating duplicate entries
+            // Overlay: persisted provider and MCP definitions win over appsettings defaults.
+            // Default provider/model are intentionally NOT loaded from this file anymore.
             lock (_lock)
             {
                 foreach (var kv in persisted.Models)
@@ -139,13 +237,12 @@ public sealed class LLMRuntimeOptionsStore
                     var finalKey = existingKey ?? kv.Key;
                     _current.Models[finalKey] = kv.Value;
                 }
-                if (!string.IsNullOrWhiteSpace(persisted.DefaultProvider))
-                    _current.DefaultProvider = persisted.DefaultProvider;
-                if (!string.IsNullOrWhiteSpace(persisted.DefaultModel))
-                    _current.DefaultModel = persisted.DefaultModel;
+
+                foreach (var kv in persisted.McpServers)
+                    _current.McpServers[kv.Key] = CloneMcpServerOptions(kv.Value);
             }
 
-            _logger.LogInformation("Loaded persisted LLM settings from {Path}.", _settingsPath);
+            _logger.LogInformation("Loaded persisted provider settings from {Path}.", _settingsPath);
         }
         catch (Exception ex)
         {
@@ -158,11 +255,23 @@ public sealed class LLMRuntimeOptionsStore
         try
         {
             LLMOptions snapshot;
-            lock (_lock) snapshot = DeepClone(_current);
+            string[] transientServerNames;
+            lock (_lock)
+            {
+                snapshot = DeepClone(_current);
+                transientServerNames = _transientMcpServers.ToArray();
+            }
 
             Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
 
-            // Write as { "LLM": { ... } } so it can be layered on top of appsettings.json
+            snapshot.DefaultProvider = string.Empty;
+            snapshot.DefaultModel = string.Empty;
+
+            foreach (var transientServerName in transientServerNames)
+                snapshot.McpServers.Remove(transientServerName);
+
+            // Write as { "LLM": { ... } } but without persisted default provider/model,
+            // which now come from the Agent MCP user config storage.
             var wrapper = new JsonObject
             {
                 ["LLM"] = JsonSerializer.SerializeToNode(snapshot)
@@ -198,8 +307,38 @@ public sealed class LLMRuntimeOptionsStore
             };
         }
         foreach (var kv in src.McpServers)
-            clone.McpServers[kv.Key] = kv.Value;
+            clone.McpServers[kv.Key] = CloneMcpServerOptions(kv.Value);
         return clone;
+    }
+
+    private static McpServerOptions CloneMcpServerOptions(McpServerOptions source)
+        => new()
+        {
+            Type = source.Type,
+            Description = source.Description,
+            Url = source.Url,
+            ApiKey = source.ApiKey,
+            Issuer = source.Issuer,
+            ClientId = source.ClientId,
+            ClientSecret = source.ClientSecret,
+            Scopes = source.Scopes,
+            Command = source.Command,
+            Args = source.Args is null ? null : [.. source.Args]
+        };
+
+    private static string ResolveSettingsPath(string? settingsPath)
+    {
+        if (!string.IsNullOrWhiteSpace(settingsPath))
+        {
+            return Path.IsPathRooted(settingsPath)
+                ? settingsPath
+                : Path.GetFullPath(settingsPath);
+        }
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "GnOuGo.Agent",
+            "user-settings.json");
     }
 }
 

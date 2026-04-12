@@ -167,6 +167,50 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_UsesRuntimeDefaults_WhenGeneratorProviderAndModelAreOmitted()
+    {
+        LLMRequest? capturedRequest = null;
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => capturedRequest = req)
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+            });
+
+        var wf = CompileMain(@"
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            instruction: Build a simple greeting workflow
+          validate:
+            compile: false
+");
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LlmDefaults = new LlmRuntimeDefaults
+            {
+                Provider = "openai",
+                Model = "gpt-4o-mini"
+            }
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.NotNull(capturedRequest);
+        Assert.Equal("openai", capturedRequest!.Provider);
+        Assert.Equal("gpt-4o-mini", capturedRequest.Model);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_WithAllowedTypes_FiltersSnippets()
     {
         string? capturedPrompt = null;

@@ -65,9 +65,9 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
             new KeyValuePair<string, object?>("gnougo-flow.workflow.success", result.Success));
     }
 
-    public IStepSpan StepStart(IWorkflowSpan workflowSpan, StepTelemetryInfo info)
+    public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info)
     {
-        var parent = (workflowSpan as Span)?.Activity;
+        var parent = ResolveParentActivity(parentSpan);
         Activity? activity = parent != null
             ? _source.StartActivity(BuildStepSpanName(info), ActivityKind.Client,
                 new ActivityContext(parent.TraceId, parent.SpanId, ActivityTraceFlags.Recorded))
@@ -162,6 +162,14 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
             return info.GenAiOperationName;
         return $"{info.StepType} {info.StepId}";
     }
+
+    private static Activity? ResolveParentActivity(ITelemetrySpan parentSpan)
+        => parentSpan switch
+        {
+            Span workflowSpan => workflowSpan.Activity,
+            StepSpan stepSpan => stepSpan.Activity,
+            _ => null
+        };
 
     public void Dispose()
     {

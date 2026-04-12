@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
+using GnOuGo.Agent.Mcp.Services;
 
 namespace GnOuGo.Agent.Mcp;
 
@@ -10,11 +11,13 @@ namespace GnOuGo.Agent.Mcp;
 public sealed class DataTools
 {
     private readonly InMemoryChatHistoryStore _store;
+    private readonly IUserConfigRepository _userConfigs;
     private readonly ILogger<DataTools> _logger;
 
-    public DataTools(InMemoryChatHistoryStore store, ILogger<DataTools> logger)
+    public DataTools(InMemoryChatHistoryStore store, IUserConfigRepository userConfigs, ILogger<DataTools> logger)
     {
         _store = store;
+        _userConfigs = userConfigs;
         _logger = logger;
     }
 
@@ -69,6 +72,62 @@ public sealed class DataTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "user_chat_history_get unexpected error for conversationId={ConversationId}", conversationId);
+            return ErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    [McpServerTool(Name = "user_config_get"), Description(
+        "Retrieve persisted user defaults for the local agent experience. " +
+        "Returns { success, config: { default_llm_provider?, default_llm_model?, default_agent?, updated_at? } }.")]
+    public async Task<JsonObject> UserConfigGet()
+    {
+        try
+        {
+            return SerializeUserConfig(await _userConfigs.GetAsync());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "user_config_get unexpected error");
+            return ErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    [McpServerTool(Name = "user_config_set"), Description(
+        "Persist user defaults in the Agent MCP database. All arguments are optional. " +
+        "Provide default_llm_provider/default_llm_model and/or default_agent to update values. " +
+        "Use clear_default_llm or clear_default_agent to remove persisted defaults. " +
+        "Returns { success, config: { default_llm_provider?, default_llm_model?, default_agent?, updated_at? } }.")]
+    public async Task<JsonObject> UserConfigSet(
+        [Description("Default LLM provider name to persist.")]
+        string? defaultLlmProvider = null,
+        [Description("Default LLM model name to persist.")]
+        string? defaultLlmModel = null,
+        [Description("Default agent name to persist.")]
+        string? defaultAgent = null,
+        [Description("When true, clears both default_llm_provider and default_llm_model.")]
+        bool clearDefaultLlm = false,
+        [Description("When true, clears default_agent.")]
+        bool clearDefaultAgent = false)
+    {
+        try
+        {
+            var snapshot = await _userConfigs.SetAsync(new UserConfigUpdate(
+                DefaultLlmProvider: defaultLlmProvider,
+                DefaultLlmModel: defaultLlmModel,
+                DefaultAgent: defaultAgent,
+                ClearDefaultLlm: clearDefaultLlm,
+                ClearDefaultAgent: clearDefaultAgent));
+
+            return SerializeUserConfig(snapshot);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "user_config_set validation error");
+            return ErrorResult("INVALID_INPUT", ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "user_config_set unexpected error");
             return ErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
         }
     }
@@ -148,6 +207,19 @@ public sealed class DataTools
             ["messages"] = messagesArray
         };
     }
+
+    internal static JsonObject SerializeUserConfig(UserConfigSnapshot snapshot)
+        => new()
+        {
+            ["success"] = true,
+            ["config"] = new JsonObject
+            {
+                ["default_llm_provider"] = snapshot.DefaultLlmProvider,
+                ["default_llm_model"] = snapshot.DefaultLlmModel,
+                ["default_agent"] = snapshot.DefaultAgent,
+                ["updated_at"] = snapshot.UpdatedAt?.ToString("o")
+            }
+        };
 
     private static JsonObject ErrorResult(string errorCode, string errorMessage)
         => new()

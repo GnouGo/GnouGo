@@ -24,8 +24,7 @@ public sealed class OpenTelemetrySettings
 
     /// <summary>
     /// When true, include ASP.NET Core incoming request traces.
-    /// Keep false in the Agent UI host to avoid noisy traces from Blazor circuit endpoints
-    /// and focus on one trace per workflow execution.
+    /// Embedded collector listener requests are filtered out to avoid tracing the OTLP ingest endpoints themselves.
     /// </summary>
     public bool IncludeAspNetCoreTraces { get; set; }
 }

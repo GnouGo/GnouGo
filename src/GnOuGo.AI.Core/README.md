@@ -11,6 +11,15 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 | `Ollama`    | `ollama`  | Local Ollama server                              |
 | `Copilot`   | `copilot` | GitHub Copilot / GitHub Models API               |
 
+## Model Catalog Behavior
+
+`ILLMModelCatalog` returns models that are actually usable with the configured provider credentials.
+
+- OpenAI-compatible providers and Copilot/GitHub Models first discover the advertised catalog.
+- Then GnOuGo probes chat compatibility with the same bearer token used for real calls.
+- Non-chat models and models rejected by the configured credentials are filtered out.
+- OIDC client-credentials authentication is supported for both inference calls and model discovery.
+
 ## Architecture
 
 ```
@@ -62,6 +71,8 @@ The Copilot provider connects to the [GitHub Models](https://github.com/marketpl
 1. `ApiKey` in the configuration
 2. `GITHUB_TOKEN` environment variable
 3. `COPILOT_API_KEY` environment variable
+
+If `Issuer`, `ClientId`, `Scopes`, and `ClientSecret` are configured, GnOuGo first obtains an OIDC access token and uses it for both chat inference and model discovery.
 
 **Model names** can use the vendor prefix format (`openai/gpt-4.1`, `anthropic/claude-sonnet-4`) — the prefix is automatically stripped before sending to the API. Plain names like `gpt-4.1` or `o4-mini` also work.
 

@@ -1,16 +1,16 @@
 @page "/"
+@using System.Diagnostics
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using System.Threading
 @using Markdig
-@using Microsoft.AspNetCore.Components
-@using Microsoft.AspNetCore.Components.Forms
-@using Microsoft.AspNetCore.Components.Web
-@using GnOuGo.Agent.Shared
+@using Microsoft.JSInterop
+@using GnOuGo.Agent.Server.Components.Tracing
 
-@inject IJSRuntime JS
-@inject GnOuGo.Agent.Server.SmartFlow.SmartFlowService SmartFlow
-@inject GnOuGo.Agent.Server.SmartFlow.AgentHumanInputProvider HumanInputProvider
+@inject IJSRuntime Js
+@inject SmartFlowService SmartFlow
+@inject AgentHumanInputProvider HumanInputProvider
+@inject AgentUserConfigMcpClient UserConfigClient
 
 <div class="sa-app">
     <aside class="sa-app__sidebar sa-sidebar @( _sidebarOpen ? "sa-sidebar--open" : "")">
@@ -67,6 +67,11 @@
             </button>
 
             <div class="sa-chat__topbar-title">
+                @if (!string.IsNullOrWhiteSpace(_defaultAgentName))
+                {
+                    <span class="sa-chat__agent-badge" title="Active agent">🤖 @_defaultAgentName</span>
+                    <span style="margin: 0 8px; opacity: 0.4;">|</span>
+                }
                 @(_active?.Title ?? "Chat")
             </div>
 
@@ -117,6 +122,18 @@
                             <div class="sa-chat__bubble">
                                 <div class="sa-chat__bubble-meta">
                                     <span class="sa-chat__bubble-role">@((isUser ? "You" : "GnOuGo.Agent"))</span>
+                                    @if (!isUser)
+                                    {
+                                        var isTraceSelected = ReferenceEquals(_selectedTraceMessage, msg)
+                                                              || (!string.IsNullOrWhiteSpace(_selectedTraceMessage?.MessageId)
+                                                                  && string.Equals(_selectedTraceMessage?.MessageId, msg.MessageId, StringComparison.Ordinal));
+                                        <button class="sa-chat__bubble-action @(isTraceSelected && _traceSidebarOpen ? "sa-chat__bubble-action--active" : "")"
+                                                type="button"
+                                                title="Open trace debug sidebar"
+                                                @onclick="() => OpenTraceSidebar(msg)">
+                                            🔎 Trace
+                                        </button>
+                                    }
                                 </div>
 
                                 <div class="sa-chat__bubble-text markdown-body">
@@ -174,11 +191,26 @@
                                             {
                                                 <div style="font-size: 0.8em; opacity: 0.7; margin-bottom: 2px;">@field.Description</div>
                                             }
-                                            <input type="text"
-                                                   class="sa-composer__input"
-                                                   style="width: 100%; padding: 6px 10px; border-radius: 6px;"
-                                                   value="@GetFieldValue(field.Name)"
-                                                   @onchange="@((ChangeEventArgs e) => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))" />
+                                            @if (string.Equals(field.Type, "select", StringComparison.OrdinalIgnoreCase) && field.Options is { Count: > 0 })
+                                            {
+                                                <select class="sa-composer__input"
+                                                        style="width: 100%; padding: 6px 10px; border-radius: 6px;"
+                                                        value="@GetFieldValue(field.Name)"
+                                                        @onchange="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))">
+                                                    @foreach (var option in field.Options)
+                                                    {
+                                                        <option value="@option">@option</option>
+                                                    }
+                                                </select>
+                                            }
+                                            else
+                                            {
+                                                <input type="text"
+                                                       class="sa-composer__input"
+                                                       style="width: 100%; padding: 6px 10px; border-radius: 6px;"
+                                                       value="@GetFieldValue(field.Name)"
+                                                       @onchange="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))" />
+                                            }
                                         </div>
                                     }
                                     <button class="sa-composer__send"
@@ -202,7 +234,7 @@
                     <textarea class="sa-composer__input"
                               @bind="_model.Prompt"
                               @bind:event="oninput"
-                              placeholder="Write a message… (Markdown supported: **bold**, `code`, ```mermaid```)"
+                              placeholder="Write a message or YAML… (/llm, /mcp, /agent, Markdown, YAML supported)"
 
                               rows="1"
                               disabled="@_isStreaming"
@@ -229,6 +261,10 @@
             </EditForm>
         </footer>
     </main>
+
+    <ChatTraceSidebar Message="_selectedTraceMessage"
+                      IsOpen="_traceSidebarOpen"
+                      OnClose="CloseTraceSidebarAsync" />
 </div>
 
 @code
@@ -254,6 +290,7 @@
         public string Type { get; set; } = "string";
         public bool Required { get; set; }
         public string? Description { get; set; }
+        public List<string>? Options { get; set; }
         public string? Default { get; set; }
     }
 
@@ -268,16 +305,20 @@
     private readonly ComposeModel _model = new();
     private ChatStoreDto _store = new("", new List<ChatSessionDto>());
     private ChatSessionDto? _active;
+    private string? _defaultAgentName;
 
     private bool _sidebarOpen;
     private bool _isStreaming;
     private string _error = "";
+    private bool _browserStatePending = true;
 
     private CancellationTokenSource? _cts;
     private bool _needsMarkdownEnhance;
 
     private HumanInputModel? _pendingHumanInput;
     private readonly Dictionary<string, string> _fieldValues = new();
+    private bool _traceSidebarOpen;
+    private ChatMessageDto? _selectedTraceMessage;
 
     /// <summary>Accumulates all HITL prompt+response pairs so they can be grouped
     /// into a single message at the end of the flow.</summary>
@@ -290,13 +331,21 @@
     {
         if (firstRender)
         {
-            await LoadStoreAsync();
+            var snapshot = await UserConfigClient.GetAsync();
+            _defaultAgentName = snapshot.DefaultAgent;
             EnsureActiveSession();
+        }
 
-            _needsMarkdownEnhance = true;
-            StateHasChanged();
-
-            await ScrollToBottomAsync();
+        if (_browserStatePending)
+        {
+            var initialized = await TryInitializeBrowserStateAsync();
+            if (initialized)
+            {
+                _needsMarkdownEnhance = true;
+                StateHasChanged();
+                await ScrollToBottomAsync();
+                return;
+            }
         }
 
         if (_needsMarkdownEnhance && !_isStreaming)
@@ -304,16 +353,88 @@
             _needsMarkdownEnhance = false;
             try
             {
-                await JS.InvokeVoidAsync("GnOuGo.Agent.markdown.enhance", "chatMessages");
+                await Js.InvokeVoidAsync("GnOuGo.Agent.markdown.enhance", "chatMessages");
             }
-            catch { }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+            {
+            }
         }
     }
 
     private MarkupString RenderMarkdown(string markdown)
     {
-        var html = Markdig.Markdown.ToHtml(markdown ?? "", MdPipeline);
+        var html = Markdown.ToHtml(NormalizeMarkdown(markdown), MdPipeline);
         return (MarkupString)html;
+    }
+
+    private static string NormalizeMarkdown(string? markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+            return markdown ?? "";
+
+        var normalized = markdown.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n');
+
+        var lines = normalized.Split('\n');
+        var output = new List<string>(lines.Length + 8);
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            var trimmed = line.Trim();
+            var previousTrimmed = output.Count == 0 ? "" : output[^1].Trim();
+            var nextTrimmed = i + 1 < lines.Length ? lines[i + 1].Trim() : "";
+
+            if (!string.IsNullOrWhiteSpace(previousTrimmed)
+                && (LooksLikeAtxHeading(trimmed) || LooksLikeTableHeader(trimmed, nextTrimmed)))
+            {
+                output.Add("");
+            }
+
+            output.Add(line);
+        }
+
+        return string.Join("\n", output);
+    }
+
+    private static bool LooksLikeAtxHeading(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line) || !line.StartsWith('#'))
+            return false;
+
+        var index = 0;
+        while (index < line.Length && line[index] == '#')
+            index++;
+
+        return index is > 0 and <= 6
+            && index < line.Length
+            && char.IsWhiteSpace(line[index]);
+    }
+
+    private static bool LooksLikeTableHeader(string line, string nextLine)
+        => line.Contains('|', StringComparison.Ordinal)
+           && LooksLikeTableSeparator(nextLine);
+
+    private static bool LooksLikeTableSeparator(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line) || !line.Contains('-', StringComparison.Ordinal))
+            return false;
+
+        var cells = line.Trim().Trim('|').Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (cells.Length == 0)
+            return false;
+
+        foreach (var cell in cells)
+        {
+            var content = cell.Trim().Trim(':').Replace(" ", "", StringComparison.Ordinal);
+            if (content.Length < 3 || content.Any(ch => ch != '-'))
+                return false;
+        }
+
+        return true;
     }
 
     private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
@@ -352,24 +473,98 @@
         }
     }
 
+    private async Task<bool> TryInitializeBrowserStateAsync()
+    {
+        try
+        {
+            await LoadStoreAsync();
+            var sessionsChanged = SyncSessionsToDefaultAgent();
+            EnsureActiveSession();
+            if (sessionsChanged)
+                await PersistAsync();
+            _browserStatePending = false;
+            return true;
+        }
+        catch (JSDisconnectedException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+        {
+            return false;
+        }
+    }
+
+    private static bool IsDeferredJavaScriptInterop(InvalidOperationException ex)
+        => ex.Message.Contains("prerender", StringComparison.OrdinalIgnoreCase)
+           || ex.Message.Contains("statically rendered", StringComparison.OrdinalIgnoreCase)
+           || ex.Message.Contains("JavaScript interop", StringComparison.OrdinalIgnoreCase);
+
+    private async Task<ChatMessageDto> AppendAssistantContentAsync(
+        ChatMessageDto assistantMsg,
+        string? incomingText,
+        CancellationToken ct)
+    {
+        if (_active is null)
+            return assistantMsg;
+
+        var text = incomingText ?? "";
+        if (string.IsNullOrWhiteSpace(text))
+            return assistantMsg;
+
+        var current = assistantMsg.Content;
+        if (string.Equals(current, text, StringComparison.Ordinal))
+            return assistantMsg;
+
+        if (!string.IsNullOrEmpty(current) && text.StartsWith(current, StringComparison.Ordinal))
+        {
+            var delta = text[current.Length..];
+            if (!string.IsNullOrEmpty(delta))
+                await TypewriterAppendAsync(delta, assistantMsg, ct);
+        }
+        else if (!string.IsNullOrEmpty(current) && current.StartsWith(text, StringComparison.Ordinal))
+        {
+            return assistantMsg;
+        }
+        else
+        {
+            var separator = NeedsResponseSeparator(current, text) ? "\n\n" : "";
+            await TypewriterAppendAsync(separator + text, assistantMsg, ct);
+        }
+
+        return _active.Messages.LastOrDefault(m =>
+                   string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase))
+               ?? assistantMsg;
+    }
+
+    private static bool NeedsResponseSeparator(string current, string next)
+    {
+        if (string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(next))
+            return false;
+
+        return !char.IsWhiteSpace(current[^1])
+            && !char.IsWhiteSpace(next[0]);
+    }
+
     private async Task SendAsync()
     {
         if (_active is null) return;
         if (_isStreaming) return;
 
         _error = "";
-        var prompt = _model.Prompt?.Trim() ?? "";
+        var prompt = _model.Prompt.Trim();
         if (string.IsNullOrWhiteSpace(prompt))
             return;
 
         _model.Prompt = "";
+        var correlationId = ActivityTraceId.CreateRandom().ToHexString();
 
         // Add user message
-        var userMsg = new ChatMessageDto("user", prompt);
+        var userMsg = new ChatMessageDto("user", prompt, MessageId: Guid.NewGuid().ToString("N"), CorrelationId: correlationId);
         _active.Messages.Add(userMsg);
 
         // Placeholder assistant message
-        var assistantMsg = new ChatMessageDto("assistant", "");
+        var assistantMsg = new ChatMessageDto("assistant", "", MessageId: Guid.NewGuid().ToString("N"), CorrelationId: correlationId);
         _active.Messages.Add(assistantMsg);
 
         TouchActive();
@@ -383,8 +578,21 @@
 
         try
         {
-            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, _cts.Token))
+            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, agentName: null, _cts.Token))
             {
+                if (evt.Type is "trace.started")
+                {
+                    assistantMsg = assistantMsg with
+                    {
+                        CorrelationId = evt.CorrelationId ?? assistantMsg.CorrelationId,
+                        TraceId = evt.TraceId
+                    };
+                    ReplaceLastAssistant(assistantMsg);
+                    TouchActive();
+                    StateHasChanged();
+                    continue;
+                }
+
                 if (evt.Type.StartsWith("thinking:", StringComparison.Ordinal))
                 {
                     var level = evt.Type.AsSpan(9).ToString(); // after "thinking:"
@@ -392,12 +600,13 @@
                     if (string.Equals(level, "response", StringComparison.OrdinalIgnoreCase))
                     {
                         // "response" level = final user-facing content (e.g. from configure-providers)
-                        await TypewriterAppendAsync(evt.Text ?? "", assistantMsg, _cts.Token);
-                        assistantMsg = _active.Messages.Last(m =>
-                            string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase));
+                        assistantMsg = await AppendAssistantContentAsync(assistantMsg, evt.Text, _cts.Token);
                     }
                     else
                     {
+                        if (_active is null)
+                            continue;
+
                         // Insert a thinking message before the assistant placeholder
                         var thinkingMsg = new ChatMessageDto("thinking", evt.Text ?? "");
                         var lastIdx = _active.Messages.Count - 1;
@@ -406,13 +615,10 @@
                         await ScrollToBottomAsync();
                     }
                 }
-                else if (evt.Type is "answer")
+                else if (evt.Type is "answer" or "response")
                 {
                     // Typewriter effect for the final answer
-                    await TypewriterAppendAsync(evt.Text ?? "", assistantMsg, _cts.Token);
-                    // Sync the final state
-                    assistantMsg = _active.Messages.Last(m =>
-                        string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase));
+                    assistantMsg = await AppendAssistantContentAsync(assistantMsg, evt.Text, _cts.Token);
                 }
                 else if (evt.Type is "llm.chunk")
                 {
@@ -431,7 +637,10 @@
                         var timeoutMsg = new ChatMessageDto("assistant",
                             "⏱️ **Human input timed out.** The workflow was waiting for your response, "
                             + "but no input was received within the allowed time. "
-                            + "Please try again — the workflow will re-prompt you for the required information.");
+                            + "Please try again — the workflow will re-prompt you for the required information.",
+                            assistantMsg.MessageId,
+                            assistantMsg.CorrelationId,
+                            assistantMsg.TraceId);
 
                         // Replace the empty assistant placeholder (if any) instead of inserting alongside it
                         var replaced = false;
@@ -441,12 +650,26 @@
                                 && string.IsNullOrWhiteSpace(_active.Messages[i].Content))
                             {
                                 _active.Messages[i] = timeoutMsg;
+                                if (_selectedTraceMessage is not null
+                                    && !string.IsNullOrWhiteSpace(_selectedTraceMessage.MessageId)
+                                    && string.Equals(_selectedTraceMessage.MessageId, timeoutMsg.MessageId, StringComparison.Ordinal))
+                                {
+                                    _selectedTraceMessage = timeoutMsg;
+                                }
                                 replaced = true;
                                 break;
                             }
                         }
                         if (!replaced)
+                        {
                             _active.Messages.Add(timeoutMsg);
+                            if (_selectedTraceMessage is not null
+                                && !string.IsNullOrWhiteSpace(_selectedTraceMessage.MessageId)
+                                && string.Equals(_selectedTraceMessage.MessageId, timeoutMsg.MessageId, StringComparison.Ordinal))
+                            {
+                                _selectedTraceMessage = timeoutMsg;
+                            }
+                        }
 
                         _pendingHumanInput = null;
                         _fieldValues.Clear();
@@ -458,7 +681,16 @@
                         _error = errText;
                     }
                 }
-                else if (evt.Type is "human_input_request")
+                else if (evt.Type is "agent_selected")
+                {
+                    if (!string.IsNullOrWhiteSpace(evt.Text))
+                    {
+                        _defaultAgentName = evt.Text;
+                        SyncSessionsToDefaultAgent();
+                        StateHasChanged();
+                    }
+                }
+                else if (evt.Type == "human_input_request")
                 {
                     // Parse the human input request and show it in the UI
                     var requestJson = JsonNode.Parse(evt.Text ?? "{}")?.AsObject();
@@ -487,6 +719,9 @@
                                     Type = fObj["type"]?.GetValue<string>() ?? "string",
                                     Required = fObj["required"]?.GetValue<bool>() ?? false,
                                     Description = fObj["description"]?.GetValue<string>(),
+                                    Options = fObj["options"] is JsonArray optionsArr
+                                        ? optionsArr.Select(o => o?.GetValue<string>() ?? "").Where(o => !string.IsNullOrWhiteSpace(o)).ToList()
+                                        : null,
                                     Default = fObj["default"]?.GetValue<string>(),
                                 };
                                 model.Fields.Add(field);
@@ -554,7 +789,13 @@
                         ReplaceSession(_active);
                     }
                 }
-                catch { /* ignore title generation failures */ }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception)
+                {
+                    // Ignore title generation failures.
+                }
             }
         }
         catch (OperationCanceledException)
@@ -656,6 +897,12 @@
             if (string.Equals(_active.Messages[i].Role, "assistant", StringComparison.OrdinalIgnoreCase))
             {
                 _active.Messages[i] = assistantMsg;
+                if (_selectedTraceMessage is not null
+                    && !string.IsNullOrWhiteSpace(_selectedTraceMessage.MessageId)
+                    && string.Equals(_selectedTraceMessage.MessageId, assistantMsg.MessageId, StringComparison.Ordinal))
+                {
+                    _selectedTraceMessage = assistantMsg;
+                }
                 return;
             }
         }
@@ -674,13 +921,15 @@
             UpdatedAtUnixMs: now,
             Messages: new List<ChatMessageDto>
             {
-                new("assistant", "New chat started. Ask me anything — I'll stream the answer as it's generated.")
-            });
+                    new("assistant", "New chat started. Ask me anything — I'll stream the answer as it's generated.", Guid.NewGuid().ToString("N"))
+            },
+            AgentName: _defaultAgentName);
 
         // Put it on top.
         _store.Sessions.Insert(0, session);
         _store = _store with { ActiveId = session.Id };
         _active = session;
+        CloseTraceSidebar();
 
         CloseSidebar();
 
@@ -698,6 +947,7 @@
         {
             _store = _store with { ActiveId = id };
             _active = _store.Sessions.FirstOrDefault(s => s.Id == id);
+            CloseTraceSidebar();
 
             CloseSidebar();
             await PersistAsync();
@@ -709,7 +959,7 @@
 
     private async Task LoadStoreAsync()
     {
-        var json = await JS.InvokeAsync<string?>("GnOuGo.Agent.storage.load", StorageKeyV2);
+        var json = await Js.InvokeAsync<string?>("GnOuGo.Agent.storage.load", StorageKeyV2);
         if (!string.IsNullOrWhiteSpace(json))
         {
             var saved = JsonSerializer.Deserialize(json, ChatJsonContext.Default.ChatStoreDto);
@@ -718,7 +968,7 @@
             return;
         }
 
-        var legacy = await JS.InvokeAsync<string?>("GnOuGo.Agent.storage.load", LegacyStorageKey);
+        var legacy = await Js.InvokeAsync<string?>("GnOuGo.Agent.storage.load", LegacyStorageKey);
         if (!string.IsNullOrWhiteSpace(legacy))
         {
             var msgs = JsonSerializer.Deserialize(legacy, ChatJsonContext.Default.ListChatMessageDto)
@@ -733,7 +983,7 @@
 
             _store = new ChatStoreDto(session.Id, new List<ChatSessionDto> { session });
 
-            await JS.InvokeVoidAsync("GnOuGo.Agent.storage.clear", LegacyStorageKey);
+            await Js.InvokeVoidAsync("GnOuGo.Agent.storage.clear", LegacyStorageKey);
             await PersistAsync();
         }
     }
@@ -749,8 +999,9 @@
                 UpdatedAtUnixMs: now,
                 Messages: new List<ChatMessageDto>
                 {
-                    new("assistant", "Hi! I'm GnOuGo.Agent. Ask me anything — I'll stream the answer as it's generated.")
-                });
+                    new("assistant", "Hi! I'm GnOuGo.Agent. Ask me anything — I'll stream the answer as it's generated.", Guid.NewGuid().ToString("N"))
+                },
+                AgentName: _defaultAgentName);
 
             _store.Sessions.Add(session);
             _store = _store with { ActiveId = session.Id };
@@ -761,6 +1012,30 @@
 
         _active = _store.Sessions.FirstOrDefault(s => s.Id == _store.ActiveId) ?? _store.Sessions[0];
         _store = _store with { ActiveId = _active.Id };
+    }
+
+    private bool SyncSessionsToDefaultAgent()
+    {
+        var changed = false;
+
+        for (var i = 0; i < _store.Sessions.Count; i++)
+        {
+            var session = _store.Sessions[i];
+            if (string.Equals(session.AgentName, _defaultAgentName, StringComparison.Ordinal))
+                continue;
+
+            _store.Sessions[i] = session with { AgentName = _defaultAgentName };
+            changed = true;
+        }
+
+        if (_active is not null)
+        {
+            var updatedActive = _store.Sessions.FirstOrDefault(s => s.Id == _active.Id);
+            if (updatedActive is not null)
+                _active = updatedActive;
+        }
+
+        return changed;
     }
 
     private void TouchActive()
@@ -786,7 +1061,26 @@
     private async Task PersistAsync()
     {
         var json = JsonSerializer.Serialize(_store, ChatJsonContext.Default.ChatStoreDto);
-        await JS.InvokeVoidAsync("GnOuGo.Agent.storage.save", StorageKeyV2, json);
+        await Js.InvokeVoidAsync("GnOuGo.Agent.storage.save", StorageKeyV2, json);
+    }
+
+    private void OpenTraceSidebar(ChatMessageDto msg)
+    {
+        _selectedTraceMessage = msg;
+        _traceSidebarOpen = true;
+    }
+
+    private void CloseTraceSidebar()
+    {
+        _traceSidebarOpen = false;
+        _selectedTraceMessage = null;
+    }
+
+    private Task CloseTraceSidebarAsync()
+    {
+        CloseTraceSidebar();
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private static string FormatUpdatedAt(long unixMs)
@@ -800,8 +1094,16 @@
 
     private async Task ScrollToBottomAsync()
     {
-        try { await JS.InvokeVoidAsync("GnOuGo.Agent.scrollToBottom", "chatMessages"); }
-        catch { }
+        try
+        {
+            await Js.InvokeVoidAsync("GnOuGo.Agent.scrollToBottom", "chatMessages");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+        {
+        }
     }
 }
 

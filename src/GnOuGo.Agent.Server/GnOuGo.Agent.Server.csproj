@@ -21,16 +21,23 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.Agent.Shared\GnOuGo.Agent.Shared.csproj" />
+    <ProjectReference Include="..\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.KeyVault.Mcp\GnOuGo.KeyVault.Mcp.csproj" />
+    <ProjectReference Include="..\GnOuGo.OtlpCollector.Server\GnOuGo.OtlpCollector.Server.csproj" AdditionalProperties="SkipClientBuild=true" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Markdig" Version="0.38.0" />
-    <PackageReference Include="OpenTelemetry" Version="1.12.0" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.12.0" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.12.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0" />
+    <InternalsVisibleTo Include="GnOuGo.Agent.Server.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="1.1.2" />
+    <PackageReference Include="OpenTelemetry" Version="1.15.2" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.2" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.2" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.0" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -43,8 +50,32 @@
     <Exec WorkingDirectory="ClientApp" Command="npm run build" />
   </Target>
 
+  <Target Name="PublishBundledServerTools" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+    <PropertyGroup>
+      <BundledServerToolsRoot>$([System.IO.Path]::GetFullPath('$(PublishDir)tools'))</BundledServerToolsRoot>
+      <BundledBrowserToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Browser.Mcp'))</BundledBrowserToolDir>
+      <BundledCmdToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Cmd.Mcp'))</BundledCmdToolDir>
+      <BundledDocumentToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Document.Mcp'))</BundledDocumentToolDir>
+      <BundledBrowserToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj'))</BundledBrowserToolProject>
+      <BundledCmdToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj'))</BundledCmdToolProject>
+      <BundledDocumentToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Document.Mcp\GnOuGo.Document.Mcp.csproj'))</BundledDocumentToolProject>
+      <BundledCmdToolRidArg Condition="'$(RuntimeIdentifier)' != ''">-r $(RuntimeIdentifier)</BundledCmdToolRidArg>
+      <BundledCmdToolSelfContainedArg Condition="'$(RuntimeIdentifier)' != ''">--self-contained true</BundledCmdToolSelfContainedArg>
+    </PropertyGroup>
+
+    <Message Importance="high" Text="Publishing bundled server MCP tools into $(BundledServerToolsRoot)..." />
+
+    <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
+    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
+    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
+  </Target>
+
   <ItemGroup>
     <EmbeddedResource Include="SmartFlow\dynamic-workflow-agent.yaml" />
-    <EmbeddedResource Include="SmartFlow\configure-providers-agent.yaml" />
+    <EmbeddedResource Include="SmartFlow\configure-agents-agent.yaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="ClientApp\package.json;ClientApp\package-lock.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
   </ItemGroup>
 </Project>

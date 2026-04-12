@@ -1,4 +1,4 @@
-﻿﻿﻿// ── Variables ────────────────────────────────────────────────────────
+﻿// ── Variables ────────────────────────────────────────────────────────
 $color-bg: #0f1117;
 $color-surface: #1a1d27;
 $color-border: #2d3148;
@@ -60,7 +60,7 @@ a {
 
     &:hover {
       color: $color-text;
-      background: rgba(white, 0.06);
+      background: rgb(255 255 255 / 0.06);
     }
 
     &--active {

@@ -34,11 +34,12 @@ public sealed class CompositeWorkflowTelemetry : IWorkflowTelemetry
         _otel.WorkflowEnd(cs.OTel, result);
     }
 
-    public IStepSpan StepStart(IWorkflowSpan workflowSpan, StepTelemetryInfo info)
+    public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info)
     {
-        var cs = workflowSpan as CompositeSpan;
-        var s = _streaming.StepStart(cs?.Streaming ?? workflowSpan, info);
-        var o = _otel.StepStart(cs?.OTel ?? workflowSpan, info);
+        var cs = parentSpan as CompositeSpan;
+        var css = parentSpan as CompositeStepSpan;
+        var s = _streaming.StepStart(cs?.Streaming ?? css?.Streaming ?? parentSpan, info);
+        var o = _otel.StepStart(cs?.OTel ?? css?.OTel ?? parentSpan, info);
         return new CompositeStepSpan(s, o);
     }
 

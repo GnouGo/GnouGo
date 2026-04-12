@@ -14,6 +14,7 @@ public static class BuiltInFunctions
         ["exists"] = Exists,
         ["coalesce"] = Coalesce,
         ["len"] = Len,
+        ["length"] = Len, // alias
         ["lower"] = Lower,
         ["upper"] = Upper,
         ["trim"] = Trim,
@@ -21,8 +22,10 @@ public static class BuiltInFunctions
         ["startsWith"] = StartsWith,
         ["endsWith"] = EndsWith,
         ["replace"] = Replace,
+        ["substring"] = Substring,
         ["toNumber"] = ToNumber,
         ["json"] = Json,
+        ["fromJson"] = FromJson,
         ["now"] = Now,
         ["formatDate"] = FormatDate,
         ["base64"] = Base64,
@@ -104,6 +107,27 @@ public static class BuiltInFunctions
         return JsonValue.Create(s.Replace(old, @new, StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// substring(s, start) — returns characters from <paramref name="args"/>[1] to end.
+    /// substring(s, start, length) — returns <paramref name="args"/>[2] characters starting at <paramref name="args"/>[1].
+    /// </summary>
+    private static JsonNode? Substring(JsonNode?[] args)
+    {
+        if (args.Length < 2) return args.Length > 0 ? args[0] : null;
+        var s = ExpressionEvaluator.GetString(args[0]);
+        var start = (int)ExpressionEvaluator.GetNumber(args[1]);
+        if (start < 0) start = 0;
+        if (start >= s.Length) return JsonValue.Create("");
+        if (args.Length >= 3 && args[2] != null)
+        {
+            var length = (int)ExpressionEvaluator.GetNumber(args[2]);
+            if (length <= 0) return JsonValue.Create("");
+            if (start + length > s.Length) length = s.Length - start;
+            return JsonValue.Create(s.Substring(start, length));
+        }
+        return JsonValue.Create(s[start..]);
+    }
+
     private static JsonNode? ToNumber(JsonNode?[] args)
     {
         if (args.Length < 1 || args[0] == null) return JsonValue.Create(0.0);
@@ -114,6 +138,24 @@ public static class BuiltInFunctions
     {
         if (args.Length < 1 || args[0] == null) return JsonValue.Create("null");
         return JsonValue.Create(args[0]!.ToJsonString());
+    }
+
+    /// <summary>
+    /// fromJson(s) — parses a JSON string into a JsonNode (object, array, or value).
+    /// </summary>
+    private static JsonNode? FromJson(JsonNode?[] args)
+    {
+        if (args.Length < 1 || args[0] == null) return null;
+        var s = ExpressionEvaluator.GetString(args[0]);
+        if (string.IsNullOrWhiteSpace(s)) return null;
+        try
+        {
+            return JsonNode.Parse(s);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static JsonNode? Now(JsonNode?[] args)

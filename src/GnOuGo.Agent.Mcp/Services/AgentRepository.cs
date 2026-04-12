@@ -33,10 +33,13 @@ public sealed class AgentRepository : IAgentRepository
         _diff = diff;
     }
 
-    public async Task<AgentDefinition> AddAgentAsync(string name, string workflow, List<Schedule> schedules, CancellationToken ct = default)
+    public async Task<AgentDefinition> AddAgentAsync(string name, string workflow, List<Schedule> schedules, string? originalPrompt = null, string? scheduleDescription = null, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(workflow);
+
+        var normalizedName = NormalizeName(name);
+        await EnsureNameAvailableAsync(normalizedName, excludedAgentId: null, ct);
 
         // Ensure every schedule has an id
         foreach (var s in schedules)
@@ -49,8 +52,10 @@ public sealed class AgentRepository : IAgentRepository
         var agent = new AgentDefinition
         {
             Id = Guid.NewGuid(),
-            Name = name.Trim(),
+            Name = normalizedName,
             Workflow = workflow,
+            OriginalPrompt = originalPrompt,
+            ScheduleDescription = scheduleDescription,
             SchedulesJson = JsonSerializer.Serialize(schedules, JsonOptions),
             CreatedAt = now,
             UpdatedAt = now
@@ -64,10 +69,13 @@ public sealed class AgentRepository : IAgentRepository
         return agent;
     }
 
-    public async Task<AgentDefinition> UpdateAgentAsync(Guid id, string name, string workflow, List<Schedule> schedules, CancellationToken ct = default)
+    public async Task<AgentDefinition> UpdateAgentAsync(Guid id, string name, string workflow, List<Schedule> schedules, string? originalPrompt = null, string? scheduleDescription = null, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(workflow);
+
+        var normalizedName = NormalizeName(name);
+        await EnsureNameAvailableAsync(normalizedName, id, ct);
 
         var agent = await _db.Agents.FindAsync([id], ct)
             ?? throw new KeyNotFoundException($"Agent '{id}' not found.");
@@ -79,8 +87,10 @@ public sealed class AgentRepository : IAgentRepository
                 s.Id = Guid.NewGuid().ToString("N")[..12];
         }
 
-        agent.Name = name.Trim();
+        agent.Name = normalizedName;
         agent.Workflow = workflow;
+        agent.OriginalPrompt = originalPrompt;
+        agent.ScheduleDescription = scheduleDescription;
         agent.SchedulesJson = JsonSerializer.Serialize(schedules, JsonOptions);
         agent.UpdatedAt = DateTimeOffset.UtcNow;
 
@@ -93,6 +103,13 @@ public sealed class AgentRepository : IAgentRepository
 
     public async Task<List<AgentDefinition>> ListAgentsAsync(CancellationToken ct = default)
         => await _db.Agents.OrderBy(a => a.Name).ToListAsync(ct);
+
+    public async Task<AgentDefinition?> GetByNameAsync(string name, CancellationToken ct = default)
+    {
+        var normalizedName = NormalizeName(name);
+        return await _db.Agents.FirstOrDefaultAsync(
+            a => a.Name.ToUpper() == normalizedName.ToUpper(), ct);
+    }
 
     public async Task DeleteAgentAsync(Guid id, CancellationToken ct = default)
     {
@@ -114,6 +131,21 @@ public sealed class AgentRepository : IAgentRepository
     public static List<Schedule> DeserializeSchedules(string schedulesJson)
         => JsonSerializer.Deserialize<List<Schedule>>(schedulesJson, JsonOptions) ?? [];
 
+    private async Task EnsureNameAvailableAsync(string normalizedName, Guid? excludedAgentId, CancellationToken ct)
+    {
+        var existingAgent = await _db.Agents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                a => a.Name.ToUpper() == normalizedName.ToUpper()
+                    && (!excludedAgentId.HasValue || a.Id != excludedAgentId.Value),
+                ct);
+
+        if (existingAgent is not null)
+            throw new DuplicateAgentNameException(normalizedName);
+    }
+
+    private static string NormalizeName(string name) => name.Trim();
+
     // ── Diff helpers ─────────────────────────────────────────────────
 
     private async Task SaveRevisionAsync(AgentDefinition agent)
@@ -133,6 +165,8 @@ public sealed class AgentRepository : IAgentRepository
             Id = agent.Id.ToString(),
             Name = agent.Name,
             Workflow = agent.Workflow,
+            OriginalPrompt = agent.OriginalPrompt ?? "",
+            ScheduleDescription = agent.ScheduleDescription ?? "",
             Schedules = DeserializeSchedules(agent.SchedulesJson),
             CreatedAt = agent.CreatedAt.ToString("o"),
             UpdatedAt = agent.UpdatedAt.ToString("o")
@@ -147,6 +181,8 @@ public sealed class AgentRepository : IAgentRepository
         public string Id { get; set; } = "";
         public string Name { get; set; } = "";
         public string Workflow { get; set; } = "";
+        public string OriginalPrompt { get; set; } = "";
+        public string ScheduleDescription { get; set; } = "";
         public List<Schedule> Schedules { get; set; } = [];
         public string CreatedAt { get; set; } = "";
         public string UpdatedAt { get; set; } = "";

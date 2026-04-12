@@ -1,0 +1,34 @@
+[project]
+name = "gnougo-flow-core"
+version = "0.1.0"
+description = "Python 3.10+ implementation of GnOuGo.Flow.Core"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pydantic>=2.7.0",
+  "PyYAML>=6.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+  "pytest-asyncio>=0.23.7",
+  "ruff>=0.6.0",
+]
+
+[project.scripts]
+gnougo-flow = "gnougo_flow_core.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.24.2"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+

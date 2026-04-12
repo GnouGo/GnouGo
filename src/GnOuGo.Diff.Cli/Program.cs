@@ -4,18 +4,19 @@ using System.Text.Json;
 
 var rootCommand = new RootCommand("GnOuGo.Diff CLI - Outil de test pour insérer des données d'exemple");
 
-var urlOption = new Option<string>(
-    "--url",
-    getDefaultValue: () => "http://localhost:5100",
-    description: "URL de l'API GnOuGo.Diff"
-);
+var urlOption = new Option<string>("--url")
+{
+    Description = "URL de l'API GnOuGo.Diff",
+    DefaultValueFactory = _ => "http://localhost:5100"
+};
 
 // Commande pour insérer des données de test
 var seedCommand = new Command("seed", "Insère un jeu de données d'exemple");
-seedCommand.AddOption(urlOption);
+seedCommand.Add(urlOption);
 
-seedCommand.SetHandler(async (string url) =>
+seedCommand.SetAction(async parseResult =>
 {
+    var url = parseResult.GetValue(urlOption) ?? "http://localhost:5100";
     Console.WriteLine("🌱 Insertion de données d'exemple dans GnOuGo.Diff...");
     Console.WriteLine($"   URL: {url}");
     Console.WriteLine();
@@ -34,11 +35,11 @@ seedCommand.SetHandler(async (string url) =>
     Console.WriteLine();
     Console.WriteLine("✅ Données insérées avec succès!");
     Console.WriteLine($"   Ouvrez {url} dans votre navigateur pour visualiser.");
-}, urlOption);
+});
 
-rootCommand.AddCommand(seedCommand);
+rootCommand.Add(seedCommand);
 
-return await rootCommand.InvokeAsync(args);
+return await rootCommand.Parse(args).InvokeAsync();
 
 static async Task SeedAppConfig(HttpClient client)
 {
