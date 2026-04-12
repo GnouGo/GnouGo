@@ -20,7 +20,10 @@ public sealed class CmdServerSettings
         "TMP",
         "TEMP",
         "USERPROFILE",
-        "HOME"
+        "HOME",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "ProgramData"
     ];
 
     public Dictionary<string, AllowedCommandSettings> AllowedCommands { get; set; } = new(StringComparer.OrdinalIgnoreCase);

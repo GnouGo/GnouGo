@@ -1,3 +1,4 @@
+
 using System.CommandLine;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -19,18 +20,23 @@ using GnOuGo.Flow.Core.Runtime;
 var rootCommand = new RootCommand("GnOuGo.Flow — YAML Workflow DSL Engine");
 
 // === validate ===
-var validateFileArg = new Argument<FileInfo>("file", "YAML workflow file to validate");
-var validateCommand = new Command("validate", "Validate a workflow YAML file") { validateFileArg };
-validateCommand.SetHandler(async (FileInfo file) =>
+var validateFileArg = new Argument<FileInfo>("file")
 {
-    if (!file.Exists)
+    Description = "YAML workflow file to validate"
+};
+var validateCommand = new Command("validate", "Validate a workflow YAML file");
+validateCommand.Add(validateFileArg);
+validateCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellationToken) =>
+{
+    var file = parseResult.GetValue(validateFileArg);
+    if (file is null || !file.Exists)
     {
-        Console.Error.WriteLine($"File not found: {file.FullName}");
+        Console.Error.WriteLine($"File not found: {file?.FullName ?? "(null)"}");
         Environment.ExitCode = 1;
         return;
     }
 
-    var yaml = await File.ReadAllTextAsync(file.FullName);
+    var yaml = await File.ReadAllTextAsync(file.FullName, cancellationToken);
 
     try
     {
@@ -53,6 +59,7 @@ validateCommand.SetHandler(async (FileInfo file) =>
             {
                 Console.WriteLine($"  {err}");
             }
+
             Environment.ExitCode = 1;
         }
     }
@@ -63,38 +70,59 @@ validateCommand.SetHandler(async (FileInfo file) =>
         Console.ResetColor();
         Environment.ExitCode = 1;
     }
-}, validateFileArg);
+});
 
 // === run ===
-var runFileArg = new Argument<FileInfo>("file", "YAML workflow file to run");
-var inputOption = new Option<string[]>("--input", "Input values as key=value pairs") { AllowMultipleArgumentsPerToken = true };
-inputOption.AddAlias("-i");
-var inputJsonOption = new Option<string?>("--input-json", "Full JSON object as input");
-inputJsonOption.AddAlias("-j");
-var mockOption = new Option<bool>("--mock", "Use mock LLM and MCP clients (no real API calls)");
-mockOption.AddAlias("-m");
-var runCommand = new Command("run", "Run a workflow YAML file") { runFileArg, inputOption, inputJsonOption, mockOption };
-runCommand.SetHandler(async (FileInfo file, string[] inputs, string? inputJson, bool useMock) =>
+var runFileArg = new Argument<FileInfo>("file")
 {
-    if (!file.Exists)
+    Description = "YAML workflow file to run"
+};
+var inputOption = new Option<string[]>("--input")
+{
+    Description = "Input values as key=value pairs",
+    AllowMultipleArgumentsPerToken = true
+};
+inputOption.Aliases.Add("-i");
+
+var inputJsonOption = new Option<string?>("--input-json")
+{
+    Description = "Full JSON object as input"
+};
+inputJsonOption.Aliases.Add("-j");
+
+var mockOption = new Option<bool>("--mock")
+{
+    Description = "Use mock LLM and MCP clients (no real API calls)"
+};
+mockOption.Aliases.Add("-m");
+
+var runCommand = new Command("run", "Run a workflow YAML file");
+runCommand.Add(runFileArg);
+runCommand.Add(inputOption);
+runCommand.Add(inputJsonOption);
+runCommand.Add(mockOption);
+runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellationToken) =>
+{
+    var file = parseResult.GetValue(runFileArg);
+    var inputs = parseResult.GetValue(inputOption) ?? Array.Empty<string>();
+    var inputJson = parseResult.GetValue(inputJsonOption);
+    var useMock = parseResult.GetValue(mockOption);
+
+    if (file is null || !file.Exists)
     {
-        Console.Error.WriteLine($"File not found: {file.FullName}");
+        Console.Error.WriteLine($"File not found: {file?.FullName ?? "(null)"}");
         Environment.ExitCode = 1;
         return;
     }
 
-    var yaml = await File.ReadAllTextAsync(file.FullName);
+    var yaml = await File.ReadAllTextAsync(file.FullName, cancellationToken);
 
     try
     {
-        // Parse
         var doc = WorkflowParser.Parse(yaml);
-
-        // Compile
         var compiler = new WorkflowCompiler();
         var compiled = compiler.Compile(doc);
 
-        // Find entrypoint workflow
         var entrypoint = compiled.Entrypoint;
         if (entrypoint == null || !compiled.Workflows.ContainsKey(entrypoint))
         {
@@ -103,44 +131,36 @@ runCommand.SetHandler(async (FileInfo file, string[] inputs, string? inputJson, 
             return;
         }
 
-        // Build inputs
         var inputObj = new JsonObject();
 
-        // Parse --input-json first (base)
-        if (!string.IsNullOrWhiteSpace(inputJson))
+        if (!string.IsNullOrWhiteSpace(inputJson) && JsonNode.Parse(inputJson) is JsonObject parsed)
         {
-            var parsed = JsonNode.Parse(inputJson) as JsonObject;
-            if (parsed != null)
+            foreach (var kv in parsed)
             {
-                foreach (var kv in parsed)
-                    inputObj[kv.Key] = kv.Value?.DeepClone();
+                inputObj[kv.Key] = kv.Value?.DeepClone();
             }
         }
 
-        // Then overlay --input key=value pairs
-        if (inputs != null)
+        foreach (var inp in inputs)
         {
-            foreach (var inp in inputs)
+            var eqIndex = inp.IndexOf('=');
+            if (eqIndex <= 0)
             {
-                var eqIndex = inp.IndexOf('=');
-                if (eqIndex > 0)
-                {
-                    var key = inp[..eqIndex];
-                    var val = inp[(eqIndex + 1)..];
-                    // Try to parse as JSON, otherwise treat as string
-                    try
-                    {
-                        inputObj[key] = JsonNode.Parse(val);
-                    }
-                    catch
-                    {
-                        inputObj[key] = val;
-                    }
-                }
+                continue;
+            }
+
+            var key = inp[..eqIndex];
+            var val = inp[(eqIndex + 1)..];
+            try
+            {
+                inputObj[key] = JsonNode.Parse(val);
+            }
+            catch
+            {
+                inputObj[key] = val;
             }
         }
 
-        // Create LLM client and MCP factory
         ILLMClient llmClient;
         IMcpClientFactory mcpFactory;
         IConfiguration? appConfig = null;
@@ -170,18 +190,11 @@ runCommand.SetHandler(async (FileInfo file, string[] inputs, string? inputJson, 
             var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
             var routingClient = new RoutingLLMClient(http, llmOptions);
             llmClient = new RoutingLLMClientAdapter(routingClient);
-
-            if (llmOptions.McpServers.Count > 0)
-            {
-                mcpFactory = new ConfiguredMcpClientFactory(llmOptions.McpServers);
-            }
-            else
-            {
-                mcpFactory = new InMemoryMcpClientFactory();
-            }
+            mcpFactory = llmOptions.McpServers.Count > 0
+                ? new ConfiguredMcpClientFactory(llmOptions.McpServers)
+                : new InMemoryMcpClientFactory();
         }
 
-        // ── OpenTelemetry: read config and build tracing + logging export ──
         var otelEndpoint = appConfig?.GetValue<string>("OpenTelemetry:OtlpEndpoint");
         var otelEnabled = appConfig?.GetValue<bool>("OpenTelemetry:Enabled") ?? false;
         var otelServiceName = appConfig?.GetValue<string>("OpenTelemetry:ServiceName") ?? "GnOuGo.Flow.Cli";
@@ -210,7 +223,9 @@ runCommand.SetHandler(async (FileInfo file, string[] inputs, string? inputJson, 
                     o.Endpoint = new Uri(otelEndpoint);
                     o.Protocol = otelProtocol;
                     if (!string.IsNullOrWhiteSpace(otelTenantId))
+                    {
                         o.Headers = $"X-Tenant-Id={otelTenantId}";
+                    }
                 })
                 .Build();
         }
@@ -235,10 +250,12 @@ runCommand.SetHandler(async (FileInfo file, string[] inputs, string? inputJson, 
                     logging.ParseStateValues = true;
                     logging.AddOtlpExporter(o =>
                     {
-                        o.Endpoint = new Uri(otelEndpoint!);
+                        o.Endpoint = new Uri(otelEndpoint);
                         o.Protocol = otelProtocol;
                         if (!string.IsNullOrWhiteSpace(otelTenantId))
+                        {
                             o.Headers = $"X-Tenant-Id={otelTenantId}";
+                        }
                     });
                 });
             }
@@ -261,10 +278,10 @@ runCommand.SetHandler(async (FileInfo file, string[] inputs, string? inputJson, 
         Console.WriteLine($"▶ Running workflow '{entrypoint}'...");
         Console.ResetColor();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(TimeSpan.FromMinutes(5));
         var result = await engine.ExecuteAsync(workflow, inputObj, cts.Token);
 
-        // Output result
         Console.WriteLine();
         if (result.Success)
         {
@@ -300,7 +317,6 @@ runCommand.SetHandler(async (FileInfo file, string[] inputs, string? inputJson, 
             Console.WriteLine(result.Outputs.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
 
-        // Dispose OTel providers to flush pending telemetry before exit
         loggerFactory.Dispose();
         tracerProvider?.Dispose();
     }
@@ -314,21 +330,26 @@ runCommand.SetHandler(async (FileInfo file, string[] inputs, string? inputJson, 
         Console.Error.WriteLine($"Compilation error: {ex.Message}");
         Environment.ExitCode = 1;
     }
-}, runFileArg, inputOption, inputJsonOption, mockOption);
+});
 
 // === inspect ===
-var inspectFileArg = new Argument<FileInfo>("file", "YAML workflow file to inspect");
-var inspectCommand = new Command("inspect", "Inspect a workflow YAML file structure") { inspectFileArg };
-inspectCommand.SetHandler(async (FileInfo file) =>
+var inspectFileArg = new Argument<FileInfo>("file")
 {
-    if (!file.Exists)
+    Description = "YAML workflow file to inspect"
+};
+var inspectCommand = new Command("inspect", "Inspect a workflow YAML file structure");
+inspectCommand.Add(inspectFileArg);
+inspectCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellationToken) =>
+{
+    var file = parseResult.GetValue(inspectFileArg);
+    if (file is null || !file.Exists)
     {
-        Console.Error.WriteLine($"File not found: {file.FullName}");
+        Console.Error.WriteLine($"File not found: {file?.FullName ?? "(null)"}");
         Environment.ExitCode = 1;
         return;
     }
 
-    var yaml = await File.ReadAllTextAsync(file.FullName);
+    var yaml = await File.ReadAllTextAsync(file.FullName, cancellationToken);
 
     try
     {
@@ -348,16 +369,23 @@ inspectCommand.SetHandler(async (FileInfo file) =>
             Console.ResetColor();
             if (wf.Inputs != null)
             {
-                Console.WriteLine($"    Inputs:");
+                Console.WriteLine("    Inputs:");
                 foreach (var (inputName, inputDef) in wf.Inputs)
+                {
                     PrintInputDef(inputName, inputDef, "      ");
-            }            Console.WriteLine($"    Steps: {wf.Steps.Count}");
+                }
+            }
+
+            Console.WriteLine($"    Steps: {wf.Steps.Count}");
             PrintSteps(wf.Steps, "    ");
+
             if (wf.Outputs != null)
             {
-                Console.WriteLine($"    Outputs:");
+                Console.WriteLine("    Outputs:");
                 foreach (var (outputName, outputDef) in wf.Outputs)
+                {
                     PrintOutputDef(outputName, outputDef, "      ");
+                }
             }
         }
     }
@@ -366,13 +394,13 @@ inspectCommand.SetHandler(async (FileInfo file) =>
         Console.Error.WriteLine($"Parse error: {ex.Message}");
         Environment.ExitCode = 1;
     }
-}, inspectFileArg);
+});
 
-rootCommand.AddCommand(validateCommand);
-rootCommand.AddCommand(runCommand);
-rootCommand.AddCommand(inspectCommand);
+rootCommand.Add(validateCommand);
+rootCommand.Add(runCommand);
+rootCommand.Add(inspectCommand);
 
-return await rootCommand.InvokeAsync(args);
+return await rootCommand.Parse(args).InvokeAsync();
 
 // === Helpers ===
 

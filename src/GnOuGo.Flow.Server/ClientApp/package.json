@@ -10,17 +10,17 @@
   },
   "dependencies": {
     "@types/js-yaml": "4.0.9",
-    "@xyflow/react": "12.10.1",
+    "@xyflow/react": "12.10.2",
     "js-yaml": "4.1.1",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react": "19.2.5",
+    "react-dom": "19.2.5"
   },
   "devDependencies": {
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.1",
-    "sass": "1.97.3",
-    "typescript": "^5.7.2",
-    "vite": "^5.4.2"
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.0",
+    "sass": "1.99.0",
+    "typescript": "6.0.2",
+    "vite": "7.3.2"
   }
 }

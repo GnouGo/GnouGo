@@ -9,10 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0-preview.1.25080.5" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0-preview.1.25080.5" />
-    <PackageReference Include="ModelContextProtocol" Version="1.0.0" />
-    <PackageReference Include="Microsoft.Playwright" Version="1.49.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.5" />
+    <PackageReference Include="ModelContextProtocol" Version="1.2.0" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.59.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,9 +22,7 @@
   <!-- Automatically install Playwright Chromium browsers after build -->
   <Target Name="InstallPlaywrightBrowsers" AfterTargets="Build">
     <Message Importance="high" Text="Installing Playwright Chromium browsers..." />
-    <Exec Command="node &quot;$(TargetDir).playwright/package/cli.js&quot; install chromium"
-          WorkingDirectory="$(TargetDir)"
-          StandardOutputImportance="low" />
+    <Exec Command="node &quot;$(TargetDir).playwright/package/cli.js&quot; install chromium" WorkingDirectory="$(TargetDir)" StandardOutputImportance="low" />
   </Target>
 
 </Project>

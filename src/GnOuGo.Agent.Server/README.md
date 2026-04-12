@@ -9,6 +9,35 @@ This solution contains:
 This component is independently testable per `AGENTS.md` rules.
 It references `GnOuGo.Agent.Mcp`, `GnOuGo.KeyVault.Mcp`, and `GnOuGo.OtlpCollector.Server` as project dependencies, mounting their services in-process to minimise coupling while exposing everything through a single host.
 
+### Runtime topology
+
+```mermaid
+flowchart TD
+	Desktop[Photino.NET desktop shell] --> Main[GnOuGo.Agent.Server\nmain HTTP host\nhttp://127.0.0.1:<app-port>]
+
+	Main --> UI[Blazor UI\n/]
+	Main --> Api[Minimal APIs\n/api/chat\n/api/chat/stream\n/health]
+	Main --> AgentProxy[Mounted MCP public route\n/mcp/agent]
+	Main --> KeyVaultProxy[Mounted MCP public route\n/mcp/keyvault]
+
+	AgentProxy -. current internal proxy .-> AgentInternal[GnOuGo.Agent.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
+	KeyVaultProxy -. current internal proxy .-> KeyVaultInternal[GnOuGo.KeyVault.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
+
+	Main --> OtlpGrpc[Embedded OTLP gRPC\nhttp://127.0.0.1:4317]
+	Main --> OtlpHttp[Embedded OTLP HTTP + tenant/debug APIs\nhttp://127.0.0.1:4318]
+```
+
+#### Public vs internal ports
+
+- The **public application port** is the main `GnOuGo.Agent.Server` listener, for example `http://127.0.0.1:58443`.
+- The mounted MCP routes that the UI and runtime services should use are:
+  - `http://127.0.0.1:58443/mcp/agent`
+  - `http://127.0.0.1:58443/mcp/keyvault`
+- Ports such as `60183`, `60683`, `61914`, or `61915` are **ephemeral internal loopback ports** currently used by the mounted MCP implementation.
+- Those ephemeral ports are **used** today, but only as a private implementation detail behind the main server proxy. They are not intended as user-facing endpoints.
+
+> Design note: the current implementation already exposes all HTTP MCP traffic through the main server URL. The extra loopback ports exist only because the mounted MCP routes proxy to internal sub-hosts.
+
 ## Mounted MCP endpoints
 
 `GnOuGo.Agent.Server` hosts the local MCP HTTP services in-process and mounts them on dedicated routes:
@@ -36,6 +65,8 @@ The default placeholders in `appsettings.json` intentionally use port `0`:
 ```
 
 At startup, the server replaces port `0` with the actual bound local address and republishes those URLs through the runtime MCP configuration store.
+
+In other words, runtime consumers should treat the mounted MCP endpoints as part of the **same public server** as the Blazor UI and Minimal APIs, even though the current implementation uses private loopback helper listeners internally.
 
 `GnOuGo.Agent.Server` also uses the mounted `GnOuGo.Agent.Mcp` endpoint as the persistence API for local user defaults:
 
@@ -116,6 +147,29 @@ Configuration lives in `appsettings.json`:
 ```
 
 When the embedded collector is enabled, the OpenTelemetry exporters are automatically repointed to the local telemetry listener.
+
+## OpenTelemetry HTTP visibility
+
+The server already enables both inbound and outbound HTTP span capture when OpenTelemetry is enabled:
+
+- `AddAspNetCoreInstrumentation()` captures incoming HTTP requests handled by `GnOuGo.Agent.Server`
+- `AddHttpClientInstrumentation()` captures outbound HTTP calls made by the server runtime
+
+This means the trace detail should include standard HTTP span attributes such as:
+
+- request method
+- target URL / route
+- response status code
+- duration
+- trace/span correlation with the rest of the workflow
+
+The embedded OTLP collector is intentionally excluded from self-tracing loops, so collector ingest traffic is filtered out. That prevents recursive telemetry noise while keeping application HTTP calls visible.
+
+If you want to inspect HTTP traces in local runs:
+
+- main application traffic is emitted by `GnOuGo.Agent.Server`
+- OTLP gRPC ingest endpoint is `http://127.0.0.1:4317`
+- OTLP HTTP + trace/log exploration APIs are available on `http://127.0.0.1:4318`
 
 ## Circular logging guard
 
