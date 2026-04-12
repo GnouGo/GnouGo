@@ -1,9 +1,9 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31912.275
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.Agent.Shared", "src\GnOuGo.Agent.Shared\GnOuGo.Agent.Shared.csproj", "{38DA470C-EAD7-4EC2-8AF9-5D31E2E70CD1}"
+The file `GnOuGo.Agent.sln` does not exist in this repository, and the described issue (a `trace.started` event handler at lines 583-594 with sidebar auto-opening logic) is inconsistent with a `.sln` file, which is a Visual Studio solution file containing only project references and build configurations — not application logic.
+
+Could you provide:
+1. The actual file path containing the streaming/trace event handler code
+2. Or the correct file content around lines 583-594
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.Agent.Server", "src\GnOuGo.Agent.Server\GnOuGo.Agent.Server.csproj", "{DF76C949-BE5A-46D2-80A0-627792D183A2}"
 EndProject
