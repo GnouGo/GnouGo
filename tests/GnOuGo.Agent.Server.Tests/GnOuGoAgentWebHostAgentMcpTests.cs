@@ -46,6 +46,29 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
     }
 
     [Fact]
+    public async Task Build_StartsMountedAgentMcpEndpoint_AgentUserConfigClientCanReadSnapshot()
+    {
+        var contentRoot = GetServerContentRoot();
+        var app = GnOuGoAgentWebHost.Build(TelemetryTestHostArgs.Create(), urls: "http://127.0.0.1:0", contentRoot: contentRoot, enableHttpsRedirection: false);
+
+        try
+        {
+            await app.StartAsync();
+            await WaitForMountedAgentMcpAsync(app.Services, CancellationToken.None);
+
+            var client = app.Services.GetRequiredService<AgentUserConfigMcpClient>();
+            var snapshot = await client.GetAsync(CancellationToken.None);
+
+            Assert.NotNull(snapshot);
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Build_StartsMountedAgentMcpEndpoint_AndListsToolsOverHttp_WhenOptInEnabled()
     {
         if (Environment.GetEnvironmentVariable("RUN_MOUNTED_AGENT_MCP_TESTS") != "1")

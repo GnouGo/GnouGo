@@ -37,12 +37,13 @@ public static class GnOuGoAgentWebHost
     {
         AllowAutoRedirect = false,
         AutomaticDecompression = DecompressionMethods.None,
-        UseCookies = false
+        UseCookies = false,
+        EnableMultipleHttp2Connections = true
     })
     {
         Timeout = Timeout.InfiniteTimeSpan,
-        DefaultRequestVersion = HttpVersion.Version11,
-        DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact
+        DefaultRequestVersion = HttpVersion.Version20,
+        DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher
     };
 
     private static readonly MountedMcpRegistration AgentMcpRegistration = new(
@@ -267,8 +268,12 @@ public static class GnOuGoAgentWebHost
                     if (!string.IsNullOrWhiteSpace(otelSettings.TenantId))
                         o.Headers = $"X-Tenant-Id={otelSettings.TenantId}";
 
-                    if (collectorEndpointSettings.Enabled && devModeEnabled)
-                        processor.ExportProcessorType = ExportProcessorType.Simple;
+                    if (collectorEndpointSettings.Enabled)
+                    {
+                        processor.BatchExportProcessorOptions.ScheduledDelayMilliseconds = 200;
+                        processor.BatchExportProcessorOptions.MaxQueueSize = 256;
+                        processor.BatchExportProcessorOptions.MaxExportBatchSize = 32;
+                    }
                 });
             });
         }
@@ -777,7 +782,7 @@ public static class GnOuGoAgentWebHost
 
         foreach (var header in context.Request.Headers)
         {
-            if (string.Equals(header.Key, "Host", StringComparison.OrdinalIgnoreCase))
+            if (ShouldSkipProxyRequestHeader(header.Key, hasBody))
             {
                 continue;
             }
@@ -797,17 +802,91 @@ public static class GnOuGoAgentWebHost
 
         foreach (var header in response.Headers)
         {
-            context.Response.Headers[header.Key] = header.Value.ToArray();
+            context.Response.Headers[header.Key] = RewriteProxyResponseHeaderValues(
+                context,
+                targetBaseAddress,
+                header.Key,
+                header.Value).ToArray();
         }
 
         foreach (var header in response.Content.Headers)
         {
-            context.Response.Headers[header.Key] = header.Value.ToArray();
+            context.Response.Headers[header.Key] = RewriteProxyResponseHeaderValues(
+                context,
+                targetBaseAddress,
+                header.Key,
+                header.Value).ToArray();
         }
 
         context.Response.Headers.Remove("transfer-encoding");
 
         await response.Content.CopyToAsync(context.Response.Body, context.RequestAborted);
+    }
+
+    private static bool ShouldSkipProxyRequestHeader(string headerName, bool hasBody)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(headerName);
+
+        if (headerName.Equals("Host", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Connection", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Keep-Alive", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Proxy-Connection", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Upgrade", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("TE", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Trailer", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Proxy-Authorization", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Proxy-Authenticate", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!hasBody)
+            return false;
+
+        return headerName.Equals("Content-Type", StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals("Content-Length", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> RewriteProxyResponseHeaderValues(
+        HttpContext context,
+        Uri targetBaseAddress,
+        string headerName,
+        IEnumerable<string> values)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(targetBaseAddress);
+        ArgumentNullException.ThrowIfNull(headerName);
+        ArgumentNullException.ThrowIfNull(values);
+
+        if (!headerName.Equals("Location", StringComparison.OrdinalIgnoreCase)
+            && !headerName.Equals("Content-Location", StringComparison.OrdinalIgnoreCase))
+        {
+            return values;
+        }
+
+        var publicOrigin = new Uri($"{context.Request.Scheme}://{context.Request.Host}");
+        var upstreamOrigin = new Uri($"{targetBaseAddress.Scheme}://{targetBaseAddress.Authority}");
+
+        return values.Select(value => RewriteProxyResponseHeaderValue(value, upstreamOrigin, publicOrigin));
+    }
+
+    private static string RewriteProxyResponseHeaderValue(string value, Uri upstreamOrigin, Uri publicOrigin)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var absolute)
+            || !Uri.Compare(absolute, upstreamOrigin, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase).Equals(0))
+        {
+            return value;
+        }
+
+        var builder = new UriBuilder(absolute)
+        {
+            Scheme = publicOrigin.Scheme,
+            Host = publicOrigin.Host,
+            Port = publicOrigin.IsDefaultPort ? -1 : publicOrigin.Port
+        };
+
+        return builder.Uri.ToString();
     }
 
     private static MountedMcpHosts StartMountedMcpHosts(string[] args)
@@ -818,36 +897,36 @@ public static class GnOuGoAgentWebHost
         // collisions or unwanted listener bindings.
         var subHostArgs = FilterArgsForSubHosts(args);
 
-        var agentApp = AgentMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: AgentMcpRegistration.RoutePrefix);
+        var agentApp = AgentMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: AgentMcpHostingExtensions.DefaultRoutePrefix);
         agentApp.StartAsync().GetAwaiter().GetResult();
 
-        var keyVaultApp = KeyVaultMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: KeyVaultMcpRegistration.RoutePrefix);
+        var keyVaultApp = KeyVaultMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: KeyVaultMcpHostingExtensions.DefaultRoutePrefix);
         keyVaultApp.StartAsync().GetAwaiter().GetResult();
 
         return new MountedMcpHosts(
             agentApp,
-            ResolveSingleListeningBaseAddress(agentApp, AgentMcpRegistration.RoutePrefix),
+            ResolveSingleListeningBaseAddress(agentApp, AgentMcpHostingExtensions.DefaultRoutePrefix),
             keyVaultApp,
-            ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpRegistration.RoutePrefix));
+            ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpHostingExtensions.DefaultRoutePrefix));
     }
 
     private static async Task<MountedMcpHosts> StartMountedMcpHostsAsync(string[] args, CancellationToken cancellationToken)
     {
         var subHostArgs = FilterArgsForSubHosts(args);
 
-        var agentApp = AgentMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: AgentMcpRegistration.RoutePrefix);
+        var agentApp = AgentMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: AgentMcpHostingExtensions.DefaultRoutePrefix);
         await agentApp.StartAsync(cancellationToken);
 
         try
         {
-            var keyVaultApp = KeyVaultMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: KeyVaultMcpRegistration.RoutePrefix);
+            var keyVaultApp = KeyVaultMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: KeyVaultMcpHostingExtensions.DefaultRoutePrefix);
             await keyVaultApp.StartAsync(cancellationToken);
 
             return new MountedMcpHosts(
                 agentApp,
-                ResolveSingleListeningBaseAddress(agentApp, AgentMcpRegistration.RoutePrefix),
+                ResolveSingleListeningBaseAddress(agentApp, AgentMcpHostingExtensions.DefaultRoutePrefix),
                 keyVaultApp,
-                ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpRegistration.RoutePrefix));
+                ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpHostingExtensions.DefaultRoutePrefix));
         }
         catch
         {

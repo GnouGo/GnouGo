@@ -44,6 +44,38 @@ public sealed class CollectorLoggerProviderTests
         Assert.Equal("Information", logRow.SeverityText);
         Assert.Contains("Workflow step completed", logRow.Body, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Log_PersistsApplicationLog_WithoutActivity_WhenOpenTelemetryIsEnabled()
+    {
+        var queue = new TelemetryIngestQueue(new AppOptions(
+            DbPath: "ignored.db",
+            BatchSize: 10,
+            FlushSeconds: 1,
+            ChannelCapacity: 16,
+            RetentionSweepSeconds: 60,
+            DevModeEnabled: true));
+
+        using var provider = new CollectorLoggerProvider(
+            queue,
+            new TestOptionsMonitor<OpenTelemetrySettings>(new OpenTelemetrySettings
+            {
+                Enabled = true,
+                ServiceName = "GnOuGo.Agent.Server"
+            }));
+
+        Activity.Current = null;
+        var logger = provider.CreateLogger("GnOuGo.Agent.Server.Workflow");
+
+        logger.LogInformation("Startup log without activity should still be captured");
+
+        var row = await queue.Channel.Reader.ReadAsync(CancellationToken.None);
+        var logRow = Assert.IsType<LogRow>(row);
+        Assert.Null(logRow.TraceId);
+        Assert.Null(logRow.SpanId);
+        Assert.Equal("Information", logRow.SeverityText);
+        Assert.Contains("Startup log without activity should still be captured", logRow.Body, StringComparison.Ordinal);
+    }
 }
 
 

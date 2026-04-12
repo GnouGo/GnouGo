@@ -73,15 +73,15 @@ public sealed class CollectorLoggerProvider : ILoggerProvider, ISupportExternalS
             if (!IsEnabled(logLevel))
                 return;
 
+            var settings = _openTelemetrySettings.CurrentValue;
             var activity = Activity.Current;
-            if (activity is null)
+            if (activity is null && !settings.Enabled)
                 return;
 
             var message = formatter(state, exception);
             if (string.IsNullOrWhiteSpace(message) && exception is null)
                 return;
 
-            var settings = _openTelemetrySettings.CurrentValue;
             Guid? tenantId = null;
             if (!string.IsNullOrWhiteSpace(settings.TenantId) && Guid.TryParse(settings.TenantId, out var parsedTenantId))
                 tenantId = parsedTenantId;
@@ -90,10 +90,14 @@ public sealed class CollectorLoggerProvider : ILoggerProvider, ISupportExternalS
             {
                 ["log.category"] = _categoryName,
                 ["log.event_id"] = eventId.Id,
-                ["log.event_name"] = eventId.Name,
-                ["trace_id"] = activity.TraceId.ToHexString(),
-                ["span_id"] = activity.SpanId.ToHexString()
+                ["log.event_name"] = eventId.Name
             };
+
+            if (activity is not null)
+            {
+                attributes["trace_id"] = activity.TraceId.ToHexString();
+                attributes["span_id"] = activity.SpanId.ToHexString();
+            }
 
             if (exception is not null)
             {
@@ -137,8 +141,8 @@ public sealed class CollectorLoggerProvider : ILoggerProvider, ISupportExternalS
             var row = new LogRow(
                 TenantId: tenantId,
                 ReceivedUtc: DateTimeOffset.UtcNow,
-                TraceId: Convert.FromHexString(activity.TraceId.ToHexString()),
-                SpanId: Convert.FromHexString(activity.SpanId.ToHexString()),
+                TraceId: activity is null ? null : Convert.FromHexString(activity.TraceId.ToHexString()),
+                SpanId: activity is null ? null : Convert.FromHexString(activity.SpanId.ToHexString()),
                 SeverityNumber: MapSeverity(logLevel),
                 SeverityText: logLevel.ToString(),
                 Body: body,

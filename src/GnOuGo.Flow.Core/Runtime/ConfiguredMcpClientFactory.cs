@@ -79,21 +79,21 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
     private static HttpClientTransport CreateHttpTransport(McpServerOptions config)
     {
         var endpoint = new Uri(config.Url.TrimEnd('/'));
-        var preferHttp2 = string.Equals(endpoint.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+        var preferHttp2 = string.Equals(endpoint.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+            || IsLoopbackHttpEndpoint(endpoint);
         var httpClient = new HttpClient(new SocketsHttpHandler
         {
-            EnableMultipleHttp2Connections = preferHttp2
+            EnableMultipleHttp2Connections = true
         })
         {
             Timeout = TimeSpan.FromMinutes(5),
-            // Locally mounted MCP HTTP endpoints are exposed over plain HTTP during
-            // tests/desktop hosting, where forcing HTTP/2 can stall streamable HTTP
-            // initialization. Prefer HTTP/1.1 for clear-text endpoints and allow
-            // HTTP/2 only for HTTPS endpoints where ALPN negotiation is available.
+            // Mounted/local MCP endpoints may require HTTP/2 even over loopback HTTP
+            // (h2/h2c). Keep those endpoints on HTTP/2 negotiation so the MCP client
+            // does not downgrade to the legacy SSE/session-header flow.
             DefaultRequestVersion = preferHttp2 ? HttpVersion.Version20 : HttpVersion.Version11,
             DefaultVersionPolicy = preferHttp2
                 ? HttpVersionPolicy.RequestVersionOrHigher
-                : HttpVersionPolicy.RequestVersionExact
+                : HttpVersionPolicy.RequestVersionOrLower
         };
 
         if (!string.IsNullOrWhiteSpace(config.ApiKey))
@@ -107,6 +107,17 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             Endpoint = endpoint,
             Name = "GnOuGo.Flow"
         }, httpClient);
+    }
+
+    private static bool IsLoopbackHttpEndpoint(Uri endpoint)
+    {
+        if (!string.Equals(endpoint.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (endpoint.IsLoopback)
+            return true;
+
+        return IPAddress.TryParse(endpoint.Host, out var address) && IPAddress.IsLoopback(address);
     }
 
     private static StdioClientTransport CreateStdioTransport(McpServerOptions config)
