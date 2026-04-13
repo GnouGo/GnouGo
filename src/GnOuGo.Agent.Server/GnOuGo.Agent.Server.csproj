@@ -42,12 +42,15 @@
 
   <PropertyGroup>
     <SkipClientBuild>false</SkipClientBuild>
+    <ClientAppDir>ClientApp</ClientAppDir>
+    <PnpmCommand Condition="'$(OS)' == 'Windows_NT'">corepack.cmd pnpm</PnpmCommand>
+    <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>
   </PropertyGroup>
 
   <Target Name="ViteBuild" BeforeTargets="PrepareForPublish" Condition="'$(SkipClientBuild)' != 'true'">
     <Message Importance="high" Text="Building GnOuGo.Agent frontend (Vite)" />
-    <Exec WorkingDirectory="ClientApp" Command="npm install" />
-    <Exec WorkingDirectory="ClientApp" Command="npm run build" />
+    <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; install --frozen-lockfile" />
+    <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; build" />
   </Target>
 
   <Target Name="PublishBundledServerTools" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
@@ -76,6 +79,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Update="ClientApp\package.json;ClientApp\package-lock.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
+    <Content Update="ClientApp\package.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
   </ItemGroup>
 </Project>

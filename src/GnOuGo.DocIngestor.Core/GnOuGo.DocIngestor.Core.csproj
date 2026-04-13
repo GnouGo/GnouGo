@@ -27,6 +27,7 @@
     <!-- Token counting (optional but helpful for chunking policies) -->
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.*" />
     <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.*" />
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.5" />
       <!-- SQLite store (MIT) -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.5" />
     <PackageReference Include="PdfPig.Rendering.Skia" Version="0.1.14.2" />

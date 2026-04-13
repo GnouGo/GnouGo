@@ -49,7 +49,7 @@ ClientApp/
 │   └── copy-to-wwwroot.mjs # Script to copy to wwwroot
 │
 ├── index.html              # HTML template
-├── package.json            # npm dependencies
+├── package.json            # pnpm-managed package manifest
 └── vite.config.js          # Vite configuration
 ```
 
@@ -111,24 +111,17 @@ Usage in React:
 ## 🛠️ Installation
 
 ```bash
-# With npm
-npm install
-
-# With pnpm (recommended)
-pnpm install
-
-# With yarn
-yarn install
+corepack pnpm install --frozen-lockfile
 ```
+
+This ClientApp is part of the repository-wide pnpm workspace defined by `pnpm-workspace.yaml` and locked by the root `pnpm-lock.yaml` file.
 
 ## 🔨 Commands
 
 ### Development
 ```bash
 # Start the development server (with HMR)
-npm run dev
-# or
-pnpm dev
+corepack pnpm dev
 
 # The application will be available at http://localhost:5173
 ```
@@ -136,9 +129,7 @@ pnpm dev
 ### Production build
 ```bash
 # Build and copy to wwwroot/
-npm run build
-# or
-pnpm build
+corepack pnpm build
 
 # Files are generated in:
 # - dist/ (temporary build)
@@ -148,9 +139,7 @@ pnpm build
 ### Preview
 ```bash
 # Preview the production build
-npm run preview
-# or
-pnpm preview
+corepack pnpm preview
 ```
 
 ## 📦 Build Output
@@ -277,7 +266,7 @@ Automatic copy of built files to the .NET project's `wwwroot` folder.
 
 1. Build the application:
    ```bash
-   pnpm build
+   corepack pnpm build
    ```
 
 2. Files are automatically copied to `wwwroot/`
@@ -290,7 +279,7 @@ Automatic copy of built files to the .NET project's `wwwroot` folder.
 
 ### Development mode
 ```bash
-pnpm dev
+corepack pnpm dev
 ```
 - Hot Module Replacement (HMR) active
 - Source maps available

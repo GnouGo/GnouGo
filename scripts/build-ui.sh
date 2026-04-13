@@ -6,7 +6,7 @@ CLIENT_APP="$ROOT_DIR/src/GnOuGo.Agent.Server/ClientApp"
 
 echo "Building GnOuGo.Agent UI with Vite..."
 cd "$CLIENT_APP"
-npm install
-npm run build
+corepack pnpm install --frozen-lockfile
+corepack pnpm build
 
 echo "✅ UI built into: $ROOT_DIR/src/GnOuGo.Agent.Server/wwwroot/ui"

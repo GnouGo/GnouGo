@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.Options;
 using GnOuGo.AI.Core;
 
@@ -209,11 +208,8 @@ public sealed class LLMRuntimeOptionsStore
         {
             if (!File.Exists(_settingsPath)) return;
             var json = File.ReadAllText(_settingsPath);
-            var node = JsonNode.Parse(json);
-            var llmNode = node?["LLM"];
-            if (llmNode is null) return;
-
-            var persisted = llmNode.Deserialize<LLMOptions>();
+            var wrapper = JsonSerializer.Deserialize(json, LlmRuntimeOptionsJsonContext.Default.PersistedLlmSettings);
+            var persisted = wrapper?.Llm;
             if (persisted is null) return;
 
             // Overlay: persisted provider and MCP definitions win over appsettings defaults.
@@ -272,12 +268,14 @@ public sealed class LLMRuntimeOptionsStore
 
             // Write as { "LLM": { ... } } but without persisted default provider/model,
             // which now come from the Agent MCP user config storage.
-            var wrapper = new JsonObject
+            var wrapper = new PersistedLlmSettings
             {
-                ["LLM"] = JsonSerializer.SerializeToNode(snapshot)
+                Llm = snapshot
             };
 
-            File.WriteAllText(_settingsPath, wrapper.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(
+                _settingsPath,
+                JsonSerializer.Serialize(wrapper, LlmRuntimeOptionsJsonContext.Default.PersistedLlmSettings));
         }
         catch (Exception ex)
         {

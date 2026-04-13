@@ -107,12 +107,12 @@ interface DiffStats {
 
 ### Développement
 ```bash
-npm run dev
+corepack pnpm dev
 ```
 
 ### Build de production
 ```bash
-npm run build
+corepack pnpm build
 ```
 Cette commande exécute maintenant :
 1. `tsc` - Vérification des types TypeScript
@@ -120,12 +120,12 @@ Cette commande exécute maintenant :
 
 ### Vérification des types uniquement
 ```bash
-npm run type-check
+corepack pnpm type-check
 ```
 
 ### Preview de la build
 ```bash
-npm run preview
+corepack pnpm preview
 ```
 
 ## ✅ Vérification de la migration
@@ -136,13 +136,13 @@ Pour vérifier que tout fonctionne :
 cd C:\github\GnOuGo.Agent\src\GnOuGo.Diff.Server\ClientApp
 
 # 1. Vérifier les types
-npm run type-check
+corepack pnpm type-check
 
 # 2. Builder l'application
-npm run build
+corepack pnpm build
 
 # 3. Démarrer en mode dev
-npm run dev
+corepack pnpm dev
 ```
 
 ## 📊 État des composants
@@ -210,5 +210,5 @@ La ClientApp GnOuGo.Diff est maintenant **100% TypeScript** avec :
 
 **Date de migration** : 2026-02-17  
 **Statut** : ✅ Migration complète et testée  
-**Prochaine étape** : Tester l'application avec `npm run dev`
+**Prochaine étape** : Tester l'application avec `corepack pnpm dev`
 

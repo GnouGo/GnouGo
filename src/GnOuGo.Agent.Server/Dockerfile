@@ -15,14 +15,16 @@
 # Stage 1: Build the ClientApp (Vite + TS)
 # ----------------------------------------------
 FROM --platform=$BUILDPLATFORM node:24-alpine AS clientapp
-WORKDIR /build/ClientApp
-COPY src/GnOuGo.Agent.Server/ClientApp/package.json \
-     src/GnOuGo.Agent.Server/ClientApp/package-lock.json* \
-     ./
-RUN npm ci --prefer-offline
-COPY src/GnOuGo.Agent.Server/ClientApp/ ./
-RUN npm run build
-# vite outDir: '../wwwroot/ui' -> output lands in /build/wwwroot/ui
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+WORKDIR /workspace
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY src/GnOuGo.Agent.Server/ClientApp/package.json src/GnOuGo.Agent.Server/ClientApp/
+RUN pnpm --dir src/GnOuGo.Agent.Server/ClientApp install --frozen-lockfile
+COPY src/GnOuGo.Agent.Server/ClientApp/ src/GnOuGo.Agent.Server/ClientApp/
+RUN pnpm --dir src/GnOuGo.Agent.Server/ClientApp build
+# vite outDir: '../wwwroot/ui' -> output lands in /workspace/src/GnOuGo.Agent.Server/wwwroot/ui
 # ----------------------------------------------
 # Stage 2: Build & publish the .NET application
 # ----------------------------------------------
@@ -32,8 +34,8 @@ RUN npm run build
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 # bash + python3 are needed by the GeneratePricingCatalog target in GnOuGo.AI.Core.
-# nodejs + npm are needed when publishing the bundled GnOuGo.Browser.Mcp tool.
-RUN apt-get update && apt-get install -y --no-install-recommends bash python3 nodejs npm && rm -rf /var/lib/apt/lists/*
+# nodejs is needed when publishing the bundled GnOuGo.Browser.Mcp tool.
+RUN apt-get update && apt-get install -y --no-install-recommends bash python3 nodejs && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 # Copy global.json for SDK version pinning
@@ -61,9 +63,9 @@ RUN dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj
 COPY src/ src/
 # Overlay pre-built ClientApp output (wwwroot/ui) from stage 1.
 # Other static assets (favicon.svg, assets/, js/) come from source.
-COPY --from=clientapp /build/wwwroot/ui src/GnOuGo.Agent.Server/wwwroot/ui/
+COPY --from=clientapp /workspace/src/GnOuGo.Agent.Server/wwwroot/ui src/GnOuGo.Agent.Server/wwwroot/ui/
 # Publish in Release (without AOT - container uses the managed runtime).
-# SkipClientBuild=true avoids re-running npm inside dotnet publish.
+# SkipClientBuild=true avoids re-running pnpm inside dotnet publish.
 # PublishAot=false overrides the csproj Release default for container builds.
 RUN dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj \
     -c Release \

@@ -17,15 +17,18 @@
 # ──────────────────────────────────────────────
 FROM --platform=$BUILDPLATFORM node:24-alpine AS clientapp
 
-WORKDIR /build/ClientApp
-COPY src/GnOuGo.Diff.Server/ClientApp/package.json \
-     src/GnOuGo.Diff.Server/ClientApp/package-lock.json* \
-     ./
-RUN npm ci --prefer-offline
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
 
-COPY src/GnOuGo.Diff.Server/ClientApp/ ./
-RUN npm run build
-# vite outDir: '../wwwroot' → output lands in /build/wwwroot
+WORKDIR /workspace
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY src/GnOuGo.Diff.Server/ClientApp/package.json src/GnOuGo.Diff.Server/ClientApp/
+RUN pnpm --dir src/GnOuGo.Diff.Server/ClientApp install --frozen-lockfile
+
+COPY src/GnOuGo.Diff.Server/ClientApp/ src/GnOuGo.Diff.Server/ClientApp/
+RUN pnpm --dir src/GnOuGo.Diff.Server/ClientApp build
+# vite outDir: '../wwwroot' → output lands in /workspace/src/GnOuGo.Diff.Server/wwwroot
 
 # ──────────────────────────────────────────────
 # Stage 2: Build & publish the .NET application
@@ -51,7 +54,7 @@ COPY src/GnOuGo.Diff.Server/ src/GnOuGo.Diff.Server/
 COPY src/GnOuGo.Diff.Core/   src/GnOuGo.Diff.Core/
 
 # Copy pre-built wwwroot from the Node stage
-COPY --from=clientapp /build/wwwroot src/GnOuGo.Diff.Server/wwwroot/
+COPY --from=clientapp /workspace/src/GnOuGo.Diff.Server/wwwroot src/GnOuGo.Diff.Server/wwwroot/
 
 # Publish (skip ClientApp build — already done in stage 1)
 RUN dotnet publish src/GnOuGo.Diff.Server/GnOuGo.Diff.Server.csproj \

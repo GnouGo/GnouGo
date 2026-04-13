@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Options;
 using GnOuGo.Agent.Server.Configuration;
 using OtlpTenantCollector.Models;
@@ -37,12 +39,6 @@ public sealed class CollectorLoggerProvider : ILoggerProvider, ISupportExternalS
 
     private sealed class CollectorLogger : ILogger
     {
-        private static readonly JsonSerializerOptions Json = new()
-        {
-            PropertyNamingPolicy = null,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-        };
-
         private readonly string _categoryName;
         private readonly TelemetryIngestQueue _queue;
         private readonly IOptionsMonitor<OpenTelemetrySettings> _openTelemetrySettings;
@@ -146,9 +142,9 @@ public sealed class CollectorLoggerProvider : ILoggerProvider, ISupportExternalS
                 SeverityNumber: MapSeverity(logLevel),
                 SeverityText: logLevel.ToString(),
                 Body: body,
-                AttributesJson: JsonSerializer.Serialize(attributes, Json),
-                ResourceJson: JsonSerializer.Serialize(resource, Json),
-                ScopeJson: JsonSerializer.Serialize(scopeJson, Json),
+                AttributesJson: SerializeObject(attributes),
+                ResourceJson: SerializeObject(resource),
+                ScopeJson: SerializeObject(scopeJson),
                 ServiceName: settings.ServiceName);
 
             if (!_queue.Channel.Writer.TryWrite(row))
@@ -166,6 +162,206 @@ public sealed class CollectorLoggerProvider : ILoggerProvider, ISupportExternalS
                 LogLevel.Critical => 21,
                 _ => 0
             };
+
+        private static string SerializeObject(IEnumerable<KeyValuePair<string, object?>> values)
+        {
+            var buffer = new System.Buffers.ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(buffer);
+
+            writer.WriteStartObject();
+            foreach (var pair in values)
+            {
+                if (string.IsNullOrWhiteSpace(pair.Key))
+                    continue;
+
+                WriteObjectProperty(writer, pair.Key, pair.Value);
+            }
+            writer.WriteEndObject();
+            writer.Flush();
+
+            return Encoding.UTF8.GetString(buffer.WrittenSpan);
+        }
+
+        private static void WriteObjectProperty(Utf8JsonWriter writer, string propertyName, object? value)
+        {
+            if (value is null)
+                return;
+
+            if (value is JsonElement jsonElement
+                && (jsonElement.ValueKind == JsonValueKind.Null || jsonElement.ValueKind == JsonValueKind.Undefined))
+                return;
+
+            writer.WritePropertyName(propertyName);
+            WriteValue(writer, value);
+        }
+
+        private static void WriteValue(Utf8JsonWriter writer, object? value)
+        {
+            if (value is null)
+            {
+                writer.WriteNullValue();
+                return;
+            }
+
+            if (value is JsonElement jsonElement)
+            {
+                if (jsonElement.ValueKind == JsonValueKind.Undefined)
+                {
+                    writer.WriteNullValue();
+                    return;
+                }
+
+                jsonElement.WriteTo(writer);
+                return;
+            }
+
+            if (value is JsonDocument jsonDocument)
+            {
+                jsonDocument.RootElement.WriteTo(writer);
+                return;
+            }
+
+            if (value is JsonNode jsonNode)
+            {
+                jsonNode.WriteTo(writer);
+                return;
+            }
+
+            if (value is IEnumerable<KeyValuePair<string, object?>> objectPairs)
+            {
+                writer.WriteStartObject();
+                foreach (var pair in objectPairs)
+                {
+                    if (string.IsNullOrWhiteSpace(pair.Key))
+                        continue;
+
+                    WriteObjectProperty(writer, pair.Key, pair.Value);
+                }
+
+                writer.WriteEndObject();
+                return;
+            }
+
+            if (value is IEnumerable<KeyValuePair<string, string?>> stringPairs)
+            {
+                writer.WriteStartObject();
+                foreach (var pair in stringPairs)
+                {
+                    if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null)
+                        continue;
+
+                    writer.WriteString(pair.Key, pair.Value);
+                }
+
+                writer.WriteEndObject();
+                return;
+            }
+
+            if (value is System.Collections.IDictionary dictionary)
+            {
+                writer.WriteStartObject();
+                foreach (System.Collections.DictionaryEntry entry in dictionary)
+                {
+                    var key = entry.Key?.ToString();
+                    if (string.IsNullOrWhiteSpace(key))
+                        continue;
+
+                    WriteObjectProperty(writer, key, entry.Value);
+                }
+
+                writer.WriteEndObject();
+                return;
+            }
+
+            if (value is byte[] bytes)
+            {
+                writer.WriteBase64StringValue(bytes);
+                return;
+            }
+
+            if (value is System.Collections.IEnumerable sequence && value is not string)
+            {
+                writer.WriteStartArray();
+                foreach (var item in sequence)
+                    WriteValue(writer, item);
+
+                writer.WriteEndArray();
+                return;
+            }
+
+            switch (value)
+            {
+                case string text:
+                    writer.WriteStringValue(text);
+                    break;
+                case char character:
+                    writer.WriteStringValue(character.ToString());
+                    break;
+                case bool boolean:
+                    writer.WriteBooleanValue(boolean);
+                    break;
+                case byte number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case sbyte number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case short number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case ushort number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case int number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case uint number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case long number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case ulong number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case float number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case double number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case decimal number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case Guid guid:
+                    writer.WriteStringValue(guid);
+                    break;
+                case DateTime dateTime:
+                    writer.WriteStringValue(dateTime);
+                    break;
+                case DateTimeOffset dateTimeOffset:
+                    writer.WriteStringValue(dateTimeOffset);
+                    break;
+                case DateOnly dateOnly:
+                    writer.WriteStringValue(dateOnly.ToString("O"));
+                    break;
+                case TimeOnly timeOnly:
+                    writer.WriteStringValue(timeOnly.ToString("O"));
+                    break;
+                case Uri uri:
+                    writer.WriteStringValue(uri.ToString());
+                    break;
+                case TimeSpan timeSpan:
+                    writer.WriteStringValue(timeSpan.ToString());
+                    break;
+                case Enum enumValue:
+                    writer.WriteStringValue(enumValue.ToString());
+                    break;
+                default:
+                    writer.WriteStringValue(value.ToString());
+                    break;
+            }
+        }
     }
 }
 

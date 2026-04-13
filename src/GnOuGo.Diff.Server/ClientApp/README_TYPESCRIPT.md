@@ -34,16 +34,16 @@ La ClientApp de GnOuGo.Diff a été **entièrement convertie en TypeScript**.
 
 ```bash
 # Développement
-npm run dev
+corepack pnpm dev
 
 # Build (avec vérification TypeScript)
-npm run build
+corepack pnpm build
 
 # Vérification des types uniquement
-npm run type-check
+corepack pnpm type-check
 
 # Preview
-npm run preview
+corepack pnpm preview
 ```
 
 ## 🔍 Vérifier la migration
@@ -82,5 +82,5 @@ interface CreateRevisionRequest { ... }
 
 ---
 
-**Prochaine étape** : Tester avec `npm run dev` ou `npm run build`
+**Prochaine étape** : Tester avec `corepack pnpm dev` ou `corepack pnpm build`
 

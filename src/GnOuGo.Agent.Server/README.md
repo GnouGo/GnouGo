@@ -200,16 +200,16 @@ The UI styles and client helpers are bundled with **Vite** into `wwwroot/ui/app.
 
 ```powershell
 Set-Location "C:\github\GnouGo\src\GnOuGo.Agent.Server\ClientApp"
-npm install
-npm run build
+corepack pnpm install --frozen-lockfile
+corepack pnpm build
 ```
 
 ### Dev (optional)
 
 ```powershell
 Set-Location "C:\github\GnouGo\src\GnOuGo.Agent.Server\ClientApp"
-npm install
-npm run dev
+corepack pnpm install --frozen-lockfile
+corepack pnpm dev
 ```
 
 ## Run the server

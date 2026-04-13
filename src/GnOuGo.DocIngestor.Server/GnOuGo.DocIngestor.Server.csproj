@@ -7,6 +7,8 @@
     <LangVersion>preview</LangVersion>
     <RootNamespace>DocIngestor.Server</RootNamespace>
     <ClientAppDir>ClientApp</ClientAppDir>
+    <PnpmCommand Condition="'$(OS)' == 'Windows_NT'">corepack.cmd pnpm</PnpmCommand>
+    <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,8 +26,8 @@
   <!-- Build the ClientApp automatically before the C# build -->
   <Target Name="BuildClientApp" BeforeTargets="Build" Condition="'$(SkipClientBuild)' != 'true'">
     <Message Importance="high" Text="🔨 Building ClientApp (TypeScript + SCSS)..." />
-    <Exec WorkingDirectory="$(ClientAppDir)" Command="npm install" Condition="!Exists('$(ClientAppDir)\node_modules')" />
-    <Exec WorkingDirectory="$(ClientAppDir)" Command="npm run build" />
+    <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; install --frozen-lockfile" Condition="!Exists('$(ClientAppDir)\node_modules')" />
+    <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; build" />
     <Message Importance="high" Text="✅ ClientApp built into wwwroot" />
   </Target>
 

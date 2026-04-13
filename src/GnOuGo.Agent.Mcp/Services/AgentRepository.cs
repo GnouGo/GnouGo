@@ -17,12 +17,6 @@ public sealed class AgentRepository : IAgentRepository
     private const string DiffEntityType = "AgentDefinition";
     private const string DiffAuthor = "GnOuGo.Agent.Mcp";
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
-    };
-
     private static readonly ISerializer YamlSerializer = new SerializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .Build();
@@ -56,7 +50,7 @@ public sealed class AgentRepository : IAgentRepository
             Workflow = workflow,
             OriginalPrompt = originalPrompt,
             ScheduleDescription = scheduleDescription,
-            SchedulesJson = JsonSerializer.Serialize(schedules, JsonOptions),
+            SchedulesJson = JsonSerializer.Serialize(schedules, AgentRepositoryJsonContext.Default.ListSchedule),
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -91,7 +85,7 @@ public sealed class AgentRepository : IAgentRepository
         agent.Workflow = workflow;
         agent.OriginalPrompt = originalPrompt;
         agent.ScheduleDescription = scheduleDescription;
-        agent.SchedulesJson = JsonSerializer.Serialize(schedules, JsonOptions);
+        agent.SchedulesJson = JsonSerializer.Serialize(schedules, AgentRepositoryJsonContext.Default.ListSchedule);
         agent.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
@@ -129,7 +123,7 @@ public sealed class AgentRepository : IAgentRepository
 
     /// <summary>Deserialize the schedules JSON from an <see cref="AgentDefinition"/>.</summary>
     public static List<Schedule> DeserializeSchedules(string schedulesJson)
-        => JsonSerializer.Deserialize<List<Schedule>>(schedulesJson, JsonOptions) ?? [];
+        => JsonSerializer.Deserialize(schedulesJson, AgentRepositoryJsonContext.Default.ListSchedule) ?? [];
 
     private async Task EnsureNameAvailableAsync(string normalizedName, Guid? excludedAgentId, CancellationToken ct)
     {

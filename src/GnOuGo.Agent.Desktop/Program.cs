@@ -402,8 +402,11 @@ internal static class Program
 
         try
         {
-            serverTask.GetAwaiter().GetResult();
-            Log("Server task completed cleanly");
+            if (serverTask is not null)
+            {
+                serverTask.GetAwaiter().GetResult();
+                Log("Server task completed cleanly");
+            }
         }
         catch
         {
