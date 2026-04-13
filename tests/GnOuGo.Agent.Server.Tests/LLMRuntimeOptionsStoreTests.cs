@@ -1,5 +1,4 @@
-﻿using System.Text.Json.Nodes;
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
@@ -9,10 +8,10 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LlmRuntimeOptionsStoreTests
 {
     [Fact]
-    public void Persist_WhenTransientMountedMcpServersExist_DoesNotWriteThemToUserSettings()
+    public void UpdateProvider_WhenTransientMountedMcpServersExist_KeepsEverythingInMemoryOnly()
     {
-        var settingsPath = Path.Combine(Path.GetTempPath(), "gnougo-agent-server-tests", "runtime-settings-regression", $"{Guid.NewGuid():N}.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+        var userSettingsPath = Path.Combine(Path.GetTempPath(), "gnougo-agent-server-tests", "runtime-settings-regression", $"{Guid.NewGuid():N}.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(userSettingsPath)!);
 
         var store = new LLMRuntimeOptionsStore(
             Options.Create(new LLMOptions
@@ -28,8 +27,7 @@ public sealed class LlmRuntimeOptionsStoreTests
                     ["github"] = new() { Type = "http", Url = "https://api.githubcopilot.com/mcp/", Description = "GitHub" }
                 }
             }),
-            NullLogger<LLMRuntimeOptionsStore>.Instance,
-            settingsPath);
+            NullLogger<LLMRuntimeOptionsStore>.Instance);
 
         store.UpsertTransientMcpServer("GnOuGo.Agent.Mcp", new McpServerOptions
         {
@@ -40,15 +38,45 @@ public sealed class LlmRuntimeOptionsStoreTests
 
         var updated = store.SetDefaultProvider("openai", "gpt-4o-mini");
         Assert.True(updated);
-        Assert.True(File.Exists(settingsPath));
+        Assert.False(File.Exists(userSettingsPath));
 
-        var json = JsonNode.Parse(File.ReadAllText(settingsPath))?.AsObject();
-        Assert.NotNull(json);
+        Assert.True(store.Current.McpServers.ContainsKey("github"));
+        Assert.True(store.Current.McpServers.ContainsKey("GnOuGo.Agent.Mcp"));
+    }
 
-        var llm = Assert.IsType<JsonObject>(json["LLM"]);
-        var mcpServers = Assert.IsType<JsonObject>(llm["McpServers"]);
-        Assert.True(mcpServers.ContainsKey("github"));
-        Assert.False(mcpServers.ContainsKey("GnOuGo.Agent.Mcp"));
+    [Fact]
+    public void ReplaceRuntimeOptions_OverwritesTheLiveSnapshot()
+    {
+        var store = new LLMRuntimeOptionsStore(
+            Options.Create(new LLMOptions
+            {
+                DefaultProvider = "openai",
+                DefaultModel = "gpt-4o-mini",
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai" }
+                }
+            }),
+            NullLogger<LLMRuntimeOptionsStore>.Instance);
+
+        store.ReplaceRuntimeOptions(new LLMOptions
+        {
+            DefaultProvider = "ollama",
+            DefaultModel = "llama3.2",
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["ollama"] = new() { Url = "http://localhost:11434", Type = "ollama" }
+            },
+            McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Github"] = new() { Type = "http", Url = "https://api.githubcopilot.com/mcp/" }
+            }
+        });
+
+        Assert.Equal("ollama", store.Current.DefaultProvider, ignoreCase: true);
+        Assert.Equal("llama3.2", store.Current.DefaultModel);
+        Assert.True(store.Current.Models.ContainsKey("ollama"));
+        Assert.True(store.Current.McpServers.ContainsKey("Github"));
     }
 }
 

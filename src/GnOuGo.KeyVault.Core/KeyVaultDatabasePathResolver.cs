@@ -3,7 +3,7 @@
 /// <summary>
 /// Resolves the shared KeyVault SQLite path used by trusted hosts.
 /// The default logical path `data/gnougo-keyvault.db` is mapped to a
-/// stable LocalApplicationData location so multiple processes can share it.
+/// stable Desktop\GnOuGo location so multiple local processes can share it.
 /// </summary>
 public static class KeyVaultDatabasePathResolver
 {
@@ -21,13 +21,30 @@ public static class KeyVaultDatabasePathResolver
         if (string.Equals(normalized, DefaultRelativePath, StringComparison.OrdinalIgnoreCase))
         {
             return Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "GnOuGo.Agent",
+                ResolveDesktopDirectory(),
+                "GnOuGo",
                 "data",
                 "gnougo-keyvault.db");
         }
 
         return Path.Combine(baseDirectory, configuredPath!);
+    }
+
+    private static string ResolveDesktopDirectory()
+    {
+        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (!string.IsNullOrWhiteSpace(desktopPath))
+            return Path.GetFullPath(desktopPath);
+
+        var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfilePath))
+            return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
+
+        var homePath = Environment.GetEnvironmentVariable("HOME");
+        if (!string.IsNullOrWhiteSpace(homePath))
+            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
+
+        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
     }
 }
 

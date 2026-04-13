@@ -39,6 +39,9 @@ The same SQLite database now stores:
 - diff revisions,
 - persisted user defaults (`default_llm_provider`, `default_llm_model`, `default_agent`).
 
+When `Agent:DatabasePath` keeps its default logical value (`data/gnougo-agent.db`), the actual SQLite file is created under the current user's Desktop in `Desktop/GnOuGo/data/gnougo-agent.db`.
+Explicit absolute paths are still honored.
+
 ## HTTP routes
 
 ### Standalone host (`GnOuGo.Agent.Mcp`)

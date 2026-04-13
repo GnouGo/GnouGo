@@ -169,6 +169,7 @@ jobs:
       - name: Zip Server output
         shell: pwsh
         run: |
+          Get-ChildItem "artifacts/publish/server/linux-x64" -Recurse -Filter *.pdb | Remove-Item -Force
           $zip = "GnOuGo.Agent.Server-linux-x64.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path "artifacts/publish/server/linux-x64/*" -DestinationPath $zip
@@ -262,6 +263,7 @@ jobs:
       - name: Zip Desktop output
         shell: pwsh
         run: |
+          Get-ChildItem "artifacts/publish/desktop/${{ matrix.rid }}" -Recurse -Filter *.pdb | Remove-Item -Force
           $zip = "GnOuGo.Agent.Desktop-${{ matrix.rid }}.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path "artifacts/publish/desktop/${{ matrix.rid }}/*" -DestinationPath $zip

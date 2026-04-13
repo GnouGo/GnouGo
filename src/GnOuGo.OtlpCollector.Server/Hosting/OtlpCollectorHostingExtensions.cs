@@ -10,6 +10,30 @@ namespace OtlpTenantCollector.Hosting;
 
 public static class OtlpCollectorHostingExtensions
 {
+    public static string ResolveDatabasePath(string? configuredPath, string baseDirectory)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredPath) && Path.IsPathRooted(configuredPath))
+            return configuredPath;
+
+        var defaultPath = new DatabaseOptions().Path;
+        var normalized = string.IsNullOrWhiteSpace(configuredPath)
+            ? defaultPath
+            : configuredPath.Replace('\\', '/').Trim();
+
+        if (string.Equals(normalized, defaultPath, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "data/gnougo-telemetry.db", StringComparison.OrdinalIgnoreCase))
+        {
+            var fileName = Path.GetFileName(normalized);
+            return Path.Combine(
+                ResolveDesktopDirectory(),
+                "GnOuGo",
+                "data",
+                fileName);
+        }
+
+        return Path.Combine(baseDirectory, configuredPath!);
+    }
+
     public static IServiceCollection AddOtlpCollectorCore(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -31,9 +55,7 @@ public static class OtlpCollectorHostingExtensions
         services.AddDbContext<TelemetryDbContext>((sp, options) =>
         {
             var dbOptions = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value;
-            var dbPath = dbOptions.Path;
-            if (!Path.IsPathRooted(dbPath))
-                dbPath = Path.Combine(AppContext.BaseDirectory, dbPath);
+            var dbPath = ResolveDatabasePath(dbOptions.Path, AppContext.BaseDirectory);
 
             var directory = Path.GetDirectoryName(dbPath);
             if (!string.IsNullOrWhiteSpace(directory))
@@ -89,6 +111,23 @@ public static class OtlpCollectorHostingExtensions
 
         endpoints.MapTenantApi();
         return endpoints;
+    }
+
+    private static string ResolveDesktopDirectory()
+    {
+        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (!string.IsNullOrWhiteSpace(desktopPath))
+            return Path.GetFullPath(desktopPath);
+
+        var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfilePath))
+            return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
+
+        var homePath = Environment.GetEnvironmentVariable("HOME");
+        if (!string.IsNullOrWhiteSpace(homePath))
+            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
+
+        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
     }
 }
 

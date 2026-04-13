@@ -2,9 +2,14 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using GnOuGo.Agent.Server.Hosting;
+using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.KeyVault.Core.Data;
+using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.AI.Core;
 using OtlpTenantCollector.Services;
+using OtlpTenantCollector.Hosting;
 using System.Net;
+using Microsoft.EntityFrameworkCore;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -288,6 +293,85 @@ public sealed class GnOuGoAgentWebHostTests
         }
     }
 
+    [Fact]
+    public async Task StartAsync_LoadsRuntimeProvidersAndMcpServersFromKeyVaultStore()
+    {
+        var contentRoot = GetServerContentRoot();
+        var agentDbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-webhost-agent-{Guid.NewGuid():N}.db");
+        var keyVaultDbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-webhost-keyvault-{Guid.NewGuid():N}.db");
+
+        await using (var seedDb = new KeyVaultDbContext(new DbContextOptionsBuilder<KeyVaultDbContext>()
+                         .UseSqlite($"Data Source={keyVaultDbPath}")
+                         .Options))
+        {
+            await seedDb.Database.EnsureCreatedAsync();
+        }
+
+        var seedServices = new ServiceCollection();
+        seedServices.AddLogging();
+        seedServices.AddDbContext<KeyVaultDbContext>(options => options.UseSqlite($"Data Source={keyVaultDbPath}"));
+        seedServices.AddScoped<KeyVaultService>();
+
+        await using (var seedProvider = seedServices.BuildServiceProvider())
+        await using (var scope = seedProvider.CreateAsyncScope())
+        {
+            var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+            await keyVault.EnsureDefaultKeyPairAsync();
+            await keyVault.SetSecretAsync(
+                "LLM--Models--ollama",
+                "{\"provider\":\"ollama\",\"url\":\"http://127.0.0.1:11434\",\"model\":\"llama3.2\",\"authType\":\"none\"}",
+                null,
+                "test",
+                CancellationToken.None);
+            await keyVault.SetSecretAsync(
+                "LLM--McpServers--Github",
+                "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"GitHub automation\",\"url\":\"https://api.githubcopilot.com/mcp/\",\"authType\":\"api_key\",\"apiKey\":\"gh-secret\"}",
+                null,
+                "test",
+                CancellationToken.None);
+        }
+
+        var args = TelemetryTestHostArgs.Create(
+            $"--Agent:DatabasePath={agentDbPath}",
+            $"--KeyVault:DatabasePath={keyVaultDbPath}");
+
+        await using var app = GnOuGoAgentWebHost.Build(
+            args,
+            urls: "http://127.0.0.1:0",
+            contentRoot: contentRoot,
+            enableHttpsRedirection: false);
+
+        try
+        {
+            await app.StartAsync();
+            var runtimeConfigStore = app.Services.GetRequiredService<IKeyVaultRuntimeConfigStore>();
+            var effective = await runtimeConfigStore.BuildEffectiveOptionsAsync(new LLMOptions(), CancellationToken.None);
+
+            Assert.True(effective.Models.TryGetValue("ollama", out var ollama));
+            Assert.NotNull(ollama);
+            Assert.Equal("http://127.0.0.1:11434", ollama.Url);
+            Assert.True(effective.McpServers.TryGetValue("Github", out var github));
+            Assert.NotNull(github);
+            Assert.Equal("https://api.githubcopilot.com/mcp/", github.Url);
+        }
+        finally
+        {
+            await app.StopAsync();
+
+            TryDeleteFile(agentDbPath);
+            TryDeleteFile(keyVaultDbPath);
+        }
+    }
+
+    [Fact]
+    public void ResolveDatabasePath_WhenUsingAgentDesktopDefaultTelemetryPath_UsesDesktopGnOuGoDirectory()
+    {
+        var expected = Path.Combine(ResolveDesktopDirectory(), "GnOuGo", "data", "gnougo-telemetry.db");
+        var actual = OtlpCollectorHostingExtensions.ResolveDatabasePath("data/gnougo-telemetry.db", AppContext.BaseDirectory);
+
+        Assert.Equal(expected, actual);
+    }
+
     private static bool IsRecursiveInfrastructureLog(OtlpTenantCollector.Models.LogRecordEntity log)
     {
         var scopeJson = log.ScopeJson ?? string.Empty;
@@ -323,6 +407,36 @@ public sealed class GnOuGoAgentWebHostTests
             return "<empty>";
 
         return value.Length <= maxLength ? value : value[..maxLength] + "…";
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch (IOException)
+        {
+            // Best-effort cleanup for a temporary SQLite file.
+        }
+    }
+
+    private static string ResolveDesktopDirectory()
+    {
+        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (!string.IsNullOrWhiteSpace(desktopPath))
+            return Path.GetFullPath(desktopPath);
+
+        var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfilePath))
+            return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
+
+        var homePath = Environment.GetEnvironmentVariable("HOME");
+        if (!string.IsNullOrWhiteSpace(homePath))
+            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
+
+        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
     }
 
     private static void EnsureBundledToolExists(string bundledToolPath)

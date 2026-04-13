@@ -24,7 +24,6 @@ internal static class TelemetryTestHostArgs
             $"--OtlpCollector:HttpPort={httpPort}",
             $"--Database:Path={Path.Combine(baseDir, "telemetry.db")}",
             $"--Agent:DatabasePath={Path.Combine(baseDir, "agent.db")}",
-            $"--Agent:UserSettingsPath={Path.Combine(baseDir, "user-settings.json")}",
             $"--KeyVault:DatabasePath={Path.Combine(baseDir, "keyvault.db")}",
             .. extraArgs
         ];

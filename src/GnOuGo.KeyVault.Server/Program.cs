@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using GnOuGo.KeyVault.Core;
 using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Core.Models;
 using GnOuGo.KeyVault.Core.Services;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
-var dbPath = Path.Combine(AppContext.BaseDirectory, "data", "gnougo-keyvault.db");
+var dbRelativePath = builder.Configuration.GetValue<string>("KeyVault:DatabasePath")
+    ?? KeyVaultDatabasePathResolver.DefaultRelativePath;
+var dbPath = KeyVaultDatabasePathResolver.Resolve(dbRelativePath, AppContext.BaseDirectory);
 Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
 
 builder.Services.AddDbContext<KeyVaultDbContext>(o =>

@@ -119,13 +119,21 @@
 
     <Message Importance="high" Text="Publishing bundled desktop MCP tools into $(BundledToolsRoot) for $(RuntimeIdentifier)..." />
 
-    <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
-    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
-    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
+    <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
+    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
+    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
 
     <Error Condition="!Exists('$(BundledBrowserToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Browser.Mcp in $(BundledBrowserToolDir)." />
     <Error Condition="!Exists('$(BundledCmdToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Cmd.Mcp in $(BundledCmdToolDir)." />
     <Error Condition="!Exists('$(BundledDocumentToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Document.Mcp in $(BundledDocumentToolDir)." />
+  </Target>
+
+  <Target Name="RemovePdbFilesFromPublish" AfterTargets="PublishBundledDesktopTools" Condition="'$(PublishDir)' != ''">
+    <ItemGroup>
+      <_PublishPdbFiles Include="$(PublishDir)**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(_PublishPdbFiles)" Condition="'@(_PublishPdbFiles)' != ''" />
+    <Message Importance="high" Text="Removed @(_PublishPdbFiles->Count()) PDB file(s) from publish output." />
   </Target>
 
 

@@ -3,12 +3,22 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using GnOuGo.KeyVault.Core;
 using GnOuGo.KeyVault.Core.Data;
 
 namespace GnOuGo.KeyVault.Mcp.Tests;
 
 public sealed class KeyVaultMcpWebHostTests
 {
+    [Fact]
+    public void ResolveDatabasePath_WhenUsingDefaultPath_UsesDesktopGnOuGoDirectory()
+    {
+        var expected = Path.Combine(ResolveDesktopDirectory(), "GnOuGo", "data", "gnougo-keyvault.db");
+        var actual = KeyVaultDatabasePathResolver.Resolve(KeyVaultDatabasePathResolver.DefaultRelativePath, AppContext.BaseDirectory);
+
+        Assert.Equal(expected, actual);
+    }
+
     [Fact]
     public async Task InitializeKeyVaultMcpAsync_CreatesSchemaAndDefaultTenant()
     {
@@ -85,6 +95,23 @@ public sealed class KeyVaultMcpWebHostTests
     }
 
     private sealed record HealthPayload(string Status);
+
+    private static string ResolveDesktopDirectory()
+    {
+        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (!string.IsNullOrWhiteSpace(desktopPath))
+            return Path.GetFullPath(desktopPath);
+
+        var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfilePath))
+            return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
+
+        var homePath = Environment.GetEnvironmentVariable("HOME");
+        if (!string.IsNullOrWhiteSpace(homePath))
+            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
+
+        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
+    }
 }
 
 
