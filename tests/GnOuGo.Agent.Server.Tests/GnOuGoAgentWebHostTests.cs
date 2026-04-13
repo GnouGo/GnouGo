@@ -9,6 +9,7 @@ using GnOuGo.AI.Core;
 using OtlpTenantCollector.Services;
 using OtlpTenantCollector.Hosting;
 using System.Net;
+using System.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore;
 
 namespace GnOuGo.Agent.Server.Tests;
@@ -199,6 +200,64 @@ public sealed class GnOuGoAgentWebHostTests
         finally
         {
             await app.StopAsync();
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_WhenDesktopHostedFromPublishLikeContentRoot_ServesBlazorFrameworkAndNegotiationEndpoint()
+    {
+        var sourceContentRoot = GetServerContentRoot();
+        var tempContentRoot = Path.Combine(
+            Path.GetTempPath(),
+            "gnougo-agent-server-desktop-publishlike-tests",
+            Guid.NewGuid().ToString("N"));
+
+        Directory.CreateDirectory(tempContentRoot);
+        CopyPublishLikeDesktopContent(sourceContentRoot, tempContentRoot);
+
+        var args = TelemetryTestHostArgs.Create();
+
+        await using var app = GnOuGoAgentWebHost.Build(
+            args,
+            urls: "http://127.0.0.1:0",
+            contentRoot: tempContentRoot,
+            enableHttpsRedirection: false);
+
+        await app.StartAsync();
+
+        try
+        {
+            var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
+            var baseAddress = TestServerAddressResolver.NormalizeBaseAddress(
+                publishedEndpoints.AppBaseAddress ?? throw new InvalidOperationException("The main app address should be published."));
+
+            using var http = new HttpClient { BaseAddress = new Uri(baseAddress + "/", UriKind.Absolute) };
+
+            var scriptResponse = await http.GetAsync("_framework/blazor.web.js");
+            Assert.True(scriptResponse.IsSuccessStatusCode, $"GET /_framework/blazor.web.js returned {(int)scriptResponse.StatusCode} {scriptResponse.StatusCode}.");
+
+            var scriptBody = await scriptResponse.Content.ReadAsStringAsync();
+            Assert.Contains("Blazor", scriptBody, StringComparison.OrdinalIgnoreCase);
+
+            using var negotiateRequest = new HttpRequestMessage(HttpMethod.Post, "_blazor/negotiate?negotiateVersion=1")
+            {
+                Content = new StringContent("{}")
+            };
+            negotiateRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            negotiateRequest.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+            var negotiateResponse = await http.SendAsync(negotiateRequest);
+            Assert.True(negotiateResponse.IsSuccessStatusCode, $"POST /_blazor/negotiate returned {(int)negotiateResponse.StatusCode} {negotiateResponse.StatusCode}.");
+
+            var negotiateBody = await negotiateResponse.Content.ReadAsStringAsync();
+            Assert.Contains("connectionId", negotiateBody, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            await app.StopAsync();
+
+            if (Directory.Exists(tempContentRoot))
+                Directory.Delete(tempContentRoot, recursive: true);
         }
     }
 
@@ -444,6 +503,70 @@ public sealed class GnOuGoAgentWebHostTests
         Directory.CreateDirectory(Path.GetDirectoryName(bundledToolPath)!);
         if (!File.Exists(bundledToolPath))
             File.WriteAllText(bundledToolPath, string.Empty);
+    }
+
+    private static void CopyPublishLikeDesktopContent(string sourceContentRoot, string destinationContentRoot)
+    {
+        File.Copy(
+            Path.Combine(sourceContentRoot, "appsettings.json"),
+            Path.Combine(destinationContentRoot, "appsettings.json"));
+        File.Copy(
+            Path.Combine(sourceContentRoot, "appsettings.Desktop.json"),
+            Path.Combine(destinationContentRoot, "appsettings.Desktop.json"));
+
+        var sourceWwwRoot = Path.Combine(sourceContentRoot, "wwwroot");
+        var destinationWwwRoot = Path.Combine(destinationContentRoot, "wwwroot");
+        CopyDirectory(sourceWwwRoot, destinationWwwRoot);
+
+        var destinationFrameworkRoot = Path.Combine(destinationWwwRoot, "_framework");
+        Directory.CreateDirectory(destinationFrameworkRoot);
+
+        File.Copy(
+            ResolveBlazorFrameworkAsset("blazor.web.js"),
+            Path.Combine(destinationFrameworkRoot, "blazor.web.js"),
+            overwrite: true);
+        File.Copy(
+            ResolveBlazorFrameworkAsset("blazor.server.js"),
+            Path.Combine(destinationFrameworkRoot, "blazor.server.js"),
+            overwrite: true);
+    }
+
+    private static string ResolveBlazorFrameworkAsset(string fileName)
+    {
+        var nugetPackageRoot = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+        if (string.IsNullOrWhiteSpace(nugetPackageRoot))
+        {
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            nugetPackageRoot = Path.Combine(userProfile, ".nuget", "packages");
+        }
+
+        var packageRoot = Path.Combine(nugetPackageRoot, "microsoft.aspnetcore.app.internal.assets");
+        Assert.True(Directory.Exists(packageRoot), $"Blazor framework package root not found: {packageRoot}");
+
+        var candidate = Directory.GetFiles(packageRoot, fileName, SearchOption.AllDirectories)
+            .FirstOrDefault(path => path.Contains($"{Path.DirectorySeparatorChar}_framework{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+
+        Assert.False(string.IsNullOrWhiteSpace(candidate), $"Unable to locate {fileName} under {packageRoot}.");
+        return candidate!;
+    }
+
+    private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
+    {
+        Directory.CreateDirectory(destinationDirectory);
+
+        foreach (var directory in Directory.GetDirectories(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceDirectory, directory);
+            Directory.CreateDirectory(Path.Combine(destinationDirectory, relativePath));
+        }
+
+        foreach (var file in Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceDirectory, file);
+            var destinationFile = Path.Combine(destinationDirectory, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
+            File.Copy(file, destinationFile, overwrite: true);
+        }
     }
 
     private static void AssertBundledToolServer(LLMOptions llmOptions, string serverName, string expectedCommand)
