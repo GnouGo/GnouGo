@@ -260,6 +260,16 @@ jobs:
             }
           }
 
+          $requiredUiAssets = @(
+            "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js"
+          )
+
+          foreach ($path in $requiredUiAssets) {
+            if (-not (Test-Path $path)) {
+              throw "Missing required desktop UI asset: $path"
+            }
+          }
+
       - name: Zip Desktop output
         shell: pwsh
         run: |

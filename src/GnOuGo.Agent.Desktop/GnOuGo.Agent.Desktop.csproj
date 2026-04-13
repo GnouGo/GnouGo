@@ -91,6 +91,23 @@
     Published builds serve static assets from the physical wwwroot/ folder via UseStaticFiles().
   -->
 
+  <!--
+    Published desktop ZIP artifacts must not depend on machine-specific Static Web Assets manifests.
+    Copy the Blazor framework scripts into wwwroot/_framework so the embedded server can serve
+    interactive assets directly from the publish folder on another machine.
+  -->
+  <Target Name="CopyBlazorFrameworkAssetsToPublish" AfterTargets="Publish" BeforeTargets="RemoveStaticWebAssetsManifestsFromPublish" Condition="'$(PublishDir)' != ''">
+    <ItemGroup>
+      <_BlazorFrameworkAssets Include="$(NuGetPackageRoot)microsoft.aspnetcore.app.internal.assets/*/_framework/blazor.web.js" />
+      <_BlazorFrameworkAssets Include="$(NuGetPackageRoot)microsoft.aspnetcore.app.internal.assets/*/_framework/blazor.server.js" />
+    </ItemGroup>
+
+    <Error Condition="'@(_BlazorFrameworkAssets)' == ''" Text="Unable to locate Blazor framework assets under $(NuGetPackageRoot)microsoft.aspnetcore.app.internal.assets." />
+    <MakeDir Directories="$(PublishDir)wwwroot\_framework" />
+    <Copy SourceFiles="@(_BlazorFrameworkAssets)" DestinationFolder="$(PublishDir)wwwroot\_framework" SkipUnchangedFiles="true" />
+    <Message Importance="high" Text="Copied @(_BlazorFrameworkAssets->Count()) Blazor framework asset(s) into $(PublishDir)wwwroot\_framework." />
+  </Target>
+
   <!-- Clean up any staticwebassets manifests that leaked into the publish output from the build step -->
   <Target Name="RemoveStaticWebAssetsManifestsFromPublish" AfterTargets="Publish" BeforeTargets="PublishBundledDesktopTools">
     <ItemGroup>
