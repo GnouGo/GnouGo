@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
@@ -51,6 +51,94 @@ jobs:
               exit $LASTEXITCODE
             }
           }
+
+  tags:
+    name: Compute Version Tag
+    needs: [stable_unit_tests]
+    runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]' && !startsWith(github.ref, 'refs/tags/') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+    outputs:
+      new_version: ${{ steps.tag.outputs.new_version }}
+      tag: ${{ steps.tag.outputs.tag }}
+      version_tag: ${{ steps.tag.outputs.version_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Alpha, Beta or Release
+        id: which_tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.ref }}" == refs/pull* ]]; then
+            last_commit_message=$(curl -s "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.number }}/commits" | jq -r '.[-1].commit.message')
+          else
+            last_commit_message=$(git log --format=%B -n 1)
+          fi
+          echo "last commit message is: $last_commit_message"
+
+          echo "tag=default" >> "$GITHUB_OUTPUT"
+          if [[ "$last_commit_message" == *alpha* ]]; then
+            echo "tag=alpha" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ "$last_commit_message" == *beta* ]]; then
+            echo "tag=beta" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ "$last_commit_message" == *release* && "${{ github.ref }}" == 'refs/heads/main' ]]; then
+            echo "tag=release" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump version and push tag
+        id: tag_release
+        if: steps.which_tag.outputs.tag == 'release'
+        uses: mathieudutour/github-tag-action@v6.0
+        with:
+          github_token: ${{ secrets.GIT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Bump version and compute tag (dry-run)
+        id: tag_version
+        if: steps.which_tag.outputs.tag != 'release'
+        uses: mathieudutour/github-tag-action@v6.0
+        with:
+          github_token: ${{ secrets.GIT_TOKEN || secrets.GITHUB_TOKEN }}
+          dry_run: true
+
+      - name: Compute new version number to publish
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ '${{ steps.which_tag.outputs.tag }}' == 'release' ]]; then
+            version='${{ steps.tag_release.outputs.new_version }}'
+          else
+            version='${{ steps.tag_version.outputs.new_version }}'
+          fi
+
+          if [[ -z "$version" ]]; then
+            echo "Unable to compute next version." >&2
+            exit 1
+          fi
+
+          if [[ '${{ steps.which_tag.outputs.tag }}' == 'release' ]]; then
+            new_version="$version"
+          elif [[ '${{ steps.which_tag.outputs.tag }}' == 'alpha' ]]; then
+            new_version="$version-alpha.${{ github.run_number }}"
+          elif [[ '${{ steps.which_tag.outputs.tag }}' == 'beta' ]]; then
+            new_version="$version-beta.${{ github.run_number }}"
+          elif [[ '${{ github.ref }}' == 'refs/heads/main' ]]; then
+            new_version="$version-dev.${{ github.run_number }}"
+          else
+            new_version="$version-pr.${{ github.event.number }}.${{ github.run_number }}"
+          fi
+
+          tag='${{ steps.which_tag.outputs.tag }}'
+          version_tag="v${new_version}"
+
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version_tag=$version_tag" >> "$GITHUB_OUTPUT"
 
   agent_server_tests:
     name: Agent Server Tests (non-blocking)
@@ -284,3 +372,122 @@ jobs:
           name: GnOuGo.Agent.Desktop-${{ matrix.rid }}
           path: GnOuGo.Agent.Desktop-${{ matrix.rid }}.zip
           if-no-files-found: error
+
+  otlp_collector_self_contained:
+    name: OTLP Collector (${{ matrix.rid }})
+    needs: stable_unit_tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Ensure OTLP proto files
+        shell: pwsh
+        run: |
+          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
+          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Build UI (Vite)
+        working-directory: src/GnOuGo.OtlpCollector.Server/ClientApp
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Publish OTLP Collector (self-contained)
+        shell: pwsh
+        run: |
+          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -r ${{ matrix.rid }} /p:SkipClientBuild=true
+          dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj `
+            -c Release `
+            -r ${{ matrix.rid }} `
+            --self-contained true `
+            -o artifacts/publish/otlp-collector/${{ matrix.rid }} `
+            --no-restore `
+            /p:SkipClientBuild=true `
+            /p:PublishSingleFile=true `
+            /p:EnableCompressionInSingleFile=true `
+            /p:IncludeAllContentForSelfExtract=true `
+            /p:DebugSymbols=false `
+            /p:DebugType=None
+
+      - name: Validate OTLP Collector executable
+        shell: pwsh
+        run: |
+          $exeExt = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
+          $collectorExe = "artifacts/publish/otlp-collector/${{ matrix.rid }}/GnOuGo.OtlpCollector.Server$exeExt"
+          if (-not (Test-Path $collectorExe)) {
+            throw "Missing OTLP Collector executable: $collectorExe"
+          }
+
+      - name: Zip OTLP Collector output
+        shell: pwsh
+        run: |
+          $exeExt = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
+          $collectorExe = "artifacts/publish/otlp-collector/${{ matrix.rid }}/GnOuGo.OtlpCollector.Server$exeExt"
+          if (-not (Test-Path $collectorExe)) {
+            throw "Missing OTLP Collector executable: $collectorExe"
+          }
+          $zip = "GnOuGo.OtlpCollector.Server-${{ matrix.rid }}.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path $collectorExe -DestinationPath $zip
+
+      - name: Upload OTLP Collector artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GnOuGo.OtlpCollector.Server-${{ matrix.rid }}
+          path: GnOuGo.OtlpCollector.Server-${{ matrix.rid }}.zip
+          if-no-files-found: error
+
+  publish_release_main:
+    name: Publish Release (${{ needs.tags.outputs.version_tag }})
+    needs: [tags, server_linux_x64, desktop_aot, otlp_collector_self_contained, docker_builds]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: GnOuGo.*
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.tags.outputs.version_tag }}
+          name: ${{ needs.tags.outputs.version_tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          prerelease: ${{ needs.tags.outputs.tag != 'release' }}
+          files: |
+            release-assets/**/*.zip
+
