@@ -468,7 +468,7 @@ jobs:
 
   publish_release_main:
     name: Publish Release (${{ needs.tags.outputs.version_tag }})
-    needs: [tags, server_linux_x64, desktop_aot, otlp_collector_self_contained]
+    needs: [tags, server_linux_x64, desktop_aot, otlp_collector_self_contained, docker_builds]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
@@ -478,6 +478,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-assets
+          pattern: GnOuGo.*
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
