@@ -52,8 +52,8 @@ The API starts on **http://localhost:5100**
 
 ```powershell
 cd src\GnOuGo.Diff.Server\ClientApp
-npm install
-npm run build
+corepack pnpm install --frozen-lockfile
+corepack pnpm build
 ```
 
 ### 4. Insert test data
@@ -188,7 +188,7 @@ dotnet watch
 
 # Terminal 2: ClientApp
 cd src\GnOuGo.Diff.Server\ClientApp
-npm run dev
+corepack pnpm dev
 ```
 
 ClientApp accessible at **http://localhost:5173** (with proxy to API)

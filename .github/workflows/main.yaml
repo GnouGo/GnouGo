@@ -127,18 +127,24 @@ jobs:
           dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
           dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+          run_install: false
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
-          cache-dependency-path: "src/GnOuGo.Agent.Server/ClientApp/package-lock.json"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
 
       - name: Build UI (Vite)
         working-directory: src/GnOuGo.Agent.Server/ClientApp
         run: |
-          npm ci
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm build
 
       - name: Publish Server
         run: |
@@ -163,6 +169,7 @@ jobs:
       - name: Zip Server output
         shell: pwsh
         run: |
+          Get-ChildItem "artifacts/publish/server/linux-x64" -Recurse -Filter *.pdb | Remove-Item -Force
           $zip = "GnOuGo.Agent.Server-linux-x64.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path "artifacts/publish/server/linux-x64/*" -DestinationPath $zip
@@ -203,18 +210,25 @@ jobs:
           dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
 
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+          run_install: false
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
-          cache-dependency-path: "src/GnOuGo.Agent.Server/ClientApp/package-lock.json"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
 
       - name: Build UI (Vite)
         working-directory: src/GnOuGo.Agent.Server/ClientApp
         run: |
-          npm ci
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm build
 
       - name: Publish Desktop (self-contained trimmed)
         shell: pwsh
@@ -246,9 +260,20 @@ jobs:
             }
           }
 
+          $requiredUiAssets = @(
+            "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js"
+          )
+
+          foreach ($path in $requiredUiAssets) {
+            if (-not (Test-Path $path)) {
+              throw "Missing required desktop UI asset: $path"
+            }
+          }
+
       - name: Zip Desktop output
         shell: pwsh
         run: |
+          Get-ChildItem "artifacts/publish/desktop/${{ matrix.rid }}" -Recurse -Filter *.pdb | Remove-Item -Force
           $zip = "GnOuGo.Agent.Desktop-${{ matrix.rid }}.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path "artifacts/publish/desktop/${{ matrix.rid }}/*" -DestinationPath $zip

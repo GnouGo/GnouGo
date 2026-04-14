@@ -52,7 +52,7 @@ internal sealed class FakeKeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigSto
 
     public Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, CancellationToken ct)
     {
-        return Task.FromResult<LLMOptions>(_effectiveOptions ?? baseOptions);
+        return Task.FromResult(_effectiveOptions ?? baseOptions);
     }
 }
 
@@ -256,8 +256,7 @@ internal static class SmartFlowTestFactory
     {
         var store = new LLMRuntimeOptionsStore(
             Options.Create(new LLMOptions()),
-            NullLogger<LLMRuntimeOptionsStore>.Instance,
-            CreateIsolatedUserSettingsPath());
+            NullLogger<LLMRuntimeOptionsStore>.Instance);
 
         SetRuntimeOptions(store, options ?? new LLMOptions
         {
@@ -269,12 +268,6 @@ internal static class SmartFlowTestFactory
         return store;
     }
 
-    private static string CreateIsolatedUserSettingsPath()
-    {
-        var baseDir = Path.Combine(Path.GetTempPath(), "gnougo-agent-server-tests", "runtime-settings");
-        Directory.CreateDirectory(baseDir);
-        return Path.Combine(baseDir, $"{Guid.NewGuid():N}.json");
-    }
 
     public static void SetRuntimeOptions(LLMRuntimeOptionsStore store, LLMOptions options)
     {

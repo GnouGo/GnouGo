@@ -74,6 +74,7 @@ In other words, runtime consumers should treat the mounted MCP endpoints as part
 - `user_config_set` — save updated defaults after `/llm default`, `/llm add` auto-promotion, or `/agent select`
 
 The persisted values live in the Agent MCP SQLite database (`Agent:DatabasePath`) rather than only in browser state.
+LLM provider and MCP server definitions are hydrated from encrypted KeyVault secrets at startup; `user-settings.json` is no longer used.
 
 Standalone MCP hosts still expose `/mcp` directly in their own projects:
 
@@ -116,6 +117,17 @@ Published outputs now bundle the MCP stdio tools under `tools/`:
 - `GnOuGo.Agent.Desktop` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, and `tools/GnOuGo.Document.Mcp/`
 
 This keeps the browser, command, and document MCP servers available in packaged server, desktop, and container runs without requiring the repository source tree.
+Final publish outputs also strip all `.pdb` files from both the main application and bundled MCP tools before packaging.
+
+## Default SQLite locations
+
+By default, the local agent SQLite files are created under the current user's Desktop in `Desktop/GnOuGo/data/`:
+
+- `Agent:DatabasePath` → `Desktop/GnOuGo/data/gnougo-agent.db`
+- `KeyVault:DatabasePath` → `Desktop/GnOuGo/data/gnougo-keyvault.db`
+- `Database:Path` (embedded OTLP collector) → `Desktop/GnOuGo/data/gnougo-telemetry.db`
+
+If you explicitly configure an absolute path, that override is preserved.
 
 ## Embedded OTLP collector
 
@@ -200,16 +212,16 @@ The UI styles and client helpers are bundled with **Vite** into `wwwroot/ui/app.
 
 ```powershell
 Set-Location "C:\github\GnouGo\src\GnOuGo.Agent.Server\ClientApp"
-npm install
-npm run build
+corepack pnpm install --frozen-lockfile
+corepack pnpm build
 ```
 
 ### Dev (optional)
 
 ```powershell
 Set-Location "C:\github\GnouGo\src\GnOuGo.Agent.Server\ClientApp"
-npm install
-npm run dev
+corepack pnpm install --frozen-lockfile
+corepack pnpm dev
 ```
 
 ## Run the server

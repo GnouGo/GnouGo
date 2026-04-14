@@ -4,13 +4,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>preview</LangVersion>
+    <ClientAppDir>ClientApp</ClientAppDir>
+    <PnpmCommand Condition="'$(OS)' == 'Windows_NT'">corepack.cmd pnpm</PnpmCommand>
+    <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
   </ItemGroup>
   <!-- Build ClientApp before publish -->
   <Target Name="BuildClientApp" BeforeTargets="Build" Condition="'$(SkipClientBuild)' != 'true' And '$(CI)' != ''">
-    <Exec WorkingDirectory="ClientApp" Command="npm ci &amp;&amp; npx vite build" />
+    <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; install --frozen-lockfile &amp;&amp; $(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; build" />
   </Target>
 </Project>
 

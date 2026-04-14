@@ -4,12 +4,20 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
-using Xunit;
 
 namespace GnOuGo.Agent.Mcp.Tests;
 
 public sealed class AgentMcpWebHostTests
 {
+    [Fact]
+    public void ResolveDatabasePath_WhenUsingDefaultPath_UsesDesktopGnOuGoDirectory()
+    {
+        var expected = Path.Combine(ResolveDesktopDirectory(), "GnOuGo", "data", "gnougo-agent.db");
+        var actual = AgentMcpHostingExtensions.ResolveDatabasePath(AgentMcpHostingExtensions.DefaultDatabasePath, AppContext.BaseDirectory);
+
+        Assert.Equal(expected, actual);
+    }
+
     [Fact]
     public async Task Build_StartsHttpHost_AndExposesHealthEndpoint()
     {
@@ -126,6 +134,23 @@ public sealed class AgentMcpWebHostTests
     }
 
     private sealed record HealthPayload(string Status);
+
+    private static string ResolveDesktopDirectory()
+    {
+        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (!string.IsNullOrWhiteSpace(desktopPath))
+            return Path.GetFullPath(desktopPath);
+
+        var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfilePath))
+            return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
+
+        var homePath = Environment.GetEnvironmentVariable("HOME");
+        if (!string.IsNullOrWhiteSpace(homePath))
+            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
+
+        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
+    }
 }
 
 

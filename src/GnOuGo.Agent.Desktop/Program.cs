@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -402,8 +403,11 @@ internal static class Program
 
         try
         {
-            serverTask.GetAwaiter().GetResult();
-            Log("Server task completed cleanly");
+            if (serverTask is not null)
+            {
+                serverTask.GetAwaiter().GetResult();
+                Log("Server task completed cleanly");
+            }
         }
         catch
         {
@@ -453,10 +457,31 @@ internal static class Program
             }
         }
 
+        string ProbeBlazorNegotiate()
+        {
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"{url}/_blazor/negotiate?negotiateVersion=1")
+                {
+                    Content = new StringContent("{}")
+                };
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+                var resp = http.SendAsync(request).GetAwaiter().GetResult();
+                return $"/_blazor/negotiate => {(int)resp.StatusCode} {resp.StatusCode}";
+            }
+            catch (Exception ex)
+            {
+                return $"/_blazor/negotiate => ERROR {ex.Message}";
+            }
+        }
+
         Log($"HealthReady={healthOk}");
         Log(Probe("/"));
         Log(Probe("/health"));
         Log(Probe("/_framework/blazor.web.js"));
+        Log(ProbeBlazorNegotiate());
         Log(Probe("/ui/app.js"));
         return healthOk;
     }

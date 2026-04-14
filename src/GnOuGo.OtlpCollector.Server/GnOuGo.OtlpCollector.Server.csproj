@@ -120,8 +120,8 @@
 
   <ItemGroup>
     <Content Update="appsettings*.json" CopyToPublishDirectory="Never" />
-    <Content Update="ClientApp\package.json;ClientApp\package-lock.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
-    <None Update="ClientApp\package.json;ClientApp\package-lock.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
+    <Content Update="ClientApp\package.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
+    <None Update="ClientApp\package.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
   </ItemGroup>
   
 
@@ -131,20 +131,20 @@
   
   <PropertyGroup>
     <ClientAppDir>$(MSBuildProjectDirectory)/ClientApp</ClientAppDir>
-    <NpmCommand Condition="'$(OS)' == 'Windows_NT'">npm.cmd</NpmCommand>
-    <NpmCommand Condition="'$(OS)' != 'Windows_NT'">npm</NpmCommand>
+    <PnpmCommand Condition="'$(OS)' == 'Windows_NT'">corepack.cmd pnpm</PnpmCommand>
+    <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>
   </PropertyGroup>
 
-  <!-- Target: Installer les dépendances npm si node_modules n'existe pas -->
+  <!-- Target: Installer les dépendances pnpm si node_modules n'existe pas -->
   <Target Name="EnsureNodeModules" BeforeTargets="Build" Condition="'$(SkipClientBuild)' != 'true'">
-    <Message Text="🔍 Vérification des dépendances npm..." Importance="high" />
-    <Exec Command="$(NpmCommand) install" WorkingDirectory="$(ClientAppDir)" Condition="!Exists('$(ClientAppDir)/node_modules')" />
+    <Message Text="🔍 Vérification des dépendances pnpm..." Importance="high" />
+    <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; install --frozen-lockfile" Condition="!Exists('$(ClientAppDir)/node_modules')" />
   </Target>
 
   <!-- Target: Build le frontend React et copie vers wwwroot -->
   <Target Name="BuildClientApp" AfterTargets="EnsureNodeModules" BeforeTargets="Build" Condition="'$(SkipClientBuild)' != 'true'">
     <Message Text="🔨 Construction du frontend React..." Importance="high" />
-    <Exec Command="$(NpmCommand) run build" WorkingDirectory="$(ClientAppDir)" />
+    <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; build" />
     <Message Text="✅ Frontend construit et copié vers wwwroot/" Importance="high" />
   </Target>
 

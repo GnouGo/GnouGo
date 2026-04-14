@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using OtlpTenantCollector.Hosting;
 using OtlpTenantCollector.Services;
 using OtlpTenantCollector.Services.Options;
+using OtlpTenantCollector.Web;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -26,29 +27,38 @@ using (var scope = app.Services.CreateScope())
 
 app.MapOtlpCollectorApi();
 
-app.MapGet("/admin/queue-status", (TelemetryIngestQueue queue) =>
+app.MapGet("/admin/queue-status", async httpContext =>
 {
+    var queue = httpContext.RequestServices.GetRequiredService<TelemetryIngestQueue>();
     var reader = queue.Channel.Reader;
-    var writer = queue.Channel.Writer;
 
-    return Results.Json(new
-    {
-        can_count = reader.CanCount,
-        can_peek = reader.CanPeek,
-        reader_completed = reader.Completion.IsCompleted,
-        message = "Queue is active. Data will be flushed within FlushSeconds interval."
-    });
+    await OtlpApiResponses.ExecuteAsync(
+        httpContext,
+        OtlpApiResponses.Json(
+            new QueueStatusResponse(
+                CanCount: reader.CanCount,
+                CanPeek: reader.CanPeek,
+                ReaderCompleted: reader.Completion.IsCompleted,
+                Message: "Queue is active. Data will be flushed within FlushSeconds interval."),
+            OtlpApiJsonContext.Default.QueueStatusResponse));
 });
 
-app.MapGet("/admin/config", (AppOptions opt) => Results.Json(new
+app.MapGet("/admin/config", async httpContext =>
 {
-    database_path = opt.DbPath,
-    batch_size = opt.BatchSize,
-    flush_seconds = opt.FlushSeconds,
-    channel_capacity = opt.ChannelCapacity,
-    retention_sweep_seconds = opt.RetentionSweepSeconds,
-    dev_mode_enabled = opt.DevModeEnabled
-}));
+    var opt = httpContext.RequestServices.GetRequiredService<AppOptions>();
+
+    await OtlpApiResponses.ExecuteAsync(
+        httpContext,
+        OtlpApiResponses.Json(
+            new CollectorConfigResponse(
+                DatabasePath: opt.DbPath,
+                BatchSize: opt.BatchSize,
+                FlushSeconds: opt.FlushSeconds,
+                ChannelCapacity: opt.ChannelCapacity,
+                RetentionSweepSeconds: opt.RetentionSweepSeconds,
+                DevModeEnabled: opt.DevModeEnabled),
+            OtlpApiJsonContext.Default.CollectorConfigResponse));
+});
 
 app.UseDefaultFiles();
 app.UseStaticFiles();

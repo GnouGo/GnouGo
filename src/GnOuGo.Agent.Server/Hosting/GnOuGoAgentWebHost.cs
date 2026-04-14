@@ -291,9 +291,7 @@ public static class GnOuGoAgentWebHost
 
         var agentDbRelativePath = builder.Configuration.GetValue<string>("Agent:DatabasePath")
             ?? AgentMcpHostingExtensions.DefaultDatabasePath;
-        var agentDbPath = Path.IsPathRooted(agentDbRelativePath)
-            ? agentDbRelativePath
-            : Path.Combine(AppContext.BaseDirectory, agentDbRelativePath);
+        var agentDbPath = AgentMcpHostingExtensions.ResolveDatabasePath(agentDbRelativePath, AppContext.BaseDirectory);
         var keyVaultDbRelativePath = builder.Configuration.GetValue<string>("KeyVault:DatabasePath")
             ?? "data/gnougo-keyvault.db";
         var keyVaultDbPath = KeyVaultDatabasePathResolver.Resolve(keyVaultDbRelativePath, AppContext.BaseDirectory);
@@ -301,7 +299,7 @@ public static class GnOuGoAgentWebHost
         Directory.CreateDirectory(Path.GetDirectoryName(keyVaultDbPath)!);
 
         // --- services ---
-        // LLMRuntimeOptionsStore: holds the live LLMOptions (updated by /llm wizard, persisted to user-settings.json)
+        // LLMRuntimeOptionsStore: holds the live LLMOptions hydrated from appsettings + KeyVault.
         builder.Services.AddMemoryCache();
         builder.Services.AddHttpClient(TraceDebugService.HttpClientName);
         builder.Services.AddSingleton<LocalTraceDebugStore>();
@@ -309,8 +307,7 @@ public static class GnOuGoAgentWebHost
         {
             var initialOptions = sp.GetRequiredService<IOptions<LLMOptions>>();
             var logger = sp.GetRequiredService<ILogger<LLMRuntimeOptionsStore>>();
-            var settingsPath = builder.Configuration.GetValue<string>("Agent:UserSettingsPath");
-            return new LLMRuntimeOptionsStore(initialOptions, logger, settingsPath);
+            return new LLMRuntimeOptionsStore(initialOptions, logger);
         });
         builder.Services.AddSingleton<AgentUserConfigMcpClient>();
         builder.Services.AddAgentMcpPersistence(agentDbPath);
@@ -373,6 +370,8 @@ public static class GnOuGoAgentWebHost
             var keyVaultService = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
             keyVaultService.EnsureDefaultKeyPairAsync().GetAwaiter().GetResult();
         }
+
+        HydrateRuntimeOptionsFromKeyVaultAsync(app.Services).GetAwaiter().GetResult();
 
         app.Services.InitializeOtlpCollectorAsync().GetAwaiter().GetResult();
 
@@ -711,6 +710,8 @@ public static class GnOuGoAgentWebHost
 
         try
         {
+            await HydrateRuntimeOptionsFromKeyVaultAsync(services);
+
             using var scope = services.CreateScope();
             var userConfigs = scope.ServiceProvider.GetRequiredService<IUserConfigRepository>();
             var runtimeOptions = scope.ServiceProvider.GetRequiredService<LLMRuntimeOptionsStore>();
@@ -733,6 +734,27 @@ public static class GnOuGoAgentWebHost
             var logger = services.GetRequiredService<ILoggerFactory>()
                 .CreateLogger("GnOuGo.Agent.Server.UserConfigBootstrap");
             logger.LogWarning(ex, "Could not hydrate persisted user defaults from Agent MCP.");
+        }
+    }
+
+    private static async Task HydrateRuntimeOptionsFromKeyVaultAsync(IServiceProvider services, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        try
+        {
+            using var scope = services.CreateScope();
+            var keyVaultStore = scope.ServiceProvider.GetRequiredService<IKeyVaultRuntimeConfigStore>();
+            var runtimeOptions = scope.ServiceProvider.GetRequiredService<LLMRuntimeOptionsStore>();
+
+            var effectiveOptions = await keyVaultStore.BuildEffectiveOptionsAsync(runtimeOptions.Current, ct);
+            runtimeOptions.ReplaceRuntimeOptions(effectiveOptions);
+        }
+        catch (Exception ex)
+        {
+            var logger = services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("GnOuGo.Agent.Server.KeyVaultConfigBootstrap");
+            logger.LogWarning(ex, "Could not hydrate runtime LLM and MCP settings from KeyVault.");
         }
     }
 

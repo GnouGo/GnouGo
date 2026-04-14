@@ -17,9 +17,7 @@ public static class AgentMcpWebHost
 
         var dbRelativePath = builder.Configuration.GetValue<string>("Agent:DatabasePath")
             ?? AgentMcpHostingExtensions.DefaultDatabasePath;
-        var dbPath = Path.IsPathRooted(dbRelativePath)
-            ? dbRelativePath
-            : Path.Combine(AppContext.BaseDirectory, dbRelativePath);
+        var dbPath = AgentMcpHostingExtensions.ResolveDatabasePath(dbRelativePath, AppContext.BaseDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
 
         builder.Services.AddAgentMcpPersistence(dbPath);

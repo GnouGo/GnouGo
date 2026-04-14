@@ -17,15 +17,18 @@
 # ──────────────────────────────────────────────
 FROM --platform=$BUILDPLATFORM node:24-alpine AS clientapp
 
-WORKDIR /build/ClientApp
-COPY src/GnOuGo.KeyVault.Server/ClientApp/package.json \
-     src/GnOuGo.KeyVault.Server/ClientApp/package-lock.json* \
-     ./
-RUN npm ci --prefer-offline
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
 
-COPY src/GnOuGo.KeyVault.Server/ClientApp/ ./
-RUN npm run build
-# vite outDir: '../wwwroot' → output lands in /build/wwwroot
+WORKDIR /workspace
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY src/GnOuGo.KeyVault.Server/ClientApp/package.json src/GnOuGo.KeyVault.Server/ClientApp/
+RUN pnpm --dir src/GnOuGo.KeyVault.Server/ClientApp install --frozen-lockfile
+
+COPY src/GnOuGo.KeyVault.Server/ClientApp/ src/GnOuGo.KeyVault.Server/ClientApp/
+RUN pnpm --dir src/GnOuGo.KeyVault.Server/ClientApp build
+# vite outDir: '../wwwroot' → output lands in /workspace/src/GnOuGo.KeyVault.Server/wwwroot
 
 # ──────────────────────────────────────────────
 # Stage 2: Build & publish the .NET application
@@ -51,7 +54,7 @@ COPY src/GnOuGo.KeyVault.Server/ src/GnOuGo.KeyVault.Server/
 COPY src/GnOuGo.KeyVault.Core/   src/GnOuGo.KeyVault.Core/
 
 # Copy pre-built wwwroot from the Node stage
-COPY --from=clientapp /build/wwwroot src/GnOuGo.KeyVault.Server/wwwroot/
+COPY --from=clientapp /workspace/src/GnOuGo.KeyVault.Server/wwwroot src/GnOuGo.KeyVault.Server/wwwroot/
 
 # Publish (skip ClientApp build — already done in stage 1)
 RUN dotnet publish src/GnOuGo.KeyVault.Server/GnOuGo.KeyVault.Server.csproj \

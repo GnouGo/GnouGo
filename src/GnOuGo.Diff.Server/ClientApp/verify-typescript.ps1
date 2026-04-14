@@ -1,9 +1,11 @@
 # Script de test de la migration TypeScript
 
+$ErrorActionPreference = "Stop"
+
 Write-Host "🔍 Vérification de la migration TypeScript - GnOuGo.Diff ClientApp" -ForegroundColor Cyan
 Write-Host "=================================================================`n" -ForegroundColor Cyan
 
-$clientAppPath = "C:\github\GnOuGo.Agent\src\GnOuGo.Diff.Server\ClientApp"
+$clientAppPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Vérifier que nous sommes dans le bon répertoire
 if (-not (Test-Path $clientAppPath)) {
@@ -65,14 +67,14 @@ if (Test-Path "node_modules") {
     Write-Host "  ✅ node_modules présent" -ForegroundColor Green
 } else {
     Write-Host "  ⚠️  node_modules manquant - Installation des dépendances..." -ForegroundColor Yellow
-    npm install
+    corepack pnpm install --frozen-lockfile
 }
 
 Write-Host ""
 
 # 4. Vérifier les types TypeScript
 Write-Host "🔍 Vérification des types TypeScript..." -ForegroundColor Yellow
-$typeCheckResult = npm run type-check 2>&1
+$typeCheckResult = corepack pnpm type-check 2>&1
 $typeCheckExitCode = $LASTEXITCODE
 
 if ($typeCheckExitCode -eq 0) {
@@ -88,7 +90,7 @@ Write-Host ""
 
 # 5. Build de l'application
 Write-Host "🏗️  Build de l'application..." -ForegroundColor Yellow
-$buildResult = npm run build 2>&1
+$buildResult = corepack pnpm build 2>&1
 $buildExitCode = $LASTEXITCODE
 
 if ($buildExitCode -eq 0) {
@@ -127,7 +129,7 @@ if ($allFilesExist -and $jsxFiles.Count -eq 0 -and $typeCheckExitCode -eq 0 -and
     Write-Host ""
     Write-Host "🚀 Pour démarrer l'application en mode développement:" -ForegroundColor Cyan
     Write-Host "   cd $clientAppPath" -ForegroundColor Gray
-    Write-Host "   npm run dev" -ForegroundColor Gray
+    Write-Host "   corepack pnpm dev" -ForegroundColor Gray
 } else {
     Write-Host "⚠️  MIGRATION PARTIELLE" -ForegroundColor Yellow
     Write-Host ""

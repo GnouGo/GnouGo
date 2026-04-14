@@ -1,6 +1,3 @@
-using System.Text.Json;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
 using OtlpTenantCollector.Models;
 using OtlpTenantCollector.Services;
@@ -10,12 +7,6 @@ namespace OtlpTenantCollector.Web;
 
 public static class TenantApi
 {
-    private static readonly JsonSerializerOptions SseJson = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-    };
-
     public static IEndpointRouteBuilder MapTenantApi(this IEndpointRouteBuilder endpoints)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
@@ -37,8 +28,12 @@ public static class TenantApi
         {
             if (tenantId is null && !devOpts.Value.Enabled)
             {
-                httpContext.Response.StatusCode = 400;
-                await httpContext.Response.WriteAsync("{\"error\":\"tenantId query parameter is required\"}", ct);
+                await OtlpApiResponses.WriteJsonResponseAsync(
+                    httpContext.Response,
+                    new ApiErrorResponse("tenantId query parameter is required"),
+                    OtlpApiJsonContext.Default.ApiErrorResponse,
+                    StatusCodes.Status400BadRequest,
+                    ct);
                 return;
             }
 
@@ -49,7 +44,6 @@ public static class TenantApi
             httpContext.Response.Headers.Connection = "keep-alive";
             httpContext.Response.Headers["X-Accel-Buffering"] = "no";
 
-            var writer = httpContext.Response.BodyWriter;
             var channel = eventBus.Subscribe();
 
             try
@@ -59,20 +53,26 @@ public static class TenantApi
                     using var scope = scopeFactory.CreateScope();
                     var store = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
                     var traces = await store.GetRecentTracesAsync(tenantId, l, serviceName, startUtc, endUtc, traceIdFilter, attributeContains);
-                    var json = JsonSerializer.Serialize(traces, SseJson);
-                    await httpContext.Response.WriteAsync($"event: init\ndata: {json}\n\n", ct);
-                    await httpContext.Response.Body.FlushAsync(ct);
+                    await OtlpApiResponses.WriteServerSentEventAsync(
+                        httpContext,
+                        "init",
+                        traces,
+                        OtlpApiJsonContext.Default.ListTraceSummaryDto,
+                        ct);
                 }
 
                 // Wait for flush events and send updates
-                await foreach (var evt in channel.Reader.ReadAllAsync(ct))
+                await foreach (var _ in channel.Reader.ReadAllAsync(ct))
                 {
                     using var scope = scopeFactory.CreateScope();
                     var store = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
                     var traces = await store.GetRecentTracesAsync(tenantId, l, serviceName, startUtc, endUtc, traceIdFilter, attributeContains);
-                    var json = JsonSerializer.Serialize(traces, SseJson);
-                    await httpContext.Response.WriteAsync($"event: update\ndata: {json}\n\n", ct);
-                    await httpContext.Response.Body.FlushAsync(ct);
+                    await OtlpApiResponses.WriteServerSentEventAsync(
+                        httpContext,
+                        "update",
+                        traces,
+                        OtlpApiJsonContext.Default.ListTraceSummaryDto,
+                        ct);
                 }
             }
             catch (OperationCanceledException)
@@ -90,36 +90,33 @@ public static class TenantApi
             var tenantId = Guid.CreateVersion7();
             
             if (string.IsNullOrWhiteSpace(req.Name))
-                return Results.BadRequest(new { error = "name is required" });
+                return OtlpApiResponses.BadRequest("name is required");
             
             if (req.RetentionMinutes <= 0)
-                return Results.BadRequest(new { error = "retentionMinutes must be > 0" });
+                return OtlpApiResponses.BadRequest("retentionMinutes must be > 0");
 
             await store.CreateTenantAsync(tenantId, req.Name.Trim(), req.RetentionMinutes);
 
-            return Results.Ok(new TenantCreatedResponse(tenantId, req.Name.Trim(), req.RetentionMinutes));
+            return OtlpApiResponses.Json(
+                new TenantAdminCreatedResponse(tenantId, req.Name.Trim(), req.RetentionMinutes),
+                OtlpApiJsonContext.Default.TenantAdminCreatedResponse);
         });
 
         endpoints.MapGet("/api/admin/tenants", async (EfTelemetryStore store) =>
         {
             var tenants = await store.GetAllTenantsAsync();
-            return Results.Ok(tenants.Select(t => new
-            {
-                id = t.Id,
-                name = t.Name,
-                retentionMinutes = t.RetentionMinutes,
-                createdAt = t.CreatedUtc
-            }));
+            var payload = TelemetryApiMapper.ToTenantSummaryResponses(tenants);
+            return OtlpApiResponses.Json(payload, OtlpApiJsonContext.Default.ListTenantSummaryResponse);
         });
 
         endpoints.MapDelete("/api/admin/tenants/{tenantId:guid}", async (Guid tenantId, EfTelemetryStore store) =>
         {
             var tenant = await store.GetTenantAsync(tenantId);
             if (tenant is null)
-                return Results.NotFound(new { error = "tenant not found" });
+                return OtlpApiResponses.NotFound("tenant not found");
 
             await store.DeleteTenantAsync(tenantId);
-            return Results.Ok(new { message = "tenant deleted successfully" });
+            return OtlpApiResponses.OkMessage("tenant deleted successfully");
         });
 
         // Purge all telemetry data for a tenant (keeps the tenant)
@@ -127,17 +124,17 @@ public static class TenantApi
         endpoints.MapDelete("/api/tenants/data", async (Guid? tenantId, EfTelemetryStore store, IOptions<DevModeOptions> devOpts) =>
         {
             if (tenantId is null && !devOpts.Value.Enabled)
-                return Results.BadRequest(new { error = "tenantId query parameter is required" });
+                return OtlpApiResponses.BadRequest("tenantId query parameter is required");
 
             if (tenantId is not null)
             {
                 var tenant = await store.GetTenantAsync(tenantId.Value);
                 if (tenant is null)
-                    return Results.NotFound(new { error = "tenant not found" });
+                    return OtlpApiResponses.NotFound("tenant not found");
             }
 
             var deleted = await store.PurgeTenantDataAsync(tenantId);
-            return Results.Ok(new { message = $"Purged {deleted} records for tenant {tenantId?.ToString() ?? "(null)"}" });
+            return OtlpApiResponses.OkMessage($"Purged {deleted} records for tenant {tenantId?.ToString() ?? "(null)"}");
         });
 
         // Traces endpoints — tenantId is optional query param
@@ -153,10 +150,11 @@ public static class TenantApi
             IOptions<DevModeOptions> devOpts) =>
         {
             if (tenantId is null && !devOpts.Value.Enabled)
-                return Results.BadRequest(new { error = "tenantId query parameter is required" });
+                return OtlpApiResponses.BadRequest("tenantId query parameter is required");
 
             var l = Math.Clamp(limit ?? 50, 1, 500);
-            return Results.Ok(await store.GetRecentTracesAsync(tenantId, l, serviceName, startUtc, endUtc, traceIdFilter, attributeContains));
+            var traces = await store.GetRecentTracesAsync(tenantId, l, serviceName, startUtc, endUtc, traceIdFilter, attributeContains);
+            return OtlpApiResponses.Json(traces, OtlpApiJsonContext.Default.ListTraceSummaryDto);
         });
 
         endpoints.MapGet("/api/tenants/traces/{traceId}", async (
@@ -166,7 +164,7 @@ public static class TenantApi
             IOptions<DevModeOptions> devOpts) =>
         {
             if (tenantId is null && !devOpts.Value.Enabled)
-                return Results.BadRequest(new { error = "tenantId query parameter is required" });
+                return OtlpApiResponses.BadRequest("tenantId query parameter is required");
 
             var traceIdBytes = Convert.FromHexString(traceId);
             var spans = await store.GetTraceSpansAsync(tenantId, traceIdBytes);
@@ -181,7 +179,7 @@ public static class TenantApi
                 Spans: spanDtos
             );
 
-            return Results.Ok(trace);
+            return OtlpApiResponses.Json(trace, OtlpApiJsonContext.Default.TraceDto);
         });
 
         // Logs endpoints — tenantId is optional query param
@@ -198,27 +196,12 @@ public static class TenantApi
             IOptions<DevModeOptions> devOpts) =>
         {
             if (tenantId is null && !devOpts.Value.Enabled)
-                return Results.BadRequest(new { error = "tenantId query parameter is required" });
+                return OtlpApiResponses.BadRequest("tenantId query parameter is required");
 
             var l = Math.Clamp(limit ?? 100, 1, 1000);
             var logs = await store.GetRecentLogsAsync(tenantId, l, serviceName, startUtc, endUtc, severityLevels, traceIdFilter, attributeContains);
-            
-            var logDtos = logs.Select(log => new
-            {
-                tenantId = log.TenantId,
-                receivedUtc = log.ReceivedUtc,
-                traceId = log.TraceId != null ? Convert.ToHexString(log.TraceId) : null,
-                spanId = log.SpanId != null ? Convert.ToHexString(log.SpanId) : null,
-                severityNumber = log.SeverityNumber,
-                severityText = log.SeverityText,
-                body = log.Body,
-                serviceName = log.ServiceName,
-                attributes = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(log.AttributesJson ?? "{}"),
-                resource = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(log.ResourceJson ?? "{}"),
-                scope = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(log.ScopeJson ?? "{}")
-            }).ToList();
-
-            return Results.Ok(logDtos);
+            var payload = TelemetryApiMapper.ToLogResponses(logs);
+            return OtlpApiResponses.Json(payload, OtlpApiJsonContext.Default.ListTelemetryLogResponse);
         });
 
         // ── SSE real-time stream for logs ──────────────────────────────────
@@ -234,8 +217,12 @@ public static class TenantApi
         {
             if (tenantId is null && !devOpts.Value.Enabled)
             {
-                httpContext.Response.StatusCode = 400;
-                await httpContext.Response.WriteAsync("{\"error\":\"tenantId query parameter is required\"}", ct);
+                await OtlpApiResponses.WriteJsonResponseAsync(
+                    httpContext.Response,
+                    new ApiErrorResponse("tenantId query parameter is required"),
+                    OtlpApiJsonContext.Default.ApiErrorResponse,
+                    StatusCodes.Status400BadRequest,
+                    ct);
                 return;
             }
 
@@ -255,47 +242,27 @@ public static class TenantApi
                     using var scope = scopeFactory.CreateScope();
                     var store = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
                     var logs = await store.GetRecentLogsAsync(tenantId, l, serviceName);
-                    var logDtos2 = logs.Select(log => new
-                    {
-                        tenantId = log.TenantId,
-                        receivedUtc = log.ReceivedUtc,
-                        traceId = log.TraceId != null ? Convert.ToHexString(log.TraceId) : null,
-                        spanId = log.SpanId != null ? Convert.ToHexString(log.SpanId) : null,
-                        severityNumber = log.SeverityNumber,
-                        severityText = log.SeverityText,
-                        body = log.Body,
-                        serviceName = log.ServiceName,
-                        attributes = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(log.AttributesJson ?? "{}"),
-                        resource = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(log.ResourceJson ?? "{}"),
-                        scope = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(log.ScopeJson ?? "{}")
-                    }).ToList();
-                    var json = JsonSerializer.Serialize(logDtos2, SseJson);
-                    await httpContext.Response.WriteAsync($"event: init\ndata: {json}\n\n", ct);
-                    await httpContext.Response.Body.FlushAsync(ct);
+                    var payload = TelemetryApiMapper.ToLogResponses(logs);
+                    await OtlpApiResponses.WriteServerSentEventAsync(
+                        httpContext,
+                        "init",
+                        payload,
+                        OtlpApiJsonContext.Default.ListTelemetryLogResponse,
+                        ct);
                 }
 
-                await foreach (var evt in channel.Reader.ReadAllAsync(ct))
+                await foreach (var _ in channel.Reader.ReadAllAsync(ct))
                 {
                     using var scope = scopeFactory.CreateScope();
                     var store = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
                     var logs = await store.GetRecentLogsAsync(tenantId, l, serviceName);
-                    var logDtos2 = logs.Select(log => new
-                    {
-                        tenantId = log.TenantId,
-                        receivedUtc = log.ReceivedUtc,
-                        traceId = log.TraceId != null ? Convert.ToHexString(log.TraceId) : null,
-                        spanId = log.SpanId != null ? Convert.ToHexString(log.SpanId) : null,
-                        severityNumber = log.SeverityNumber,
-                        severityText = log.SeverityText,
-                        body = log.Body,
-                        serviceName = log.ServiceName,
-                        attributes = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(log.AttributesJson ?? "{}"),
-                        resource = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(log.ResourceJson ?? "{}"),
-                        scope = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(log.ScopeJson ?? "{}")
-                    }).ToList();
-                    var json = JsonSerializer.Serialize(logDtos2, SseJson);
-                    await httpContext.Response.WriteAsync($"event: update\ndata: {json}\n\n", ct);
-                    await httpContext.Response.Body.FlushAsync(ct);
+                    var payload = TelemetryApiMapper.ToLogResponses(logs);
+                    await OtlpApiResponses.WriteServerSentEventAsync(
+                        httpContext,
+                        "update",
+                        payload,
+                        OtlpApiJsonContext.Default.ListTelemetryLogResponse,
+                        ct);
                 }
             }
             catch (OperationCanceledException) { /* Client disconnected */ }
@@ -312,31 +279,14 @@ public static class TenantApi
             IOptions<DevModeOptions> devOpts) =>
         {
             if (tenantId is null && !devOpts.Value.Enabled)
-                return Results.BadRequest(new { error = "tenantId query parameter is required" });
+                return OtlpApiResponses.BadRequest("tenantId query parameter is required");
 
             var traceIdBytes = Convert.FromHexString(traceId);
             var logs = await store.GetLogsForTraceAsync(tenantId, traceIdBytes);
-            
-            var logDtos = logs.Select(log => new
-            {
-                tenantId = log.TenantId,
-                receivedUtc = log.ReceivedUtc,
-                traceId = log.TraceId != null ? Convert.ToHexString(log.TraceId) : null,
-                spanId = log.SpanId != null ? Convert.ToHexString(log.SpanId) : null,
-                severityNumber = log.SeverityNumber,
-                severityText = log.SeverityText,
-                body = log.Body,
-                attributes = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(log.AttributesJson ?? "{}"),
-                resource = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(log.ResourceJson ?? "{}"),
-                scope = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(log.ScopeJson ?? "{}")
-            }).ToList();
-
-            return Results.Ok(logDtos);
+            var payload = TelemetryApiMapper.ToLogResponses(logs, includeServiceName: false);
+            return OtlpApiResponses.Json(payload, OtlpApiJsonContext.Default.ListTelemetryLogResponse);
         });
 
         return endpoints;
     }
-
-    public sealed record CreateTenantRequest(string Name, int RetentionMinutes);
-    public sealed record TenantCreatedResponse(Guid Id, string Name, int RetentionMinutes);
 }

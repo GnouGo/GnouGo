@@ -21,15 +21,18 @@
 # ──────────────────────────────────────────────
 FROM --platform=$BUILDPLATFORM node:24-alpine AS clientapp
 
-WORKDIR /build/ClientApp
-COPY src/GnOuGo.OtlpCollector.Server/ClientApp/package.json \
-     src/GnOuGo.OtlpCollector.Server/ClientApp/package-lock.json* \
-     ./
-RUN npm ci --prefer-offline
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
 
-COPY src/GnOuGo.OtlpCollector.Server/ClientApp/ ./
-RUN npm run build
-# vite outDir: '../wwwroot' → output lands in /build/wwwroot
+WORKDIR /workspace
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY src/GnOuGo.OtlpCollector.Server/ClientApp/package.json src/GnOuGo.OtlpCollector.Server/ClientApp/
+RUN pnpm --dir src/GnOuGo.OtlpCollector.Server/ClientApp install --frozen-lockfile
+
+COPY src/GnOuGo.OtlpCollector.Server/ClientApp/ src/GnOuGo.OtlpCollector.Server/ClientApp/
+RUN pnpm --dir src/GnOuGo.OtlpCollector.Server/ClientApp build
+# vite outDir: '../wwwroot' → output lands in /workspace/src/GnOuGo.OtlpCollector.Server/wwwroot
 
 # ──────────────────────────────────────────────
 # Stage 2: Build & publish the .NET application
@@ -66,7 +69,7 @@ COPY src/GnOuGo.AI.Core/   src/GnOuGo.AI.Core/
 COPY src/GnOuGo.Auth.Core/ src/GnOuGo.Auth.Core/
 
 # Copy pre-built wwwroot from the Node stage
-COPY --from=clientapp /build/wwwroot src/GnOuGo.OtlpCollector.Server/wwwroot/
+COPY --from=clientapp /workspace/src/GnOuGo.OtlpCollector.Server/wwwroot src/GnOuGo.OtlpCollector.Server/wwwroot/
 
 # Publish (skip ClientApp build — already done in stage 1).
 # NOTE: we intentionally omit --no-restore so that Grpc.Tools can properly

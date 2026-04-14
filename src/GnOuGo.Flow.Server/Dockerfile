@@ -17,15 +17,18 @@
 # ──────────────────────────────────────────────
 FROM --platform=$BUILDPLATFORM node:24-alpine AS clientapp
 
-WORKDIR /build/ClientApp
-COPY src/GnOuGo.Flow.Server/ClientApp/package.json \
-     src/GnOuGo.Flow.Server/ClientApp/package-lock.json* \
-     ./
-RUN npm ci --prefer-offline
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
 
-COPY src/GnOuGo.Flow.Server/ClientApp/ ./
-RUN npm run build
-# vite outDir: '../wwwroot' → output lands in /build/wwwroot
+WORKDIR /workspace
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY src/GnOuGo.Flow.Server/ClientApp/package.json src/GnOuGo.Flow.Server/ClientApp/
+RUN pnpm --dir src/GnOuGo.Flow.Server/ClientApp install --frozen-lockfile
+
+COPY src/GnOuGo.Flow.Server/ClientApp/ src/GnOuGo.Flow.Server/ClientApp/
+RUN pnpm --dir src/GnOuGo.Flow.Server/ClientApp build
+# vite outDir: '../wwwroot' → output lands in /workspace/src/GnOuGo.Flow.Server/wwwroot
 
 # ──────────────────────────────────────────────
 # Stage 2: Build & publish the .NET application
@@ -61,7 +64,7 @@ COPY src/GnOuGo.AI.Core/     src/GnOuGo.AI.Core/
 COPY src/GnOuGo.Auth.Core/   src/GnOuGo.Auth.Core/
 
 # Copy pre-built wwwroot from the Node stage
-COPY --from=clientapp /build/wwwroot src/GnOuGo.Flow.Server/wwwroot/
+COPY --from=clientapp /workspace/src/GnOuGo.Flow.Server/wwwroot src/GnOuGo.Flow.Server/wwwroot/
 
 # Publish (skip ClientApp build — already done in stage 1)
 RUN dotnet publish src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj \

@@ -1,17 +1,10 @@
 ﻿using System.Diagnostics;
-using System.Text.Json;
 using OtlpTenantCollector.Models;
 
 namespace OtlpTenantCollector.Services;
 
 public static class ActivityTelemetryMapper
 {
-    private static readonly JsonSerializerOptions Json = new()
-    {
-        PropertyNamingPolicy = null,
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-    };
-
     public static SpanRow ToSpanRow(Activity activity, Guid? tenantId, string serviceName)
     {
         var startUtc = activity.StartTimeUtc == default ? DateTime.UtcNow : activity.StartTimeUtc;
@@ -70,10 +63,10 @@ public static class ActivityTelemetryMapper
             EndUnixNs: endUnixNs,
             StatusCode: MapStatus(activity.Status),
             StatusMessage: activity.StatusDescription,
-            AttributesJson: JsonSerializer.Serialize(attributes, Json),
-            EventsJson: JsonSerializer.Serialize(events, Json),
-            ResourceJson: JsonSerializer.Serialize(resource, Json),
-            ScopeJson: JsonSerializer.Serialize(scope, Json),
+            AttributesJson: TelemetryJsonCodec.SerializeObject(attributes),
+            EventsJson: TelemetryJsonCodec.SerializeSpanEvents(events),
+            ResourceJson: TelemetryJsonCodec.SerializeObject(resource),
+            ScopeJson: TelemetryJsonCodec.SerializeObject(scope),
             ServiceName: serviceName);
     }
 

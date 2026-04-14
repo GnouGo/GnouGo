@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using GnOuGo.AI.Core.Telemetry;
 using OpenTelemetry.Proto.Common.V1;
 using OtlpTenantCollector.Models;
@@ -8,34 +7,16 @@ namespace OtlpTenantCollector.Services;
 
 public static class OtlpJson
 {
-    /// <summary>
-    /// Options pour sérialiser les attributs OTLP : les clés doivent être préservées
-    /// EXACTEMENT telles quelles (gen_ai.system, service.name, http.request.method...).
-    /// On n'utilise PAS JsonSerializerDefaults.Web car il active DictionaryKeyPolicy=CamelCase
-    /// qui corrompt les clés : "gen_ai.system" → "gen_Ai.system".
-    /// </summary>
-    private static readonly JsonSerializerOptions Json = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        // Pas de DictionaryKeyPolicy : les clés de dict sont écrites telles quelles
-    };
-
-    /// <summary>
-    /// Options pour lire les DTOs de l'API (camelCase toléré en lecture).
-    /// </summary>
-    private static readonly JsonSerializerOptions JsonWeb = new(JsonSerializerDefaults.Web);
-
     public static string ToJsonResource(OpenTelemetry.Proto.Resource.V1.Resource? res)
     {
         if (res is null) return "{}";
         var dict = new Dictionary<string, object?>();
         foreach (var kv in res.Attributes)
             dict[kv.Key] = AnyValueToObject(kv.Value);
-        return JsonSerializer.Serialize(dict, Json);
+        return TelemetryJsonCodec.SerializeObject(dict);
     }
 
-    public static string ToJsonScope(OpenTelemetry.Proto.Common.V1.InstrumentationScope? scope)
+    public static string ToJsonScope(InstrumentationScope? scope)
     {
         if (scope is null) return "{}";
         var dict = new Dictionary<string, object?>
@@ -45,7 +26,7 @@ public static class OtlpJson
         };
         foreach (var kv in scope.Attributes)
             dict[kv.Key] = AnyValueToObject(kv.Value);
-        return JsonSerializer.Serialize(dict, Json);
+        return TelemetryJsonCodec.SerializeObject(dict);
     }
 
     public static string ToJsonAttributes(IEnumerable<KeyValue> attrs)
@@ -53,7 +34,7 @@ public static class OtlpJson
         var dict = new Dictionary<string, object?>();
         foreach (var kv in attrs)
             dict[kv.Key] = AnyValueToObject(kv.Value);
-        return JsonSerializer.Serialize(dict, Json);
+        return TelemetryJsonCodec.SerializeObject(dict);
     }
 
     public static string ToJsonEvents(IEnumerable<OpenTelemetry.Proto.Trace.V1.Span.Types.Event> events)
@@ -78,7 +59,7 @@ public static class OtlpJson
             ));
         }
 
-        return JsonSerializer.Serialize(eventList, Json);
+        return TelemetryJsonCodec.SerializeSpanEvents(eventList);
     }
 
     public static object? AnyValueToObject(AnyValue v)
@@ -92,7 +73,6 @@ public static class OtlpJson
             AnyValue.ValueOneofCase.BytesValue => Convert.ToBase64String(v.BytesValue.ToByteArray()),
             AnyValue.ValueOneofCase.ArrayValue => v.ArrayValue.Values.Select(AnyValueToObject).ToList(),
             AnyValue.ValueOneofCase.KvlistValue => v.KvlistValue.Values.ToDictionary(x => x.Key, x => AnyValueToObject(x.Value)),
-            AnyValue.ValueOneofCase.None => null,
             _ => null
         };
     }
@@ -101,22 +81,22 @@ public static class OtlpJson
     {
         var attributes = string.IsNullOrEmpty(span.AttributesJson)
             ? new Dictionary<string, object?>()
-            : JsonSerializer.Deserialize<Dictionary<string, object?>>(span.AttributesJson, Json) ?? new();
+            : TelemetryJsonCodec.DeserializeObject(span.AttributesJson);
 
         // Enrichissement GenAI : calculer gen_ai.usage.cost si absent mais model+tokens présents
         EnrichGenAiCost(attributes);
 
         var events = string.IsNullOrEmpty(span.EventsJson)
             ? new List<SpanEventDto>()
-            : JsonSerializer.Deserialize<List<SpanEventDto>>(span.EventsJson, JsonWeb) ?? new();
+            : TelemetryJsonCodec.DeserializeSpanEvents(span.EventsJson);
 
         var resource = string.IsNullOrEmpty(span.ResourceJson)
             ? new Dictionary<string, object?>()
-            : JsonSerializer.Deserialize<Dictionary<string, object?>>(span.ResourceJson, Json) ?? new();
+            : TelemetryJsonCodec.DeserializeObject(span.ResourceJson);
 
         var scope = string.IsNullOrEmpty(span.ScopeJson)
             ? new Dictionary<string, object?>()
-            : JsonSerializer.Deserialize<Dictionary<string, object?>>(span.ScopeJson, Json) ?? new();
+            : TelemetryJsonCodec.DeserializeObject(span.ScopeJson);
 
         // EndUnixNs a déjà été corrigé à l'ingestion si invalide
         var endUnixNs = span.EndUnixNs;

@@ -30,6 +30,9 @@ This MCP surface stays intentionally narrow. Tenant deletion, audit log access, 
 }
 ```
 
+When `KeyVault:DatabasePath` keeps its default logical value (`data/gnougo-keyvault.db`), the actual SQLite file is created under the current user's Desktop in `Desktop/GnOuGo/data/gnougo-keyvault.db`.
+Explicit absolute paths are still honored.
+
 ## HTTP routes
 
 ### Standalone host (`GnOuGo.KeyVault.Mcp`)

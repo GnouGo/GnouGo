@@ -5,6 +5,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <ClientAppDir>..\GnOuGo.Agent.Server\ClientApp</ClientAppDir>
+    <PnpmCommand Condition="'$(OS)' == 'Windows_NT'">corepack.cmd pnpm</PnpmCommand>
+    <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>
 
     <!-- Desktop app packaging -->
     <PublishTrimmed>true</PublishTrimmed>
@@ -60,8 +63,8 @@
   <!-- Build Vite assets when publishing the desktop app -->
   <Target Name="ViteBuildForDesktop" BeforeTargets="PrepareForPublish" Condition="'$(SkipClientBuild)' != 'true'">
     <Message Importance="high" Text="Building Vite UI assets for desktop publish..." />
-    <Exec WorkingDirectory="..\GnOuGo.Agent.Server\ClientApp" Command="npm install" />
-    <Exec WorkingDirectory="..\GnOuGo.Agent.Server\ClientApp" Command="npm run build" />
+    <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; install --frozen-lockfile" />
+    <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; build" />
   </Target>
 
   <!--
@@ -87,6 +90,23 @@
     when the published app runs on a different machine.
     Published builds serve static assets from the physical wwwroot/ folder via UseStaticFiles().
   -->
+
+  <!--
+    Published desktop ZIP artifacts must not depend on machine-specific Static Web Assets manifests.
+    Copy the Blazor framework scripts into wwwroot/_framework so the embedded server can serve
+    interactive assets directly from the publish folder on another machine.
+  -->
+  <Target Name="CopyBlazorFrameworkAssetsToPublish" AfterTargets="Publish" BeforeTargets="RemoveStaticWebAssetsManifestsFromPublish" Condition="'$(PublishDir)' != ''">
+    <ItemGroup>
+      <_BlazorFrameworkAssets Include="$(NuGetPackageRoot)microsoft.aspnetcore.app.internal.assets/*/_framework/blazor.web.js" />
+      <_BlazorFrameworkAssets Include="$(NuGetPackageRoot)microsoft.aspnetcore.app.internal.assets/*/_framework/blazor.server.js" />
+    </ItemGroup>
+
+    <Error Condition="'@(_BlazorFrameworkAssets)' == ''" Text="Unable to locate Blazor framework assets under $(NuGetPackageRoot)microsoft.aspnetcore.app.internal.assets." />
+    <MakeDir Directories="$(PublishDir)wwwroot\_framework" />
+    <Copy SourceFiles="@(_BlazorFrameworkAssets)" DestinationFolder="$(PublishDir)wwwroot\_framework" SkipUnchangedFiles="true" />
+    <Message Importance="high" Text="Copied @(_BlazorFrameworkAssets->Count()) Blazor framework asset(s) into $(PublishDir)wwwroot\_framework." />
+  </Target>
 
   <!-- Clean up any staticwebassets manifests that leaked into the publish output from the build step -->
   <Target Name="RemoveStaticWebAssetsManifestsFromPublish" AfterTargets="Publish" BeforeTargets="PublishBundledDesktopTools">
@@ -116,13 +136,21 @@
 
     <Message Importance="high" Text="Publishing bundled desktop MCP tools into $(BundledToolsRoot) for $(RuntimeIdentifier)..." />
 
-    <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
-    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
-    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true" />
+    <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
+    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
+    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
 
     <Error Condition="!Exists('$(BundledBrowserToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Browser.Mcp in $(BundledBrowserToolDir)." />
     <Error Condition="!Exists('$(BundledCmdToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Cmd.Mcp in $(BundledCmdToolDir)." />
     <Error Condition="!Exists('$(BundledDocumentToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Document.Mcp in $(BundledDocumentToolDir)." />
+  </Target>
+
+  <Target Name="RemovePdbFilesFromPublish" AfterTargets="PublishBundledDesktopTools" Condition="'$(PublishDir)' != ''">
+    <ItemGroup>
+      <_PublishPdbFiles Include="$(PublishDir)**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(_PublishPdbFiles)" Condition="'@(_PublishPdbFiles)' != ''" />
+    <Message Importance="high" Text="Removed @(_PublishPdbFiles->Count()) PDB file(s) from publish output." />
   </Target>
 
 

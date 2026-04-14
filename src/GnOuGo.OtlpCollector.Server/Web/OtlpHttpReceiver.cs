@@ -1,7 +1,4 @@
 using System.IO.Compression;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
 using OtlpTenantCollector.Models;
 using OtlpTenantCollector.Services;
@@ -15,69 +12,90 @@ public static class OtlpHttpReceiver
     {
         ArgumentNullException.ThrowIfNull(endpoints);
 
-        endpoints.MapPost("/v1/traces", async (
-            HttpRequest req,
-            TelemetryIngestQueue queue,
-            ILogger<OtlpHttpReceiverMarker> logger,
-            IOptions<DevModeOptions> devOpts,
-            CancellationToken ct) =>
+        endpoints.MapPost("/v1/traces", async httpContext =>
         {
+            var req = httpContext.Request;
+            var queue = httpContext.RequestServices.GetRequiredService<TelemetryIngestQueue>();
+            var logger = httpContext.RequestServices.GetRequiredService<ILogger<OtlpHttpReceiverMarker>>();
+            var devOpts = httpContext.RequestServices.GetRequiredService<IOptions<DevModeOptions>>();
             var tenantId = ResolveHttpTenantId(req.Headers["X-Tenant-Id"].ToString(), devOpts.Value.Enabled, logger);
             if (tenantId is null && !devOpts.Value.Enabled)
-                return Results.BadRequest(new { error = "X-Tenant-Id header is required" });
+            {
+                await OtlpApiResponses.ExecuteAsync(httpContext, OtlpApiResponses.BadRequest("X-Tenant-Id header is required"));
+                return;
+            }
 
-            return await ProcessTracesAsync(tenantId, req, queue, logger, ct);
+            var result = await ProcessTracesAsync(tenantId, req, queue, logger, httpContext.RequestAborted);
+            await OtlpApiResponses.ExecuteAsync(httpContext, result);
         });
 
-        endpoints.MapPost("/v1/logs", async (
-            HttpRequest req,
-            TelemetryIngestQueue queue,
-            ILogger<OtlpHttpReceiverMarker> logger,
-            IOptions<DevModeOptions> devOpts,
-            CancellationToken ct) =>
+        endpoints.MapPost("/v1/logs", async httpContext =>
         {
+            var req = httpContext.Request;
+            var queue = httpContext.RequestServices.GetRequiredService<TelemetryIngestQueue>();
+            var logger = httpContext.RequestServices.GetRequiredService<ILogger<OtlpHttpReceiverMarker>>();
+            var devOpts = httpContext.RequestServices.GetRequiredService<IOptions<DevModeOptions>>();
             var tenantId = ResolveHttpTenantId(req.Headers["X-Tenant-Id"].ToString(), devOpts.Value.Enabled, logger);
             if (tenantId is null && !devOpts.Value.Enabled)
-                return Results.BadRequest(new { error = "X-Tenant-Id header is required" });
+            {
+                await OtlpApiResponses.ExecuteAsync(httpContext, OtlpApiResponses.BadRequest("X-Tenant-Id header is required"));
+                return;
+            }
 
-            return await ProcessLogsAsync(tenantId, req, queue, logger, ct);
+            var result = await ProcessLogsAsync(tenantId, req, queue, logger, httpContext.RequestAborted);
+            await OtlpApiResponses.ExecuteAsync(httpContext, result);
         });
 
-        endpoints.MapPost("/v1/metrics", () => Results.Bytes(Array.Empty<byte>(), "application/x-protobuf"));
+        endpoints.MapPost("/v1/metrics", httpContext =>
+            OtlpApiResponses.ExecuteAsync(httpContext, Results.Bytes(Array.Empty<byte>(), "application/x-protobuf")));
 
-        endpoints.MapPost("/{tenantId}/v1/traces", async (
-            string tenantId,
-            HttpRequest req,
-            TelemetryIngestQueue queue,
-            ILogger<OtlpHttpReceiverMarker> logger,
-            CancellationToken ct) =>
+        endpoints.MapPost("/{tenantId}/v1/traces", async httpContext =>
         {
+            var tenantId = httpContext.Request.RouteValues["tenantId"]?.ToString();
+            var req = httpContext.Request;
+            var queue = httpContext.RequestServices.GetRequiredService<TelemetryIngestQueue>();
+            var logger = httpContext.RequestServices.GetRequiredService<ILogger<OtlpHttpReceiverMarker>>();
             if (!Guid.TryParse(tenantId, out var parsedTenantId))
-                return Results.BadRequest(new { error = "Invalid tenant ID format" });
+            {
+                await OtlpApiResponses.ExecuteAsync(httpContext, OtlpApiResponses.BadRequest("Invalid tenant ID format"));
+                return;
+            }
 
-            return await ProcessTracesAsync(parsedTenantId, req, queue, logger, ct);
+            var result = await ProcessTracesAsync(parsedTenantId, req, queue, logger, httpContext.RequestAborted);
+            await OtlpApiResponses.ExecuteAsync(httpContext, result);
         });
 
-        endpoints.MapPost("/{tenantId}/v1/logs", async (
-            string tenantId,
-            HttpRequest req,
-            TelemetryIngestQueue queue,
-            ILogger<OtlpHttpReceiverMarker> logger,
-            CancellationToken ct) =>
+        endpoints.MapPost("/{tenantId}/v1/logs", async httpContext =>
         {
+            var tenantId = httpContext.Request.RouteValues["tenantId"]?.ToString();
+            var req = httpContext.Request;
+            var queue = httpContext.RequestServices.GetRequiredService<TelemetryIngestQueue>();
+            var logger = httpContext.RequestServices.GetRequiredService<ILogger<OtlpHttpReceiverMarker>>();
             if (!Guid.TryParse(tenantId, out var parsedTenantId))
-                return Results.BadRequest(new { error = "Invalid tenant ID format" });
+            {
+                await OtlpApiResponses.ExecuteAsync(httpContext, OtlpApiResponses.BadRequest("Invalid tenant ID format"));
+                return;
+            }
 
-            return await ProcessLogsAsync(parsedTenantId, req, queue, logger, ct);
+            var result = await ProcessLogsAsync(parsedTenantId, req, queue, logger, httpContext.RequestAborted);
+            await OtlpApiResponses.ExecuteAsync(httpContext, result);
         });
 
-        endpoints.MapPost("/{tenantId}/v1/metrics", (string tenantId) =>
-            Guid.TryParse(tenantId, out _)
+        endpoints.MapPost("/{tenantId}/v1/metrics", async httpContext =>
+        {
+            var tenantId = httpContext.Request.RouteValues["tenantId"]?.ToString();
+            var result = Guid.TryParse(tenantId, out _)
                 ? Results.Bytes(Array.Empty<byte>(), "application/x-protobuf")
-                : Results.BadRequest(new { error = "Invalid tenant ID format" }));
+                : OtlpApiResponses.BadRequest("Invalid tenant ID format");
+            await OtlpApiResponses.ExecuteAsync(httpContext, result);
+        });
 
         if (includeHealthEndpoint)
-            endpoints.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+            endpoints.MapGet("/health", httpContext => OtlpApiResponses.ExecuteAsync(
+                httpContext,
+                OtlpApiResponses.Json(
+                    new HealthStatusResponse("ok"),
+                    OtlpApiJsonContext.Default.HealthStatusResponse)));
 
         return endpoints;
     }
