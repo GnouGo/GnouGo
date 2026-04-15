@@ -1,4 +1,4 @@
-﻿dsl: 1
+version: 1
 name: loop-and-subworkflow-example
 
 workflows:
@@ -89,4 +89,3 @@ workflows:
         expr: "${data.steps.make_summary.text}"
         type: string
         description: Summary text
-

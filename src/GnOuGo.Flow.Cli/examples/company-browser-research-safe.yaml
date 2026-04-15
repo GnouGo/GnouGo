@@ -1,4 +1,4 @@
-dsl: 1
+version: 1
 name: company-browser-research-safe
 meta:
   description: >
@@ -495,4 +495,3 @@ workflows:
         expr: "${data.steps.narrative_summary.text}"
         type: string
         description: Narrative markdown summary
-

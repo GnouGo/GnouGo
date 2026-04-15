@@ -15,7 +15,7 @@
 #   dotnet run --project src/GnOuGo.Flow.Cli -- run examples/configure-providers.yaml --input command=/mcp
 #   dotnet run --project src/GnOuGo.Flow.Cli -- run examples/configure-providers.yaml --input command=/status
 
-dsl: 1
+version: 1
 name: configure-providers
 meta:
   author: GnOuGo.Flow

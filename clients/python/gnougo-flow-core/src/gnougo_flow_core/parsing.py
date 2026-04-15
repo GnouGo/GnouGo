@@ -26,9 +26,9 @@ class WorkflowParser:
         if not isinstance(raw, dict):
             raise WorkflowParseException("Root must be a YAML mapping")
 
-        dsl = raw.get("dsl")
-        if dsl != 1:
-            raise WorkflowParseException(f"Unsupported DSL version: {dsl}")
+        version = raw.get("version")
+        if version != 1:
+            raise WorkflowParseException(f"Unsupported DSL version: {version}")
 
         workflows_raw = raw.get("workflows")
         if not isinstance(workflows_raw, dict):
@@ -45,7 +45,7 @@ class WorkflowParser:
             entrypoint = "main"
 
         return WorkflowDocument(
-            dsl=dsl,
+            version=version,
             name=raw.get("name"),
             meta=raw.get("meta"),
             functions=raw.get("functions"),

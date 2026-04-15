@@ -5,8 +5,8 @@ namespace GnOuGo.Flow.Core.Models;
 /// </summary>
 public sealed class WorkflowDocument
 {
-    /// <summary>DSL version (must be 1).</summary>
-    public int Dsl { get; set; } = 1;
+    /// <summary>Document version (must be 1).</summary>
+    public int Version { get; set; } = 1;
 
     /// <summary>Optional document name.</summary>
     public string? Name { get; set; }
@@ -29,4 +29,3 @@ public sealed class WorkflowDocument
     /// <summary>Original YAML source text (preserved for checkpoint/resume).</summary>
     public string? RawYaml { get; set; }
 }
-

@@ -1,4 +1,4 @@
-﻿dsl: 1
+version: 1
 name: mcp-cmd-demo
 meta:
   description: >
@@ -92,6 +92,5 @@ workflows:
         expr: "${data.steps.list_relative.response}"
         type: object
         description: Relative directory listing
-
 
 

@@ -1,4 +1,4 @@
-dsl: 1
+version: 1
 name: comprehensive-demo
 meta:
   author: GnOuGo.Flow
@@ -196,5 +196,4 @@ workflows:
 
 exports:
   - report_builder
-
 

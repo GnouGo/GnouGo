@@ -9,17 +9,25 @@ public class WorkflowParserTests
     [Fact]
     public void Parse_MinimalDocument_ReturnsDocument()
     {
-        var yaml = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n        input:\n          engine: mustache\n          template: hello\n          mode: text\n";
+        var yaml = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n        input:\n          engine: mustache\n          template: hello\n          mode: text\n";
         var doc = WorkflowParser.Parse(yaml);
-        Assert.Equal(1, doc.Dsl);
+        Assert.Equal(1, doc.Version);
         Assert.Single(doc.Workflows);
         Assert.True(doc.Workflows.ContainsKey("main"));
     }
 
     [Fact]
+    public void Parse_WithLegacyDslField_RemainsCompatible()
+    {
+        var yaml = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n";
+        var doc = WorkflowParser.Parse(yaml);
+        Assert.Equal(1, doc.Version);
+    }
+
+    [Fact]
     public void Parse_WithName_SetsName()
     {
-        var yaml = "dsl: 1\nname: test-wf\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n";
+        var yaml = "version: 1\nname: test-wf\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n";
         var doc = WorkflowParser.Parse(yaml);
         Assert.Equal("test-wf", doc.Name);
     }
@@ -27,7 +35,7 @@ public class WorkflowParserTests
     [Fact]
     public void Parse_WithEntrypoint_SetsEntrypoint()
     {
-        var yaml = "dsl: 1\nentrypoint: myWf\nworkflows:\n  myWf:\n    steps:\n      - id: s1\n        type: template.render\n";
+        var yaml = "version: 1\nentrypoint: myWf\nworkflows:\n  myWf:\n    steps:\n      - id: s1\n        type: template.render\n";
         var doc = WorkflowParser.Parse(yaml);
         Assert.Equal("myWf", doc.Entrypoint);
     }
@@ -35,7 +43,7 @@ public class WorkflowParserTests
     [Fact]
     public void Parse_WithExports_ParsesList()
     {
-        var yaml = "dsl: 1\nexports:\n  - helper\nworkflows:\n  helper:\n    steps:\n      - id: s1\n        type: template.render\n";
+        var yaml = "version: 1\nexports:\n  - helper\nworkflows:\n  helper:\n    steps:\n      - id: s1\n        type: template.render\n";
         var doc = WorkflowParser.Parse(yaml);
         Assert.NotNull(doc.Exports);
         Assert.Single(doc.Exports);
@@ -45,7 +53,7 @@ public class WorkflowParserTests
     [Fact]
     public void Parse_WithFunctions_SetsGlobalFunctions()
     {
-        var yaml = "dsl: 1\nfunctions: |\n  function foo() { return 1; }\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n";
+        var yaml = "version: 1\nfunctions: |\n  function foo() { return 1; }\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n";
         var doc = WorkflowParser.Parse(yaml);
         Assert.NotNull(doc.Functions);
         Assert.Contains("function foo()", doc.Functions);
@@ -54,7 +62,7 @@ public class WorkflowParserTests
     [Fact]
     public void Parse_StepWithIf_ParsesGuard()
     {
-        var yaml = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n        if: \"${true}\"\n";
+        var yaml = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n        if: \"${true}\"\n";
         var doc = WorkflowParser.Parse(yaml);
         Assert.Equal("${true}", doc.Workflows["main"].Steps[0].If);
     }
@@ -62,7 +70,7 @@ public class WorkflowParserTests
     [Fact]
     public void Parse_StepWithRetry_ParsesRetryPolicy()
     {
-        var yaml = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: llm.call\n        retry:\n          max: 3\n          backoff_ms: 500\n";
+        var yaml = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: llm.call\n        retry:\n          max: 3\n          backoff_ms: 500\n";
         var doc = WorkflowParser.Parse(yaml);
         var retry = doc.Workflows["main"].Steps[0].Retry;
         Assert.NotNull(retry);
@@ -126,7 +134,7 @@ workflows:
     [Fact]
     public void Parse_WorkflowOutputs_ParsesOutputMap()
     {
-        var yaml = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n    outputs:\n      result: \"${data.steps.s1}\"\n";
+        var yaml = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n    outputs:\n      result: \"${data.steps.s1}\"\n";
         var doc = WorkflowParser.Parse(yaml);
         var outputs = doc.Workflows["main"].Outputs;
         Assert.NotNull(outputs);
@@ -388,7 +396,7 @@ workflows:
     [Fact]
     public void Parse_MissingWorkflows_Throws()
     {
-        Assert.Throws<WorkflowParseException>(() => WorkflowParser.Parse("dsl: 1\n"));
+        Assert.Throws<WorkflowParseException>(() => WorkflowParser.Parse("version: 1\n"));
     }
 
     [Fact]
@@ -571,4 +579,3 @@ workflows:
         Assert.Equal("number", env.AdditionalProperties.Properties["port"].Type);
     }
 }
-

@@ -16,7 +16,7 @@ public static class DslReference
 
 ## Document structure
 ```yaml
-dsl: 1
+version: 1
 name: my-workflow
 workflows:
   main:

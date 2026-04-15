@@ -335,7 +335,7 @@ internal static class SmartFlowTestFactory
         {
             ["id"] = id,
             ["name"] = name,
-            ["workflow"] = "dsl: 1",
+            ["workflow"] = "version: 1",
             ["schedules"] = schedules,
             ["updated_at"] = updatedAt
         };
@@ -350,4 +350,3 @@ internal sealed class TestOptionsMonitor<T>(T currentValue) : IOptionsMonitor<T>
 }
 
 internal sealed record TelemetryHarness(AgentOTelTelemetry Telemetry, TelemetryIngestQueue Queue);
-

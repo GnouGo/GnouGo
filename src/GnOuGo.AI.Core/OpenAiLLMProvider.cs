@@ -108,13 +108,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             }
         }
 
-        return await OpenAiCompatibleModelAvailabilityProbe.FilterUsableModelsAsync(
-            _http,
-            OpenAiEndpoints.ChatCompletions(provider.Url),
-            results,
-            bearerToken,
-            normalizeModel: null,
-            ct);
+        return results;
     }
 
     internal static string? ResolveApiKey(ModelProviderOptions provider)

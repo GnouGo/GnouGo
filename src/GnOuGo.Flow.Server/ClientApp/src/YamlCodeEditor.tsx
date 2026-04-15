@@ -58,7 +58,8 @@ function highlightYamlLine(line: string): string {
   // key: value
   const kvMatch = rest.match(/^([a-zA-Z0-9_][a-zA-Z0-9_.\-/]*)(\s*:\s*)(.*)$/)
   if (kvMatch) {
-    result += `<span class="yce-key">${esc(kvMatch[1])}</span>`
+    const keyClass = kvMatch[1] === 'version' ? 'yce-key yce-key--version' : 'yce-key'
+    result += `<span class="${keyClass}">${esc(kvMatch[1])}</span>`
     result += `<span class="yce-punct">${esc(kvMatch[2])}</span>`
     result += highlightValue(kvMatch[3])
     return result
@@ -268,4 +269,3 @@ export function YamlCodeEditor({ value, onChange, placeholder, className, errors
     </div>
   )
 }
-

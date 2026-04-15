@@ -1,4 +1,4 @@
-﻿dsl: 1
+version: 1
 name: mcp-demo
 meta:
   description: Demonstrates mcp.call step with tool invocation
@@ -54,4 +54,3 @@ workflows:
         expr: "${data.steps.summary.text}"
         type: string
         description: LLM weather summary
-

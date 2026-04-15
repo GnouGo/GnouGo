@@ -9,7 +9,7 @@ namespace GnOuGo.AI.Core.Tests;
 public sealed class ModelCatalogProviderTests
 {
     [Fact]
-    public async Task OpenAiProvider_ListModelsAsync_FiltersToChatUsableModels_AndUsesBearerAuth()
+    public async Task OpenAiProvider_ListModelsAsync_ReturnsDiscoveredModels_AndUsesBearerAuth()
     {
         var requests = new List<(HttpMethod Method, string Url, AuthenticationHeaderValue? Authorization)>();
         var handler = new StubHttpMessageHandler(req =>
@@ -43,21 +43,16 @@ public sealed class ModelCatalogProviderTests
             new ModelProviderOptions { Url = "https://api.openai.com", ApiKey = "openai-secret", Type = "openai" },
             CancellationToken.None);
 
-        Assert.Equal(3, requests.Count);
+        Assert.Single(requests);
         Assert.Equal((HttpMethod.Get, "https://api.openai.com/v1/models", new AuthenticationHeaderValue("Bearer", "openai-secret")), requests[0]);
-        Assert.All(requests.Skip(1), request =>
-        {
-            Assert.Equal(HttpMethod.Post, request.Method);
-            Assert.Equal("https://api.openai.com/v1/chat/completions", request.Url);
-            Assert.Equal(new AuthenticationHeaderValue("Bearer", "openai-secret"), request.Authorization);
-        });
         Assert.Collection(models,
             first => Assert.Equal("gpt-4o", first.Id),
-            second => Assert.Equal("gpt-4o-mini", second.Id));
+            second => Assert.Equal("text-embedding-3-large", second.Id),
+            third => Assert.Equal("gpt-4o-mini", third.Id));
     }
 
     [Fact]
-    public async Task OpenAiProvider_ListModelsAsync_UsesOidcAccessToken_ForDiscoveryAndProbes()
+    public async Task OpenAiProvider_ListModelsAsync_UsesOidcAccessToken_ForDiscoveryOnly()
     {
         var authorizedRequests = new List<(HttpMethod Method, string Url, AuthenticationHeaderValue? Authorization)>();
         var handler = new StubHttpMessageHandler(req =>
@@ -146,7 +141,7 @@ public sealed class ModelCatalogProviderTests
     }
 
     [Fact]
-    public async Task CopilotProvider_ListModelsAsync_FallsBackAcrossCandidateEndpoints_AndFiltersUnavailableModels()
+    public async Task CopilotProvider_ListModelsAsync_FallsBackAcrossCandidateEndpoints_AndReturnsCatalogAsIs()
     {
         var requests = new List<string>();
         var handler = new StubHttpMessageHandler(req =>
@@ -176,18 +171,9 @@ public sealed class ModelCatalogProviderTests
                 };
             }
 
-            var payload = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
-            using var json = JsonDocument.Parse(payload);
-            var model = json.RootElement.GetProperty("model").GetString();
-
-            return string.Equals(model, "gpt-4.1", StringComparison.Ordinal)
-                ? new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = JsonContent("{ \"choices\": [{ \"message\": { \"content\": \"OK\" } }] }")
-                }
-                : new HttpResponseMessage(HttpStatusCode.Forbidden)
+            return new HttpResponseMessage(HttpStatusCode.MethodNotAllowed)
             {
-                Content = JsonContent("{ \"error\": \"forbidden\" }")
+                Content = JsonContent("{ \"error\": \"unexpected non-GET request\" }")
             };
         });
 
@@ -196,11 +182,12 @@ public sealed class ModelCatalogProviderTests
             new ModelProviderOptions { Url = "https://models.github.ai/inference", ApiKey = "gh-token", Type = "copilot" },
             CancellationToken.None);
 
-        Assert.Contains("https://models.github.ai/inference/chat/completions", requests);
         Assert.Equal("https://models.github.ai/catalog/models", requests[0]);
         Assert.Equal("https://models.github.ai/inference/models", requests[1]);
-        Assert.Single(models);
-        Assert.Equal("openai/gpt-4.1", models[0].Id);
+        Assert.Collection(models,
+            first => Assert.Equal("openai/gpt-4.1", first.Id),
+            second => Assert.Equal("anthropic/claude-sonnet-4", second.Id),
+            third => Assert.Equal("openai/text-embedding-3-small", third.Id));
     }
 
     [Fact]
@@ -246,11 +233,13 @@ public sealed class ModelCatalogProviderTests
     }
 
     [Fact]
-    public async Task CopilotProvider_ListModelsAsync_ProbesVendorStrippedModelIds()
+    public async Task CopilotProvider_ListModelsAsync_DoesNotCallChatCompletionsDuringDiscovery()
     {
-        var probedModels = new List<string>();
+        var requests = new List<(HttpMethod Method, string Url)>();
         var handler = new StubHttpMessageHandler(req =>
         {
+            requests.Add((req.Method, req.RequestUri!.ToString()));
+
             if (req.Method == HttpMethod.Get)
             {
                 return new HttpResponseMessage(HttpStatusCode.OK)
@@ -266,20 +255,10 @@ public sealed class ModelCatalogProviderTests
                 };
             }
 
-            var payload = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
-            using var json = JsonDocument.Parse(payload);
-            var model = json.RootElement.GetProperty("model").GetString()!;
-            probedModels.Add(model);
-
-            return model == "gpt-4.1"
-                ? new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = JsonContent("{ \"choices\": [{ \"message\": { \"content\": \"OK\" } }] }")
-                }
-                : new HttpResponseMessage(HttpStatusCode.Forbidden)
-                {
-                    Content = JsonContent("{ \"error\": \"forbidden\" }")
-                };
+            return new HttpResponseMessage(HttpStatusCode.MethodNotAllowed)
+            {
+                Content = JsonContent("{ \"error\": \"unexpected non-GET request\" }")
+            };
         });
 
         var provider = new CopilotLLMProvider(new HttpClient(handler));
@@ -287,33 +266,17 @@ public sealed class ModelCatalogProviderTests
             new ModelProviderOptions { Url = "https://models.github.ai/inference", ApiKey = "gh-token", Type = "copilot" },
             CancellationToken.None);
 
-        Assert.Equal(new[] { "gpt-4.1", "llama-3.3-70b-instruct" }, probedModels);
-        Assert.Single(models);
-        Assert.Equal("openai/gpt-4.1", models[0].Id);
+        Assert.All(requests, request => Assert.Equal(HttpMethod.Get, request.Method));
+        Assert.Collection(models,
+            first => Assert.Equal("openai/gpt-4.1", first.Id),
+            second => Assert.Equal("meta/llama-3.3-70b-instruct", second.Id));
     }
 
     [Fact]
-    public async Task CopilotProvider_ListModelsAsync_FailsFast_OnUnauthorizedProbe()
+    public async Task CopilotProvider_ListModelsAsync_ThrowsOnUnauthorizedDiscovery()
     {
-        var postCount = 0;
         var handler = new StubHttpMessageHandler(req =>
         {
-            if (req.Method == HttpMethod.Get)
-            {
-                return new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = JsonContent("""
-                    {
-                      "data": [
-                        { "id": "openai/gpt-4.1", "owned_by": "github" },
-                        { "id": "meta/llama-3.3-70b-instruct", "owned_by": "github" }
-                      ]
-                    }
-                    """)
-                };
-            }
-
-            postCount++;
             return new HttpResponseMessage(HttpStatusCode.Unauthorized)
             {
                 Content = JsonContent("Unauthorized")
@@ -326,7 +289,6 @@ public sealed class ModelCatalogProviderTests
             CancellationToken.None));
 
         Assert.Contains("401 Unauthorized", ex.Message, StringComparison.Ordinal);
-        Assert.Equal(1, postCount);
     }
 
     private sealed class FakeCatalogProvider : ILLMModelCatalogProvider

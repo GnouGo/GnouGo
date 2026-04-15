@@ -185,13 +185,7 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                 await using var stream = await resp.Content.ReadAsStreamAsync(ct);
                 using var json = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
                 var models = ParseModelResponse(json.RootElement);
-                return await OpenAiCompatibleModelAvailabilityProbe.FilterUsableModelsAsync(
-                    _http,
-                    BuildChatCompletionsUrl(provider.Url),
-                    models,
-                    bearerToken,
-                    StripVendorPrefix,
-                    ct);
+                return models;
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
