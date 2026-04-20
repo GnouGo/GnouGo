@@ -3,7 +3,7 @@
 #   1. human.input step — explicit pause for user input
 #   2. Checkpoint/resume — workflow survives restarts
 
-dsl: 1
+version: 1
 
 workflows:
   main:

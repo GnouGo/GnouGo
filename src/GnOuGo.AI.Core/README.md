@@ -13,11 +13,10 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 
 ## Model Catalog Behavior
 
-`ILLMModelCatalog` returns models that are actually usable with the configured provider credentials.
+`ILLMModelCatalog` returns the provider-discovered catalog as-is for the configured credentials.
 
-- OpenAI-compatible providers and Copilot/GitHub Models first discover the advertised catalog.
-- Then GnOuGo probes chat compatibility with the same bearer token used for real calls.
-- Non-chat models and models rejected by the configured credentials are filtered out.
+- OpenAI-compatible providers and Copilot/GitHub Models return the advertised catalog directly.
+- GnOuGo does not run extra chat-completions probes during model listing.
 - OIDC client-credentials authentication is supported for both inference calls and model discovery.
 
 ## Architecture

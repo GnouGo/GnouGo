@@ -26,10 +26,12 @@ public static class WorkflowParser
         var doc = new WorkflowDocument();
         doc.RawYaml = yaml;
 
-        // dsl
-        doc.Dsl = root.GetInt("dsl") ?? throw new WorkflowParseException("Missing required field 'dsl'");
-        if (doc.Dsl != 1)
-            throw new WorkflowParseException($"Unsupported DSL version: {doc.Dsl}");
+        // version
+        doc.Version = root.GetInt("version")
+            ?? root.GetInt("dsl")
+            ?? throw new WorkflowParseException("Missing required field 'version'");
+        if (doc.Version != 1)
+            throw new WorkflowParseException($"Unsupported workflow version: {doc.Version}");
 
         // name
         doc.Name = root.GetScalar("name");
@@ -454,4 +456,3 @@ public static class WorkflowParser
         return arr;
     }
 }
-

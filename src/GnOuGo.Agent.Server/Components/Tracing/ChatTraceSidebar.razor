@@ -1,6 +1,14 @@
 ﻿@using System.Globalization
+@using System.Collections
+@using System.Net
+@using System.Text
 @using System.Text.Json
+@using System.Text.Json.Nodes
+@using System.Text.RegularExpressions
+@using Markdig
+@using Microsoft.AspNetCore.Components.Rendering
 @using GnOuGo.Agent.Server.Telemetry
+@using YamlDotNet.Serialization
 @implements IAsyncDisposable
 @inject TraceDebugService TraceDebug
 
@@ -21,6 +29,12 @@
         </div>
 
         <div class="sa-trace-panel__header-actions">
+            <button class="sa-trace-panel__toggle"
+                    type="button"
+                    @onclick="ToggleRenderMode"
+                    title="Toggle between formatted rendering and raw text">
+                @(_renderFormatted ? "Formatted" : "Raw")
+            </button>
             <span class="sa-trace-panel__badge @GetStatusBadgeClass()">@GetStatusLabel()</span>
             <button class="sa-trace-panel__close" type="button" @onclick="HandleCloseAsync" aria-label="Close trace panel">✕</button>
         </div>
@@ -372,6 +386,7 @@
     private bool _isLoading;
     private string? _loadError;
     private string? _selectedSpanId;
+    private bool _renderFormatted = true;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -405,18 +420,33 @@
 
     private async Task RunRefreshLoopAsync(CancellationToken ct)
     {
-        try
+        while (!ct.IsCancellationRequested)
         {
-            using var timer = new PeriodicTimer(TraceDebug.RefreshInterval);
-            while (await timer.WaitForNextTickAsync(ct))
+            try
             {
                 await RefreshAsync(ct);
-                if (!IsOpen)
-                    break;
             }
-        }
-        catch (OperationCanceledException)
-        {
+
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                break;
+            }
+            catch
+            {
+                // Keep polling even if one refresh cycle fails.
+            }
+
+            if (!IsOpen)
+                break;
+
+            try
+            {
+                await Task.Delay(TraceDebug.RefreshInterval, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                break;
+            }
         }
     }
 
@@ -464,6 +494,8 @@
     }
 
     private Task HandleCloseAsync() => OnClose.InvokeAsync();
+
+    private void ToggleRenderMode() => _renderFormatted = !_renderFormatted;
 
     private string GetStatusBadgeClass()
     {
@@ -761,22 +793,468 @@
         return 0m;
     }
 
+    private static readonly Regex OrderedListRegex = new(@"^\d+\.\s+", RegexOptions.Compiled);
+    private static readonly Regex HeadingRegex = new(@"^#{1,6}\s+\S+", RegexOptions.Compiled);
+    private static readonly IDeserializer YamlDeserializer = new DeserializerBuilder().Build();
+    private static readonly MarkdownPipeline MarkdownPipeline = new MarkdownPipelineBuilder()
+        .UseAdvancedExtensions()
+        .DisableHtml()
+        .Build();
+
     private RenderFragment RenderValue(object? value) => builder =>
     {
-        var text = ToDisplayString(value);
-        if (LooksStructured(text) || text.Length > 180)
+        try
         {
-            builder.OpenElement(0, "pre");
-            builder.AddAttribute(1, "class", "sa-trace-detail__code");
-            builder.AddContent(2, text);
+            if (!_renderFormatted)
+            {
+                var rawText = ToDisplayString(value);
+                if (string.IsNullOrWhiteSpace(rawText))
+                {
+                    builder.OpenElement(0, "span");
+                    builder.AddContent(1, string.Empty);
+                    builder.CloseElement();
+                    return;
+                }
+
+                builder.OpenElement(2, "pre");
+                builder.AddAttribute(3, "class", "sa-trace-detail__code");
+                builder.AddContent(4, rawText);
+                builder.CloseElement();
+                return;
+            }
+
+            var display = PrepareDisplayValue(value);
+            switch (display.Format)
+            {
+                case TraceValueFormat.Markdown:
+                    builder.OpenElement(0, "div");
+                    builder.AddAttribute(1, "class", "sa-trace-detail__markdown markdown-body");
+                    builder.AddContent(2, RenderMarkdown(display.Content));
+                    builder.CloseElement();
+                    return;
+                case TraceValueFormat.Json:
+                    builder.OpenElement(3, "pre");
+                    builder.AddAttribute(4, "class", "sa-trace-detail__code sa-trace-detail__code--json");
+                    builder.OpenElement(5, "code");
+                    builder.AddAttribute(6, "class", "sa-trace-detail__syntax");
+                    builder.AddMarkupContent(7, BuildJsonHighlightedHtml(display.Content));
+                    builder.CloseElement();
+                    builder.CloseElement();
+                    return;
+                case TraceValueFormat.Yaml:
+                    builder.OpenElement(6, "pre");
+                    builder.AddAttribute(7, "class", "sa-trace-detail__code sa-trace-detail__code--yaml");
+                    builder.OpenElement(8, "code");
+                    builder.AddAttribute(9, "class", "sa-trace-detail__syntax");
+                    builder.AddMarkupContent(10, BuildYamlHighlightedHtml(display.Content));
+                    builder.CloseElement();
+                    builder.CloseElement();
+                    return;
+                default:
+                    if (display.Content.Length > 180)
+                    {
+                        builder.OpenElement(9, "pre");
+                        builder.AddAttribute(10, "class", "sa-trace-detail__code");
+                        builder.AddContent(11, display.Content);
+                        builder.CloseElement();
+                        return;
+                    }
+
+                    builder.OpenElement(12, "span");
+                    builder.AddContent(13, display.Content);
+                    builder.CloseElement();
+                    return;
+            }
+        }
+        catch
+        {
+            var fallback = ToDisplayString(value);
+            builder.OpenElement(20, "pre");
+            builder.AddAttribute(21, "class", "sa-trace-detail__code");
+            builder.AddContent(22, fallback);
             builder.CloseElement();
+        }
+    };
+
+    private static DisplayValue PrepareDisplayValue(object? value)
+    {
+        var text = ToDisplayString(value);
+        if (string.IsNullOrWhiteSpace(text))
+            return new DisplayValue(TraceValueFormat.Plain, string.Empty);
+
+        var trimmed = text.Trim();
+        if (TryFormatJson(trimmed, out var prettyJson))
+            return new DisplayValue(TraceValueFormat.Json, prettyJson);
+        if (LooksLikeMarkdown(trimmed) && !LooksLikeYaml(trimmed))
+            return new DisplayValue(TraceValueFormat.Markdown, trimmed);
+        if (LooksLikeYaml(trimmed))
+            return new DisplayValue(TraceValueFormat.Yaml, trimmed);
+
+        return new DisplayValue(TraceValueFormat.Plain, text);
+    }
+
+    private static bool TryFormatJson(string input, out string prettyJson)
+    {
+        prettyJson = string.Empty;
+        if (!(input.StartsWith('{') || input.StartsWith('[')))
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(input);
+            prettyJson = JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool LooksLikeYaml(string value)
+    {
+        if (value.StartsWith("---", StringComparison.Ordinal) || value.StartsWith("...", StringComparison.Ordinal))
+            return true;
+
+        if (!value.Contains(':', StringComparison.Ordinal) && !value.Contains("- ", StringComparison.Ordinal))
+            return false;
+
+        var lines = value.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length < 2)
+            return false;
+
+        var yamlLikeLines = 0;
+        foreach (var line in lines)
+        {
+            if (line.StartsWith('#') || line.StartsWith('-') || line.StartsWith('*') || line.StartsWith("```", StringComparison.Ordinal))
+                continue;
+            if (!line.Contains(':', StringComparison.Ordinal))
+                continue;
+
+            var idx = line.IndexOf(':', StringComparison.Ordinal);
+            if (idx <= 0)
+                continue;
+
+            var key = line[..idx].Trim();
+            if (string.IsNullOrWhiteSpace(key) || key.Contains(' ') || key.Contains('{') || key.Contains('['))
+                continue;
+
+            yamlLikeLines++;
+            if (yamlLikeLines >= 2)
+                break;
+        }
+
+        if (yamlLikeLines < 2)
+            return false;
+
+        try
+        {
+            var parsed = YamlDeserializer.Deserialize<object?>(value);
+            return parsed is IDictionary or IList;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool LooksLikeMarkdown(string value)
+    {
+        if (value.Contains("```", StringComparison.Ordinal)
+            || value.Contains("\n> ", StringComparison.Ordinal)
+            || value.Contains("| ---", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        foreach (var line in value.Split('\n'))
+        {
+            var trimmed = line.TrimStart();
+            if (HeadingRegex.IsMatch(trimmed)
+                || trimmed.StartsWith("- ", StringComparison.Ordinal)
+                || trimmed.StartsWith("* ", StringComparison.Ordinal)
+                || trimmed.StartsWith("> ", StringComparison.Ordinal)
+                || OrderedListRegex.IsMatch(trimmed))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string BuildJsonHighlightedHtml(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return string.Empty;
+
+        try
+        {
+            var node = JsonNode.Parse(json);
+            var sb = new StringBuilder(json.Length + 128);
+            WriteJsonNode(sb, node, 0);
+            return sb.ToString();
+        }
+        catch
+        {
+            return WebUtility.HtmlEncode(json);
+        }
+    }
+
+    private static string BuildYamlHighlightedHtml(string yaml)
+    {
+        if (string.IsNullOrWhiteSpace(yaml))
+            return string.Empty;
+
+        try
+        {
+            var parsed = YamlDeserializer.Deserialize<object?>(yaml);
+            var sb = new StringBuilder(yaml.Length + 128);
+            WriteYamlNode(sb, parsed, 0, isRoot: true);
+            return sb.ToString();
+        }
+        catch
+        {
+            return WebUtility.HtmlEncode(yaml);
+        }
+    }
+
+    private static void WriteJsonNode(StringBuilder sb, JsonNode? node, int indent)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                sb.Append("<span class=\"sa-trace-detail__tok-punc\">{</span>");
+                if (obj.Count > 0)
+                {
+                    var index = 0;
+                    foreach (var pair in obj)
+                    {
+                        sb.Append('\n').Append(new string(' ', (indent + 1) * 2));
+                        sb.Append("<span class=\"sa-trace-detail__tok-key\">\"")
+                          .Append(WebUtility.HtmlEncode(pair.Key))
+                          .Append("\"</span><span class=\"sa-trace-detail__tok-punc\">: </span>");
+                        WriteJsonNode(sb, pair.Value, indent + 1);
+                        if (index++ < obj.Count - 1)
+                            sb.Append("<span class=\"sa-trace-detail__tok-punc\">,</span>");
+                    }
+
+                    sb.Append('\n').Append(new string(' ', indent * 2));
+                }
+
+                sb.Append("<span class=\"sa-trace-detail__tok-punc\">}</span>");
+                return;
+            case JsonArray arr:
+                sb.Append("<span class=\"sa-trace-detail__tok-punc\">[</span>");
+                for (var i = 0; i < arr.Count; i++)
+                {
+                    sb.Append('\n').Append(new string(' ', (indent + 1) * 2));
+                    WriteJsonNode(sb, arr[i], indent + 1);
+                    if (i < arr.Count - 1)
+                        sb.Append("<span class=\"sa-trace-detail__tok-punc\">,</span>");
+                }
+
+                if (arr.Count > 0)
+                    sb.Append('\n').Append(new string(' ', indent * 2));
+                sb.Append("<span class=\"sa-trace-detail__tok-punc\">]</span>");
+                return;
+            case JsonValue val:
+                if (val.TryGetValue<string>(out var s))
+                {
+                    sb.Append("<span class=\"sa-trace-detail__tok-string\">\"")
+                      .Append(WebUtility.HtmlEncode(s))
+                      .Append("\"</span>");
+                    return;
+                }
+
+                if (val.TryGetValue<bool>(out var b))
+                {
+                    sb.Append("<span class=\"sa-trace-detail__tok-bool\">")
+                      .Append(b ? "true" : "false")
+                      .Append("</span>");
+                    return;
+                }
+
+                var raw = val.ToJsonString();
+                if (string.Equals(raw, "null", StringComparison.Ordinal))
+                {
+                    sb.Append("<span class=\"sa-trace-detail__tok-null\">null</span>");
+                    return;
+                }
+
+                sb.Append("<span class=\"sa-trace-detail__tok-number\">")
+                  .Append(WebUtility.HtmlEncode(raw))
+                  .Append("</span>");
+                return;
+            default:
+                sb.Append("<span class=\"sa-trace-detail__tok-null\">null</span>");
+                return;
+        }
+    }
+
+    private static void WriteYamlNode(StringBuilder sb, object? node, int indent, bool isRoot = false)
+    {
+        if (node is IDictionary dictionary)
+        {
+            var hasLines = false;
+            foreach (DictionaryEntry entry in dictionary)
+            {
+                if (hasLines)
+                    sb.Append('\n');
+
+                sb.Append(new string(' ', indent * 2));
+                sb.Append("<span class=\"sa-trace-detail__tok-key\">")
+                  .Append(WebUtility.HtmlEncode(Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty))
+                  .Append("</span><span class=\"sa-trace-detail__tok-punc\">:</span>");
+
+                if (entry.Value is IDictionary or IList)
+                {
+                    sb.Append('\n');
+                    WriteYamlNode(sb, entry.Value, indent + 1);
+                }
+                else
+                {
+                    sb.Append(' ');
+                    AppendYamlScalarToken(sb, entry.Value);
+                }
+
+                hasLines = true;
+            }
+
+            if (!hasLines && isRoot)
+                sb.Append("<span class=\"sa-trace-detail__tok-null\">null</span>");
             return;
         }
 
-        builder.OpenElement(3, "span");
-        builder.AddContent(4, text);
-        builder.CloseElement();
+        if (node is IList list)
+        {
+            var hasItems = false;
+            foreach (var item in list)
+            {
+                if (hasItems)
+                    sb.Append('\n');
+
+                sb.Append(new string(' ', indent * 2));
+                sb.Append("<span class=\"sa-trace-detail__tok-punc\">-</span>");
+
+                if (item is IDictionary or IList)
+                {
+                    sb.Append('\n');
+                    WriteYamlNode(sb, item, indent + 1);
+                }
+                else
+                {
+                    sb.Append(' ');
+                    AppendYamlScalarToken(sb, item);
+                }
+
+                hasItems = true;
+            }
+
+            if (!hasItems && isRoot)
+                sb.Append("<span class=\"sa-trace-detail__tok-punc\">[]</span>");
+            return;
+        }
+
+        AppendYamlScalarToken(sb, node);
+    }
+
+    private static void AppendYamlScalarToken(StringBuilder sb, object? value)
+    {
+        if (value is null)
+        {
+            sb.Append("<span class=\"sa-trace-detail__tok-null\">null</span>");
+            return;
+        }
+
+        switch (value)
+        {
+            case bool b:
+                sb.Append("<span class=\"sa-trace-detail__tok-bool\">")
+                  .Append(b ? "true" : "false")
+                  .Append("</span>");
+                return;
+            case sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal:
+                sb.Append("<span class=\"sa-trace-detail__tok-number\">")
+                  .Append(WebUtility.HtmlEncode(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty))
+                  .Append("</span>");
+                return;
+            default:
+                var text = Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+                sb.Append("<span class=\"sa-trace-detail__tok-string\">\"")
+                  .Append(WebUtility.HtmlEncode(text))
+                  .Append("\"</span>");
+                return;
+        }
+    }
+
+    private static RenderFragment RenderMarkdown(string markdown) => builder =>
+    {
+        try
+        {
+            var html = Markdown.ToHtml(markdown ?? string.Empty, MarkdownPipeline);
+            builder.AddMarkupContent(0, html);
+        }
+        catch
+        {
+            builder.OpenElement(1, "pre");
+            builder.AddAttribute(2, "class", "sa-trace-detail__code");
+            builder.AddContent(3, markdown ?? string.Empty);
+            builder.CloseElement();
+        }
     };
+
+    private static bool TryParseHeading(string line, out int level, out string content)
+    {
+        level = 0;
+        content = string.Empty;
+
+        var count = 0;
+        while (count < line.Length && line[count] == '#')
+            count++;
+
+        if (count == 0 || count >= line.Length || line[count] != ' ')
+            return false;
+
+        level = count;
+        content = line[(count + 1)..].Trim();
+        return !string.IsNullOrWhiteSpace(content);
+    }
+
+    private static bool TryParseListItem(string line, out bool isOrdered, out string content)
+    {
+        isOrdered = false;
+        content = string.Empty;
+
+        if (line.StartsWith("- ", StringComparison.Ordinal) || line.StartsWith("* ", StringComparison.Ordinal))
+        {
+            content = line[2..].Trim();
+            return !string.IsNullOrWhiteSpace(content);
+        }
+
+        var match = OrderedListRegex.Match(line);
+        if (!match.Success)
+            return false;
+
+        isOrdered = true;
+        content = line[match.Length..].Trim();
+        return !string.IsNullOrWhiteSpace(content);
+    }
+
+    private static void CloseList(RenderTreeBuilder builder, ref int seq, ref bool inUnorderedList, ref bool inOrderedList)
+    {
+        if (inUnorderedList)
+        {
+            builder.CloseElement();
+            inUnorderedList = false;
+        }
+
+        if (inOrderedList)
+        {
+            builder.CloseElement();
+            inOrderedList = false;
+        }
+    }
 
     private static string ToDisplayString(object? value)
     {
@@ -792,12 +1270,6 @@
             },
             _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty
         };
-    }
-
-    private static bool LooksStructured(string value)
-    {
-        var trimmed = value.TrimStart();
-        return trimmed.StartsWith('{') || trimmed.StartsWith('[') || trimmed.StartsWith("---", StringComparison.Ordinal);
     }
 
     private static string BuildWidthStyle(double percentage)
@@ -857,6 +1329,16 @@
         List<string> Providers,
         List<string> Models,
         List<RagStepModel> RagSteps);
+
+    private enum TraceValueFormat
+    {
+        Plain,
+        Json,
+        Yaml,
+        Markdown
+    }
+
+    private sealed record DisplayValue(TraceValueFormat Format, string Content);
 }
 
 

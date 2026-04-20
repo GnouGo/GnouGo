@@ -114,6 +114,21 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine();
         basePrompt.AppendLine("[AVAILABLE STEP TYPES]");
         basePrompt.AppendLine(stepTypesDoc);
+        basePrompt.AppendLine();
+        basePrompt.AppendLine("[REQUIRED ROOT YAML SHAPE]");
+        basePrompt.AppendLine("The generated YAML MUST include all required root keys exactly once: version, name, workflows.");
+        basePrompt.AppendLine("Root key requirements:");
+        basePrompt.AppendLine("- version: non-empty string");
+        basePrompt.AppendLine("- name: non-empty string");
+        basePrompt.AppendLine("- workflows: non-empty object");
+        basePrompt.AppendLine("Each workflow entry under workflows MUST define a steps array.");
+        basePrompt.AppendLine("If any required key is missing or has the wrong shape, the output is invalid.");
+        basePrompt.AppendLine("Minimal valid skeleton:");
+        basePrompt.AppendLine("version: \"1.0\"");
+        basePrompt.AppendLine("name: \"generated-workflow\"");
+        basePrompt.AppendLine("workflows:");
+        basePrompt.AppendLine("  main:");
+        basePrompt.AppendLine("    steps: []");
 
         if (mcpServersDoc != null)
         {
@@ -277,8 +292,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 // Strip markdown fences if the LLM wrapped the YAML
                 var yaml = StripMarkdownFences(response.Text);
 
-                // Parse the generated YAML
-                var generatedDoc = Parsing.WorkflowParser.Parse(yaml);
+                // Parse + validate minimal required shape before policy/limits/compile checks.
+                var generatedDoc = ParseAndValidateGeneratedWorkflow(yaml);
 
                 // Policy enforcement
                 if (policy != null)
@@ -298,7 +313,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 // Return the generated workflow as JSON
                 var workflowInfo = new JsonObject
                 {
-                    ["dsl"] = generatedDoc.Dsl,
+                    ["version"] = generatedDoc.Version,
                     ["name"] = generatedDoc.Name
                 };
                 var wfNames = new JsonArray();
@@ -318,7 +333,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             {
                 // Capture the error for injection into the next prompt
                 ctx.Engine.Logger.LogWarning(ex, "workflow.plan: attempt {Attempt}/{MaxAttempts} failed, reprompting", attempt + 1, maxAttempts);
-                lastError = ex.Message;
+                lastError = BuildStructuredPlanError(ex, attempt + 1);
             }
         }
 
@@ -829,6 +844,38 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 trimmed = trimmed[..^3].TrimEnd();
         }
         return trimmed;
+    }
+
+    private static WorkflowDocument ParseAndValidateGeneratedWorkflow(string yaml)
+    {
+        var generatedDoc = Parsing.WorkflowParser.Parse(yaml);
+
+        if (generatedDoc.Workflows.Count == 0)
+            throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "Validation failed: required root key 'workflows' must be a non-empty object.");
+
+        return generatedDoc;
+    }
+
+    private static string BuildStructuredPlanError(Exception ex, int attempt)
+    {
+        var message = ex.Message.Trim();
+        var lower = message.ToLowerInvariant();
+
+        var errorCode = "VALIDATION_ERROR";
+        if (lower.Contains("missing required field 'workflows'"))
+            errorCode = "MISSING_ROOT_KEY_WORKFLOWS";
+        else if (lower.Contains("missing required field 'version'"))
+            errorCode = "MISSING_ROOT_KEY_VERSION";
+        else if (lower.Contains("missing required field 'name'"))
+            errorCode = "MISSING_ROOT_KEY_NAME";
+        else if (lower.Contains("yaml"))
+            errorCode = "YAML_PARSE_ERROR";
+        else if (lower.Contains("not allowed by policy") || lower.Contains("denied by policy"))
+            errorCode = "POLICY_ERROR";
+        else if (lower.Contains("exceeds limit"))
+            errorCode = "LIMIT_ERROR";
+
+        return $"attempt={attempt}; code={errorCode}; message={message}";
     }
 
     private static void EnforcePolicy(WorkflowDocument doc, JsonObject policy)

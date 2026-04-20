@@ -355,7 +355,7 @@ inspectCommand.SetAction(async (ParseResult parseResult, CancellationToken cance
     {
         var doc = WorkflowParser.Parse(yaml);
 
-        Console.WriteLine($"DSL: {doc.Dsl}");
+        Console.WriteLine($"Version: {doc.Version}");
         Console.WriteLine($"Name: {doc.Name ?? "(none)"}");
         Console.WriteLine($"Entrypoint: {doc.Entrypoint ?? "(auto)"}");
         Console.WriteLine($"Workflows: {doc.Workflows.Count}");
@@ -467,5 +467,4 @@ static string FormatOutputType(GnOuGo.Flow.Core.Models.OutputDef def)
         _ => def.Type
     };
 }
-
 

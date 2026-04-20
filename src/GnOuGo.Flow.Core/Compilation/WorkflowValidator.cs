@@ -26,9 +26,9 @@ public sealed class WorkflowValidator
     {
         var errors = new List<ValidationError>();
 
-        // DSL version
-        if (doc.Dsl != 1)
-            errors.Add(new ValidationError { Code = "DSL_VERSION", Message = $"Unsupported DSL version: {doc.Dsl}" });
+        // Workflow version
+        if (doc.Version != 1)
+            errors.Add(new ValidationError { Code = "DSL_VERSION", Message = $"Unsupported workflow version: {doc.Version}" });
 
         // Must have at least one workflow
         if (doc.Workflows.Count == 0)
@@ -473,4 +473,3 @@ public sealed class WorkflowValidator
             ValidateOutputDef(def.AdditionalProperties, wfName, $"{path}.additional_properties", errors);
     }
 }
-

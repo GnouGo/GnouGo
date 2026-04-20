@@ -1,4 +1,4 @@
-dsl: 1
+version: 1
 name: chat-history-demo
 meta:
   description: >
@@ -20,7 +20,7 @@ workflows:
       - id: think_start
         type: emit
         input:
-          message: "Starting conversation…"
+          message: "Starting conversationï¿½"
           level: info
 
       # 1) Start a new conversation by appending the system + user messages
@@ -36,7 +36,7 @@ workflows:
       - id: think_llm
         type: emit
         input:
-          message: "Generating response…"
+          message: "Generating responseï¿½"
           level: thinking
 
       - id: llm_response

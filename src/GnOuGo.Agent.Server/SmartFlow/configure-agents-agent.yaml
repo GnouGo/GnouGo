@@ -8,7 +8,7 @@
 #   /agent remove <name> — Remove an agent
 #   /agent select <name> — Set as current chat agent
 
-dsl: 1
+version: 1
 name: configure-agents-agent
 meta:
   author: GnOuGo.Agent
@@ -306,7 +306,7 @@ workflows:
                 ${data.steps.discover_mcp.text}
 
                 Rules:
-                - Use DSL version 1
+                - Use workflow version 1
                 - The workflow must be named "${data.steps.normalized_name.agent_name}"
                 - The main workflow MUST declare a required string input named "task"
                 - The workflow must use data.inputs.task as the main user request text
@@ -834,4 +834,3 @@ workflows:
         expr: "${data.steps.selected_result?.agent_name ?? data.steps.not_found_result?.agent_name ?? ''}"
         type: string
         description: "Selected agent name (empty if not found)"
-

@@ -11,7 +11,7 @@ public class WorkflowCompilerTests
     [Fact]
     public void Compile_ValidDocument_ReturnsCompiledDocument()
     {
-        var doc = WorkflowParser.Parse("dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n");
+        var doc = WorkflowParser.Parse("version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n");
         var compiled = _compiler.Compile(doc);
         Assert.NotNull(compiled);
         Assert.Single(compiled.Workflows);
@@ -21,7 +21,7 @@ public class WorkflowCompilerTests
     [Fact]
     public void Compile_SetsEntrypoint_ToMain()
     {
-        var doc = WorkflowParser.Parse("dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n");
+        var doc = WorkflowParser.Parse("version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n");
         var compiled = _compiler.Compile(doc);
         Assert.Equal("main", compiled.Entrypoint);
     }
@@ -29,7 +29,7 @@ public class WorkflowCompilerTests
     [Fact]
     public void Compile_SetsEntrypoint_ToExplicit()
     {
-        var doc = WorkflowParser.Parse("dsl: 1\nentrypoint: myWf\nworkflows:\n  myWf:\n    steps:\n      - id: s1\n        type: template.render\n");
+        var doc = WorkflowParser.Parse("version: 1\nentrypoint: myWf\nworkflows:\n  myWf:\n    steps:\n      - id: s1\n        type: template.render\n");
         var compiled = _compiler.Compile(doc);
         Assert.Equal("myWf", compiled.Entrypoint);
     }
@@ -37,7 +37,7 @@ public class WorkflowCompilerTests
     [Fact]
     public void Compile_SetsDocumentReference()
     {
-        var doc = WorkflowParser.Parse("dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n");
+        var doc = WorkflowParser.Parse("version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n");
         var compiled = _compiler.Compile(doc);
         Assert.NotNull(compiled.Workflows["main"].Document);
         Assert.Same(compiled, compiled.Workflows["main"].Document);
@@ -47,7 +47,7 @@ public class WorkflowCompilerTests
     public void Compile_WithSubSteps_CompilesRecursively()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -67,7 +67,7 @@ workflows:
     public void Compile_WithBranches_CompilesAll()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -91,7 +91,7 @@ workflows:
     public void Compile_WithSwitchCases_CompilesAll()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -116,8 +116,8 @@ workflows:
     [Fact]
     public void Compile_InvalidDocument_Throws()
     {
-        var doc = WorkflowParser.Parse("dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n");
-        doc.Dsl = 99; // invalid
+        var doc = WorkflowParser.Parse("version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n");
+        doc.Version = 99; // invalid
         Assert.Throws<WorkflowCompilationException>(() => _compiler.Compile(doc));
     }
 
@@ -125,7 +125,7 @@ workflows:
     public void Compile_WithCycle_Throws()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   a:
     steps:
@@ -150,7 +150,7 @@ workflows:
     [Fact]
     public void Validate_ReturnsErrorsWithoutThrowing()
     {
-        var doc = WorkflowParser.Parse("dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: unknown\n");
+        var doc = WorkflowParser.Parse("version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: unknown\n");
         var errors = _compiler.Validate(doc);
         Assert.NotEmpty(errors);
     }
@@ -158,7 +158,7 @@ workflows:
     [Fact]
     public void Compile_PreservesOutputs()
     {
-        var yaml = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n    outputs:\n      result: \"${data.steps.s1}\"\n";
+        var yaml = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n    outputs:\n      result: \"${data.steps.s1}\"\n";
         var compiled = _compiler.Compile(WorkflowParser.Parse(yaml));
         Assert.NotNull(compiled.Workflows["main"].Outputs);
         Assert.Equal("${data.steps.s1}", compiled.Workflows["main"].Outputs!["result"].Expr);
@@ -168,7 +168,7 @@ workflows:
     public void Validate_ItemsOnNonArray_ReturnsError()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -188,7 +188,7 @@ workflows:
     public void Validate_PropertiesOnNonObject_ReturnsError()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -208,7 +208,7 @@ workflows:
     public void Validate_AdditionalPropertiesOnString_ReturnsError()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -228,7 +228,7 @@ workflows:
     public void Validate_ValidRichTypes_NoSchemaErrors()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -256,7 +256,7 @@ workflows:
     public void Validate_RequiredPropertyNotInProperties_ReturnsError()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -277,7 +277,7 @@ workflows:
     public void Validate_TypedOutputs_ValidSchema_NoErrors()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -301,7 +301,7 @@ workflows:
     public void Validate_TypedOutputs_UnknownType_ReturnsError()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -320,7 +320,7 @@ workflows:
     public void Validate_TypedOutputs_ItemsOnNonArray_ReturnsError()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -360,4 +360,3 @@ workflows:
         Assert.Equal("The result text", outputs["result"].Description);
     }
 }
-

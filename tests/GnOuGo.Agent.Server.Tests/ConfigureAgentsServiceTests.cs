@@ -335,7 +335,7 @@ public sealed class ConfigureAgentsServiceTests
         {
             Id = Guid.NewGuid(),
             Name = name,
-            Workflow = "dsl: 1\nname: slimfaas\nworkflows:\n  main:\n    outputs: {}",
+            Workflow = "version: 1\nname: slimfaas\nworkflows:\n  main:\n    outputs: {}",
             SchedulesJson = "[]",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -435,7 +435,7 @@ public sealed class ConfigureAgentsServiceTests
                     : request.StepId.EndsWith("edit_choice", StringComparison.Ordinal)
                         ? new JsonObject { ["response"] = "workflow" }
                         : request.StepId.EndsWith("edit_workflow", StringComparison.Ordinal)
-                            ? new JsonObject { ["yaml"] = "dsl: 1\nname: slimfaas-prod\nworkflows: {}" }
+                            ? new JsonObject { ["yaml"] = "version: 1\nname: slimfaas-prod\nworkflows: {}" }
                             : request.StepId.EndsWith("confirm_edit", StringComparison.Ordinal)
                                 ? new JsonObject { ["response"] = "save" }
                                 : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
@@ -692,4 +692,3 @@ public sealed class ConfigureAgentsServiceTests
         return (result, events);
     }
 }
-

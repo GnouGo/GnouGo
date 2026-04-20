@@ -395,7 +395,7 @@ public sealed class SmartFlowServiceTests
 
     private static string BuildEchoAgentWorkflow(string agentName, string answerPrefix)
         => $$"""
-           dsl: 1
+           version: 1
            name: {{agentName}}
            workflows:
              main:
@@ -426,4 +426,3 @@ public sealed class SmartFlowServiceTests
         return spans;
     }
 }
-

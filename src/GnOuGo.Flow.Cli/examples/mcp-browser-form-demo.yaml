@@ -1,4 +1,4 @@
-﻿dsl: 1
+version: 1
 name: mcp-browser-form-demo
 meta:
   description: >
@@ -204,4 +204,3 @@ workflows:
         expr: "${data.steps.close_browser.response}"
         type: object
         description: Browser close response
-

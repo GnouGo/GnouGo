@@ -84,7 +84,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 return {
                     "yaml": yaml_text,
                     "workflow": {
-                        "dsl": doc.dsl,
+                        "version": doc.version,
                         "name": doc.name,
                         "workflows": list(doc.workflows.keys()),
                     },
@@ -134,10 +134,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             constraints_lines.append(f"Maximum total steps: {limits.get('max_steps_total')}")
 
         return (
-            "Generate a valid GnOuGo.Flow YAML document (dsl: 1).\n"
+            "Generate a valid GnOuGo.Flow YAML document (version: 1).\n"
             "You are a GnOuGo.Flow YAML workflow generator. Return ONLY valid YAML, no explanation or markdown fences.\n\n"
             "[DSL REFERENCE]\n"
-            "Use GnOuGo.Flow DSL v1. Root document must contain `dsl: 1` and `workflows` map.\n"
+            "Use GnOuGo.Flow DSL v1. Root document must contain `version: 1` and `workflows` map.\n"
             "Step fields: id, type, if, input, output, retry, on_error, steps, branches, cases, expr, default, item_var, index_var.\n"
             "Retry fields: max, backoff_ms, backoff_mult, jitter_ms.\n"
             "on_error cases: if, action (continue|stop), set_output.\n\n"
@@ -205,7 +205,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         normalized: dict[str, Any] | None = None
         if isinstance(parsed.get("steps"), list):
             normalized = {
-                "dsl": int(parsed.get("dsl", 1) or 1),
+                "version": int(parsed.get("version", 1) or 1),
                 "name": parsed.get("name"),
                 "meta": parsed.get("meta"),
                 "entrypoint": "generated",
@@ -220,7 +220,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             }
         elif self._looks_like_workflow_body(parsed):
             normalized = {
-                "dsl": int(parsed.get("dsl", 1) or 1),
+                "version": int(parsed.get("version", 1) or 1),
                 "entrypoint": "generated",
                 "workflows": {
                     "generated": {
@@ -236,7 +236,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             for key, value in parsed.items():
                 if self._looks_like_workflow_body(value):
                     normalized = {
-                        "dsl": int(parsed.get("dsl", 1) or 1),
+                        "version": int(parsed.get("version", 1) or 1),
                         "entrypoint": str(key),
                         "workflows": {str(key): value},
                     }

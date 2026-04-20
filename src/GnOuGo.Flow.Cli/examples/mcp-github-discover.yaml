@@ -1,4 +1,4 @@
-dsl: 1
+version: 1
 name: mcp-github-discover
 meta:
   description: >
@@ -28,4 +28,3 @@ workflows:
         expr: "${data.steps.discover.text}"
         type: string
         description: Text description of discovered tools
-

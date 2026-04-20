@@ -1,4 +1,4 @@
-﻿dsl: 1
+version: 1
 name: debug-test
 
 workflows:
@@ -38,4 +38,3 @@ workflows:
         expr: "${data.steps.debug_len.text}"
         type: string
         description: Debug output for length
-

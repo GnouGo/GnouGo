@@ -1,4 +1,4 @@
-dsl: 1
+version: 1
 name: mcp-github-search-summarize
 meta:
   description: >
@@ -86,4 +86,3 @@ workflows:
         expr: "${data.steps.analysis.text}"
         type: string
         description: LLM analysis of search results
-

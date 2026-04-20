@@ -1,4 +1,4 @@
-dsl: 1
+version: 1
 name: dynamic-workflow-agent
 meta:
   description: |

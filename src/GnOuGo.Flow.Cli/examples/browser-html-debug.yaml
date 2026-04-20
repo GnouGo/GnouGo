@@ -1,4 +1,4 @@
-﻿dsl: 1
+version: 1
 name: browser-html-debug
 meta:
   description: Debug workflow pour vÃ©rifier la rÃ©cupÃ©ration du HTML
@@ -59,4 +59,3 @@ workflows:
         expr: "${data.steps.close_browser.status}"
         type: string
         description: Browser close status
-

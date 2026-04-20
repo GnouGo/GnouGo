@@ -1,4 +1,4 @@
-﻿dsl: 1
+version: 1
 name: simple-loop-test
 
 workflows:
@@ -38,4 +38,3 @@ workflows:
         expr: "${data.steps.process_all}"
         type: any
         description: All loop results
-
