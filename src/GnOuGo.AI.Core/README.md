@@ -75,6 +75,25 @@ If `Issuer`, `ClientId`, `Scopes`, and `ClientSecret` are configured, GnOuGo fir
 
 **Model names** can use the vendor prefix format (`openai/gpt-4.1`, `anthropic/claude-sonnet-4`) — the prefix is automatically stripped before sending to the API. Plain names like `gpt-4.1` or `o4-mini` also work.
 
+## Reasoning / Thinking effort
+
+`LLMClientRequest.Reasoning` (and `LLMRequest.Reasoning` in `GnOuGo.Flow.Core`) controls the
+"thinking" / reasoning effort of capable models without hard-coding any provider-specific field.
+
+Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `null`).
+
+| Value           | OpenAI / Copilot (GitHub Models)        | Ollama                |
+|-----------------|-----------------------------------------|-----------------------|
+| `null` / `auto` | field omitted (provider default)        | field omitted         |
+| `minimal`       | `reasoning_effort: "minimal"`           | `think: true`         |
+| `low`           | `reasoning_effort: "low"`               | `think: true`         |
+| `medium`        | `reasoning_effort: "medium"`            | `think: true`         |
+| `high` / `max`  | `reasoning_effort: "high"`              | `think: true`         |
+| `none` / `off`  | (treated as `auto`)                     | `think: false`        |
+
+Models that don't support thinking simply ignore the field. The mapping lives in
+`ChatRequestBuilder.NormalizeOpenAiReasoning` / `NormalizeOllamaThink`.
+
 ## Build
 
 ```bash

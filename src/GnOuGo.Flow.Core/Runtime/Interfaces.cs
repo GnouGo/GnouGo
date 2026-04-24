@@ -32,6 +32,15 @@ public sealed class LLMRequest
     public bool? StructuredOutputStrict { get; set; }
 
     /// <summary>
+    /// Optional thinking / reasoning effort level for models that support it
+    /// (OpenAI o-series / gpt-5, Anthropic claude-sonnet via Copilot, Ollama "think").
+    /// Accepted values: "minimal" | "low" | "medium" | "high" | "max" | "auto" | null.
+    /// "auto" or null means "let the provider decide" (no field emitted).
+    /// "max" is mapped to the highest provider-supported level (e.g. "high" for OpenAI).
+    /// </summary>
+    public string? Reasoning { get; set; }
+
+    /// <summary>
     /// Optional list of tool definitions to make available to the LLM.
     /// Each tool is a JsonObject with at least { name, description, inputSchema }.
     /// Populated automatically by mcp.call when the LLM needs to select and invoke tools.

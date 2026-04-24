@@ -35,6 +35,7 @@ internal sealed class DynamicRoutingLLMClientAdapter : ILLMClient
             Temperature = request.Temperature,
             StructuredOutputSchema = request.StructuredOutputSchema,
             StructuredOutputStrict = request.StructuredOutputStrict,
+            Reasoning = request.Reasoning,
         };
 
         if (request.Tools is { Count: > 0 })

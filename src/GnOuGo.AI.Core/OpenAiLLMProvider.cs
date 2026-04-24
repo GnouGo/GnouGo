@@ -29,7 +29,8 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 
         byte[] payload = ChatRequestBuilder.OpenAiFull(
             model, request.Prompt, request.Temperature, tools,
-            request.StructuredOutputSchema, request.StructuredOutputStrict);
+            request.StructuredOutputSchema, request.StructuredOutputStrict,
+            request.Reasoning);
 
         using var req = HttpRequestHelper.CreateJsonPost(url, payload);
 

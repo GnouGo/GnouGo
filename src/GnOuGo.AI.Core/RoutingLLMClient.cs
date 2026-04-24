@@ -140,6 +140,11 @@ public sealed class LLMClientRequest
     public double? Temperature { get; set; }
     public JsonNode? StructuredOutputSchema { get; set; }
     public bool? StructuredOutputStrict { get; set; }
+    /// <summary>
+    /// Optional reasoning / thinking effort. See <c>GnOuGo.Flow.Core.Runtime.LLMRequest.Reasoning</c>.
+    /// Accepted: "minimal"|"low"|"medium"|"high"|"max"|"auto"|null.
+    /// </summary>
+    public string? Reasoning { get; set; }
     public IReadOnlyList<LLMToolDef>? Tools { get; set; }
 }
 

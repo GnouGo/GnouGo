@@ -184,6 +184,9 @@ Sends a prompt to an LLM and returns the response. Supports structured JSON outp
     provider: openai                                 # Optional (default: auto-routed)
     temperature: 0.7                                 # Optional
     max_tokens: 2048                                 # Optional
+    reasoning: auto                                  # Optional — auto|minimal|low|medium|high|max
+                                                     # Default: omitted (provider decides).
+                                                     # Models without thinking support ignore it.
 ```
 
 **Output:** `{ text: "...", usage: { prompt_tokens, completion_tokens, total_tokens }, meta: { model } }`
@@ -612,6 +615,13 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
       provider: openai              # Optional — LLM provider
       instruction: "Analyze the user's request and build a workflow."
       context: "${json(data.inputs)}"
+
+      # Reasoning effort for the planning LLM call (and the MCP pre-filter).
+      # Defaults to "high" (max) because planning is heavy reasoning work.
+      # Set to "auto" to let the provider decide, or any of:
+      # "minimal" | "low" | "medium" | "high" | "max" | "auto".
+      # Models without thinking support ignore this field.
+      reasoning: high
 
       # MCP pre-filter: uses an LLM to select only relevant MCP servers/tools
       # before injecting them into the planning prompt (reduces prompt size)
