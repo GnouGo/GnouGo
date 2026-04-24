@@ -47,6 +47,10 @@ Output: `{ text, json?, usage?, raw? }`.
             raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "llm.call requires 'prompt'")
 
         structured = input_obj.get("structured_output") if isinstance(input_obj.get("structured_output"), dict) else None
+        # Reasoning / thinking effort: "minimal"|"low"|"medium"|"high"|"max"|"auto".
+        # When omitted, providers fall back to their own defaults ("auto").
+        reasoning_raw = input_obj.get("reasoning")
+        reasoning = reasoning_raw.strip() if isinstance(reasoning_raw, str) and reasoning_raw.strip() else None
         request = LLMRequest(
             provider=provider,
             model=model,
@@ -54,6 +58,7 @@ Output: `{ text, json?, usage?, raw? }`.
             temperature=float(input_obj["temperature"]) if "temperature" in input_obj and input_obj["temperature"] is not None else None,
             structured_output_schema=(structured.get("schema_inline") or structured.get("schema_ref")) if structured else None,
             structured_output_strict=bool(structured.get("strict")) if structured and "strict" in structured else None,
+            reasoning=reasoning,
         )
 
         ctx.set_telemetry_attribute("gen_ai.operation.name", "chat")
@@ -61,6 +66,8 @@ Output: `{ text, json?, usage?, raw? }`.
         ctx.set_telemetry_attribute("gen_ai.request.model", model)
         if request.temperature is not None:
             ctx.set_telemetry_attribute("gen_ai.request.temperature", request.temperature)
+        if reasoning is not None:
+            ctx.set_telemetry_attribute("gen_ai.request.reasoning_effort", reasoning)
 
         if ctx.limits.log_step_content:
             ctx.add_telemetry_event(

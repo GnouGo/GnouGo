@@ -108,7 +108,7 @@ async def test_runtime_switch_supports_boolean_numeric_and_null_case_values() ->
             type: switch
             expr: "${data.inputs.optional}"
             cases:
-              - value: null
+              - when: "${data.inputs.optional == null}"
                 steps:
                   - id: picked
                     type: set

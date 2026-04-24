@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import json
+
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
+
+
+_VALID_MODES = {"text", "json", "markdown", "html"}
+
 
 class TemplateRenderExecutor:
     step_type = "template.render"
@@ -13,13 +19,13 @@ class TemplateRenderExecutor:
   input:
     template: '{"query":"{{inputs.task}}"}'
     data: "${data}"
-    mode: json
+    mode: json   # one of: text | json | markdown | html
     strict: false
 ```
-Output: `{ text: ... }` for text mode or `{ json: ... }` for json mode.
+Output: `{ text: ... }` for text/markdown/html modes or `{ json: ... }` for json mode.
 """
     documented_exceptions = [
-        (ErrorCodes.INPUT_VALIDATION, False, "template.render requires template text."),
+        (ErrorCodes.INPUT_VALIDATION, False, "template.render requires template text or has an unknown 'mode'."),
         (ErrorCodes.TEMPLATE_RENDER, False, "template rendering failed."),
         (ErrorCodes.JSON_PARSE, False, "rendered template is not valid JSON when mode=json."),
     ]
@@ -34,22 +40,49 @@ Output: `{ text: ... }` for text mode or `{ json: ... }` for json mode.
             raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "template.render requires 'template'")
 
         data = input_obj.get("data")
-        mode = str(input_obj.get("mode", "text"))
+        mode = str(input_obj.get("mode", "text")).lower()
         strict = bool(input_obj.get("strict", False))
 
+        if mode not in _VALID_MODES:
+            raise WorkflowRuntimeException(
+                ErrorCodes.INPUT_VALIDATION,
+                f"template.render: unknown mode '{mode}'. Allowed: text|json|markdown|html.",
+            )
+
+        # 1. Route through pluggable ITemplateEngine if configured
+        custom = ctx.engine.template_engine
+        if custom is not None:
+            try:
+                tr = await custom.render_async(template, data, strict, mode)
+            except WorkflowRuntimeException:
+                raise
+            except Exception as exc:
+                raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_RENDER, str(exc)) from exc
+            meta = getattr(tr, "meta", None)
+            out: dict[str, Any] = {"meta": dict(meta) if isinstance(meta, dict) else ({"engine": "custom"} if meta is None else {"engine": "custom", "value": meta})}
+            if getattr(tr, "text", None) is not None:
+                out["text"] = tr.text
+            if getattr(tr, "json", None) is not None or getattr(tr, "json_payload", None) is not None:
+                out["json"] = getattr(tr, "json", None) or getattr(tr, "json_payload", None)
+            out["meta"].setdefault("mode", mode)
+            return out
+
+        # 2. Built-in Mustache engine
         try:
             rendered = MustacheEngine.render(template, data, strict)
         except MustacheRenderException as exc:
             raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_RENDER, str(exc)) from exc
 
-        result = {"meta": {"engine": "mustache"}}
+        result: dict[str, Any] = {"meta": {"engine": "mustache", "mode": mode}}
         if mode == "json":
-            import json
-
             try:
                 result["json"] = json.loads(rendered)
             except Exception as exc:
-                raise WorkflowRuntimeException(ErrorCodes.JSON_PARSE, f"Template output is not valid JSON: {exc}") from exc
+                raise WorkflowRuntimeException(
+                    ErrorCodes.JSON_PARSE,
+                    f"Template output is not valid JSON: {exc}",
+                ) from exc
         else:
+            # text / markdown / html → identical text payload (no post-processing)
             result["text"] = rendered
         return result

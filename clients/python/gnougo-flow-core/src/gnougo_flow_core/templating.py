@@ -1,8 +1,53 @@
 from __future__ import annotations
 
-import html
+
+import math
 from dataclasses import dataclass
 from typing import Any
+
+
+def _html_encode(s: str) -> str:
+    """Match .NET ``WebUtility.HtmlEncode``:
+
+    - encode ``& < > "`` (named entities)
+    - leave ``'`` (single quote) **unescaped**
+    - encode any non-ASCII character as a numeric entity ``&#NNN;``
+    """
+    out: list[str] = []
+    for ch in s:
+        code = ord(ch)
+        if ch == "&":
+            out.append("&amp;")
+        elif ch == "<":
+            out.append("&lt;")
+        elif ch == ">":
+            out.append("&gt;")
+        elif ch == '"':
+            out.append("&quot;")
+        elif code >= 160:
+            out.append(f"&#{code};")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _format_number(value: Any) -> str:
+    """Invariant-culture numeric formatting (mirror .NET
+    ``double.ToString(CultureInfo.InvariantCulture)`` / ``int.ToString()``).
+    """
+    if isinstance(value, bool):  # bool is subclass of int
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if math.isnan(value):
+            return "NaN"
+        if math.isinf(value):
+            return "Infinity" if value > 0 else "-Infinity"
+        if value == int(value) and abs(value) < 1e16:
+            return str(int(value))
+        return repr(value)
+    return str(value)
 
 
 class MustacheParseException(Exception):
@@ -126,7 +171,7 @@ class MustacheEngine:
             elif isinstance(token, VariableToken):
                 val = MustacheEngine._resolve(token.name, data, strict)
                 if val is not None:
-                    chunks.append(html.escape(MustacheEngine._to_text(val)))
+                    chunks.append(_html_encode(MustacheEngine._to_text(val)))
             elif isinstance(token, RawVariableToken):
                 val = MustacheEngine._resolve(token.name, data, strict)
                 if val is not None:
@@ -188,5 +233,7 @@ class MustacheEngine:
     def _to_text(value: Any) -> str:
         if isinstance(value, bool):
             return "true" if value else "false"
+        if isinstance(value, (int, float)):
+            return _format_number(value)
         return str(value)
 

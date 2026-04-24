@@ -17,7 +17,7 @@ class EmitExecutor:
 Output: `{ message, level }`.
 """
     documented_exceptions = [
-        (ErrorCodes.INPUT_VALIDATION, False, "emit requires a string message."),
+        (ErrorCodes.INPUT_VALIDATION, False, "The input object is malformed or the 'message' field is missing."),
     ]
 
     async def execute_async(self, ctx: StepExecutionContext) -> Any:

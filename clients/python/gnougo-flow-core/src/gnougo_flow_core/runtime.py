@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import random
 import time
 import textwrap
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+
+
+_LOG = logging.getLogger("gnougo_flow_core")
 
 import yaml
 
@@ -64,6 +68,7 @@ class StepExecutionContext:
     call_stack: set[str]
     telemetry_span: ITelemetrySpan | None = None
     telemetry_attributes: dict[str, Any] = field(default_factory=dict)
+    ct: asyncio.Event | None = None
 
     def set_telemetry_attribute(self, key: str, value: Any) -> None:
         self.telemetry_attributes[key] = value
@@ -320,6 +325,7 @@ class WorkflowEngine:
         self.limits = ExecutionLimits()
         self.compiled_document: CompiledDocument | None = None
         self.script_functions: dict[str, Any] = {}
+        self.logger: logging.Logger = _LOG
 
     @property
     def evaluator(self) -> ExpressionEvaluator:
@@ -338,7 +344,12 @@ class WorkflowEngine:
         rm = model if model and model.strip() else self.lm_defaults.model
         return rp or None, rm or None
 
-    async def execute_async(self, workflow: CompiledWorkflow, inputs: Any) -> RunResult:
+    async def execute_async(
+        self,
+        workflow: CompiledWorkflow,
+        inputs: Any,
+        ct: asyncio.Event | None = None,
+    ) -> RunResult:
         self._total_steps_executed = 0
         self.compiled_document = workflow.document
 
@@ -363,8 +374,16 @@ class WorkflowEngine:
         result = RunResult(success=True)
         span = self.telemetry.workflow_start({"workflow_name": workflow.name, "inputs": merged_inputs})
         started = time.perf_counter()
+        document_name = (
+            workflow.document.source.name
+            if workflow.document and workflow.document.source and workflow.document.source.name
+            else "(inline)"
+        )
+        self.logger.info(
+            "Workflow '%s' starting (document: %s)", workflow.name, document_name
+        )
         try:
-            await self.execute_steps_async(workflow.steps, data, result, self.limits, 0, set(), span)
+            await self.execute_steps_async(workflow.steps, data, result, self.limits, 0, set(), span, ct=ct)
             if workflow.outputs:
                 outputs: dict[str, Any] = {}
                 for key, out in workflow.outputs.items():
@@ -372,15 +391,36 @@ class WorkflowEngine:
                 result.outputs = outputs
             else:
                 result.outputs = data.get("steps")
+            self.logger.info(
+                "Workflow '%s' completed successfully in %.1fms (%d steps)",
+                workflow.name,
+                (time.perf_counter() - started) * 1000.0,
+                self._total_steps_executed,
+            )
         except WorkflowRuntimeException as exc:
             result.success = False
             result.error = exc.to_workflow_error()
+            self.logger.error(
+                "Workflow '%s' failed: [%s] %s",
+                workflow.name, exc.code, str(exc),
+                exc_info=True,
+            )
         except asyncio.CancelledError:
             result.success = False
             result.error = WorkflowRuntimeException("CANCELLED", "Workflow execution cancelled", True).to_workflow_error()
+            self.logger.warning(
+                "Workflow '%s' was cancelled after %.1fms",
+                workflow.name,
+                (time.perf_counter() - started) * 1000.0,
+            )
         except Exception as exc:
             result.success = False
             result.error = WorkflowRuntimeException("INTERNAL_ERROR", str(exc), False).to_workflow_error()
+            self.logger.error(
+                "Workflow '%s' internal error: %s",
+                workflow.name, str(exc),
+                exc_info=True,
+            )
         finally:
             self.telemetry.workflow_end(
                 span,
@@ -403,10 +443,13 @@ class WorkflowEngine:
         call_stack: set[str],
         parent_span: ITelemetrySpan | None = None,
         start_from_index: int = 0,
+        ct: asyncio.Event | None = None,
     ) -> None:
         parent_span = parent_span or self.telemetry.workflow_start({})
         for index in range(start_from_index, len(steps)):
             step = steps[index]
+            if ct is not None and ct.is_set():
+                raise asyncio.CancelledError()
             self._total_steps_executed += 1
             if self._total_steps_executed > limits.max_total_steps_executed:
                 raise WorkflowRuntimeException(
@@ -452,6 +495,25 @@ class WorkflowEngine:
                     },
                 )
 
+                self.logger.debug(
+                    "Step '%s' (%s) starting at depth %d", step.id, step.type, call_depth
+                )
+
+                if limits.log_step_content and resolved_input is not None and step_span is not None:
+                    try:
+                        input_json = json.dumps(resolved_input, default=str, ensure_ascii=False)
+                    except Exception:
+                        input_json = str(resolved_input)
+                    step_span.add_event(
+                        "gnougo-flow.step.input",
+                        [
+                            ("gnougo-flow.step.id", step.id),
+                            ("gnougo-flow.step.type", step.type),
+                            ("gnougo-flow.step.call_depth", call_depth),
+                            ("gnougo-flow.content.input", input_json),
+                        ],
+                    )
+
                 output = await self._execute_with_retry_async(
                     step,
                     data,
@@ -460,17 +522,43 @@ class WorkflowEngine:
                     call_depth,
                     call_stack,
                     step_span,
+                    ct=ct,
                 )
 
                 data.setdefault("steps", {})[step.id] = output
                 if step.source.output:
                     data[step.source.output] = output
 
+                if limits.log_step_content and output is not None and step_span is not None:
+                    try:
+                        output_json = json.dumps(output, default=str, ensure_ascii=False)
+                    except Exception:
+                        output_json = str(output)
+                    step_span.add_event(
+                        "gnougo-flow.step.output",
+                        [
+                            ("gnougo-flow.step.id", step.id),
+                            ("gnougo-flow.step.type", step.type),
+                            ("gnougo-flow.step.call_depth", call_depth),
+                            ("gnougo-flow.content.output", output_json),
+                        ],
+                    )
+
                 step_result.output = output
                 step_result.status = StepStatus.SUCCEEDED
+                self.logger.info(
+                    "Step '%s' (%s) succeeded in %.1fms",
+                    step.id, step.type,
+                    (time.perf_counter() - started) * 1000.0,
+                )
                 self.telemetry.step_end(step_span, {"status": StepStatus.SUCCEEDED, "output": output})
             except WorkflowRuntimeException as exc:
                 step_result.error = exc.to_workflow_error()
+                self.logger.error(
+                    "Step '%s' (%s) failed: [%s] %s",
+                    step.id, step.type, exc.code, str(exc),
+                    exc_info=True,
+                )
                 if step.source.on_error is not None:
                     action, handled_output = self._handle_on_error(step.source.on_error, exc, step, data)
                     if action == "continue":
@@ -496,6 +584,7 @@ class WorkflowEngine:
         call_depth: int,
         call_stack: set[str],
         step_span: ITelemetrySpan | None,
+        ct: asyncio.Event | None = None,
     ) -> Any:
         retry = step.source.retry
         max_attempts = retry.max if retry else 1
@@ -518,6 +607,7 @@ class WorkflowEngine:
                     call_depth=call_depth,
                     call_stack=call_stack,
                     telemetry_span=step_span,
+                    ct=ct,
                 )
 
                 if resolved_input is not None:
@@ -530,7 +620,16 @@ class WorkflowEngine:
                 last_exc = exc
                 if attempt < max_attempts - 1 and exc.retryable:
                     delay = backoff_ms + (random.randint(0, jitter_ms) if jitter_ms > 0 else 0)
-                    await asyncio.sleep(delay / 1000.0)
+                    delay_s = delay / 1000.0
+                    if ct is not None:
+                        try:
+                            await asyncio.wait_for(ct.wait(), timeout=delay_s)
+                            # Event got set during sleep → propagate cancellation
+                            raise asyncio.CancelledError()
+                        except asyncio.TimeoutError:
+                            pass
+                    else:
+                        await asyncio.sleep(delay_s)
                     backoff_ms = int(backoff_ms * backoff_mult)
                     continue
                 raise

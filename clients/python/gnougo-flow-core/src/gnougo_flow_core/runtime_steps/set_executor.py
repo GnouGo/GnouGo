@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
 class SetExecutor:
@@ -17,11 +19,13 @@ class SetExecutor:
 Output: exact resolved input object.
 """
     documented_exceptions = [
-        (ErrorCodes.INPUT_VALIDATION, False, "set input must be an object."),
+        (ErrorCodes.INPUT_VALIDATION, False, "The resolved input for `set` must be an object."),
     ]
 
     async def execute_async(self, ctx: StepExecutionContext) -> Any:
         input_obj = ctx.engine.get_resolved_input(ctx)
         if not isinstance(input_obj, dict):
             raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "set input must be object")
-        return dict(input_obj)
+        # Deep-clone to avoid downstream mutations bleeding back into shared state.
+        return copy.deepcopy(input_obj)
+

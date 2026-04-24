@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from .errors import WorkflowError
 
@@ -18,7 +18,7 @@ class RetryPolicy(BaseModel):
 class OnErrorCase(BaseModel):
     if_: str | None = Field(default=None, alias="if")
     action: str = "stop"
-    set_output: Any = None
+    set_output: str | None = None
     retry: RetryPolicy | None = None
 
 
@@ -52,7 +52,7 @@ class OutputDef(BaseModel):
 
 
 class SwitchCaseDef(BaseModel):
-    value: bool | int | float | str | None = None
+    value: str | None = None
     when: str | None = None
     steps: list["StepDef"] = Field(default_factory=list)
 
@@ -86,7 +86,11 @@ class WorkflowDef(BaseModel):
 
 
 class WorkflowDocument(BaseModel):
-    dsl: int = 1
+    # Mirrors .NET WorkflowDocument.Version. Accepts both `version` (canonical) and
+    # `dsl` (legacy alias) when constructed by name.
+    model_config = ConfigDict(populate_by_name=True)
+
+    version: int = Field(default=1, validation_alias=AliasChoices("version", "dsl"))
     name: str | None = None
     meta: dict[str, str] | None = None
     functions: str | None = None
@@ -155,6 +159,18 @@ class RunResult(BaseModel):
     error: WorkflowError | None = None
 
 
+class WorkflowCheckpoint(BaseModel):
+    run_id: str
+    workflow_name: str
+    next_step_index: int = 0
+    step_outputs: dict[str, Any] = Field(default_factory=dict)
+    inputs: Any = None
+    workflow_yaml: str = ""
+    status: str = "running"
+    timestamp: str | None = None
+    tenant_id: str | None = None
+
+
 class ExecutionLimits(BaseModel):
     max_total_steps_executed: int = 10_000
     max_call_depth: int = 20
@@ -191,6 +207,11 @@ class LLMRequest(BaseModel):
     temperature: float | None = None
     structured_output_schema: Any = None
     structured_output_strict: bool | None = None
+    # Optional thinking / reasoning effort. Mirrors .NET LLMRequest.Reasoning.
+    # Accepted: "minimal" | "low" | "medium" | "high" | "max" | "auto" | None.
+    # "auto" / None means "let the provider decide" (no field emitted).
+    # "max" maps to the highest provider-supported level (e.g. "high" for OpenAI).
+    reasoning: str | None = None
     tools: list[LLMTool] | None = None
 
 

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import copy
+
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
+
 
 class LoopParallelExecutor:
     step_type = "loop.parallel"
@@ -26,7 +29,8 @@ Output: `{ results: [<iteration_steps>...], count: <number> }`.
 """
     documented_exceptions = [
         (ErrorCodes.INPUT_VALIDATION, False, "loop.parallel requires object input and 'items' array."),
-        (ErrorCodes.LOOP_LIMIT, False, "loop.parallel exceeded items limit."),
+        (ErrorCodes.LOOP_LIMIT, False, "Number of items exceeds max_loop_iterations."),
+        (ErrorCodes.PARALLEL_LIMIT, False, "Number of parallel iterations exceeds max_parallel_branches."),
     ]
 
     async def execute_async(self, ctx: StepExecutionContext) -> Any:
@@ -40,7 +44,15 @@ Output: `{ results: [<iteration_steps>...], count: <number> }`.
         if not isinstance(items, list):
             raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "loop.parallel requires 'items' array")
         if len(items) > ctx.limits.max_loop_iterations:
-            raise WorkflowRuntimeException(ErrorCodes.LOOP_LIMIT, "Loop items exceed limit")
+            raise WorkflowRuntimeException(
+                ErrorCodes.LOOP_LIMIT,
+                f"Loop items ({len(items)}) exceeds max_loop_iterations ({ctx.limits.max_loop_iterations})",
+            )
+        if len(items) > ctx.limits.max_parallel_branches:
+            raise WorkflowRuntimeException(
+                ErrorCodes.PARALLEL_LIMIT,
+                f"Loop items ({len(items)}) exceeds max_parallel_branches ({ctx.limits.max_parallel_branches})",
+            )
 
         item_var = ctx.step.source.item_var or "item"
         index_var = ctx.step.source.index_var or "i"
@@ -51,17 +63,25 @@ Output: `{ results: [<iteration_steps>...], count: <number> }`.
             if sem:
                 await sem.acquire()
             try:
-                iter_data = {
-                    "inputs": dict(ctx.data.get("inputs", {})),
-                    "steps": dict(ctx.data.get("steps", {})),
-                    "env": dict(ctx.data.get("env", {})),
-                    item_var: item,
-                    index_var: index,
-                    "_loop": {"index": index, "item": item},
-                    "loop": {"index": index, "item": item},
-                }
+                # Deep-clone parent data so each iteration is fully isolated yet
+                # inherits everything (parent loop vars, env, etc.).
+                iter_data = copy.deepcopy(ctx.data)
+                iter_data["steps"] = {}
+                iter_data[item_var] = item
+                iter_data[index_var] = index
+                iter_data["_loop"] = {"index": index, "item": item}
+                iter_data["loop"] = {"index": index, "item": item}
                 run = RunResult(success=True)
-                await ctx.engine.execute_steps_async(ctx.step.steps, iter_data, run, ctx.limits, ctx.call_depth, set(ctx.call_stack), ctx.telemetry_span)
+                await ctx.engine.execute_steps_async(
+                    ctx.step.steps,
+                    iter_data,
+                    run,
+                    ctx.limits,
+                    ctx.call_depth,
+                    set(ctx.call_stack),
+                    ctx.telemetry_span,
+                    ct=ctx.ct,
+                )
                 return index, iter_data
             finally:
                 if sem:
@@ -71,6 +91,10 @@ Output: `{ results: [<iteration_steps>...], count: <number> }`.
         ordered = [r for _, r in sorted(results, key=lambda x: x[0])]
         cleaned = []
         for item in ordered:
-            steps = {k: v for k, v in item.get("steps", {}).items() if not (k.startswith("__") and k.endswith("__"))}
+            steps = {
+                k: copy.deepcopy(v)
+                for k, v in item.get("steps", {}).items()
+                if not (k.startswith("__") and k.endswith("__"))
+            }
             cleaned.append(steps)
         return {"results": cleaned, "count": len(items)}

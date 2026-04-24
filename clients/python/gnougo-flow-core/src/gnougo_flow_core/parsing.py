@@ -27,6 +27,11 @@ class WorkflowParser:
             raise WorkflowParseException("Root must be a YAML mapping")
 
         version = raw.get("version")
+        if version is None:
+            # .NET WorkflowParser also accepts the legacy `dsl:` key.
+            version = raw.get("dsl")
+        if version is None:
+            raise WorkflowParseException("Missing required field 'version'")
         if version != 1:
             raise WorkflowParseException(f"Unsupported DSL version: {version}")
 
@@ -83,12 +88,13 @@ class WorkflowParser:
         if not isinstance(node, dict):
             return InputDef()
 
-        req = node.get("required")
-        required_properties = node.get("required") if isinstance(node.get("required"), list) else None
+        required_node = node.get("required")
+        required = required_node if isinstance(required_node, bool) else True
+        required_properties = required_node if isinstance(required_node, list) and required_node else None
 
         return InputDef(
             type=node.get("type", "any"),
-            required=True if not isinstance(req, bool) else req,
+            required=required,
             default=node.get("default"),
             items=WorkflowParser._parse_input_def(node["items"]) if "items" in node else None,
             properties={k: WorkflowParser._parse_input_def(v) for k, v in node.get("properties", {}).items()}
@@ -108,6 +114,7 @@ class WorkflowParser:
         if not isinstance(node, dict):
             return OutputDef.from_expr("")
 
+        # Long form with explicit expression.
         if "expr" in node:
             return OutputDef(
                 expr=node.get("expr", ""),
@@ -123,6 +130,7 @@ class WorkflowParser:
                 required_properties=node.get("required") if isinstance(node.get("required"), list) else None,
             )
 
+        # Type-only schema branch (used in nested items/properties in .NET).
         if "type" in node:
             return OutputDef(
                 type=node.get("type", "any"),
@@ -137,6 +145,7 @@ class WorkflowParser:
                 required_properties=node.get("required") if isinstance(node.get("required"), list) else None,
             )
 
+        # Backward-compatible nested mapping without `expr` or `type`.
         return OutputDef(expr="", type="object", properties={k: WorkflowParser._parse_output_def(v) for k, v in node.items()})
 
     @staticmethod
@@ -166,7 +175,7 @@ class WorkflowParser:
                         **{
                             "if": case.get("if"),
                             "action": case.get("action", "stop"),
-                            "set_output": case.get("set_output"),
+                            "set_output": str(case.get("set_output")) if case.get("set_output") is not None else None,
                             "retry": RetryPolicy(**case["retry"]) if isinstance(case.get("retry"), dict) else None,
                         }
                     )
@@ -184,9 +193,17 @@ class WorkflowParser:
             cases = []
             for case in node["cases"]:
                 if isinstance(case, dict):
+                    raw_value = case.get("value")
+                    if raw_value is None:
+                        case_value = None
+                    elif isinstance(raw_value, bool):
+                        # Lowercase to match JS / .NET JsonValueToString.
+                        case_value = "true" if raw_value else "false"
+                    else:
+                        case_value = str(raw_value)
                     cases.append(
                         SwitchCaseDef(
-                            value=case.get("value"),
+                            value=case_value,
                             when=case.get("when"),
                             steps=[WorkflowParser._parse_step(s) for s in case.get("steps", [])],
                         )

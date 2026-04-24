@@ -51,6 +51,15 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         provider, model = ctx.engine.resolve_llm_target(generator.get("provider"), generator.get("model"))
         model = model or "gpt-4"
 
+        # Reasoning effort: workflow planning is heavy reasoning, default to "high" (max).
+        # Authors can override via `generator.reasoning: auto|minimal|low|medium|high|max`.
+        plan_reasoning_raw = generator.get("reasoning")
+        plan_reasoning = (
+            plan_reasoning_raw.strip()
+            if isinstance(plan_reasoning_raw, str) and plan_reasoning_raw.strip()
+            else "high"
+        )
+
         policy = input_obj.get("policy") if isinstance(input_obj.get("policy"), dict) else {}
         limits = input_obj.get("limits") if isinstance(input_obj.get("limits"), dict) else {}
         validate = input_obj.get("validate") if isinstance(input_obj.get("validate"), dict) else {}
@@ -65,13 +74,16 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             policy,
             limits,
             generator,
+            plan_reasoning,
         )
         prompt = base_prompt
         last_error: Exception | None = None
         last_yaml = ""
 
         for attempt in range(1, max_attempts + 1):
-            response = await client.call_async(LLMRequest(provider=provider, model=model, prompt=prompt))
+            response = await client.call_async(
+                LLMRequest(provider=provider, model=model, prompt=prompt, reasoning=plan_reasoning)
+            )
             yaml_text = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
             yaml_text = self._normalize_planned_yaml(yaml_text)
             last_yaml = yaml_text
@@ -117,10 +129,13 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         policy: dict[str, Any],
         limits: dict[str, Any],
         generator: dict[str, Any],
+        plan_reasoning: str | None = None,
     ) -> str:
         allowed_types = set(policy.get("allowed_step_types") or []) or None
         mcp_doc = await self._build_mcp_documentation(ctx)
-        mcp_doc = await self._maybe_prefilter_mcp_documentation(ctx, generator, instruction, mcp_doc)
+        mcp_doc = await self._maybe_prefilter_mcp_documentation(
+            ctx, generator, instruction, mcp_doc, plan_reasoning
+        )
         steps_doc = "\n\n".join(ctx.engine.registry.get_dsl_snippets(allowed_types))
         exc_doc = self._build_step_exceptions_doc(ctx.engine.registry, allowed_types)
         constraints_lines: list[str] = []
@@ -254,6 +269,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         generator: dict[str, Any],
         instruction: str,
         mcp_doc: str,
+        plan_reasoning: str | None = None,
     ) -> str:
         prefilter = generator.get("prefilter")
         should_prefilter = prefilter is None or isinstance(prefilter, dict) or bool(prefilter)
@@ -292,6 +308,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                         "required": ["filtered"],
                     },
                     structured_output_strict=True,
+                    reasoning=plan_reasoning,
                 )
             )
             if isinstance(response.json_payload, dict) and isinstance(response.json_payload.get("filtered"), str):

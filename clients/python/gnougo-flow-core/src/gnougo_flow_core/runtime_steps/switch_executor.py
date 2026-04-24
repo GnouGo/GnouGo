@@ -1,42 +1,26 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
 
-def _parse_bool_string(value: str) -> bool | None:
-    normalized = value.strip().lower()
-    if normalized == "true":
-        return True
-    if normalized == "false":
-        return False
-    return None
+def _expr_to_string(value: Any) -> str:
+    """Mirror .NET: JsonValue.s if string, else ToJsonString()."""
+    if isinstance(value, str):
+        return value
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if value is None:
+        return "null"
+    try:
+        return json.dumps(value, ensure_ascii=False, default=str)
+    except Exception:
+        return str(value)
 
-
-def _switch_values_equal(expected: Any, actual: Any) -> bool:
-    if expected is None:
-        return actual is None
-
-    if isinstance(expected, bool):
-        if isinstance(actual, bool):
-            return expected == actual
-        if isinstance(actual, str):
-            parsed = _parse_bool_string(actual)
-            return parsed is not None and expected == parsed
-        return False
-
-    if isinstance(expected, (int, float)) and not isinstance(expected, bool):
-        if isinstance(actual, (int, float)) and not isinstance(actual, bool):
-            return float(expected) == float(actual)
-        if isinstance(actual, str):
-            try:
-                return float(expected) == float(actual.strip())
-            except ValueError:
-                return False
-        return False
-
-    return str(expected) == ExpressionEvaluator.get_string(actual)
 
 class SwitchExecutor:
     step_type = "switch"
@@ -66,34 +50,50 @@ class SwitchExecutor:
 Output: merged `data.steps` after selected branch execution.
 """
     documented_exceptions = [
-        (ErrorCodes.INPUT_VALIDATION, False, "switch requires 'cases' and valid case definitions."),
+        (
+            ErrorCodes.INPUT_VALIDATION,
+            False,
+            "The step is missing `cases` or exceeds the runtime maximum number of switch cases.",
+        ),
     ]
 
     async def execute_async(self, ctx: StepExecutionContext) -> Any:
         if not ctx.step.cases:
             raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "switch step requires 'cases'")
         if len(ctx.step.cases) > ctx.limits.max_switch_cases:
-            raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "Switch cases exceed limit")
+            raise WorkflowRuntimeException(
+                ErrorCodes.INPUT_VALIDATION,
+                f"Switch cases ({len(ctx.step.cases)}) exceeds limit ({ctx.limits.max_switch_cases})",
+            )
 
-        expr_value = None
+        # Form A: evaluate expr once
+        expr_value: Any = None
         if ctx.step.source.expr is not None:
             expr_value = ctx.engine.interpolator.interpolate(ctx.step.source.expr, ctx.data)
 
         for case in ctx.step.cases:
             matched = False
-            has_case_value = "value" in case.source.model_fields_set
-            if has_case_value and ctx.step.source.expr is not None:
-                matched = _switch_values_equal(case.source.value, expr_value)
+
+            # Form A: value match — both expr and case value must be non-null (mirrors .NET)
+            if expr_value is not None and case.source.value is not None:
+                expr_str = _expr_to_string(expr_value)
+                matched = case.source.value == expr_str
+            # Form B: when condition (also acts as Form A fallthrough when value is null)
             elif case.source.when is not None:
-                matched = ExpressionEvaluator.get_bool(ctx.engine.interpolator.interpolate(case.source.when, ctx.data))
+                cond = ctx.engine.interpolator.interpolate(case.source.when, ctx.data)
+                matched = ExpressionEvaluator.get_bool(cond)
 
             if matched:
                 run = RunResult(success=True)
-                await ctx.engine.execute_steps_async(case.steps, ctx.data, run, ctx.limits, ctx.call_depth, ctx.call_stack, ctx.telemetry_span)
+                await ctx.engine.execute_steps_async(
+                    case.steps, ctx.data, run, ctx.limits, ctx.call_depth, ctx.call_stack, ctx.telemetry_span, ct=ctx.ct,
+                )
                 return dict(ctx.data.get("steps", {}))
 
         if ctx.step.default:
             run = RunResult(success=True)
-            await ctx.engine.execute_steps_async(ctx.step.default, ctx.data, run, ctx.limits, ctx.call_depth, ctx.call_stack, ctx.telemetry_span)
+            await ctx.engine.execute_steps_async(
+                ctx.step.default, ctx.data, run, ctx.limits, ctx.call_depth, ctx.call_stack, ctx.telemetry_span, ct=ctx.ct,
+            )
             return dict(ctx.data.get("steps", {}))
         return None

@@ -32,5 +32,5 @@ Output: object with each child step output keyed by step id.
         if not ctx.step.steps:
             raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "sequence step requires 'steps'")
         result = RunResult(success=True)
-        await ctx.engine.execute_steps_async(ctx.step.steps, ctx.data, result, ctx.limits, ctx.call_depth, ctx.call_stack, ctx.telemetry_span)
+        await ctx.engine.execute_steps_async(ctx.step.steps, ctx.data, result, ctx.limits, ctx.call_depth, ctx.call_stack, ctx.telemetry_span, ct=ctx.ct)
         return {sr.step_id: sr.output for sr in result.step_results if sr.status == StepStatus.SUCCEEDED}

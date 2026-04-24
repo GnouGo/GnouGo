@@ -49,6 +49,6 @@ Output: `{ outputs, workflow, run: { steps_executed, success } }`.
 
         sub_data = {"inputs": dict(args), "steps": {}, "env": dict(ctx.data.get("env", {}))}
         rr = RunResult(success=True)
-        await ctx.engine.execute_steps_async(workflow.steps, sub_data, rr, ctx.limits, ctx.call_depth + 1, ctx.call_stack, ctx.telemetry_span)
+        await ctx.engine.execute_steps_async(workflow.steps, sub_data, rr, ctx.limits, ctx.call_depth + 1, ctx.call_stack, ctx.telemetry_span, ct=ctx.ct)
         outputs = {k: ctx.engine.evaluate_output_def(v, sub_data) for k, v in (workflow.outputs or {}).items()} if workflow.outputs else sub_data.get("steps", {})
         return {"outputs": outputs, "workflow": workflow.name, "run": {"steps_executed": len(rr.step_results), "success": rr.success}}
