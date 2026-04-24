@@ -25,6 +25,17 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
     private readonly Meter _meter;
     private readonly CollectorTracePersistence _collectorTracePersistence;
     private readonly LocalTraceDebugStore _localTraceStore;
+
+    /// <summary>
+    /// Tracks the root chat activity for the current async flow. This provides a reliable fallback
+    /// parent when <see cref="Activity.Current"/> is lost across async boundaries — notably when
+    /// a workflow resumes from a <c>human.input</c> step whose completion arrives on an unrelated
+    /// thread (TCS continuation), or when <see cref="Task.Run"/> / channel readers execute on
+    /// thread-pool threads whose <see cref="Activity.Current"/> does not match the chat root.
+    /// Assumes one chat message per logical async flow (AsyncLocal guarantees per-flow isolation,
+    /// so concurrent chats on different requests are unaffected).
+    /// </summary>
+    private static readonly AsyncLocal<Activity?> _currentChatRoot = new();
     private readonly Counter<long>      _stepCounter;
     private readonly Histogram<double>  _stepDuration;
     private readonly Counter<long>      _tokenUsage;
@@ -81,19 +92,19 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
 
         activity.AddBaggage(CorrelationIdTagName, correlationId);
         activity.AddBaggage(ConversationIdTagName, correlationId);
-        return new ChatTraceScope(activity, _collectorTracePersistence);
+        return new ChatTraceScope(activity, _collectorTracePersistence, _currentChatRoot);
     }
 
     public ActivityScope StartActivityScope(string name, ActivityKind kind = ActivityKind.Internal)
     {
-        var activity = StartActivity(name, kind, Activity.Current);
+        var activity = StartActivity(name, kind, ResolveImplicitParent());
         ApplyCorrelationTags(activity);
         return new ActivityScope(activity, _collectorTracePersistence);
     }
 
     public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info)
     {
-        var a = StartActivity("workflow", ActivityKind.Internal, Activity.Current);
+        var a = StartActivity("workflow", ActivityKind.Internal, ResolveImplicitParent());
         ApplyCorrelationTags(a);
         a.SetTag("gnougo-flow.workflow.name", info.WorkflowName);
         if (info.DocumentName is not null) a.SetTag("gnougo-flow.document.name", info.DocumentName);
@@ -120,7 +131,7 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
 
     public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info)
     {
-        var parent = ResolveParentActivity(parentSpan);
+        var parent = ResolveParentActivity(parentSpan) ?? ResolveImplicitParent();
         var a = StartActivity(SpanName(info), ActivityKind.Client, parent);
         ApplyCorrelationTags(a);
         a.SetTag("gnougo-flow.step.id",   info.StepId);
@@ -239,6 +250,24 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
             _ => null
         };
 
+    /// <summary>
+    /// Returns the best-effort implicit parent activity for spans that don't receive an
+    /// explicit parent (e.g., the root <c>workflow</c> span). Prefers <see cref="Activity.Current"/>
+    /// when it belongs to the same trace as the captured chat root; otherwise falls back to
+    /// the chat root itself. This prevents orphan traces when async continuations resume on
+    /// thread-pool threads with a mismatched or null <see cref="Activity.Current"/>.
+    /// </summary>
+    private static Activity? ResolveImplicitParent()
+    {
+        var chatRoot = _currentChatRoot.Value;
+        var current = Activity.Current;
+        if (chatRoot is null)
+            return current;
+        if (current is null)
+            return chatRoot;
+        return current.TraceId == chatRoot.TraceId ? current : chatRoot;
+    }
+
     private Activity StartActivity(string name, ActivityKind kind, Activity? parent)
     {
         Activity? activity;
@@ -297,9 +326,22 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
 
     // ── Span wrappers ────────────────────────────────────────────────────────
 
-    public sealed class ChatTraceScope(Activity activity, CollectorTracePersistence collectorTracePersistence) : IDisposable
+    public sealed class ChatTraceScope : IDisposable
     {
-        public Activity Activity { get; } = activity;
+        private readonly CollectorTracePersistence _collectorTracePersistence;
+        private readonly AsyncLocal<Activity?> _chatRootSlot;
+        private readonly Activity? _previousChatRoot;
+
+        public ChatTraceScope(Activity activity, CollectorTracePersistence collectorTracePersistence, AsyncLocal<Activity?> chatRootSlot)
+        {
+            Activity = activity;
+            _collectorTracePersistence = collectorTracePersistence;
+            _chatRootSlot = chatRootSlot;
+            _previousChatRoot = chatRootSlot.Value;
+            chatRootSlot.Value = activity;
+        }
+
+        public Activity Activity { get; }
         public string TraceId => Activity.TraceId.ToHexString();
 
         public void SetStatus(ActivityStatusCode code, string? description = null)
@@ -309,7 +351,8 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
 
         public void Dispose()
         {
-            collectorTracePersistence.Persist(Activity);
+            _collectorTracePersistence.Persist(Activity);
+            _chatRootSlot.Value = _previousChatRoot;
             Activity.Dispose();
         }
     }

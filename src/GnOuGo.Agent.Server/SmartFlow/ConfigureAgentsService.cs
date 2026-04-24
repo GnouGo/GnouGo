@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
@@ -79,9 +80,27 @@ public sealed class ConfigureAgentsService
     {
         var trimmedCommand = command.Trim();
 
+        // Wrap the whole /agent command in a dedicated trace span so that workflow spans,
+        // GenAI llm.call spans and MCP calls all appear under a single, well-named parent
+        // — mirroring what ConfigureProvidersService does for /llm, /mcp, /status.
+        var descriptor = DescribeCommand(trimmedCommand);
+        using var commandTrace = _otel.StartActivityScope(descriptor.SpanName);
+        commandTrace.SetTag("gnougo.agent.command.route", "configure_agents");
+        commandTrace.SetTag("gnougo.agent.command.name", trimmedCommand);
+        commandTrace.SetTag("gnougo.agent.command.mode", descriptor.Mode);
+        if (!string.IsNullOrWhiteSpace(descriptor.Action))
+            commandTrace.SetTag("gnougo.agent.command.action", descriptor.Action);
+        if (!string.IsNullOrWhiteSpace(descriptor.Argument))
+            commandTrace.SetTag("gnougo.agent.command.argument", descriptor.Argument);
+
+        // Capture the command activity so we can restore it inside Task.Run continuations
+        // (thread-pool threads do not inherit Activity.Current from the calling async flow).
+        var parentActivity = commandTrace.Activity;
+
         if (string.Equals(trimmedCommand, "/agent list", StringComparison.OrdinalIgnoreCase))
         {
             yield return new SmartFlowEvent("answer", await RenderAgentListAsync(ct));
+            commandTrace.SetStatus(ActivityStatusCode.Ok);
             yield break;
         }
 
@@ -157,6 +176,13 @@ public sealed class ConfigureAgentsService
 
         var executionTask = Task.Run(async () =>
         {
+            // Restore the command activity as Activity.Current on the thread-pool thread so that
+            // downstream instrumentation (ILLMClient GenAI spans, MCP calls, workflow steps) is
+            // correctly parented to the /agent command span — and therefore to the chat trace.
+            var previousTaskActivity = Activity.Current;
+            if (parentActivity is not null)
+                Activity.Current = parentActivity;
+
             try
             {
                 result = await engine.ExecuteAsync(workflow, resolvedInputs, ct);
@@ -167,6 +193,7 @@ public sealed class ConfigureAgentsService
             }
             finally
             {
+                Activity.Current = previousTaskActivity;
                 channel.Writer.TryComplete();
             }
         }, ct);
@@ -181,6 +208,9 @@ public sealed class ConfigureAgentsService
 
         if (error is not null)
         {
+            commandTrace.SetStatus(ActivityStatusCode.Error, error.Message);
+            commandTrace.SetTag("error.type", error.GetType().FullName);
+            commandTrace.SetTag("error.message", error.Message);
             yield return new SmartFlowEvent("error", error.Message);
             yield break;
         }
@@ -201,9 +231,30 @@ public sealed class ConfigureAgentsService
         if (result is { Success: false })
         {
             var errMsg = result.Error?.Message ?? "Agent configuration workflow failed";
+            commandTrace.SetStatus(ActivityStatusCode.Error, errMsg);
             yield return new SmartFlowEvent("error", errMsg);
         }
+        else
+        {
+            commandTrace.SetStatus(ActivityStatusCode.Ok);
+        }
     }
+
+    private static CommandTraceDescriptor DescribeCommand(string command)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            return new CommandTraceDescriptor("configure.agents.unknown", null, null, "direct");
+
+        var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // parts[0] == "/agent"
+        var action = parts.Length > 1 ? parts[1].ToLowerInvariant() : "help";
+        var argument = parts.Length > 2 ? string.Join(' ', parts.Skip(2)) : null;
+        var mode = action is "add" or "edit" or "remove" or "select" ? "interactive" : "direct";
+        var spanName = $"configure.agents.{action}";
+        return new CommandTraceDescriptor(spanName, action, argument, mode);
+    }
+
+    private sealed record CommandTraceDescriptor(string SpanName, string? Action, string? Argument, string Mode);
 
     private async Task<string> RenderAgentListAsync(CancellationToken ct)
     {
