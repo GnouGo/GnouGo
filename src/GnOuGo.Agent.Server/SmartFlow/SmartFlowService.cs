@@ -542,9 +542,11 @@ public sealed class SmartFlowService
         var prompt =
             $"You generate concise chat titles. Output ONLY the title, 2 to 6 words, no quotes, no punctuation at the end.\n\nConversation starts with: {firstUser}\nTitle:";
 
+        // Leave Model empty so DynamicRoutingLLMClientAdapter resolves the
+        // current default model from LLMRuntimeOptionsStore (configured via /llm).
         var response = await _llm.CallAsync(new LLMRequest
         {
-            Model = "gpt-4o-mini",
+            Model = string.Empty,
             Prompt = prompt,
             Temperature = 0.3
         }, ct);
