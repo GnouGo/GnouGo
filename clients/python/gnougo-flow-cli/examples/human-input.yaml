@@ -1,0 +1,17 @@
+version: 1
+name: human-input-example
+workflows:
+  main:
+    steps:
+      - id: ask
+        type: human.input
+        input:
+          prompt: "Approve this action?"
+          choices: [approve, reject]
+      - id: result
+        type: set
+        input:
+          answer: "${data.steps.ask.response}"
+    outputs:
+      answer: "${data.steps.result.answer}"
+

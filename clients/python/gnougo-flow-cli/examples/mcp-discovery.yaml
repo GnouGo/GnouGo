@@ -1,0 +1,21 @@
+version: 1
+name: mcp-discovery-example
+workflows:
+  main:
+    steps:
+      - id: discover
+        type: mcp.list
+        input:
+          servers: [demo]
+          include: [tools, resources, prompts]
+      - id: call_tool
+        type: mcp.call
+        input:
+          server: demo
+          method: search
+          request:
+            query: "gnougo"
+    outputs:
+      status: "${data.steps.discover.status}"
+      tool_response: "${json(data.steps.call_tool.response)}"
+
