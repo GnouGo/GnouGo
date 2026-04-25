@@ -77,6 +77,11 @@ Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto" | None`
 - `WorkflowEngine.mcp_cache` defaults to `McpCacheHelper`, a 5-minute sliding
   TTL cache for MCP tools/resources/prompts per server. Set it to `None` to
   disable capability caching.
+- Phase 6 workflow generation/execution parity is covered by
+  `tests/test_workflow_plan_mcp_guidance.py` and
+  `tests/test_workflow_execute.py`, including MCP planning guidance,
+  `workflow.execute` sub-workflow telemetry, input validation/defaults, and
+  generated-workflow error propagation.
 - Expression engine: see `gnougo_flow_core/_jsmini.py` for the in-tree
   JS-subset interpreter that backs both `${...}` expressions and the
   WFScript `functions:` block (no third-party dependency, AOT-friendly).

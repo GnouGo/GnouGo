@@ -91,6 +91,7 @@ class McpCallExecutor:
     step_description = "Call MCP tool/prompt directly or via LLM-assisted selection."
     dsl_snippet = """
 ### mcp.call - Execute MCP tool or prompt
+Direct MCP call pattern (preferred when tool names are known): use `mcp.call` directly with explicit `method` and `request`.
 ```yaml
 - id: browse
   type: mcp.call
@@ -101,6 +102,7 @@ class McpCallExecutor:
     request:
       url: "https://slimfaas.dev"
 
+LLM-assisted MCP call pattern: provide a natural-language `prompt` + `model` (+ optional `temperature`) and discovered tools/prompts.
 - id: smart_call
   type: mcp.call
   input:
@@ -111,6 +113,8 @@ class McpCallExecutor:
 ```
 Output: single `{ status, response }`, batch `{ status, results }`, or
 assisted `{ status, selection_mode, text, tool_calls, results, json? }`.
+Output (LLM-assisted): inspect `results[]` and optional `json` when `structured_output` is configured.
+Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `data.steps.<id>.results`, `data.steps.<id>.json`.
 """
     documented_exceptions = [
         (ErrorCodes.INPUT_VALIDATION, False, "mcp.call input/server/method is malformed."),

@@ -1,8 +1,8 @@
 ﻿"""Tests for the Mustache templating fixes (Phase 2 — E19/E20/E21)."""
+
 from __future__ import annotations
 
 from gnougo_flow_core.templating import MustacheEngine
-
 
 # -- E19 ---------------------------------------------------------------------
 

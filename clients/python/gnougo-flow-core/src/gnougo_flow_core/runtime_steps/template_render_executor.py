@@ -58,7 +58,13 @@ Output: `{ text: ... }` for text/markdown/html modes or `{ json: ... }` for json
             except Exception as exc:
                 raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_RENDER, str(exc)) from exc
             meta = getattr(tr, "meta", None)
-            out: dict[str, Any] = {"meta": dict(meta) if isinstance(meta, dict) else ({"engine": "custom"} if meta is None else {"engine": "custom", "value": meta})}
+            if isinstance(meta, dict):
+                out_meta = dict(meta)
+            elif meta is None:
+                out_meta = {"engine": "custom"}
+            else:
+                out_meta = {"engine": "custom", "value": meta}
+            out: dict[str, Any] = {"meta": out_meta}
             if getattr(tr, "text", None) is not None:
                 out["text"] = tr.text
             if getattr(tr, "json", None) is not None or getattr(tr, "json_payload", None) is not None:

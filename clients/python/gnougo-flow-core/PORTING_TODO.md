@@ -191,7 +191,7 @@
 | H40 | ✅ | `human.input` — `IHumanInputProvider`, timeout including `timeout_ms: 0`, fields, choices, stable run id, waiting/received telemetry | `HumanInputExecutor.cs` |
 | H41 | ✅ | `workflow.call` — `ref.kind ∈ {local, url}`; remote fetch via `IWorkflowFetcher` constrained by `FetchPolicy` (HTTPS scheme parsed via `urlparse`, `allowed_hostnames` allow-list, `require_integrity`, `max_size_bytes`); export selection (`export → entrypoint → single → first`); cycle/depth checks (`MaxCallDepth`); deep-copy of args/env | `WorkflowCallExecutor.cs` |
 | H42 | ✅ | `workflow.plan` — defaults `reasoning="high"`, passes on main + prefilter calls | `WorkflowPlanExecutor.cs` |
-| H43 | ⚠️ | `workflow.execute` — parse YAML returned by `workflow.plan` (or inline), compile, run, propagate outputs | `WorkflowExecuteExecutor.cs` |
+| H43 | ✅ | `workflow.execute` — parse YAML returned by `workflow.plan`, compile, validate args/defaults, run under a sub-workflow telemetry span, propagate outputs/errors | `WorkflowExecuteExecutor.cs` |
 
 ## I. Interfaces / DTOs / integrations
 
@@ -209,7 +209,7 @@
 
 | # | Status | TODO | .NET source |
 |---|:-:|---|---|
-| J51 | ⚠️ | Verify `LLM_SCHEMA` and `JSON_PARSE` are emitted from the right places (currently never raised — should fire from `llm.call` structured-output validation and from `fromJson`/`json` failures respectively) | `ErrorCodes.cs` |
+| J51 | ✅ | Verify `LLM_SCHEMA` and `JSON_PARSE` are emitted from the right places (`llm.call` structured-output validation, MCP structured finalization, template JSON parsing) | `ErrorCodes.cs` |
 
 ## K. CLI
 
@@ -224,8 +224,8 @@
 | # | Status | TODO | .NET source |
 |---|:-:|---|---|
 | L55 | ✅ | Port `McpCallLlmSelectionTests` → `tests/test_mcp_call_llm_selection.py` | `tests/GnOuGo.Flow.Tests/Runtime/McpCallLlmSelectionTests.cs` |
-| L56 | ❌ | Port `WorkflowPlanMcpChatGuidanceTests` → `tests/test_workflow_plan_mcp_guidance.py` | `tests/.../WorkflowPlanMcpChatGuidanceTests.cs` |
-| L57 | ❌ | Port `WorkflowExecuteExecutorTests` → `tests/test_workflow_execute.py` | `tests/.../WorkflowExecuteExecutorTests.cs` |
+| L56 | ✅ | Port `WorkflowPlanMcpChatGuidanceTests` → `tests/test_workflow_plan_mcp_guidance.py` | `tests/.../WorkflowPlanMcpChatGuidanceTests.cs` |
+| L57 | ✅ | Port `WorkflowExecuteExecutorTests` → `tests/test_workflow_execute.py` | `tests/.../WorkflowExecuteExecutorTests.cs` |
 | L58 | ❌ | Port `WorkflowInputDefaultsTests` → `tests/test_workflow_input_defaults.py` | `tests/.../WorkflowInputDefaultsTests.cs` |
 | L59 | ✅ | Port `ConfiguredMcpClientFactoryTests` → `tests/test_mcp_factory.py` | `tests/.../ConfiguredMcpClientFactoryTests.cs` |
 | L60 | ✅ | Add `tests/test_json_schema.py` covering `JsonSchemaConverter` parity | `tests/.../JsonSchemaConverterTests.cs` |

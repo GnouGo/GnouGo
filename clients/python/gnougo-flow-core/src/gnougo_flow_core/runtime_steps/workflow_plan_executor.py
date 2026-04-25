@@ -79,7 +79,6 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         )
         prompt = base_prompt
         last_error: Exception | None = None
-        last_yaml = ""
 
         for attempt in range(1, max_attempts + 1):
             response = await client.call_async(
@@ -87,7 +86,6 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             )
             yaml_text = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
             yaml_text = self._normalize_planned_yaml(yaml_text)
-            last_yaml = yaml_text
 
             try:
                 doc = WorkflowParser.parse(yaml_text)
@@ -165,6 +163,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "[AVAILABLE MCP SERVERS]\n"
             f"{mcp_doc}\n\n"
             "[MCP OUTPUT ACCESS]\n"
+            "Preferred MCP planning pattern: when tool names and input schemas are listed above, use `mcp.call` directly "
+            "with explicit `server`, `kind`, `method`, and `request`.\n"
+            "Required MCP planning pattern: discover candidate servers with `mcp.list`, then use mcp.call with prompt + model (+ optional temperature) "
+            "when exact tool names or arguments are not known.\n"
+            "For LLM-assisted MCP calls, put the natural-language instruction in input.prompt and pass discovered `tools`/`prompts`.\n"
             "mcp.call single-tool output shape: `{ status: \"ok\"|\"error\", response: <tool-specific JSON> }`\n"
             "Access status via `data.steps.<id>.status` and full result via `data.steps.<id>.response`.\n"
             "Do not assume any field inside `response` unless MCP docs explicitly define it.\n"
@@ -357,6 +360,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 for r in resources:
                     section.append(f"- {r.name} ({r.uri}): {r.description or '(no description)'}")
             except Exception as exc:
+                section.append(f"- {name}: {desc or '(none)'}")
+                section.append("(tool discovery unavailable)")
                 section.append(f"Error while reading capabilities: {exc}")
             sections.append("\n".join(section))
         return "\n\n".join(sections)

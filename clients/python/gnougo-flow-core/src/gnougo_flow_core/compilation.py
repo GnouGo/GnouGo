@@ -144,7 +144,14 @@ class WorkflowValidator:
             if isinstance(ref, dict) and ref.get("kind") == "local":
                 name = ref.get("name")
                 if name and name not in doc.workflows:
-                    errors.append(ValidationError(code="INVALID_WORKFLOW_REF", workflow_name=wf_name, step_id=step.id, message=f"Local workflow '{name}' not found"))
+                    errors.append(
+                        ValidationError(
+                            code="INVALID_WORKFLOW_REF",
+                            workflow_name=wf_name,
+                            step_id=step.id,
+                            message=f"Local workflow '{name}' not found",
+                        )
+                    )
 
         if step.cases:
             for case in step.cases:
@@ -232,18 +239,48 @@ class WorkflowValidator:
             )
 
         if definition.items is not None and type_lc != "array":
-            errors.append(ValidationError(code="INVALID_INPUT_SCHEMA", workflow_name=wf_name, message=f"Input '{path}': 'items' is only valid when type is 'array', got '{definition.type}'"))
+            errors.append(
+                ValidationError(
+                    code="INVALID_INPUT_SCHEMA",
+                    workflow_name=wf_name,
+                    message=f"Input '{path}': 'items' is only valid when type is 'array', got '{definition.type}'",
+                )
+            )
         if definition.properties is not None and type_lc != "object":
-            errors.append(ValidationError(code="INVALID_INPUT_SCHEMA", workflow_name=wf_name, message=f"Input '{path}': 'properties' is only valid when type is 'object', got '{definition.type}'"))
+            errors.append(
+                ValidationError(
+                    code="INVALID_INPUT_SCHEMA",
+                    workflow_name=wf_name,
+                    message=f"Input '{path}': 'properties' is only valid when type is 'object', got '{definition.type}'",
+                )
+            )
         if definition.required_properties is not None and type_lc != "object":
-            errors.append(ValidationError(code="INVALID_INPUT_SCHEMA", workflow_name=wf_name, message=f"Input '{path}': 'required' is only valid when type is 'object', got '{definition.type}'"))
+            errors.append(
+                ValidationError(
+                    code="INVALID_INPUT_SCHEMA",
+                    workflow_name=wf_name,
+                    message=f"Input '{path}': 'required' is only valid when type is 'object', got '{definition.type}'",
+                )
+            )
         if definition.additional_properties is not None and type_lc not in {"object", "dictionary"}:
-            errors.append(ValidationError(code="INVALID_INPUT_SCHEMA", workflow_name=wf_name, message=f"Input '{path}': 'additional_properties' is only valid when type is 'object' or 'dictionary', got '{definition.type}'"))
+            errors.append(
+                ValidationError(
+                    code="INVALID_INPUT_SCHEMA",
+                    workflow_name=wf_name,
+                    message=f"Input '{path}': 'additional_properties' is only valid when type is 'object' or 'dictionary', got '{definition.type}'",
+                )
+            )
 
         if definition.required_properties is not None and definition.properties is not None:
             for prop_name in definition.required_properties:
                 if prop_name not in definition.properties:
-                    errors.append(ValidationError(code="INVALID_INPUT_SCHEMA", workflow_name=wf_name, message=f"Input '{path}': required property '{prop_name}' is not declared in 'properties'"))
+                    errors.append(
+                        ValidationError(
+                            code="INVALID_INPUT_SCHEMA",
+                            workflow_name=wf_name,
+                            message=f"Input '{path}': required property '{prop_name}' is not declared in 'properties'",
+                        )
+                    )
 
         if definition.items is not None:
             self._validate_input_def(definition.items, wf_name, f"{path}.items", errors)
@@ -271,18 +308,48 @@ class WorkflowValidator:
             )
 
         if definition.items is not None and type_lc != "array":
-            errors.append(ValidationError(code="INVALID_OUTPUT_SCHEMA", workflow_name=wf_name, message=f"Output '{path}': 'items' is only valid when type is 'array', got '{definition.type}'"))
+            errors.append(
+                ValidationError(
+                    code="INVALID_OUTPUT_SCHEMA",
+                    workflow_name=wf_name,
+                    message=f"Output '{path}': 'items' is only valid when type is 'array', got '{definition.type}'",
+                )
+            )
         if definition.properties is not None and type_lc != "object":
-            errors.append(ValidationError(code="INVALID_OUTPUT_SCHEMA", workflow_name=wf_name, message=f"Output '{path}': 'properties' is only valid when type is 'object', got '{definition.type}'"))
+            errors.append(
+                ValidationError(
+                    code="INVALID_OUTPUT_SCHEMA",
+                    workflow_name=wf_name,
+                    message=f"Output '{path}': 'properties' is only valid when type is 'object', got '{definition.type}'",
+                )
+            )
         if definition.required_properties is not None and type_lc != "object":
-            errors.append(ValidationError(code="INVALID_OUTPUT_SCHEMA", workflow_name=wf_name, message=f"Output '{path}': 'required' is only valid when type is 'object', got '{definition.type}'"))
+            errors.append(
+                ValidationError(
+                    code="INVALID_OUTPUT_SCHEMA",
+                    workflow_name=wf_name,
+                    message=f"Output '{path}': 'required' is only valid when type is 'object', got '{definition.type}'",
+                )
+            )
         if definition.additional_properties is not None and type_lc not in {"object", "dictionary"}:
-            errors.append(ValidationError(code="INVALID_OUTPUT_SCHEMA", workflow_name=wf_name, message=f"Output '{path}': 'additional_properties' is only valid when type is 'object' or 'dictionary', got '{definition.type}'"))
+            errors.append(
+                ValidationError(
+                    code="INVALID_OUTPUT_SCHEMA",
+                    workflow_name=wf_name,
+                    message=f"Output '{path}': 'additional_properties' is only valid when type is 'object' or 'dictionary', got '{definition.type}'",
+                )
+            )
 
         if definition.required_properties is not None and definition.properties is not None:
             for prop_name in definition.required_properties:
                 if prop_name not in definition.properties:
-                    errors.append(ValidationError(code="INVALID_OUTPUT_SCHEMA", workflow_name=wf_name, message=f"Output '{path}': required property '{prop_name}' is not declared in 'properties'"))
+                    errors.append(
+                        ValidationError(
+                            code="INVALID_OUTPUT_SCHEMA",
+                            workflow_name=wf_name,
+                            message=f"Output '{path}': required property '{prop_name}' is not declared in 'properties'",
+                        )
+                    )
 
         if definition.properties is not None:
             for prop_name, prop_def in definition.properties.items():

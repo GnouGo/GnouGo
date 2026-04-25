@@ -254,6 +254,17 @@ class McpListExecutor:
     include: [tools, prompts, resources]
 ```
 Output: `{ status, servers, tools, resources, prompts, text }`.
+The discovered `tools` and `prompts` arrays can be passed directly into `mcp.call.input.tools` and/or `mcp.call.input.prompts`:
+```yaml
+- id: smart_call
+  type: mcp.call
+  input:
+    server: GnOuGo.Browser.Mcp
+    model: gpt-4o-mini
+    prompt: "Choose the right MCP capability and call it"
+    tools: "${data.steps.discover_mcp.tools}"
+    prompts: "${data.steps.discover_mcp.prompts}"
+```
 """
     documented_exceptions = [
         (ErrorCodes.INPUT_VALIDATION, False, "mcp.list input is malformed."),

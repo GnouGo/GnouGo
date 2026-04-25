@@ -33,6 +33,8 @@ line-length = 160
 select = ["E", "F", "I"]
 
 [tool.ruff.lint.per-file-ignores]
+# runtime.py intentionally acts as the runtime_steps re-export surface. Keep imports that look unused locally.
+"src/gnougo_flow_core/runtime.py" = ["E402", "F401", "I001"]
 # runtime_steps/*.py intentionally re-export the runtime module via `from gnougo_flow_core.runtime import *`
 # to keep executor stubs minimal. Suppress the resulting "may be undefined from star import" noise.
 "src/gnougo_flow_core/runtime_steps/*.py" = ["F405"]

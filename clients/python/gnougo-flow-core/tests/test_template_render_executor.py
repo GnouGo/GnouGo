@@ -1,9 +1,6 @@
-﻿import json
-
-import pytest
+﻿import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
-from gnougo_flow_core.errors import WorkflowRuntimeException
 from gnougo_flow_core.models import TemplateResult
 from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine

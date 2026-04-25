@@ -13,7 +13,6 @@ from gnougo_flow_core.reasoning import (
 )
 from gnougo_flow_core.runtime import WorkflowEngine
 
-
 # ── Model field round-trip ────────────────────────────────────────────────
 
 

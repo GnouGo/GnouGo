@@ -1,5 +1,4 @@
-﻿import asyncio
-
+﻿
 import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler

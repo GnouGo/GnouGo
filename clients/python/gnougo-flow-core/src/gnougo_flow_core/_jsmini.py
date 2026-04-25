@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
 # ----------------------------------------------------------------------------
@@ -1146,58 +1146,66 @@ class Interpreter:
             raise JsRuntimeError(f"Unknown unary op {node.op}")
         if isinstance(node, Binary):
             op = node.op
-            l = self._eval(node.left, scope)
-            r = self._eval(node.right, scope)
+            left = self._eval(node.left, scope)
+            right = self._eval(node.right, scope)
             if op == "+":
-                if isinstance(l, str) or isinstance(r, str):
-                    return to_string(l) + to_string(r)
-                return to_number(l) + to_number(r)
+                if isinstance(left, str) or isinstance(right, str):
+                    return to_string(left) + to_string(right)
+                return to_number(left) + to_number(right)
             if op == "-":
-                return to_number(l) - to_number(r)
+                return to_number(left) - to_number(right)
             if op == "*":
-                return to_number(l) * to_number(r)
+                return to_number(left) * to_number(right)
             if op == "/":
-                rn = to_number(r)
+                rn = to_number(right)
                 if rn == 0:
-                    return float("inf") if to_number(l) > 0 else float("-inf") if to_number(l) < 0 else float("nan")
-                return to_number(l) / rn
+                    return float("inf") if to_number(left) > 0 else float("-inf") if to_number(left) < 0 else float("nan")
+                return to_number(left) / rn
             if op == "%":
-                rn = to_number(r)
+                rn = to_number(right)
                 if rn == 0:
                     return float("nan")
-                return math.fmod(to_number(l), rn)
+                return math.fmod(to_number(left), rn)
             if op == "==":
-                return loose_eq(l, r)
+                return loose_eq(left, right)
             if op == "!=":
-                return not loose_eq(l, r)
+                return not loose_eq(left, right)
             if op == "===":
-                return strict_eq(l, r)
+                return strict_eq(left, right)
             if op == "!==":
-                return not strict_eq(l, r)
+                return not strict_eq(left, right)
             if op in ("<", "<=", ">", ">="):
-                if isinstance(l, str) and isinstance(r, str):
-                    if op == "<": return l < r
-                    if op == "<=": return l <= r
-                    if op == ">": return l > r
-                    if op == ">=": return l >= r
-                ln, rn = to_number(l), to_number(r)
+                if isinstance(left, str) and isinstance(right, str):
+                    if op == "<":
+                        return left < right
+                    if op == "<=":
+                        return left <= right
+                    if op == ">":
+                        return left > right
+                    if op == ">=":
+                        return left >= right
+                ln, rn = to_number(left), to_number(right)
                 if math.isnan(ln) or math.isnan(rn):
                     return False
-                if op == "<": return ln < rn
-                if op == "<=": return ln <= rn
-                if op == ">": return ln > rn
-                if op == ">=": return ln >= rn
+                if op == "<":
+                    return ln < rn
+                if op == "<=":
+                    return ln <= rn
+                if op == ">":
+                    return ln > rn
+                if op == ">=":
+                    return ln >= rn
             raise JsRuntimeError(f"Unknown binary op {op}")
         if isinstance(node, Logical):
-            l = self._eval(node.left, scope)
+            left = self._eval(node.left, scope)
             if node.op == "&&":
-                return self._eval(node.right, scope) if to_bool(l) else l
+                return self._eval(node.right, scope) if to_bool(left) else left
             if node.op == "||":
-                return l if to_bool(l) else self._eval(node.right, scope)
+                return left if to_bool(left) else self._eval(node.right, scope)
             if node.op == "??":
-                if l is None or isinstance(l, _Undefined):
+                if left is None or isinstance(left, _Undefined):
                     return self._eval(node.right, scope)
-                return l
+                return left
         if isinstance(node, Conditional):
             return self._eval(node.cons, scope) if to_bool(self._eval(node.test, scope)) else self._eval(node.alt, scope)
         if isinstance(node, ArrayLit):

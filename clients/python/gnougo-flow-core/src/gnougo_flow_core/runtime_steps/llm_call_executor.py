@@ -4,6 +4,41 @@ import gnougo_flow_core.runtime as _runtime
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
 
+def _matches_json_schema(value: Any, schema: Any) -> bool:
+    if not isinstance(schema, dict):
+        return True
+
+    schema_type = schema.get("type")
+    if isinstance(schema_type, list):
+        return any(_matches_json_schema(value, {**schema, "type": item}) for item in schema_type)
+
+    if schema_type == "object":
+        if not isinstance(value, dict):
+            return False
+        required = schema.get("required") if isinstance(schema.get("required"), list) else []
+        if any(key not in value for key in required):
+            return False
+        properties = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
+        return all(
+            key not in value or _matches_json_schema(value[key], prop_schema)
+            for key, prop_schema in properties.items()
+        )
+    if schema_type == "array":
+        if not isinstance(value, list):
+            return False
+        item_schema = schema.get("items")
+        return all(_matches_json_schema(item, item_schema) for item in value) if item_schema else True
+    if schema_type == "string":
+        return isinstance(value, str)
+    if schema_type in {"number", "integer"}:
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if schema_type == "boolean":
+        return isinstance(value, bool)
+    if schema_type == "null":
+        return value is None
+    return True
+
+
 class LlmCallExecutor:
     step_type = "llm.call"
     step_description = "Call an LLM with prompt/model and optional structured output."
@@ -30,6 +65,7 @@ Output: `{ text, json?, usage?, raw? }`.
         (ErrorCodes.INPUT_VALIDATION, False, "llm.call input/model/prompt is invalid."),
         (ErrorCodes.LLM_TIMEOUT, True, "transient timeout while calling LLM provider."),
         (ErrorCodes.LLM_NETWORK, True, "transient network failure while calling LLM provider."),
+        (ErrorCodes.LLM_SCHEMA, False, "structured_output response was not valid JSON for the requested schema."),
     ]
 
     async def execute_async(self, ctx: StepExecutionContext) -> Any:
@@ -117,9 +153,22 @@ Output: `{ text, json?, usage?, raw? }`.
                 ],
             )
 
+        structured_json = response.json_payload
+        schema = request.structured_output_schema
+        if schema is not None and structured_json is None and response.text:
+            try:
+                structured_json = json.loads(response.text)
+            except Exception:
+                structured_json = None
+        if schema is not None and (structured_json is None or not _matches_json_schema(structured_json, schema)):
+            raise WorkflowRuntimeException(
+                ErrorCodes.LLM_SCHEMA,
+                "llm.call structured_output expected valid JSON but the LLM returned an incompatible response",
+            )
+
         out = {"text": response.text, "meta": {"model": model}}
-        if response.json_payload is not None:
-            out["json"] = response.json_payload
+        if structured_json is not None:
+            out["json"] = structured_json
         if response.usage is not None:
             out["usage"] = response.usage
         if response.raw is not None:
