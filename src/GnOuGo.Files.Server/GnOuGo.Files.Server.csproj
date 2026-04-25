@@ -33,6 +33,11 @@
     <None Update="ClientApp\package.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(ExcludeFilesServerAppSettingsFromPublish)' == 'true'">
+    <Content Update="appsettings*.json" CopyToPublishDirectory="Never" />
+    <None Update="appsettings*.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
   <Target Name="BuildClientApp" BeforeTargets="PrepareForPublish" Condition="'$(SkipClientBuild)' != 'true'">
     <Message Importance="high" Text="Building GnOuGo.Files.Server ClientApp..." />
     <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; install --frozen-lockfile" />

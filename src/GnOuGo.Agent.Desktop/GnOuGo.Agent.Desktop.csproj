@@ -67,6 +67,17 @@
     <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; build" />
   </Target>
 
+
+  <Target Name="ExcludeEmbeddedFilesServerAppSettingsFromPublish" BeforeTargets="_HandleFileConflictsForPublish">
+    <PropertyGroup>
+      <EmbeddedFilesServerProjectDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Files.Server\'))</EmbeddedFilesServerProjectDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_EmbeddedFilesServerAppSettings Include="$(EmbeddedFilesServerProjectDir)appsettings*.json" />
+      <ResolvedFileToPublish Remove="@(_EmbeddedFilesServerAppSettings)" />
+    </ItemGroup>
+  </Target>
+
   <!--
     Blazor's unified script (/_framework/blazor.web.js) is resolved via Static Web Assets.
     When the Server is hosted from the Desktop entry assembly, we must copy the Server
