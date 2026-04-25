@@ -11,8 +11,8 @@
     <Company>GnOuGo</Company>
     <Description>NativeAOT-compatible YAML workflow DSL engine for orchestrating LLMs, MCP servers, templates, loops, and human input.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/gnougo/GnouGo</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/gnougo/GnouGo</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/GnouGo/GnouGo/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/GnouGo/GnouGo/</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>gnougo;workflow;dsl;llm;mcp;nativeaot</PackageTags>

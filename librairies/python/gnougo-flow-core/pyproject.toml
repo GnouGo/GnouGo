@@ -14,8 +14,8 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/gnougo/GnouGo"
-Issues = "https://github.com/gnougo/GnouGo/issues"
+Repository = "https://github.com/GnouGo/GnouGo/"
+Issues = "https://github.com/GnouGo/GnouGo/issues"
 
 [project.optional-dependencies]
 dev = [

@@ -10,8 +10,8 @@
     <Company>GnOuGo</Company>
     <Description>Authentication abstractions and provider credential helpers for GnOuGo components.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/gnougo/GnouGo</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/gnougo/GnouGo</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/GnouGo/GnouGo/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/GnouGo/GnouGo/</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>gnougo;auth;authentication;credentials</PackageTags>
   </PropertyGroup>
