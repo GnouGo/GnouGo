@@ -4,6 +4,7 @@ import copy
 
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
+
 class SetExecutor:
     step_type = "set"
     step_description = "Set computed variables from resolved input object."

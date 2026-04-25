@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
+
 class EmitExecutor:
     step_type = "emit"
     step_description = "Emit progress/thinking messages to telemetry/UI."

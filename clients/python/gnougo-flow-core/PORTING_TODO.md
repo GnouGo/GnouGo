@@ -83,6 +83,23 @@
   `tests/test_loop_sequential_executor.py`,
   `tests/test_loop_parallel_executor.py`,
   `tests/test_workflow_call_executor.py`.
+- ✅ **Phase 5** — LLM/MCP/human executors + integrations. Added
+  `gnougo_flow_core.mcp_cache.McpCacheHelper` (5-minute sliding TTL,
+  per-server tools/resources/prompts keys, deep-copy get/set) and
+  `gnougo_flow_core.integrations` with `InMemoryMcpClientFactory`,
+  `MockMcpServerConfig`, `ConfiguredMcpClientFactory`, `McpSessionAdapter`,
+  `RoutingLLMClientAdapter`, argument conversion, and unexpected server-exit
+  detection. `mcp.list` now validates wildcard usage, de-duplicates explicit
+  servers, returns only requested flattened arrays, uses the cache, and treats
+  unsupported `resources/list` / `prompts/list` as empty capability lists.
+  `mcp.call` validates `method`/`methods`, wraps timeout/call failures like
+  .NET, uses cached auto-discovery, supports prompt fallback for unsupported
+  `prompts/list`, builds prompt argument schemas, uses unique internal tool
+  names, and aligns the LLM selection/finalization prompts. `human.input`
+  parses structured `fields`, supports `timeout_ms: 0`, emits
+  `gnougo-flow.step.waiting_for_human` and "Human input received" telemetry,
+  and uses a stable run id. New tests: `tests/test_mcp_call_llm_selection.py`,
+  `tests/test_mcp_factory.py`, `tests/test_phase5_mcp_human.py`.
 
 ---
 
@@ -169,9 +186,9 @@
 | H35 | ✅ | `switch` — Form A (string compare via `JsonNode.ToJsonString`) + Form B (`when`); `MaxSwitchCases` error includes counts; `value: null` falls through to `when` | `SwitchExecutor.cs` |
 | H36 | ✅ | `template.render` — routes through `ITemplateEngine` if set, else `MustacheEngine.render`; modes `text`/`json`/`markdown`/`html`; unknown mode → `INPUT_VALIDATION` | `TemplateRenderExecutor.cs` |
 | H37 | ✅ | `llm.call` — read & forward `reasoning`; emit `gen_ai.request.reasoning_effort` | `LlmCallExecutor.cs` lines 105–115 |
-| H38 | ⚠️ | `mcp.list` — server filtering, capability listing, cache via `McpCacheHelper` | `McpListExecutor.cs` |
-| H39 | ⚠️ | `mcp.call` — verify direct call, batch/auto-discover, LLM-assisted selection prompt parity | `McpCallExecutor.cs` |
-| H40 | ⚠️ | `human.input` — ensure `IHumanInputProvider`, timeout, fields, choices parity | `HumanInputExecutor.cs` |
+| H38 | ✅ | `mcp.list` — server filtering/wildcard validation, capability listing, unsupported capability fallback, requested-only output arrays, and cache via `McpCacheHelper` | `McpListExecutor.cs` |
+| H39 | ✅ | `mcp.call` — direct call, batch/auto-discover, cache-backed discovery, LLM-assisted selection/finalization prompt parity, prompt argument schemas, unsupported prompt fallback | `McpCallExecutor.cs` |
+| H40 | ✅ | `human.input` — `IHumanInputProvider`, timeout including `timeout_ms: 0`, fields, choices, stable run id, waiting/received telemetry | `HumanInputExecutor.cs` |
 | H41 | ✅ | `workflow.call` — `ref.kind ∈ {local, url}`; remote fetch via `IWorkflowFetcher` constrained by `FetchPolicy` (HTTPS scheme parsed via `urlparse`, `allowed_hostnames` allow-list, `require_integrity`, `max_size_bytes`); export selection (`export → entrypoint → single → first`); cycle/depth checks (`MaxCallDepth`); deep-copy of args/env | `WorkflowCallExecutor.cs` |
 | H42 | ✅ | `workflow.plan` — defaults `reasoning="high"`, passes on main + prefilter calls | `WorkflowPlanExecutor.cs` |
 | H43 | ⚠️ | `workflow.execute` — parse YAML returned by `workflow.plan` (or inline), compile, run, propagate outputs | `WorkflowExecuteExecutor.cs` |
@@ -185,8 +202,8 @@
 | I46 | ✅ | Document `workflow.plan` default `"high"` (README) | — |
 | I47 | ✅ | Add `IWorkflowCheckpointer` Protocol (`load_async`, `save_async`, `delete_async`, `list_async`) | `IWorkflowCheckpointer.cs` |
 | I48 | ✅ | Port `JsonSchemaConverter` (`inputs_to_json_schema`, `outputs_to_json_schema`, …) → `gnougo_flow_core/json_schema.py` | `Models/JsonSchemaConverter.cs` |
-| I49 | ❌ | Port `ConfiguredMcpClientFactory`, `InMemoryMcpClientFactory`, `RoutingLLMClientAdapter` → `gnougo_flow_core/integrations/` | corresponding `.cs` files |
-| I50 | ❌ | Port `McpCacheHelper` (TTL cache for tools/prompts/resources per server) | `Runtime/McpCacheHelper.cs` |
+| I49 | ✅ | Port `ConfiguredMcpClientFactory`, `InMemoryMcpClientFactory`, `RoutingLLMClientAdapter` → `gnougo_flow_core/integrations/` | corresponding `.cs` files |
+| I50 | ✅ | Port `McpCacheHelper` (TTL cache for tools/prompts/resources per server) | `Runtime/McpCacheHelper.cs` |
 
 ## J. Error codes catalogue
 
@@ -206,11 +223,11 @@
 
 | # | Status | TODO | .NET source |
 |---|:-:|---|---|
-| L55 | ❌ | Port `McpCallLlmSelectionTests` → `tests/test_mcp_call_llm_selection.py` | `tests/GnOuGo.Flow.Tests/Runtime/McpCallLlmSelectionTests.cs` |
+| L55 | ✅ | Port `McpCallLlmSelectionTests` → `tests/test_mcp_call_llm_selection.py` | `tests/GnOuGo.Flow.Tests/Runtime/McpCallLlmSelectionTests.cs` |
 | L56 | ❌ | Port `WorkflowPlanMcpChatGuidanceTests` → `tests/test_workflow_plan_mcp_guidance.py` | `tests/.../WorkflowPlanMcpChatGuidanceTests.cs` |
 | L57 | ❌ | Port `WorkflowExecuteExecutorTests` → `tests/test_workflow_execute.py` | `tests/.../WorkflowExecuteExecutorTests.cs` |
 | L58 | ❌ | Port `WorkflowInputDefaultsTests` → `tests/test_workflow_input_defaults.py` | `tests/.../WorkflowInputDefaultsTests.cs` |
-| L59 | ❌ | Port `ConfiguredMcpClientFactoryTests` → `tests/test_mcp_factory.py` | `tests/.../ConfiguredMcpClientFactoryTests.cs` |
+| L59 | ✅ | Port `ConfiguredMcpClientFactoryTests` → `tests/test_mcp_factory.py` | `tests/.../ConfiguredMcpClientFactoryTests.cs` |
 | L60 | ✅ | Add `tests/test_json_schema.py` covering `JsonSchemaConverter` parity | `tests/.../JsonSchemaConverterTests.cs` |
 | L61 | ❌ | Add `tests/test_resume.py` covering checkpoint save+resume | new |
 | L62 | ✅ | `tests/test_reasoning_field.py` covering reasoning round-trip + `workflow.plan` default `"high"` | new |

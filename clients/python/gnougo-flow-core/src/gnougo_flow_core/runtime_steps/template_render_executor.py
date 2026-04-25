@@ -4,7 +4,6 @@ import json
 
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
-
 _VALID_MODES = {"text", "json", "markdown", "html"}
 
 

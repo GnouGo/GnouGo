@@ -17,6 +17,7 @@ import yaml
 from .compilation import WorkflowCompiler
 from .errors import ErrorCodes, WorkflowRuntimeException
 from .expressions import ExpressionEvaluator, StringInterpolator
+from .mcp_cache import McpCacheHelper
 from .models import (
     CompiledDocument,
     CompiledStep,
@@ -318,6 +319,7 @@ class WorkflowEngine:
         self.template_engine: ITemplateEngine | None = None
         self.mcp_client_factory: IMcpClientFactory | None = None
         self.human_input_provider: IHumanInputProvider | None = None
+        self.mcp_cache: McpCacheHelper = McpCacheHelper()
 
         self.telemetry: IWorkflowTelemetry = NullWorkflowTelemetry()
         self.lm_defaults = LlmRuntimeDefaults()

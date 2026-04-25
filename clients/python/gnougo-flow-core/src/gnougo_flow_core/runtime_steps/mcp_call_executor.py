@@ -1,7 +1,90 @@
 from __future__ import annotations
 
+import asyncio
+import copy
+import json
+from typing import Any
+
 import gnougo_flow_core.runtime as _runtime
-from gnougo_flow_core.runtime import *  # noqa: F401,F403
+from gnougo_flow_core.errors import ErrorCodes, WorkflowRuntimeException
+from gnougo_flow_core.mcp_cache import (
+    cache_prompts,
+    cache_tools,
+    get_cached_prompts,
+    get_cached_tools,
+)
+from gnougo_flow_core.models import LLMRequest, LLMTool, McpPromptInfo
+from gnougo_flow_core.runtime import StepExecutionContext
+from gnougo_flow_core.runtime_contracts import IMcpSession
+from gnougo_flow_core.templating import MustacheEngine
+
+
+def _is_unsupported_capability(exc: Exception, method_name: str) -> bool:
+    current: BaseException | None = exc
+    while current is not None:
+        msg = str(current).lower()
+        if method_name.lower() in msg and any(
+            phrase in msg
+            for phrase in ("not available", "not implemented", "method not found", "no handler")
+        ):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+async def _maybe_timeout(coro: Any, timeout: float | None) -> Any:
+    return await (asyncio.wait_for(coro, timeout=timeout) if timeout is not None else coro)
+
+
+async def _try_list_prompts(session: IMcpSession, server_name: str, ctx: StepExecutionContext, timeout: float | None) -> list[McpPromptInfo]:
+    try:
+        return await _maybe_timeout(session.list_prompts_async(), timeout)
+    except Exception as exc:
+        if not _is_unsupported_capability(exc, "prompts/list"):
+            raise
+        ctx.engine.logger.warning("mcp.call: prompts/list not supported on '%s': %s", server_name, exc)
+        ctx.set_telemetry_attribute("mcp.prompts_unsupported", True)
+        ctx.add_telemetry_event(
+            "mcp.capability.unsupported",
+            [("mcp.server.name", server_name), ("mcp.method", "prompts/list"), ("mcp.reason", str(exc))],
+        )
+        return []
+
+
+def _build_unique_internal_name(method_name: str, kind: str, used_names: set[str]) -> str:
+    if method_name not in used_names:
+        used_names.add(method_name)
+        return method_name
+    prefixed = f"{kind}:{method_name}"
+    if prefixed not in used_names:
+        used_names.add(prefixed)
+        return prefixed
+    index = 2
+    while f"{prefixed}:{index}" in used_names:
+        index += 1
+    internal = f"{prefixed}:{index}"
+    used_names.add(internal)
+    return internal
+
+
+def _prompt_argument_schema(arguments: Any) -> dict[str, Any]:
+    if not arguments:
+        return {"type": "object"}
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+    for arg in arguments:
+        name = arg.get("name") if isinstance(arg, dict) else getattr(arg, "name", None)
+        if not name:
+            continue
+        description = arg.get("description") if isinstance(arg, dict) else getattr(arg, "description", None)
+        is_required = arg.get("required", False) if isinstance(arg, dict) else getattr(arg, "required", False)
+        properties[str(name)] = {"type": "string", "description": description}
+        if bool(is_required):
+            required.append(str(name))
+    schema: dict[str, Any] = {"type": "object", "properties": properties}
+    if required:
+        schema["required"] = required
+    return schema
 
 class McpCallExecutor:
     step_type = "mcp.call"
@@ -26,7 +109,8 @@ class McpCallExecutor:
     prompt: "Pick and call the best MCP capability for this task"
     tools: "${data.steps.discover_mcp.tools}"
 ```
-Output: single `{ status, response }`, batch `{ status, results }`, or assisted `{ status, selection_mode, text, tool_calls, results, json? }`.
+Output: single `{ status, response }`, batch `{ status, results }`, or
+assisted `{ status, selection_mode, text, tool_calls, results, json? }`.
 """
     documented_exceptions = [
         (ErrorCodes.INPUT_VALIDATION, False, "mcp.call input/server/method is malformed."),
@@ -53,8 +137,26 @@ Output: single `{ status, response }`, batch `{ status, results }`, or assisted 
         if kind not in {"tool", "prompt"}:
             raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, f"mcp.call 'kind' must be 'tool' or 'prompt', got '{kind}'")
 
+        has_method = "method" in input_obj and input_obj.get("method") is not None
+        has_methods = "methods" in input_obj
         method = input_obj.get("method")
-        methods = input_obj.get("methods") if isinstance(input_obj.get("methods"), list) else None
+        methods = None
+        if has_methods:
+            raw_methods = input_obj.get("methods")
+            if not isinstance(raw_methods, list) or not raw_methods:
+                raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "mcp.call 'methods' must be a non-empty array of strings")
+            methods = []
+            for item in raw_methods:
+                name = "" if item is None else str(item)
+                if not name:
+                    raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "mcp.call 'methods' contains an empty or null entry")
+                methods.append(name)
+        elif has_method:
+            method = str(method)
+            if not method:
+                raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "mcp.call 'method' must be a non-empty string")
+        else:
+            method = None
         has_prompt_selection = input_obj.get("prompt") is not None
 
         ctx.set_telemetry_attribute("gen_ai.operation.name", "chat" if has_prompt_selection else ("prompt_get" if kind == "prompt" else "tool_call"))
@@ -71,48 +173,71 @@ Output: single `{ status, response }`, batch `{ status, results }`, or assisted 
         request = self._build_request_args(input_obj, ctx) if not has_prompt_selection else None
         timeout_ms = input_obj.get("timeout_ms")
         timeout = float(timeout_ms) / 1000.0 if isinstance(timeout_ms, (int, float)) else None
+        target = "(llm-selection)" if has_prompt_selection else "(auto)"
+        try:
+            session = await _maybe_timeout(factory.get_client_async(server), timeout)
 
-        session = await factory.get_client_async(server)
+            if has_prompt_selection:
+                return await self._execute_llm_assisted(ctx, session, input_obj, kind, method if isinstance(method, str) else None, methods, timeout)
 
-        if has_prompt_selection:
-            return await self._execute_llm_assisted(ctx, session, input_obj, kind, method if isinstance(method, str) else None, methods, timeout)
+            async def single(call_method: str, req: Any) -> dict[str, Any]:
+                return await self._call_single(ctx, session, kind, call_method, req, timeout)
 
-        async def single(call_method: str) -> dict[str, Any]:
-            return await self._call_single(ctx, session, kind, call_method, request, timeout)
+            if methods is not None:
+                target = ", ".join(methods)
+                results = []
+                has_error = False
+                for m in methods:
+                    item = await single(m, copy.deepcopy(request))
+                    item["method"] = m
+                    has_error = has_error or item.get("status") == "error"
+                    results.append(item)
+                ctx.set_telemetry_attribute("mcp.methods_count", len(methods))
+                ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if has_error else "stop")
+                return {"status": "error" if has_error else "ok", "results": results}
 
-        if isinstance(methods, list) and methods:
-            results = []
-            has_error = False
-            for m in methods:
-                item = await single(str(m))
-                item["method"] = str(m)
-                has_error = has_error or item.get("status") == "error"
-                results.append(item)
-            ctx.set_telemetry_attribute("mcp.methods_count", len(methods))
-            ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if has_error else "stop")
-            return {"status": "error" if has_error else "ok", "results": results}
+            if not method:
+                cache = ctx.engine.mcp_cache
+                if kind == "prompt":
+                    prompts = get_cached_prompts(cache, server)
+                    if prompts is None:
+                        prompts = await _try_list_prompts(session, server, ctx, timeout)
+                        cache_prompts(cache, server, prompts)
+                    methods = [p.name for p in prompts]
+                else:
+                    tools = get_cached_tools(cache, server)
+                    if tools is None:
+                        tools = await _maybe_timeout(session.list_tools_async(), timeout)
+                        cache_tools(cache, server, tools)
+                    methods = [t.name for t in tools]
+                target = ", ".join(methods) if methods else "(auto)"
+                ctx.set_telemetry_attribute("mcp.auto_discover", True)
+                ctx.set_telemetry_attribute("mcp.methods_count", len(methods))
+                if not methods:
+                    ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "stop")
+                    return {"status": "ok", "results": []}
+                batch = []
+                has_error = False
+                for m in methods:
+                    item = await single(m, copy.deepcopy(request))
+                    item["method"] = m
+                    has_error = has_error or item.get("status") == "error"
+                    batch.append(item)
+                ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if has_error else "stop")
+                return {"status": "error" if has_error else "ok", "results": batch}
 
-        if not isinstance(method, str) or not method:
-            if kind == "prompt":
-                methods = [p.name for p in await session.list_prompts_async()]
-            else:
-                methods = [t.name for t in await session.list_tools_async()]
-            batch = []
-            has_error = False
-            for m in methods:
-                item = await single(m)
-                item["method"] = m
-                has_error = has_error or item.get("status") == "error"
-                batch.append(item)
-            ctx.set_telemetry_attribute("mcp.auto_discover", True)
-            ctx.set_telemetry_attribute("mcp.methods_count", len(methods))
-            ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if has_error else "stop")
-            return {"status": "error" if has_error else "ok", "results": batch}
-
-        ctx.set_telemetry_attribute("mcp.method.name", method)
-        single_result = await single(method)
-        ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if single_result.get("status") == "error" else "stop")
-        return single_result
+            target = method
+            ctx.set_telemetry_attribute("mcp.method.name", method)
+            single_result = await single(method, request)
+            ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if single_result.get("status") == "error" else "stop")
+            return single_result
+        except WorkflowRuntimeException:
+            raise
+        except TimeoutError as exc:
+            raise WorkflowRuntimeException(ErrorCodes.MCP_TIMEOUT, f"mcp.call to '{server}/{target}' timed out after {timeout_ms}ms", retryable=True) from exc
+        except Exception as exc:
+            error_code = ErrorCodes.MCP_PROMPT_ERROR if kind == "prompt" else ErrorCodes.MCP_CALL_ERROR
+            raise WorkflowRuntimeException(error_code, f"mcp.call ({kind}) to '{server}/{target}' failed: {exc}", retryable=False) from exc
 
     async def _call_single(
         self,
@@ -199,8 +324,7 @@ Output: single `{ status, response }`, batch `{ status, results }`, or assisted 
             name = node.get("name")
             if not isinstance(name, str) or (allowed is not None and name not in allowed):
                 continue
-            internal = name if name not in used_names else f"tool:{name}"
-            used_names.add(internal)
+            internal = _build_unique_internal_name(name, "tool", used_names)
             capabilities.append(
                 {
                     "internal": internal,
@@ -216,40 +340,45 @@ Output: single `{ status, response }`, batch `{ status, results }`, or assisted 
             name = node.get("name")
             if not isinstance(name, str) or (allowed is not None and name not in allowed):
                 continue
-            internal = name if name not in used_names else f"prompt:{name}"
-            used_names.add(internal)
+            internal = _build_unique_internal_name(name, "prompt", used_names)
             capabilities.append(
                 {
                     "internal": internal,
                     "method": name,
                     "kind": "prompt",
-                    "tool": LLMTool(name=internal, description=node.get("description"), input_schema={"type": "object"}),
+                    "tool": LLMTool(name=internal, description=node.get("description"), input_schema=_prompt_argument_schema(node.get("arguments"))),
                 }
             )
 
         if not capabilities:
+            cache = ctx.engine.mcp_cache
+            server_name = getattr(session, "server_name", input_obj.get("server", ""))
             if default_kind == "prompt":
-                prompts = await session.list_prompts_async()
+                prompts = get_cached_prompts(cache, server_name)
+                if prompts is None:
+                    prompts = await _try_list_prompts(session, server_name, ctx, timeout)
+                    cache_prompts(cache, server_name, prompts)
                 for p in prompts:
                     if allowed is not None and p.name not in allowed:
                         continue
-                    internal = p.name if p.name not in used_names else f"prompt:{p.name}"
-                    used_names.add(internal)
+                    internal = _build_unique_internal_name(p.name, "prompt", used_names)
                     capabilities.append(
                         {
                             "internal": internal,
                             "method": p.name,
                             "kind": "prompt",
-                            "tool": LLMTool(name=internal, description=p.description, input_schema={"type": "object"}),
+                            "tool": LLMTool(name=internal, description=p.description, input_schema=_prompt_argument_schema(p.arguments)),
                         }
                     )
             else:
-                tools = await session.list_tools_async()
+                tools = get_cached_tools(cache, server_name)
+                if tools is None:
+                    tools = await _maybe_timeout(session.list_tools_async(), timeout)
+                    cache_tools(cache, server_name, tools)
                 for t in tools:
                     if allowed is not None and t.name not in allowed:
                         continue
-                    internal = t.name if t.name not in used_names else f"tool:{t.name}"
-                    used_names.add(internal)
+                    internal = _build_unique_internal_name(t.name, "tool", used_names)
                     capabilities.append(
                         {
                             "internal": internal,
@@ -380,7 +509,8 @@ Output: single `{ status, response }`, batch `{ status, results }`, or assisted 
             if structured_json is None:
                 raise WorkflowRuntimeException(
                     ErrorCodes.LLM_SCHEMA,
-                    "mcp.call structured_output expected valid JSON but the LLM returned an incompatible response",
+                    "mcp.call structured_output expected valid JSON but the LLM "
+                    "returned an incompatible response",
                 )
 
             response["selection_text"] = llm_response.text

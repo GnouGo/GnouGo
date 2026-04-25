@@ -27,8 +27,13 @@ build-backend = "hatchling.build"
 testpaths = ["tests"]
 
 [tool.ruff]
-line-length = 100
+line-length = 160
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# runtime_steps/*.py intentionally re-export the runtime module via `from gnougo_flow_core.runtime import *`
+# to keep executor stubs minimal. Suppress the resulting "may be undefined from star import" noise.
+"src/gnougo_flow_core/runtime_steps/*.py" = ["F405"]
 

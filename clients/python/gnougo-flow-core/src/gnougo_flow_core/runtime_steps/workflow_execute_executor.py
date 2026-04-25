@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
+
 class WorkflowExecuteExecutor:
     step_type = "workflow.execute"
     step_description = "Execute a YAML workflow produced by workflow.plan."

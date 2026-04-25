@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
+
 class SequenceExecutor:
     step_type = "sequence"
     step_description = "Execute nested steps sequentially."

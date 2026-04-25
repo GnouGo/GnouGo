@@ -3,6 +3,7 @@ from __future__ import annotations
 from gnougo_flow_core.models import StepDef, WorkflowDocument
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
+
 class WorkflowPlanExecutor:
     step_type = "workflow.plan"
     step_description = "Generate a YAML workflow dynamically under policy/limits."

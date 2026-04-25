@@ -3,6 +3,7 @@ from __future__ import annotations
 import gnougo_flow_core.runtime as _runtime
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
+
 class LlmCallExecutor:
     step_type = "llm.call"
     step_description = "Call an LLM with prompt/model and optional structured output."
