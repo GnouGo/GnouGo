@@ -6,8 +6,7 @@ This solution contains:
 
 ## Architecture
 
-This component is independently testable per `AGENTS.md` rules.
-It references `GnOuGo.Agent.Mcp`, `GnOuGo.KeyVault.Mcp`, and `GnOuGo.OtlpCollector.Server` as project dependencies, mounting their services in-process to minimise coupling while exposing everything through a single host.
+This component is independently testable per `AGENTS.md` rules. It references `GnOuGo.Agent.Mcp`, `GnOuGo.KeyVault.Mcp`, `GnOuGo.DocsIngestor.Mcp`, and `GnOuGo.OtlpCollector.Server` as project dependencies, mounting their services in-process to minimise coupling while exposing everything through a single host.
 
 ### Runtime topology
 
@@ -19,9 +18,11 @@ flowchart TD
 	Main --> Api[Minimal APIs\n/api/chat\n/api/chat/stream\n/health]
 	Main --> AgentProxy[Mounted MCP public route\n/mcp/agent]
 	Main --> KeyVaultProxy[Mounted MCP public route\n/mcp/keyvault]
+	Main --> DocsIngestorProxy[Mounted MCP public route\n/mcp/docs-ingestor]
 
 	AgentProxy -. current internal proxy .-> AgentInternal[GnOuGo.Agent.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
 	KeyVaultProxy -. current internal proxy .-> KeyVaultInternal[GnOuGo.KeyVault.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
+	DocsIngestorProxy -. current internal proxy .-> DocsIngestorInternal[GnOuGo.DocsIngestor.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
 
 	Main --> OtlpGrpc[Embedded OTLP gRPC\nhttp://127.0.0.1:4317]
 	Main --> OtlpHttp[Embedded OTLP HTTP + tenant/debug APIs\nhttp://127.0.0.1:4318]
@@ -33,6 +34,7 @@ flowchart TD
 - The mounted MCP routes that the UI and runtime services should use are:
   - `http://127.0.0.1:58443/mcp/agent`
   - `http://127.0.0.1:58443/mcp/keyvault`
+  - `http://127.0.0.1:58443/mcp/docs-ingestor`
 - Ports such as `60183`, `60683`, `61914`, or `61915` are **ephemeral internal loopback ports** currently used by the mounted MCP implementation.
 - Those ephemeral ports are **used** today, but only as a private implementation detail behind the main server proxy. They are not intended as user-facing endpoints.
 
@@ -44,6 +46,7 @@ flowchart TD
 
 - `GnOuGo.Agent.Mcp` → `/mcp/agent`
 - `GnOuGo.KeyVault.Mcp` → `/mcp/keyvault`
+- `GnOuGo.DocsIngestor.Mcp` → `/mcp/docs-ingestor`
 
 The default placeholders in `appsettings.json` intentionally use port `0`:
     
@@ -58,6 +61,10 @@ The default placeholders in `appsettings.json` intentionally use port `0`:
 	  "GnOuGo.KeyVault.Mcp": {
 		"Type": "http",
 		"Url": "http://127.0.0.1:0/mcp/keyvault"
+	  },
+	  "GnOuGo.DocsIngestor.Mcp": {
+		"Type": "http",
+		"Url": "http://127.0.0.1:0/mcp/docs-ingestor"
 	  }
 	}
   }
@@ -80,6 +87,7 @@ Standalone MCP hosts still expose `/mcp` directly in their own projects:
 
 - `GnOuGo.Agent.Mcp` → `http://127.0.0.1:5198/mcp`
 - `GnOuGo.KeyVault.Mcp` → `http://127.0.0.1:5197/mcp`
+- `GnOuGo.DocsIngestor.Mcp` → `http://127.0.0.1:<port>/mcp`
 
 ## Bundled stdio MCP tools
 
@@ -125,6 +133,9 @@ By default, the local agent SQLite files are created under the current user's De
 
 - `Agent:DatabasePath` → `Desktop/GnOuGo/data/gnougo-agent.db`
 - `KeyVault:DatabasePath` → `Desktop/GnOuGo/data/gnougo-keyvault.db`
+- `DocsIngestorMcp:DatabasePath` → `Desktop/GnOuGo/data/gnougo-docs-ingestor-mcp.db`
+- `DocsIngestorMcp:VectorDatabasePath` → `Desktop/GnOuGo/data/gnougo-docs-ingestor-vectors.sqlite`
+- `DocsIngestorMcp:OriginalsDirectory` → `Desktop/GnOuGo/data/docs-ingestor/originals/`
 - `Database:Path` (embedded OTLP collector) → `Desktop/GnOuGo/data/gnougo-telemetry.db`
 
 If you explicitly configure an absolute path, that override is preserved.

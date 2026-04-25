@@ -20,6 +20,7 @@ using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.Agent.Shared;
 using GnOuGo.AI.Core;
+using GnOuGo.DocsIngestor.Mcp;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Files.Server;
 using GnOuGo.KeyVault.Core;
@@ -59,10 +60,17 @@ public static class GnOuGoAgentWebHost
         "Encrypted secret manager via locally mounted MCP HTTP endpoint",
         "GnOuGo.Agent.Server.KeyVaultMcpMount");
 
+    private static readonly MountedMcpRegistration DocsIngestorMcpRegistration = new(
+        DocsIngestorMcpHostingExtensions.ServerName,
+        "/mcp/docs-ingestor",
+        "Document ingestion and vector search via locally mounted MCP HTTP endpoint",
+        "GnOuGo.Agent.Server.DocsIngestorMcpMount");
+
     private static readonly IReadOnlyList<MountedMcpRegistration> MountedMcpRegistrations =
     [
         AgentMcpRegistration,
-        KeyVaultMcpRegistration
+        KeyVaultMcpRegistration,
+        DocsIngestorMcpRegistration
     ];
 
     public static WebApplication Build(
@@ -770,6 +778,7 @@ public static class GnOuGoAgentWebHost
     {
         MapMountedMcpProxy(app, AgentMcpRegistration.RoutePrefix, () => holder.AgentBaseAddress);
         MapMountedMcpProxy(app, KeyVaultMcpRegistration.RoutePrefix, () => holder.KeyVaultBaseAddress);
+        MapMountedMcpProxy(app, DocsIngestorMcpRegistration.RoutePrefix, () => holder.DocsIngestorBaseAddress);
     }
 
     private static void MapMountedMcpProxy(WebApplication app, string routePrefix, Func<Uri?> resolveTarget)
@@ -933,11 +942,16 @@ public static class GnOuGoAgentWebHost
         var keyVaultApp = KeyVaultMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: KeyVaultMcpHostingExtensions.DefaultRoutePrefix);
         keyVaultApp.StartAsync().GetAwaiter().GetResult();
 
+        var docsIngestorApp = DocsIngestorMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: DocsIngestorMcpHostingExtensions.DefaultRoutePrefix);
+        docsIngestorApp.StartAsync().GetAwaiter().GetResult();
+
         return new MountedMcpHosts(
             agentApp,
             ResolveSingleListeningBaseAddress(agentApp, AgentMcpHostingExtensions.DefaultRoutePrefix),
             keyVaultApp,
-            ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpHostingExtensions.DefaultRoutePrefix));
+            ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpHostingExtensions.DefaultRoutePrefix),
+            docsIngestorApp,
+            ResolveSingleListeningBaseAddress(docsIngestorApp, DocsIngestorMcpHostingExtensions.DefaultRoutePrefix));
     }
 
     private static async Task<MountedMcpHosts> StartMountedMcpHostsAsync(string[] args, CancellationToken cancellationToken)
@@ -952,11 +966,25 @@ public static class GnOuGoAgentWebHost
             var keyVaultApp = KeyVaultMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: KeyVaultMcpHostingExtensions.DefaultRoutePrefix);
             await keyVaultApp.StartAsync(cancellationToken);
 
-            return new MountedMcpHosts(
-                agentApp,
-                ResolveSingleListeningBaseAddress(agentApp, AgentMcpHostingExtensions.DefaultRoutePrefix),
-                keyVaultApp,
-                ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpHostingExtensions.DefaultRoutePrefix));
+            try
+            {
+                var docsIngestorApp = DocsIngestorMcpWebHost.Build(subHostArgs, urls: "http://127.0.0.1:0", routePrefix: DocsIngestorMcpHostingExtensions.DefaultRoutePrefix);
+                await docsIngestorApp.StartAsync(cancellationToken);
+
+                return new MountedMcpHosts(
+                    agentApp,
+                    ResolveSingleListeningBaseAddress(agentApp, AgentMcpHostingExtensions.DefaultRoutePrefix),
+                    keyVaultApp,
+                    ResolveSingleListeningBaseAddress(keyVaultApp, KeyVaultMcpHostingExtensions.DefaultRoutePrefix),
+                    docsIngestorApp,
+                    ResolveSingleListeningBaseAddress(docsIngestorApp, DocsIngestorMcpHostingExtensions.DefaultRoutePrefix));
+            }
+            catch
+            {
+                await keyVaultApp.StopAsync(cancellationToken);
+                await keyVaultApp.DisposeAsync();
+                throw;
+            }
         }
         catch
         {
@@ -970,8 +998,10 @@ public static class GnOuGoAgentWebHost
     {
         await mountedMcpHosts.AgentApp.StopAsync();
         await mountedMcpHosts.KeyVaultApp.StopAsync();
+        await mountedMcpHosts.DocsIngestorApp.StopAsync();
         await mountedMcpHosts.AgentApp.DisposeAsync();
         await mountedMcpHosts.KeyVaultApp.DisposeAsync();
+        await mountedMcpHosts.DocsIngestorApp.DisposeAsync();
     }
 
     /// <summary>
@@ -1067,10 +1097,12 @@ public static class GnOuGoAgentWebHost
         WebApplication AgentApp,
         Uri AgentBaseAddress,
         WebApplication KeyVaultApp,
-        Uri KeyVaultBaseAddress);
+        Uri KeyVaultBaseAddress,
+        WebApplication DocsIngestorApp,
+        Uri DocsIngestorBaseAddress);
 
     /// <summary>
-    /// Manages the lifecycle of mounted MCP sub-hosts (Agent, KeyVault).
+    /// Manages the lifecycle of mounted MCP sub-hosts (Agent, KeyVault, DocsIngestor).
     /// Registered as <see cref="IHostedService"/> so sub-hosts only start when the main app
     /// starts and are stopped when the main app stops — preventing resource leaks in tests
     /// that call <c>Build()</c> without <c>StartAsync()</c>.
@@ -1094,6 +1126,7 @@ public static class GnOuGoAgentWebHost
         public MountedMcpHosts? Hosts => _hosts;
         public Uri? AgentBaseAddress => _hosts?.AgentBaseAddress;
         public Uri? KeyVaultBaseAddress => _hosts?.KeyVaultBaseAddress;
+        public Uri? DocsIngestorBaseAddress => _hosts?.DocsIngestorBaseAddress;
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
