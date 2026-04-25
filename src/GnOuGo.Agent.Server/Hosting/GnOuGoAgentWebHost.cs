@@ -119,12 +119,16 @@ public static class GnOuGoAgentWebHost
                 optional: true,
                 reloadOnChange: false);
 
-            // Desktop-specific publish overrides (for example bundled MCP tools under ./tools)
-            // should win over both appsettings.json and appsettings.Development.json when present.
-            builder.Configuration.AddJsonFile(
-                Path.Combine(contentRoot, "appsettings.Desktop.json"),
-                optional: true,
-                reloadOnChange: false);
+            if (!builder.Environment.IsDevelopment())
+            {
+                // Desktop-specific publish overrides (for example bundled MCP tools under ./tools)
+                // should win over both appsettings.json and appsettings.Development.json when present.
+                // In Development, keep the source-project stdio MCP commands from appsettings.Development.json.
+                builder.Configuration.AddJsonFile(
+                    Path.Combine(contentRoot, "appsettings.Desktop.json"),
+                    optional: true,
+                    reloadOnChange: false);
+            }
 
             // Re-apply command-line arguments after the extra desktop JSON layers so
             // ad-hoc/test overrides (ports, paths, feature flags) still take precedence.
