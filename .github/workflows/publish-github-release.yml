@@ -1,0 +1,43 @@
+﻿name: Publish GitHub Release
+
+on:
+  workflow_call:
+    inputs:
+      version_tag:
+        description: Git tag used for the release.
+        required: true
+        type: string
+      channel_tag:
+        description: Release channel classification from the version job.
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  publish_release_main:
+    name: Publish Release (${{ inputs.version_tag }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: GnOuGo.*
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version_tag }}
+          name: ${{ inputs.version_tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          prerelease: ${{ inputs.channel_tag != 'release' }}
+          files: |
+            release-assets/**/*.zip
+

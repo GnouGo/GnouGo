@@ -1,0 +1,82 @@
+﻿name: Build Docker Images
+
+on:
+  workflow_call:
+    inputs:
+      push:
+        description: Whether to push built images.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  docker_builds:
+    name: Docker Build (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: GnOuGo.Agent.Server
+            dockerfile: src/GnOuGo.Agent.Server/Dockerfile
+            image_tag: gnougo-agent
+          - name: GnOuGo.Diff.Server
+            dockerfile: src/GnOuGo.Diff.Server/Dockerfile
+            image_tag: gnougo-diff
+          - name: GnOuGo.DocIngestor.Server
+            dockerfile: src/GnOuGo.DocIngestor.Server/Dockerfile
+            image_tag: gnougo-doc-ingestor
+          - name: GnOuGo.Flow.Server
+            dockerfile: src/GnOuGo.Flow.Server/Dockerfile
+            image_tag: gnougo-flow
+          - name: GnOuGo.KeyVault.Server
+            dockerfile: src/GnOuGo.KeyVault.Server/Dockerfile
+            image_tag: gnougo-keyvault
+          - name: GnOuGo.OtlpCollector.Server
+            dockerfile: src/GnOuGo.OtlpCollector.Server/Dockerfile
+            image_tag: gnougo-otlp-collector
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/gnougo/${{ matrix.image_tag }}
+          tags: |
+            type=raw,value=${{ matrix.image_tag }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      - name: Login to registry
+        if: ${{ inputs.push }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          tags: ${{ steps.meta.outputs.tags }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ inputs.push }}

@@ -20,630 +20,87 @@ env:
 jobs:
   stable_unit_tests:
     name: Stable Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Ensure OTLP proto files
-        run: |
-          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
-          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
-
-      - name: Run stable .NET unit tests
-        shell: pwsh
-        run: |
-          dotnet restore /p:SkipClientBuild=true
-
-          $testProjects = Get-ChildItem tests -Filter *.csproj -Recurse |
-            Where-Object { $_.FullName -notlike '*GnOuGo.Agent.Server.Tests*' } |
-            Sort-Object FullName
-
-          foreach ($project in $testProjects) {
-            Write-Host "Running stable test project: $($project.FullName)"
-            dotnet test $project.FullName -m:1 --no-restore /p:SkipClientBuild=true
-            if ($LASTEXITCODE -ne 0) {
-              exit $LASTEXITCODE
-            }
-          }
+    uses: ./.github/workflows/test-stable-unit.yml
+    permissions:
+      contents: read
 
   tags:
     name: Compute Version Tag
     needs: [stable_unit_tests]
-    runs-on: ubuntu-latest
     if: github.actor != 'dependabot[bot]' && !startsWith(github.ref, 'refs/tags/') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
-    outputs:
-      new_version: ${{ steps.tag.outputs.new_version }}
-      tag: ${{ steps.tag.outputs.tag }}
-      version_tag: ${{ steps.tag.outputs.version_tag }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Determine Alpha, Beta or Release
-        id: which_tag
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ "${{ github.ref }}" == refs/pull* ]]; then
-            last_commit_message=$(curl -s "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.number }}/commits" | jq -r '.[-1].commit.message')
-          else
-            last_commit_message=$(git log --format=%B -n 1)
-          fi
-          echo "last commit message is: $last_commit_message"
-
-          echo "tag=default" >> "$GITHUB_OUTPUT"
-          if [[ "$last_commit_message" == *alpha* ]]; then
-            echo "tag=alpha" >> "$GITHUB_OUTPUT"
-          fi
-          if [[ "$last_commit_message" == *beta* ]]; then
-            echo "tag=beta" >> "$GITHUB_OUTPUT"
-          fi
-          if [[ "$last_commit_message" == *release* && "${{ github.ref }}" == 'refs/heads/main' ]]; then
-            echo "tag=release" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Bump version and push tag
-        id: tag_release
-        if: steps.which_tag.outputs.tag == 'release'
-        uses: mathieudutour/github-tag-action@v6.0
-        with:
-          github_token: ${{ secrets.GIT_TOKEN || secrets.GITHUB_TOKEN }}
-
-      - name: Bump version and compute tag (dry-run)
-        id: tag_version
-        if: steps.which_tag.outputs.tag != 'release'
-        uses: mathieudutour/github-tag-action@v6.0
-        with:
-          github_token: ${{ secrets.GIT_TOKEN || secrets.GITHUB_TOKEN }}
-          dry_run: true
-
-      - name: Compute new version number to publish
-        id: tag
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ '${{ steps.which_tag.outputs.tag }}' == 'release' ]]; then
-            version='${{ steps.tag_release.outputs.new_version }}'
-          else
-            version='${{ steps.tag_version.outputs.new_version }}'
-          fi
-
-          if [[ -z "$version" ]]; then
-            echo "Unable to compute next version." >&2
-            exit 1
-          fi
-
-          if [[ '${{ steps.which_tag.outputs.tag }}' == 'release' ]]; then
-            new_version="$version"
-          elif [[ '${{ steps.which_tag.outputs.tag }}' == 'alpha' ]]; then
-            new_version="$version-alpha.${{ github.run_number }}"
-          elif [[ '${{ steps.which_tag.outputs.tag }}' == 'beta' ]]; then
-            new_version="$version-beta.${{ github.run_number }}"
-          elif [[ '${{ github.ref }}' == 'refs/heads/main' ]]; then
-            new_version="$version-dev.${{ github.run_number }}"
-          else
-            new_version="$version-pr.${{ github.event.number }}.${{ github.run_number }}"
-          fi
-
-          tag='${{ steps.which_tag.outputs.tag }}'
-          version_tag="v${new_version}"
-
-          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version_tag=$version_tag" >> "$GITHUB_OUTPUT"
+    uses: ./.github/workflows/compute-version-tag.yml
+    permissions:
+      contents: write
+    secrets: inherit
 
   agent_server_tests:
     name: Agent Server Tests (non-blocking)
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Ensure OTLP proto files
-        run: |
-          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
-          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
-
-      - name: Run unstable Agent Server tests
-        run: |
-          dotnet restore /p:SkipClientBuild=true
-          dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj -m:1 --no-restore /p:SkipClientBuild=true
+    uses: ./.github/workflows/test-agent-server.yml
+    permissions:
+      contents: read
 
   docker_builds:
-    name: Docker Build (${{ matrix.name }})
+    name: Docker Builds
     needs: stable_unit_tests
-    uses: ./.github/workflows/docker-build.yml
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: GnOuGo.Agent.Server
-            dockerfile: src/GnOuGo.Agent.Server/Dockerfile
-            image_tag: gnougo-agent
-          - name: GnOuGo.Diff.Server
-            dockerfile: src/GnOuGo.Diff.Server/Dockerfile
-            image_tag: gnougo-diff
-          - name: GnOuGo.DocIngestor.Server
-            dockerfile: src/GnOuGo.DocIngestor.Server/Dockerfile
-            image_tag: gnougo-doc-ingestor
-          - name: GnOuGo.Flow.Server
-            dockerfile: src/GnOuGo.Flow.Server/Dockerfile
-            image_tag: gnougo-flow
-          - name: GnOuGo.KeyVault.Server
-            dockerfile: src/GnOuGo.KeyVault.Server/Dockerfile
-            image_tag: gnougo-keyvault
-          - name: GnOuGo.OtlpCollector.Server
-            dockerfile: src/GnOuGo.OtlpCollector.Server/Dockerfile
-            image_tag: gnougo-otlp-collector
+    uses: ./.github/workflows/build-docker-images.yml
+    permissions:
+      contents: read
+      packages: write
     with:
-      dockerfile: ${{ matrix.dockerfile }}
-      context: .
-      image_tag: ${{ matrix.image_tag }}
-      platforms: linux/amd64,linux/arm64
-      registry: ghcr.io
-      image_name: ghcr.io/gnougo/${{ matrix.image_tag }}
       push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+    secrets: inherit
 
   publish_flow_dotnet_nuget:
     name: Publish Flow .NET packages to NuGet
     needs: [tags]
-    runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish-flow-dotnet-nuget.yml
     permissions:
       contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Pack Flow .NET packages
-        shell: pwsh
-        run: |
-          $version = '${{ needs.tags.outputs.new_version }}'
-          if ([string]::IsNullOrWhiteSpace($version)) {
-            throw 'Generated package version is empty.'
-          }
-
-          $packageOutput = 'artifacts/packages/nuget'
-          New-Item -ItemType Directory -Path $packageOutput -Force | Out-Null
-
-          dotnet restore src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj /p:SkipClientBuild=true
-
-          $projects = @(
-            'src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj',
-            'src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj',
-            'src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj'
-          )
-
-          foreach ($project in $projects) {
-            dotnet pack $project `
-              -c Release `
-              --no-restore `
-              -o $packageOutput `
-              /p:PackageVersion=$version `
-              /p:Version=$version `
-              /p:ContinuousIntegrationBuild=true `
-              /p:SkipClientBuild=true
-
-            if ($LASTEXITCODE -ne 0) {
-              exit $LASTEXITCODE
-            }
-          }
-
-      - name: Publish Flow .NET packages to NuGet
-        shell: pwsh
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:NUGET_API_KEY)) {
-            throw 'Missing NUGET_API_KEY secret.'
-          }
-
-          $packages = Get-ChildItem 'artifacts/packages/nuget' -Filter '*.nupkg' | Sort-Object Name
-          if ($packages.Count -eq 0) {
-            throw 'No NuGet packages were produced.'
-          }
-
-          foreach ($package in $packages) {
-            dotnet nuget push $package.FullName `
-              --source https://api.nuget.org/v3/index.json `
-              --api-key $env:NUGET_API_KEY `
-              --skip-duplicate
-
-            if ($LASTEXITCODE -ne 0) {
-              exit $LASTEXITCODE
-            }
-          }
+    with:
+      version: ${{ needs.tags.outputs.new_version }}
+    secrets:
+      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
   publish_flow_python_pypi:
     name: Publish gnougo-flow-core to PyPI
     needs: [tags]
-    runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish-flow-python-pypi.yml
     permissions:
       contents: read
       id-token: write
-    env:
+    with:
+      version: ${{ needs.tags.outputs.new_version }}
+    secrets:
       PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Build Python package
-        working-directory: clients/python/gnougo-flow-core
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          generated_version='${{ needs.tags.outputs.new_version }}'
-          if [[ -z "$generated_version" ]]; then
-            echo 'Generated package version is empty.' >&2
-            exit 1
-          fi
-
-          python - <<'PY'
-          import os
-          import re
-          from pathlib import Path
-
-          version = os.environ["GENERATED_VERSION"]
-          pep440 = version
-          pep440 = re.sub(r"-alpha\.(\d+)$", r"a\1", pep440)
-          pep440 = re.sub(r"-beta\.(\d+)$", r"b\1", pep440)
-          pep440 = re.sub(r"-dev\.(\d+)$", r".dev\1", pep440)
-          pep440 = re.sub(r"-pr\.(\d+)\.(\d+)$", r".dev\1\2", pep440)
-
-          if not re.fullmatch(r"\d+\.\d+\.\d+(?:(?:a|b)\d+|\.dev\d+)?", pep440):
-              raise SystemExit(f"Cannot convert generated version to a supported PyPI version: {version!r} -> {pep440!r}")
-
-          pyproject = Path("pyproject.toml")
-          content = pyproject.read_text(encoding="utf-8")
-          content, count = re.subn(r'^version = "[^"]+"$', f'version = "{pep440}"', content, count=1, flags=re.MULTILINE)
-          if count != 1:
-              raise SystemExit("Unable to update pyproject.toml version.")
-          pyproject.write_text(content, encoding="utf-8")
-
-          output = Path(os.environ["GITHUB_OUTPUT"])
-          with output.open("a", encoding="utf-8") as handle:
-              handle.write(f"pypi_version={pep440}\n")
-          PY
-
-          python -m pip install --upgrade pip build
-          python -m pip install -e '.[dev]'
-          ruff check .
-          pytest -q
-          python -m build
-        env:
-          GENERATED_VERSION: ${{ needs.tags.outputs.new_version }}
-
-      - name: Publish gnougo-flow-core to PyPI using API token
-        if: env.PYPI_API_TOKEN != ''
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: clients/python/gnougo-flow-core/dist
-          password: ${{ secrets.PYPI_API_TOKEN }}
-          skip-existing: true
-
-      - name: Publish gnougo-flow-core to PyPI using Trusted Publishing
-        if: env.PYPI_API_TOKEN == ''
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: clients/python/gnougo-flow-core/dist
-          skip-existing: true
 
   server_linux_x64:
     name: Server (linux-x64)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Ensure OTLP proto files
-        run: |
-          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
-          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.0.0
-          run_install: false
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: "pnpm"
-          cache-dependency-path: "pnpm-lock.yaml"
-
-      - name: Build UI (Vite)
-        working-directory: src/GnOuGo.Agent.Server/ClientApp
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm build
-
-      - name: Publish Server
-        run: |
-          dotnet restore -r linux-x64 /p:SkipClientBuild=true
-          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64 --no-restore /p:SkipClientBuild=true
-
-      - name: Validate bundled server tools
-        shell: pwsh
-        run: |
-          $requiredTools = @(
-            "artifacts/publish/server/linux-x64/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp",
-            "artifacts/publish/server/linux-x64/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp",
-            "artifacts/publish/server/linux-x64/tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp"
-          )
-
-          foreach ($path in $requiredTools) {
-            if (-not (Test-Path $path)) {
-              throw "Missing bundled server tool: $path"
-            }
-          }
-
-      - name: Zip Server output
-        shell: pwsh
-        run: |
-          Get-ChildItem "artifacts/publish/server/linux-x64" -Recurse -Filter *.pdb | Remove-Item -Force
-          $zip = "GnOuGo.Agent.Server-linux-x64.zip"
-          if (Test-Path $zip) { Remove-Item $zip -Force }
-          Compress-Archive -Path "artifacts/publish/server/linux-x64/*" -DestinationPath $zip
-
-      - name: Upload Server artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: GnOuGo.Agent.Server-linux-x64
-          path: GnOuGo.Agent.Server-linux-x64.zip
-          if-no-files-found: error
+    uses: ./.github/workflows/build-agent-server-linux-x64.yml
+    permissions:
+      contents: read
 
   desktop_aot:
-    name: Desktop Trimmed (${{ matrix.rid }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            rid: linux-x64
-          - os: windows-latest
-            rid: win-x64
-          - os: macos-latest
-            rid: osx-arm64
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Ensure OTLP proto files
-        shell: pwsh
-        run: |
-          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
-          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
-
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.0.0
-          run_install: false
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: "pnpm"
-          cache-dependency-path: "pnpm-lock.yaml"
-
-
-      - name: Build UI (Vite)
-        working-directory: src/GnOuGo.Agent.Server/ClientApp
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm build
-
-      - name: Publish Desktop (self-contained trimmed)
-        shell: pwsh
-        run: |
-          dotnet restore -r ${{ matrix.rid }} /p:SkipClientBuild=true
-          dotnet publish src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj `
-            -c Release `
-            -r ${{ matrix.rid }} `
-            --self-contained true `
-            -o artifacts/publish/desktop/${{ matrix.rid }} `
-            --no-restore `
-            /p:SkipClientBuild=true `
-            /p:PublishTrimmed=true `
-            /p:InvariantGlobalization=true
-
-      - name: Validate bundled desktop tools
-        shell: pwsh
-        run: |
-          $toolExtension = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
-          $requiredTools = @(
-            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp$toolExtension",
-            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp$toolExtension",
-            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp$toolExtension"
-          )
-
-          foreach ($path in $requiredTools) {
-            if (-not (Test-Path $path)) {
-              throw "Missing bundled desktop tool: $path"
-            }
-          }
-
-          $requiredUiAssets = @(
-            "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js"
-          )
-
-          foreach ($path in $requiredUiAssets) {
-            if (-not (Test-Path $path)) {
-              throw "Missing required desktop UI asset: $path"
-            }
-          }
-
-      - name: Zip Desktop output
-        shell: pwsh
-        run: |
-          Get-ChildItem "artifacts/publish/desktop/${{ matrix.rid }}" -Recurse -Filter *.pdb | Remove-Item -Force
-          $zip = "GnOuGo.Agent.Desktop-${{ matrix.rid }}.zip"
-          if (Test-Path $zip) { Remove-Item $zip -Force }
-          Compress-Archive -Path "artifacts/publish/desktop/${{ matrix.rid }}/*" -DestinationPath $zip
-
-      - name: Upload Desktop artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: GnOuGo.Agent.Desktop-${{ matrix.rid }}
-          path: GnOuGo.Agent.Desktop-${{ matrix.rid }}.zip
-          if-no-files-found: error
+    name: Desktop Trimmed
+    uses: ./.github/workflows/build-agent-desktop-trimmed.yml
+    permissions:
+      contents: read
 
   otlp_collector_self_contained:
-    name: OTLP Collector (${{ matrix.rid }})
+    name: OTLP Collector
     needs: stable_unit_tests
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            rid: linux-x64
-          - os: windows-latest
-            rid: win-x64
-          - os: macos-latest
-            rid: osx-arm64
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Ensure OTLP proto files
-        shell: pwsh
-        run: |
-          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
-          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.0.0
-          run_install: false
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: "pnpm"
-          cache-dependency-path: "pnpm-lock.yaml"
-
-      - name: Build UI (Vite)
-        working-directory: src/GnOuGo.OtlpCollector.Server/ClientApp
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm build
-
-      - name: Publish OTLP Collector (self-contained)
-        shell: pwsh
-        run: |
-          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -r ${{ matrix.rid }} /p:SkipClientBuild=true
-          dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj `
-            -c Release `
-            -r ${{ matrix.rid }} `
-            --self-contained true `
-            -o artifacts/publish/otlp-collector/${{ matrix.rid }} `
-            --no-restore `
-            /p:SkipClientBuild=true `
-            /p:PublishSingleFile=true `
-            /p:EnableCompressionInSingleFile=true `
-            /p:IncludeAllContentForSelfExtract=true `
-            /p:DebugSymbols=false `
-            /p:DebugType=None
-
-      - name: Validate OTLP Collector executable
-        shell: pwsh
-        run: |
-          $exeExt = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
-          $collectorExe = "artifacts/publish/otlp-collector/${{ matrix.rid }}/GnOuGo.OtlpCollector.Server$exeExt"
-          if (-not (Test-Path $collectorExe)) {
-            throw "Missing OTLP Collector executable: $collectorExe"
-          }
-
-      - name: Zip OTLP Collector output
-        shell: pwsh
-        run: |
-          $exeExt = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
-          $collectorExe = "artifacts/publish/otlp-collector/${{ matrix.rid }}/GnOuGo.OtlpCollector.Server$exeExt"
-          if (-not (Test-Path $collectorExe)) {
-            throw "Missing OTLP Collector executable: $collectorExe"
-          }
-          $zip = "GnOuGo.OtlpCollector.Server-${{ matrix.rid }}.zip"
-          if (Test-Path $zip) { Remove-Item $zip -Force }
-          Compress-Archive -Path $collectorExe -DestinationPath $zip
-
-      - name: Upload OTLP Collector artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: GnOuGo.OtlpCollector.Server-${{ matrix.rid }}
-          path: GnOuGo.OtlpCollector.Server-${{ matrix.rid }}.zip
-          if-no-files-found: error
+    uses: ./.github/workflows/build-otlp-collector.yml
+    permissions:
+      contents: read
 
   publish_release_main:
     name: Publish Release (${{ needs.tags.outputs.version_tag }})
     needs: [tags, server_linux_x64, desktop_aot, otlp_collector_self_contained, docker_builds, publish_flow_dotnet_nuget, publish_flow_python_pypi]
-    runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish-github-release.yml
     permissions:
       contents: write
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-assets
-          pattern: GnOuGo.*
-
-      - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.tags.outputs.version_tag }}
-          name: ${{ needs.tags.outputs.version_tag }}
-          target_commitish: ${{ github.sha }}
-          generate_release_notes: true
-          prerelease: ${{ needs.tags.outputs.tag != 'release' }}
-          files: |
-            release-assets/**/*.zip
-
+    with:
+      version_tag: ${{ needs.tags.outputs.version_tag }}
+      channel_tag: ${{ needs.tags.outputs.tag }}

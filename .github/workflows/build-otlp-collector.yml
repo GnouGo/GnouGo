@@ -1,0 +1,105 @@
+﻿name: Build OTLP Collector
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  otlp_collector_self_contained:
+    name: OTLP Collector (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Ensure OTLP proto files
+        shell: pwsh
+        run: |
+          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
+          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Build UI (Vite)
+        working-directory: src/GnOuGo.OtlpCollector.Server/ClientApp
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Publish OTLP Collector (self-contained)
+        shell: pwsh
+        run: |
+          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -r ${{ matrix.rid }} /p:SkipClientBuild=true
+          dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj `
+            -c Release `
+            -r ${{ matrix.rid }} `
+            --self-contained true `
+            -o artifacts/publish/otlp-collector/${{ matrix.rid }} `
+            --no-restore `
+            /p:SkipClientBuild=true `
+            /p:PublishSingleFile=true `
+            /p:EnableCompressionInSingleFile=true `
+            /p:IncludeAllContentForSelfExtract=true `
+            /p:DebugSymbols=false `
+            /p:DebugType=None
+
+      - name: Validate OTLP Collector executable
+        shell: pwsh
+        run: |
+          $exeExt = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
+          $collectorExe = "artifacts/publish/otlp-collector/${{ matrix.rid }}/GnOuGo.OtlpCollector.Server$exeExt"
+          if (-not (Test-Path $collectorExe)) {
+            throw "Missing OTLP Collector executable: $collectorExe"
+          }
+
+      - name: Zip OTLP Collector output
+        shell: pwsh
+        run: |
+          $exeExt = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
+          $collectorExe = "artifacts/publish/otlp-collector/${{ matrix.rid }}/GnOuGo.OtlpCollector.Server$exeExt"
+          if (-not (Test-Path $collectorExe)) {
+            throw "Missing OTLP Collector executable: $collectorExe"
+          }
+          $zip = "GnOuGo.OtlpCollector.Server-${{ matrix.rid }}.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path $collectorExe -DestinationPath $zip
+
+      - name: Upload OTLP Collector artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GnOuGo.OtlpCollector.Server-${{ matrix.rid }}
+          path: GnOuGo.OtlpCollector.Server-${{ matrix.rid }}.zip
+          if-no-files-found: error
+

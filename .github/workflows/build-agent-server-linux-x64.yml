@@ -1,0 +1,84 @@
+﻿name: Build Agent Server linux-x64
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  server_linux_x64:
+    name: Server (linux-x64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Ensure OTLP proto files
+        run: |
+          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
+          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Build UI (Vite)
+        working-directory: src/GnOuGo.Agent.Server/ClientApp
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Publish Server
+        run: |
+          dotnet restore -r linux-x64 /p:SkipClientBuild=true
+          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64 --no-restore /p:SkipClientBuild=true
+
+      - name: Validate bundled server tools
+        shell: pwsh
+        run: |
+          $requiredTools = @(
+            "artifacts/publish/server/linux-x64/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp",
+            "artifacts/publish/server/linux-x64/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp",
+            "artifacts/publish/server/linux-x64/tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp"
+          )
+
+          foreach ($path in $requiredTools) {
+            if (-not (Test-Path $path)) {
+              throw "Missing bundled server tool: $path"
+            }
+          }
+
+      - name: Zip Server output
+        shell: pwsh
+        run: |
+          Get-ChildItem "artifacts/publish/server/linux-x64" -Recurse -Filter *.pdb | Remove-Item -Force
+          $zip = "GnOuGo.Agent.Server-linux-x64.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path "artifacts/publish/server/linux-x64/*" -DestinationPath $zip
+
+      - name: Upload Server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GnOuGo.Agent.Server-linux-x64
+          path: GnOuGo.Agent.Server-linux-x64.zip
+          if-no-files-found: error
+
