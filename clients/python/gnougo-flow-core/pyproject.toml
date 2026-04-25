@@ -4,10 +4,18 @@ version = "0.1.0"
 description = "Python 3.10+ implementation of GnOuGo.Flow.Core"
 readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "GnOuGo" },
+]
 dependencies = [
   "pydantic>=2.7.0",
   "PyYAML>=6.0.1",
 ]
+
+[project.urls]
+Repository = "https://github.com/gnougo/GnouGo"
+Issues = "https://github.com/gnougo/GnouGo/issues"
 
 [project.optional-dependencies]
 dev = [

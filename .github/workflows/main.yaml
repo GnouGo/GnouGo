@@ -198,6 +198,162 @@ jobs:
       image_name: ghcr.io/gnougo/${{ matrix.image_tag }}
       push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
 
+  publish_flow_dotnet_nuget:
+    name: Publish Flow .NET packages to NuGet
+    needs: [tags]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Pack Flow .NET packages
+        shell: pwsh
+        run: |
+          $version = '${{ needs.tags.outputs.new_version }}'
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw 'Generated package version is empty.'
+          }
+
+          $packageOutput = 'artifacts/packages/nuget'
+          New-Item -ItemType Directory -Path $packageOutput -Force | Out-Null
+
+          dotnet restore src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj /p:SkipClientBuild=true
+
+          $projects = @(
+            'src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj',
+            'src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj',
+            'src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj'
+          )
+
+          foreach ($project in $projects) {
+            dotnet pack $project `
+              -c Release `
+              --no-restore `
+              -o $packageOutput `
+              /p:PackageVersion=$version `
+              /p:Version=$version `
+              /p:ContinuousIntegrationBuild=true `
+              /p:SkipClientBuild=true
+
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
+          }
+
+      - name: Publish Flow .NET packages to NuGet
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:NUGET_API_KEY)) {
+            throw 'Missing NUGET_API_KEY secret.'
+          }
+
+          $packages = Get-ChildItem 'artifacts/packages/nuget' -Filter '*.nupkg' | Sort-Object Name
+          if ($packages.Count -eq 0) {
+            throw 'No NuGet packages were produced.'
+          }
+
+          foreach ($package in $packages) {
+            dotnet nuget push $package.FullName `
+              --source https://api.nuget.org/v3/index.json `
+              --api-key $env:NUGET_API_KEY `
+              --skip-duplicate
+
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
+          }
+
+  publish_flow_python_pypi:
+    name: Publish gnougo-flow-core to PyPI
+    needs: [tags]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build Python package
+        working-directory: clients/python/gnougo-flow-core
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          generated_version='${{ needs.tags.outputs.new_version }}'
+          if [[ -z "$generated_version" ]]; then
+            echo 'Generated package version is empty.' >&2
+            exit 1
+          fi
+
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["GENERATED_VERSION"]
+          pep440 = version
+          pep440 = re.sub(r"-alpha\.(\d+)$", r"a\1", pep440)
+          pep440 = re.sub(r"-beta\.(\d+)$", r"b\1", pep440)
+          pep440 = re.sub(r"-dev\.(\d+)$", r".dev\1", pep440)
+          pep440 = re.sub(r"-pr\.(\d+)\.(\d+)$", r".dev\1\2", pep440)
+
+          if not re.fullmatch(r"\d+\.\d+\.\d+(?:(?:a|b)\d+|\.dev\d+)?", pep440):
+              raise SystemExit(f"Cannot convert generated version to a supported PyPI version: {version!r} -> {pep440!r}")
+
+          pyproject = Path("pyproject.toml")
+          content = pyproject.read_text(encoding="utf-8")
+          content, count = re.subn(r'^version = "[^"]+"$', f'version = "{pep440}"', content, count=1, flags=re.MULTILINE)
+          if count != 1:
+              raise SystemExit("Unable to update pyproject.toml version.")
+          pyproject.write_text(content, encoding="utf-8")
+
+          output = Path(os.environ["GITHUB_OUTPUT"])
+          with output.open("a", encoding="utf-8") as handle:
+              handle.write(f"pypi_version={pep440}\n")
+          PY
+
+          python -m pip install --upgrade pip build
+          python -m pip install -e '.[dev]'
+          ruff check .
+          pytest -q
+          python -m build
+        env:
+          GENERATED_VERSION: ${{ needs.tags.outputs.new_version }}
+
+      - name: Publish gnougo-flow-core to PyPI using API token
+        if: env.PYPI_API_TOKEN != ''
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: clients/python/gnougo-flow-core/dist
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true
+
+      - name: Publish gnougo-flow-core to PyPI using Trusted Publishing
+        if: env.PYPI_API_TOKEN == ''
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: clients/python/gnougo-flow-core/dist
+          skip-existing: true
+
   server_linux_x64:
     name: Server (linux-x64)
     runs-on: ubuntu-latest
@@ -468,7 +624,7 @@ jobs:
 
   publish_release_main:
     name: Publish Release (${{ needs.tags.outputs.version_tag }})
-    needs: [tags, server_linux_x64, desktop_aot, otlp_collector_self_contained, docker_builds]
+    needs: [tags, server_linux_x64, desktop_aot, otlp_collector_self_contained, docker_builds, publish_flow_dotnet_nuget, publish_flow_python_pypi]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:

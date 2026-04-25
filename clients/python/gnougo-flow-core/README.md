@@ -43,6 +43,16 @@ uv sync --extra dev
 uv run --extra dev pytest
 ```
 
+## Build package
+
+```bash
+python -m pip install --upgrade build
+python -m build
+```
+
+The GitHub Actions release pipeline injects the generated repository version into
+`pyproject.toml` before building and publishing the package to PyPI.
+
 ## Quick run
 
 ```bash

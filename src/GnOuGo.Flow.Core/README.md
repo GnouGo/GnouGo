@@ -60,6 +60,18 @@ tests/
 
 ## Quick Start
 
+Install the .NET package:
+
+```bash
+dotnet add package GnOuGo.Flow.Core
+```
+
+Build a local package for validation:
+
+```bash
+dotnet pack src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj -c Release -o artifacts/packages/nuget /p:PackageVersion=0.1.0-local
+```
+
 ```yaml
 dsl: 1
 name: hello-world

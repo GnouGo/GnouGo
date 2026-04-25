@@ -1,4 +1,3 @@
-﻿
 from __future__ import annotations
 
 import json
@@ -6,7 +5,6 @@ import json
 import pytest
 
 from gnougo_flow_core.cli import main
-
 
 SIMPLE_WORKFLOW = """
 dsl: 1
@@ -127,4 +125,3 @@ def test_cli_run_invalid_input_json_returns_error(tmp_path, capsys) -> None:
 
     assert code == 1
     assert "Input error" in capsys.readouterr().out
-
