@@ -21,6 +21,7 @@ using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.Agent.Shared;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Files.Server;
 using GnOuGo.KeyVault.Core;
 using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Mcp;
@@ -292,6 +293,7 @@ public static class GnOuGoAgentWebHost
         builder.Services.Configure<KeyVaultSettings>(
             builder.Configuration.GetSection(KeyVaultSettings.SectionName));
         builder.Services.AddOtlpCollectorCore(builder.Configuration);
+        builder.Services.AddGnOuGoFilesServer(builder.Configuration);
 
         var agentDbRelativePath = builder.Configuration.GetValue<string>("Agent:DatabasePath")
             ?? AgentMcpHostingExtensions.DefaultDatabasePath;
@@ -365,6 +367,7 @@ public static class GnOuGoAgentWebHost
         var app = builder.Build();
 
         app.Services.InitializeAgentMcpAsync().GetAwaiter().GetResult();
+        app.Services.InitializeGnOuGoFilesServerAsync().GetAwaiter().GetResult();
 
         using (var scope = app.Services.CreateScope())
         {
@@ -449,6 +452,7 @@ public static class GnOuGoAgentWebHost
         // --- API ---
         app.MapPost("/api/chat", ChatEndpoints.CompleteAsync);
         app.MapPost("/api/chat/stream", ChatEndpoints.StreamAsync);
+        app.MapGnOuGoFilesServer(includeHealthEndpoint: false);
         app.MapGet("/api/llm/providers", LlmProviderEndpoints.ListProviders);
         app.MapGet("/api/llm/providers/{provider}/models", LlmProviderEndpoints.ListModelsAsync);
 

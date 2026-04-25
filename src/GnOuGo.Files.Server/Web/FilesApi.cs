@@ -7,12 +7,15 @@ namespace GnOuGo.Files.Server.Web;
 
 public static class FilesApi
 {
-    public static IEndpointRouteBuilder MapFilesApi(this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapFilesApi(this IEndpointRouteBuilder endpoints, bool includeHealthEndpoint = true)
     {
-        endpoints.MapGet("/health", async context =>
+        if (includeHealthEndpoint)
         {
-            await WriteJsonAsync(context, new HealthStatusResponse("ok", DateTimeOffset.UtcNow), FilesJsonContext.Default.HealthStatusResponse);
-        });
+            endpoints.MapGet("/health", async context =>
+            {
+                await WriteJsonAsync(context, new HealthStatusResponse("ok", DateTimeOffset.UtcNow), FilesJsonContext.Default.HealthStatusResponse);
+            });
+        }
 
         endpoints.MapGet("/api/files/config", async context =>
         {

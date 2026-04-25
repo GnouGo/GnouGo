@@ -8,6 +8,7 @@
     <TrimMode>partial</TrimMode>
     <InvariantGlobalization>true</InvariantGlobalization>
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <StaticWebAssetBasePath>_gnougo-files-server</StaticWebAssetBasePath>
     <ClientAppDir>ClientApp</ClientAppDir>
     <PnpmCommand Condition="'$(OS)' == 'Windows_NT'">corepack.cmd pnpm</PnpmCommand>
     <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>

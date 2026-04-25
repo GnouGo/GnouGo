@@ -6,6 +6,7 @@
 @using Markdig
 @using Microsoft.JSInterop
 @using GnOuGo.Agent.Server.Components.Tracing
+@implements IAsyncDisposable
 
 @inject IJSRuntime Js
 @inject SmartFlowService SmartFlow
@@ -228,16 +229,65 @@
         </section>
 
         <footer class="sa-chat__composer">
-            <EditForm class="sa-composer" Model="_model" OnValidSubmit="SendAsync">
+            <EditForm id="@ComposerDropZoneId" class="sa-composer" Model="_model" OnValidSubmit="SendAsync">
                 <DataAnnotationsValidator />
+                <input id="@ComposerFileInputId" class="sa-composer__file-input" type="file" multiple />
+
+                @if (_composerUploads.Count > 0)
+                {
+                    <div class="sa-composer__uploads" aria-live="polite">
+                        @foreach (var upload in _composerUploads)
+                        {
+                            <div class="sa-composer__upload @(upload.IsCompleted ? "sa-composer__upload--done" : upload.IsFailed ? "sa-composer__upload--failed" : "sa-composer__upload--loading")">
+                                <div class="sa-composer__upload-icon">@(upload.IsCompleted ? "✓" : upload.IsFailed ? "!" : "⇧")</div>
+                                <div class="sa-composer__upload-body">
+                                    <div class="sa-composer__upload-title" title="@upload.FileName">@upload.FileName</div>
+                                    <div class="sa-composer__upload-meta">
+                                        @if (upload.IsCompleted)
+                                        {
+                                            <span>Uploaded · id @ShortId(upload.FileId)</span>
+                                        }
+                                        else if (upload.IsFailed)
+                                        {
+                                            <span>@upload.Error</span>
+                                        }
+                                        else
+                                        {
+                                            <span>@FormatBytes(upload.SizeBytes) · @upload.Progress%</span>
+                                        }
+                                    </div>
+                                    <div class="sa-composer__upload-progress" aria-hidden="true">
+                                        <div class="sa-composer__upload-progress-bar" style="width: @upload.Progress%"></div>
+                                    </div>
+                                </div>
+                                <button class="sa-composer__upload-remove"
+                                        type="button"
+                                        title="Remove file from message"
+                                        disabled="@_isStreaming"
+                                        @onclick="@(() => RemoveComposerUpload(upload.ClientId))">
+                                    ✕
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+
                 <div class="sa-composer__row">
+                    <button class="sa-composer__attach"
+                            type="button"
+                            title="Attach documents"
+                            disabled="@_isStreaming"
+                            @onclick="OpenFilePickerAsync">
+                        📎
+                    </button>
+
                     <textarea class="sa-composer__input"
                               @bind="_model.Prompt"
                               @bind:event="oninput"
-                              placeholder="Write a message or YAML… (/llm, /mcp, /agent, Markdown, YAML supported)"
+                              placeholder="Write a message or YAML… Drop documents here to upload them before sending."
 
                               rows="1"
-                              disabled="@_isStreaming"
+                              disabled="@(_isStreaming || HasBlockingUploads)"
                               @onkeydown="OnKeyDown">
                     </textarea>
 
@@ -249,14 +299,14 @@
                     }
                     else
                     {
-                        <button class="sa-composer__send" type="submit" disabled="@string.IsNullOrWhiteSpace(_model.Prompt)">
+                        <button class="sa-composer__send" type="submit" disabled="@(!CanSend)">
                             <span class="sa-composer__send-text">Send</span>
                         </button>
                     }
                 </div>
 
                 <div class="sa-composer__hint">
-                    Enter to send • Shift+Enter for newline
+                    Enter to send • Shift+Enter for newline • Drag & drop documents to upload them first
                 </div>
             </EditForm>
         </footer>
@@ -272,6 +322,19 @@
     private sealed class ComposeModel
     {
         public string Prompt { get; set; } = "";
+    }
+
+    private sealed class ComposerUploadModel
+    {
+        public string ClientId { get; init; } = "";
+        public string FileName { get; set; } = "";
+        public long SizeBytes { get; set; }
+        public int Progress { get; set; }
+        public string? FileId { get; set; }
+        public string? Error { get; set; }
+
+        public bool IsCompleted => !string.IsNullOrWhiteSpace(FileId) && string.IsNullOrWhiteSpace(Error);
+        public bool IsFailed => !string.IsNullOrWhiteSpace(Error);
     }
 
     private sealed class HumanInputModel
@@ -303,6 +366,10 @@
         .Build();
 
     private readonly ComposeModel _model = new();
+    private const string ComposerDropZoneId = "chatComposerDropZone";
+    private const string ComposerFileInputId = "chatComposerFileInput";
+    private DotNetObjectReference<ChatPage>? _fileUploadInterop;
+    private readonly List<ComposerUploadModel> _composerUploads = new();
     private ChatStoreDto _store = new("", new List<ChatSessionDto>());
     private ChatSessionDto? _active;
     private string? _defaultAgentName;
@@ -327,6 +394,17 @@
     /// <summary>Typewriter delay in ms between characters.</summary>
     private const int TypewriterDelayMs = 12;
 
+    private bool HasBlockingUploads => _composerUploads.Any(static upload => !upload.IsCompleted);
+
+    private bool CanSend => !_isStreaming
+                            && !HasBlockingUploads
+                            && !string.IsNullOrWhiteSpace(_model.Prompt);
+
+    private IReadOnlyList<string> UploadedFileIds => _composerUploads
+        .Where(static upload => upload.IsCompleted && !string.IsNullOrWhiteSpace(upload.FileId))
+        .Select(static upload => upload.FileId!)
+        .ToArray();
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -334,6 +412,7 @@
             var snapshot = await UserConfigClient.GetAsync();
             _defaultAgentName = snapshot.DefaultAgent;
             EnsureActiveSession();
+            await RegisterFileUploadInteropAsync();
         }
 
         if (_browserStatePending)
@@ -442,10 +521,10 @@
 
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
-        if (_isStreaming) return;
+        if (_isStreaming || HasBlockingUploads) return;
         if (e.Key is "Enter" && !e.ShiftKey)
         {
-            if (!string.IsNullOrWhiteSpace(_model.Prompt))
+            if (CanSend)
                 await SendAsync();
         }
     }
@@ -500,6 +579,123 @@
            || ex.Message.Contains("statically rendered", StringComparison.OrdinalIgnoreCase)
            || ex.Message.Contains("JavaScript interop", StringComparison.OrdinalIgnoreCase);
 
+    private async Task RegisterFileUploadInteropAsync()
+    {
+        _fileUploadInterop ??= DotNetObjectReference.Create(this);
+
+        try
+        {
+            await Js.InvokeVoidAsync(
+                "GnOuGo.Agent.fileUploads.register",
+                ComposerDropZoneId,
+                ComposerFileInputId,
+                _fileUploadInterop);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+        {
+        }
+    }
+
+    private async Task OpenFilePickerAsync()
+    {
+        if (_isStreaming)
+            return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("GnOuGo.Agent.fileUploads.open", ComposerFileInputId);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+        {
+        }
+    }
+
+    [JSInvokable]
+    public Task NotifyFileUploadStarted(string clientId, string fileName, long sizeBytes)
+    {
+        var upload = FindComposerUpload(clientId);
+        if (upload is null)
+        {
+            _composerUploads.Add(new ComposerUploadModel
+            {
+                ClientId = clientId,
+                FileName = string.IsNullOrWhiteSpace(fileName) ? "document" : fileName,
+                SizeBytes = sizeBytes,
+                Progress = 0
+            });
+        }
+        else
+        {
+            upload.FileName = string.IsNullOrWhiteSpace(fileName) ? upload.FileName : fileName;
+            upload.SizeBytes = sizeBytes;
+            upload.Progress = 0;
+            upload.FileId = null;
+            upload.Error = null;
+        }
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task NotifyFileUploadProgress(string clientId, int progress)
+    {
+        var upload = FindComposerUpload(clientId);
+        if (upload is not null && !upload.IsCompleted)
+        {
+            upload.Progress = Math.Clamp(progress, 0, 99);
+            StateHasChanged();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task NotifyFileUploadCompleted(string clientId, string fileId)
+    {
+        var upload = FindComposerUpload(clientId);
+        if (upload is not null)
+        {
+            upload.FileId = fileId;
+            upload.Error = null;
+            upload.Progress = 100;
+            StateHasChanged();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task NotifyFileUploadFailed(string clientId, string error)
+    {
+        var upload = FindComposerUpload(clientId);
+        if (upload is not null)
+        {
+            upload.Error = string.IsNullOrWhiteSpace(error) ? "Upload failed." : error;
+            upload.Progress = 100;
+            StateHasChanged();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private ComposerUploadModel? FindComposerUpload(string clientId)
+        => _composerUploads.FirstOrDefault(upload => string.Equals(upload.ClientId, clientId, StringComparison.Ordinal));
+
+    private void RemoveComposerUpload(string clientId)
+    {
+        if (_isStreaming)
+            return;
+
+        _composerUploads.RemoveAll(upload => string.Equals(upload.ClientId, clientId, StringComparison.Ordinal));
+    }
+
     private async Task<ChatMessageDto> AppendAssistantContentAsync(
         ChatMessageDto assistantMsg,
         string? incomingText,
@@ -550,13 +746,17 @@
     {
         if (_active is null) return;
         if (_isStreaming) return;
+        if (HasBlockingUploads) return;
 
         _error = "";
         var prompt = _model.Prompt.Trim();
         if (string.IsNullOrWhiteSpace(prompt))
             return;
 
+        var filesIds = UploadedFileIds;
+
         _model.Prompt = "";
+        _composerUploads.Clear();
         var correlationId = ActivityTraceId.CreateRandom().ToHexString();
 
         // Add user message
@@ -578,7 +778,7 @@
 
         try
         {
-            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, agentName: null, _cts.Token))
+            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, agentName: null, filesIds, _cts.Token))
             {
                 if (evt.Type is "trace.started")
                 {
@@ -913,6 +1113,7 @@
         _cts?.Cancel();
         _error = "";
         _model.Prompt = "";
+        _composerUploads.Clear();
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var session = new ChatSessionDto(
@@ -1090,6 +1291,40 @@
         var now = DateTimeOffset.Now;
         if (dt.Date == now.Date) return dt.ToString("HH:mm");
         return dt.ToString("yyyy-MM-dd");
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        var value = Math.Max(0, bytes);
+        var unit = 0;
+        double display = value;
+        while (display >= 1024 && unit < units.Length - 1)
+        {
+            display /= 1024;
+            unit++;
+        }
+
+        return unit == 0 ? $"{value} {units[unit]}" : $"{display:0.##} {units[unit]}";
+    }
+
+    private static string ShortId(string? id)
+        => string.IsNullOrWhiteSpace(id) ? "" : id.Length <= 8 ? id : id[..8];
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("GnOuGo.Agent.fileUploads.unregister", ComposerDropZoneId, ComposerFileInputId);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        _fileUploadInterop?.Dispose();
     }
 
     private async Task ScrollToBottomAsync()
