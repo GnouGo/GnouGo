@@ -1,7 +1,8 @@
 ﻿# Porting TODO — `gnougo-flow-core` ↔ `GnOuGo.Flow.Core`
 
 > **Source of truth:** `src/GnOuGo.Flow.Core/` (.NET).
-> **Target:** `clients/python/gnougo-flow-core/src/gnougo_flow_core/` (Python 3.10+).
+
+> **Target:** `librairies/python/gnougo-flow-core/src/gnougo_flow_core/` (Python 3.10+).
 >
 > This document tracks every behavioral gap between the two libraries, ordered
 > in the recommended implementation phases. When the .NET reference changes,

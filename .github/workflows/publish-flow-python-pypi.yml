@@ -35,7 +35,7 @@ jobs:
           python-version: "3.12"
 
       - name: Build Python package
-        working-directory: clients/python/gnougo-flow-core
+        working-directory: librairies/python/gnougo-flow-core
         shell: bash
         run: |
           set -euo pipefail
@@ -85,7 +85,7 @@ jobs:
         if: env.PYPI_API_TOKEN != ''
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: clients/python/gnougo-flow-core/dist
+          packages-dir: librairies/python/gnougo-flow-core/dist
           password: ${{ secrets.PYPI_API_TOKEN }}
           skip-existing: true
 
@@ -93,6 +93,6 @@ jobs:
         if: env.PYPI_API_TOKEN == ''
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: clients/python/gnougo-flow-core/dist
+          packages-dir: librairies/python/gnougo-flow-core/dist
           skip-existing: true
 
