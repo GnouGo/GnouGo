@@ -82,6 +82,10 @@ Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto" | None`
   `tests/test_workflow_execute.py`, including MCP planning guidance,
   `workflow.execute` sub-workflow telemetry, input validation/defaults, and
   generated-workflow error propagation.
+- Phase 7 adds `WorkflowEngine.resume_async`, automatic checkpoint saves via
+  `engine.checkpointer` + `limits.run_id`, and the `gnougo-flow` CLI
+  subcommands `validate`, `inspect`, and `run` with `-i key=value` and
+  `-j JSON|@path.json` inputs.
 - Expression engine: see `gnougo_flow_core/_jsmini.py` for the in-tree
   JS-subset interpreter that backs both `${...}` expressions and the
   WFScript `functions:` block (no third-party dependency, AOT-friendly).

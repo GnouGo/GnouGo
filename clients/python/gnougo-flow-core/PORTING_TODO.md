@@ -100,6 +100,19 @@
   `gnougo-flow.step.waiting_for_human` and "Human input received" telemetry,
   and uses a stable run id. New tests: `tests/test_mcp_call_llm_selection.py`,
   `tests/test_mcp_factory.py`, `tests/test_phase5_mcp_human.py`.
+- ✅ **Phase 6** — `workflow.plan` MCP guidance + `workflow.execute` parity.
+  `workflow.plan` now documents direct vs LLM-assisted MCP planning patterns;
+  `workflow.execute` validates planned YAML/args, applies input defaults,
+  emits a sub-workflow telemetry scope, and propagates generated-workflow
+  errors. New tests: `tests/test_workflow_plan_mcp_guidance.py`,
+  `tests/test_workflow_execute.py`, `tests/test_error_codes_phase6.py`.
+- ✅ **Phase 7** — CLI + checkpointer. `WorkflowEngine` now exposes
+  `checkpointer`, saves `WorkflowCheckpoint` progress after successful
+  top-level steps when `limits.run_id` is set, and supports `resume_async`.
+  The `gnougo-flow` CLI now provides `validate`, `inspect`, and `run`
+  subcommands with `-i key=value` and `-j JSON|@path.json` inputs and
+  .NET-like run output. New tests: `tests/test_workflow_input_defaults.py`,
+  `tests/test_resume.py`, `tests/test_cli.py`.
 
 ---
 
@@ -167,8 +180,8 @@
 
 | # | Status | TODO | .NET source |
 |---|:-:|---|---|
-| G24 | ❌ | Add `resume_async(run_id, compiled_workflow)` mirroring `WorkflowEngine.ResumeAsync` | `WorkflowEngine.cs` lines 187–295 |
-| G25 | ❌ | Add `IWorkflowCheckpointer` Protocol + `InMemoryWorkflowCheckpointer`; auto-save after each successful top-level step when `limits.run_id` is set | `Runtime/IWorkflowCheckpointer.cs`, `InMemoryWorkflowCheckpointer.cs` |
+| G24 | ✅ | Add `resume_async(run_id, compiled_workflow)` mirroring `WorkflowEngine.ResumeAsync` | `WorkflowEngine.cs` lines 187–295 |
+| G25 | ✅ | Add `IWorkflowCheckpointer` Protocol + `InMemoryWorkflowCheckpointer`; auto-save after each successful top-level step when `limits.run_id` is set | `Runtime/IWorkflowCheckpointer.cs`, `InMemoryWorkflowCheckpointer.cs` |
 | G26 | ✅ | Wire structured logger (`logging.getLogger("gnougo_flow_core")`) for workflow start/end, step start/end | `WorkflowEngine.cs` |
 | G27 | ✅ | Add OpenTelemetry-like content events (`gnougo-flow.step.input`, `gnougo-flow.step.output`) gated by `limits.log_step_content`. `gen_ai.content.prompt`/`completion` already wired in `llm.call` and `mcp.call` | `WorkflowEngine.cs` lines 391–424 |
 | G28 | ✅ | Cancellation: `execute_async(..., ct: asyncio.Event \| None = None)` — checked between steps and during retry sleep, propagated through every `execute_steps_async` call site | `IWorkflowRuntime.cs` |
@@ -215,9 +228,9 @@
 
 | # | Status | TODO | .NET source |
 |---|:-:|---|---|
-| K52 | ❌ | Restructure `cli.py` into subcommand group: `validate <yaml>`, `inspect <yaml>`, `run <yaml>` | parity with .NET CLI |
-| K53 | ❌ | Add `-i key=value` (repeatable, scalar inputs) and `-j @path.json | -j '{...}'` JSON inputs to `run` | parity with .NET CLI |
-| K54 | ❌ | Print structured outputs in the same JSON shape as the .NET CLI | parity |
+| K52 | ✅ | Restructure `cli.py` into subcommand group: `validate <yaml>`, `inspect <yaml>`, `run <yaml>` | parity with .NET CLI |
+| K53 | ✅ | Add `-i key=value` (repeatable, scalar inputs) and `-j @path.json | -j '{...}'` JSON inputs to `run` | parity with .NET CLI |
+| K54 | ✅ | Print structured outputs in the same JSON shape as the .NET CLI | parity |
 
 ## L. Test parity gaps
 
@@ -226,10 +239,10 @@
 | L55 | ✅ | Port `McpCallLlmSelectionTests` → `tests/test_mcp_call_llm_selection.py` | `tests/GnOuGo.Flow.Tests/Runtime/McpCallLlmSelectionTests.cs` |
 | L56 | ✅ | Port `WorkflowPlanMcpChatGuidanceTests` → `tests/test_workflow_plan_mcp_guidance.py` | `tests/.../WorkflowPlanMcpChatGuidanceTests.cs` |
 | L57 | ✅ | Port `WorkflowExecuteExecutorTests` → `tests/test_workflow_execute.py` | `tests/.../WorkflowExecuteExecutorTests.cs` |
-| L58 | ❌ | Port `WorkflowInputDefaultsTests` → `tests/test_workflow_input_defaults.py` | `tests/.../WorkflowInputDefaultsTests.cs` |
+| L58 | ✅ | Port `WorkflowInputDefaultsTests` → `tests/test_workflow_input_defaults.py` | `tests/.../WorkflowInputDefaultsTests.cs` |
 | L59 | ✅ | Port `ConfiguredMcpClientFactoryTests` → `tests/test_mcp_factory.py` | `tests/.../ConfiguredMcpClientFactoryTests.cs` |
 | L60 | ✅ | Add `tests/test_json_schema.py` covering `JsonSchemaConverter` parity | `tests/.../JsonSchemaConverterTests.cs` |
-| L61 | ❌ | Add `tests/test_resume.py` covering checkpoint save+resume | new |
+| L61 | ✅ | Add `tests/test_resume.py` covering checkpoint save+resume | new |
 | L62 | ✅ | `tests/test_reasoning_field.py` covering reasoning round-trip + `workflow.plan` default `"high"` | new |
 
 ---
