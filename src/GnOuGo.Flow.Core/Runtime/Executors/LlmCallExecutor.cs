@@ -102,6 +102,18 @@ public sealed class LlmCallExecutor : IStepExecutor
             ctx.SetTelemetryAttribute("gen_ai.request.temperature", request.Temperature);
         }
 
+        // Reasoning / thinking effort: "minimal"|"low"|"medium"|"high"|"max"|"auto".
+        // When omitted, providers fall back to their own defaults ("auto").
+        if (input.TryGetPropertyValue("reasoning", out var reasoningNode) && reasoningNode != null)
+        {
+            var reasoning = reasoningNode.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(reasoning))
+            {
+                request.Reasoning = reasoning;
+                ctx.SetTelemetryAttribute("gen_ai.request.reasoning_effort", reasoning);
+            }
+        }
+
         // Structured output
         var structuredOutput = input["structured_output"] as JsonObject;
         if (structuredOutput != null)

@@ -65,7 +65,42 @@ public sealed class WorkflowExecuteExecutor : IStepExecutor
         };
 
         var result = new RunResult { Success = true };
-        await ctx.Engine.ExecuteStepsAsync(workflow.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, ctx.CallStack, ct, ctx.TelemetrySpan);
+
+        // Start a dedicated "workflow" span so the sub-workflow's step spans appear under
+        // a proper workflow scope — mirroring the standalone WorkflowEngine.ExecuteAsync
+        // path. Without this, the generated sub-workflow's steps become direct children
+        // of the "workflow.execute" step span and the OTel tree collapses visually.
+        var subWorkflowSpan = ctx.Engine.Telemetry.WorkflowStart(new WorkflowTelemetryInfo
+        {
+            WorkflowName = workflow.Name,
+            DocumentName = compiledDoc.Source?.Name,
+            Inputs = args.DeepClone()
+        });
+        var subWorkflowSw = System.Diagnostics.Stopwatch.StartNew();
+        Exception? subWorkflowError = null;
+        try
+        {
+            await ctx.Engine.ExecuteStepsAsync(workflow.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, ctx.CallStack, ct, subWorkflowSpan);
+        }
+        catch (Exception ex)
+        {
+            subWorkflowError = ex;
+            result.Success = false;
+            throw;
+        }
+        finally
+        {
+            subWorkflowSw.Stop();
+            ctx.Engine.Telemetry.WorkflowEnd(subWorkflowSpan, new WorkflowResultInfo
+            {
+                Success = result.Success && subWorkflowError is null,
+                StepsExecuted = result.StepResults.Count,
+                Duration = subWorkflowSw.Elapsed,
+                ErrorCode = subWorkflowError is WorkflowRuntimeException wre ? wre.Code : (subWorkflowError is not null ? "INTERNAL_ERROR" : null),
+                ErrorMessage = subWorkflowError?.Message
+            });
+            subWorkflowSpan.Dispose();
+        }
 
         // Evaluate typed outputs if declared
         JsonNode? outputs;

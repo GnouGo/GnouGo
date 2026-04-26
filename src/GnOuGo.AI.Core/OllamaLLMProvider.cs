@@ -27,7 +27,8 @@ public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         var jsonMode = request.StructuredOutputSchema != null;
 
         byte[] payload = ChatRequestBuilder.OllamaFull(
-            model, request.Prompt, request.Temperature, tools, jsonMode);
+            model, request.Prompt, request.Temperature, tools, jsonMode,
+            request.Reasoning);
 
         using var req = HttpRequestHelper.CreateJsonPost(url, payload);
 

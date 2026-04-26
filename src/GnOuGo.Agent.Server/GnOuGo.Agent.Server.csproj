@@ -23,7 +23,9 @@
     <ProjectReference Include="..\GnOuGo.Agent.Shared\GnOuGo.Agent.Shared.csproj" />
     <ProjectReference Include="..\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.DocsIngestor.Mcp\GnOuGo.DocsIngestor.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.Files.Server\GnOuGo.Files.Server.csproj" />
     <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.KeyVault.Mcp\GnOuGo.KeyVault.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.OtlpCollector.Server\GnOuGo.OtlpCollector.Server.csproj" AdditionalProperties="SkipClientBuild=true" />
@@ -52,6 +54,16 @@
     <Message Importance="high" Text="Building GnOuGo.Agent frontend (Vite)" />
     <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; install --frozen-lockfile" />
     <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; build" />
+  </Target>
+
+  <Target Name="ExcludeEmbeddedFilesServerAppSettingsFromPublish" BeforeTargets="_HandleFileConflictsForPublish">
+    <PropertyGroup>
+      <EmbeddedFilesServerProjectDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Files.Server\'))</EmbeddedFilesServerProjectDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_EmbeddedFilesServerAppSettings Include="$(EmbeddedFilesServerProjectDir)appsettings*.json" />
+      <ResolvedFileToPublish Remove="@(_EmbeddedFilesServerAppSettings)" />
+    </ItemGroup>
   </Target>
 
   <Target Name="PublishBundledServerTools" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">

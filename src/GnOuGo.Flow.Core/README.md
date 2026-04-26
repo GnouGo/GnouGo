@@ -1,5 +1,7 @@
 # GnOuGo.Flow — YAML Workflow DSL Engine
 
+[![NuGet](https://img.shields.io/nuget/v/GnOuGo.Flow.Core?label=NuGet)](https://www.nuget.org/packages/GnOuGo.Flow.Core)
+
 Declarative workflow engine based on a YAML DSL, **NativeAOT**-compatible (.NET 10).
 Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human input, and dynamic code generation — all from a single file.
 
@@ -59,6 +61,18 @@ tests/
 ---
 
 ## Quick Start
+
+Install the .NET package:
+
+```bash
+dotnet add package GnOuGo.Flow.Core
+```
+
+Build a local package for validation:
+
+```bash
+dotnet pack src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj -c Release -o artifacts/packages/nuget /p:PackageVersion=0.1.0-local
+```
 
 ```yaml
 dsl: 1
@@ -184,6 +198,9 @@ Sends a prompt to an LLM and returns the response. Supports structured JSON outp
     provider: openai                                 # Optional (default: auto-routed)
     temperature: 0.7                                 # Optional
     max_tokens: 2048                                 # Optional
+    reasoning: auto                                  # Optional — auto|minimal|low|medium|high|max
+                                                     # Default: omitted (provider decides).
+                                                     # Models without thinking support ignore it.
 ```
 
 **Output:** `{ text: "...", usage: { prompt_tokens, completion_tokens, total_tokens }, meta: { model } }`
@@ -612,6 +629,13 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
       provider: openai              # Optional — LLM provider
       instruction: "Analyze the user's request and build a workflow."
       context: "${json(data.inputs)}"
+
+      # Reasoning effort for the planning LLM call (and the MCP pre-filter).
+      # Defaults to "high" (max) because planning is heavy reasoning work.
+      # Set to "auto" to let the provider decide, or any of:
+      # "minimal" | "low" | "medium" | "high" | "max" | "auto".
+      # Models without thinking support ignore this field.
+      reasoning: high
 
       # MCP pre-filter: uses an LLM to select only relevant MCP servers/tools
       # before injecting them into the planning prompt (reduces prompt size)

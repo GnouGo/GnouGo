@@ -35,3 +35,14 @@ The GnOuGo project is composed of several complementary families:
 Supporting libraries such as **GnOuGo.AI.Core**, **GnOuGo.Auth.Core**, and **GnOuGo.VectorDbDisk** provide shared AI, authentication, and storage foundations across these families.
 
 ---
+
+## 📚 Published Flow Libraries
+
+The Flow DSL engine is available as two user-facing libraries:
+
+| Library | Package | README | Usage |
+|---|---|---|---|
+| **GnOuGo.Flow.Core** (.NET) | [NuGet: `GnOuGo.Flow.Core`](https://www.nuget.org/packages/GnOuGo.Flow.Core) | [`src/GnOuGo.Flow.Core/README.md`](src/GnOuGo.Flow.Core/README.md) | NativeAOT-compatible .NET workflow DSL engine for applications, CLIs, APIs, and agents. |
+| **gnougo-flow-core** (Python) | [PyPI: `gnougo-flow-core`](https://pypi.org/project/gnougo-flow-core/) | [`librairies/python/gnougo-flow-core/README.md`](librairies/python/gnougo-flow-core/README.md) | Python 3.10+ port with the same YAML DSL concepts and the `gnougo-flow` CLI. |
+
+---

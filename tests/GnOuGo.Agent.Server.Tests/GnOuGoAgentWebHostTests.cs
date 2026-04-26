@@ -1,4 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using GnOuGo.Agent.Server.Hosting;
@@ -155,6 +157,56 @@ public sealed class GnOuGoAgentWebHostTests
         }
         finally
         {
+            if (Directory.Exists(tempContentRoot))
+                Directory.Delete(tempContentRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Build_WhenDesktopHostedInDevelopment_LoadsDotnetRunStdIoMcpServersFromDevelopmentConfig()
+    {
+        var contentRoot = GetServerContentRoot();
+        var tempContentRoot = Path.Combine(
+            Path.GetTempPath(),
+            "gnougo-agent-server-desktop-dev-config-tests",
+            Guid.NewGuid().ToString("N"));
+        var previousAspNetCoreEnvironment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        var previousDotnetEnvironment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
+
+        Directory.CreateDirectory(tempContentRoot);
+        File.Copy(
+            Path.Combine(contentRoot, "appsettings.json"),
+            Path.Combine(tempContentRoot, "appsettings.json"));
+        File.Copy(
+            Path.Combine(contentRoot, "appsettings.Development.json"),
+            Path.Combine(tempContentRoot, "appsettings.Development.json"));
+        File.Copy(
+            Path.Combine(contentRoot, "appsettings.Desktop.json"),
+            Path.Combine(tempContentRoot, "appsettings.Desktop.json"));
+
+        try
+        {
+            Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", Environments.Development);
+            Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", Environments.Development);
+
+            var args = TelemetryTestHostArgs.Create();
+
+            using var app = GnOuGoAgentWebHost.Build(
+                args,
+                urls: "http://127.0.0.1:0",
+                contentRoot: tempContentRoot,
+                enableHttpsRedirection: false);
+
+            var llmOptions = app.Services.GetRequiredService<IOptions<LLMOptions>>().Value;
+            AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Browser.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Browser.Mcp", "GnOuGo.Browser.Mcp.csproj")));
+            AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Cmd.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Cmd.Mcp", "GnOuGo.Cmd.Mcp.csproj")));
+            AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Document.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Document.Mcp", "GnOuGo.Document.Mcp.csproj")));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", previousAspNetCoreEnvironment);
+            Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", previousDotnetEnvironment);
+
             if (Directory.Exists(tempContentRoot))
                 Directory.Delete(tempContentRoot, recursive: true);
         }
@@ -576,6 +628,22 @@ public sealed class GnOuGoAgentWebHostTests
         Assert.Equal("stdio", server.Type);
         Assert.Equal(expectedCommand, server.Command);
         Assert.True(server.Args is null or { Count: 0 });
+    }
+
+    private static void AssertDevelopmentDotnetMcpServer(LLMOptions llmOptions, string serverName, string expectedProject)
+    {
+        Assert.True(llmOptions.McpServers.TryGetValue(serverName, out var server));
+        Assert.NotNull(server);
+        Assert.Equal("stdio", server.Type);
+        Assert.Equal("dotnet", Path.GetFileNameWithoutExtension(server.Command));
+        Assert.NotNull(server.Args);
+        Assert.Contains("run", server.Args);
+        var projectArgumentIndex = server.Args.IndexOf("--project");
+        Assert.True(projectArgumentIndex >= 0, $"{serverName} should pass --project to dotnet run.");
+        Assert.True(projectArgumentIndex + 1 < server.Args.Count, $"{serverName} should pass a project path after --project.");
+        Assert.Equal(expectedProject, server.Args[projectArgumentIndex + 1]);
+        Assert.Contains("--no-launch-profile", server.Args);
+        Assert.Contains("quiet", server.Args);
     }
 
     private static async Task<bool> WaitForAsync(Func<Task<bool>> predicate, TimeSpan timeout)

@@ -26,6 +26,7 @@ public sealed class RoutingLLMClientAdapter : ILLMClient
             Temperature = request.Temperature,
             StructuredOutputSchema = request.StructuredOutputSchema,
             StructuredOutputStrict = request.StructuredOutputStrict,
+            Reasoning = request.Reasoning,
         };
 
         // Map tools from GnOuGo.Flow format to GnOuGo.AI.Core format

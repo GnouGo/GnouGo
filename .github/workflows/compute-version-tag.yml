@@ -1,0 +1,112 @@
+﻿name: Compute Version Tag
+
+on:
+  workflow_call:
+    outputs:
+      new_version:
+        description: Generated package version.
+        value: ${{ jobs.tags.outputs.new_version }}
+      tag:
+        description: Release channel tag classification.
+        value: ${{ jobs.tags.outputs.tag }}
+      version_tag:
+        description: Generated Git tag name prefixed with v.
+        value: ${{ jobs.tags.outputs.version_tag }}
+    secrets:
+      GIT_TOKEN:
+        required: false
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  tags:
+    name: Compute Version Tag
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.tag.outputs.new_version }}
+      tag: ${{ steps.tag.outputs.tag }}
+      version_tag: ${{ steps.tag.outputs.version_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Alpha, Beta or Release
+        id: which_tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.ref }}" == refs/pull* ]]; then
+            last_commit_message=$(curl -s "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.number }}/commits" | jq -r '.[-1].commit.message')
+          else
+            last_commit_message=$(git log --format=%B -n 1)
+          fi
+          echo "last commit message is: $last_commit_message"
+
+          echo "tag=default" >> "$GITHUB_OUTPUT"
+          if [[ "$last_commit_message" == *alpha* ]]; then
+            echo "tag=alpha" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ "$last_commit_message" == *beta* ]]; then
+            echo "tag=beta" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ "$last_commit_message" == *release* && "${{ github.ref }}" == 'refs/heads/main' ]]; then
+            echo "tag=release" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump version and push tag
+        id: tag_release
+        if: steps.which_tag.outputs.tag == 'release'
+        uses: mathieudutour/github-tag-action@v6.0
+        with:
+          github_token: ${{ secrets.GIT_TOKEN || github.token }}
+
+      - name: Bump version and compute tag (dry-run)
+        id: tag_version
+        if: steps.which_tag.outputs.tag != 'release'
+        uses: mathieudutour/github-tag-action@v6.0
+        with:
+          github_token: ${{ secrets.GIT_TOKEN || github.token }}
+          dry_run: true
+
+      - name: Compute new version number to publish
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ '${{ steps.which_tag.outputs.tag }}' == 'release' ]]; then
+            version='${{ steps.tag_release.outputs.new_version }}'
+          else
+            version='${{ steps.tag_version.outputs.new_version }}'
+          fi
+
+          if [[ -z "$version" ]]; then
+            echo "Unable to compute next version." >&2
+            exit 1
+          fi
+
+          if [[ '${{ steps.which_tag.outputs.tag }}' == 'release' ]]; then
+            new_version="$version"
+          elif [[ '${{ steps.which_tag.outputs.tag }}' == 'alpha' ]]; then
+            new_version="$version-alpha.${{ github.run_number }}"
+          elif [[ '${{ steps.which_tag.outputs.tag }}' == 'beta' ]]; then
+            new_version="$version-beta.${{ github.run_number }}"
+          elif [[ '${{ github.ref }}' == 'refs/heads/main' ]]; then
+            new_version="$version-dev.${{ github.run_number }}"
+          else
+            new_version="$version-pr.${{ github.event.number }}.${{ github.run_number }}"
+          fi
+
+          tag='${{ steps.which_tag.outputs.tag }}'
+          version_tag="v${new_version}"
+
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version_tag=$version_tag" >> "$GITHUB_OUTPUT"
+

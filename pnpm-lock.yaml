@@ -89,6 +89,34 @@ importers:
         specifier: 7.3.2
         version: 7.3.2(sass@1.99.0)
 
+  src/GnOuGo.Files.Server/ClientApp:
+    dependencies:
+      '@vitejs/plugin-react':
+        specifier: 5.1.0
+        version: 5.1.0(vite@7.3.2(sass@1.99.0))
+      react:
+        specifier: 19.2.5
+        version: 19.2.5
+      react-dom:
+        specifier: 19.2.5
+        version: 19.2.5(react@19.2.5)
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      sass:
+        specifier: 1.99.0
+        version: 1.99.0
+      typescript:
+        specifier: 6.0.2
+        version: 6.0.2
+      vite:
+        specifier: 7.3.2
+        version: 7.3.2(sass@1.99.0)
+
   src/GnOuGo.Flow.Server/ClientApp:
     dependencies:
       '@types/js-yaml':

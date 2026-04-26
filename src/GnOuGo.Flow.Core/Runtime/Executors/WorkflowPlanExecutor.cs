@@ -44,6 +44,12 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         var instruction = generator["instruction"]?.GetValue<string>() ?? "";
         var generatorContext = generator["context"]?.GetValue<string>() ?? "";
 
+        // Reasoning effort: workflow planning is heavy reasoning, default to "high" (max).
+        // Authors can override via `generator.reasoning: auto|minimal|low|medium|high|max`.
+        var planReasoning = generator["reasoning"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(planReasoning))
+            planReasoning = "high";
+
         // Determine allowed step types for filtering DSL snippets
         HashSet<string>? allowedTypes = null;
         var constraintsSb = new StringBuilder();
@@ -97,7 +103,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
 
                 discovered = await PrefilterMcpServersAsync(
                     llmClient, discovered, instruction, generatorContext,
-                    prefilterModel, prefilterProvider, ctx, ct);
+                    prefilterModel, prefilterProvider, planReasoning, ctx, ct);
             }
         }
 
@@ -256,6 +262,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 Provider = provider,
                 Model = model,
                 Prompt = promptText,
+                Reasoning = planReasoning,
             }, ct);
 
             ctx.SetTelemetryAttribute("gen_ai.response.model", model);
@@ -493,6 +500,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         string context,
         string model,
         string? provider,
+        string? planReasoning,
         StepExecutionContext ctx,
         CancellationToken ct)
     {
@@ -588,7 +596,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 Provider = provider,
                 Model = model,
                 Prompt = prefilterPrompt,
-                Temperature = 0.0
+                Temperature = 0.0,
+                Reasoning = planReasoning,
             }, ct);
 
             // ── GenAI: log prefilter completion + usage ──

@@ -1,0 +1,115 @@
+﻿name: Build Agent Desktop Trimmed
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  desktop_aot:
+    name: Desktop Trimmed (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Ensure OTLP proto files
+        shell: pwsh
+        run: |
+          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
+          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Build UI (Vite)
+        working-directory: src/GnOuGo.Agent.Server/ClientApp
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Publish Desktop (self-contained trimmed)
+        shell: pwsh
+        run: |
+          dotnet restore -r ${{ matrix.rid }} /p:SkipClientBuild=true
+          dotnet publish src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj `
+            -c Release `
+            -r ${{ matrix.rid }} `
+            --self-contained true `
+            -o artifacts/publish/desktop/${{ matrix.rid }} `
+            --no-restore `
+            /p:SkipClientBuild=true `
+            /p:PublishTrimmed=true `
+            /p:InvariantGlobalization=true
+
+      - name: Validate bundled desktop tools
+        shell: pwsh
+        run: |
+          $toolExtension = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
+          $requiredTools = @(
+            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp$toolExtension",
+            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp$toolExtension",
+            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp$toolExtension"
+          )
+
+          foreach ($path in $requiredTools) {
+            if (-not (Test-Path $path)) {
+              throw "Missing bundled desktop tool: $path"
+            }
+          }
+
+          $requiredUiAssets = @(
+            "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js"
+          )
+
+          foreach ($path in $requiredUiAssets) {
+            if (-not (Test-Path $path)) {
+              throw "Missing required desktop UI asset: $path"
+            }
+          }
+
+      - name: Zip Desktop output
+        shell: pwsh
+        run: |
+          Get-ChildItem "artifacts/publish/desktop/${{ matrix.rid }}" -Recurse -Filter *.pdb | Remove-Item -Force
+          $zip = "GnOuGo.Agent.Desktop-${{ matrix.rid }}.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path "artifacts/publish/desktop/${{ matrix.rid }}/*" -DestinationPath $zip
+
+      - name: Upload Desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GnOuGo.Agent.Desktop-${{ matrix.rid }}
+          path: GnOuGo.Agent.Desktop-${{ matrix.rid }}.zip
+          if-no-files-found: error
+

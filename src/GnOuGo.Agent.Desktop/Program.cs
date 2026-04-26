@@ -41,6 +41,16 @@ internal static class Program
         Log($"BaseDirectory={AppContext.BaseDirectory}");
         Log($"Args={string.Join(' ', args)}");
 
+#if DEBUG
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")) &&
+            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")))
+        {
+            Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", Environments.Development);
+            Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", Environments.Development);
+            Log("Debug mode: defaulting ASPNETCORE_ENVIRONMENT and DOTNET_ENVIRONMENT to Development");
+        }
+#endif
+
         var desktopToken = Guid.NewGuid().ToString("N");
         var desktopWwwRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
         var useExternalBrowserShell = string.Equals(

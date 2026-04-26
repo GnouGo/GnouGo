@@ -37,7 +37,8 @@ public static class ChatRequestBuilder
         double? temperature = null,
         IReadOnlyList<LLMToolDef>? tools = null,
         JsonNode? structuredOutputSchema = null,
-        bool? structuredOutputStrict = null)
+        bool? structuredOutputStrict = null,
+        string? reasoning = null)
     {
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
@@ -47,6 +48,11 @@ public static class ChatRequestBuilder
 
             if (temperature.HasValue)
                 w.WriteNumber("temperature", temperature.Value);
+
+            // Reasoning effort (OpenAI o-series / gpt-5, GitHub Models, Anthropic via Copilot)
+            var reasoningEffort = NormalizeOpenAiReasoning(reasoning);
+            if (reasoningEffort != null)
+                w.WriteString("reasoning_effort", reasoningEffort);
 
             // Messages: single user message
             w.WriteStartArray("messages");
@@ -130,7 +136,8 @@ public static class ChatRequestBuilder
         string prompt,
         double? temperature = null,
         IReadOnlyList<LLMToolDef>? tools = null,
-        bool jsonMode = false)
+        bool jsonMode = false,
+        string? reasoning = null)
     {
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
@@ -144,6 +151,11 @@ public static class ChatRequestBuilder
 
             if (jsonMode)
                 w.WriteString("format", "json");
+
+            // Thinking toggle for reasoning-capable Ollama models (e.g. deepseek-r1, qwen3).
+            var think = NormalizeOllamaThink(reasoning);
+            if (think.HasValue)
+                w.WriteBoolean("think", think.Value);
 
             // Messages: single user message
             w.WriteStartArray("messages");
@@ -179,6 +191,41 @@ public static class ChatRequestBuilder
             w.WriteEndObject();
         }
         return ms.ToArray();
+    }
+
+    /// <summary>
+    /// Normalizes a generic reasoning level to the OpenAI <c>reasoning_effort</c> enum
+    /// ("minimal" | "low" | "medium" | "high"). Returns <c>null</c> when the field
+    /// must be omitted (auto / unknown / null).
+    /// </summary>
+    internal static string? NormalizeOpenAiReasoning(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "auto" => null,
+            "minimal" or "min" => "minimal",
+            "low" => "low",
+            "medium" or "med" => "medium",
+            "high" or "max" or "maximum" => "high",
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Normalizes a generic reasoning level to the Ollama <c>think</c> boolean.
+    /// Returns <c>null</c> when the field must be omitted (auto / unknown / null).
+    /// </summary>
+    internal static bool? NormalizeOllamaThink(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "auto" => null,
+            "none" or "off" or "false" or "0" => false,
+            "minimal" or "min" or "low" or "medium" or "med" or "high" or "max" or "maximum" or "true" or "1" => true,
+            _ => null
+        };
     }
 
     /// <summary>Writes a messages array with system + user text messages.</summary>

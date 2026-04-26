@@ -25,6 +25,9 @@ internal static class TelemetryTestHostArgs
             $"--Database:Path={Path.Combine(baseDir, "telemetry.db")}",
             $"--Agent:DatabasePath={Path.Combine(baseDir, "agent.db")}",
             $"--KeyVault:DatabasePath={Path.Combine(baseDir, "keyvault.db")}",
+            $"--DocsIngestorMcp:DatabasePath={Path.Combine(baseDir, "docs-ingestor-metadata.db")}",
+            $"--DocsIngestorMcp:VectorDatabasePath={Path.Combine(baseDir, "docs-ingestor-vectors.sqlite")}",
+            $"--DocsIngestorMcp:OriginalsDirectory={Path.Combine(baseDir, "docs-ingestor", "originals")}",
             .. extraArgs
         ];
     }

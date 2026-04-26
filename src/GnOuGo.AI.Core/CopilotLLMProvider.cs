@@ -53,7 +53,8 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 
         byte[] payload = ChatRequestBuilder.OpenAiFull(
             resolvedModel, request.Prompt, request.Temperature, tools,
-            request.StructuredOutputSchema, request.StructuredOutputStrict);
+            request.StructuredOutputSchema, request.StructuredOutputStrict,
+            request.Reasoning);
 
         using var req = HttpRequestHelper.CreateJsonPost(url, payload);
 

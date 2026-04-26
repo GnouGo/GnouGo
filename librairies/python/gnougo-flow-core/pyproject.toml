@@ -1,0 +1,49 @@
+[project]
+name = "gnougo-flow-core"
+version = "0.1.0"
+description = "Python 3.10+ implementation of GnOuGo.Flow.Core"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "GnOuGo" },
+]
+dependencies = [
+  "pydantic>=2.7.0",
+  "PyYAML>=6.0.1",
+]
+
+[project.urls]
+Repository = "https://github.com/GnouGo/GnouGo/"
+Issues = "https://github.com/GnouGo/GnouGo/issues"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+  "pytest-asyncio>=0.23.7",
+  "ruff>=0.6.0",
+]
+
+[project.scripts]
+gnougo-flow = "gnougo_flow_core.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.24.2"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 160
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# runtime.py intentionally acts as the runtime_steps re-export surface. Keep imports that look unused locally.
+"src/gnougo_flow_core/runtime.py" = ["E402", "F401", "I001"]
+# runtime_steps/*.py intentionally re-export the runtime module via `from gnougo_flow_core.runtime import *`
+# to keep executor stubs minimal. Suppress the resulting "may be undefined from star import" noise.
+"src/gnougo_flow_core/runtime_steps/*.py" = ["F405"]
+
