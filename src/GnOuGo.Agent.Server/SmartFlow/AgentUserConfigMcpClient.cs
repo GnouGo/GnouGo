@@ -8,6 +8,7 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 public sealed record AgentUserConfigSnapshot(
     string? DefaultLlmProvider,
     string? DefaultLlmModel,
+    string? DefaultEmbeddingConfig,
     string? DefaultAgent,
     DateTimeOffset? UpdatedAt);
 
@@ -36,8 +37,10 @@ public sealed class AgentUserConfigMcpClient
     public async Task<AgentUserConfigSnapshot?> SetAsync(
         string? defaultLlmProvider = null,
         string? defaultLlmModel = null,
+        string? defaultEmbeddingConfig = null,
         string? defaultAgent = null,
         bool clearDefaultLlm = false,
+        bool clearDefaultEmbedding = false,
         bool clearDefaultAgent = false,
         CancellationToken ct = default)
     {
@@ -46,10 +49,14 @@ public sealed class AgentUserConfigMcpClient
             arguments["defaultLlmProvider"] = defaultLlmProvider;
         if (defaultLlmModel is not null)
             arguments["defaultLlmModel"] = defaultLlmModel;
+        if (defaultEmbeddingConfig is not null)
+            arguments["defaultEmbeddingConfig"] = defaultEmbeddingConfig;
         if (defaultAgent is not null)
             arguments["defaultAgent"] = defaultAgent;
         if (clearDefaultLlm)
             arguments["clearDefaultLlm"] = true;
+        if (clearDefaultEmbedding)
+            arguments["clearDefaultEmbedding"] = true;
         if (clearDefaultAgent)
             arguments["clearDefaultAgent"] = true;
 
@@ -128,12 +135,13 @@ public sealed class AgentUserConfigMcpClient
         return new AgentUserConfigSnapshot(
             DefaultLlmProvider: config["default_llm_provider"]?.GetValue<string>(),
             DefaultLlmModel: config["default_llm_model"]?.GetValue<string>(),
+            DefaultEmbeddingConfig: config["default_embedding_config"]?.GetValue<string>(),
             DefaultAgent: config["default_agent"]?.GetValue<string>(),
             UpdatedAt: DateTimeOffset.TryParse(config["updated_at"]?.GetValue<string>(), out var updatedAt) ? updatedAt : null);
     }
 
     private static AgentUserConfigSnapshot Empty()
-        => new(null, null, null, null);
+        => new(null, null, null, null, null);
 
     private static McpServerOptions CloneServerOptions(McpServerOptions source)
         => new()

@@ -1,12 +1,12 @@
-﻿using DocIngestor.Core.Abstractions;
+using DocIngestor.Core.Abstractions;
 using DocIngestor.Core.Extractors;
 using DocIngestor.Core.Images;
 using DocIngestor.Core.Ocr;
 using DocIngestor.Core.Pipeline;
 using DocIngestor.Core.Stores;
 using DocIngestor.Core.Tokenization;
-using GnOuGo.DocsIngestor.Mcp.Data;
-using GnOuGo.DocsIngestor.Mcp.Services;
+using GnOuGo.DocIngestor.Mcp.Data;
+using GnOuGo.DocIngestor.Mcp.Services;
 using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Core.Services;
 using Microsoft.AspNetCore.Builder;
@@ -17,11 +17,11 @@ using ModelContextProtocol;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Protocol;
 
-namespace GnOuGo.DocsIngestor.Mcp;
+namespace GnOuGo.DocIngestor.Mcp;
 
 public static class DocsIngestorMcpHostingExtensions
 {
-    public const string ServerName = "GnOuGo.DocsIngestor.Mcp";
+    public const string ServerName = "GnOuGo.DocIngestor.Mcp";
     public const string ServerVersion = "1.0.0";
     public const string DefaultRoutePrefix = "/mcp";
 

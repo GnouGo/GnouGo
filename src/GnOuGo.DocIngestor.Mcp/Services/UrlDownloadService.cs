@@ -1,9 +1,9 @@
-﻿using System.Net.Http.Headers;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
-using GnOuGo.DocsIngestor.Mcp.Models;
+using GnOuGo.DocIngestor.Mcp.Models;
 using Microsoft.Extensions.Options;
 
-namespace GnOuGo.DocsIngestor.Mcp.Services;
+namespace GnOuGo.DocIngestor.Mcp.Services;
 
 public sealed class UrlDownloadService
 {

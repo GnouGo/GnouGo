@@ -1,4 +1,4 @@
-﻿namespace GnOuGo.DocsIngestor.Mcp;
+namespace GnOuGo.DocIngestor.Mcp;
 
 public sealed class DocsIngestorMcpOptions
 {
@@ -6,7 +6,7 @@ public sealed class DocsIngestorMcpOptions
     public string VectorDatabasePath { get; set; } = "data/gnougo-docs-ingestor-vectors.sqlite";
     public string OriginalsDirectory { get; set; } = "data/docs-ingestor/originals";
     public string DefaultCollection { get; set; } = "default";
-    public string DefaultEmbeddingConfigName { get; set; } = "hash-384";
+    public string DefaultEmbeddingConfigName { get; set; } = string.Empty;
     public string DefaultTenantId { get; set; } = "default";
     public string DefaultAuthor { get; set; } = "docs-ingestor-mcp";
     public int DownloadTimeoutSeconds { get; set; } = 300;

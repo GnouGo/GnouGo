@@ -32,6 +32,7 @@ public sealed class AgentDbContext : DbContext
             e.Property(config => config.TenantScopeKey).HasMaxLength(64).IsRequired();
             e.Property(config => config.DefaultLlmProvider).HasMaxLength(256);
             e.Property(config => config.DefaultLlmModel).HasMaxLength(256);
+            e.Property(config => config.DefaultEmbeddingConfig).HasMaxLength(256);
             e.Property(config => config.DefaultAgent).HasMaxLength(256);
             e.Ignore(config => config.UpdatedAt);
             e.HasIndex(config => config.TenantId);

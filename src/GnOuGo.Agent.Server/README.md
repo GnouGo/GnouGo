@@ -6,7 +6,7 @@ This solution contains:
 
 ## Architecture
 
-This component is independently testable per `AGENTS.md` rules. It references `GnOuGo.Agent.Mcp`, `GnOuGo.KeyVault.Mcp`, `GnOuGo.DocsIngestor.Mcp`, and `GnOuGo.OtlpCollector.Server` as project dependencies, mounting their services in-process to minimise coupling while exposing everything through a single host.
+This component is independently testable per `AGENTS.md` rules. It references `GnOuGo.Agent.Mcp`, `GnOuGo.KeyVault.Mcp`, `GnOuGo.DocIngestor.Mcp`, and `GnOuGo.OtlpCollector.Server` as project dependencies, mounting their services in-process to minimise coupling while exposing everything through a single host.
 
 ### Runtime topology
 
@@ -22,7 +22,7 @@ flowchart TD
 
 	AgentProxy -. current internal proxy .-> AgentInternal[GnOuGo.Agent.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
 	KeyVaultProxy -. current internal proxy .-> KeyVaultInternal[GnOuGo.KeyVault.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
-	DocsIngestorProxy -. current internal proxy .-> DocsIngestorInternal[GnOuGo.DocsIngestor.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
+	DocsIngestorProxy -. current internal proxy .-> DocsIngestorInternal[GnOuGo.DocIngestor.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
 
 	Main --> OtlpGrpc[Embedded OTLP gRPC\nhttp://127.0.0.1:4317]
 	Main --> OtlpHttp[Embedded OTLP HTTP + tenant/debug APIs\nhttp://127.0.0.1:4318]
@@ -46,7 +46,7 @@ flowchart TD
 
 - `GnOuGo.Agent.Mcp` → `/mcp/agent`
 - `GnOuGo.KeyVault.Mcp` → `/mcp/keyvault`
-- `GnOuGo.DocsIngestor.Mcp` → `/mcp/docs-ingestor`
+- `GnOuGo.DocIngestor.Mcp` → `/mcp/docs-ingestor`
 
 The default placeholders in `appsettings.json` intentionally use port `0`:
     
@@ -62,7 +62,7 @@ The default placeholders in `appsettings.json` intentionally use port `0`:
 		"Type": "http",
 		"Url": "http://127.0.0.1:0/mcp/keyvault"
 	  },
-	  "GnOuGo.DocsIngestor.Mcp": {
+	  "GnOuGo.DocIngestor.Mcp": {
 		"Type": "http",
 		"Url": "http://127.0.0.1:0/mcp/docs-ingestor"
 	  }
@@ -87,7 +87,7 @@ Standalone MCP hosts still expose `/mcp` directly in their own projects:
 
 - `GnOuGo.Agent.Mcp` → `http://127.0.0.1:5198/mcp`
 - `GnOuGo.KeyVault.Mcp` → `http://127.0.0.1:5197/mcp`
-- `GnOuGo.DocsIngestor.Mcp` → `http://127.0.0.1:<port>/mcp`
+- `GnOuGo.DocIngestor.Mcp` → `http://127.0.0.1:<port>/mcp`
 
 ## Bundled stdio MCP tools
 

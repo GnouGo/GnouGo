@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="GnOuGo.DocsIngestor.Mcp.Tests" />
+    <InternalsVisibleTo Include="GnOuGo.DocIngestor.Mcp.Tests" />
   </ItemGroup>
 
   <ItemGroup>

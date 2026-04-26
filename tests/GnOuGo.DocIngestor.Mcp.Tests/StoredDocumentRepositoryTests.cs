@@ -1,7 +1,7 @@
-﻿using GnOuGo.DocsIngestor.Mcp.Data;
-using GnOuGo.DocsIngestor.Mcp.Models;
+using GnOuGo.DocIngestor.Mcp.Data;
+using GnOuGo.DocIngestor.Mcp.Models;
 
-namespace GnOuGo.DocsIngestor.Mcp.Tests;
+namespace GnOuGo.DocIngestor.Mcp.Tests;
 
 public sealed class StoredDocumentRepositoryTests
 {

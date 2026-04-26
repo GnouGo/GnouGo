@@ -1,7 +1,7 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using DocIngestor.Core.Models;
 
-namespace GnOuGo.DocsIngestor.Mcp.Models;
+namespace GnOuGo.DocIngestor.Mcp.Models;
 
 public sealed record DocsIngestorResult(bool Success, object? Data = null, string? Error = null)
 {
@@ -152,6 +152,7 @@ public sealed record EmbeddingConfig(
     string? ApiKeySecretKey,
     int? Dimensions);
 
+[JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
 [JsonSerializable(typeof(EmbeddingConfig))]
 internal partial class DocsIngestorJsonContext : JsonSerializerContext;
 

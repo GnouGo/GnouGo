@@ -1,8 +1,8 @@
-﻿using GnOuGo.KeyVault.Core;
+using GnOuGo.KeyVault.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace GnOuGo.DocsIngestor.Mcp;
+namespace GnOuGo.DocIngestor.Mcp;
 
 public static class DocsIngestorMcpWebHost
 {
@@ -40,9 +40,9 @@ public static class DocsIngestorMcpWebHost
         app.MapDocsIngestorMcp(routePrefix);
 
         var logger = app.Services.GetRequiredService<ILoggerFactory>()
-            .CreateLogger("GnOuGo.DocsIngestor.Mcp.Startup");
+            .CreateLogger("GnOuGo.DocIngestor.Mcp.Startup");
         logger.LogInformation(
-            "GnOuGo.DocsIngestor.Mcp HTTP server configured — baseDirectory={BaseDirectory}, metadataDb={MetadataDbPath}, vectorDb={VectorDbPath}, originals={OriginalsDirectory}, keyVaultDb={KeyVaultDbPath}, routePrefix={RoutePrefix}.",
+            "GnOuGo.DocIngestor.Mcp HTTP server configured � baseDirectory={BaseDirectory}, metadataDb={MetadataDbPath}, vectorDb={VectorDbPath}, originals={OriginalsDirectory}, keyVaultDb={KeyVaultDbPath}, routePrefix={RoutePrefix}.",
             AppContext.BaseDirectory,
             metadataDbPath,
             vectorDbPath,

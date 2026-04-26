@@ -1,10 +1,10 @@
-﻿using DocIngestor.Core.Abstractions;
+using DocIngestor.Core.Abstractions;
 using DocIngestor.Core.Models;
 using DocIngestor.Core.Pipeline;
-using GnOuGo.DocsIngestor.Mcp.Data;
-using GnOuGo.DocsIngestor.Mcp.Models;
+using GnOuGo.DocIngestor.Mcp.Data;
+using GnOuGo.DocIngestor.Mcp.Models;
 
-namespace GnOuGo.DocsIngestor.Mcp.Services;
+namespace GnOuGo.DocIngestor.Mcp.Services;
 
 public sealed class DocsIngestorMcpService
 {
@@ -60,6 +60,15 @@ public sealed class DocsIngestorMcpService
     public async Task<IReadOnlyList<IngestedFileResult>> IngestAsync(FileIngestionRequest request, Guid? keyVaultTenantId, CancellationToken ct = default)
     {
         ValidateUrls(request.FileUrls);
+        var embeddingConfigName = await ResolveEmbeddingConfigForCollectionAsync(
+            request.Collection,
+            request.TenantId,
+            request.EmbeddingConfigName,
+            keyVaultTenantId,
+            request.Author,
+            OperationKind.Ingest,
+            ct);
+        request = request with { EmbeddingConfigName = embeddingConfigName };
         var results = new List<IngestedFileResult>(request.FileUrls.Count);
         var embeddingModel = await _embeddingConfigProvider.ResolveAsync(request.EmbeddingConfigName, keyVaultTenantId, request.Author, ct);
 
@@ -139,6 +148,14 @@ public sealed class DocsIngestorMcpService
         if (string.IsNullOrWhiteSpace(query))
             throw new ArgumentException("Search query is required.", nameof(query));
 
+        embeddingConfigName = await ResolveEmbeddingConfigForCollectionAsync(
+            collection,
+            tenantId: null,
+            embeddingConfigName,
+            keyVaultTenantId,
+            author,
+            OperationKind.Search,
+            ct);
         var model = await _embeddingConfigProvider.ResolveAsync(embeddingConfigName, keyVaultTenantId, author, ct);
         var queryVector = await model.EmbedAsync(query, ct);
         var results = await _searchStore.SearchAsync(collection, queryVector, Math.Max(1, topK), ct);
@@ -186,6 +203,51 @@ public sealed class DocsIngestorMcpService
         await _storeAdmin.DeleteByDocumentAsync(record.Collection, record.Id, ct);
         await _originalStore.DeleteAsync(record.OriginalPath, ct);
         await _repository.DeleteAsync(record.Id, ct);
+    }
+
+    private async Task<string> ResolveEmbeddingConfigForCollectionAsync(
+        string collection,
+        string? tenantId,
+        string? requestedEmbeddingConfigName,
+        Guid? keyVaultTenantId,
+        string author,
+        OperationKind operation,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(collection))
+            throw new ArgumentException("Collection is required.", nameof(collection));
+
+        var existingConfigs = await _repository.ListEmbeddingConfigNamesAsync(tenantId, collection, ct);
+        if (existingConfigs.Count > 1)
+        {
+            throw new InvalidOperationException(
+                $"Collection '{collection}' already contains documents indexed with multiple embedding configs: {string.Join(", ", existingConfigs.Select(c => $"'{c}'"))}. " +
+                "This collection must be cleaned/reindexed before it can be queried safely.");
+        }
+
+        var requested = string.IsNullOrWhiteSpace(requestedEmbeddingConfigName)
+            ? null
+            : requestedEmbeddingConfigName.Trim();
+
+        if (existingConfigs.Count == 1)
+        {
+            var required = existingConfigs[0];
+            if (string.IsNullOrWhiteSpace(requested))
+                return required;
+
+            var resolvedRequested = await _embeddingConfigProvider.ResolveConfigNameAsync(requested, keyVaultTenantId, author, ct);
+            if (!string.Equals(required, resolvedRequested, StringComparison.OrdinalIgnoreCase))
+            {
+                var verb = operation == OperationKind.Search ? "query" : "add documents to";
+                throw new InvalidOperationException(
+                    $"Cannot {verb} collection '{collection}' with embedding config '{resolvedRequested}' because it already uses embedding config '{required}'. " +
+                    $"Use embeddingConfigName='{required}' for this collection, or delete/reindex the collection if you want to switch embedding models.");
+            }
+
+            return required;
+        }
+
+        return await _embeddingConfigProvider.ResolveConfigNameAsync(requested ?? string.Empty, keyVaultTenantId, author, ct);
     }
 
     private async Task<(ExtractedDocument Doc, IReadOnlyList<TextChunk> Chunks)> ExtractChunksAsync(
@@ -241,6 +303,12 @@ public sealed class DocsIngestorMcpService
     {
         if (urls.Count == 0)
             throw new ArgumentException("At least one file URL is required.");
+    }
+
+    private enum OperationKind
+    {
+        Ingest,
+        Search
     }
 
     private sealed record ChunkingRequest(

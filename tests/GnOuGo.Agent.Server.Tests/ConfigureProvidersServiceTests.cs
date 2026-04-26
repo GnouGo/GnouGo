@@ -140,6 +140,21 @@ public sealed class ConfigureProvidersServiceTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_EmbeddingHelp_ReturnsDeterministicMarkdownWithoutCallingLlm()
+    {
+        var llm = new RecordingLlmClient();
+        var service = SmartFlowTestFactory.CreateProvidersService(llm);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/embedding", CancellationToken.None));
+
+        var answer = Assert.Single(events);
+        Assert.Equal("answer", answer.Type);
+        Assert.Contains("# 🧬 Embedding Model Commands", answer.Text);
+        Assert.Contains("`/embedding add`", answer.Text);
+        Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_McpUnknownCommand_ReturnsHelpWithoutCallingLlm()
     {
         var llm = new RecordingLlmClient();
@@ -375,6 +390,30 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Contains("# 🔌 Configured MCP Servers", answer.Text);
         Assert.Contains("| github | `LLM--McpServers--github` | 4 |", answer.Text);
         Assert.Contains("| slack | `LLM--McpServers--slack` | 2 |", answer.Text);
+        Assert.DoesNotContain("LLM--Models--openai", answer.Text, StringComparison.Ordinal);
+        Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_EmbeddingList_ReturnsDeterministicMarkdownWithoutCallingLlm()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret("LLM--Embeddings--openai-small", "{\"provider\":\"openai\",\"name\":\"openai-small\",\"model\":\"text-embedding-3-small\",\"endpointUrl\":\"https://api.openai.com/v1\",\"dimensions\":1536}", 2, "2026-04-01T12:15:00+00:00")
+            .AddSecret("LLM--Models--openai", "{}", 1, "2026-03-26T17:16:58.7030088+00:00");
+
+        var service = SmartFlowTestFactory.CreateProvidersService(
+            llm,
+            keyVaultStore: keyVaultStore);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/embedding list", CancellationToken.None));
+
+        var answer = Assert.Single(events);
+        Assert.Equal("answer", answer.Type);
+        Assert.NotNull(answer.Text);
+        Assert.Contains("# 🧬 Configured Embedding Models", answer.Text);
+        Assert.Contains("| openai-small |", answer.Text);
+        Assert.Contains("`LLM--Embeddings--openai-small`", answer.Text);
         Assert.DoesNotContain("LLM--Models--openai", answer.Text, StringComparison.Ordinal);
         Assert.Equal(0, llm.CallCount);
     }

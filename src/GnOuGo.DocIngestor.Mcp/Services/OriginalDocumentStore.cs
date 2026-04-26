@@ -1,4 +1,4 @@
-﻿namespace GnOuGo.DocsIngestor.Mcp.Services;
+namespace GnOuGo.DocIngestor.Mcp.Services;
 
 public sealed class OriginalDocumentStore
 {

@@ -23,7 +23,7 @@
     <ProjectReference Include="..\GnOuGo.Agent.Shared\GnOuGo.Agent.Shared.csproj" />
     <ProjectReference Include="..\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
-    <ProjectReference Include="..\GnOuGo.DocsIngestor.Mcp\GnOuGo.DocsIngestor.Mcp.csproj" />
+    <ProjectReference Include="..\GnOuGo.DocIngestor.Mcp\GnOuGo.DocIngestor.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Files.Server\GnOuGo.Files.Server.csproj" />
     <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />

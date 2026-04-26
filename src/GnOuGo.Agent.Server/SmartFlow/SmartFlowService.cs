@@ -50,7 +50,7 @@ public sealed class SmartFlowService
     private readonly string _workflowYaml;
 
     /// <summary>Slash commands that route to the configure-providers workflow.</summary>
-    private static readonly string[] ProviderCommands = { "/llm", "/mcp", "/status" };
+    private static readonly string[] ProviderCommands = { "/llm", "/embedding", "/mcp", "/status" };
 
     [ActivatorUtilitiesConstructor]
     public SmartFlowService(
@@ -453,6 +453,7 @@ public sealed class SmartFlowService
         => new(
             snapshot.DefaultLlmProvider,
             snapshot.DefaultLlmModel,
+            snapshot.DefaultEmbeddingConfig,
             snapshot.DefaultAgent,
             snapshot.UpdatedAt);
 

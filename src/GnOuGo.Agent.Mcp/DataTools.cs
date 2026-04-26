@@ -78,7 +78,7 @@ public sealed class DataTools
 
     [McpServerTool(Name = "user_config_get"), Description(
         "Retrieve persisted user defaults for the local agent experience. " +
-        "Returns { success, config: { default_llm_provider?, default_llm_model?, default_agent?, updated_at? } }.")]
+        "Returns { success, config: { default_llm_provider?, default_llm_model?, default_embedding_config?, default_agent?, updated_at? } }.")]
     public async Task<JsonObject> UserConfigGet()
     {
         try
@@ -94,18 +94,22 @@ public sealed class DataTools
 
     [McpServerTool(Name = "user_config_set"), Description(
         "Persist user defaults in the Agent MCP database. All arguments are optional. " +
-        "Provide default_llm_provider/default_llm_model and/or default_agent to update values. " +
-        "Use clear_default_llm or clear_default_agent to remove persisted defaults. " +
-        "Returns { success, config: { default_llm_provider?, default_llm_model?, default_agent?, updated_at? } }.")]
+        "Provide default_llm_provider/default_llm_model, default_embedding_config and/or default_agent to update values. " +
+        "Use clear_default_llm, clear_default_embedding or clear_default_agent to remove persisted defaults. " +
+        "Returns { success, config: { default_llm_provider?, default_llm_model?, default_embedding_config?, default_agent?, updated_at? } }.")]
     public async Task<JsonObject> UserConfigSet(
         [Description("Default LLM provider name to persist.")]
         string? defaultLlmProvider = null,
         [Description("Default LLM model name to persist.")]
         string? defaultLlmModel = null,
+        [Description("Default embedding configuration name to persist.")]
+        string? defaultEmbeddingConfig = null,
         [Description("Default agent name to persist.")]
         string? defaultAgent = null,
         [Description("When true, clears both default_llm_provider and default_llm_model.")]
         bool clearDefaultLlm = false,
+        [Description("When true, clears default_embedding_config.")]
+        bool clearDefaultEmbedding = false,
         [Description("When true, clears default_agent.")]
         bool clearDefaultAgent = false)
     {
@@ -114,8 +118,10 @@ public sealed class DataTools
             var snapshot = await _userConfigs.SetAsync(new UserConfigUpdate(
                 DefaultLlmProvider: defaultLlmProvider,
                 DefaultLlmModel: defaultLlmModel,
+                DefaultEmbeddingConfig: defaultEmbeddingConfig,
                 DefaultAgent: defaultAgent,
                 ClearDefaultLlm: clearDefaultLlm,
+                ClearDefaultEmbedding: clearDefaultEmbedding,
                 ClearDefaultAgent: clearDefaultAgent));
 
             return SerializeUserConfig(snapshot);
@@ -216,6 +222,7 @@ public sealed class DataTools
             {
                 ["default_llm_provider"] = snapshot.DefaultLlmProvider,
                 ["default_llm_model"] = snapshot.DefaultLlmModel,
+                ["default_embedding_config"] = snapshot.DefaultEmbeddingConfig,
                 ["default_agent"] = snapshot.DefaultAgent,
                 ["updated_at"] = snapshot.UpdatedAt?.ToString("o")
             }

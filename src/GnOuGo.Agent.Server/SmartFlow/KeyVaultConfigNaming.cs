@@ -5,7 +5,9 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 internal enum KeyVaultConfigSecretKind
 {
     LlmProvider,
-    McpServer
+    McpServer,
+    EmbeddingConfig,
+    EmbeddingDefault
 }
 
 internal static class KeyVaultConfigNaming
@@ -13,9 +15,13 @@ internal static class KeyVaultConfigNaming
     private const string KeyVaultSectionSeparator = "--";
     private const string LegacyLlmPrefix = "gnougo_llm_";
     private const string LegacyMcpPrefix = "gnougo_mcp_";
+    private const string LegacyEmbeddingPrefix = "gnougo_embedding_";
+    private const string LegacyEmbeddingDefaultPrefix = "gnougo_embedding_default_";
 
     private static readonly string LlmPrefix = $"{LLMOptions.SectionName}{KeyVaultSectionSeparator}Models{KeyVaultSectionSeparator}";
     private static readonly string McpPrefix = $"{LLMOptions.SectionName}{KeyVaultSectionSeparator}McpServers{KeyVaultSectionSeparator}";
+    private static readonly string EmbeddingPrefix = $"{LLMOptions.SectionName}{KeyVaultSectionSeparator}Embeddings{KeyVaultSectionSeparator}";
+    private static readonly string EmbeddingDefaultPrefix = $"{LLMOptions.SectionName}{KeyVaultSectionSeparator}EmbeddingDefaults{KeyVaultSectionSeparator}";
 
     public static string BuildSecretKey(KeyVaultConfigSecretKind kind, string logicalName)
         => GetPrefix(kind) + logicalName;
@@ -25,6 +31,8 @@ internal static class KeyVaultConfigNaming
         {
             KeyVaultConfigSecretKind.LlmProvider => $"{LLMOptions.SectionName}{KeyVaultSectionSeparator}Models{KeyVaultSectionSeparator}(name)",
             KeyVaultConfigSecretKind.McpServer => $"{LLMOptions.SectionName}{KeyVaultSectionSeparator}McpServers{KeyVaultSectionSeparator}(name)",
+            KeyVaultConfigSecretKind.EmbeddingConfig => $"{LLMOptions.SectionName}{KeyVaultSectionSeparator}Embeddings{KeyVaultSectionSeparator}(name)",
+            KeyVaultConfigSecretKind.EmbeddingDefault => $"{LLMOptions.SectionName}{KeyVaultSectionSeparator}EmbeddingDefaults{KeyVaultSectionSeparator}(name)",
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
         };
 
@@ -109,6 +117,8 @@ internal static class KeyVaultConfigNaming
         {
             KeyVaultConfigSecretKind.LlmProvider => LlmPrefix,
             KeyVaultConfigSecretKind.McpServer => McpPrefix,
+            KeyVaultConfigSecretKind.EmbeddingConfig => EmbeddingPrefix,
+            KeyVaultConfigSecretKind.EmbeddingDefault => EmbeddingDefaultPrefix,
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
         };
 
@@ -117,6 +127,8 @@ internal static class KeyVaultConfigNaming
         {
             KeyVaultConfigSecretKind.LlmProvider => LegacyLlmPrefix,
             KeyVaultConfigSecretKind.McpServer => LegacyMcpPrefix,
+            KeyVaultConfigSecretKind.EmbeddingConfig => LegacyEmbeddingPrefix,
+            KeyVaultConfigSecretKind.EmbeddingDefault => LegacyEmbeddingDefaultPrefix,
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
         };
 }

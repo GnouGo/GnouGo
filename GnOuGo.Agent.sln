@@ -95,9 +95,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.Files.Server", "src\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.Files.Server.Tests", "tests\GnOuGo.Files.Server.Tests\GnOuGo.Files.Server.Tests.csproj", "{191422F5-5974-4A4A-92B7-E5A60CE6E5E4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.DocsIngestor.Mcp", "src\GnOuGo.DocsIngestor.Mcp\GnOuGo.DocsIngestor.Mcp.csproj", "{60E5BA84-F61A-4BAD-9D9D-4AE7BDF894DE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.DocIngestor.Mcp", "src\GnOuGo.DocIngestor.Mcp\GnOuGo.DocIngestor.Mcp.csproj", "{60E5BA84-F61A-4BAD-9D9D-4AE7BDF894DE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.DocsIngestor.Mcp.Tests", "tests\GnOuGo.DocsIngestor.Mcp.Tests\GnOuGo.DocsIngestor.Mcp.Tests.csproj", "{2729E76D-2E97-4DC9-BA0E-24D048AFFA2E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.DocIngestor.Mcp.Tests", "tests\GnOuGo.DocIngestor.Mcp.Tests\GnOuGo.DocIngestor.Mcp.Tests.csproj", "{2729E76D-2E97-4DC9-BA0E-24D048AFFA2E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

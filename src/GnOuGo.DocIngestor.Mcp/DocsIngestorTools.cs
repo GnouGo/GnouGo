@@ -1,11 +1,11 @@
-﻿using System.ComponentModel;
-using GnOuGo.DocsIngestor.Mcp.Models;
-using GnOuGo.DocsIngestor.Mcp.Services;
+using System.ComponentModel;
+using GnOuGo.DocIngestor.Mcp.Models;
+using GnOuGo.DocIngestor.Mcp.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Server;
 
-namespace GnOuGo.DocsIngestor.Mcp;
+namespace GnOuGo.DocIngestor.Mcp;
 
 [McpServerToolType]
 public sealed class DocsIngestorTools
@@ -69,7 +69,7 @@ public sealed class DocsIngestorTools
                 vectorization.FileUrls,
                 vectorization.TenantId,
                 string.IsNullOrWhiteSpace(collection) ? _options.DefaultCollection : collection!,
-                string.IsNullOrWhiteSpace(embeddingConfigName) ? _options.DefaultEmbeddingConfigName : embeddingConfigName!,
+                string.IsNullOrWhiteSpace(embeddingConfigName) ? _options.DefaultEmbeddingConfigName : embeddingConfigName!.Trim(),
                 vectorization.ChunkingMode,
                 vectorization.MinTokens,
                 vectorization.TargetTokens,
@@ -123,7 +123,7 @@ public sealed class DocsIngestorTools
             var hits = await _service.SearchAsync(
                 query,
                 string.IsNullOrWhiteSpace(collection) ? _options.DefaultCollection : collection!,
-                string.IsNullOrWhiteSpace(embeddingConfigName) ? _options.DefaultEmbeddingConfigName : embeddingConfigName!,
+                string.IsNullOrWhiteSpace(embeddingConfigName) ? _options.DefaultEmbeddingConfigName : embeddingConfigName!.Trim(),
                 keyVaultTenantId,
                 string.IsNullOrWhiteSpace(author) ? _options.DefaultAuthor : author!,
                 topK,

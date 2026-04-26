@@ -1,23 +1,23 @@
-﻿# GnOuGo.DocsIngestor.Mcp
+# GnOuGo.DocIngestor.Mcp
 
 HTTP MCP server for document ingestion. It downloads internal file URLs, extracts text/chunks with `GnOuGo.DocIngestor.Core`, optionally resolves an embedding configuration from `GnOuGo.KeyVault.Core`, stores original files, ingests chunks into the SQLite vector store, and exposes list/search/download/delete operations.
 
 ## Build
 
 ```powershell
-dotnet build src/GnOuGo.DocsIngestor.Mcp/GnOuGo.DocsIngestor.Mcp.csproj
+dotnet build src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj
 ```
 
 ## Test
 
 ```powershell
-dotnet test tests/GnOuGo.DocsIngestor.Mcp.Tests/GnOuGo.DocsIngestor.Mcp.Tests.csproj
+dotnet test tests/GnOuGo.DocIngestor.Mcp.Tests/GnOuGo.DocIngestor.Mcp.Tests.csproj
 ```
 
 ## Run
 
 ```powershell
-dotnet run --project src/GnOuGo.DocsIngestor.Mcp/GnOuGo.DocsIngestor.Mcp.csproj --urls http://localhost:5088
+dotnet run --project src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj --urls http://localhost:5088
 ```
 
 Health check:
