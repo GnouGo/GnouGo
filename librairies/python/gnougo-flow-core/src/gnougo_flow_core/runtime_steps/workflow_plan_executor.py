@@ -33,6 +33,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         (ErrorCodes.INPUT_VALIDATION, False, "workflow.plan input/generator is malformed."),
         (ErrorCodes.TEMPLATE_PLAN, False, "planning LLM output could not be validated."),
         (ErrorCodes.TEMPLATE_POLICY, False, "planned workflow violates policy/limits."),
+        (ErrorCodes.WORKFLOW_FETCH_POLICY, False, "planned workflow uses a remote workflow reference forbidden by policy."),
     ]
 
     async def execute_async(self, ctx: StepExecutionContext) -> Any:
@@ -102,22 +103,31 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     "meta": {"model": model, "attempt": attempt},
                     "diagnostics": [],
                 }
+            except WorkflowRuntimeException as exc:
+                if on_invalid_action != "reprompt" or attempt >= max_attempts:
+                    raise
+                last_error = exc
+                prompt = self._build_reprompt(base_prompt, exc)
             except Exception as exc:
                 last_error = exc
                 if on_invalid_action != "reprompt" or attempt >= max_attempts:
                     break
-                prompt = (
-                    f"{base_prompt}\n\n"
-                    "The previous output was invalid. Fix it and return only valid YAML.\n"
-                    f"Validation error: {exc}\n"
-                    "[PREVIOUS ERROR]\n"
-                    f"{exc}\n"
-                    "Fix the issues above and generate a corrected YAML."
-                )
+                prompt = self._build_reprompt(base_prompt, exc)
 
         raise WorkflowRuntimeException(
             ErrorCodes.TEMPLATE_PLAN,
             f"Failed to generate valid workflow after {max_attempts} attempts: {last_error or 'unknown error'}",
+        )
+
+    @staticmethod
+    def _build_reprompt(base_prompt: str, exc: Exception) -> str:
+        return (
+            f"{base_prompt}\n\n"
+            "The previous output was invalid. Fix it and return only valid YAML.\n"
+            f"Validation error: {exc}\n"
+            "[PREVIOUS ERROR]\n"
+            f"{exc}\n"
+            "Fix the issues above and generate a corrected YAML."
         )
 
     async def _build_planning_prompt(
@@ -413,7 +423,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 ref = step.input.get("ref")
                 if isinstance(ref, dict) and str(ref.get("kind", "local")) == "url":
                     raise WorkflowRuntimeException(
-                        ErrorCodes.TEMPLATE_POLICY,
+                        ErrorCodes.WORKFLOW_FETCH_POLICY,
                         "Remote workflow references are forbidden by policy (allow_remote_workflow_refs=false)",
                     )
 

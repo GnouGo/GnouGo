@@ -123,8 +123,185 @@ async def test_workflow_plan_policy_blocks_remote_refs() -> None:
 
     assert result.success is False
     assert result.error is not None
-    assert result.error.code == "TEMPLATE_PLAN"
+    assert result.error.code == "WORKFLOW_FETCH_POLICY"
     assert "allow_remote_workflow_refs" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_policy_enforces_denied_types_on_nested_steps() -> None:
+    source = """
+    dsl: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build something"
+              policy:
+                allowed_step_types: [sequence, workflow.plan]
+                denied_step_types: [workflow.plan]
+              validate:
+                compile: false
+    """
+    generated_yaml = """
+    dsl: 1
+    workflows:
+      generated:
+        steps:
+          - id: wrapper
+            type: sequence
+            steps:
+              - id: nested_plan
+                type: workflow.plan
+                input:
+                  generator:
+                    instruction: nested
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    compiled = WorkflowCompiler().compile(WorkflowParser.parse(source))
+    result = await engine.execute_async(compiled.workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_POLICY"
+    assert "workflow.plan" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_policy_enforces_allowed_types_on_nested_steps() -> None:
+    source = """
+    dsl: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build something"
+              policy:
+                allowed_step_types: [sequence]
+              validate:
+                compile: false
+    """
+    generated_yaml = """
+    dsl: 1
+    workflows:
+      generated:
+        steps:
+          - id: wrapper
+            type: sequence
+            steps:
+              - id: nested_set
+                type: set
+                input:
+                  text: ok
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    compiled = WorkflowCompiler().compile(WorkflowParser.parse(source))
+    result = await engine.execute_async(compiled.workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_POLICY"
+    assert "set" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_policy_blocks_nested_remote_refs() -> None:
+    source = """
+    dsl: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build something"
+              policy:
+                allow_remote_workflow_refs: false
+              validate:
+                compile: false
+    """
+    generated_yaml = """
+    dsl: 1
+    workflows:
+      generated:
+        steps:
+          - id: wrapper
+            type: sequence
+            steps:
+              - id: call_remote
+                type: workflow.call
+                input:
+                  ref:
+                    kind: url
+                    url: https://example.com/wf.yaml
+                  args: {}
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    compiled = WorkflowCompiler().compile(WorkflowParser.parse(source))
+    result = await engine.execute_async(compiled.workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "WORKFLOW_FETCH_POLICY"
+    assert "allow_remote_workflow_refs" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_limits_count_nested_steps() -> None:
+    source = """
+    dsl: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build something"
+              limits:
+                max_steps_total: 1
+              validate:
+                compile: false
+    """
+    generated_yaml = """
+    dsl: 1
+    workflows:
+      generated:
+        steps:
+          - id: wrapper
+            type: sequence
+            steps:
+              - id: nested_set
+                type: set
+                input:
+                  text: ok
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    compiled = WorkflowCompiler().compile(WorkflowParser.parse(source))
+    result = await engine.execute_async(compiled.workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_POLICY"
+    assert "max_steps_total" in result.error.message
 
 
 @pytest.mark.asyncio
