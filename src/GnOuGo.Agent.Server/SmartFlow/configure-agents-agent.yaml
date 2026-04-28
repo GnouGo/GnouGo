@@ -281,7 +281,8 @@ workflows:
               message: "⚙️ Generating workflow YAML from your description using ${data.inputs.agent_llm_provider}/${data.inputs.agent_llm_model}…"
               level: thinking
 
-          # Step 3: Generate workflow YAML from the description
+
+          # Step 3: Generate and validate workflow YAML from the description
           - id: discover_mcp
             type: mcp.list
             input:
@@ -292,36 +293,66 @@ workflows:
                 - prompts
 
           - id: generate_workflow
-            type: llm.call
+            type: workflow.plan
             input:
-              temperature: 0.7
-              prompt: >
-                You are a GnOuGo.Flow workflow YAML expert. Generate a valid workflow YAML
-                for an agent based on the user's description below.
+              generator:
+                prefilter: false
+                reasoning: high
+                instruction: >
+                  Generate a valid GnOuGo.Flow YAML workflow for a persisted chat agent.
 
-                Agent name: ${data.steps.normalized_name.agent_name}
-                Description: ${data.steps.input_prompt.description}
+                  Agent name: ${data.steps.normalized_name.agent_name}
+                  Agent description: ${data.steps.input_prompt.description}
 
-                Available MCP capabilities:
-                ${data.steps.discover_mcp.text}
+                  Available MCP capabilities discovered by the Agent server:
+                  ${data.steps.discover_mcp.text}
 
-                Rules:
-                - Use workflow version 1
-                - The workflow must be named "${data.steps.normalized_name.agent_name}"
-                - The main workflow MUST declare a required string input named "task"
-                - The workflow must use data.inputs.task as the main user request text
-                - Include an "answer" output with the final result
-                - Use available MCP tools when applicable
-                - For llm.call steps prefer omitting provider/model so runtime defaults are used automatically; if you must specify them, use provider "${data.inputs.agent_llm_provider}" and model "${data.inputs.agent_llm_model}" with temperature 0.7
-                - Keep the workflow concise (under 15 steps)
-                - Add the original prompt as a comment at the top
-
-                Return ONLY the YAML, no markdown code fences, no explanation.
+                  Requirements:
+                  - Use workflow version 1.
+                  - The root workflow document name must be "${data.steps.normalized_name.agent_name}".
+                  - The main workflow MUST declare a required string input named "task".
+                  - The workflow must use data.inputs.task as the main user request text.
+                  - Include an "answer" output with the final result as a string.
+                  - Use available MCP tools when applicable, especially Browser/Document/Cmd tools for web and file tasks.
+                  - For llm.call steps, omit provider/model so runtime defaults are used automatically; set temperature 0.7 unless a lower temperature is needed for deterministic formatting.
+                  - Keep the workflow concise and under 15 total steps.
+                  - Add the original agent description as a YAML comment at the top.
+                  - Return only a complete workflow YAML document.
+                context: >
+                  This YAML will be stored by GnOuGo.Agent.Mcp and later executed by GnOuGo.Agent.Server for each user chat message.
+                  The stored agent workflow must be self-contained and should not ask the user to review its own YAML.
+                  Prefer direct mcp.call steps with exact server/tool names when the tool names are listed above.
+              policy:
+                allowed_step_types:
+                  - emit
+                  - set
+                  - template.render
+                  - llm.call
+                  - mcp.list
+                  - mcp.call
+                  - sequence
+                  - parallel
+                  - loop.sequential
+                  - loop.parallel
+                  - switch
+                  - human.input
+                denied_step_types:
+                  - workflow.plan
+                  - workflow.execute
+                  - workflow.call
+                allow_remote_workflow_refs: false
+              limits:
+                max_steps_total: 15
+              validate:
+                compile: true
+              on_invalid:
+                action: reprompt
+                max_attempts: 3
 
           - id: emit_workflow
             type: emit
             input:
-              message: "📝 Generated workflow:\n\n```yaml\n${data.steps.generate_workflow.text}\n```"
+              message: "📝 Generated workflow:\n\n```yaml\n${data.steps.generate_workflow.yaml}\n```"
               level: thinking
 
           # Step 4: Review workflow
@@ -329,7 +360,7 @@ workflows:
             type: human.input
             input:
               prompt: "Review the generated workflow. You can approve it or modify it by pasting corrected YAML."
-              context: "${data.steps.generate_workflow.text}"
+              context: "${data.steps.generate_workflow.yaml}"
               choices:
                 - approve
                 - modify
@@ -349,7 +380,7 @@ workflows:
                           type: string
                           required: true
                           description: "Modified workflow YAML"
-                          default: "${data.steps.generate_workflow.text}"
+                          default: "${data.steps.generate_workflow.yaml}"
                       timeout_ms: 600000
                   - id: final_workflow_modified
                     type: set
@@ -360,12 +391,12 @@ workflows:
               - id: final_workflow_approved
                 type: set
                 input:
-                  workflow: "${data.steps.generate_workflow.text}"
+                  workflow: "${data.steps.generate_workflow.yaml}"
 
           - id: final_workflow
             type: set
             input:
-              workflow: "${data.steps.final_workflow_modified?.workflow ?? data.steps.final_workflow_approved?.workflow ?? data.steps.generate_workflow.text}"
+              workflow: "${data.steps.final_workflow_modified?.workflow ?? data.steps.final_workflow_approved?.workflow ?? data.steps.generate_workflow.yaml}"
 
           # Step 5: Schedules
           - id: want_schedules

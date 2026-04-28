@@ -258,6 +258,56 @@ workflows:
         Assert.Contains("Allowed step types:", capturedPrompt);
     }
 
+
+    [Fact]
+    public async Task WorkflowPlan_EnforcesPolicyOnNestedSteps()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       dsl: 1
+                       workflows:
+                         main:
+                           steps:
+                             - id: wrapper
+                               type: sequence
+                               steps:
+                                 - id: nested_plan
+                                   type: workflow.plan
+                                   input:
+                                     generator:
+                                       instruction: nested
+                       """
+            });
+
+        var wf = CompileMain(@"
+dsl: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            instruction: Build something
+          policy:
+            allowed_step_types: [sequence]
+            denied_step_types: [workflow.plan]
+          validate:
+            compile: false
+");
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ErrorCodes.TemplatePolicy, result.Error!.Code);
+        Assert.Contains("workflow.plan", result.Error.Message);
+    }
+
     [Fact]
     public async Task WorkflowPlan_Reprompt_InjectsPreviousError()
     {

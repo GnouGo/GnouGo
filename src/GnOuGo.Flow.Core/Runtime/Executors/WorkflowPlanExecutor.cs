@@ -894,33 +894,27 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         var allowedSet = allowed?.Select(a => a?.GetValue<string>() ?? "").ToHashSet();
         var deniedSet = denied?.Select(a => a?.GetValue<string>() ?? "").ToHashSet();
 
-        foreach (var wf in doc.Workflows.Values)
+        foreach (var step in doc.Workflows.Values.SelectMany(wf => EnumerateSteps(wf.Steps)))
         {
-            foreach (var step in wf.Steps)
-            {
-                if (allowedSet != null && !allowedSet.Contains(step.Type))
-                    throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy,
-                        $"Step type '{step.Type}' not allowed by policy");
-                if (deniedSet != null && deniedSet.Contains(step.Type))
-                    throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy,
-                        $"Step type '{step.Type}' denied by policy");
-            }
+            if (allowedSet != null && !allowedSet.Contains(step.Type))
+                throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy,
+                    $"Step type '{step.Type}' not allowed by policy");
+            if (deniedSet != null && deniedSet.Contains(step.Type))
+                throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy,
+                    $"Step type '{step.Type}' denied by policy");
         }
 
         var allowRemote = policy["allow_remote_workflow_refs"]?.GetValue<bool>() ?? false;
         if (!allowRemote)
         {
-            foreach (var wf in doc.Workflows.Values)
+            foreach (var step in doc.Workflows.Values.SelectMany(wf => EnumerateSteps(wf.Steps)))
             {
-                foreach (var step in wf.Steps)
+                if (step.Type == "workflow.call" && step.Input is JsonObject inputObj)
                 {
-                    if (step.Type == "workflow.call" && step.Input is JsonObject inputObj)
-                    {
-                        var refObj = inputObj["ref"] as JsonObject;
-                        if (refObj?["kind"]?.GetValue<string>() == "url")
-                            throw new WorkflowRuntimeException(ErrorCodes.WorkflowFetchPolicy,
-                                "Remote workflow references not allowed by policy");
-                    }
+                    var refObj = inputObj["ref"] as JsonObject;
+                    if (refObj?["kind"]?.GetValue<string>() == "url")
+                        throw new WorkflowRuntimeException(ErrorCodes.WorkflowFetchPolicy,
+                            "Remote workflow references not allowed by policy");
                 }
             }
         }
@@ -951,6 +945,38 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             if (step.Default != null) count += CountSteps(step.Default);
         }
         return count;
+    }
+
+    private static IEnumerable<StepDef> EnumerateSteps(IEnumerable<StepDef> steps)
+    {
+        foreach (var step in steps)
+        {
+            yield return step;
+
+            if (step.Steps != null)
+            {
+                foreach (var child in EnumerateSteps(step.Steps))
+                    yield return child;
+            }
+
+            if (step.Branches != null)
+            {
+                foreach (var child in step.Branches.SelectMany(branch => EnumerateSteps(branch.Steps)))
+                    yield return child;
+            }
+
+            if (step.Cases != null)
+            {
+                foreach (var child in step.Cases.SelectMany(@case => EnumerateSteps(@case.Steps)))
+                    yield return child;
+            }
+
+            if (step.Default != null)
+            {
+                foreach (var child in EnumerateSteps(step.Default))
+                    yield return child;
+            }
+        }
     }
 
     private static string BuildStepExceptionsDoc(StepExecutorRegistry registry, HashSet<string>? allowedTypes)

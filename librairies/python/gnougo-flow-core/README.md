@@ -110,7 +110,7 @@ uv sync --extra dev
 Create `hello.yaml`:
 
 ```yaml
-dsl: 1
+version: 1
 name: hello-world
 workflows:
   main:
@@ -175,7 +175,7 @@ Runtime integrations such as LLM clients, MCP clients, human input providers, wo
 Every workflow file starts with:
 
 ```yaml
-dsl: 1                        # DSL version (required, always 1)
+version: 1                        # DSL version (required, always 1)
 name: my-workflow             # Document name (optional)
 functions: |                  # Global WFScript functions (optional)
   function myHelper(x) { return x * 2; }
