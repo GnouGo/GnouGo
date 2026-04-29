@@ -21,9 +21,11 @@ class CaptureSpan(ITelemetrySpan):
 
 class CaptureTelemetry:
     def __init__(self) -> None:
+        self.workflow_starts: list[dict[str, object]] = []
         self.step_spans: list[CaptureSpan] = []
 
     def workflow_start(self, info):
+        self.workflow_starts.append(info)
         return CaptureSpan("workflow")
 
     def workflow_end(self, span, info):
@@ -130,6 +132,8 @@ async def test_llm_and_mcp_emit_expected_telemetry_keys() -> None:
     result = await engine.execute_async(compiled.workflows["main"], {})
 
     assert result.success is True
+    assert telemetry.workflow_starts[0]["source_format"] == "yaml"
+    assert "type: llm.call" in telemetry.workflow_starts[0]["source_text"]
 
     spans = {s.name: s for s in telemetry.step_spans}
 

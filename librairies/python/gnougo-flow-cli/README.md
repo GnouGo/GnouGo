@@ -111,6 +111,12 @@ Priorite de resolution:
 - `telemetry.otlp_endpoint` dans les settings
 - sinon, pas d'export OTLP
 
+
+Workflow root spans include the workflow source for debugging. The emitted attributes are
+`gnougo-flow.workflow.source`, `gnougo-flow.workflow.source.format`,
+`gnougo-flow.workflow.source.length`, `gnougo-flow.workflow.source.truncated`, and
+`gnougo-flow.workflow.source.limit`. The source attribute is truncated at 64 KiB.
+
 ## Notes de parite
 
 - Le CLI utilise `gnougo-flow-core`; il peut brancher un LLM OpenAI réel ou un stub.

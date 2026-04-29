@@ -44,6 +44,7 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
         if (activity == null) return new Span(null);
         activity.SetTag("gnougo-flow.workflow.name", info.WorkflowName);
         if (info.DocumentName != null) activity.SetTag("gnougo-flow.document.name", info.DocumentName);
+        ApplyWorkflowSourceTags(activity, info);
         return new Span(activity);
     }
 
@@ -170,6 +171,22 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
             StepSpan stepSpan => stepSpan.Activity,
             _ => null
         };
+
+    private static void ApplyWorkflowSourceTags(Activity activity, WorkflowTelemetryInfo info)
+    {
+        if (string.IsNullOrWhiteSpace(info.SourceText))
+            return;
+
+        var source = WorkflowTelemetrySourceFormatter.Format(info.SourceText);
+
+        activity.SetTag("gnougo-flow.workflow.source.format", string.IsNullOrWhiteSpace(info.SourceFormat) ? "yaml" : info.SourceFormat);
+        activity.SetTag("gnougo-flow.workflow.source.length", source.OriginalLength);
+        activity.SetTag("gnougo-flow.workflow.source.redacted_length", source.RedactedLength);
+        activity.SetTag("gnougo-flow.workflow.source.truncated", source.Truncated);
+        activity.SetTag("gnougo-flow.workflow.source.redacted", source.Redacted);
+        activity.SetTag("gnougo-flow.workflow.source.limit", WorkflowTelemetrySourceFormatter.DefaultSourceAttributeLimit);
+        activity.SetTag("gnougo-flow.workflow.source", source.Text);
+    }
 
     public void Dispose()
     {

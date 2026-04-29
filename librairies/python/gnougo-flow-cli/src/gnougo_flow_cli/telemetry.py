@@ -9,6 +9,9 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+WORKFLOW_SOURCE_ATTRIBUTE_LIMIT = 64 * 1024
+_WORKFLOW_SOURCE_INFO_KEYS = {"source_text", "source_format"}
+
 
 @dataclass(slots=True)
 class TelemetryConfig:
@@ -34,8 +37,9 @@ class OTelWorkflowTelemetry:
     def workflow_start(self, info: dict[str, Any]):
         span = _SpanAdapter(self._tracer.start_span("workflow.run"))
         for key, value in info.items():
-            if value is not None:
+            if key not in _WORKFLOW_SOURCE_INFO_KEYS and value is not None:
                 span.set_attribute(f"gnougo-flow.{key}", _to_attr(value))
+        _apply_workflow_source_attributes(span, info)
         return span
 
     def workflow_end(self, span, info: dict[str, Any]) -> None:
@@ -64,6 +68,25 @@ def _to_attr(value: Any) -> Any:
     if isinstance(value, (str, bool, int, float)):
         return value
     return str(value)
+
+
+def _apply_workflow_source_attributes(span, info: dict[str, Any]) -> None:
+    source = info.get("source_text")
+    if not isinstance(source, str) or not source.strip():
+        return
+
+    source_format = info.get("source_format")
+    if not isinstance(source_format, str) or not source_format.strip():
+        source_format = "yaml"
+
+    truncated = len(source) > WORKFLOW_SOURCE_ATTRIBUTE_LIMIT
+    emitted_source = source[:WORKFLOW_SOURCE_ATTRIBUTE_LIMIT] if truncated else source
+
+    span.set_attribute("gnougo-flow.workflow.source.format", source_format)
+    span.set_attribute("gnougo-flow.workflow.source.length", len(source))
+    span.set_attribute("gnougo-flow.workflow.source.truncated", truncated)
+    span.set_attribute("gnougo-flow.workflow.source.limit", WORKFLOW_SOURCE_ATTRIBUTE_LIMIT)
+    span.set_attribute("gnougo-flow.workflow.source", emitted_source)
 
 
 class _SpanAdapter:

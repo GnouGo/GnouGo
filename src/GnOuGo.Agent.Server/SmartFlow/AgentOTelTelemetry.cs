@@ -108,6 +108,7 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         ApplyCorrelationTags(a);
         a.SetTag("gnougo-flow.workflow.name", info.WorkflowName);
         if (info.DocumentName is not null) a.SetTag("gnougo-flow.document.name", info.DocumentName);
+        ApplyWorkflowSourceTags(a, info);
         return new WfSpan(a);
     }
 
@@ -224,6 +225,22 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
             activity.SetTag(CorrelationIdTagName, correlationId);
             activity.SetTag(ConversationIdTagName, correlationId);
         }
+    }
+
+    private static void ApplyWorkflowSourceTags(Activity activity, WorkflowTelemetryInfo info)
+    {
+        if (string.IsNullOrWhiteSpace(info.SourceText))
+            return;
+
+        var source = WorkflowTelemetrySourceFormatter.Format(info.SourceText);
+
+        activity.SetTag("gnougo-flow.workflow.source.format", string.IsNullOrWhiteSpace(info.SourceFormat) ? "yaml" : info.SourceFormat);
+        activity.SetTag("gnougo-flow.workflow.source.length", source.OriginalLength);
+        activity.SetTag("gnougo-flow.workflow.source.redacted_length", source.RedactedLength);
+        activity.SetTag("gnougo-flow.workflow.source.truncated", source.Truncated);
+        activity.SetTag("gnougo-flow.workflow.source.redacted", source.Redacted);
+        activity.SetTag("gnougo-flow.workflow.source.limit", WorkflowTelemetrySourceFormatter.DefaultSourceAttributeLimit);
+        activity.SetTag("gnougo-flow.workflow.source", source.Text);
     }
 
     private static void PropagateCorrelationFromParent(Activity parent, Activity activity)

@@ -311,6 +311,16 @@ def validate_input_types(workflow: WorkflowDef | None, inputs: dict[str, Any]) -
     return errors
 
 
+def build_workflow_source_telemetry_info(workflow: CompiledWorkflow, fallback_source_text: str | None = None) -> dict[str, Any]:
+    document = workflow.document.source if workflow.document else None
+    source_text = document.raw_yaml if document and document.raw_yaml else fallback_source_text
+    return {
+        "document_name": document.name if document and document.name else None,
+        "source_text": source_text,
+        "source_format": "yaml" if source_text else None,
+    }
+
+
 class WorkflowEngine:
     def __init__(self, registry: StepExecutorRegistry | None = None) -> None:
         self._registry = registry or self._create_default_registry()
@@ -404,7 +414,13 @@ class WorkflowEngine:
             raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, f"Input validation failed: {'; '.join(type_errors)}")
 
         result = RunResult(success=True)
-        span = self.telemetry.workflow_start({"workflow_name": workflow.name, "inputs": merged_inputs})
+        span = self.telemetry.workflow_start(
+            {
+                "workflow_name": workflow.name,
+                "inputs": merged_inputs,
+                **build_workflow_source_telemetry_info(workflow),
+            }
+        )
         started = time.perf_counter()
         document_name = (
             workflow.document.source.name
@@ -498,7 +514,13 @@ class WorkflowEngine:
             "env": {},
         }
         result = RunResult(success=True)
-        span = self.telemetry.workflow_start({"workflow_name": workflow.name, "inputs": copy.deepcopy(checkpoint.inputs)})
+        span = self.telemetry.workflow_start(
+            {
+                "workflow_name": workflow.name,
+                "inputs": copy.deepcopy(checkpoint.inputs),
+                **build_workflow_source_telemetry_info(workflow, checkpoint.workflow_yaml or None),
+            }
+        )
         started = time.perf_counter()
 
         self.logger.info(

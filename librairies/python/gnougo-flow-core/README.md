@@ -24,6 +24,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
 | MCP integrations (`InMemoryMcpClientFactory`, `ConfiguredMcpClientFactory`, cache helper) | Yes |
 | `LLMRequest.reasoning` field | Yes |
 | `workflow.plan` defaults `reasoning="high"` | Yes |
+| Workflow source telemetry (`source_text` / `source_format`) | Yes |
 | `JsonSchemaConverter` (inputs/outputs to JSON Schema) | Yes |
 | `WorkflowCheckpointer` + `WorkflowEngine.resume_async` | Yes |
 | CLI: `validate` / `inspect` / `run` subcommands | Yes |

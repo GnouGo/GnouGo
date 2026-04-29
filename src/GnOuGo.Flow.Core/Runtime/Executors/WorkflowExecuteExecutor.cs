@@ -74,7 +74,9 @@ public sealed class WorkflowExecuteExecutor : IStepExecutor
         {
             WorkflowName = workflow.Name,
             DocumentName = compiledDoc.Source?.Name,
-            Inputs = args.DeepClone()
+            Inputs = args.DeepClone(),
+            SourceText = yaml,
+            SourceFormat = "yaml"
         });
         var subWorkflowSw = System.Diagnostics.Stopwatch.StartNew();
         Exception? subWorkflowError = null;

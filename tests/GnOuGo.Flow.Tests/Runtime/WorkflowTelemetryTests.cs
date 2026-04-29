@@ -124,6 +124,8 @@ workflows:
         var wfInfo = recording.Events[0].Info as WorkflowTelemetryInfo;
         Assert.NotNull(wfInfo);
         Assert.Equal("main", wfInfo!.WorkflowName);
+        Assert.Equal("yaml", wfInfo.SourceFormat);
+        Assert.Contains("type: template.render", wfInfo.SourceText, StringComparison.Ordinal);
 
         // Verify StepStart info
         var stepInfo = recording.Events[1].Info as StepTelemetryInfo;
@@ -143,6 +145,26 @@ workflows:
         Assert.NotNull(wfResult);
         Assert.True(wfResult!.Success);
         Assert.Equal(1, wfResult.StepsExecuted);
+    }
+
+    [Fact]
+    public void WorkflowTelemetrySourceFormatter_RedactsSensitiveValuesAndTruncates()
+    {
+        var source = """
+version: 1
+api_key: should-not-leak
+workflows:
+  main:
+    steps: []
+""";
+
+        var snapshot = WorkflowTelemetrySourceFormatter.Format(source, limit: 40);
+
+        Assert.True(snapshot.Redacted);
+        Assert.True(snapshot.Truncated);
+        Assert.Equal(source.Length, snapshot.OriginalLength);
+        Assert.DoesNotContain("should-not-leak", snapshot.Text, StringComparison.Ordinal);
+        Assert.Contains("api_key: <redacted>", snapshot.Text, StringComparison.Ordinal);
     }
 
     [Fact]

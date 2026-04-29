@@ -498,6 +498,10 @@ async def test_workflow_execute_starts_dedicated_subworkflow_telemetry_span() ->
 
     assert result.success
     assert [info["workflow_name"] for info in telemetry.workflow_starts] == ["main", "generated"]
+    assert telemetry.workflow_starts[0]["source_format"] == "yaml"
+    assert "type: workflow.execute" in telemetry.workflow_starts[0]["source_text"]
+    assert telemetry.workflow_starts[1]["source_format"] == "yaml"
+    assert "type: set" in telemetry.workflow_starts[1]["source_text"]
     assert len(telemetry.workflow_ends) == 2
 
 

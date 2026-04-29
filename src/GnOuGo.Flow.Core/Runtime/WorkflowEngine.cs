@@ -102,7 +102,9 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         {
             WorkflowName = workflow.Name,
             DocumentName = workflow.Document?.Source?.Name,
-            Inputs = inputs?.DeepClone()
+            Inputs = inputs?.DeepClone(),
+            SourceText = workflow.Document?.Source?.RawYaml,
+            SourceFormat = "yaml"
         });
 
         var workflowSw = Stopwatch.StartNew();
@@ -225,7 +227,9 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         {
             WorkflowName = workflow.Name,
             DocumentName = workflow.Document?.Source?.Name,
-            Inputs = checkpoint.Inputs?.DeepClone()
+            Inputs = checkpoint.Inputs?.DeepClone(),
+            SourceText = workflow.Document?.Source?.RawYaml,
+            SourceFormat = "yaml"
         });
 
         var workflowSw = Stopwatch.StartNew();
