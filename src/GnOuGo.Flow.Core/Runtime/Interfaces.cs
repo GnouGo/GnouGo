@@ -172,6 +172,25 @@ public interface IMcpClientFactory
 }
 
 /// <summary>
+/// Correlation metadata propagated from workflow MCP steps to MCP transports.
+/// HTTP transports send it as headers; stdio transports expose it as environment
+/// variables when the MCP server process is started.
+/// </summary>
+public sealed record McpCorrelationContext
+{
+    public string? CorrelationId { get; init; }
+    public string? RunId { get; init; }
+    public string? TraceId { get; init; }
+    public string? SpanId { get; init; }
+    public string? TraceParent { get; init; }
+    public string? StepId { get; init; }
+    public string? StepType { get; init; }
+    public string? ServerName { get; init; }
+    public string? MethodName { get; init; }
+    public string? Kind { get; init; }
+}
+
+/// <summary>
 /// Abstraction over an MCP session (client connected to a server).
 /// Wraps the ModelContextProtocol.Client.IMcpClient for testability.
 /// </summary>

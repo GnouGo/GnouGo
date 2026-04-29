@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -236,6 +237,12 @@ public sealed class McpCallExecutor : IStepExecutor
                 : new CancellationTokenSource();
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
+            var correlation = BuildCorrelationContext(ctx, serverName, kind, singleMethod, batchMethods);
+            ctx.SetTelemetryAttribute("gnougo.correlation_id", correlation.CorrelationId);
+            if (!string.IsNullOrWhiteSpace(correlation.TraceId))
+                ctx.SetTelemetryAttribute("gnougo.trace_id", correlation.TraceId);
+
+            using var correlationScope = ConfiguredMcpClientFactory.PushCorrelationContext(correlation);
             await using var session = await factory.GetClientAsync(serverName, linkedCts.Token);
 
             if (hasPromptSelection)
@@ -291,7 +298,8 @@ public sealed class McpCallExecutor : IStepExecutor
 
                 foreach (var methodName in batchMethods!)
                 {
-                    var itemResult = await CallSingleAsync(session, kind, methodName, requestArgs?.DeepClone(), ctx, linkedCts.Token);
+                    var itemCorrelation = correlation with { MethodName = methodName };
+                    var itemResult = await CallSingleAsync(session, kind, methodName, requestArgs?.DeepClone(), itemCorrelation, ctx, linkedCts.Token);
                     var itemObj = (JsonObject)itemResult!;
                     itemObj["method"] = methodName;
                     if (itemObj["status"]?.GetValue<string>() == "error")
@@ -309,7 +317,8 @@ public sealed class McpCallExecutor : IStepExecutor
             else
             {
                 // ── Single mode (backward compatible) ──
-                var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, ctx, linkedCts.Token);
+                var singleCorrelation = correlation with { MethodName = singleMethod };
+                var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, ctx, linkedCts.Token);
                 var statusStr = (singleResult as JsonObject)?["status"]?.GetValue<string>();
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", statusStr == "error" ? "error" : "stop");
                 return singleResult;
@@ -440,7 +449,8 @@ public sealed class McpCallExecutor : IStepExecutor
                 throw new WorkflowRuntimeException(defaultKind == "prompt" ? ErrorCodes.McpPromptError : ErrorCodes.McpCallError,
                     $"mcp.call prompt mode selected unknown MCP capability '{toolCall.Name}'", retryable: false);
 
-            var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), ctx, ct);
+            var correlation = BuildCorrelationContext(ctx, session.ServerName, capability.Kind, capability.MethodName, null);
+            var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, ctx, ct);
             var itemObj = (JsonObject)itemResult!;
             itemObj["method"] = capability.MethodName;
             itemObj["kind"] = capability.Kind;
@@ -849,7 +859,7 @@ Produce the final answer strictly from the executed MCP results.
     /// <summary>Calls a single tool or prompt and returns the result JsonObject.</summary>
     private static async Task<JsonNode?> CallSingleAsync(
         IMcpSession session, string kind, string method, JsonNode? requestArgs,
-        StepExecutionContext ctx, CancellationToken ct)
+        McpCorrelationContext correlation, StepExecutionContext ctx, CancellationToken ct)
     {
         if (kind == "prompt")
         {
@@ -888,9 +898,75 @@ Produce the final answer strictly from the executed MCP results.
             return new JsonObject
             {
                 ["status"] = callResult.IsError ? "error" : "ok",
-                ["response"] = callResult.Content?.DeepClone()
+                ["response"] = callResult.Content?.DeepClone(),
+                ["error"] = callResult.IsError ? BuildMcpErrorObject(callResult.Content, correlation) : null,
+                ["correlation_id"] = correlation.CorrelationId,
+                ["trace_id"] = correlation.TraceId
             };
         }
+    }
+
+    private static McpCorrelationContext BuildCorrelationContext(
+        StepExecutionContext ctx,
+        string serverName,
+        string kind,
+        string? singleMethod,
+        List<string>? batchMethods)
+    {
+        var activity = Activity.Current;
+        var method = singleMethod ?? (batchMethods is { Count: > 0 } ? string.Join(",", batchMethods) : null);
+        var traceId = activity?.TraceId.ToString();
+        var spanId = activity?.SpanId.ToString();
+        return new McpCorrelationContext
+        {
+            CorrelationId = ctx.Limits.RunId ?? activity?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"),
+            RunId = ctx.Limits.RunId,
+            TraceId = traceId,
+            SpanId = spanId,
+            TraceParent = activity != null ? $"00-{activity.TraceId}-{activity.SpanId}-{(activity.ActivityTraceFlags.HasFlag(ActivityTraceFlags.Recorded) ? "01" : "00")}" : null,
+            StepId = ctx.Step.Id,
+            StepType = ctx.Step.Type,
+            ServerName = serverName,
+            MethodName = method,
+            Kind = kind
+        };
+    }
+
+    private static JsonObject BuildMcpErrorObject(JsonNode? content, McpCorrelationContext correlation)
+    {
+        return new JsonObject
+        {
+            ["message"] = ExtractErrorMessage(content),
+            ["content"] = content?.DeepClone(),
+            ["correlation_id"] = correlation.CorrelationId,
+            ["run_id"] = correlation.RunId,
+            ["trace_id"] = correlation.TraceId,
+            ["span_id"] = correlation.SpanId,
+            ["traceparent"] = correlation.TraceParent,
+            ["server"] = correlation.ServerName,
+            ["method"] = correlation.MethodName,
+            ["kind"] = correlation.Kind
+        };
+    }
+
+    private static string ExtractErrorMessage(JsonNode? content)
+    {
+        if (content is null)
+            return "MCP tool returned an error without content.";
+
+        if (content is JsonValue value && value.TryGetValue<string>(out var text))
+            return text;
+
+        if (content is JsonObject obj)
+        {
+            foreach (var key in new[] { "error_message", "message", "error", "detail", "response" })
+            {
+                if (obj.TryGetPropertyValue(key, out var node) && node is JsonValue nodeValue && nodeValue.TryGetValue<string>(out var message))
+                    return message;
+            }
+        }
+
+        return content.ToJsonString();
     }
 
     /// <summary>

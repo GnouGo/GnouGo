@@ -314,6 +314,7 @@ workflows:
                   - The workflow must use data.inputs.task as the main user request text.
                   - Include an "answer" output with the final result as a string.
                   - Use available MCP tools when applicable, especially Browser/Document/Cmd tools for web and file tasks.
+                  - For Browser MCP browser_get_content on search/e-commerce pages such as Amazon, prefer waitUntil="domcontentloaded" or "load"; avoid "networkidle" unless the page is known to become idle.
                   - For llm.call steps, omit provider/model so runtime defaults are used automatically; set temperature 0.7 unless a lower temperature is needed for deterministic formatting.
                   - Keep the workflow concise and under 15 total steps.
                   - Add the original agent description as a YAML comment at the top.
@@ -377,7 +378,7 @@ workflows:
                       prompt: "Paste your modified workflow YAML below:"
                       fields:
                         - name: yaml
-                          type: string
+                          type: yaml
                           required: true
                           description: "Modified workflow YAML"
                           default: "${data.steps.generate_workflow.yaml}"
@@ -466,7 +467,7 @@ workflows:
                               prompt: "Enter the schedule JSON (array of {name, cron}):"
                               fields:
                                 - name: schedules_json
-                                  type: string
+                                  type: json
                                   required: true
                                   description: "JSON array of schedules"
                                   default: "${data.steps.generate_cron.text}"
@@ -664,7 +665,7 @@ workflows:
                           prompt: "Enter the new workflow YAML (or modify the existing one):"
                           fields:
                             - name: yaml
-                              type: string
+                              type: yaml
                               required: true
                               description: "Workflow YAML"
                               default: "${data.steps.find_agent.response.agent.workflow}"

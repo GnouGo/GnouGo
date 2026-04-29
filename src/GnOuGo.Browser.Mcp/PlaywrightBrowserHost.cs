@@ -66,11 +66,33 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
             {
                 var targetUri = BrowserNavigationPolicy.ValidateNavigationTarget(url, _settings);
                 page = await EnsurePageAsync();
-                var response = await page.GotoAsync(targetUri.ToString(), new PageGotoOptions
+                IResponse? response = null;
+                try
                 {
-                    Timeout = NormalizeTimeout(timeoutMs, _settings.NavigationTimeoutMs),
-                    WaitUntil = ParseWaitUntil(waitUntil)
-                });
+                    response = await page.GotoAsync(targetUri.ToString(), new PageGotoOptions
+                    {
+                        Timeout = NormalizeTimeout(timeoutMs, _settings.NavigationTimeoutMs),
+                        WaitUntil = ParseWaitUntil(waitUntil)
+                    });
+                }
+                catch (TimeoutException ex) when (string.Equals(waitUntil, "networkidle", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Navigation to {Url} did not reach networkidle before timeout; continuing with loaded DOM content.",
+                        targetUri);
+
+                    try
+                    {
+                        await page.WaitForLoadStateAsync(
+                            LoadState.DOMContentLoaded,
+                            new PageWaitForLoadStateOptions { Timeout = Math.Min(5_000, NormalizeTimeout(timeoutMs, _settings.NavigationTimeoutMs)) });
+                    }
+                    catch (Exception waitEx) when (waitEx is TimeoutException or PlaywrightException)
+                    {
+                        _logger.LogDebug(waitEx, "DOM content fallback wait also timed out for {Url}; continuing with current page state.", targetUri);
+                    }
+                }
                 statusCode = response?.Status;
             }
 

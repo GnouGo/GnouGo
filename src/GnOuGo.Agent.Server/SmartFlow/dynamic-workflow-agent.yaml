@@ -140,6 +140,7 @@ workflows:
               - Omit provider/model on llm.call when runtime defaults should apply.
                 Specify them only when a step must override the defaults.
               - For template.render: "engine", "template", and "mode" are required.
+              - For browser_get_content on search/e-commerce pages such as Amazon, prefer waitUntil="domcontentloaded" or "load"; do not use "networkidle" unless the page is known to become idle.
               - Generated llm.call steps should normally reuse runtime defaults and use temperature 0.7 unless a specific override is necessary.
               - Outputs MUST reference step results via the pattern data.steps.STEP_ID.text
               - llm.call output has field "text", template.render output has field "text"

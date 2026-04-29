@@ -366,6 +366,32 @@ html, body {
   --borderColor-muted: var(--sa-border);
 }
 
+.sa-hitl-context {
+  margin: 10px 0 12px;
+  max-width: min(100%, 860px);
+}
+
+.sa-hitl-context pre {
+  max-height: 420px;
+}
+
+.sa-hitl-field__textarea {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+  max-height: 520px;
+  resize: vertical;
+  white-space: pre;
+  overflow: auto;
+}
+
+.sa-hitl-field__textarea--code {
+  font-family: var(--sa-mono);
+  font-size: 12.5px;
+  line-height: 1.45;
+  tab-size: 2;
+}
+
 /* Empty / errors */
 .sa-chat__error {
   margin-bottom: 12px;

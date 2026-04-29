@@ -883,6 +883,16 @@
             return new DisplayValue(TraceValueFormat.Plain, string.Empty);
 
         var trimmed = text.Trim();
+        if (TryExtractSingleCodeFence(trimmed, out var language, out var fencedContent))
+        {
+            var content = fencedContent.Trim();
+            if (IsJsonLanguage(language) && TryFormatJson(content, out var fencedJson))
+                return new DisplayValue(TraceValueFormat.Json, fencedJson);
+            if (IsYamlLanguage(language) || LooksLikeYaml(content))
+                return new DisplayValue(TraceValueFormat.Yaml, content);
+            return new DisplayValue(TraceValueFormat.Plain, content);
+        }
+
         if (TryFormatJson(trimmed, out var prettyJson))
             return new DisplayValue(TraceValueFormat.Json, prettyJson);
         if (LooksLikeMarkdown(trimmed) && !LooksLikeYaml(trimmed))
@@ -910,6 +920,32 @@
             return false;
         }
     }
+
+    private static bool TryExtractSingleCodeFence(string markdown, out string language, out string content)
+    {
+        language = string.Empty;
+        content = string.Empty;
+
+        var lines = markdown.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        if (lines.Length < 2 || !lines[0].TrimStart().StartsWith("```", StringComparison.Ordinal))
+            return false;
+
+        var firstLine = lines[0].Trim();
+        if (!lines[^1].Trim().StartsWith("```", StringComparison.Ordinal))
+            return false;
+
+        language = firstLine.Length > 3 ? firstLine[3..].Trim() : string.Empty;
+        content = string.Join("\n", lines.Skip(1).Take(lines.Length - 2));
+        return true;
+    }
+
+    private static bool IsJsonLanguage(string language)
+        => language.Equals("json", StringComparison.OrdinalIgnoreCase)
+           || language.Equals("jsonc", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsYamlLanguage(string language)
+        => language.Equals("yaml", StringComparison.OrdinalIgnoreCase)
+           || language.Equals("yml", StringComparison.OrdinalIgnoreCase);
 
     private static bool LooksLikeYaml(string value)
     {
