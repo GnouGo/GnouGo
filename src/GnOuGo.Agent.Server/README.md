@@ -83,6 +83,16 @@ In other words, runtime consumers should treat the mounted MCP endpoints as part
 The persisted values live in the Agent MCP SQLite database (`Agent:DatabasePath`) rather than only in browser state.
 LLM provider and MCP server definitions are hydrated from encrypted KeyVault secrets at startup; `user-settings.json` is no longer used.
 
+## Dynamic workflow input composer
+
+The Blazor chat composer resolves the active/default agent workflow through `SmartFlowService` and adapts the user input area to the workflow `inputs` declaration:
+
+- prompt-like workflows keep the compact single textarea when there is one required `task`/`prompt`/`query`/`request`/`input`/`message` string input, with optional defaulted inputs hidden;
+- workflows with multiple required inputs render one field per top-level input;
+- object inputs with declared `properties` render nested fields;
+- `array`, `object`, `dictionary`, and `any` fields accept JSON or YAML text;
+- the UI sends structured `JsonObject` workflow inputs to `SmartFlowService` while keeping a masked Markdown summary in the chat history for sensitive-looking field names such as `key`, `secret`, `password`, or `token`.
+
 Standalone MCP hosts still expose `/mcp` directly in their own projects:
 
 - `GnOuGo.Agent.Mcp` → `http://127.0.0.1:5198/mcp`

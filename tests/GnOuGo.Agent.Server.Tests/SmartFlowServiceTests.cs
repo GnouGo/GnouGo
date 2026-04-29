@@ -327,10 +327,65 @@ public sealed class SmartFlowServiceTests
         }
     }
 
+    [Fact]
+    public async Task GetActiveWorkflowInputSchemaAsync_ReturnsEmbeddedPromptSchema_WhenNoAgentIsSelected()
+    {
+        var smartFlow = SmartFlowTestFactory.CreateSmartFlowService(
+            new RecordingLlmClient(),
+            new FakeMcpClientFactory(),
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()));
+
+        var schema = await smartFlow.GetActiveWorkflowInputSchemaAsync(agentName: null, CancellationToken.None);
+
+        Assert.True(schema.IsPromptOnly);
+        Assert.Contains(schema.Fields, field => field.Name == "task" && field.Type == "string");
+    }
+
+    [Fact]
+    public void WorkflowInputComposer_TryBuildInputs_ParsesNestedAndComplexValues()
+    {
+        var schema = new WorkflowInputSchema("test-agent", new WorkflowInputFieldSchema[]
+        {
+            new("topic", "string", true),
+            new("enabled", "boolean", true),
+            new("score", "number", true),
+            new("tags", "array", true),
+            new("options", "object", true, Properties: new WorkflowInputFieldSchema[]
+            {
+                new("audience", "string", true),
+                new("limits", "object", true)
+            })
+        });
+
+        var values = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["topic"] = "SlimFaas",
+            ["enabled"] = "yes",
+            ["score"] = "42.5",
+            ["tags"] = "- api\n- workflow",
+            ["options.audience"] = "developers",
+            ["options.limits"] = "{ \"max\": 3 }"
+        };
+
+        var success = WorkflowInputComposer.TryBuildInputs(schema, values, out var inputs, out var errors);
+
+        Assert.True(success, string.Join(Environment.NewLine, errors));
+        Assert.Equal("SlimFaas", inputs["topic"]!.GetValue<string>());
+        Assert.True(inputs["enabled"]!.GetValue<bool>());
+        Assert.Equal(42.5m, inputs["score"]!.GetValue<decimal>());
+        Assert.Equal("api", inputs["tags"]![0]!.GetValue<string>());
+        Assert.Equal("developers", inputs["options"]!["audience"]!.GetValue<string>());
+        Assert.Equal(3, inputs["options"]!["limits"]!["max"]!.GetValue<int>());
+    }
+
     private static async Task SeedAgentAndUserConfigAsync(string dbPath)
         => await SeedAgentAndUserConfigAsync(dbPath, "slimfaas", "AGENT");
 
     private static async Task SeedAgentAndUserConfigAsync(string dbPath, string agentName, string answerPrefix)
+        => await SeedAgentAndUserConfigWithWorkflowAsync(dbPath, agentName, BuildEchoAgentWorkflow(agentName, answerPrefix));
+
+    private static async Task SeedAgentAndUserConfigWithWorkflowAsync(string dbPath, string agentName, string workflow)
     {
         await using var db = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
             .UseSqlite($"Data Source={dbPath}")
@@ -340,7 +395,7 @@ public sealed class SmartFlowServiceTests
         {
             Id = Guid.NewGuid(),
             Name = agentName,
-            Workflow = BuildEchoAgentWorkflow(agentName, answerPrefix),
+            Workflow = workflow,
             SchedulesJson = "[]",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow

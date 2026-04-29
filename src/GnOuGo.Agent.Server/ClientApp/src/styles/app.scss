@@ -596,6 +596,117 @@ html, body {
   color: var(--sa-muted);
 }
 
+.sa-composer__workflow {
+  border: 1px solid var(--sa-border);
+  border-radius: 14px;
+  background: var(--sa-surface);
+  padding: 12px;
+}
+
+.sa-composer__workflow-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.sa-composer__workflow-title {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sa-composer__workflow-subtitle,
+.sa-composer__workflow-loading {
+  margin-top: 2px;
+  color: var(--sa-muted);
+  font-size: 12px;
+}
+
+.sa-composer__workflow-error {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(207, 34, 46, 0.28);
+  border-radius: 10px;
+  color: #a40e26;
+  background: #fff5f5;
+  font-size: 12px;
+}
+
+.sa-composer__workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.sa-composer__row--actions {
+  margin-top: 10px;
+}
+
+.sa-composer__workflow-action-spacer {
+  flex: 1;
+}
+
+.sa-workflow-input {
+  min-width: 0;
+}
+
+.sa-workflow-input--nested {
+  padding-left: 10px;
+  border-left: 2px solid rgba(0,0,255,0.12);
+}
+
+.sa-workflow-input__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.sa-workflow-input__required {
+  color: #cf222e;
+}
+
+.sa-workflow-input__type {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--sa-surface-2);
+  color: var(--sa-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.sa-workflow-input__description {
+  margin: -1px 0 5px;
+  color: var(--sa-muted);
+  font-size: 11px;
+}
+
+.sa-workflow-input__control {
+  width: 100%;
+}
+
+.sa-workflow-input__textarea {
+  min-height: 74px;
+}
+
+.sa-workflow-input__textarea--code {
+  font-family: var(--sa-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 12px;
+}
+
+.sa-workflow-input__object {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 8px;
+  border: 1px dashed var(--sa-border);
+  border-radius: 12px;
+  background: var(--sa-surface-2);
+}
+
 .sa-composer__send {
   height: 40px;
   padding: 0 14px;

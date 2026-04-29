@@ -152,6 +152,18 @@ public sealed class SmartFlowService
         IReadOnlyList<string>? filesIds,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        await foreach (var evt in ExecuteAsync(task, correlationId, agentName, filesIds, workflowInputs: null, ct))
+            yield return evt;
+    }
+
+    public async IAsyncEnumerable<SmartFlowEvent> ExecuteAsync(
+        string task,
+        string? correlationId,
+        string? agentName,
+        IReadOnlyList<string>? filesIds,
+        JsonObject? workflowInputs,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
         var effectiveCorrelationId = string.IsNullOrWhiteSpace(correlationId)
             ? ActivityTraceId.CreateRandom().ToHexString()
             : correlationId.Trim();
@@ -161,7 +173,7 @@ public sealed class SmartFlowService
 
         var hasError = false;
 
-        await foreach (var evt in ExecuteCoreAsync(task, effectiveCorrelationId, agentName, filesIds, messageTrace.Activity, ct))
+        await foreach (var evt in ExecuteCoreAsync(task, effectiveCorrelationId, agentName, filesIds, workflowInputs, messageTrace.Activity, ct))
         {
             hasError |= string.Equals(evt.Type, "error", StringComparison.OrdinalIgnoreCase);
             yield return evt.WithCorrelation(effectiveCorrelationId);
@@ -175,6 +187,7 @@ public sealed class SmartFlowService
         string correlationId,
         string? requestedAgentName,
         IReadOnlyList<string>? filesIds,
+        JsonObject? workflowInputs,
         Activity? parentActivity,
         [EnumeratorCancellation] CancellationToken ct)
     {
@@ -268,7 +281,7 @@ public sealed class SmartFlowService
                 yield break;
             }
 
-            var inputs = BuildWorkflowInputs(task, selectedAgentName, correlationId, filesIds);
+            var inputs = BuildWorkflowInputs(task, selectedAgentName, correlationId, filesIds, workflowInputs);
             var resolvedInputs = WorkflowInputDefaults.Apply(workflow.Source, inputs);
 
             Exception? error = null;
@@ -374,6 +387,24 @@ public sealed class SmartFlowService
                 throw new InvalidOperationException(evt.Text);
         }
         return answer;
+    }
+
+    public async Task<WorkflowInputSchema> GetActiveWorkflowInputSchemaAsync(
+        string? agentName,
+        CancellationToken ct)
+    {
+        await using var runtime = await _runtimeFactory.CreateAsync(ct);
+
+        try
+        {
+            var (workflow, selectedAgentName) = await ResolveWorkflowAsync(runtime, agentName, ct);
+            return WorkflowInputComposer.FromWorkflow(selectedAgentName, workflow.Source);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not resolve active workflow input schema.");
+            return new WorkflowInputSchema(agentName, Array.Empty<WorkflowInputFieldSchema>(), ex.Message);
+        }
     }
 
     private async Task<(CompiledWorkflow Workflow, string? AgentName)> ResolveWorkflowAsync(
@@ -533,7 +564,12 @@ public sealed class SmartFlowService
         return compiled.Workflows[entrypoint];
     }
 
-    private static JsonObject BuildWorkflowInputs(string task, string? agentName, string correlationId, IReadOnlyList<string>? filesIds)
+    private static JsonObject BuildWorkflowInputs(
+        string task,
+        string? agentName,
+        string correlationId,
+        IReadOnlyList<string>? filesIds,
+        JsonObject? workflowInputs)
     {
         var inputs = new JsonObject
         {
@@ -545,6 +581,15 @@ public sealed class SmartFlowService
             ["message"] = task,
             ["correlation_id"] = correlationId
         };
+
+        if (workflowInputs is not null)
+        {
+            foreach (var (key, value) in workflowInputs)
+            {
+                if (!string.IsNullOrWhiteSpace(key))
+                    inputs[key] = value?.DeepClone();
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(agentName))
             inputs["agent_name"] = agentName;
