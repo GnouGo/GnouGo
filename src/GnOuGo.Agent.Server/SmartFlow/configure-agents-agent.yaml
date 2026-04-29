@@ -283,15 +283,6 @@ workflows:
 
 
           # Step 3: Generate and validate workflow YAML from the description
-          - id: discover_mcp
-            type: mcp.list
-            input:
-              servers:
-                - "*"
-              include:
-                - tools
-                - prompts
-
           - id: generate_workflow
             type: workflow.plan
             input:
@@ -304,8 +295,6 @@ workflows:
                   Agent name: ${data.steps.normalized_name.agent_name}
                   Agent description: ${data.steps.input_prompt.description}
 
-                  Available MCP capabilities discovered by the Agent server:
-                  ${data.steps.discover_mcp.text}
 
                   Requirements:
                   - Use workflow version 1.
