@@ -36,6 +36,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
             selector: selector,
             format: format,
             maxCharacters: maxCharacters,
+            includeScriptContent: false,
             cancellationToken: cancellationToken);
 
     public async Task<BrowserContentResult> GetContentAsync(
@@ -45,6 +46,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         string? selector,
         string format,
         int? maxCharacters,
+        bool includeScriptContent,
         CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
@@ -106,7 +108,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
 
             var normalized = contentFormat == "text"
                 ? NormalizeText(rawContent)
-                : rawContent;
+                : includeScriptContent ? rawContent : BrowserDomHeuristics.RemoveScriptElements(rawContent);
 
             var truncated = normalized.Length > limit;
             var content = truncated ? normalized[..limit] : normalized;
