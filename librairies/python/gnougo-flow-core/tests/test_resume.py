@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import pytest
 
@@ -10,7 +10,7 @@ from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
 
 WORKFLOW_YAML = """
-dsl: 1
+version: 1
 name: checkpoint-demo
 workflows:
   main:
@@ -58,7 +58,7 @@ async def test_execute_async_saves_checkpoint_after_each_successful_top_level_st
     assert checkpoint.inputs == {"name": "Alice"}
     assert checkpoint.step_outputs["first"]["greeting"] == "Hello Alice"
     assert checkpoint.step_outputs["second"]["final"] == "Hello Alice!"
-    assert checkpoint.workflow_yaml.strip().startswith("dsl: 1")
+    assert checkpoint.workflow_yaml.strip().startswith("version: 1")
     assert checkpoint.timestamp
 
 
@@ -95,7 +95,7 @@ async def test_resume_async_continues_from_checkpoint_and_marks_completed() -> N
 async def test_resume_async_marks_failed_when_remaining_step_fails() -> None:
     workflow = _compile_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:

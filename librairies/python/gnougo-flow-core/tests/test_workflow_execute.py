@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import pytest
 
@@ -57,7 +57,7 @@ async def _run_main(yaml_text: str, inputs=None, llm_client=None, engine: Workfl
 @pytest.mark.asyncio
 async def test_workflow_execute_basic_plan_then_execute_returns_output() -> None:
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         steps:
@@ -75,7 +75,7 @@ async def test_workflow_execute_basic_plan_then_execute_returns_output() -> None
 
     result = await _run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -105,7 +105,7 @@ async def test_workflow_execute_basic_plan_then_execute_returns_output() -> None
 async def test_workflow_execute_missing_from_step_fails_with_input_validation() -> None:
     result = await _run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -123,7 +123,7 @@ async def test_workflow_execute_missing_from_step_fails_with_input_validation() 
 async def test_workflow_execute_nonexistent_plan_step_mentions_step_name() -> None:
     result = await _run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -143,7 +143,7 @@ async def test_workflow_execute_nonexistent_plan_step_mentions_step_name() -> No
 async def test_workflow_execute_plan_step_missing_yaml_mentions_yaml() -> None:
     result = await _run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -167,7 +167,7 @@ async def test_workflow_execute_plan_step_missing_yaml_mentions_yaml() -> None:
 @pytest.mark.asyncio
 async def test_workflow_execute_multi_step_generated_workflow_executes_all_steps() -> None:
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         steps:
@@ -191,7 +191,7 @@ async def test_workflow_execute_multi_step_generated_workflow_executes_all_steps
 
     result = await _run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -222,7 +222,7 @@ async def test_workflow_execute_multi_step_generated_workflow_executes_all_steps
 @pytest.mark.asyncio
 async def test_workflow_execute_no_outputs_defined_falls_back_to_steps_data() -> None:
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         steps:
@@ -234,7 +234,7 @@ async def test_workflow_execute_no_outputs_defined_falls_back_to_steps_data() ->
 
     result = await _run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -259,7 +259,7 @@ async def test_workflow_execute_no_outputs_defined_falls_back_to_steps_data() ->
 @pytest.mark.asyncio
 async def test_workflow_execute_with_args_defaults_and_type_validation() -> None:
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         inputs:
@@ -287,7 +287,7 @@ async def test_workflow_execute_with_args_defaults_and_type_validation() -> None
 
     result = await _run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -316,7 +316,7 @@ async def test_workflow_execute_with_args_defaults_and_type_validation() -> None
 @pytest.mark.asyncio
 async def test_workflow_execute_invalid_args_fail_with_input_validation() -> None:
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         inputs:
@@ -332,7 +332,7 @@ async def test_workflow_execute_invalid_args_fail_with_input_validation() -> Non
 
     result = await _run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -360,7 +360,7 @@ async def test_workflow_execute_invalid_args_fail_with_input_validation() -> Non
 @pytest.mark.asyncio
 async def test_workflow_execute_exceeds_call_depth_fails_with_cycle_detected() -> None:
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       gen:
         steps:
@@ -374,7 +374,7 @@ async def test_workflow_execute_exceeds_call_depth_fails_with_cycle_detected() -
 
     result = await _run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -400,7 +400,7 @@ async def test_workflow_execute_exceeds_call_depth_fails_with_cycle_detected() -
 @pytest.mark.asyncio
 async def test_workflow_execute_generated_workflow_failure_propagates_error() -> None:
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         steps:
@@ -413,7 +413,7 @@ async def test_workflow_execute_generated_workflow_failure_propagates_error() ->
 
     result = await _run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -439,7 +439,7 @@ async def test_workflow_execute_generated_workflow_failure_propagates_error() ->
 async def test_workflow_execute_invalid_yaml_fails_gracefully() -> None:
     result = await _run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -462,7 +462,7 @@ async def test_workflow_execute_invalid_yaml_fails_gracefully() -> None:
 @pytest.mark.asyncio
 async def test_workflow_execute_starts_dedicated_subworkflow_telemetry_span() -> None:
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         steps:
@@ -477,7 +477,7 @@ async def test_workflow_execute_starts_dedicated_subworkflow_telemetry_span() ->
 
     result = await _run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:

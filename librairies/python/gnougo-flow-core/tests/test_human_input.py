@@ -16,7 +16,7 @@ class FakeHumanInputProvider:
 @pytest.mark.asyncio
 async def test_human_input_step() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:

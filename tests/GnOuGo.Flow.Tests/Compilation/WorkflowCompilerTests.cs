@@ -340,7 +340,7 @@ workflows:
     public void Compile_PreservesTypedOutputs()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:

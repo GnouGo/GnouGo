@@ -1,4 +1,4 @@
-﻿"""Parity tests for the .NET `LLMRequest.Reasoning` field and its defaults."""
+"""Parity tests for the .NET `LLMRequest.Reasoning` field and its defaults."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from gnougo_flow_core.reasoning import (
 )
 from gnougo_flow_core.runtime import WorkflowEngine
 
-# ── Model field round-trip ────────────────────────────────────────────────
+# -- Model field round-trip ------------------------------------------------
 
 
 def test_llm_request_has_optional_reasoning_field() -> None:
@@ -24,7 +24,7 @@ def test_llm_request_has_optional_reasoning_field() -> None:
     assert req2.reasoning == "high"
 
 
-# ── Normalization helpers (mirror ChatRequestBuilder) ────────────────────
+# -- Normalization helpers (mirror ChatRequestBuilder) --------------------
 
 
 @pytest.mark.parametrize(
@@ -71,12 +71,12 @@ def test_normalize_ollama_think(value, expected) -> None:
     assert normalize_ollama_think(value) == expected
 
 
-# ── Document version/dsl alias parity ────────────────────────────────────
+# -- Document version/dsl alias parity ------------------------------------
 
 
 def test_workflow_document_accepts_dsl_or_version_key() -> None:
     yaml_with_dsl = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -107,7 +107,7 @@ def test_workflow_document_model_accepts_both_field_names() -> None:
     assert by_name.version == 1
 
 
-# ── llm.call forwards `reasoning` through the request ────────────────────
+# -- llm.call forwards `reasoning` through the request --------------------
 
 
 class _CapturingLlm:
@@ -168,7 +168,7 @@ async def test_llm_call_omits_reasoning_when_not_specified() -> None:
     assert llm.requests[0].reasoning is None
 
 
-# ── workflow.plan defaults reasoning to "high" ───────────────────────────
+# -- workflow.plan defaults reasoning to "high" ---------------------------
 
 
 @pytest.mark.asyncio

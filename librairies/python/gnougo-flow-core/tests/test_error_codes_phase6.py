@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import pytest
 
@@ -25,7 +25,7 @@ def _compile_main(yaml_text: str):
 @pytest.mark.asyncio
 async def test_llm_call_structured_output_parses_text_json() -> None:
     source = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -56,7 +56,7 @@ async def test_llm_call_structured_output_parses_text_json() -> None:
 @pytest.mark.asyncio
 async def test_llm_call_structured_output_mismatch_raises_llm_schema() -> None:
     source = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -85,7 +85,7 @@ async def test_llm_call_structured_output_mismatch_raises_llm_schema() -> None:
 @pytest.mark.asyncio
 async def test_llm_call_structured_output_invalid_json_raises_llm_schema() -> None:
     source = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:

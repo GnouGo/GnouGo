@@ -1,4 +1,4 @@
-﻿
+
 import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
@@ -16,7 +16,7 @@ def _compile(yaml_text: str):
 @pytest.mark.asyncio
 async def test_workflow_call_local_passes_args_and_returns_outputs() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -47,12 +47,12 @@ async def test_workflow_call_local_passes_args_and_returns_outputs() -> None:
 
 @pytest.mark.asyncio
 async def test_workflow_call_local_cycle_detected() -> None:
-    # Mutual a → b → a cycle is rejected at runtime when the second hop tries
+    # Mutual a ? b ? a cycle is rejected at runtime when the second hop tries
     # to re-enter a workflow already in the call stack. (The compiler also
     # catches some static cycles, but mutual-recursion cycles via workflow.call
     # are detected here at runtime.)
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       a:
         steps:
@@ -71,7 +71,7 @@ async def test_workflow_call_local_cycle_detected() -> None:
     try:
         compiled = _compile(yaml_text)
     except Exception as exc:
-        # If the static analyser catches it, accept that — the cycle code is reported.
+        # If the static analyser catches it, accept that � the cycle code is reported.
         assert "WORKFLOW_CYCLE_DETECTED" in str(exc)
         return
     engine.compiled_document = compiled
@@ -83,7 +83,7 @@ async def test_workflow_call_local_cycle_detected() -> None:
 @pytest.mark.asyncio
 async def test_workflow_call_max_call_depth_exceeded() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -116,7 +116,7 @@ async def test_workflow_call_max_call_depth_exceeded() -> None:
 @pytest.mark.asyncio
 async def test_workflow_call_local_unknown_workflow() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -137,7 +137,7 @@ async def test_workflow_call_local_unknown_workflow() -> None:
 @pytest.mark.asyncio
 async def test_workflow_call_args_are_deep_copied() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -185,7 +185,7 @@ class _StaticFetcher:
 @pytest.mark.asyncio
 async def test_workflow_call_remote_no_fetcher() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -204,7 +204,7 @@ async def test_workflow_call_remote_no_fetcher() -> None:
 @pytest.mark.asyncio
 async def test_workflow_call_remote_requires_https() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -214,7 +214,7 @@ async def test_workflow_call_remote_requires_https() -> None:
               ref: { kind: url, url: "http://example.com/wf.yaml" }
     """
     engine = WorkflowEngine()
-    engine.workflow_fetcher = _StaticFetcher("dsl: 1\nworkflows: { main: { steps: [] } }")
+    engine.workflow_fetcher = _StaticFetcher("version: 1\nworkflows: { main: { steps: [] } }")
     engine.fetch_policy = FetchPolicy(require_https=True)
     compiled = _compile(yaml_text)
     result = await engine.execute_async(compiled.workflows["main"], {})
@@ -226,7 +226,7 @@ async def test_workflow_call_remote_requires_https() -> None:
 @pytest.mark.asyncio
 async def test_workflow_call_remote_host_not_in_allow_list() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -236,7 +236,7 @@ async def test_workflow_call_remote_host_not_in_allow_list() -> None:
               ref: { kind: url, url: "https://evil.example/wf.yaml" }
     """
     engine = WorkflowEngine()
-    engine.workflow_fetcher = _StaticFetcher("dsl: 1\nworkflows: { main: { steps: [] } }")
+    engine.workflow_fetcher = _StaticFetcher("version: 1\nworkflows: { main: { steps: [] } }")
     engine.fetch_policy = FetchPolicy(require_https=True, allowed_hostnames=["good.example"])
     compiled = _compile(yaml_text)
     result = await engine.execute_async(compiled.workflows["main"], {})
@@ -248,7 +248,7 @@ async def test_workflow_call_remote_host_not_in_allow_list() -> None:
 @pytest.mark.asyncio
 async def test_workflow_call_remote_integrity_required() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -258,7 +258,7 @@ async def test_workflow_call_remote_integrity_required() -> None:
               ref: { kind: url, url: "https://good.example/wf.yaml" }
     """
     engine = WorkflowEngine()
-    engine.workflow_fetcher = _StaticFetcher("dsl: 1\nworkflows: { main: { steps: [] } }")
+    engine.workflow_fetcher = _StaticFetcher("version: 1\nworkflows: { main: { steps: [] } }")
     engine.fetch_policy = FetchPolicy(
         require_https=True, allowed_hostnames=["good.example"], require_integrity=True
     )
@@ -272,7 +272,7 @@ async def test_workflow_call_remote_integrity_required() -> None:
 @pytest.mark.asyncio
 async def test_workflow_call_remote_exceeds_max_size() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -281,7 +281,7 @@ async def test_workflow_call_remote_exceeds_max_size() -> None:
             input:
               ref: { kind: url, url: "https://good.example/wf.yaml" }
     """
-    big_yaml = "dsl: 1\nworkflows:\n  main:\n    steps: []\n# " + "x" * 1024
+    big_yaml = "version: 1\nworkflows:\n  main:\n    steps: []\n# " + "x" * 1024
     engine = WorkflowEngine()
     engine.workflow_fetcher = _StaticFetcher(big_yaml)
     engine.fetch_policy = FetchPolicy(
@@ -297,7 +297,7 @@ async def test_workflow_call_remote_exceeds_max_size() -> None:
 @pytest.mark.asyncio
 async def test_workflow_call_remote_export_not_in_doc() -> None:
     remote_yaml = """
-    dsl: 1
+    version: 1
     exports: [public]
     workflows:
       public:
@@ -312,7 +312,7 @@ async def test_workflow_call_remote_export_not_in_doc() -> None:
             input: { v: 2 }
     """
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -337,7 +337,7 @@ async def test_workflow_call_remote_export_not_in_doc() -> None:
 @pytest.mark.asyncio
 async def test_workflow_call_remote_selects_export() -> None:
     remote_yaml = """
-    dsl: 1
+    version: 1
     exports: [public]
     workflows:
       public:
@@ -349,7 +349,7 @@ async def test_workflow_call_remote_selects_export() -> None:
           v: "${data.steps.a.v}"
     """
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:

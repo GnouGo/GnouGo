@@ -1,4 +1,4 @@
-﻿from gnougo_flow_cli.telemetry import (
+from gnougo_flow_cli.telemetry import (
     WORKFLOW_SOURCE_ATTRIBUTE_LIMIT,
     _apply_workflow_source_attributes,
 )
@@ -14,7 +14,7 @@ class _FakeSpan:
 
 def test_apply_workflow_source_attributes_emits_dotnet_compatible_tags() -> None:
     span = _FakeSpan()
-    source = "dsl: 1\nworkflows:\n  main:\n    steps: []\n"
+    source = "version: 1\nworkflows:\n  main:\n    steps: []\n"
 
     _apply_workflow_source_attributes(
         span,

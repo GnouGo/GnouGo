@@ -33,7 +33,7 @@ public class StepExecutorIntegrationTests
     public async Task LoopSequential_TimesN_ExecutesNTimes()
     {
         var result = await RunMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -61,7 +61,7 @@ workflows:
     public async Task LoopParallel_MaxConcurrency_Works()
     {
         var result = await RunMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -93,7 +93,7 @@ workflows:
     public async Task LoopParallel_ExceedsLimit_Fails()
     {
         var compiled = CompileDoc(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -129,7 +129,7 @@ workflows:
             });
 
         var result = await RunMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -152,7 +152,7 @@ workflows:
     public async Task LlmCall_NoClient_Fails()
     {
         var result = await RunMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -172,7 +172,7 @@ workflows:
     public async Task WorkflowCall_DepthLimit_Fails()
     {
         var compiled = CompileDoc(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -202,7 +202,7 @@ workflows:
     public async Task Switch_NoMatch_NoDefault_ReturnsNullOutput()
     {
         var result = await RunMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -228,7 +228,7 @@ workflows:
     public async Task TemplateRender_JsonMode_InvalidJson_Fails()
     {
         var result = await RunMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -253,7 +253,7 @@ workflows:
             .ReturnsAsync(new LLMResponse { Text = "AI says hello" });
 
         var result = await RunMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -296,7 +296,7 @@ workflows:
     public async Task WorkflowCall_Remote_NoFetcher_Fails()
     {
         var result = await RunMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -316,7 +316,7 @@ workflows:
     public async Task LoopSequential_WhileCanUseLoopIndexAndChildStepsSeeFirstIndex()
     {
         var result = await RunMain(@"
- dsl: 1
+ version: 1
  workflows:
    main:
      steps:

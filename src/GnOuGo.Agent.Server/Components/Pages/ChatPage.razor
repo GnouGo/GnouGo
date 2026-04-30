@@ -3,7 +3,6 @@
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using System.Threading
-@using Markdig
 @using Microsoft.JSInterop
 @using GnOuGo.Agent.Server.Components.Tracing
 @implements IAsyncDisposable
@@ -137,9 +136,7 @@
                                     }
                                 </div>
 
-                                <div class="sa-chat__bubble-text markdown-body">
-                                    @RenderMarkdown(msg.Content)
-                                </div>
+                                <MarkdownContent Class="sa-chat__bubble-text" Content="@msg.Content" />
                             </div>
                         </article>
                     }
@@ -158,9 +155,7 @@
 
                             @if (!string.IsNullOrWhiteSpace(_pendingHumanInput.Context))
                             {
-                                <div class="sa-hitl-context markdown-body">
-                                    @RenderHumanInputContext(_pendingHumanInput.Context)
-                                </div>
+                                <MarkdownContent Class="sa-hitl-context" Content="@FormatHumanInputContextAsMarkdown(_pendingHumanInput.Context)" />
                             }
 
                             @if (_pendingHumanInput.Choices is { Count: > 0 })
@@ -436,11 +431,6 @@
     private const string StorageKeyV2 = "gnougo-agent.sa-chat.store.v2";
     private const string LegacyStorageKey = "gnougo-sa-chat.sa-chat.history.v1";
 
-    private static readonly MarkdownPipeline MdPipeline = new MarkdownPipelineBuilder()
-        .UseAdvancedExtensions()
-        .DisableHtml()
-        .Build();
-
     private static readonly JsonSerializerOptions PrettyJsonOptions = new() { WriteIndented = true };
 
     private readonly ComposeModel _model = new();
@@ -526,15 +516,6 @@
             }
         }
     }
-
-    private MarkupString RenderMarkdown(string markdown)
-    {
-        var html = Markdown.ToHtml(NormalizeMarkdown(markdown), MdPipeline);
-        return (MarkupString)html;
-    }
-
-    private MarkupString RenderHumanInputContext(string? context)
-        => RenderMarkdown(FormatHumanInputContextAsMarkdown(context));
 
     private static string FormatHumanInputContextAsMarkdown(string? context)
     {
@@ -693,72 +674,6 @@
     private static string NormalizeLineEndings(string value)
         => value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
 
-    private static string NormalizeMarkdown(string? markdown)
-    {
-        if (string.IsNullOrWhiteSpace(markdown))
-            return markdown ?? "";
-
-        var normalized = markdown.Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('\r', '\n');
-
-        var lines = normalized.Split('\n');
-        var output = new List<string>(lines.Length + 8);
-
-        for (var i = 0; i < lines.Length; i++)
-        {
-            var line = lines[i];
-            var trimmed = line.Trim();
-            var previousTrimmed = output.Count == 0 ? "" : output[^1].Trim();
-            var nextTrimmed = i + 1 < lines.Length ? lines[i + 1].Trim() : "";
-
-            if (!string.IsNullOrWhiteSpace(previousTrimmed)
-                && (LooksLikeAtxHeading(trimmed) || LooksLikeTableHeader(trimmed, nextTrimmed)))
-            {
-                output.Add("");
-            }
-
-            output.Add(line);
-        }
-
-        return string.Join("\n", output);
-    }
-
-    private static bool LooksLikeAtxHeading(string line)
-    {
-        if (string.IsNullOrWhiteSpace(line) || !line.StartsWith('#'))
-            return false;
-
-        var index = 0;
-        while (index < line.Length && line[index] == '#')
-            index++;
-
-        return index is > 0 and <= 6
-            && index < line.Length
-            && char.IsWhiteSpace(line[index]);
-    }
-
-    private static bool LooksLikeTableHeader(string line, string nextLine)
-        => line.Contains('|', StringComparison.Ordinal)
-           && LooksLikeTableSeparator(nextLine);
-
-    private static bool LooksLikeTableSeparator(string line)
-    {
-        if (string.IsNullOrWhiteSpace(line) || !line.Contains('-', StringComparison.Ordinal))
-            return false;
-
-        var cells = line.Trim().Trim('|').Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (cells.Length == 0)
-            return false;
-
-        foreach (var cell in cells)
-        {
-            var content = cell.Trim().Trim(':').Replace(" ", "", StringComparison.Ordinal);
-            if (content.Length < 3 || content.Any(ch => ch != '-'))
-                return false;
-        }
-
-        return true;
-    }
 
     private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
     private void CloseSidebar() => _sidebarOpen = false;

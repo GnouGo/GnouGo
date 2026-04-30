@@ -77,12 +77,14 @@ class StepExecutionContext:
 
     def set_telemetry_attribute(self, key: str, value: Any) -> None:
         self.telemetry_attributes[key] = value
-        if self.telemetry_span:
-            self.telemetry_span.set_attribute(key, value)
+        set_attribute = getattr(self.telemetry_span, "set_attribute", None)
+        if callable(set_attribute):
+            set_attribute(key, value)
 
     def add_telemetry_event(self, name: str, attributes: list[tuple[str, Any]] | None = None) -> None:
-        if self.telemetry_span:
-            self.telemetry_span.add_event(name, attributes)
+        add_event = getattr(self.telemetry_span, "add_event", None)
+        if callable(add_event):
+            add_event(name, attributes)
 
 
 def _coerce_long(value: Any) -> int | None:

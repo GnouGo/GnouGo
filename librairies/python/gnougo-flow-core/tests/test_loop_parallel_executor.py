@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
 from gnougo_flow_core.parsing import WorkflowParser
@@ -12,7 +12,7 @@ def _compile(yaml_text: str):
 @pytest.mark.asyncio
 async def test_loop_parallel_items_basic() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -43,7 +43,7 @@ async def test_loop_parallel_items_basic() -> None:
 @pytest.mark.asyncio
 async def test_loop_parallel_items_exceed_loop_limit() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -69,7 +69,7 @@ async def test_loop_parallel_items_exceed_loop_limit() -> None:
 @pytest.mark.asyncio
 async def test_loop_parallel_items_exceed_parallel_limit() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -95,7 +95,7 @@ async def test_loop_parallel_items_exceed_parallel_limit() -> None:
 @pytest.mark.asyncio
 async def test_loop_parallel_strips_dunder_keys() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:

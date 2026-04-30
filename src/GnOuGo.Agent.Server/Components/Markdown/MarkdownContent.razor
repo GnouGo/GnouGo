@@ -1,0 +1,119 @@
+﻿@using System.Net
+@using Markdig
+
+<div class="@BuildClass()" @attributes="AdditionalAttributes">
+    @((MarkupString)_html)
+</div>
+
+@code {
+    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
+        .UseAdvancedExtensions()
+        .DisableHtml()
+        .Build();
+
+    private string _html = string.Empty;
+
+    [Parameter]
+    public string? Content { get; set; }
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public bool Normalize { get; set; } = true;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        var markdown = Content ?? string.Empty;
+        if (Normalize)
+            markdown = NormalizeMarkdown(markdown);
+
+        try
+        {
+            _html = Markdown.ToHtml(markdown, Pipeline);
+        }
+        catch
+        {
+            _html = $"<pre><code>{WebUtility.HtmlEncode(markdown)}</code></pre>";
+        }
+    }
+
+    private string BuildClass()
+    {
+        const string markdownClass = "markdown-body";
+        return string.IsNullOrWhiteSpace(Class)
+            ? markdownClass
+            : $"{Class} {markdownClass}";
+    }
+
+    private static string NormalizeMarkdown(string? markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+            return markdown ?? string.Empty;
+
+        var normalized = markdown.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n');
+
+        var lines = normalized.Split('\n');
+        var output = new List<string>(lines.Length + 8);
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            var trimmed = line.Trim();
+            var previousTrimmed = output.Count == 0 ? string.Empty : output[^1].Trim();
+            var nextTrimmed = i + 1 < lines.Length ? lines[i + 1].Trim() : string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(previousTrimmed)
+                && (LooksLikeAtxHeading(trimmed) || LooksLikeTableHeader(trimmed, nextTrimmed)))
+            {
+                output.Add(string.Empty);
+            }
+
+            output.Add(line);
+        }
+
+        return string.Join("\n", output);
+    }
+
+    private static bool LooksLikeAtxHeading(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line) || !line.StartsWith('#'))
+            return false;
+
+        var index = 0;
+        while (index < line.Length && line[index] == '#')
+            index++;
+
+        return index is > 0 and <= 6
+            && index < line.Length
+            && char.IsWhiteSpace(line[index]);
+    }
+
+    private static bool LooksLikeTableHeader(string line, string nextLine)
+        => line.Contains('|', StringComparison.Ordinal)
+           && LooksLikeTableSeparator(nextLine);
+
+    private static bool LooksLikeTableSeparator(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line) || !line.Contains('-', StringComparison.Ordinal))
+            return false;
+
+        var cells = line.Trim().Trim('|').Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (cells.Length == 0)
+            return false;
+
+        foreach (var cell in cells)
+        {
+            var content = cell.Trim().Trim(':').Replace(" ", string.Empty, StringComparison.Ordinal);
+            if (content.Length < 3 || content.Any(ch => ch != '-'))
+                return false;
+        }
+
+        return true;
+    }
+}
+

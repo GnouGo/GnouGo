@@ -131,8 +131,8 @@
 
 | # | Status | TODO | .NET source |
 |---|:-:|---|---|
-| B6 | ✅ | Accept `dsl:` alias for `version:` | `WorkflowParser.cs` |
-| B7 | ✅ | Raise on missing `version`/`dsl` (currently only fails when value ≠ 1) | `WorkflowParser.cs` |
+| B6 | ✅ | Use canonical `version:` only; legacy `dsl:` is no longer accepted | `WorkflowParser.cs` |
+| B7 | ✅ | Raise on missing `version` | `WorkflowParser.cs` |
 | B8 | ✅ | Distinguish `required: bool` vs `required: list[str]` so a top-level boolean and an object-level `required` list of names co-exist | `WorkflowParser.cs::ParseInputDef` |
 | B9 | ✅ | Mirror nested `OutputDef` "type-only" branch (no `expr`, has `type`) instead of falling through to backward-compat object output | `WorkflowParser.cs::ParseOutputDef` lines 219–253 |
 

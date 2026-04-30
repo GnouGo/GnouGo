@@ -53,7 +53,7 @@ async def test_mcp_list_uses_cache_across_steps():
     engine.mcp_client_factory = factory
     wf = compile_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -84,7 +84,7 @@ async def test_mcp_list_rejects_mixing_wildcard_and_explicit_servers():
     engine.mcp_client_factory = Factory()
     wf = compile_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -145,7 +145,7 @@ async def test_human_input_fields_telemetry_and_zero_timeout():
 
     wf = compile_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:

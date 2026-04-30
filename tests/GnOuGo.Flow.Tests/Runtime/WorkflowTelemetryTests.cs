@@ -95,7 +95,7 @@ public class WorkflowTelemetryTests
         var recording = new RecordingTelemetry();
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -186,7 +186,7 @@ workflows:
             });
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -238,7 +238,7 @@ workflows:
             });
 
         var wf = CompileMain(@"
- dsl: 1
+ version: 1
  workflows:
    main:
      steps:
@@ -267,6 +267,85 @@ workflows:
     }
 
     [Fact]
+    public async Task CustomTelemetry_WorkflowPlanMcpServerPrefilter_EmitsGenAiEvents()
+    {
+        var recording = new RecordingTelemetry();
+        var callIndex = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => (++callIndex) switch
+            {
+                1 => new LLMResponse
+                {
+                    Text = "{\"servers\":[{\"name\":\"github\",\"reason\":\"repo\"}]}",
+                    Json = JsonNode.Parse("{\"servers\":[{\"name\":\"github\",\"reason\":\"repo\"}]}")!,
+                    Usage = JsonNode.Parse("{\"prompt_tokens\":3,\"completion_tokens\":2,\"total_tokens\":5}")!
+                },
+                2 => new LLMResponse
+                {
+                    Text = "{\"servers\":[{\"name\":\"github\",\"tools\":[\"list_repos\"],\"prompts\":[]}]}",
+                    Json = JsonNode.Parse("{\"servers\":[{\"name\":\"github\",\"tools\":[\"list_repos\"],\"prompts\":[]}]}")!
+                },
+                _ => new LLMResponse
+                {
+                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                }
+            });
+
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Description = "GitHub repository automation",
+            Tools = new List<McpToolInfo> { new() { Name = "list_repos" } }
+        });
+        factory.RegisterServer("weather", new MockMcpServerConfig
+        {
+            Description = "Weather forecasts",
+            Tools = new List<McpToolInfo> { new() { Name = "get_weather" } }
+        });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: list repositories
+          validate:
+            compile: false
+");
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            McpClientFactory = factory,
+            Telemetry = recording,
+            Limits = new ExecutionLimits { LogStepContent = true }
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        var planSpan = recording.StepSpans.Single(s => s.Name == "plan");
+        Assert.Contains(planSpan.SpanEvents, e => e.Name == "gnougo-flow.plan.prefilter.servers.start"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "gen_ai.operation.name" && (string?)kv.Value == "chat")
+            && e.Attributes.Any(kv => kv.Key == "gen_ai.request.model" && (string?)kv.Value == "gpt-4"));
+        Assert.Contains(planSpan.SpanEvents, e => e.Name == "gnougo-flow.plan.prefilter.servers.usage"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "gen_ai.usage.total_tokens" && (int)kv.Value! == 5));
+        Assert.Contains(planSpan.SpanEvents, e => e.Name == "gen_ai.content.prompt"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.phase" && (string?)kv.Value == "mcp_server_prefilter"));
+        Assert.Contains(planSpan.SpanEvents, e => e.Name == "gnougo-flow.plan.prefilter.servers.result"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "mcp.servers_selected" && (int)kv.Value! == 1));
+    }
+
+    [Fact]
     public async Task CustomTelemetry_McpCall_HasMcpAttributes()
     {
         var recording = new RecordingTelemetry();
@@ -278,7 +357,7 @@ workflows:
         });
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -326,7 +405,7 @@ workflows:
         });
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -367,7 +446,7 @@ workflows:
         var recording = new RecordingTelemetry();
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -399,7 +478,7 @@ workflows:
         var recording = new RecordingTelemetry();
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -441,7 +520,7 @@ workflows:
         var recording = new RecordingTelemetry();
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -494,7 +573,7 @@ workflows:
         var recording = new RecordingTelemetry();
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -535,7 +614,7 @@ workflows:
         var recording = new RecordingTelemetry();
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -577,7 +656,7 @@ workflows:
         var recording = new RecordingTelemetry();
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -625,7 +704,7 @@ workflows:
         var recording = new RecordingTelemetry();
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:

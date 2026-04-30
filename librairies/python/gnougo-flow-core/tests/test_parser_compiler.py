@@ -7,7 +7,7 @@ from gnougo_flow_core.parsing import WorkflowParser
 
 def test_parse_and_compile_basic_workflow() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     name: basic
     workflows:
       main:
@@ -28,7 +28,7 @@ def test_parse_and_compile_basic_workflow() -> None:
     assert compiled.workflows["main"].steps[0].id == "init"
 
 
-def test_parse_requires_version_or_dsl() -> None:
+def test_parse_requires_version() -> None:
     yaml_text = """
     workflows:
       main:
@@ -40,6 +40,37 @@ def test_parse_requires_version_or_dsl() -> None:
 
     with pytest.raises(WorkflowParseException, match="Missing required field 'version'"):
         WorkflowParser.parse(yaml_text)
+
+
+def test_parse_rejects_legacy_dsl_without_version() -> None:
+    yaml_text = """
+    dsl: 1
+    workflows:
+      main:
+        steps:
+          - id: init
+            type: set
+            input: {}
+    """
+
+    with pytest.raises(WorkflowParseException, match="Missing required field 'version'"):
+        WorkflowParser.parse(yaml_text)
+
+
+@pytest.mark.parametrize("version", ["1", "1.0"])
+def test_parse_accepts_version_string_one(version: str) -> None:
+    yaml_text = f'''
+    version: "{version}"
+    workflows:
+      main:
+        steps:
+          - id: init
+            type: set
+            input: {{}}
+    '''
+
+    doc = WorkflowParser.parse(yaml_text)
+    assert doc.version == 1
 
 
 def test_parse_input_required_bool_and_object_required_list() -> None:

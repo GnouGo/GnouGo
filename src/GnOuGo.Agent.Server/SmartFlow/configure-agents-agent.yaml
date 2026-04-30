@@ -287,8 +287,8 @@ workflows:
             type: workflow.plan
             input:
               generator:
-                prefilter: false
-                reasoning: high
+                prefilter: true
+                reasoning: auto
                 instruction: >
                   Generate a valid GnOuGo.Flow YAML workflow for a persisted chat agent.
 

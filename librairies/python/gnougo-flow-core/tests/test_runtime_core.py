@@ -8,7 +8,7 @@ from gnougo_flow_core.runtime import WorkflowEngine
 @pytest.mark.asyncio
 async def test_runtime_executes_set_template_loop_and_switch() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -64,7 +64,7 @@ async def test_runtime_executes_set_template_loop_and_switch() -> None:
 @pytest.mark.asyncio
 async def test_runtime_switch_supports_boolean_numeric_and_null_case_values() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       bool_case:
         steps:

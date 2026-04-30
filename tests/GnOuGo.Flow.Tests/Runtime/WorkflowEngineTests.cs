@@ -29,7 +29,7 @@ public class WorkflowEngineTests
     public async Task Execute_TemplateRender_ProducesText()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -55,7 +55,7 @@ workflows:
     public async Task Execute_TemplateRender_JsonMode_ParsesJson()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -82,7 +82,7 @@ workflows:
     public async Task Execute_IfGuard_True_StepExecutes()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -104,7 +104,7 @@ workflows:
     public async Task Execute_IfGuard_False_StepSkipped()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -128,7 +128,7 @@ workflows:
     public async Task Execute_Sequence_ExecutesInOrder()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -159,7 +159,7 @@ workflows:
     public async Task Execute_Parallel_AllBranchesRun()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -192,7 +192,7 @@ workflows:
     public async Task Execute_Switch_FormA_MatchesValue()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -228,7 +228,7 @@ workflows:
     public async Task Execute_Switch_FormB_WhenCondition()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -261,7 +261,7 @@ workflows:
     public async Task Execute_Switch_Default_WhenNoMatch()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -296,7 +296,7 @@ workflows:
     public async Task Execute_LoopParallel_IteratesItems()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -329,7 +329,7 @@ workflows:
     public async Task Execute_LoopSequential_WhileCondition()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -354,7 +354,7 @@ workflows:
     public async Task Execute_LoopSequential_WhileCanUseLoopIndexFromZero()
     {
         var wf = CompileMain(@"
- dsl: 1
+ version: 1
  workflows:
    main:
      steps:
@@ -396,7 +396,7 @@ workflows:
             .ReturnsAsync(new LLMResponse { Text = "AI response", Usage = new JsonObject { ["tokens"] = 100 } });
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -424,7 +424,7 @@ workflows:
             .ReturnsAsync(new LLMResponse { Text = "response" });
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -453,7 +453,7 @@ workflows:
             .ReturnsAsync(new LLMResponse { Text = "defaulted" });
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -490,7 +490,7 @@ workflows:
     public async Task Execute_WorkflowCall_Local_CallsSubWorkflow()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -532,7 +532,7 @@ workflows:
     public async Task Execute_WithGlobalFunctions_FunctionsAvailable()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 functions: |
   function greet(name) {
     return ""Hello "" + name;
@@ -561,7 +561,7 @@ workflows:
     public async Task Execute_WithLocalFunctions_ShadowsGlobal()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 functions: |
   function tag() { return ""global""; }
 workflows:
@@ -592,7 +592,7 @@ workflows:
     public async Task Execute_UnknownStepType_Fails()
     {
         var doc = WorkflowParser.Parse(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -622,7 +622,7 @@ workflows:
     public async Task Execute_Cancellation_Fails()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -645,7 +645,7 @@ workflows:
     public async Task Execute_StepLimit_Exceeded_Fails()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -680,7 +680,7 @@ workflows:
     public async Task Execute_NoOutputsDefined_ReturnsAllSteps()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -701,7 +701,7 @@ workflows:
     public async Task Execute_WithOutputAlias_WritesAlias()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -728,7 +728,7 @@ workflows:
             .ThrowsAsync(new Exception("network failure"));
 
         var wf = CompileMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:

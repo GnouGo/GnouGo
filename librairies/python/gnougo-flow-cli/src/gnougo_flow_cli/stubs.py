@@ -21,7 +21,7 @@ class EchoLLMClient:
         if "Generate a valid GnOuGo.Flow YAML document" in request.prompt:
             return LLMResponse(
                 text=(
-                    "dsl: 1\n"
+                    "version: 1\n"
                     "workflows:\n"
                     "  generated:\n"
                     "    steps:\n"

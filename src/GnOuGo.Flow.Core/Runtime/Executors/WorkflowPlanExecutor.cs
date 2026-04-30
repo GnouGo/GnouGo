@@ -81,30 +81,34 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         var stepExceptionsDoc = BuildStepExceptionsDoc(ctx.Engine.Registry, allowedTypes);
 
         // ── MCP discovery + optional pre-filter ─────────────────────────
-        var discovered = await DiscoverMcpServersAsync(ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, ct);
+        // Check if pre-filtering is requested via generator.prefilter (default: true)
+        var prefilterNode = generator["prefilter"];
+        bool shouldPrefilter = prefilterNode == null
+            || prefilterNode is JsonObject
+            || (prefilterNode is JsonValue jv && (!jv.TryGetValue<bool>(out var bv) || bv));
 
-        if (discovered != null && discovered.Count > 0)
+        var prefilterModel = model;
+        var prefilterProvider = provider;
+        if (shouldPrefilter && prefilterNode is JsonObject pfObj)
         {
-            // Check if pre-filtering is requested via generator.prefilter (default: true)
-            var prefilterNode = generator["prefilter"];
-            bool shouldPrefilter = prefilterNode == null
-                || prefilterNode is JsonObject
-                || (prefilterNode is JsonValue jv && (!jv.TryGetValue<bool>(out var bv) || bv));
+            prefilterModel = pfObj["model"]?.GetValue<string>() ?? model;
+            prefilterProvider = pfObj["provider"]?.GetValue<string>() ?? provider;
+        }
 
-            if (shouldPrefilter)
-            {
-                var prefilterModel = model;
-                var prefilterProvider = provider;
-                if (prefilterNode is JsonObject pfObj)
-                {
-                    prefilterModel = pfObj["model"]?.GetValue<string>() ?? model;
-                    prefilterProvider = pfObj["provider"]?.GetValue<string>() ?? provider;
-                }
+        var candidateMcpServers = shouldPrefilter
+            ? await PrefilterMcpServerMetadataAsync(
+                llmClient, ctx.Engine.McpClientFactory, instruction, generatorContext,
+                prefilterModel, prefilterProvider, planReasoning, ctx, ct)
+            : null;
 
-                discovered = await PrefilterMcpServersAsync(
-                    llmClient, discovered, instruction, generatorContext,
-                    prefilterModel, prefilterProvider, planReasoning, ctx, ct);
-            }
+        var discovered = await DiscoverMcpServersAsync(
+            ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateMcpServers, ct);
+
+        if (shouldPrefilter && discovered != null && discovered.Count > 0)
+        {
+            discovered = await PrefilterMcpServersAsync(
+                llmClient, discovered, instruction, generatorContext,
+                prefilterModel, prefilterProvider, planReasoning, ctx, ct);
         }
 
         var mcpServersDoc = discovered != null && discovered.Count > 0
@@ -369,12 +373,21 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
     /// Returns null when no servers are configured.
     /// </summary>
     private static async Task<List<McpServerDiscovery>?> DiscoverMcpServersAsync(
-        IMcpClientFactory? factory, Microsoft.Extensions.Caching.Memory.IMemoryCache? cache, ILogger logger, StepExecutionContext ctx, CancellationToken ct)
+        IMcpClientFactory? factory,
+        Microsoft.Extensions.Caching.Memory.IMemoryCache? cache,
+        ILogger logger,
+        StepExecutionContext ctx,
+        IReadOnlyList<McpServerMetadata>? candidateServers,
+        CancellationToken ct)
     {
         if (factory?.ServerMetadata == null || factory.ServerMetadata.Count == 0)
             return null;
 
-        var serverCount = factory.ServerMetadata.Count;
+        var serverMetadata = candidateServers ?? factory.ServerMetadata;
+        if (serverMetadata.Count == 0)
+            return new List<McpServerDiscovery>();
+
+        var serverCount = serverMetadata.Count;
 
         // ── Thinking: MCP discovery start ──
         ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
@@ -385,7 +398,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
 
         var results = new List<McpServerDiscovery>();
 
-        foreach (var server in factory.ServerMetadata)
+        foreach (var server in serverMetadata)
         {
             // ── Try cache first: skip session entirely when both tools & prompts are cached ──
             var cachedTools = McpCacheHelper.GetCachedTools(cache, server.Name);
@@ -486,6 +499,223 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         });
 
         return results;
+    }
+
+    /// <summary>
+    /// Calls an LLM with a strict structured-output schema to select relevant MCP servers
+    /// from static server descriptions before opening MCP sessions for tool discovery.
+    /// Returns null when no factory/metadata is available, and returns the full metadata list on failure.
+    /// </summary>
+    private static async Task<IReadOnlyList<McpServerMetadata>?> PrefilterMcpServerMetadataAsync(
+        ILLMClient llmClient,
+        IMcpClientFactory? factory,
+        string instruction,
+        string context,
+        string model,
+        string? provider,
+        string? planReasoning,
+        StepExecutionContext ctx,
+        CancellationToken ct)
+    {
+        if (factory?.ServerMetadata == null || factory.ServerMetadata.Count == 0)
+            return null;
+
+        var allServers = factory.ServerMetadata;
+        var catalogSb = new StringBuilder();
+        foreach (var server in allServers)
+            catalogSb.AppendLine($"- {server.Name}: {(string.IsNullOrWhiteSpace(server.Description) ? "(no description)" : server.Description)}");
+
+        var prefilterPrompt = $$"""
+            You are an MCP server-selection assistant. Given a task description and a catalog of MCP server descriptions, select only the servers likely to contain relevant capabilities.
+
+            Return ONLY a JSON object matching this shape:
+            {
+              "servers": [
+                { "name": "server-name", "reason": "short relevance reason" }
+              ]
+            }
+
+            Rules:
+            - Use only exact server names from the catalog.
+            - Base the decision only on server descriptions, not on imagined tools.
+            - Include every plausibly relevant server; exclude clearly unrelated servers.
+            - If no server is relevant, return {"servers": []}.
+
+            [SERVER CATALOG]
+            {{catalogSb}}
+
+            [TASK]
+            Instruction: {{instruction}}
+            {{(string.IsNullOrWhiteSpace(context) ? "" : $"Context: {context}")}}
+            """;
+
+        try
+        {
+            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                    $"Pre-filtering MCP server descriptions with {model} ({allServers.Count} server(s))…"),
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "thinking")
+            });
+
+            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.servers.start", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter"),
+                new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+                new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unknown"),
+                new KeyValuePair<string, object?>("gen_ai.request.model", model),
+                new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count)
+            });
+
+            if (ctx.Limits.LogStepContent)
+            {
+                ctx.AddTelemetryEvent("gen_ai.content.prompt", new[]
+                {
+                    new KeyValuePair<string, object?>("gen_ai.prompt", prefilterPrompt),
+                    new KeyValuePair<string, object?>("prompt.role", "user"),
+                    new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter")
+                });
+            }
+
+            var response = await llmClient.CallAsync(new LLMRequest
+            {
+                Provider = provider,
+                Model = model,
+                Prompt = prefilterPrompt,
+                Temperature = 0.0,
+                StructuredOutputSchema = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "servers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "reason": { "type": "string" }
+                        },
+                        "required": ["name", "reason"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["servers"],
+                  "additionalProperties": false
+                }
+                """),
+                StructuredOutputStrict = true,
+                Reasoning = planReasoning,
+            }, ct);
+
+            if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
+            {
+                ctx.AddTelemetryEvent("gen_ai.content.completion", new[]
+                {
+                    new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
+                    new KeyValuePair<string, object?>("completion.role", "assistant"),
+                    new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
+                    new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter")
+                });
+            }
+
+            AddPrefilterUsageEvent(ctx, response.Usage, model, provider, "mcp_server_prefilter", "gnougo-flow.plan.prefilter.servers.usage");
+
+            var payload = response.Json as JsonObject;
+            if (payload == null && !string.IsNullOrWhiteSpace(response.Text))
+                payload = JsonNode.Parse(StripMarkdownFences(response.Text).Trim()) as JsonObject;
+
+            var serversArr = payload?["servers"] as JsonArray
+                ?? throw new InvalidOperationException("MCP server prefilter response did not contain a servers array.");
+
+            var byName = allServers.ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
+            var selected = new List<McpServerMetadata>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in serversArr)
+            {
+                var name = entry is JsonObject obj ? obj["name"]?.GetValue<string>() : entry?.GetValue<string>();
+                if (string.IsNullOrWhiteSpace(name) || !byName.TryGetValue(name, out var metadata) || !seen.Add(metadata.Name))
+                    continue;
+                selected.Add(metadata);
+            }
+
+            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.servers.result", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter"),
+                new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+                new KeyValuePair<string, object?>("gen_ai.request.model", model),
+                new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count),
+                new KeyValuePair<string, object?>("mcp.servers_selected", selected.Count),
+                new KeyValuePair<string, object?>("mcp.server.names", string.Join(",", selected.Select(s => s.Name)))
+            });
+
+            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                    $"MCP server pre-filter: {selected.Count}/{allServers.Count} server(s) selected before discovery."),
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+            });
+
+            return selected;
+        }
+        catch (Exception ex)
+        {
+            ctx.Engine.Logger.LogWarning(ex, "workflow.plan: MCP server prefilter failed, falling back to full server list");
+            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.servers.fallback", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter"),
+                new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+                new KeyValuePair<string, object?>("gen_ai.request.model", model),
+                new KeyValuePair<string, object?>("error.type", ex.GetType().Name),
+                new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count)
+            });
+
+            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                    $"MCP server pre-filter failed ({ex.Message}), discovering all {allServers.Count} server(s)."),
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+            });
+
+            return allServers;
+        }
+    }
+
+    private static void AddPrefilterUsageEvent(
+        StepExecutionContext ctx,
+        JsonNode? usage,
+        string model,
+        string? provider,
+        string phase,
+        string eventName)
+    {
+        if (usage is not JsonObject usageObject)
+            return;
+
+        var attrs = new List<KeyValuePair<string, object?>>
+        {
+            new("gnougo-flow.plan.phase", phase),
+            new("gen_ai.operation.name", "chat"),
+            new("gen_ai.system", provider ?? "unknown"),
+            new("gen_ai.request.model", model)
+        };
+
+        if (usageObject.TryGetPropertyValue("prompt_tokens", out var promptTokens) && promptTokens != null)
+            attrs.Add(new("gen_ai.usage.input_tokens", promptTokens.GetValue<int>()));
+        else if (usageObject.TryGetPropertyValue("input_tokens", out var inputTokens) && inputTokens != null)
+            attrs.Add(new("gen_ai.usage.input_tokens", inputTokens.GetValue<int>()));
+
+        if (usageObject.TryGetPropertyValue("completion_tokens", out var completionTokens) && completionTokens != null)
+            attrs.Add(new("gen_ai.usage.output_tokens", completionTokens.GetValue<int>()));
+        else if (usageObject.TryGetPropertyValue("output_tokens", out var outputTokens) && outputTokens != null)
+            attrs.Add(new("gen_ai.usage.output_tokens", outputTokens.GetValue<int>()));
+
+        if (usageObject.TryGetPropertyValue("total_tokens", out var totalTokens) && totalTokens != null)
+            attrs.Add(new("gen_ai.usage.total_tokens", totalTokens.GetValue<int>()));
+
+        ctx.AddTelemetryEvent(eventName, attrs.ToArray());
     }
 
     /// <summary>
@@ -597,6 +827,29 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 Model = model,
                 Prompt = prefilterPrompt,
                 Temperature = 0.0,
+                StructuredOutputSchema = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "servers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "tools": { "type": "array", "items": { "type": "string" } },
+                          "prompts": { "type": "array", "items": { "type": "string" } }
+                        },
+                        "required": ["name", "tools", "prompts"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["servers"],
+                  "additionalProperties": false
+                }
+                """),
+                StructuredOutputStrict = true,
                 Reasoning = planReasoning,
             }, ct);
 
@@ -633,8 +886,12 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.usage", attrs.ToArray());
             }
 
-            var jsonText = StripMarkdownFences(response.Text).Trim();
-            var filterResult = JsonNode.Parse(jsonText) as JsonObject;
+            var filterResult = response.Json as JsonObject;
+            if (filterResult == null)
+            {
+                var jsonText = StripMarkdownFences(response.Text).Trim();
+                filterResult = JsonNode.Parse(jsonText) as JsonObject;
+            }
             var serversArr = filterResult?["servers"] as JsonArray;
 
             if (serversArr == null || serversArr.Count == 0)

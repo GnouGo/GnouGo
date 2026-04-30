@@ -120,11 +120,11 @@ public class WorkflowPlanExecutorTests
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
             });
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -176,11 +176,11 @@ workflows:
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedRequest = req)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
             });
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -220,11 +220,11 @@ workflows:
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
             });
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -267,7 +267,7 @@ workflows:
             .ReturnsAsync(new LLMResponse
             {
                 Text = """
-                       dsl: 1
+                       version: 1
                        workflows:
                          main:
                            steps:
@@ -283,7 +283,7 @@ workflows:
             });
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -323,17 +323,17 @@ workflows:
                 if (callCount == 1)
                 {
                     // First call: return invalid YAML (missing 'type' in step)
-                    return new LLMResponse { Text = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n" };
+                    return new LLMResponse { Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n" };
                 }
                 // Second call: return valid YAML
                 return new LLMResponse
                 {
-                    Text = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
                 };
             });
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -368,11 +368,11 @@ workflows:
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LLMResponse
             {
-                Text = "```yaml\ndsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text\n```"
+                Text = "```yaml\nversion: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text\n```"
             });
 
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -406,7 +406,7 @@ workflows:
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
             });
 
         var mcpFactory = new InMemoryMcpClientFactory();
@@ -433,7 +433,7 @@ workflows:
         });
 
         var wf = CompileMain(@"
- dsl: 1
+ version: 1
  workflows:
    main:
      steps:
@@ -495,7 +495,7 @@ workflows:
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
             });
 
         var mcpFactory = new InMemoryMcpClientFactory();
@@ -509,7 +509,7 @@ workflows:
         });
 
         var wf = CompileMain(@"
- dsl: 1
+ version: 1
  workflows:
    main:
      steps:
@@ -540,6 +540,90 @@ workflows:
         Assert.Contains("data.steps.<id>.results", capturedPrompt);
         Assert.Contains("data.steps.<id>.json", capturedPrompt);
         Assert.Contains("data.steps.<id>.text", capturedPrompt);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_ServerPrefilter_UsesDescriptionsBeforeCapabilityDiscovery()
+    {
+        var requests = new List<LLMRequest>();
+        var callIndex = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => requests.Add(req))
+            .ReturnsAsync(() => (++callIndex) switch
+            {
+                1 => new LLMResponse
+                {
+                    Text = "{\"servers\":[{\"name\":\"github\",\"reason\":\"repository task\"}]}",
+                    Json = JsonNode.Parse("{\"servers\":[{\"name\":\"github\",\"reason\":\"repository task\"}]}")
+                },
+                2 => new LLMResponse
+                {
+                    Text = "{\"servers\":[{\"name\":\"github\",\"tools\":[\"list_repos\"],\"prompts\":[]}]}",
+                    Json = JsonNode.Parse("{\"servers\":[{\"name\":\"github\",\"tools\":[\"list_repos\"],\"prompts\":[]}]}")
+                },
+                _ => new LLMResponse
+                {
+                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                }
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Description = "GitHub repository automation and file operations",
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "list_repos", Description = "List repositories for a user" },
+                new() { Name = "delete_repo", Description = "Delete a repository" }
+            }
+        });
+        mcpFactory.RegisterServer("weather", new MockMcpServerConfig
+        {
+            Description = "Weather forecasts and city conditions",
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "get_weather", Description = "Get weather for a city" }
+            }
+        });
+
+        var wf = CompileMain(@"
+ version: 1
+ workflows:
+   main:
+     steps:
+       - id: plan
+         type: workflow.plan
+         input:
+           generator:
+             model: gpt-4
+             instruction: Build a workflow that lists GitHub repositories
+           validate:
+             compile: false
+ ");
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            McpClientFactory = mcpFactory
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(3, requests.Count);
+        Assert.NotNull(requests[0].StructuredOutputSchema);
+        Assert.True(requests[0].StructuredOutputStrict);
+        Assert.Contains("[SERVER CATALOG]", requests[0].Prompt);
+        Assert.Contains("GitHub repository automation", requests[0].Prompt);
+        Assert.Contains("Weather forecasts", requests[0].Prompt);
+        Assert.DoesNotContain("list_repos", requests[0].Prompt);
+        Assert.NotNull(requests[1].StructuredOutputSchema);
+        var mcpSectionStart = requests[2].Prompt.LastIndexOf("[AVAILABLE MCP SERVERS]", StringComparison.Ordinal);
+        var mcpSectionEnd = requests[2].Prompt.IndexOf("[MCP OUTPUT ACCESS]", mcpSectionStart, StringComparison.Ordinal);
+        var mcpSection = requests[2].Prompt[mcpSectionStart..mcpSectionEnd];
+        Assert.Contains("list_repos", mcpSection);
+        Assert.DoesNotContain("get_weather", mcpSection);
+        Assert.DoesNotContain("delete_repo", mcpSection);
     }
 
     [Fact]

@@ -47,7 +47,7 @@ class FakeMcpFactory:
 @pytest.mark.asyncio
 async def test_workflow_plan_prompt_contains_dotnet_like_sections() -> None:
     source = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -59,7 +59,7 @@ async def test_workflow_plan_prompt_contains_dotnet_like_sections() -> None:
                 instruction: "build something"
     """
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         steps:
@@ -89,7 +89,7 @@ async def test_workflow_plan_prompt_contains_dotnet_like_sections() -> None:
 @pytest.mark.asyncio
 async def test_workflow_plan_policy_blocks_remote_refs() -> None:
     source = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -103,7 +103,7 @@ async def test_workflow_plan_policy_blocks_remote_refs() -> None:
                 allow_remote_workflow_refs: false
     """
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         steps:
@@ -130,7 +130,7 @@ async def test_workflow_plan_policy_blocks_remote_refs() -> None:
 @pytest.mark.asyncio
 async def test_workflow_plan_policy_enforces_denied_types_on_nested_steps() -> None:
     source = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -147,7 +147,7 @@ async def test_workflow_plan_policy_enforces_denied_types_on_nested_steps() -> N
                 compile: false
     """
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         steps:
@@ -175,7 +175,7 @@ async def test_workflow_plan_policy_enforces_denied_types_on_nested_steps() -> N
 @pytest.mark.asyncio
 async def test_workflow_plan_policy_enforces_allowed_types_on_nested_steps() -> None:
     source = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -191,7 +191,7 @@ async def test_workflow_plan_policy_enforces_allowed_types_on_nested_steps() -> 
                 compile: false
     """
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         steps:
@@ -218,7 +218,7 @@ async def test_workflow_plan_policy_enforces_allowed_types_on_nested_steps() -> 
 @pytest.mark.asyncio
 async def test_workflow_plan_policy_blocks_nested_remote_refs() -> None:
     source = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -234,7 +234,7 @@ async def test_workflow_plan_policy_blocks_nested_remote_refs() -> None:
                 compile: false
     """
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         steps:
@@ -264,7 +264,7 @@ async def test_workflow_plan_policy_blocks_nested_remote_refs() -> None:
 @pytest.mark.asyncio
 async def test_workflow_plan_limits_count_nested_steps() -> None:
     source = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -280,7 +280,7 @@ async def test_workflow_plan_limits_count_nested_steps() -> None:
                 compile: false
     """
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         steps:
@@ -307,7 +307,7 @@ async def test_workflow_plan_limits_count_nested_steps() -> None:
 @pytest.mark.asyncio
 async def test_workflow_plan_normalizes_workflow_body_without_workflows_root() -> None:
     source = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -325,7 +325,7 @@ async def test_workflow_plan_normalizes_workflow_body_without_workflows_root() -
           answer: "${data.steps.run.outputs.answer}"
     """
     generated_yaml = """
-    dsl: 1
+    version: 1
     steps:
       - id: done
         type: set
@@ -348,7 +348,7 @@ async def test_workflow_plan_normalizes_workflow_body_without_workflows_root() -
 @pytest.mark.asyncio
 async def test_workflow_plan_uses_prompt_snippet_from_executor_class() -> None:
     source = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -360,7 +360,7 @@ async def test_workflow_plan_uses_prompt_snippet_from_executor_class() -> None:
                 instruction: "build something"
     """
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       generated:
         steps:

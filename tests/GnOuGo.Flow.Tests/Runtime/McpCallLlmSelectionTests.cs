@@ -65,7 +65,7 @@ public class McpCallLlmSelectionTests
             });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -143,7 +143,7 @@ workflows:
             });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -202,7 +202,7 @@ workflows:
             });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -250,7 +250,7 @@ workflows:
         var mockLlm = new Mock<ILLMClient>(MockBehavior.Strict);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -292,7 +292,7 @@ workflows:
         var mockLlm = new Mock<ILLMClient>(MockBehavior.Strict);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -388,7 +388,7 @@ workflows:
             });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -480,7 +480,7 @@ workflows:
             });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -549,7 +549,7 @@ workflows:
             });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:

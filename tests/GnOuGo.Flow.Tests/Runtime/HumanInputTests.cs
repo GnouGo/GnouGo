@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
@@ -14,7 +14,7 @@ namespace GnOuGo.Flow.Tests.Runtime;
 /// </summary>
 public class HumanInputTests
 {
-    // ── Helpers ──
+    // -- Helpers --
 
     private static CompiledWorkflow CompileMain(string yaml)
     {
@@ -44,15 +44,15 @@ public class HumanInputTests
     }
 
 
-    // ══════════════════════════════════════════════════════════════════
+    // ------------------------------------------------------------------
     // Level 1: human.input step
-    // ══════════════════════════════════════════════════════════════════
+    // ------------------------------------------------------------------
 
     [Fact]
     public async Task HumanInput_BasicPrompt_ReturnsUserResponse()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -90,7 +90,7 @@ workflows:
     public async Task HumanInput_WithFields_ParsesFieldDefs()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -135,7 +135,7 @@ workflows:
     public async Task HumanInput_NoProvider_ThrowsError()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -157,7 +157,7 @@ workflows:
     public async Task HumanInput_SequentialWorkflow_PassesResponseToNextStep()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -186,15 +186,15 @@ workflows:
         Assert.Equal("Hello, Alice!", greetOutput!["greeting"]!.GetValue<string>());
     }
 
-    // ══════════════════════════════════════════════════════════════════
+    // ------------------------------------------------------------------
     // Level 2: Checkpoint / Resume
-    // ══════════════════════════════════════════════════════════════════
+    // ------------------------------------------------------------------
 
     [Fact]
     public async Task Checkpoint_SavedAfterEachStep()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -254,15 +254,15 @@ workflows:
     }
 
 
-    // ══════════════════════════════════════════════════════════════════
+    // ------------------------------------------------------------------
     // Checkpoint: WorkflowYaml persistence
-    // ══════════════════════════════════════════════════════════════════
+    // ------------------------------------------------------------------
 
     [Fact]
     public async Task Checkpoint_IncludesWorkflowYaml()
     {
         const string yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -288,15 +288,15 @@ workflows:
         Assert.Contains("step1", cp.WorkflowYaml);
     }
 
-    // ══════════════════════════════════════════════════════════════════
+    // ------------------------------------------------------------------
     // Resume across human.input boundary
-    // ══════════════════════════════════════════════════════════════════
+    // ------------------------------------------------------------------
 
     [Fact]
     public async Task Resume_AcrossHumanInput_ContinuesFromCheckpoint()
     {
         const string yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -317,7 +317,7 @@ workflows:
         var wf = CompileMain(yaml);
         var checkpointer = new InMemoryWorkflowCheckpointer();
 
-        // ── First run: will succeed all steps because we provide a provider ──
+        // -- First run: will succeed all steps because we provide a provider --
         var fakeProvider = new FakeHumanInputProvider(new JsonObject { ["response"] = "42" });
         var engine1 = new WorkflowEngine
         {
@@ -350,7 +350,7 @@ workflows:
         };
         await checkpointer.SaveAsync(pausedCp, CancellationToken.None);
 
-        // ── Resume from the paused checkpoint ──
+        // -- Resume from the paused checkpoint --
         var fakeProvider2 = new FakeHumanInputProvider(new JsonObject { ["response"] = "secret_value" });
         var engine2 = new WorkflowEngine
         {

@@ -14,7 +14,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
 
 | Area | Status |
 |---|---|
-| YAML DSL parser (`version:` / `dsl:` alias) | Yes |
+| YAML DSL parser (`version:`) | Yes |
 | Validation + compilation pipeline | Yes |
 | Expression interpolation `${...}` + built-in functions | Yes (AST-based JS-subset interpreter) |
 | Mustache `template.render` engine | Yes |
@@ -940,7 +940,7 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript-s
 Define reusable functions in the `functions:` block (document-level or workflow-level):
 
 ```yaml
-dsl: 1
+version: 1
 name: smart-triage
 functions: |
   function classify(text) {

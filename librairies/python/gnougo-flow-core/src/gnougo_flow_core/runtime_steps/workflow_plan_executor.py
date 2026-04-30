@@ -141,7 +141,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         plan_reasoning: str | None = None,
     ) -> str:
         allowed_types = set(policy.get("allowed_step_types") or []) or None
-        mcp_doc = await self._build_mcp_documentation(ctx)
+        candidate_mcp_servers = await self._maybe_prefilter_mcp_server_metadata(
+            ctx, generator, instruction, context_text, plan_reasoning
+        )
+        mcp_doc = await self._build_mcp_documentation(ctx, candidate_mcp_servers)
         mcp_doc = await self._maybe_prefilter_mcp_documentation(
             ctx, generator, instruction, mcp_doc, plan_reasoning
         )
@@ -193,6 +196,238 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "[CONSTRAINTS]\n"
             f"{chr(10).join(constraints_lines) if constraints_lines else '(none)'}\n"
         )
+
+    @staticmethod
+    def _should_prefilter(generator: dict[str, Any]) -> bool:
+        prefilter = generator.get("prefilter")
+        return prefilter is None or isinstance(prefilter, dict) or bool(prefilter)
+
+    @staticmethod
+    def _prefilter_target(generator: dict[str, Any]) -> tuple[str | None, str | None]:
+        prefilter = generator.get("prefilter")
+        provider = None
+        model = None
+        if isinstance(prefilter, dict):
+            provider = prefilter.get("provider")
+            model = prefilter.get("model")
+        model = model or generator.get("model")
+        provider = provider or generator.get("provider")
+        return provider, model
+
+    @staticmethod
+    def _add_prefilter_usage_event(
+        ctx: StepExecutionContext,
+        usage: Any,
+        model: str | None,
+        provider: str | None,
+        phase: str,
+        event_name: str,
+    ) -> None:
+        if not isinstance(usage, dict):
+            return
+
+        attrs: list[tuple[str, Any]] = [
+            ("gnougo-flow.plan.phase", phase),
+            ("gen_ai.operation.name", "chat"),
+            ("gen_ai.system", provider or "unknown"),
+        ]
+        if model:
+            attrs.append(("gen_ai.request.model", model))
+
+        input_tokens = usage.get("prompt_tokens", usage.get("input_tokens"))
+        output_tokens = usage.get("completion_tokens", usage.get("output_tokens"))
+        total_tokens = usage.get("total_tokens")
+        if input_tokens is not None:
+            attrs.append(("gen_ai.usage.input_tokens", int(input_tokens)))
+        if output_tokens is not None:
+            attrs.append(("gen_ai.usage.output_tokens", int(output_tokens)))
+        if total_tokens is not None:
+            attrs.append(("gen_ai.usage.total_tokens", int(total_tokens)))
+
+        ctx.add_telemetry_event(event_name, attrs)
+
+    async def _maybe_prefilter_mcp_server_metadata(
+        self,
+        ctx: StepExecutionContext,
+        generator: dict[str, Any],
+        instruction: str,
+        context_text: str,
+        plan_reasoning: str | None = None,
+    ) -> list[McpServerMetadata] | None:
+        if not self._should_prefilter(generator):
+            return None
+
+        factory = ctx.engine.mcp_client_factory
+        llm_client = ctx.engine.llm_client
+        if factory is None or llm_client is None:
+            return None
+
+        server_meta = list(getattr(factory, "server_metadata", []) or [])
+        if not server_meta:
+            return None
+
+        provider, model = self._prefilter_target(generator)
+        if not model:
+            return None
+
+        catalog = "\n".join(
+            f"- {getattr(meta, 'name', str(meta))}: {getattr(meta, 'description', None) or '(no description)'}"
+            for meta in server_meta
+        )
+        prompt = (
+            "You are an MCP server-selection assistant. Given a task description and a catalog of MCP server "
+            "descriptions, select only the servers likely to contain relevant capabilities.\n\n"
+            "Return ONLY a JSON object matching this shape: "
+            '{"servers":[{"name":"server-name","reason":"short relevance reason"}]}.\n\n'
+            "Rules:\n"
+            "- Use only exact server names from the catalog.\n"
+            "- Base the decision only on server descriptions, not on imagined tools.\n"
+            "- Include every plausibly relevant server; exclude clearly unrelated servers.\n"
+            '- If no server is relevant, return {"servers": []}.\n\n'
+            f"[SERVER CATALOG]\n{catalog}\n\n"
+            f"[TASK]\nInstruction: {instruction}\n"
+            f"{'Context: ' + context_text if context_text else ''}"
+        )
+
+        try:
+            ctx.add_telemetry_event(
+                "gnougo-flow.step.thinking",
+                [
+                    (
+                        "gnougo-flow.thinking.message",
+                        f"Pre-filtering MCP server descriptions with {model} ({len(server_meta)} server(s))…",
+                    ),
+                    ("gnougo-flow.thinking.level", "thinking"),
+                ],
+            )
+            ctx.add_telemetry_event(
+                "gnougo-flow.plan.prefilter.servers.start",
+                [
+                    ("gnougo-flow.plan.phase", "mcp_server_prefilter"),
+                    ("gen_ai.operation.name", "chat"),
+                    ("gen_ai.system", provider or "unknown"),
+                    ("gen_ai.request.model", model),
+                    ("mcp.servers_total", len(server_meta)),
+                ],
+            )
+            if ctx.limits.log_step_content:
+                ctx.add_telemetry_event(
+                    "gen_ai.content.prompt",
+                    [
+                        ("gen_ai.prompt", prompt),
+                        ("prompt.role", "user"),
+                        ("gen_ai.operation.name", "chat"),
+                        ("gnougo-flow.plan.phase", "mcp_server_prefilter"),
+                    ],
+                )
+
+            response = await llm_client.call_async(
+                LLMRequest(
+                    provider=provider,
+                    model=str(model),
+                    prompt=prompt,
+                    temperature=0.0,
+                    structured_output_schema={
+                        "type": "object",
+                        "properties": {
+                            "servers": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "reason": {"type": "string"},
+                                    },
+                                    "required": ["name", "reason"],
+                                    "additionalProperties": False,
+                                },
+                            }
+                        },
+                        "required": ["servers"],
+                        "additionalProperties": False,
+                    },
+                    structured_output_strict=True,
+                    reasoning=plan_reasoning,
+                )
+            )
+
+            if ctx.limits.log_step_content and response.text:
+                ctx.add_telemetry_event(
+                    "gen_ai.content.completion",
+                    [
+                        ("gen_ai.completion", response.text),
+                        ("completion.role", "assistant"),
+                        ("completion.finish_reason", "stop"),
+                        ("gen_ai.operation.name", "chat"),
+                        ("gnougo-flow.plan.phase", "mcp_server_prefilter"),
+                    ],
+                )
+            self._add_prefilter_usage_event(
+                ctx, response.usage, str(model), provider, "mcp_server_prefilter", "gnougo-flow.plan.prefilter.servers.usage"
+            )
+
+            payload = response.json_payload
+            if not isinstance(payload, dict) and response.text:
+                payload = json.loads(self._strip_markdown_code_fence(response.text))
+            if not isinstance(payload, dict) or not isinstance(payload.get("servers"), list):
+                raise ValueError("MCP server prefilter response did not contain a servers array")
+
+            by_name = {str(getattr(meta, "name", "")).lower(): meta for meta in server_meta}
+            selected: list[McpServerMetadata] = []
+            seen: set[str] = set()
+            for item in payload["servers"]:
+                name = item.get("name") if isinstance(item, dict) else item
+                if not isinstance(name, str):
+                    continue
+                key = name.lower()
+                if key in by_name and key not in seen:
+                    selected.append(by_name[key])
+                    seen.add(key)
+
+            ctx.add_telemetry_event(
+                "gnougo-flow.plan.prefilter.servers.result",
+                [
+                    ("gnougo-flow.plan.phase", "mcp_server_prefilter"),
+                    ("gen_ai.operation.name", "chat"),
+                    ("gen_ai.request.model", model),
+                    ("mcp.servers_total", len(server_meta)),
+                    ("mcp.servers_selected", len(selected)),
+                    ("mcp.server.names", ",".join(str(meta.name) for meta in selected)),
+                ],
+            )
+            ctx.add_telemetry_event(
+                "gnougo-flow.step.thinking",
+                [
+                    (
+                        "gnougo-flow.thinking.message",
+                        f"MCP server pre-filter: {len(selected)}/{len(server_meta)} server(s) selected before discovery.",
+                    ),
+                    ("gnougo-flow.thinking.level", "info"),
+                ],
+            )
+            return selected
+        except Exception as exc:
+            ctx.add_telemetry_event(
+                "gnougo-flow.plan.prefilter.servers.fallback",
+                [
+                    ("gnougo-flow.plan.phase", "mcp_server_prefilter"),
+                    ("gen_ai.operation.name", "chat"),
+                    ("gen_ai.request.model", model),
+                    ("error.type", type(exc).__name__),
+                    ("mcp.servers_total", len(server_meta)),
+                ],
+            )
+            ctx.add_telemetry_event(
+                "gnougo-flow.step.thinking",
+                [
+                    (
+                        "gnougo-flow.thinking.message",
+                        f"MCP server pre-filter failed ({exc}), discovering all {len(server_meta)} server(s).",
+                    ),
+                    ("gnougo-flow.thinking.level", "info"),
+                ],
+            )
+            return server_meta
 
     @staticmethod
     def _strip_markdown_code_fence(text: str) -> str:
@@ -285,21 +520,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         mcp_doc: str,
         plan_reasoning: str | None = None,
     ) -> str:
-        prefilter = generator.get("prefilter")
-        should_prefilter = prefilter is None or isinstance(prefilter, dict) or bool(prefilter)
-        if not should_prefilter:
+        if not self._should_prefilter(generator):
             return mcp_doc
 
         llm_client = ctx.engine.llm_client
         if llm_client is None:
             return mcp_doc
 
-        provider = None
-        model = None
-        if isinstance(prefilter, dict):
-            provider = prefilter.get("provider")
-            model = prefilter.get("model")
-        model = model or generator.get("model")
+        provider, model = self._prefilter_target(generator)
         if not model:
             return mcp_doc
 
@@ -311,6 +539,25 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         )
 
         try:
+            ctx.add_telemetry_event(
+                "gnougo-flow.plan.prefilter.capabilities.start",
+                [
+                    ("gnougo-flow.plan.phase", "mcp_capability_prefilter"),
+                    ("gen_ai.operation.name", "chat"),
+                    ("gen_ai.system", provider or "unknown"),
+                    ("gen_ai.request.model", model),
+                ],
+            )
+            if ctx.limits.log_step_content:
+                ctx.add_telemetry_event(
+                    "gen_ai.content.prompt",
+                    [
+                        ("gen_ai.prompt", prompt),
+                        ("prompt.role", "user"),
+                        ("gen_ai.operation.name", "chat"),
+                        ("gnougo-flow.plan.phase", "mcp_capability_prefilter"),
+                    ],
+                )
             response = await llm_client.call_async(
                 LLMRequest(
                     provider=provider,
@@ -320,28 +567,74 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                         "type": "object",
                         "properties": {"filtered": {"type": "string"}},
                         "required": ["filtered"],
+                        "additionalProperties": False,
                     },
                     structured_output_strict=True,
                     reasoning=plan_reasoning,
                 )
             )
+            if ctx.limits.log_step_content and response.text:
+                ctx.add_telemetry_event(
+                    "gen_ai.content.completion",
+                    [
+                        ("gen_ai.completion", response.text),
+                        ("completion.role", "assistant"),
+                        ("completion.finish_reason", "stop"),
+                        ("gen_ai.operation.name", "chat"),
+                        ("gnougo-flow.plan.phase", "mcp_capability_prefilter"),
+                    ],
+                )
+            self._add_prefilter_usage_event(
+                ctx, response.usage, str(model), provider, "mcp_capability_prefilter", "gnougo-flow.plan.prefilter.capabilities.usage"
+            )
             if isinstance(response.json_payload, dict) and isinstance(response.json_payload.get("filtered"), str):
-                return response.json_payload["filtered"]
+                filtered = response.json_payload["filtered"]
+                ctx.add_telemetry_event(
+                    "gnougo-flow.plan.prefilter.capabilities.result",
+                    [
+                        ("gnougo-flow.plan.phase", "mcp_capability_prefilter"),
+                        ("gen_ai.operation.name", "chat"),
+                        ("gen_ai.request.model", model),
+                        ("mcp.documentation.filtered_length", len(filtered)),
+                    ],
+                )
+                return filtered
             if response.text:
                 parsed = json.loads(response.text)
                 if isinstance(parsed, dict) and isinstance(parsed.get("filtered"), str):
-                    return parsed["filtered"]
-        except Exception:
+                    filtered = parsed["filtered"]
+                    ctx.add_telemetry_event(
+                        "gnougo-flow.plan.prefilter.capabilities.result",
+                        [
+                            ("gnougo-flow.plan.phase", "mcp_capability_prefilter"),
+                            ("gen_ai.operation.name", "chat"),
+                            ("gen_ai.request.model", model),
+                            ("mcp.documentation.filtered_length", len(filtered)),
+                        ],
+                    )
+                    return filtered
+        except Exception as exc:
+            ctx.add_telemetry_event(
+                "gnougo-flow.plan.prefilter.capabilities.fallback",
+                [
+                    ("gnougo-flow.plan.phase", "mcp_capability_prefilter"),
+                    ("gen_ai.operation.name", "chat"),
+                    ("gen_ai.request.model", model),
+                    ("error.type", type(exc).__name__),
+                ],
+            )
             return mcp_doc
 
         return mcp_doc
 
-    async def _build_mcp_documentation(self, ctx: StepExecutionContext) -> str:
+    async def _build_mcp_documentation(
+        self, ctx: StepExecutionContext, server_meta_override: list[McpServerMetadata] | None = None
+    ) -> str:
         factory = ctx.engine.mcp_client_factory
         if factory is None:
             return "No MCP client factory configured."
 
-        server_meta = getattr(factory, "server_metadata", []) or []
+        server_meta = server_meta_override if server_meta_override is not None else (getattr(factory, "server_metadata", []) or [])
         if not server_meta:
             return "No MCP servers configured."
 

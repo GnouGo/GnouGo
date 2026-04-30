@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import pytest
 
@@ -8,7 +8,7 @@ from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
 
 _VALID_PLAN_YAML = """
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -59,6 +59,60 @@ class _ToolFactory:
         return _ToolSession()
 
 
+class _SequencePrefilterLlm:
+    def __init__(self) -> None:
+        self.requests = []
+
+    async def call_async(self, request):
+        self.requests.append(request)
+        if len(self.requests) == 1:
+            return LLMResponse(
+                text='{"servers":[{"name":"github","reason":"repository task"}]}',
+                json_payload={"servers": [{"name": "github", "reason": "repository task"}]},
+            )
+        if len(self.requests) == 2:
+            return LLMResponse(
+                text='{"filtered":"## Server: github\\nTools (1):\\n- list_repos: List repos"}',
+                json_payload={"filtered": "## Server: github\nTools (1):\n- list_repos: List repos"},
+            )
+        return LLMResponse(text=_VALID_PLAN_YAML)
+
+
+class _NamedToolSession:
+    def __init__(self, server_name: str) -> None:
+        self.server_name = server_name
+
+    async def list_tools_async(self):
+        if self.server_name == "github":
+            return [McpToolInfo(name="list_repos", description="List repos")]
+        return [McpToolInfo(name="get_weather", description="Get weather")]
+
+    async def list_resources_async(self):
+        return []
+
+    async def list_prompts_async(self):
+        return []
+
+    async def call_tool_async(self, tool_name, arguments):
+        raise NotImplementedError
+
+    async def get_prompt_async(self, prompt_name, arguments):
+        raise NotImplementedError
+
+
+class _TwoServerFactory:
+    def __init__(self) -> None:
+        self.server_metadata = [
+            McpServerMetadata(name="github", description="GitHub repository automation and file operations"),
+            McpServerMetadata(name="weather", description="Weather forecasts and city conditions"),
+        ]
+        self.opened_servers: list[str] = []
+
+    async def get_client_async(self, server_name):
+        self.opened_servers.append(server_name)
+        return _NamedToolSession(server_name)
+
+
 class _BrokenFactory:
     server_metadata = [McpServerMetadata(name="broken-server", description="A server that fails to connect")]
 
@@ -73,7 +127,7 @@ def _compile_main(yaml_text: str):
 
 async def _run_plan(factory):
     source = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -103,6 +157,44 @@ async def test_workflow_plan_prompt_mentions_llm_assisted_and_direct_mcp_call() 
     assert "put the natural-language instruction in input.prompt" in prompt
     assert "Preferred MCP planning pattern: when tool names and input schemas are listed above, use `mcp.call` directly" in prompt
     assert "list_repos" in prompt
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_server_prefilter_uses_descriptions_before_capability_discovery() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: gpt-4
+                instruction: Build a workflow that lists GitHub repositories
+              validate:
+                compile: false
+    """
+    llm = _SequencePrefilterLlm()
+    factory = _TwoServerFactory()
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = factory
+
+    result = await engine.execute_async(_compile_main(source), {})
+
+    assert result.success
+    assert factory.opened_servers == ["github"]
+    assert len(llm.requests) == 3
+    assert llm.requests[0].structured_output_schema is not None
+    assert llm.requests[0].structured_output_strict is True
+    assert "[SERVER CATALOG]" in llm.requests[0].prompt
+    assert "GitHub repository automation" in llm.requests[0].prompt
+    assert "Weather forecasts" in llm.requests[0].prompt
+    assert "list_repos" not in llm.requests[0].prompt
+    assert llm.requests[1].structured_output_schema is not None
+    assert "list_repos" in llm.requests[2].prompt
+    assert "get_weather" not in llm.requests[2].prompt
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 
 import pytest
 
@@ -14,7 +14,7 @@ def _compile(yaml_text: str):
 @pytest.mark.asyncio
 async def test_workflow_logs_start_and_completion(caplog) -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -35,7 +35,7 @@ async def test_workflow_logs_start_and_completion(caplog) -> None:
 @pytest.mark.asyncio
 async def test_step_failure_logs_error(caplog) -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -71,7 +71,7 @@ async def test_logger_overridable() -> None:
         engine.logger = custom
         compiled = _compile(
             """
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:

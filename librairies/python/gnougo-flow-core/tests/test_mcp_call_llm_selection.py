@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
 from gnougo_flow_core.models import LLMResponse, LLMToolCall, McpCallResult, McpGetPromptResult, McpPromptMessage, McpToolInfo
@@ -88,7 +88,7 @@ async def test_mcp_call_llm_assisted_uses_provided_tools_and_calls_selected_tool
 
     result = await run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -128,7 +128,7 @@ async def test_mcp_call_llm_assisted_can_use_mcp_list_outputs_directly():
 
     result = await run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -163,7 +163,7 @@ async def test_mcp_call_llm_assisted_can_select_prompt_and_build_argument_schema
 
     result = await run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -202,7 +202,7 @@ async def test_mcp_call_llm_assisted_prompt_fallback_unsupported_prompts_list_re
 
     result = await run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -235,7 +235,7 @@ async def test_mcp_call_llm_assisted_prompt_fallback_real_prompts_list_error_fai
 
     result = await run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -271,7 +271,7 @@ async def test_mcp_call_llm_assisted_structured_output_runs_final_formatting_pas
 
     result = await run_main(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:

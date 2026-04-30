@@ -43,7 +43,7 @@ class WorkflowValidator:
     def validate(self, doc: WorkflowDocument) -> list[ValidationError]:
         errors: list[ValidationError] = []
         if doc.version != 1:
-            errors.append(ValidationError(code="DSL_VERSION", message=f"Unsupported DSL version: {doc.version}"))
+            errors.append(ValidationError(code="DSL_VERSION", message=f"Unsupported workflow version: {doc.version}"))
         if not doc.workflows:
             errors.append(ValidationError(code="NO_WORKFLOWS", message="Document must have at least one workflow"))
         if doc.entrypoint and doc.entrypoint not in doc.workflows:

@@ -75,7 +75,7 @@ dotnet pack src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj -c Release -o artifacts
 ```
 
 ```yaml
-dsl: 1
+version: 1
 name: hello-world
 workflows:
   main:
@@ -106,7 +106,7 @@ dotnet run --project src/GnOuGo.Flow.Cli -- run hello.yaml -i 'name=World'
 Every workflow file starts with:
 
 ```yaml
-dsl: 1                        # DSL version (required, always 1)
+version: 1                    # Workflow document version (required, always 1)
 name: my-workflow             # Document name (optional)
 functions: |                  # Global WFScript functions (optional)
   function myHelper(x) { return x * 2; }
@@ -870,7 +870,7 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 Define reusable functions in the `functions:` block (document-level or workflow-level):
 
 ```yaml
-dsl: 1
+version: 1
 name: smart-triage
 functions: |
   function classify(text) {
