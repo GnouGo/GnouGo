@@ -91,6 +91,12 @@ public sealed class McpServerOptions
     /// <summary>Human-friendly description of what this MCP server is for.</summary>
     public string? Description { get; set; }
 
+    /// <summary>
+    /// Maximum time allowed for workflow planning discovery to connect to this server
+    /// and list its capabilities. When omitted, the planner uses its default timeout.
+    /// </summary>
+    public int? DiscoveryTimeoutSeconds { get; set; }
+
     /// <summary>Server URL (for http/sse transports).</summary>
     public string Url { get; set; } = "";
 

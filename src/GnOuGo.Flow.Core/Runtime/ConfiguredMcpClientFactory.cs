@@ -32,7 +32,8 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             .Select(kv => new McpServerMetadata
             {
                 Name = kv.Key,
-                Description = kv.Value.Description
+                Description = kv.Value.Description,
+                DiscoveryTimeoutSeconds = kv.Value.DiscoveryTimeoutSeconds
             })
             .ToList()
             .AsReadOnly();

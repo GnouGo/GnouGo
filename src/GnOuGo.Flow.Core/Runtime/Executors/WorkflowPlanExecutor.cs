@@ -12,6 +12,10 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class WorkflowPlanExecutor : IStepExecutor
 {
+    private const int DefaultMcpDiscoveryTimeoutSeconds = 30;
+    private const int MinMcpDiscoveryTimeoutSeconds = 1;
+    private const int MaxMcpDiscoveryTimeoutSeconds = 300;
+
     public string StepType => "workflow.plan";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]
@@ -428,8 +432,9 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
 
             try
             {
+                var discoveryTimeout = GetMcpDiscoveryTimeout(server);
                 using var discoveryCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                discoveryCts.CancelAfter(TimeSpan.FromSeconds(10));
+                discoveryCts.CancelAfter(discoveryTimeout);
 
                 await using var session = await factory.GetClientAsync(server.Name, discoveryCts.Token);
 
@@ -468,6 +473,27 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
                 });
             }
+            catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+            {
+                var discoveryTimeout = GetMcpDiscoveryTimeout(server);
+                logger.LogWarning(ex,
+                    "workflow.plan: MCP server '{ServerName}' discovery timed out after {TimeoutSeconds}s",
+                    server.Name,
+                    discoveryTimeout.TotalSeconds);
+                results.Add(new McpServerDiscovery
+                {
+                    Name = server.Name,
+                    Description = server.Description,
+                    Discovered = false
+                });
+
+                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+                {
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                        $"MCP '{server.Name}': discovery timed out after {discoveryTimeout.TotalSeconds:0.#}s"),
+                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+                });
+            }
             catch (Exception ex)
             {
                 logger.LogError(ex, "workflow.plan: failed to discover MCP server '{ServerName}'", server.Name);
@@ -499,6 +525,13 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         });
 
         return results;
+    }
+
+    private static TimeSpan GetMcpDiscoveryTimeout(McpServerMetadata server)
+    {
+        var seconds = server.DiscoveryTimeoutSeconds ?? DefaultMcpDiscoveryTimeoutSeconds;
+        seconds = Math.Clamp(seconds, MinMcpDiscoveryTimeoutSeconds, MaxMcpDiscoveryTimeoutSeconds);
+        return TimeSpan.FromSeconds(seconds);
     }
 
     /// <summary>

@@ -148,6 +148,12 @@ public sealed class McpServerMetadata
 
     /// <summary>Human-friendly description of what the server is for.</summary>
     public string? Description { get; set; }
+
+    /// <summary>
+    /// Optional per-server timeout, in seconds, used by workflow planning discovery.
+    /// Slow stdio servers can require more time during cold start.
+    /// </summary>
+    public int? DiscoveryTimeoutSeconds { get; set; }
 }
 
 /// <summary>
