@@ -1,4 +1,4 @@
-﻿using GnOuGo.AI.Core;
+using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Hosting;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Runtime;
@@ -23,7 +23,7 @@ public sealed class GnOuGoAgentWebHostDocsIngestorMcpTests
             McpServerOptions? docsIngestor = null;
             for (var attempt = 0; attempt < 40; attempt++)
             {
-                store.Current.McpServers.TryGetValue("GnOuGo.DocsIngestor.Mcp", out docsIngestor);
+                store.Current.McpServers.TryGetValue("GnOuGo.DocIngestor.Mcp", out docsIngestor);
                 if (!string.IsNullOrWhiteSpace(docsIngestor?.Url) && !docsIngestor.Url.Contains(":0/", StringComparison.Ordinal))
                     break;
 
@@ -37,10 +37,10 @@ public sealed class GnOuGoAgentWebHostDocsIngestorMcpTests
 
             await using var factory = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
             {
-                ["GnOuGo.DocsIngestor.Mcp"] = docsIngestor
+                ["GnOuGo.DocIngestor.Mcp"] = docsIngestor
             });
 
-            await using var session = await factory.GetClientAsync("GnOuGo.DocsIngestor.Mcp", CancellationToken.None);
+            await using var session = await factory.GetClientAsync("GnOuGo.DocIngestor.Mcp", CancellationToken.None);
             var tools = await session.ListToolsAsync(CancellationToken.None);
 
             Assert.Contains(tools, tool => tool.Name == "docs_ingestor_list_files");

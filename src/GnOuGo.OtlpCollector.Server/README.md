@@ -9,6 +9,7 @@ This service receives OpenTelemetry data (traces, metrics, logs) over OTLP/gRPC 
 - OTLP ingest endpoints on ports `4317` (gRPC) and `4318` (HTTP)
 - SQLite persistence (`data/telemetry.db` by default)
 - Configurable batching, queue capacity, and retention sweep
+- Optional routing to external OTLP/HTTP collectors using typed `TelemetryRouting` settings
 - Development mode support when tenant id is missing
 - Static UI served from `wwwroot`
 
@@ -50,8 +51,69 @@ Main settings are in `src/GnOuGo.OtlpCollector.Server/appsettings.json`:
 - `Ingest:FlushSeconds`: periodic flush interval
 - `Ingest:ChannelCapacity`: ingest queue capacity
 - `Retention:SweepSeconds`: retention sweep interval
+- `TelemetryRouting`: optional OTLP/HTTP forwarding rules and collector destinations
 - `DevMode:Enabled`: allow missing tenant id in development
 - `Kestrel:Endpoints`: OTLP/http listen addresses and protocols
+
+## Telemetry routing
+
+`TelemetryRouting` can forward flushed telemetry to one of several OTLP/HTTP collectors after the local SQLite write succeeds.
+
+The default example models this routing order:
+
+1. matching name/value filters go to collector `C`;
+2. RAG / GenAI workflow traces go to collector `A`;
+3. all other traces/logs go to collector `B` through `DefaultCollector`.
+
+The router buffers trace-linked rows briefly by `TraceId` (`TraceBufferSeconds`) so that if any span/log in the trace matches the RAG rule, the whole trace batch is forwarded to collector `A`.
+
+Example:
+
+```json
+{
+  "TelemetryRouting": {
+	"Enabled": true,
+	"TraceBufferSeconds": 2,
+	"DefaultCollector": "B",
+	"Collectors": {
+	  "A": { "Endpoint": "http://collector-a:4318" },
+	  "B": { "Endpoint": "http://collector-b:4318" },
+	  "C": { "Endpoint": "http://collector-c:4318" }
+	},
+	"Rules": [
+	  {
+		"Name": "filtered-workflows-to-c",
+		"Enabled": true,
+		"Collector": "C",
+		"Signals": [ "traces", "logs" ],
+		"MatchAny": [
+		  { "SpanNameContains": [ "important-operation" ] },
+		  {
+			"AnyAttributes": [
+			  { "Key": "workflow.name", "Contains": "important-workflow" }
+			]
+		  }
+		]
+	  },
+	  {
+		"Name": "rag-genai-workflows-to-a",
+		"Enabled": true,
+		"Collector": "A",
+		"Signals": [ "traces", "logs" ],
+		"MatchAny": [
+		  { "AnyAttributes": [ { "Key": "workflow.type", "Value": "rag" } ] },
+		  { "AnyAttributes": [ { "Key": "gen_ai.operation.name", "Contains": "rag" } ] },
+		  { "SpanNameContains": [ "rag", "retrieval", "embedding", "vector" ] }
+		]
+	  }
+	]
+  }
+}
+```
+
+Collector endpoints are OTLP/HTTP base URLs. The forwarder posts protobuf payloads to `/v1/traces` and `/v1/logs`. When `IncludeTenantHeader` is true, it forwards the tenant as `x-tenant-id`.
+
+Avoid storing production secrets in `appsettings.json`; use environment-specific configuration or a secret provider for sensitive headers.
 
 ## Admin endpoints
 

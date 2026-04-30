@@ -1,7 +1,7 @@
-﻿using DocIngestor.Core.Abstractions;
+using DocIngestor.Core.Abstractions;
 using DocIngestor.Core.Embeddings;
 
-namespace GnOuGo.DocsIngestor.Mcp.Services;
+namespace GnOuGo.DocIngestor.Mcp.Services;
 
 internal sealed class DefaultEmbeddingRouter : IEmbeddingRouter
 {

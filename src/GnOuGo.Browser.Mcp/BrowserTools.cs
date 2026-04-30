@@ -17,24 +17,38 @@ public sealed class BrowserTools
     }
 
 
-    [McpServerTool(Name = "browser_get_content"), Description("Reads rendered content from the current page or from a CSS selector. If url is provided, this tool first navigates to that absolute http/https URL, waits for the requested load state, then returns the content in the same call. Prefer this one-shot tool when the goal is simply to open a page and inspect or extract its content. Use format='text' for readable visible text, summaries, and plain content extraction (example: summarize an article or read a confirmation message). Use format='html' when you need DOM structure, links, href/src attributes, button labels, form fields, menu/navigation markup, or when the client must decide what element to click based on the rendered HTML (example: extract menu links from nav/header, inspect a consent banner, or build a reliable CSS selector).")]
-    public async Task<BrowserContentResult> GetContentAsync(
+    [McpServerTool(Name = "browser_get_content"), Description("Reads rendered content from the current page or from a CSS selector. If url is provided, this tool first navigates to that absolute http/https URL, waits for the requested load state, then returns the content in the same call. Prefer this one-shot tool when the goal is simply to open a page and inspect or extract its content. Prefer waitUntil='domcontentloaded' or 'load' for search/e-commerce pages such as Amazon; avoid 'networkidle' unless the page is known to become idle. Use format='text' for readable visible text, summaries, and plain content extraction (example: summarize an article or read a confirmation message). Use format='html' when you need DOM structure, links, href/src attributes, button labels, form fields, menu/navigation markup, or when the client must decide what element to click based on the rendered HTML (example: extract menu links from nav/header, inspect a consent banner, or build a reliable CSS selector). Script elements are stripped from returned HTML by default to keep responses compact and useful for MCP clients.")]
+    public async Task<object> GetContentAsync(
         [Description("Optional absolute URL to open before reading content. Prefer setting this for one-shot page reads so the tool both navigates and returns content in a single call. When omitted, the tool reads from the current page.")] string? url = null,
-        [Description("Navigation wait mode used when url is provided: load, domcontentloaded, or networkidle.")] string waitUntil = "load",
+        [Description("Navigation wait mode used when url is provided: load, domcontentloaded, or networkidle. Prefer domcontentloaded/load for dynamic shopping/search pages; networkidle can time out on Amazon-like pages.")] string waitUntil = "load",
         [Description("Optional navigation timeout in milliseconds used when url is provided.")] int? timeoutMs = null,
         [Description("Optional CSS selector. Defaults to the body element. Prefer scoping to nav/header/menu/form containers when inspecting links or interactive elements. Example: selector='nav' with format='html' for menu links.")] string? selector = null,
         [Description("Return format: text or html. Example text => article summary, success message, visible page copy. Example html => nav/header links, href/src attributes, forms, buttons, tables, selectors, and any task where the client must inspect the rendered html markup before acting.")] string format = "html",
         [Description("Maximum number of characters returned.")] int? maxCharacters = null,
+        [Description("Include <script> elements and inline script content in HTML responses. Defaults to false because scripts are usually noisy and very large.")] bool includeScriptContent = false,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            return await _browserHost.GetContentAsync(url, waitUntil, timeoutMs, selector, format, maxCharacters, cancellationToken);
+            return await _browserHost.GetContentAsync(url, waitUntil, timeoutMs, selector, format, maxCharacters, includeScriptContent, cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "browser_get_content failed for url={Url}", url);
-            throw;
+            var correlation = BrowserToolCorrelation.Current;
+            _logger.LogError(
+                ex,
+                "browser_get_content failed for url={Url}, correlationId={CorrelationId}, runId={RunId}, traceparent={TraceParent}",
+                url,
+                correlation.CorrelationId,
+                correlation.RunId,
+                correlation.TraceParent);
+
+            return BrowserToolErrorResult.FromException(
+                tool: "browser_get_content",
+                url: url,
+                selector: selector,
+                exception: ex,
+                correlation: correlation);
         }
     }
 
@@ -183,3 +197,58 @@ public sealed class BrowserTools
         }
     }
 }
+
+public sealed record BrowserToolErrorResult(
+    bool Success,
+    string Tool,
+    string ErrorType,
+    string ErrorMessage,
+    string? Url,
+    string? Selector,
+    string? CorrelationId,
+    string? RunId,
+    string? TraceId,
+    string? SpanId,
+    string? TraceParent)
+{
+    public static BrowserToolErrorResult FromException(
+        string tool,
+        string? url,
+        string? selector,
+        Exception exception,
+        BrowserToolCorrelation correlation)
+        => new(
+            Success: false,
+            Tool: tool,
+            ErrorType: exception.GetType().FullName ?? exception.GetType().Name,
+            ErrorMessage: exception.Message,
+            Url: url,
+            Selector: selector,
+            CorrelationId: correlation.CorrelationId,
+            RunId: correlation.RunId,
+            TraceId: correlation.TraceId,
+            SpanId: correlation.SpanId,
+            TraceParent: correlation.TraceParent);
+}
+
+public sealed record BrowserToolCorrelation(
+    string? CorrelationId,
+    string? RunId,
+    string? TraceId,
+    string? SpanId,
+    string? TraceParent,
+    string? StepId,
+    string? StepType,
+    string? McpMethod)
+{
+    public static BrowserToolCorrelation Current => new(
+        CorrelationId: Environment.GetEnvironmentVariable("GNouGo__CorrelationId"),
+        RunId: Environment.GetEnvironmentVariable("GNouGo__RunId"),
+        TraceId: Environment.GetEnvironmentVariable("GNouGo__TraceId"),
+        SpanId: Environment.GetEnvironmentVariable("GNouGo__SpanId"),
+        TraceParent: Environment.GetEnvironmentVariable("GNouGo__TraceParent"),
+        StepId: Environment.GetEnvironmentVariable("GNouGo__StepId"),
+        StepType: Environment.GetEnvironmentVariable("GNouGo__StepType"),
+        McpMethod: Environment.GetEnvironmentVariable("GNouGo__McpMethod"));
+}
+

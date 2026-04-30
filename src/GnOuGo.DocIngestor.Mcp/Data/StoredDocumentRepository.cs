@@ -1,7 +1,7 @@
-﻿using GnOuGo.DocsIngestor.Mcp.Models;
+using GnOuGo.DocIngestor.Mcp.Models;
 using Microsoft.Data.Sqlite;
 
-namespace GnOuGo.DocsIngestor.Mcp.Data;
+namespace GnOuGo.DocIngestor.Mcp.Data;
 
 public sealed class StoredDocumentRepository
 {
@@ -101,6 +101,37 @@ public sealed class StoredDocumentRepository
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
             results.Add(ReadRecord(reader));
+
+        return results;
+    }
+
+    public async Task<IReadOnlyList<string>> ListEmbeddingConfigNamesAsync(string? tenantId, string collection, CancellationToken ct = default)
+    {
+        await using var conn = Open();
+        await using var cmd = conn.CreateCommand();
+
+        var where = new List<string> { "collection = $collection" };
+        cmd.Parameters.AddWithValue("$collection", collection);
+
+        if (!string.IsNullOrWhiteSpace(tenantId))
+        {
+            where.Add("tenant_id = $tenant_id");
+            cmd.Parameters.AddWithValue("$tenant_id", tenantId);
+        }
+
+        cmd.CommandText =
+            "SELECT DISTINCT embedding_config_name FROM stored_documents WHERE " +
+            string.Join(" AND ", where) +
+            " ORDER BY embedding_config_name;";
+
+        var results = new List<string>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var value = reader.GetString(0);
+            if (!string.IsNullOrWhiteSpace(value))
+                results.Add(value);
+        }
 
         return results;
     }

@@ -1,9 +1,9 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace GnOuGo.DocsIngestor.Mcp.Tests;
+namespace GnOuGo.DocIngestor.Mcp.Tests;
 
 public sealed class DocsIngestorMcpWebHostTests
 {

@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
 from gnougo_flow_core.parsing import WorkflowParser
@@ -12,7 +12,7 @@ def _compile(yaml_text: str):
 @pytest.mark.asyncio
 async def test_loop_times_basic_exposes_index() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -37,7 +37,7 @@ async def test_loop_times_basic_exposes_index() -> None:
 @pytest.mark.asyncio
 async def test_loop_while_breaks_when_false() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -63,7 +63,7 @@ async def test_loop_while_breaks_when_false() -> None:
 @pytest.mark.asyncio
 async def test_loop_while_hits_loop_limit() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -88,7 +88,7 @@ async def test_loop_while_hits_loop_limit() -> None:
 @pytest.mark.asyncio
 async def test_loop_over_with_item_and_index_vars() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -119,7 +119,7 @@ async def test_loop_over_with_item_and_index_vars() -> None:
 @pytest.mark.asyncio
 async def test_loop_over_and_times_combined_raises() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:

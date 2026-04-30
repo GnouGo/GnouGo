@@ -28,6 +28,9 @@ Practical rule for `browser_get_content`:
 - for a "one-shot" page read, prefer `browser_get_content(url: ..., format: ...)` so a single call handles both navigation and extraction
 - use `format: text` to summarize a page, read visible content, extract readable text, or feed a synthesis
 - use `format: html` whenever you need to preserve the DOM structure or attributes, e.g., to extract menu/navigation links, retrieve `href`/`src`, inspect buttons, forms, tables, or decide which element to click on the MCP client side
+- 
+- `format: html` strips `<script>` elements by default before returning content, which keeps pages such as Amazon compact and avoids sending large inline JavaScript/state blobs to MCP clients
+- set `includeScriptContent: true` only when debugging raw page scripts or when script tags are explicitly needed
 - for a menu, header, or cookie banner, it is generally better to target a specific selector (`nav`, `header`, `form`, etc.) with `format: html` rather than `text`, otherwise useful URLs and attributes will be lost
 - robustness note: when a requested content selector is temporarily unavailable, `browser_get_content` falls back to `body` then `html` and returns `resolvedSelector` / `fallbackApplied` metadata in the result
 

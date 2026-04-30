@@ -49,7 +49,7 @@ public class McpCallExecutorTests
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -90,7 +90,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -132,7 +132,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -164,7 +164,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -198,7 +198,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -231,7 +231,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -262,7 +262,7 @@ workflows:
     public async Task McpCall_NoFactory_Fails()
     {
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -283,7 +283,7 @@ workflows:
         var mockFactory = new Mock<IMcpClientFactory>();
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -311,7 +311,7 @@ workflows:
         });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -343,7 +343,7 @@ workflows:
                 ErrorCodes.McpServerNotFound, "Server 'unknown' not found"));
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -366,7 +366,7 @@ workflows:
             .ThrowsAsync(new InvalidOperationException("Connection refused"));
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -394,7 +394,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -527,7 +527,7 @@ workflows:
         });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -571,7 +571,7 @@ workflows:
             .ReturnsAsync(new LLMResponse { Text = "AI analysis based on context" });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -606,7 +606,7 @@ workflows:
     public void Validate_McpCallStepType_IsKnown()
     {
         var yaml = """
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -681,7 +681,7 @@ workflows:
         // In a real workflow, you'd use mcp.call to list tools, then pass them to llm.call
         // For now we test that the LLMRequest can carry tools
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -721,7 +721,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -768,7 +768,7 @@ workflows:
 
         // Without kind (default = tool)
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -802,7 +802,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -825,7 +825,7 @@ workflows:
         var mockFactory = new Mock<IMcpClientFactory>();
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -856,7 +856,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -962,7 +962,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1038,7 +1038,7 @@ workflows:
         });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1116,7 +1116,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1180,7 +1180,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1229,7 +1229,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1259,7 +1259,7 @@ workflows:
         var mockFactory = new Mock<IMcpClientFactory>();
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1289,7 +1289,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1352,7 +1352,7 @@ workflows:
         });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1428,7 +1428,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1488,7 +1488,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1529,7 +1529,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1567,7 +1567,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1590,7 +1590,7 @@ workflows:
         factory.RegisterServer("empty", new MockMcpServerConfig());
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -1646,7 +1646,7 @@ workflows:
 
         // Auto-discover tools (kind=tool by default)
         var toolResult = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:

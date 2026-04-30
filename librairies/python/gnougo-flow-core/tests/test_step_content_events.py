@@ -1,4 +1,4 @@
-﻿
+
 import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
@@ -39,7 +39,7 @@ class CaptureTelemetry:
 
 
 _YAML = """
-dsl: 1
+version: 1
 workflows:
   main:
     steps:

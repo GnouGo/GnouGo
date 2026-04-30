@@ -20,7 +20,7 @@ using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.Agent.Shared;
 using GnOuGo.AI.Core;
-using GnOuGo.DocsIngestor.Mcp;
+using GnOuGo.DocIngestor.Mcp;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Files.Server;
 using GnOuGo.KeyVault.Core;

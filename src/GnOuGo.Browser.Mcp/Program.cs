@@ -35,7 +35,7 @@ var browserSettings = host.Services.GetRequiredService<IOptions<BrowserServerSet
 var startupLogger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Browser.Mcp.Startup");
 
 startupLogger.LogInformation(
-    "Browser server configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, headless={Headless}, browserName={BrowserName}, channel={Channel}, slowMoMs={SlowMoMs}, holdOpenMs={HoldOpenMs}, keepBrowserOpen={KeepBrowserOpen}",
+    "Browser server configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, headless={Headless}, browserName={BrowserName}, channel={Channel}, slowMoMs={SlowMoMs}, holdOpenMs={HoldOpenMs}, keepBrowserOpen={KeepBrowserOpen}, correlationId={CorrelationId}, runId={RunId}, traceparent={TraceParent}",
     builder.Environment.ContentRootPath,
     Environment.CurrentDirectory,
     AppContext.BaseDirectory,
@@ -44,7 +44,10 @@ startupLogger.LogInformation(
     browserSettings.Channel,
     browserSettings.SlowMoMs,
     browserSettings.HoldOpenMs,
-    browserSettings.KeepBrowserOpen);
+    browserSettings.KeepBrowserOpen,
+    Environment.GetEnvironmentVariable("GNouGo__CorrelationId"),
+    Environment.GetEnvironmentVariable("GNouGo__RunId"),
+    Environment.GetEnvironmentVariable("GNouGo__TraceParent"));
 
 try
 {

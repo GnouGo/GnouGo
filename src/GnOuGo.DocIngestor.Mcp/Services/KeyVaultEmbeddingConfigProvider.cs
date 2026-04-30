@@ -1,14 +1,18 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using DocIngestor.Core.Abstractions;
 using DocIngestor.Core.Embeddings;
 using GnOuGo.Auth.Core;
-using GnOuGo.DocsIngestor.Mcp.Models;
+using GnOuGo.DocIngestor.Mcp.Models;
 using GnOuGo.KeyVault.Core.Services;
 
-namespace GnOuGo.DocsIngestor.Mcp.Services;
+namespace GnOuGo.DocIngestor.Mcp.Services;
 
 public sealed class KeyVaultEmbeddingConfigProvider
 {
+    private const string EmbeddingPrefix = "LLM--Embeddings--";
+    private const string EmbeddingDefaultKey = "LLM--EmbeddingDefaults--default";
+    private const string LegacyEmbeddingPrefix = "gnougo_embedding_";
+
     private readonly KeyVaultService _keyVault;
     private readonly IHttpClientFactory _httpClientFactory;
 
@@ -20,17 +24,15 @@ public sealed class KeyVaultEmbeddingConfigProvider
 
     public async Task<IEmbeddingModel> ResolveAsync(string embeddingConfigName, Guid? keyVaultTenantId, string author, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(embeddingConfigName))
-            throw new ArgumentException("Embedding configuration name is required.", nameof(embeddingConfigName));
+        embeddingConfigName = await ResolveRequestedNameAsync(embeddingConfigName, keyVaultTenantId, author, ct);
 
         if (TryCreateHashModel(embeddingConfigName, out var hashModel))
             return hashModel;
 
-        var secret = await _keyVault.GetSecretAsync(embeddingConfigName, keyVaultTenantId, author, ct)
-            ?? throw new KeyNotFoundException($"Embedding configuration secret '{embeddingConfigName}' was not found in KeyVault.");
+        var (secretKey, secretValue) = await LoadEmbeddingSecretAsync(embeddingConfigName, keyVaultTenantId, author, ct);
 
-        var config = JsonSerializer.Deserialize(secret.Value, DocsIngestorJsonContext.Default.EmbeddingConfig)
-            ?? throw new InvalidOperationException($"Embedding configuration secret '{embeddingConfigName}' is empty or invalid JSON.");
+        var config = JsonSerializer.Deserialize(secretValue, DocsIngestorJsonContext.Default.EmbeddingConfig)
+            ?? throw new InvalidOperationException($"Embedding configuration secret '{secretKey}' is empty or invalid JSON.");
 
         var provider = (config.Provider ?? string.Empty).Trim().ToLowerInvariant();
         var name = string.IsNullOrWhiteSpace(config.Name) ? embeddingConfigName : config.Name!;
@@ -55,6 +57,51 @@ public sealed class KeyVaultEmbeddingConfigProvider
                 dims),
             _ => throw new NotSupportedException($"Embedding provider '{config.Provider}' is not supported.")
         };
+    }
+
+    public async Task<string> ResolveConfigNameAsync(string embeddingConfigName, Guid? keyVaultTenantId, string author, CancellationToken ct = default)
+        => await ResolveRequestedNameAsync(embeddingConfigName, keyVaultTenantId, author, ct);
+
+    private async Task<string> ResolveRequestedNameAsync(string embeddingConfigName, Guid? keyVaultTenantId, string author, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(embeddingConfigName))
+            return embeddingConfigName.Trim();
+
+        var defaultSecret = await _keyVault.GetSecretAsync(EmbeddingDefaultKey, keyVaultTenantId, author, ct);
+        if (defaultSecret is not null && !string.IsNullOrWhiteSpace(defaultSecret.Value))
+        {
+            using var defaultJson = JsonDocument.Parse(defaultSecret.Value);
+            if (defaultJson.RootElement.TryGetProperty("defaultEmbeddingConfig", out var defaultName)
+                && defaultName.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(defaultName.GetString()))
+            {
+                return defaultName.GetString()!.Trim();
+            }
+        }
+
+        throw new InvalidOperationException(
+            "Embedding configuration is required. Configure one with `/embedding add` and `/embedding default`, " +
+            "or pass embeddingConfigName explicitly (for tests, built-in values `hash-384` and `hash-768` are available). Document ingestion/search cannot safely reuse a chat LLM as an embedding model.");
+    }
+
+    private async Task<(string Key, string Value)> LoadEmbeddingSecretAsync(string embeddingConfigName, Guid? keyVaultTenantId, string author, CancellationToken ct)
+    {
+        foreach (var key in GetCandidateSecretKeys(embeddingConfigName))
+        {
+            var secret = await _keyVault.GetSecretAsync(key, keyVaultTenantId, author, ct);
+            if (secret is not null)
+                return (key, secret.Value);
+        }
+
+        throw new KeyNotFoundException(
+            $"Embedding configuration '{embeddingConfigName}' was not found in KeyVault. Expected secret key '{EmbeddingPrefix}{embeddingConfigName}'. Run `/embedding add` or use the embedding config required by the target collection.");
+    }
+
+    private static IEnumerable<string> GetCandidateSecretKeys(string embeddingConfigName)
+    {
+        yield return EmbeddingPrefix + embeddingConfigName;
+        yield return LegacyEmbeddingPrefix + embeddingConfigName;
+        yield return embeddingConfigName;
     }
 
     private static bool TryCreateHashModel(string name, out IEmbeddingModel model)

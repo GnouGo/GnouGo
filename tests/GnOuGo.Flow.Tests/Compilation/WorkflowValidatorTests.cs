@@ -64,7 +64,7 @@ workflows:
     public void Validate_InvalidLocalWorkflowRef_ReportsError()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:

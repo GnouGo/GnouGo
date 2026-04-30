@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Text.Json.Nodes;
+
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
 using Xunit;
 
@@ -7,6 +9,26 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public class ConfiguredMcpClientFactoryTests
 {
+    [Fact]
+    public async Task ServerMetadata_IncludesConfiguredDiscoveryTimeout()
+    {
+        await using var factory = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["slow"] = new()
+            {
+                Type = "stdio",
+                Description = "Slow cold-start server",
+                DiscoveryTimeoutSeconds = 90,
+                Command = "dotnet"
+            }
+        });
+
+        var metadata = Assert.Single(factory.ServerMetadata);
+        Assert.Equal("slow", metadata.Name);
+        Assert.Equal("Slow cold-start server", metadata.Description);
+        Assert.Equal(90, metadata.DiscoveryTimeoutSeconds);
+    }
+
     [Fact]
     public void IsUnexpectedServerExit_ReturnsTrue_ForNestedProcessExitMessage()
     {

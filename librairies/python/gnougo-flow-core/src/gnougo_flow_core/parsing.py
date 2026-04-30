@@ -28,12 +28,10 @@ class WorkflowParser:
 
         version = raw.get("version")
         if version is None:
-            # .NET WorkflowParser also accepts the legacy `dsl:` key.
-            version = raw.get("dsl")
-        if version is None:
             raise WorkflowParseException("Missing required field 'version'")
+        version = WorkflowParser._parse_workflow_version(version)
         if version != 1:
-            raise WorkflowParseException(f"Unsupported DSL version: {version}")
+            raise WorkflowParseException(f"Unsupported workflow version: {version}")
 
         workflows_raw = raw.get("workflows")
         if not isinstance(workflows_raw, dict):
@@ -59,6 +57,25 @@ class WorkflowParser:
             workflows=workflows,
             raw_yaml=yaml_text,
         )
+
+    @staticmethod
+    def _parse_workflow_version(value: Any) -> int:
+        if isinstance(value, bool):
+            raise WorkflowParseException(f"Unsupported workflow version: {value}")
+
+        if isinstance(value, int):
+            return value
+
+        if isinstance(value, float) and value == 1.0:
+            return 1
+
+        if isinstance(value, str):
+            normalized = value.strip()
+            if normalized == "1" or normalized == "1.0":
+                return 1
+            raise WorkflowParseException(f"Unsupported workflow version: {value}")
+
+        raise WorkflowParseException(f"Unsupported workflow version: {value}")
 
     @staticmethod
     def _parse_workflow_def(node: dict[str, Any], name: str) -> WorkflowDef:

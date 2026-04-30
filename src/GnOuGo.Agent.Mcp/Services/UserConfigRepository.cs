@@ -66,6 +66,15 @@ public sealed class UserConfigRepository : IUserConfigRepository
             entity.DefaultAgent = update.DefaultAgent.Trim();
         }
 
+        if (update.ClearDefaultEmbedding)
+        {
+            entity.DefaultEmbeddingConfig = null;
+        }
+        else if (!string.IsNullOrWhiteSpace(update.DefaultEmbeddingConfig))
+        {
+            entity.DefaultEmbeddingConfig = update.DefaultEmbeddingConfig.Trim();
+        }
+
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
@@ -80,6 +89,7 @@ public sealed class UserConfigRepository : IUserConfigRepository
             DefaultLlmProvider: string.IsNullOrWhiteSpace(entity.DefaultLlmProvider) ? null : entity.DefaultLlmProvider,
             DefaultLlmModel: string.IsNullOrWhiteSpace(entity.DefaultLlmModel) ? null : entity.DefaultLlmModel,
             DefaultAgent: string.IsNullOrWhiteSpace(entity.DefaultAgent) ? null : entity.DefaultAgent,
-            UpdatedAt: entity.UpdatedAtTicks == 0 ? null : entity.UpdatedAt);
+            UpdatedAt: entity.UpdatedAtTicks == 0 ? null : entity.UpdatedAt,
+            DefaultEmbeddingConfig: string.IsNullOrWhiteSpace(entity.DefaultEmbeddingConfig) ? null : entity.DefaultEmbeddingConfig);
 }
 

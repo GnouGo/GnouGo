@@ -28,7 +28,7 @@ public class WorkflowPlanMcpChatGuidanceTests
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
             });
 
         var mcpFactory = new InMemoryMcpClientFactory();
@@ -42,7 +42,7 @@ public class WorkflowPlanMcpChatGuidanceTests
         });
 
         var wf = CompileMain(@"
- dsl: 1
+ version: 1
  workflows:
    main:
      steps:
@@ -83,7 +83,7 @@ public class WorkflowPlanMcpChatGuidanceTests
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
             });
 
         // Use a factory mock that throws on GetClientAsync
@@ -96,7 +96,7 @@ public class WorkflowPlanMcpChatGuidanceTests
             .ThrowsAsync(new Exception("Connection refused"));
 
         var wf = CompileMain(@"
- dsl: 1
+ version: 1
  workflows:
    main:
      steps:

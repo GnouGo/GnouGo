@@ -55,7 +55,7 @@ COPY ["src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj", "src/GnOuGo.Cmd.Mcp/"]
 COPY src/GnOuGo.Diff.Core/GnOuGo.Diff.Core.csproj src/GnOuGo.Diff.Core/
 COPY src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj src/GnOuGo.Document.Mcp/
 COPY src/GnOuGo.DocIngestor.Core/GnOuGo.DocIngestor.Core.csproj src/GnOuGo.DocIngestor.Core/
-COPY src/GnOuGo.DocsIngestor.Mcp/GnOuGo.DocsIngestor.Mcp.csproj src/GnOuGo.DocsIngestor.Mcp/
+COPY src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj src/GnOuGo.DocIngestor.Mcp/
 COPY src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj src/GnOuGo.Files.Server/
 COPY src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj src/GnOuGo.Flow.Core/
 COPY src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj src/GnOuGo.KeyVault.Core/

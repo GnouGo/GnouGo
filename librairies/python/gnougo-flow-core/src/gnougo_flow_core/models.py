@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .errors import WorkflowError
 
@@ -86,11 +86,10 @@ class WorkflowDef(BaseModel):
 
 
 class WorkflowDocument(BaseModel):
-    # Mirrors .NET WorkflowDocument.Version. Accepts both `version` (canonical) and
-    # `dsl` (legacy alias) when constructed by name.
+    # Mirrors .NET WorkflowDocument.Version. `version` is the canonical field.
     model_config = ConfigDict(populate_by_name=True)
 
-    version: int = Field(default=1, validation_alias=AliasChoices("version", "dsl"))
+    version: int = 1
     name: str | None = None
     meta: dict[str, str] | None = None
     functions: str | None = None

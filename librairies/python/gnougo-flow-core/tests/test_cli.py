@@ -7,7 +7,7 @@ import pytest
 from gnougo_flow_core.cli import main
 
 SIMPLE_WORKFLOW = """
-dsl: 1
+version: 1
 name: cli-demo
 workflows:
   main:
@@ -50,7 +50,7 @@ def test_cli_validate_success(tmp_path, capsys) -> None:
 
 def test_cli_validate_reports_errors(tmp_path, capsys) -> None:
     path = tmp_path / "workflow.yaml"
-    path.write_text("dsl: 1\nworkflows: {}\n", encoding="utf-8")
+    path.write_text("version: 1\nworkflows: {}\n", encoding="utf-8")
 
     code = _run_cli(["validate", str(path)])
 

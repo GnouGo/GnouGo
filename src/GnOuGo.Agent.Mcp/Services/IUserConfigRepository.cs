@@ -4,14 +4,17 @@ public sealed record UserConfigSnapshot(
     string? DefaultLlmProvider,
     string? DefaultLlmModel,
     string? DefaultAgent,
-    DateTimeOffset? UpdatedAt);
+    DateTimeOffset? UpdatedAt,
+    string? DefaultEmbeddingConfig = null);
 
 public sealed record UserConfigUpdate(
     string? DefaultLlmProvider,
     string? DefaultLlmModel,
     string? DefaultAgent,
     bool ClearDefaultLlm = false,
-    bool ClearDefaultAgent = false);
+    bool ClearDefaultAgent = false,
+    string? DefaultEmbeddingConfig = null,
+    bool ClearDefaultEmbedding = false);
 
 public interface IUserConfigRepository
 {

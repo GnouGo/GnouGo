@@ -49,7 +49,7 @@ public class McpListExecutorTests
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -120,7 +120,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -200,7 +200,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -240,7 +240,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -286,7 +286,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -330,7 +330,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -372,7 +372,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -399,7 +399,7 @@ workflows:
     public async Task McpList_NoFactory_Fails()
     {
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -419,7 +419,7 @@ workflows:
         var mockFactory = new Mock<IMcpClientFactory>();
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -445,7 +445,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -470,7 +470,7 @@ workflows:
                 ErrorCodes.McpServerNotFound, "Server 'unknown' not found"));
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -492,7 +492,7 @@ workflows:
             .ThrowsAsync(new InvalidOperationException("connection failed"));
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -531,7 +531,7 @@ workflows:
         });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -584,7 +584,7 @@ workflows:
         });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -630,7 +630,7 @@ workflows:
             .ThrowsAsync(new InvalidOperationException("broken connection"));
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -700,7 +700,7 @@ workflows:
     public void Validate_McpListStepType_IsKnown()
     {
         var yaml = """
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -747,7 +747,7 @@ workflows:
         });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -818,7 +818,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -905,7 +905,7 @@ workflows:
             .ReturnsAsync(mockSession.Object);
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -975,7 +975,7 @@ workflows:
         });
 
         var result = await RunMain("""
-dsl: 1
+version: 1
 workflows:
   main:
     steps:

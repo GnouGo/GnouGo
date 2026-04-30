@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
 from gnougo_flow_core.models import TemplateResult
@@ -14,7 +14,7 @@ def _compile(yaml_text: str):
 async def test_text_mode_default() -> None:
     compiled = _compile(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -31,7 +31,7 @@ async def test_text_mode_default() -> None:
     # outputs at workflow level
     compiled = _compile(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -58,7 +58,7 @@ async def test_text_mode_default() -> None:
 async def test_json_mode_parses_output() -> None:
     compiled = _compile(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -82,7 +82,7 @@ async def test_json_mode_parses_output() -> None:
 async def test_json_mode_invalid_raises_json_parse() -> None:
     compiled = _compile(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -105,7 +105,7 @@ async def test_markdown_and_html_return_text_with_mode_meta() -> None:
     for mode in ("markdown", "html"):
         compiled = _compile(
             f"""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -131,7 +131,7 @@ async def test_markdown_and_html_return_text_with_mode_meta() -> None:
 async def test_unknown_mode_raises_input_validation() -> None:
     compiled = _compile(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:
@@ -161,7 +161,7 @@ class _FakeTemplateEngine:
 async def test_routes_through_custom_template_engine() -> None:
     compiled = _compile(
         """
-        dsl: 1
+        version: 1
         workflows:
           main:
             steps:

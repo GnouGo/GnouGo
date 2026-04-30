@@ -106,6 +106,44 @@ public sealed class ConfigureProvidersService
             yield break;
         }
 
+        if (string.Equals(trimmedCommand, "/embedding add", StringComparison.OrdinalIgnoreCase))
+        {
+            await foreach (var evt in ExecuteInteractiveEmbeddingAddAsync(ct))
+                yield return evt;
+            yield break;
+        }
+
+        const string embeddingDefaultPrefix = "/embedding default";
+        if (trimmedCommand.StartsWith(embeddingDefaultPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var requestedName = trimmedCommand.Length > embeddingDefaultPrefix.Length
+                ? trimmedCommand[embeddingDefaultPrefix.Length..].Trim()
+                : string.Empty;
+            await foreach (var evt in ExecuteInteractiveEmbeddingDefaultAsync(requestedName, ct))
+                yield return evt;
+            yield break;
+        }
+
+        const string embeddingEditPrefix = "/embedding edit";
+        if (trimmedCommand.StartsWith(embeddingEditPrefix, StringComparison.OrdinalIgnoreCase)
+            && trimmedCommand.Length > embeddingEditPrefix.Length)
+        {
+            var requestedName = trimmedCommand[embeddingEditPrefix.Length..].Trim();
+            await foreach (var evt in ExecuteInteractiveEmbeddingEditAsync(requestedName, ct))
+                yield return evt;
+            yield break;
+        }
+
+        const string embeddingRemovePrefix = "/embedding remove";
+        if (trimmedCommand.StartsWith(embeddingRemovePrefix, StringComparison.OrdinalIgnoreCase)
+            && trimmedCommand.Length > embeddingRemovePrefix.Length)
+        {
+            var requestedName = trimmedCommand[embeddingRemovePrefix.Length..].Trim();
+            await foreach (var evt in ExecuteInteractiveEmbeddingRemoveAsync(requestedName, ct))
+                yield return evt;
+            yield break;
+        }
+
         if (string.Equals(trimmedCommand, "/mcp add", StringComparison.OrdinalIgnoreCase))
         {
             await foreach (var evt in ExecuteInteractiveMcpAddAsync(ct))
@@ -136,6 +174,12 @@ public sealed class ConfigureProvidersService
         if (trimmedCommand.StartsWith("/llm", StringComparison.OrdinalIgnoreCase))
         {
             yield return new SmartFlowEvent("answer", RenderLlmHelp(trimmedCommand));
+            yield break;
+        }
+
+        if (trimmedCommand.StartsWith("/embedding", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("answer", RenderEmbeddingHelp(trimmedCommand));
             yield break;
         }
 
@@ -212,13 +256,14 @@ public sealed class ConfigureProvidersService
             return new CommandTraceDescriptor("configure.providers.unknown", null, null, null, "direct");
 
         var domain = parts[0].TrimStart('/').ToLowerInvariant();
-        var action = parts.Length > 1 ? parts[1].ToLowerInvariant() : domain is "llm" or "mcp" ? "help" : domain;
+        var action = parts.Length > 1 ? parts[1].ToLowerInvariant() : domain is "llm" or "embedding" or "mcp" ? "help" : domain;
         var argument = parts.Length > 2 ? string.Join(' ', parts.Skip(2)) : null;
         var mode = action is "add" or "edit" or "remove" or "default" ? "interactive" : "direct";
 
         var spanName = domain switch
         {
             "llm" => $"configure.providers.llm.{action}",
+            "embedding" => $"configure.providers.embedding.{action}",
             "mcp" => $"configure.providers.mcp.{action}",
             "status" => "configure.providers.status",
             _ => "configure.providers.help"
@@ -249,6 +294,14 @@ public sealed class ConfigureProvidersService
                 title: "# 🔌 Configured MCP Servers",
                 emptyMessage: "No MCP servers configured yet. Use `/mcp add` to get started.");
             span.SetTag("gnougo.agent.keyvault.secret_count", secrets.Count);
+            span.SetStatus(ActivityStatusCode.Ok);
+            return result;
+        }
+
+        if (string.Equals(command, "/embedding list", StringComparison.OrdinalIgnoreCase))
+        {
+            using var span = StartNestedTrace("configure.providers.embedding.list.render", "embedding.list");
+            var result = await RenderConfiguredEmbeddingConfigsAsync(ct);
             span.SetStatus(ActivityStatusCode.Ok);
             return result;
         }
@@ -736,6 +789,457 @@ public sealed class ConfigureProvidersService
             defaultLlmModel: clearDefaultLlm ? null : current.DefaultModel,
             clearDefaultLlm: clearDefaultLlm,
             ct: ct);
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveEmbeddingAddAsync(
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var runId = Guid.NewGuid().ToString("N");
+        using var flowSpan = StartConfigureFlowTrace("configure.providers.embedding.add.interactive", "embedding", "add", runId);
+        yield return new SmartFlowEvent("thinking:thinking", "🧬 Starting embedding model configuration…");
+
+        JsonNode? response = null;
+        var baseRequest = CreateFieldsRequest(
+            runId,
+            "embedding_add.base",
+            "Configure the embedding model:",
+            [
+                new HumanInputFieldDef { Name = "name", Type = "string", Required = true, Description = "Embedding config name, for example openai-small or local-nomic" },
+                new HumanInputFieldDef { Name = "provider", Type = "select", Required = true, Description = "Embedding provider", Options = ["openai", "openai-compatible", "ollama", "hash"], Default = "openai" }
+            ]);
+        await foreach (var evt in EmitHumanInputRequestAsync(baseRequest, r => response = r, ct))
+            yield return evt;
+
+        var fields = ReadFieldResponse(response, baseRequest.Fields!);
+        var name = fields.GetValueOrDefault("name")?.Trim() ?? string.Empty;
+        var provider = fields.GetValueOrDefault("provider")?.Trim() ?? "openai";
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            yield return new SmartFlowEvent("answer", "❌ Embedding config name is required.");
+            yield break;
+        }
+
+        flowSpan.SetTag("gnougo.agent.configure.target_name", name);
+        flowSpan.SetTag("gen_ai.system", provider);
+
+        EmbeddingProviderConfig? config = null;
+        await foreach (var evt in CollectEmbeddingConfigAsync(runId, name, provider, null, cfg => config = cfg, ct))
+            yield return evt;
+        if (config is null)
+            yield break;
+
+        var summary = RenderEmbeddingConfigSummary(config);
+        yield return new SmartFlowEvent("thinking:thinking", summary);
+
+        var existing = await LoadEmbeddingConfigAsync(name, ct);
+        response = null;
+        var confirmRequest = CreateChoiceRequest(
+            runId,
+            "embedding_add.confirm_save",
+            existing is null ? "Save this embedding configuration?" : "⚠️ An embedding configuration with this name already exists. Overwrite?",
+            ["save", "discard"],
+            JsonValue.Create(summary));
+        await foreach (var evt in EmitHumanInputRequestAsync(confirmRequest, r => response = r, ct))
+            yield return evt;
+
+        if (!string.Equals(ReadChoiceResponse(response), "save", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("thinking:thinking", "❌ Embedding configuration discarded.");
+            yield break;
+        }
+
+        yield return new SmartFlowEvent("thinking:progress", "💾 Saving embedding configuration to KeyVault…");
+        await SaveEmbeddingConfigAsync(config, ct);
+        yield return new SmartFlowEvent("answer", $"✅ Embedding config '{config.Name}' saved to KeyVault as `{KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.EmbeddingConfig, config.Name)}`.");
+        flowSpan.SetStatus(ActivityStatusCode.Ok);
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveEmbeddingDefaultAsync(
+        string requestedName,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var configs = await LoadConfiguredEmbeddingConfigsAsync(ct);
+        if (configs.Count == 0)
+        {
+            yield return new SmartFlowEvent("answer", "❌ No embedding config is configured yet. Use `/embedding add` first, then run `/embedding default`.");
+            yield break;
+        }
+
+        var currentDefault = await LoadDefaultEmbeddingNameAsync(ct);
+        var initial = ResolveEmbeddingSelection(configs, requestedName, currentDefault);
+        if (initial is null)
+        {
+            yield return new SmartFlowEvent("answer", $"❌ Embedding config '{requestedName}' is not configured. Use `/embedding list` to see available configs.");
+            yield break;
+        }
+
+        var runId = Guid.NewGuid().ToString("N");
+        JsonNode? response = null;
+        var request = CreateFieldsRequest(
+            runId,
+            "embedding_default.name",
+            "Select the default embedding config:",
+            [
+                new HumanInputFieldDef
+                {
+                    Name = "name",
+                    Type = "select",
+                    Required = true,
+                    Description = "Configured embedding configs stored in KeyVault",
+                    Options = configs.Select(c => c.Name).ToList(),
+                    Default = initial.Name
+                }
+            ],
+            JsonValue.Create(string.IsNullOrWhiteSpace(currentDefault) ? "No default embedding config is currently set." : $"Current default: {currentDefault}"));
+        await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+            yield return evt;
+
+        var selectedName = ReadFieldResponse(response, request.Fields!).GetValueOrDefault("name") ?? initial.Name;
+        var selected = configs.FirstOrDefault(c => string.Equals(c.Name, selectedName, StringComparison.OrdinalIgnoreCase));
+        if (selected is null)
+        {
+            yield return new SmartFlowEvent("answer", $"❌ Embedding config '{selectedName}' is not configured. Use `/embedding list` to see available configs.");
+            yield break;
+        }
+
+        var summary = RenderDefaultEmbeddingSummary(selected.Config);
+        yield return new SmartFlowEvent("thinking:thinking", summary);
+
+        response = null;
+        var confirmRequest = CreateChoiceRequest(runId, "embedding_default.confirm_save", $"Set '{selected.Name}' as the default embedding config?", ["save", "discard"], JsonValue.Create(summary));
+        await foreach (var evt in EmitHumanInputRequestAsync(confirmRequest, r => response = r, ct))
+            yield return evt;
+
+        if (!string.Equals(ReadChoiceResponse(response), "save", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("thinking:thinking", "❌ Default embedding update discarded.");
+            yield break;
+        }
+
+        await SaveDefaultEmbeddingNameAsync(selected.Name, ct);
+        await PersistRuntimeDefaultEmbeddingAsync(selected.Name, ct);
+        yield return new SmartFlowEvent("answer", $"✅ Default embedding config set to '{selected.Name}'.");
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveEmbeddingEditAsync(
+        string requestedName,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var name = await ResolveConfiguredEmbeddingNameAsync(requestedName, ct) ?? requestedName.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            yield return new SmartFlowEvent("answer", "❌ Please specify the embedding config to edit: `/embedding edit <name>`.");
+            yield break;
+        }
+
+        var existing = await LoadEmbeddingConfigAsync(name, ct);
+        if (existing is null)
+        {
+            yield return new SmartFlowEvent("answer", $"❌ Embedding config '{requestedName}' not found. Use `/embedding list` to see available configs.");
+            yield break;
+        }
+
+        var runId = Guid.NewGuid().ToString("N");
+        EmbeddingProviderConfig? updated = null;
+        await foreach (var evt in CollectEmbeddingConfigAsync(runId, existing.Name, existing.Provider, existing, cfg => updated = cfg, ct))
+            yield return evt;
+        if (updated is null)
+            yield break;
+
+        var summary = RenderEmbeddingConfigSummary(updated);
+        yield return new SmartFlowEvent("thinking:thinking", summary);
+
+        JsonNode? response = null;
+        var confirmRequest = CreateChoiceRequest(runId, "embedding_edit.confirm_save", $"Save updated embedding config '{updated.Name}'?", ["save", "discard"], JsonValue.Create(summary));
+        await foreach (var evt in EmitHumanInputRequestAsync(confirmRequest, r => response = r, ct))
+            yield return evt;
+
+        if (!string.Equals(ReadChoiceResponse(response), "save", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("thinking:thinking", "❌ Edit discarded.");
+            yield break;
+        }
+
+        await SaveEmbeddingConfigAsync(updated, ct);
+        yield return new SmartFlowEvent("answer", $"✅ Embedding config '{updated.Name}' updated.");
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveEmbeddingRemoveAsync(
+        string requestedName,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var name = await ResolveConfiguredEmbeddingNameAsync(requestedName, ct) ?? requestedName.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            yield return new SmartFlowEvent("answer", "❌ Please specify the embedding config to remove: `/embedding remove <name>`.");
+            yield break;
+        }
+
+        var existing = await LoadEmbeddingConfigAsync(name, ct);
+        if (existing is null)
+        {
+            yield return new SmartFlowEvent("answer", $"❌ Embedding config '{requestedName}' not found. Use `/embedding list` to see available configs.");
+            yield break;
+        }
+
+        var runId = Guid.NewGuid().ToString("N");
+        JsonNode? response = null;
+        var request = CreateChoiceRequest(runId, "embedding_remove.confirm", $"⚠️ Remove embedding config '{existing.Name}'?", ["confirm", "cancel"]);
+        await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+            yield return evt;
+
+        if (!string.Equals(ReadChoiceResponse(response), "confirm", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new SmartFlowEvent("thinking:thinking", "❌ Removal cancelled.");
+            yield break;
+        }
+
+        var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.EmbeddingConfig, existing.Name, ct)
+            ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.EmbeddingConfig, existing.Name);
+        var deleted = await _keyVaultStore.DeleteSecretAsync(secretKey, ct);
+        if (!deleted)
+        {
+            yield return new SmartFlowEvent("answer", $"❌ Embedding config '{existing.Name}' could not be removed because it no longer exists.");
+            yield break;
+        }
+
+        var currentDefault = await LoadDefaultEmbeddingNameAsync(ct);
+        if (string.Equals(currentDefault, existing.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            await DeleteDefaultEmbeddingNameAsync(ct);
+            await PersistRuntimeDefaultEmbeddingAsync(null, ct);
+        }
+
+        yield return new SmartFlowEvent("answer", $"✅ Embedding config '{existing.Name}' removed.");
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> CollectEmbeddingConfigAsync(
+        string runId,
+        string name,
+        string provider,
+        EmbeddingProviderConfig? existing,
+        Action<EmbeddingProviderConfig?> setConfig,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        JsonNode? response = null;
+        provider = string.IsNullOrWhiteSpace(provider) ? "openai" : provider.Trim().ToLowerInvariant();
+
+        if (string.Equals(provider, "hash", StringComparison.OrdinalIgnoreCase))
+        {
+            var request = CreateFieldsRequest(runId, existing is null ? "embedding_add.hash" : "embedding_edit.hash", $"Configure hash embedding '{name}':", [
+                new HumanInputFieldDef { Name = "dimensions", Type = "number", Required = true, Description = "Vector dimensions", Default = (existing?.Dimensions ?? 384).ToString() }
+            ]);
+            await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+                yield return evt;
+            var fields = ReadFieldResponse(response, request.Fields!);
+            setConfig(new EmbeddingProviderConfig(name, "hash", null, null, null, null, null, ReadInt(fields.GetValueOrDefault("dimensions"), existing?.Dimensions ?? 384)));
+            yield break;
+        }
+
+        if (string.Equals(provider, "ollama", StringComparison.OrdinalIgnoreCase))
+        {
+            var request = CreateFieldsRequest(runId, existing is null ? "embedding_add.ollama" : "embedding_edit.ollama", $"Configure Ollama embedding '{name}':", [
+                new HumanInputFieldDef { Name = "base_url", Type = "string", Required = true, Description = "Ollama base URL", Default = existing?.BaseUrl ?? "http://localhost:11434" },
+                new HumanInputFieldDef { Name = "model", Type = "string", Required = true, Description = "Embedding model name", Default = existing?.Model ?? "nomic-embed-text" },
+                new HumanInputFieldDef { Name = "dimensions", Type = "number", Required = true, Description = "Vector dimensions", Default = (existing?.Dimensions ?? 768).ToString() }
+            ]);
+            await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+                yield return evt;
+            var fields = ReadFieldResponse(response, request.Fields!);
+            setConfig(new EmbeddingProviderConfig(name, "ollama", fields.GetValueOrDefault("model"), null, fields.GetValueOrDefault("base_url"), null, null, ReadInt(fields.GetValueOrDefault("dimensions"), existing?.Dimensions ?? 768)));
+            yield break;
+        }
+
+        var openAiRequest = CreateFieldsRequest(runId, existing is null ? "embedding_add.openai" : "embedding_edit.openai", $"Configure {provider} embedding '{name}':", [
+            new HumanInputFieldDef { Name = "endpoint_url", Type = "string", Required = true, Description = "OpenAI-compatible base endpoint URL", Default = existing?.EndpointUrl ?? "https://api.openai.com/v1" },
+            new HumanInputFieldDef { Name = "model", Type = "string", Required = true, Description = "Embedding model name", Default = existing?.Model ?? "text-embedding-3-small" },
+            new HumanInputFieldDef { Name = "dimensions", Type = "number", Required = true, Description = "Vector dimensions", Default = (existing?.Dimensions ?? 1536).ToString() },
+            new HumanInputFieldDef { Name = "api_key", Type = "string", Required = existing is null, Description = "API key stored encrypted in KeyVault. Leave empty during edit to keep current key." }
+        ]);
+        await foreach (var evt in EmitHumanInputRequestAsync(openAiRequest, r => response = r, ct))
+            yield return evt;
+        var openAiFields = ReadFieldResponse(response, openAiRequest.Fields!);
+        var apiKey = openAiFields.GetValueOrDefault("api_key");
+        if (string.IsNullOrWhiteSpace(apiKey) && existing is not null)
+            apiKey = existing.ApiKey;
+        setConfig(new EmbeddingProviderConfig(name, provider, openAiFields.GetValueOrDefault("model"), openAiFields.GetValueOrDefault("endpoint_url"), null, apiKey, null, ReadInt(openAiFields.GetValueOrDefault("dimensions"), existing?.Dimensions ?? 1536)));
+    }
+
+    private async Task PersistRuntimeDefaultEmbeddingAsync(string? name, CancellationToken ct)
+    {
+        if (_userConfigClient is null)
+            return;
+
+        await _userConfigClient.SetAsync(
+            defaultEmbeddingConfig: string.IsNullOrWhiteSpace(name) ? null : name,
+            clearDefaultEmbedding: string.IsNullOrWhiteSpace(name),
+            ct: ct);
+    }
+
+    private async Task SaveEmbeddingConfigAsync(EmbeddingProviderConfig config, CancellationToken ct)
+    {
+        var payload = new JsonObject
+        {
+            ["provider"] = config.Provider,
+            ["name"] = config.Name,
+            ["model"] = config.Model,
+            ["endpointUrl"] = config.EndpointUrl,
+            ["baseUrl"] = config.BaseUrl,
+            ["apiKey"] = config.ApiKey,
+            ["apiKeySecretKey"] = config.ApiKeySecretKey,
+            ["dimensions"] = config.Dimensions
+        };
+
+        var preferredSecretKey = KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.EmbeddingConfig, config.Name);
+        var existingSecretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.EmbeddingConfig, config.Name, ct);
+        await _keyVaultStore.SaveSecretValueAsync(preferredSecretKey, payload.ToJsonString(), ct);
+
+        if (!string.IsNullOrWhiteSpace(existingSecretKey)
+            && !string.Equals(existingSecretKey, preferredSecretKey, StringComparison.OrdinalIgnoreCase))
+        {
+            await _keyVaultStore.DeleteSecretAsync(existingSecretKey, ct);
+        }
+    }
+
+    private async Task<EmbeddingProviderConfig?> LoadEmbeddingConfigAsync(string name, CancellationToken ct)
+    {
+        var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.EmbeddingConfig, name, ct)
+            ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.EmbeddingConfig, name);
+        var value = await _keyVaultStore.GetSecretValueAsync(secretKey, ct);
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var config = JsonNode.Parse(value) as JsonObject;
+        if (config is null)
+            return null;
+
+        return new EmbeddingProviderConfig(
+            Name: ReadConfigString(config, "name") ?? name,
+            Provider: ReadConfigString(config, "provider") ?? "openai",
+            Model: ReadConfigString(config, "model"),
+            EndpointUrl: ReadConfigString(config, "endpointUrl", "endpoint_url"),
+            BaseUrl: ReadConfigString(config, "baseUrl", "base_url"),
+            ApiKey: ReadConfigString(config, "apiKey", "api_key"),
+            ApiKeySecretKey: ReadConfigString(config, "apiKeySecretKey", "api_key_secret_key"),
+            Dimensions: config["dimensions"]?.GetValue<int>() ?? config["Dimensions"]?.GetValue<int>() ?? 0);
+    }
+
+    private async Task<List<ConfiguredEmbeddingConfig>> LoadConfiguredEmbeddingConfigsAsync(CancellationToken ct)
+    {
+        var secrets = await LoadKeyVaultSecretsAsync(ct);
+        var configs = new List<ConfiguredEmbeddingConfig>();
+        foreach (var secret in KeyVaultConfigNaming.SelectPreferredSecrets(secrets, KeyVaultConfigSecretKind.EmbeddingConfig))
+        {
+            var logicalName = KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.EmbeddingConfig, secret.Key) ?? secret.Key;
+            var config = await LoadEmbeddingConfigAsync(logicalName, ct);
+            if (config is not null)
+                configs.Add(new ConfiguredEmbeddingConfig(config.Name, secret, config));
+        }
+
+        return configs;
+    }
+
+    private async Task<string> RenderConfiguredEmbeddingConfigsAsync(CancellationToken ct)
+    {
+        var configs = await LoadConfiguredEmbeddingConfigsAsync(ct);
+        if (configs.Count == 0)
+            return "# 🧬 Configured Embedding Models\n\nNo embedding configs configured yet. Use `/embedding add` to get started.";
+
+        var currentDefault = await LoadDefaultEmbeddingNameAsync(ct);
+        var sb = new StringBuilder();
+        sb.AppendLine("# 🧬 Configured Embedding Models");
+        sb.AppendLine();
+        sb.AppendLine("| Name | Default | Provider | Model | Dimensions | Key | Version | Stored |");
+        sb.AppendLine("|------|---------|----------|-------|------------|-----|---------|--------|");
+        foreach (var config in configs
+                     .OrderByDescending(c => string.Equals(c.Name, currentDefault, StringComparison.OrdinalIgnoreCase))
+                     .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var isDefault = string.Equals(config.Name, currentDefault, StringComparison.OrdinalIgnoreCase);
+            sb.AppendLine($"| {EscapeMarkdownCell(config.Name)} | {(isDefault ? "✅ yes" : "")} | {EscapeMarkdownCell(config.Config.Provider)} | {EscapeMarkdownCell(config.Config.Model ?? "")} | {config.Config.Dimensions} | `{EscapeBackticks(config.Secret.Key)}` | {config.Secret.LatestVersion} | {EscapeMarkdownCell(FormatTimestamp(config.Secret.CreatedAt))} |");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private async Task<string?> ResolveConfiguredEmbeddingNameAsync(string requestedName, CancellationToken ct)
+    {
+        var configs = await LoadConfiguredEmbeddingConfigsAsync(ct);
+        return configs.FirstOrDefault(c => string.Equals(c.Name, requestedName, StringComparison.OrdinalIgnoreCase))?.Name;
+    }
+
+    private static ConfiguredEmbeddingConfig? ResolveEmbeddingSelection(IReadOnlyList<ConfiguredEmbeddingConfig> configs, string requestedName, string? currentDefault)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedName))
+            return configs.FirstOrDefault(c => string.Equals(c.Name, requestedName, StringComparison.OrdinalIgnoreCase));
+
+        return configs.FirstOrDefault(c => string.Equals(c.Name, currentDefault, StringComparison.OrdinalIgnoreCase))
+               ?? configs.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+    }
+
+    private async Task SaveDefaultEmbeddingNameAsync(string name, CancellationToken ct)
+    {
+        var payload = new JsonObject { ["defaultEmbeddingConfig"] = name };
+        await _keyVaultStore.SaveSecretValueAsync(KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.EmbeddingDefault, "default"), payload.ToJsonString(), ct);
+    }
+
+    private async Task<string?> LoadDefaultEmbeddingNameAsync(CancellationToken ct)
+    {
+        var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.EmbeddingDefault, "default", ct)
+            ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.EmbeddingDefault, "default");
+        var value = await _keyVaultStore.GetSecretValueAsync(secretKey, ct);
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var config = JsonNode.Parse(value) as JsonObject;
+        return config?["defaultEmbeddingConfig"]?.GetValue<string>()
+               ?? config?["name"]?.GetValue<string>();
+    }
+
+    private async Task DeleteDefaultEmbeddingNameAsync(CancellationToken ct)
+    {
+        var secretKey = await ResolveSecretKeyAsync(KeyVaultConfigSecretKind.EmbeddingDefault, "default", ct)
+            ?? KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.EmbeddingDefault, "default");
+        await _keyVaultStore.DeleteSecretAsync(secretKey, ct);
+    }
+
+    private static int ReadInt(string? value, int fallback)
+        => int.TryParse(value, out var parsed) && parsed > 0 ? parsed : fallback;
+
+    private static string RenderEmbeddingConfigSummary(EmbeddingProviderConfig config)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("## 📋 Review embedding configuration");
+        sb.AppendLine();
+        sb.AppendLine("| Field | Value |");
+        sb.AppendLine("|-------|-------|");
+        sb.AppendLine($"| Name | {EscapeMarkdownCell(config.Name)} |");
+        sb.AppendLine($"| Provider | {EscapeMarkdownCell(config.Provider)} |");
+        sb.AppendLine($"| Model | {EscapeMarkdownCell(config.Model ?? "")} |");
+        sb.AppendLine($"| Dimensions | {config.Dimensions} |");
+        if (!string.IsNullOrWhiteSpace(config.EndpointUrl))
+            sb.AppendLine($"| Endpoint URL | {EscapeMarkdownCell(config.EndpointUrl)} |");
+        if (!string.IsNullOrWhiteSpace(config.BaseUrl))
+            sb.AppendLine($"| Base URL | {EscapeMarkdownCell(config.BaseUrl)} |");
+        if (!string.IsNullOrWhiteSpace(config.ApiKey))
+            sb.AppendLine("| API Key | •••••••• |");
+        sb.AppendLine();
+        sb.Append($"Configuration will be saved as key: `{KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.EmbeddingConfig, config.Name)}`");
+        return sb.ToString();
+    }
+
+    private static string RenderDefaultEmbeddingSummary(EmbeddingProviderConfig config)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("## ⭐ Review default embedding config");
+        sb.AppendLine();
+        sb.AppendLine("| Field | Value |");
+        sb.AppendLine("|-------|-------|");
+        sb.AppendLine($"| Name | {EscapeMarkdownCell(config.Name)} |");
+        sb.AppendLine($"| Provider | {EscapeMarkdownCell(config.Provider)} |");
+        sb.AppendLine($"| Model | {EscapeMarkdownCell(config.Model ?? "")} |");
+        sb.AppendLine($"| Dimensions | {config.Dimensions} |");
+        return sb.ToString().TrimEnd();
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveMcpAddAsync(
@@ -1695,7 +2199,9 @@ public sealed class ConfigureProvidersService
     private sealed record ProviderDefaults(string Url, string Model, IReadOnlyList<string> AuthModes);
     private sealed record LlmProviderConfig(string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret);
     private sealed record McpServerConfig(string Name, string Transport, string Description, string Url, string Command, IReadOnlyList<string> Args, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret);
+    private sealed record EmbeddingProviderConfig(string Name, string Provider, string? Model, string? EndpointUrl, string? BaseUrl, string? ApiKey, string? ApiKeySecretKey, int Dimensions);
     private sealed record ConfiguredLlmProvider(string Provider, KeyVaultSecretSummary Secret, LlmProviderConfig Config);
+    private sealed record ConfiguredEmbeddingConfig(string Name, KeyVaultSecretSummary Secret, EmbeddingProviderConfig Config);
 
     private string? ResolveConfiguredProviderKey(string requestedProvider)
     {
@@ -1786,6 +2292,12 @@ public sealed class ConfigureProvidersService
         sb.AppendLine("| `/llm default [name]` | Set or change the default LLM provider/model |");
         sb.AppendLine("| `/llm edit <name>` | Edit an existing LLM provider |");
         sb.AppendLine("| `/llm remove <name>` | Remove an LLM provider |");
+        sb.AppendLine("| `/embedding` | Show embedding model command documentation |");
+        sb.AppendLine("| `/embedding list` | List configured embedding models |");
+        sb.AppendLine("| `/embedding add` | Configure a new embedding model |");
+        sb.AppendLine("| `/embedding default [name]` | Set or change the default embedding model |");
+        sb.AppendLine("| `/embedding edit <name>` | Edit an embedding model configuration |");
+        sb.AppendLine("| `/embedding remove <name>` | Remove an embedding model configuration |");
         sb.AppendLine("| `/mcp` | Show MCP command documentation |");
         sb.AppendLine("| `/mcp list` | List configured MCP servers |");
         sb.AppendLine("| `/mcp add` | Add a new MCP server |");
@@ -1849,6 +2361,31 @@ public sealed class ConfigureProvidersService
         sb.AppendLine("- **stdio** — launch a local process (for example `dotnet run`)");
         sb.AppendLine();
         sb.Append($"All configurations are stored encrypted in KeyVault using the .NET convention `{KeyVaultConfigNaming.GetDisplayConvention(KeyVaultConfigSecretKind.McpServer)}`.");
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string RenderEmbeddingHelp(string command)
+    {
+        var sb = new StringBuilder();
+        if (!string.Equals(command, "/embedding", StringComparison.OrdinalIgnoreCase))
+        {
+            sb.AppendLine($"❌ Unknown `/embedding` command: `{EscapeBackticks(command)}`");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("# 🧬 Embedding Model Commands");
+        sb.AppendLine();
+        sb.AppendLine("| Command | Description |");
+        sb.AppendLine("|---|---|");
+        sb.AppendLine("| `/embedding list` | List all configured embedding models |");
+        sb.AppendLine("| `/embedding add` | Configure a new embedding model |");
+        sb.AppendLine("| `/embedding default [name]` | Set the default embedding model used by document ingestion/search |");
+        sb.AppendLine("| `/embedding edit <name>` | Edit an embedding model configuration |");
+        sb.AppendLine("| `/embedding remove <name>` | Remove an embedding model configuration |");
+        sb.AppendLine();
+        sb.AppendLine("**Providers:** `openai`, `openai-compatible`, `ollama`, `hash`.");
+        sb.AppendLine();
+        sb.Append($"All configurations are stored encrypted in KeyVault using the .NET convention `{KeyVaultConfigNaming.GetDisplayConvention(KeyVaultConfigSecretKind.EmbeddingConfig)}`.");
         return sb.ToString().TrimEnd();
     }
 
@@ -2028,6 +2565,10 @@ public sealed class ConfigureProvidersService
             .Where(s => KeyVaultConfigNaming.MatchesSecretKey(KeyVaultConfigSecretKind.McpServer, s.Key))
             .ToList();
 
+        var embeddings = secrets
+            .Where(s => KeyVaultConfigNaming.MatchesSecretKey(KeyVaultConfigSecretKind.EmbeddingConfig, s.Key))
+            .ToList();
+
         var sb = new StringBuilder();
         sb.AppendLine("# 📊 Current Configuration Status");
         sb.AppendLine();
@@ -2053,6 +2594,25 @@ public sealed class ConfigureProvidersService
         }
 
         sb.AppendLine();
+        sb.AppendLine("## 🧬 Embedding Models");
+        sb.AppendLine();
+
+        if (embeddings.Count == 0)
+        {
+            sb.AppendLine("No embedding models configured yet.");
+        }
+        else
+        {
+            sb.AppendLine("| Name | KeyVault Key | Version | Stored |");
+            sb.AppendLine("|------|--------------|---------|--------|");
+            foreach (var item in KeyVaultConfigNaming.SelectPreferredSecrets(embeddings, KeyVaultConfigSecretKind.EmbeddingConfig))
+            {
+                var embedding = KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.EmbeddingConfig, item.Key) ?? item.Key;
+                sb.AppendLine($"| {EscapeMarkdownCell(embedding)} | `{EscapeBackticks(item.Key)}` | {item.LatestVersion} | {EscapeMarkdownCell(FormatTimestamp(item.CreatedAt))} |");
+            }
+        }
+
+        sb.AppendLine();
         sb.AppendLine("## 🔌 MCP Servers");
         sb.AppendLine();
 
@@ -2072,7 +2632,7 @@ public sealed class ConfigureProvidersService
         }
 
         sb.AppendLine();
-        sb.AppendLine("Use `/llm add` or `/mcp add` to get started.");
+        sb.AppendLine("Use `/llm add`, `/embedding add` or `/mcp add` to get started.");
         return sb.ToString().TrimEnd();
     }
 

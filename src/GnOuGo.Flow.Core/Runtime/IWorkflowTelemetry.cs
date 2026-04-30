@@ -84,6 +84,12 @@ public sealed class WorkflowTelemetryInfo
 
     /// <summary>Input data provided to the workflow.</summary>
     public JsonNode? Inputs { get; init; }
+
+    /// <summary>Original workflow source text when available, usually YAML.</summary>
+    public string? SourceText { get; init; }
+
+    /// <summary>Workflow source format, for example <c>yaml</c> or <c>json</c>.</summary>
+    public string? SourceFormat { get; init; }
 }
 
 /// <summary>

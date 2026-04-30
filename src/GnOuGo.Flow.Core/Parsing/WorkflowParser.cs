@@ -27,9 +27,7 @@ public static class WorkflowParser
         doc.RawYaml = yaml;
 
         // version
-        doc.Version = root.GetInt("version")
-            ?? root.GetInt("dsl")
-            ?? throw new WorkflowParseException("Missing required field 'version'");
+        doc.Version = ParseWorkflowVersion(root);
         if (doc.Version != 1)
             throw new WorkflowParseException($"Unsupported workflow version: {doc.Version}");
 
@@ -68,6 +66,28 @@ public static class WorkflowParser
             doc.Entrypoint = "main";
 
         return doc;
+    }
+
+    private static int ParseWorkflowVersion(YamlMappingNode root)
+    {
+        if (!root.Children.TryGetValue(new YamlScalarNode("version"), out var node))
+            throw new WorkflowParseException("Missing required field 'version'");
+
+        if (node is not YamlScalarNode scalar)
+            throw new WorkflowParseException("Unsupported workflow version: non-scalar");
+
+        var value = scalar.Value?.Trim();
+        if (string.IsNullOrWhiteSpace(value))
+            throw new WorkflowParseException("Unsupported workflow version: empty");
+
+        if (int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var intVersion))
+            return intVersion;
+
+        if (decimal.TryParse(value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var decimalVersion)
+            && decimalVersion == decimal.One)
+            return 1;
+
+        throw new WorkflowParseException($"Unsupported workflow version: {value}");
     }
 
     private static WorkflowDef ParseWorkflowDef(YamlMappingNode node, string name)

@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Moq;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
@@ -12,7 +12,7 @@ namespace GnOuGo.Flow.Tests.Runtime;
 /// <summary>
 /// Tests for the workflow.execute step executor.
 /// Covers:
-///   - Basic plan → execute flow (happy path)
+///   - Basic plan ? execute flow (happy path)
 ///   - Outputs evaluation from generated workflow
 ///   - Missing from_step reference
 ///   - Missing YAML in plan result
@@ -21,11 +21,11 @@ namespace GnOuGo.Flow.Tests.Runtime;
 ///   - Generated workflow with no explicit outputs (falls back to steps data)
 ///   - Generated workflow with typed outputs
 ///   - Args forwarding to generated workflow
-///   - End-to-end workflow.plan → workflow.execute integration
+///   - End-to-end workflow.plan ? workflow.execute integration
 /// </summary>
 public class WorkflowExecuteExecutorTests
 {
-    // ── Helpers ──
+    // -- Helpers --
 
     private static CompiledWorkflow CompileMain(string yaml)
     {
@@ -47,14 +47,14 @@ public class WorkflowExecuteExecutorTests
         return await engine.ExecuteAsync(wf, inputs ?? new JsonObject(), CancellationToken.None);
     }
 
-    // ────── Basic plan → execute (happy path) ──────
+    // ------ Basic plan ? execute (happy path) ------
 
     [Fact]
     public async Task WorkflowExecute_BasicPlanThenExecute_ReturnsOutput()
     {
         // The LLM returns a valid generated workflow with a template.render step
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               generated:
                 steps:
@@ -75,7 +75,7 @@ public class WorkflowExecuteExecutorTests
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -101,19 +101,19 @@ public class WorkflowExecuteExecutorTests
         Assert.Equal("Hello, World!", result.Outputs!["answer"]!.GetValue<string>());
     }
 
-    // ────── Missing from_step ──────
+    // ------ Missing from_step ------
 
     [Fact]
     public async Task WorkflowExecute_MissingFromStep_FailsWithInputValidation()
     {
-        var generatedYaml = "dsl: 1\nworkflows:\n  gen:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text";
+        var generatedYaml = "version: 1\nworkflows:\n  gen:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text";
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -135,13 +135,13 @@ public class WorkflowExecuteExecutorTests
         Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
     }
 
-    // ────── Reference to non-existent step ──────
+    // ------ Reference to non-existent step ------
 
     [Fact]
     public async Task WorkflowExecute_NonExistentPlanStep_FailsWithInputValidation()
     {
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -156,14 +156,14 @@ public class WorkflowExecuteExecutorTests
         Assert.Contains("does_not_exist", result.Error.Message);
     }
 
-    // ────── Plan step has no YAML ──────
+    // ------ Plan step has no YAML ------
 
     [Fact]
     public async Task WorkflowExecute_PlanStepMissingYaml_FailsWithInputValidation()
     {
         // Simulate a plan result that has no "yaml" field by using a set step
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -184,13 +184,13 @@ public class WorkflowExecuteExecutorTests
         Assert.Contains("YAML", result.Error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    // ────── Multi-step generated workflow ──────
+    // ------ Multi-step generated workflow ------
 
     [Fact]
     public async Task WorkflowExecute_MultiStepGeneratedWorkflow_ExecutesAllSteps()
     {
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               generated:
                 steps:
@@ -219,7 +219,7 @@ public class WorkflowExecuteExecutorTests
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -249,13 +249,13 @@ public class WorkflowExecuteExecutorTests
         Assert.True(result.Outputs["success"]!.GetValue<bool>());
     }
 
-    // ────── Generated workflow with no explicit outputs ──────
+    // ------ Generated workflow with no explicit outputs ------
 
     [Fact]
     public async Task WorkflowExecute_NoOutputsDefined_FallsBackToStepsData()
     {
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               generated:
                 steps:
@@ -270,7 +270,7 @@ public class WorkflowExecuteExecutorTests
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -300,13 +300,13 @@ public class WorkflowExecuteExecutorTests
         Assert.NotNull(outputs!["calc"]);
     }
 
-    // ────── Run metadata (steps_executed, success, workflow name) ──────
+    // ------ Run metadata (steps_executed, success, workflow name) ------
 
     [Fact]
     public async Task WorkflowExecute_ReturnsRunMetadata()
     {
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               my_workflow:
                 steps:
@@ -325,7 +325,7 @@ public class WorkflowExecuteExecutorTests
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -355,13 +355,13 @@ public class WorkflowExecuteExecutorTests
         Assert.True(result.Outputs["was_success"]!.GetValue<bool>());
     }
 
-    // ────── Call depth limit ──────
+    // ------ Call depth limit ------
 
     [Fact]
     public async Task WorkflowExecute_ExceedsCallDepth_FailsWithCycleDetected()
     {
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               gen:
                 steps:
@@ -376,7 +376,7 @@ public class WorkflowExecuteExecutorTests
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -419,13 +419,13 @@ public class WorkflowExecuteExecutorTests
         Assert.Equal(ErrorCodes.WorkflowCycleDetected, result.Error!.Code);
     }
 
-    // ────── Generated workflow uses inputs (args forwarding) ──────
+    // ------ Generated workflow uses inputs (args forwarding) ------
 
     [Fact]
     public async Task WorkflowExecute_WithArgs_ForwardsToGeneratedWorkflow()
     {
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               generated:
                 inputs:
@@ -452,7 +452,7 @@ public class WorkflowExecuteExecutorTests
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -480,13 +480,13 @@ public class WorkflowExecuteExecutorTests
         Assert.Equal("Hello, Alice!", result.Outputs!["greeting"]!.GetValue<string>());
     }
 
-    // ────── Dynamic args from expression ──────
+    // ------ Dynamic args from expression ------
 
     [Fact]
     public async Task WorkflowExecute_ArgsFromExpression_ResolvesCorrectly()
     {
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               generated:
                 steps:
@@ -505,7 +505,7 @@ public class WorkflowExecuteExecutorTests
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 inputs:
@@ -537,13 +537,13 @@ public class WorkflowExecuteExecutorTests
         Assert.Equal("Hi there!", result.Outputs!["result"]!.GetValue<string>());
     }
 
-    // ────── Validator: workflow.execute step type is known ──────
+    // ------ Validator: workflow.execute step type is known ------
 
     [Fact]
     public void Validate_WorkflowExecuteStepType_IsKnown()
     {
         var yaml = """
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -558,7 +558,7 @@ public class WorkflowExecuteExecutorTests
         Assert.DoesNotContain(errors, e => e.Code == ErrorCodes.StepTypeUnknown);
     }
 
-    // ────── workflow.execute registered in engine ──────
+    // ------ workflow.execute registered in engine ------
 
     [Fact]
     public void WorkflowExecute_IsRegisteredInEngine()
@@ -570,7 +570,7 @@ public class WorkflowExecuteExecutorTests
         Assert.Equal("workflow.execute", executor!.StepType);
     }
 
-    // ────── DocumentedExceptions are present ──────
+    // ------ DocumentedExceptions are present ------
 
     [Fact]
     public void WorkflowExecute_HasDocumentedExceptions()
@@ -586,15 +586,15 @@ public class WorkflowExecuteExecutorTests
         Assert.Contains(ErrorCodes.WorkflowCycleDetected, codes);
     }
 
-    // ────── Generated workflow failure propagates ──────
+    // ------ Generated workflow failure propagates ------
 
     [Fact]
     public async Task WorkflowExecute_GeneratedWorkflowFails_PropagatesError()
     {
         // Generate a workflow that calls an LLM without one being configured
-        // in the sub-context — it will fail
+        // in the sub-context � it will fail
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               generated:
                 steps:
@@ -622,7 +622,7 @@ public class WorkflowExecuteExecutorTests
             });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -646,13 +646,13 @@ public class WorkflowExecuteExecutorTests
         Assert.Equal(ErrorCodes.LlmNetwork, result.Error!.Code);
     }
 
-    // ────── End-to-end: plan + execute with set steps ──────
+    // ------ End-to-end: plan + execute with set steps ------
 
     [Fact]
     public async Task WorkflowExecute_EndToEnd_PlanAndExecuteSetSteps()
     {
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               generated:
                 steps:
@@ -679,7 +679,7 @@ public class WorkflowExecuteExecutorTests
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -705,14 +705,14 @@ public class WorkflowExecuteExecutorTests
         Assert.Equal(2, (int)ExpressionEvaluator.GetNumber(result.Outputs!["item_count"]));
     }
 
-    // ────── Env propagation ──────
+    // ------ Env propagation ------
 
     [Fact]
     public async Task WorkflowExecute_PropagatesEnvToGeneratedWorkflow()
     {
-        // The generated workflow reads from env — env should be cloned from parent context
+        // The generated workflow reads from env � env should be cloned from parent context
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               generated:
                 steps:
@@ -731,7 +731,7 @@ public class WorkflowExecuteExecutorTests
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -760,14 +760,14 @@ public class WorkflowExecuteExecutorTests
         Assert.Contains("{", envData);
     }
 
-    // ────── Generated workflow uses entrypoint resolution ──────
+    // ------ Generated workflow uses entrypoint resolution ------
 
     [Fact]
     public async Task WorkflowExecute_SelectsFirstWorkflowAsEntrypoint()
     {
         // The generated document has multiple workflows; the first one should be selected
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               helper:
                 steps:
@@ -793,7 +793,7 @@ public class WorkflowExecuteExecutorTests
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -821,13 +821,13 @@ public class WorkflowExecuteExecutorTests
         Assert.Equal("from_main", outputs!["answer"]!.GetValue<string>());
     }
 
-    // ────── workflow.plan meta is accessible after execute ──────
+    // ------ workflow.plan meta is accessible after execute ------
 
     [Fact]
     public async Task WorkflowExecute_PlanMetaIsAccessible()
     {
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               generated:
                 steps:
@@ -847,7 +847,7 @@ public class WorkflowExecuteExecutorTests
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -879,14 +879,14 @@ public class WorkflowExecuteExecutorTests
         Assert.Equal("done", result.Outputs["exec_status"]!.GetValue<string>());
     }
 
-    // ────── Invalid generated YAML ──────
+    // ------ Invalid generated YAML ------
 
     [Fact]
     public async Task WorkflowExecute_InvalidYaml_FailsGracefully()
     {
         // Manually inject a plan result with invalid YAML via set step
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:
@@ -911,13 +911,13 @@ public class WorkflowExecuteExecutorTests
         // Should fail during parse or compile of the invalid YAML
     }
 
-    // ────── Template render in generated workflow ──────
+    // ------ Template render in generated workflow ------
 
     [Fact]
     public async Task WorkflowExecute_TemplateRender_WorksInGenerated()
     {
         var generatedYaml = """
-            dsl: 1
+            version: 1
             workflows:
               gen:
                 steps:
@@ -940,7 +940,7 @@ public class WorkflowExecuteExecutorTests
             .ReturnsAsync(new LLMResponse { Text = generatedYaml });
 
         var result = await RunMain("""
-            dsl: 1
+            version: 1
             workflows:
               main:
                 steps:

@@ -6,7 +6,7 @@ This solution contains:
 
 ## Architecture
 
-This component is independently testable per `AGENTS.md` rules. It references `GnOuGo.Agent.Mcp`, `GnOuGo.KeyVault.Mcp`, `GnOuGo.DocsIngestor.Mcp`, and `GnOuGo.OtlpCollector.Server` as project dependencies, mounting their services in-process to minimise coupling while exposing everything through a single host.
+This component is independently testable per `AGENTS.md` rules. It references `GnOuGo.Agent.Mcp`, `GnOuGo.KeyVault.Mcp`, `GnOuGo.DocIngestor.Mcp`, and `GnOuGo.OtlpCollector.Server` as project dependencies, mounting their services in-process to minimise coupling while exposing everything through a single host.
 
 ### Runtime topology
 
@@ -22,7 +22,7 @@ flowchart TD
 
 	AgentProxy -. current internal proxy .-> AgentInternal[GnOuGo.Agent.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
 	KeyVaultProxy -. current internal proxy .-> KeyVaultInternal[GnOuGo.KeyVault.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
-	DocsIngestorProxy -. current internal proxy .-> DocsIngestorInternal[GnOuGo.DocsIngestor.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
+	DocsIngestorProxy -. current internal proxy .-> DocsIngestorInternal[GnOuGo.DocIngestor.Mcp internal loopback host\nhttp://127.0.0.1:<ephemeral-port>/mcp]
 
 	Main --> OtlpGrpc[Embedded OTLP gRPC\nhttp://127.0.0.1:4317]
 	Main --> OtlpHttp[Embedded OTLP HTTP + tenant/debug APIs\nhttp://127.0.0.1:4318]
@@ -46,7 +46,7 @@ flowchart TD
 
 - `GnOuGo.Agent.Mcp` → `/mcp/agent`
 - `GnOuGo.KeyVault.Mcp` → `/mcp/keyvault`
-- `GnOuGo.DocsIngestor.Mcp` → `/mcp/docs-ingestor`
+- `GnOuGo.DocIngestor.Mcp` → `/mcp/docs-ingestor`
 
 The default placeholders in `appsettings.json` intentionally use port `0`:
     
@@ -62,7 +62,7 @@ The default placeholders in `appsettings.json` intentionally use port `0`:
 		"Type": "http",
 		"Url": "http://127.0.0.1:0/mcp/keyvault"
 	  },
-	  "GnOuGo.DocsIngestor.Mcp": {
+	  "GnOuGo.DocIngestor.Mcp": {
 		"Type": "http",
 		"Url": "http://127.0.0.1:0/mcp/docs-ingestor"
 	  }
@@ -83,11 +83,21 @@ In other words, runtime consumers should treat the mounted MCP endpoints as part
 The persisted values live in the Agent MCP SQLite database (`Agent:DatabasePath`) rather than only in browser state.
 LLM provider and MCP server definitions are hydrated from encrypted KeyVault secrets at startup; `user-settings.json` is no longer used.
 
+## Dynamic workflow input composer
+
+The Blazor chat composer resolves the active/default agent workflow through `SmartFlowService` and adapts the user input area to the workflow `inputs` declaration:
+
+- prompt-like workflows keep the compact single textarea when there is one required `task`/`prompt`/`query`/`request`/`input`/`message` string input, with optional defaulted inputs hidden;
+- workflows with multiple required inputs render one field per top-level input;
+- object inputs with declared `properties` render nested fields;
+- `array`, `object`, `dictionary`, and `any` fields accept JSON or YAML text;
+- the UI sends structured `JsonObject` workflow inputs to `SmartFlowService` while keeping a masked Markdown summary in the chat history for sensitive-looking field names such as `key`, `secret`, `password`, or `token`.
+
 Standalone MCP hosts still expose `/mcp` directly in their own projects:
 
 - `GnOuGo.Agent.Mcp` → `http://127.0.0.1:5198/mcp`
 - `GnOuGo.KeyVault.Mcp` → `http://127.0.0.1:5197/mcp`
-- `GnOuGo.DocsIngestor.Mcp` → `http://127.0.0.1:<port>/mcp`
+- `GnOuGo.DocIngestor.Mcp` → `http://127.0.0.1:<port>/mcp`
 
 ## Bundled stdio MCP tools
 

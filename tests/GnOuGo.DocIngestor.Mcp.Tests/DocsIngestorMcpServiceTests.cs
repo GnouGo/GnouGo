@@ -1,5 +1,5 @@
-﻿using GnOuGo.DocsIngestor.Mcp.Models;
-using GnOuGo.DocsIngestor.Mcp.Services;
+using GnOuGo.DocIngestor.Mcp.Models;
+using GnOuGo.DocIngestor.Mcp.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace GnOuGo.DocsIngestor.Mcp.Tests;
+namespace GnOuGo.DocIngestor.Mcp.Tests;
 
 public sealed class DocsIngestorMcpServiceTests
 {
@@ -78,6 +78,85 @@ public sealed class DocsIngestorMcpServiceTests
         }
     }
 
+    [Fact]
+    public async Task IngestAndSearch_RejectDifferentEmbeddingConfigForExistingCollection()
+    {
+        var root = CreateTempDir();
+        var fileServer = BuildFileServer("alpha beta gamma alpha beta gamma");
+        var mcp = DocsIngestorMcpWebHost.Build([
+            $"--DocsIngestorMcp:DatabasePath={Path.Combine(root, "metadata.db")}",
+            $"--DocsIngestorMcp:VectorDatabasePath={Path.Combine(root, "vectors.sqlite")}",
+            $"--DocsIngestorMcp:OriginalsDirectory={Path.Combine(root, "originals")}",
+            $"--DocsIngestorMcp:Chunking:TargetTokens=20",
+            $"--KeyVault:DatabasePath={Path.Combine(root, "keyvault.db")}"
+        ], urls: "http://127.0.0.1:0");
+
+        try
+        {
+            await fileServer.StartAsync();
+            await mcp.StartAsync();
+
+            var fileAddress = fileServer.Services.GetRequiredService<IServer>()
+                .Features.Get<IServerAddressesFeature>()!
+                .Addresses.First();
+            var fileUrl = $"{fileAddress.TrimEnd('/')}/docs/sample.txt";
+
+            await using var scope = mcp.Services.CreateAsyncScope();
+            var service = scope.ServiceProvider.GetRequiredService<DocsIngestorMcpService>();
+
+            await service.IngestAsync(CreateIngestRequest(fileUrl, "hash-384"), keyVaultTenantId: null);
+
+            var ingestError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.IngestAsync(CreateIngestRequest(fileUrl, "hash-768"), keyVaultTenantId: null));
+            Assert.Contains("already uses embedding config 'hash-384'", ingestError.Message);
+            Assert.Contains("embeddingConfigName='hash-384'", ingestError.Message);
+
+            var searchError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.SearchAsync("alpha", "collection-a", "hash-768", null, "tester", 5));
+            Assert.Contains("already uses embedding config 'hash-384'", searchError.Message);
+            Assert.Contains("embeddingConfigName='hash-384'", searchError.Message);
+        }
+        finally
+        {
+            await mcp.StopAsync();
+            await mcp.DisposeAsync();
+            await fileServer.StopAsync();
+            await fileServer.DisposeAsync();
+            TryDelete(root);
+        }
+    }
+
+    [Fact]
+    public async Task Ingest_WithoutEmbeddingConfigOrDefault_ReturnsMandatoryEmbeddingError()
+    {
+        var root = CreateTempDir();
+        var mcp = DocsIngestorMcpWebHost.Build([
+            $"--DocsIngestorMcp:DatabasePath={Path.Combine(root, "metadata.db")}",
+            $"--DocsIngestorMcp:VectorDatabasePath={Path.Combine(root, "vectors.sqlite")}",
+            $"--DocsIngestorMcp:OriginalsDirectory={Path.Combine(root, "originals")}",
+            $"--KeyVault:DatabasePath={Path.Combine(root, "keyvault.db")}"
+        ], urls: "http://127.0.0.1:0");
+
+        try
+        {
+            await mcp.StartAsync();
+            await using var scope = mcp.Services.CreateAsyncScope();
+            var service = scope.ServiceProvider.GetRequiredService<DocsIngestorMcpService>();
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.IngestAsync(CreateIngestRequest("http://127.0.0.1/docs/sample.txt", string.Empty), keyVaultTenantId: null));
+
+            Assert.Contains("Embedding configuration is required", error.Message);
+            Assert.Contains("/embedding add", error.Message);
+        }
+        finally
+        {
+            await mcp.StopAsync();
+            await mcp.DisposeAsync();
+            TryDelete(root);
+        }
+    }
+
     private static WebApplication BuildFileServer(string content)
     {
         var builder = WebApplication.CreateSlimBuilder([]);
@@ -101,11 +180,11 @@ public sealed class DocsIngestorMcpServiceTests
         "eng",
         300);
 
-    private static FileIngestionRequest CreateIngestRequest(string fileUrl) => new(
+    private static FileIngestionRequest CreateIngestRequest(string fileUrl, string embeddingConfigName = "hash-384") => new(
         [fileUrl],
         "tenant-a",
         "collection-a",
-        "hash-384",
+        embeddingConfigName,
         "recursive",
         1,
         20,

@@ -148,6 +148,12 @@ public sealed class McpServerMetadata
 
     /// <summary>Human-friendly description of what the server is for.</summary>
     public string? Description { get; set; }
+
+    /// <summary>
+    /// Optional per-server timeout, in seconds, used by workflow planning discovery.
+    /// Slow stdio servers can require more time during cold start.
+    /// </summary>
+    public int? DiscoveryTimeoutSeconds { get; set; }
 }
 
 /// <summary>
@@ -169,6 +175,25 @@ public interface IMcpClientFactory
     /// Used by workflow planners to choose the right server name.
     /// </summary>
     IReadOnlyList<McpServerMetadata> ServerMetadata { get; }
+}
+
+/// <summary>
+/// Correlation metadata propagated from workflow MCP steps to MCP transports.
+/// HTTP transports send it as headers; stdio transports expose it as environment
+/// variables when the MCP server process is started.
+/// </summary>
+public sealed record McpCorrelationContext
+{
+    public string? CorrelationId { get; init; }
+    public string? RunId { get; init; }
+    public string? TraceId { get; init; }
+    public string? SpanId { get; init; }
+    public string? TraceParent { get; init; }
+    public string? StepId { get; init; }
+    public string? StepType { get; init; }
+    public string? ServerName { get; init; }
+    public string? MethodName { get; init; }
+    public string? Kind { get; init; }
 }
 
 /// <summary>

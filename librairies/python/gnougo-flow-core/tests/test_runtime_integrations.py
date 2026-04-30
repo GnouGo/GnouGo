@@ -11,7 +11,7 @@ class FakeLLMClient:
         if "Generate a valid GnOuGo.Flow YAML document" in request.prompt:
             return LLMResponse(
                 text="""
-                dsl: 1
+                version: 1
                 workflows:
                   main:
                     steps:
@@ -59,7 +59,7 @@ class FakeMcpFactory:
 @pytest.mark.asyncio
 async def test_runtime_llm_mcp_and_plan_execute() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -112,7 +112,7 @@ async def test_runtime_llm_mcp_and_plan_execute() -> None:
 @pytest.mark.asyncio
 async def test_runtime_execute_supports_to_json_alias_in_generated_workflow_outputs() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -131,7 +131,7 @@ async def test_runtime_execute_supports_to_json_alias_in_generated_workflow_outp
     """
 
     generated_yaml = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:

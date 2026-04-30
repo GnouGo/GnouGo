@@ -20,6 +20,8 @@ public sealed class UserConfigRecord
 
     public string? DefaultLlmModel { get; set; }
 
+    public string? DefaultEmbeddingConfig { get; set; }
+
     public string? DefaultAgent { get; set; }
 
     public long UpdatedAtTicks { get; set; }

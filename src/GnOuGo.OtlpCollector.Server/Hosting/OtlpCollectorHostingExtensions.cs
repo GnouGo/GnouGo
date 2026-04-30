@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using OtlpTenantCollector.Data;
 using OtlpTenantCollector.Services;
 using OtlpTenantCollector.Services.Options;
+using OtlpTenantCollector.Services.Routing;
 using OtlpTenantCollector.Web;
 
 namespace OtlpTenantCollector.Hosting;
@@ -42,6 +43,7 @@ public static class OtlpCollectorHostingExtensions
         services.Configure<IngestOptions>(configuration.GetSection(IngestOptions.SectionName));
         services.Configure<RetentionOptions>(configuration.GetSection(RetentionOptions.SectionName));
         services.Configure<DevModeOptions>(configuration.GetSection(DevModeOptions.SectionName));
+        services.Configure<TelemetryRoutingOptions>(configuration.GetSection(TelemetryRoutingOptions.SectionName));
 
         services.AddSingleton(sp =>
         {
@@ -67,6 +69,10 @@ public static class OtlpCollectorHostingExtensions
         services.AddScoped<EfTelemetryStore>();
         services.AddSingleton<TelemetryIngestQueue>();
         services.AddSingleton<TelemetryEventBus>();
+        services.AddSingleton<TelemetryRouteClassifier>();
+        services.AddHttpClient(nameof(OtlpHttpTelemetryForwarder));
+        services.AddSingleton<OtlpHttpTelemetryForwarder>();
+        services.AddSingleton<ITelemetryRouter, OptionsTelemetryRouter>();
         services.AddHostedService<TelemetryBatchWriter>();
         services.AddHostedService<RetentionWorker>();
         services.AddGrpc(o =>

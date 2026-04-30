@@ -19,6 +19,8 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// </summary>
 public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDisposable
 {
+    private static readonly AsyncLocal<McpCorrelationContext?> CurrentCorrelation = new();
+
     private readonly Dictionary<string, McpServerOptions> _serverConfigs;
     private readonly ConcurrentDictionary<string, McpClient> _clients = new();
     private readonly IReadOnlyList<McpServerMetadata> _serverMetadata;
@@ -30,13 +32,21 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             .Select(kv => new McpServerMetadata
             {
                 Name = kv.Key,
-                Description = kv.Value.Description
+                Description = kv.Value.Description,
+                DiscoveryTimeoutSeconds = kv.Value.DiscoveryTimeoutSeconds
             })
             .ToList()
             .AsReadOnly();
     }
 
     public IReadOnlyList<McpServerMetadata> ServerMetadata => _serverMetadata;
+
+    public static IDisposable PushCorrelationContext(McpCorrelationContext context)
+    {
+        var previous = CurrentCorrelation.Value;
+        CurrentCorrelation.Value = context;
+        return new CorrelationScope(previous);
+    }
 
     public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct)
     {
@@ -49,7 +59,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
 
         if (!_clients.TryGetValue(serverName, out var client))
         {
-            client = await CreateClientAsync(serverName, config, ct);
+            client = await CreateClientAsync(serverName, config, CurrentCorrelation.Value, ct);
             _clients.TryAdd(serverName, client);
         }
 
@@ -57,14 +67,14 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
     }
 
     private static async Task<McpClient> CreateClientAsync(
-        string serverName, McpServerOptions config, CancellationToken ct)
+        string serverName, McpServerOptions config, McpCorrelationContext? correlation, CancellationToken ct)
     {
         var type = config.Type?.ToLowerInvariant() ?? "http";
 
         IClientTransport transport = type switch
         {
-            "http" or "sse" => CreateHttpTransport(config),
-            "stdio" => CreateStdioTransport(config),
+            "http" or "sse" => CreateHttpTransport(config, correlation),
+            "stdio" => CreateStdioTransport(config, correlation),
             _ => throw new WorkflowRuntimeException(
                 ErrorCodes.McpConnectionError,
                 $"Unknown MCP transport type '{config.Type}' for server '{serverName}'")
@@ -76,7 +86,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         }, cancellationToken: ct);
     }
 
-    private static HttpClientTransport CreateHttpTransport(McpServerOptions config)
+    private static HttpClientTransport CreateHttpTransport(McpServerOptions config, McpCorrelationContext? correlation)
     {
         var endpoint = new Uri(config.Url.TrimEnd('/'));
         var preferHttp2 = string.Equals(endpoint.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
@@ -102,6 +112,8 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
                 new AuthenticationHeaderValue("Bearer", config.ApiKey);
         }
 
+        AddCorrelationHeaders(httpClient.DefaultRequestHeaders, correlation);
+
         return new HttpClientTransport(new HttpClientTransportOptions
         {
             Endpoint = endpoint,
@@ -120,7 +132,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         return IPAddress.TryParse(endpoint.Host, out var address) && IPAddress.IsLoopback(address);
     }
 
-    private static StdioClientTransport CreateStdioTransport(McpServerOptions config)
+    private static StdioClientTransport CreateStdioTransport(McpServerOptions config, McpCorrelationContext? correlation)
     {
         if (string.IsNullOrWhiteSpace(config.Command))
             throw new WorkflowRuntimeException(
@@ -131,8 +143,55 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         {
             Command = config.Command,
             Arguments = config.Args ?? [],
-            Name = "GnOuGo.Flow"
+            Name = "GnOuGo.Flow",
+            EnvironmentVariables = BuildCorrelationEnvironment(correlation)
         });
+    }
+
+    private static void AddCorrelationHeaders(HttpRequestHeaders headers, McpCorrelationContext? correlation)
+    {
+        if (correlation == null)
+            return;
+
+        AddHeader(headers, "x-gnougo-correlation-id", correlation.CorrelationId);
+        AddHeader(headers, "x-gnougo-run-id", correlation.RunId);
+        AddHeader(headers, "x-gnougo-step-id", correlation.StepId);
+        AddHeader(headers, "x-gnougo-step-type", correlation.StepType);
+        AddHeader(headers, "x-gnougo-mcp-server", correlation.ServerName);
+        AddHeader(headers, "x-gnougo-mcp-method", correlation.MethodName);
+        AddHeader(headers, "x-gnougo-mcp-kind", correlation.Kind);
+        AddHeader(headers, "traceparent", correlation.TraceParent);
+    }
+
+    private static void AddHeader(HttpRequestHeaders headers, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            headers.TryAddWithoutValidation(name, value);
+    }
+
+    private static Dictionary<string, string?>? BuildCorrelationEnvironment(McpCorrelationContext? correlation)
+    {
+        if (correlation == null)
+            return null;
+
+        var env = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        AddEnv(env, "GNouGo__CorrelationId", correlation.CorrelationId);
+        AddEnv(env, "GNouGo__RunId", correlation.RunId);
+        AddEnv(env, "GNouGo__TraceId", correlation.TraceId);
+        AddEnv(env, "GNouGo__SpanId", correlation.SpanId);
+        AddEnv(env, "GNouGo__TraceParent", correlation.TraceParent);
+        AddEnv(env, "GNouGo__StepId", correlation.StepId);
+        AddEnv(env, "GNouGo__StepType", correlation.StepType);
+        AddEnv(env, "GNouGo__McpServer", correlation.ServerName);
+        AddEnv(env, "GNouGo__McpMethod", correlation.MethodName);
+        AddEnv(env, "GNouGo__McpKind", correlation.Kind);
+        return env.Count == 0 ? null : env;
+    }
+
+    private static void AddEnv(Dictionary<string, string?> env, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            env[name] = value;
     }
 
     public async ValueTask DisposeAsync()
@@ -166,6 +225,26 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             return true;
 
         return false;
+    }
+
+    private sealed class CorrelationScope : IDisposable
+    {
+        private readonly McpCorrelationContext? _previous;
+        private bool _disposed;
+
+        public CorrelationScope(McpCorrelationContext? previous)
+        {
+            _previous = previous;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            CurrentCorrelation.Value = _previous;
+            _disposed = true;
+        }
     }
 }
 

@@ -31,7 +31,10 @@ internal static class AgentMcpDatabaseBootstrap
     private static async Task EnsureUserConfigsTableAsync(AgentDbContext agentDb, CancellationToken ct)
     {
         if (await TableExistsAsync(agentDb, "UserConfigs", ct))
+        {
+            await EnsureColumnAsync(agentDb, "UserConfigs", "DefaultEmbeddingConfig", "TEXT NULL", ct);
             return;
+        }
 
         await agentDb.Database.ExecuteSqlRawAsync(
             """
@@ -41,6 +44,7 @@ internal static class AgentMcpDatabaseBootstrap
                 "TenantScopeKey" TEXT NOT NULL,
                 "DefaultLlmProvider" TEXT NULL,
                 "DefaultLlmModel" TEXT NULL,
+                "DefaultEmbeddingConfig" TEXT NULL,
                 "DefaultAgent" TEXT NULL,
                 "UpdatedAtTicks" INTEGER NOT NULL
             );
@@ -54,6 +58,26 @@ internal static class AgentMcpDatabaseBootstrap
         await agentDb.Database.ExecuteSqlRawAsync(
             "CREATE INDEX IF NOT EXISTS \"IX_UserConfigs_TenantId\" ON \"UserConfigs\" (\"TenantId\");",
             ct);
+    }
+
+    private static async Task EnsureColumnAsync(DbContext dbContext, string tableName, string columnName, string columnDefinition, CancellationToken ct)
+    {
+        await using var command = dbContext.Database.GetDbConnection().CreateCommand();
+        if (command.Connection?.State != System.Data.ConnectionState.Open)
+            await command.Connection!.OpenAsync(ct);
+
+        command.CommandText = $"PRAGMA table_info(\"{tableName}\");";
+        await using (var reader = await command.ExecuteReaderAsync(ct))
+        {
+            while (await reader.ReadAsync(ct))
+            {
+                if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
+                    return;
+            }
+        }
+
+        var sql = $"ALTER TABLE \"{tableName}\" ADD COLUMN \"{columnName}\" {columnDefinition};";
+        await dbContext.Database.ExecuteSqlRawAsync(sql, ct);
     }
 
     private static async Task<bool> TableExistsAsync(DbContext dbContext, string tableName, CancellationToken ct)

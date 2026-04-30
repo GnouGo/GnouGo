@@ -1,4 +1,4 @@
-﻿
+
 import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
@@ -13,7 +13,7 @@ def _compile(yaml_text: str):
 @pytest.mark.asyncio
 async def test_parallel_branches_exceed_limit_raises_parallel_limit() -> None:
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -46,7 +46,7 @@ async def test_parallel_branches_exceed_limit_raises_parallel_limit() -> None:
 async def test_parallel_branches_run_concurrently() -> None:
     """Two branches that await each other prove they run in parallel."""
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:
@@ -77,7 +77,7 @@ async def test_parallel_branches_run_concurrently() -> None:
 async def test_parallel_branch_isolated_steps() -> None:
     """Each branch sees only its own steps in its `steps` namespace."""
     yaml_text = """
-    dsl: 1
+    version: 1
     workflows:
       main:
         steps:

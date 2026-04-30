@@ -3,7 +3,6 @@
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using System.Threading
-@using Markdig
 @using Microsoft.JSInterop
 @using GnOuGo.Agent.Server.Components.Tracing
 @implements IAsyncDisposable
@@ -137,9 +136,7 @@
                                     }
                                 </div>
 
-                                <div class="sa-chat__bubble-text markdown-body">
-                                    @RenderMarkdown(msg.Content)
-                                </div>
+                                <MarkdownContent Class="sa-chat__bubble-text" Content="@msg.Content" />
                             </div>
                         </article>
                     }
@@ -158,9 +155,7 @@
 
                             @if (!string.IsNullOrWhiteSpace(_pendingHumanInput.Context))
                             {
-                                <div class="sa-chat__thinking">
-                                    <span class="sa-chat__thinking-text" style="font-size: 0.85em; opacity: 0.8;">@_pendingHumanInput.Context</span>
-                                </div>
+                                <MarkdownContent Class="sa-hitl-context" Content="@FormatHumanInputContextAsMarkdown(_pendingHumanInput.Context)" />
                             }
 
                             @if (_pendingHumanInput.Choices is { Count: > 0 })
@@ -203,6 +198,12 @@
                                                         <option value="@option">@option</option>
                                                     }
                                                 </select>
+                                            }
+                                            else if (ShouldUseMultilineField(field))
+                                            {
+                                                <textarea class="sa-composer__input sa-hitl-field__textarea @(LooksLikeCodeField(field) ? "sa-hitl-field__textarea--code" : "")"
+                                                          value="@GetFieldValue(field.Name)"
+                                                          @oninput="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))"></textarea>
                                             }
                                             else
                                             {
@@ -272,42 +273,112 @@
                     </div>
                 }
 
-                <div class="sa-composer__row">
-                    <button class="sa-composer__attach"
-                            type="button"
-                            title="Attach documents"
-                            disabled="@_isStreaming"
-                            @onclick="OpenFilePickerAsync">
-                        📎
-                    </button>
+                @if (UseWorkflowInputComposer && _workflowInputSchema is not null)
+                {
+                    <div class="sa-composer__workflow" aria-label="Workflow inputs">
+                        <div class="sa-composer__workflow-header">
+                            <div>
+                                <div class="sa-composer__workflow-title">Workflow inputs</div>
+                                <div class="sa-composer__workflow-subtitle">
+                                    @if (!string.IsNullOrWhiteSpace(_workflowInputSchema.AgentName))
+                                    {
+                                        <span>Agent: @_workflowInputSchema.AgentName</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Dynamic workflow</span>
+                                    }
+                                </div>
+                            </div>
+                            @if (_workflowInputsLoading)
+                            {
+                                <span class="sa-composer__workflow-loading">Loading…</span>
+                            }
+                        </div>
 
-                    <textarea class="sa-composer__input"
-                              @bind="_model.Prompt"
-                              @bind:event="oninput"
-                              placeholder="Write a message or YAML… Drop documents here to upload them before sending."
+                        @if (!string.IsNullOrWhiteSpace(_workflowInputSchema.ErrorMessage))
+                        {
+                            <div class="sa-composer__workflow-error">
+                                Could not load workflow inputs: @_workflowInputSchema.ErrorMessage
+                            </div>
+                        }
 
-                              rows="1"
-                              disabled="@(_isStreaming || HasBlockingUploads)"
-                              @onkeydown="OnKeyDown">
-                    </textarea>
+                        <div class="sa-composer__workflow-grid">
+                            @foreach (var field in _workflowInputSchema.Fields)
+                            {
+                                @RenderWorkflowInputField(field, field.Name, 0)
+                            }
+                        </div>
+                    </div>
 
-                    @if (_isStreaming)
-                    {
-                        <button class="sa-composer__send sa-composer__send--stop" type="button" @onclick="Stop" title="Stop">
-                            <span class="sa-composer__send-text">Stop</span>
+                    <div class="sa-composer__row sa-composer__row--actions">
+                        <button class="sa-composer__attach"
+                                type="button"
+                                title="Attach documents"
+                                disabled="@_isStreaming"
+                                @onclick="OpenFilePickerAsync">
+                            📎
                         </button>
-                    }
-                    else
-                    {
-                        <button class="sa-composer__send" type="submit" disabled="@(!CanSend)">
-                            <span class="sa-composer__send-text">Send</span>
-                        </button>
-                    }
-                </div>
 
-                <div class="sa-composer__hint">
-                    Enter to send • Shift+Enter for newline • Drag & drop documents to upload them first
-                </div>
+                        <div class="sa-composer__workflow-action-spacer"></div>
+
+                        @if (_isStreaming)
+                        {
+                            <button class="sa-composer__send sa-composer__send--stop" type="button" @onclick="Stop" title="Stop">
+                                <span class="sa-composer__send-text">Stop</span>
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="sa-composer__send" type="submit" disabled="@(!CanSend)">
+                                <span class="sa-composer__send-text">Run workflow</span>
+                            </button>
+                        }
+                    </div>
+
+                    <div class="sa-composer__hint">
+                        Fill the selected agent inputs • JSON/YAML accepted for complex fields • Drag & drop documents to upload them first
+                    </div>
+                }
+                else
+                {
+                    <div class="sa-composer__row">
+                        <button class="sa-composer__attach"
+                                type="button"
+                                title="Attach documents"
+                                disabled="@_isStreaming"
+                                @onclick="OpenFilePickerAsync">
+                            📎
+                        </button>
+
+                        <textarea class="sa-composer__input"
+                                  @bind="_model.Prompt"
+                                  @bind:event="oninput"
+                                  placeholder="Write a message or YAML… Drop documents here to upload them before sending."
+
+                                  rows="1"
+                                  disabled="@(_isStreaming || HasBlockingUploads)"
+                                  @onkeydown="OnKeyDown">
+                        </textarea>
+
+                        @if (_isStreaming)
+                        {
+                            <button class="sa-composer__send sa-composer__send--stop" type="button" @onclick="Stop" title="Stop">
+                                <span class="sa-composer__send-text">Stop</span>
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="sa-composer__send" type="submit" disabled="@(!CanSend)">
+                                <span class="sa-composer__send-text">Send</span>
+                            </button>
+                        }
+                    </div>
+
+                    <div class="sa-composer__hint">
+                        Enter to send • Shift+Enter for newline • Drag & drop documents to upload them first
+                    </div>
+                }
             </EditForm>
         </footer>
     </main>
@@ -360,10 +431,7 @@
     private const string StorageKeyV2 = "gnougo-agent.sa-chat.store.v2";
     private const string LegacyStorageKey = "gnougo-sa-chat.sa-chat.history.v1";
 
-    private static readonly MarkdownPipeline MdPipeline = new MarkdownPipelineBuilder()
-        .UseAdvancedExtensions()
-        .DisableHtml()
-        .Build();
+    private static readonly JsonSerializerOptions PrettyJsonOptions = new() { WriteIndented = true };
 
     private readonly ComposeModel _model = new();
     private const string ComposerDropZoneId = "chatComposerDropZone";
@@ -373,6 +441,9 @@
     private ChatStoreDto _store = new("", new List<ChatSessionDto>());
     private ChatSessionDto? _active;
     private string? _defaultAgentName;
+    private WorkflowInputSchema? _workflowInputSchema;
+    private readonly Dictionary<string, string> _workflowInputValues = new(StringComparer.Ordinal);
+    private bool _workflowInputsLoading;
 
     private bool _sidebarOpen;
     private bool _isStreaming;
@@ -396,9 +467,11 @@
 
     private bool HasBlockingUploads => _composerUploads.Any(static upload => !upload.IsCompleted);
 
+    private bool UseWorkflowInputComposer => _workflowInputSchema is { IsPromptOnly: false };
+
     private bool CanSend => !_isStreaming
                             && !HasBlockingUploads
-                            && !string.IsNullOrWhiteSpace(_model.Prompt);
+                            && (UseWorkflowInputComposer || !string.IsNullOrWhiteSpace(_model.Prompt));
 
     private IReadOnlyList<string> UploadedFileIds => _composerUploads
         .Where(static upload => upload.IsCompleted && !string.IsNullOrWhiteSpace(upload.FileId))
@@ -411,6 +484,7 @@
         {
             var snapshot = await UserConfigClient.GetAsync();
             _defaultAgentName = snapshot.DefaultAgent;
+            await RefreshWorkflowInputSchemaAsync();
             EnsureActiveSession();
             await RegisterFileUploadInteropAsync();
         }
@@ -443,81 +517,292 @@
         }
     }
 
-    private MarkupString RenderMarkdown(string markdown)
+    private static string FormatHumanInputContextAsMarkdown(string? context)
     {
-        var html = Markdown.ToHtml(NormalizeMarkdown(markdown), MdPipeline);
-        return (MarkupString)html;
+        if (string.IsNullOrWhiteSpace(context))
+            return string.Empty;
+
+        var normalized = NormalizeLineEndings(context).Trim();
+
+        if (TryExtractSingleCodeFence(normalized, out var language, out var fencedContent))
+        {
+            var content = NormalizeLineEndings(fencedContent).Trim();
+            if (IsJsonLanguage(language) && TryFormatJson(content, out var prettyJson))
+                return BuildFencedCode("json", prettyJson);
+            if (IsYamlLanguage(language) || LooksLikeYaml(content))
+                return BuildFencedCode(string.IsNullOrWhiteSpace(language) ? "yaml" : language, content);
+            return BuildFencedCode(language, content);
+        }
+
+        if (TryFormatJson(normalized, out var formattedJson))
+            return BuildFencedCode("json", formattedJson);
+
+        if (LooksLikeYaml(normalized))
+            return BuildFencedCode("yaml", normalized);
+
+        return normalized;
     }
 
-    private static string NormalizeMarkdown(string? markdown)
+    private static string FormatEditableFieldValue(HumanInputFieldModel field, string value)
     {
-        if (string.IsNullOrWhiteSpace(markdown))
-            return markdown ?? "";
+        var normalized = NormalizeLineEndings(value).Trim();
+        if ((IsJsonField(field) || LooksLikeJson(normalized)) && TryFormatJson(normalized, out var formattedJson))
+            return formattedJson;
 
-        var normalized = markdown.Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('\r', '\n');
+        return NormalizeLineEndings(value);
+    }
 
-        var lines = normalized.Split('\n');
-        var output = new List<string>(lines.Length + 8);
+    private static bool ShouldUseMultilineField(HumanInputFieldModel field)
+    {
+        var type = field.Type.Trim();
+        return type.Equals("text", StringComparison.OrdinalIgnoreCase)
+               || type.Equals("textarea", StringComparison.OrdinalIgnoreCase)
+               || type.Equals("yaml", StringComparison.OrdinalIgnoreCase)
+               || type.Equals("json", StringComparison.OrdinalIgnoreCase)
+               || LooksLikeCodeField(field)
+               || (field.Default?.Contains('\n') ?? false);
+    }
 
-        for (var i = 0; i < lines.Length; i++)
+    private static bool LooksLikeCodeField(HumanInputFieldModel field)
+        => IsYamlField(field) || IsJsonField(field);
+
+    private static bool IsYamlField(HumanInputFieldModel field)
+        => field.Type.Equals("yaml", StringComparison.OrdinalIgnoreCase)
+           || field.Name.Contains("yaml", StringComparison.OrdinalIgnoreCase)
+           || field.Name.Contains("workflow", StringComparison.OrdinalIgnoreCase)
+           || (field.Description?.Contains("YAML", StringComparison.OrdinalIgnoreCase) ?? false);
+
+    private static bool IsJsonField(HumanInputFieldModel field)
+        => field.Type.Equals("json", StringComparison.OrdinalIgnoreCase)
+           || field.Name.Contains("json", StringComparison.OrdinalIgnoreCase)
+           || (field.Description?.Contains("JSON", StringComparison.OrdinalIgnoreCase) ?? false);
+
+    private static bool TryFormatJson(string input, out string prettyJson)
+    {
+        prettyJson = string.Empty;
+        if (!LooksLikeJson(input))
+            return false;
+
+        try
         {
-            var line = lines[i];
-            var trimmed = line.Trim();
-            var previousTrimmed = output.Count == 0 ? "" : output[^1].Trim();
-            var nextTrimmed = i + 1 < lines.Length ? lines[i + 1].Trim() : "";
+            using var document = JsonDocument.Parse(input);
+            prettyJson = JsonSerializer.Serialize(document.RootElement, PrettyJsonOptions);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
 
-            if (!string.IsNullOrWhiteSpace(previousTrimmed)
-                && (LooksLikeAtxHeading(trimmed) || LooksLikeTableHeader(trimmed, nextTrimmed)))
+    private static bool LooksLikeJson(string value)
+    {
+        var trimmed = value.TrimStart();
+        return trimmed.StartsWith('{') || trimmed.StartsWith('[');
+    }
+
+    private static bool LooksLikeYaml(string value)
+    {
+        if (value.StartsWith("version:", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("dsl:", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("---", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var lines = value.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length < 2)
+            return false;
+
+        var yamlLikeLines = 0;
+        foreach (var line in lines)
+        {
+            if (line.StartsWith('#') || line.StartsWith("- ", StringComparison.Ordinal))
             {
-                output.Add("");
+                yamlLikeLines++;
+                continue;
             }
 
-            output.Add(line);
+            var index = line.IndexOf(':', StringComparison.Ordinal);
+            if (index <= 0)
+                continue;
+
+            var key = line[..index].Trim();
+            if (key.Length == 0 || key.Contains('{') || key.Contains('['))
+                continue;
+
+            yamlLikeLines++;
+            if (yamlLikeLines >= 2)
+                return true;
         }
 
-        return string.Join("\n", output);
+        return false;
     }
 
-    private static bool LooksLikeAtxHeading(string line)
+    private static bool TryExtractSingleCodeFence(string markdown, out string language, out string content)
     {
-        if (string.IsNullOrWhiteSpace(line) || !line.StartsWith('#'))
+        language = string.Empty;
+        content = string.Empty;
+
+        var lines = markdown.Split('\n');
+        if (lines.Length < 2 || !lines[0].TrimStart().StartsWith("```", StringComparison.Ordinal))
             return false;
 
-        var index = 0;
-        while (index < line.Length && line[index] == '#')
-            index++;
-
-        return index is > 0 and <= 6
-            && index < line.Length
-            && char.IsWhiteSpace(line[index]);
-    }
-
-    private static bool LooksLikeTableHeader(string line, string nextLine)
-        => line.Contains('|', StringComparison.Ordinal)
-           && LooksLikeTableSeparator(nextLine);
-
-    private static bool LooksLikeTableSeparator(string line)
-    {
-        if (string.IsNullOrWhiteSpace(line) || !line.Contains('-', StringComparison.Ordinal))
+        var firstLine = lines[0].Trim();
+        if (!lines[^1].Trim().StartsWith("```", StringComparison.Ordinal))
             return false;
 
-        var cells = line.Trim().Trim('|').Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (cells.Length == 0)
-            return false;
-
-        foreach (var cell in cells)
-        {
-            var content = cell.Trim().Trim(':').Replace(" ", "", StringComparison.Ordinal);
-            if (content.Length < 3 || content.Any(ch => ch != '-'))
-                return false;
-        }
-
+        language = firstLine.Length > 3 ? firstLine[3..].Trim() : string.Empty;
+        content = string.Join("\n", lines.Skip(1).Take(lines.Length - 2));
         return true;
     }
 
+    private static bool IsJsonLanguage(string language)
+        => language.Equals("json", StringComparison.OrdinalIgnoreCase)
+           || language.Equals("jsonc", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsYamlLanguage(string language)
+        => language.Equals("yaml", StringComparison.OrdinalIgnoreCase)
+           || language.Equals("yml", StringComparison.OrdinalIgnoreCase);
+
+    private static string BuildFencedCode(string language, string content)
+    {
+        var fence = content.Contains("```", StringComparison.Ordinal) ? "````" : "```";
+        return $"{fence}{language}\n{content}\n{fence}";
+    }
+
+    private static string NormalizeLineEndings(string value)
+        => value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+
+
     private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
     private void CloseSidebar() => _sidebarOpen = false;
+
+    private async Task RefreshWorkflowInputSchemaAsync()
+    {
+        _workflowInputsLoading = true;
+
+        try
+        {
+            _workflowInputSchema = await SmartFlow.GetActiveWorkflowInputSchemaAsync(_defaultAgentName, CancellationToken.None);
+            ResetWorkflowInputValues();
+        }
+        catch (Exception ex)
+        {
+            _workflowInputSchema = new WorkflowInputSchema(_defaultAgentName, Array.Empty<WorkflowInputFieldSchema>(), ex.Message);
+            _workflowInputValues.Clear();
+        }
+        finally
+        {
+            _workflowInputsLoading = false;
+        }
+    }
+
+    private void ResetWorkflowInputValues()
+    {
+        _workflowInputValues.Clear();
+        if (_workflowInputSchema is null)
+            return;
+
+        foreach (var field in _workflowInputSchema.Fields)
+            SeedWorkflowInputValue(field, field.Name, field.DefaultValue);
+    }
+
+    private void SeedWorkflowInputValue(WorkflowInputFieldSchema field, string path, JsonNode? defaultValue)
+    {
+        if (IsStructuredObjectField(field))
+        {
+            var defaultObject = defaultValue as JsonObject;
+            foreach (var property in field.PropertyList)
+            {
+                JsonNode? propertyDefault = null;
+                defaultObject?.TryGetPropertyValue(property.Name, out propertyDefault);
+                SeedWorkflowInputValue(property, $"{path}.{property.Name}", propertyDefault ?? property.DefaultValue);
+            }
+
+            return;
+        }
+
+        var value = WorkflowInputComposer.FormatNodeForEditor(defaultValue ?? field.DefaultValue, field.Type);
+        if (!string.IsNullOrEmpty(value))
+            _workflowInputValues[path] = value;
+    }
+
+    private static bool IsStructuredObjectField(WorkflowInputFieldSchema field)
+        => string.Equals(field.Type, "object", StringComparison.OrdinalIgnoreCase)
+           && field.PropertyList.Count > 0;
+
+    private RenderFragment RenderWorkflowInputField(WorkflowInputFieldSchema field, string path, int depth) => @<div class="sa-workflow-input @(depth > 0 ? "sa-workflow-input--nested" : "")">
+        <label class="sa-workflow-input__label" for="@WorkflowInputDomId(path)">
+            <span>@field.Name</span>
+            @if (field.Required)
+            {
+                <span class="sa-workflow-input__required">*</span>
+            }
+            <span class="sa-workflow-input__type">@field.Type</span>
+        </label>
+
+        @if (!string.IsNullOrWhiteSpace(field.Description))
+        {
+            <div class="sa-workflow-input__description">@field.Description</div>
+        }
+
+        @if (IsStructuredObjectField(field))
+        {
+            <div class="sa-workflow-input__object">
+                @foreach (var property in field.PropertyList)
+                {
+                    @RenderWorkflowInputField(property, $"{path}.{property.Name}", depth + 1)
+                }
+            </div>
+        }
+        else if (WorkflowInputComposer.IsBooleanType(field.Type))
+        {
+            <select id="@WorkflowInputDomId(path)"
+                    class="sa-composer__input sa-workflow-input__control"
+                    disabled="@(_isStreaming || HasBlockingUploads)"
+                    value="@GetWorkflowInputValue(path)"
+                    @onchange="@(e => SetWorkflowInputValue(path, e.Value?.ToString() ?? ""))">
+                <option value="">Select…</option>
+                <option value="true">true</option>
+                <option value="false">false</option>
+            </select>
+        }
+        else if (ShouldUseWorkflowMultilineField(field))
+        {
+            <textarea id="@WorkflowInputDomId(path)"
+                      class="sa-composer__input sa-workflow-input__control sa-workflow-input__textarea @(WorkflowInputComposer.IsComplexType(field.Type) ? "sa-workflow-input__textarea--code" : "")"
+                      rows="@(WorkflowInputComposer.IsComplexType(field.Type) ? 5 : 2)"
+                      disabled="@(_isStreaming || HasBlockingUploads)"
+                      value="@GetWorkflowInputValue(path)"
+                      @oninput="@(e => SetWorkflowInputValue(path, e.Value?.ToString() ?? ""))"></textarea>
+        }
+        else
+        {
+            <input id="@WorkflowInputDomId(path)"
+                   type="@(WorkflowInputComposer.IsNumberType(field.Type) ? "number" : "text")"
+                   class="sa-composer__input sa-workflow-input__control"
+                   disabled="@(_isStreaming || HasBlockingUploads)"
+                   value="@GetWorkflowInputValue(path)"
+                   @oninput="@(e => SetWorkflowInputValue(path, e.Value?.ToString() ?? ""))" />
+        }
+    </div>;
+
+    private static bool ShouldUseWorkflowMultilineField(WorkflowInputFieldSchema field)
+        => WorkflowInputComposer.IsComplexType(field.Type)
+           || field.Type.Equals("text", StringComparison.OrdinalIgnoreCase)
+           || (field.DefaultValue is JsonValue value
+               && value.TryGetValue(out string? text)
+               && text?.Contains('\n') == true);
+
+    private string GetWorkflowInputValue(string path)
+        => _workflowInputValues.TryGetValue(path, out var value) ? value : string.Empty;
+
+    private void SetWorkflowInputValue(string path, string value)
+        => _workflowInputValues[path] = value;
+
+    private static string WorkflowInputDomId(string path)
+        => "workflowInput_" + string.Concat(path.Select(ch => char.IsLetterOrDigit(ch) ? ch : '_'));
 
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
@@ -749,7 +1034,21 @@
         if (HasBlockingUploads) return;
 
         _error = "";
+        JsonObject? workflowInputs = null;
         var prompt = _model.Prompt.Trim();
+
+        if (UseWorkflowInputComposer && _workflowInputSchema is not null)
+        {
+            if (!WorkflowInputComposer.TryBuildInputs(_workflowInputSchema, _workflowInputValues, out var builtInputs, out var inputErrors))
+            {
+                _error = string.Join(" ", inputErrors);
+                return;
+            }
+
+            workflowInputs = builtInputs;
+            prompt = WorkflowInputComposer.BuildPromptSummary(_workflowInputSchema, builtInputs);
+        }
+
         if (string.IsNullOrWhiteSpace(prompt))
             return;
 
@@ -757,6 +1056,8 @@
 
         _model.Prompt = "";
         _composerUploads.Clear();
+        if (UseWorkflowInputComposer)
+            ResetWorkflowInputValues();
         var correlationId = ActivityTraceId.CreateRandom().ToHexString();
 
         // Add user message
@@ -778,7 +1079,7 @@
 
         try
         {
-            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, agentName: null, filesIds, _cts.Token))
+            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, agentName: null, filesIds, workflowInputs, _cts.Token))
             {
                 if (evt.Type is "trace.started")
                 {
@@ -887,6 +1188,7 @@
                     {
                         _defaultAgentName = evt.Text;
                         SyncSessionsToDefaultAgent();
+                        await RefreshWorkflowInputSchemaAsync();
                         StateHasChanged();
                     }
                 }
@@ -935,7 +1237,7 @@
                             foreach (var f in model.Fields)
                             {
                                 if (!string.IsNullOrEmpty(f.Default))
-                                    _fieldValues[f.Name] = f.Default;
+                                    _fieldValues[f.Name] = FormatEditableFieldValue(f, f.Default);
                             }
                         }
 

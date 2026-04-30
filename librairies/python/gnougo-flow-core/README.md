@@ -14,7 +14,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
 
 | Area | Status |
 |---|---|
-| YAML DSL parser (`version:` / `dsl:` alias) | Yes |
+| YAML DSL parser (`version:`) | Yes |
 | Validation + compilation pipeline | Yes |
 | Expression interpolation `${...}` + built-in functions | Yes (AST-based JS-subset interpreter) |
 | Mustache `template.render` engine | Yes |
@@ -24,6 +24,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
 | MCP integrations (`InMemoryMcpClientFactory`, `ConfiguredMcpClientFactory`, cache helper) | Yes |
 | `LLMRequest.reasoning` field | Yes |
 | `workflow.plan` defaults `reasoning="high"` | Yes |
+| Workflow source telemetry (`source_text` / `source_format`) | Yes |
 | `JsonSchemaConverter` (inputs/outputs to JSON Schema) | Yes |
 | `WorkflowCheckpointer` + `WorkflowEngine.resume_async` | Yes |
 | CLI: `validate` / `inspect` / `run` subcommands | Yes |
@@ -110,7 +111,7 @@ uv sync --extra dev
 Create `hello.yaml`:
 
 ```yaml
-dsl: 1
+version: 1
 name: hello-world
 workflows:
   main:
@@ -175,7 +176,7 @@ Runtime integrations such as LLM clients, MCP clients, human input providers, wo
 Every workflow file starts with:
 
 ```yaml
-dsl: 1                        # DSL version (required, always 1)
+version: 1                        # DSL version (required, always 1)
 name: my-workflow             # Document name (optional)
 functions: |                  # Global WFScript functions (optional)
   function myHelper(x) { return x * 2; }
@@ -939,7 +940,7 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript-s
 Define reusable functions in the `functions:` block (document-level or workflow-level):
 
 ```yaml
-dsl: 1
+version: 1
 name: smart-triage
 functions: |
   function classify(text) {

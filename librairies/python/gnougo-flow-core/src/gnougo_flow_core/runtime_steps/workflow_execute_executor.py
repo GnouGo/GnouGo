@@ -82,6 +82,8 @@ Output: `{ outputs, workflow, run: { steps_executed, success } }`.
                 "workflow_name": workflow.name,
                 "document_name": compiled.source.name if compiled.source else None,
                 "inputs": dict(merged_args),
+                "source_text": str(yaml_text),
+                "source_format": "yaml",
             }
         )
         started = time.perf_counter()

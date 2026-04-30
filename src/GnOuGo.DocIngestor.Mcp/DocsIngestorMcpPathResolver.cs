@@ -1,4 +1,4 @@
-﻿namespace GnOuGo.DocsIngestor.Mcp;
+namespace GnOuGo.DocIngestor.Mcp;
 
 public static class DocsIngestorMcpPathResolver
 {

@@ -17,9 +17,18 @@ public class WorkflowParserTests
     }
 
     [Fact]
-    public void Parse_WithLegacyDslField_RemainsCompatible()
+    public void Parse_WithLegacyDslField_ThrowsMissingVersion()
     {
         var yaml = "dsl: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n";
+        Assert.Throws<WorkflowParseException>(() => WorkflowParser.Parse(yaml));
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("1.0")]
+    public void Parse_WithVersionStringOne_ReturnsDocument(string version)
+    {
+        var yaml = $"version: \"{version}\"\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n";
         var doc = WorkflowParser.Parse(yaml);
         Assert.Equal(1, doc.Version);
     }
@@ -82,7 +91,7 @@ public class WorkflowParserTests
     public void Parse_StepWithOnError_ParsesOnError()
     {
         var yaml = """
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -107,7 +116,7 @@ workflows:
     public void Parse_WorkflowInputs_ParsesInputDefs()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -146,7 +155,7 @@ workflows:
     public void Parse_TypedOutputs_ParsesLongForm()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -207,7 +216,7 @@ workflows:
     public void Parse_NestedObjectOutputs_BackwardCompat()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -232,7 +241,7 @@ workflows:
     public void Parse_SequenceStep_ParsesSubSteps()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -255,7 +264,7 @@ workflows:
     public void Parse_ParallelStep_ParsesBranches()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -280,7 +289,7 @@ workflows:
     public void Parse_SwitchStep_ParsesCasesAndDefault()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -315,7 +324,7 @@ workflows:
     public void Parse_QuotedExpressionWithInnerDoubleQuotes_ParsesSuccessfully()
     {
         var yaml = """
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -346,7 +355,7 @@ workflows:
     public void Parse_LoopParallel_ParsesItemVarAndIndexVar()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -370,7 +379,7 @@ workflows:
     public void Parse_MultipleWorkflows_AllParsed()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -403,7 +412,7 @@ workflows:
     public void Parse_ArrayInput_WithItems_ParsesElementType()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -426,7 +435,7 @@ workflows:
     public void Parse_ArrayInput_WithShortItems_ParsesElementType()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -446,7 +455,7 @@ workflows:
     public void Parse_ObjectInput_WithProperties_ParsesSchema()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -483,7 +492,7 @@ workflows:
     public void Parse_DictionaryInput_WithAdditionalProperties_ParsesValueType()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -506,7 +515,7 @@ workflows:
     public void Parse_NestedRichTypes_ArrayOfObjects()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -535,7 +544,7 @@ workflows:
     public void Parse_InputWithDescription_ParsesDescription()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -555,7 +564,7 @@ workflows:
     public void Parse_DictionaryOfComplexValues()
     {
         var yaml = @"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:

@@ -1,4 +1,5 @@
 using OtlpTenantCollector.Models;
+using OtlpTenantCollector.Services.Routing;
 
 namespace OtlpTenantCollector.Services;
 
@@ -7,6 +8,7 @@ public sealed class TelemetryBatchWriter : BackgroundService
     private readonly AppOptions _opt;
     private readonly TelemetryIngestQueue _queue;
     private readonly TelemetryEventBus _eventBus;
+    private readonly ITelemetryRouter _router;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<TelemetryBatchWriter> _logger;
 
@@ -14,12 +16,14 @@ public sealed class TelemetryBatchWriter : BackgroundService
         AppOptions opt, 
         TelemetryIngestQueue queue,
         TelemetryEventBus eventBus,
+        ITelemetryRouter router,
         IServiceScopeFactory scopeFactory, 
         ILogger<TelemetryBatchWriter> logger)
     {
         _opt = opt;
         _queue = queue;
         _eventBus = eventBus;
+        _router = router;
         _scopeFactory = scopeFactory;
         _logger = logger;
     }
@@ -49,7 +53,7 @@ public sealed class TelemetryBatchWriter : BackgroundService
                         if (!hasData)
                         {
                             // Channel fermé
-                            Flush(spans, logs);
+                            await FlushAsync(spans, logs, stoppingToken);
                             return;
                         }
 
@@ -68,7 +72,7 @@ public sealed class TelemetryBatchWriter : BackgroundService
 
                             if (spans.Count + logs.Count >= _opt.BatchSize)
                             {
-                                Flush(spans, logs);
+                                await FlushAsync(spans, logs, stoppingToken);
                                 break;
                             }
                         }
@@ -76,7 +80,7 @@ public sealed class TelemetryBatchWriter : BackgroundService
                     catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested && !stoppingToken.IsCancellationRequested)
                     {
                         // Timeout atteint, flush les données
-                        Flush(spans, logs);
+                        await FlushAsync(spans, logs, stoppingToken);
                     }
                 }
             }
@@ -92,7 +96,7 @@ public sealed class TelemetryBatchWriter : BackgroundService
                 // Flush toute donnée en attente avant de redémarrer
                 try
                 {
-                    Flush(spans, logs);
+                    await FlushAsync(spans, logs, stoppingToken);
                 }
                 catch (Exception flushEx)
                 {
@@ -103,12 +107,17 @@ public sealed class TelemetryBatchWriter : BackgroundService
             }
         }
 
-        Flush(spans, logs);
+        await FlushAsync(spans, logs, CancellationToken.None);
+        await _router.FlushAllAsync(CancellationToken.None);
     }
 
-    private void Flush(List<SpanRow> spans, List<LogRow> logs)
+    private async Task FlushAsync(List<SpanRow> spans, List<LogRow> logs, CancellationToken ct)
     {
-        if (spans.Count == 0 && logs.Count == 0) return;
+        if (spans.Count == 0 && logs.Count == 0)
+        {
+            await _router.FlushExpiredAsync(ct);
+            return;
+        }
 
         _logger.LogDebug("Starting flush: {SpanCount} spans, {LogCount} logs", spans.Count, logs.Count);
 
@@ -121,20 +130,22 @@ public sealed class TelemetryBatchWriter : BackgroundService
             if (spans.Count > 0)
             {
                 var spanEntities = spans.Select(TelemetryMapper.ToEntity).ToList();
-                store.AddSpansAsync(spanEntities).GetAwaiter().GetResult();
+                await store.AddSpansAsync(spanEntities);
             }
 
             // Convertir LogRow -> LogRecordEntity
             if (logs.Count > 0)
             {
                 var logEntities = logs.Select(TelemetryMapper.ToEntity).ToList();
-                store.AddLogsAsync(logEntities).GetAwaiter().GetResult();
+                await store.AddLogsAsync(logEntities);
             }
 
             _logger.LogDebug("Flushed {SpanCount} spans, {LogCount} logs", spans.Count, logs.Count);
 
             // Notify SSE subscribers that new data is available
             _eventBus.NotifyFlushed(spans.Count, logs.Count);
+
+            await _router.RouteAsync(spans, logs, ct);
         }
         catch (Exception ex)
         {

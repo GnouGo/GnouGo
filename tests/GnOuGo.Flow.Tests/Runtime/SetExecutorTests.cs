@@ -21,7 +21,7 @@ public class SetExecutorTests
     public async Task Set_LiteralValues_StoresInOutput()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -47,7 +47,7 @@ workflows:
     public async Task Set_Expressions_EvaluatesCorrectly()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -81,7 +81,7 @@ workflows:
     public async Task Set_OutputAccessibleByNextStep()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     inputs:
@@ -118,7 +118,7 @@ workflows:
     public async Task Set_MultipleSteps_CanChain()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -151,7 +151,7 @@ workflows:
     public async Task Set_WithOutputAlias_ExposedAsTopLevelData()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
@@ -187,7 +187,7 @@ workflows:
     public async Task Set_NestedObjects_PreservedCorrectly()
     {
         var wf = CompileMain(@"
-dsl: 1
+version: 1
 workflows:
   main:
     steps:
