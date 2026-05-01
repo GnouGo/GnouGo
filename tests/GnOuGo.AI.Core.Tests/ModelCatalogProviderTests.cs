@@ -216,6 +216,51 @@ public sealed class ModelCatalogProviderTests
         Assert.Equal(1, fakeProvider.CallCount);
     }
 
+    [Fact]
+    public async Task RoutingLlmModelCatalog_EnrichesDiscoveredModelsAndAddsOverrides()
+    {
+        var options = new LLMOptions
+        {
+            DefaultProvider = "OpenAi",
+            DefaultModel = "gpt-4o-mini",
+            Models = new Dictionary<string, ModelProviderOptions>
+            {
+                ["OpenAi"] = new() { Url = "https://api.openai.com/v1", Type = "openai" }
+            },
+            ModelOverrides = new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["local-custom"] = new()
+                {
+                    Id = "local-custom",
+                    ProviderType = "openai",
+                    ContextWindowTokens = 32000,
+                    MaxOutputTokens = 4096,
+                    Pricing = new ModelPricingMetadata { InputPer1MTokens = 0.01m, OutputPer1MTokens = 0.02m },
+                    Capabilities = new ModelCapabilityMetadata { SupportsTemperature = false }
+                }
+            }
+        };
+
+        var fakeProvider = new FakeCatalogProvider("openai", new[]
+        {
+            new LLMModelDescriptor("o4-mini", "o4-mini", "openai", "openai")
+        });
+
+        var catalog = new RoutingLLMModelCatalog(options, new[] { fakeProvider });
+        var models = await catalog.ListModelsAsync("OpenAi", CancellationToken.None);
+
+        var o4 = Assert.Single(models, m => m.Id == "o4-mini");
+        Assert.False(o4.Capabilities!.SupportsTemperature);
+        Assert.True(o4.Capabilities.SupportsReasoningEffort);
+        Assert.Equal(200000, o4.ContextWindowTokens);
+        Assert.Equal(1.10m, o4.Pricing!.InputPer1MTokens);
+
+        var custom = Assert.Single(models, m => m.Id == "local-custom");
+        Assert.Equal(32000, custom.ContextWindowTokens);
+        Assert.Equal(0.02m, custom.Pricing!.OutputPer1MTokens);
+        Assert.False(custom.Capabilities!.SupportsTemperature);
+    }
+
     private static StringContent JsonContent(string json)
         => new(json, Encoding.UTF8, "application/json");
 

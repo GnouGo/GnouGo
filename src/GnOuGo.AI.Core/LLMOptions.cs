@@ -25,6 +25,17 @@ public sealed class LLMOptions
     public Dictionary<string, McpServerOptions> McpServers { get; set; } = new();
 
     /// <summary>
+    /// Optional JSON files that define or override model metadata (limits, pricing, capabilities, aliases).
+    /// Later files win over earlier files. Paths can be absolute or relative to the process/base directory.
+    /// </summary>
+    public List<string> ModelMetadataFiles { get; set; } = new();
+
+    /// <summary>
+    /// Inline model metadata overrides. Key = model id or alias. These have the highest precedence.
+    /// </summary>
+    public Dictionary<string, LLMModelMetadata> ModelOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Resolves the <see cref="ModelProviderOptions"/> for a given provider key.
     /// Falls back to <see cref="DefaultProvider"/> if <paramref name="provider"/> is null/empty.
     /// Returns null if the provider key is not found.

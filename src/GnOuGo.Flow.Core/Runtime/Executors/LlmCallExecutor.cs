@@ -23,6 +23,7 @@ public sealed class LlmCallExecutor : IStepExecutor
     public string DslSnippet => """
         ### llm.call — Call a language model
         IMPORTANT: use `prompt` (NOT `messages`). `prompt` is REQUIRED. `model` is required unless the runtime injects a default model.
+        IMPORTANT: `temperature` and `reasoning` are optional overrides. Omit them unless the task explicitly needs them; the runtime applies defaults and removes unsupported parameters based on model capabilities.
         Basic call:
         ```yaml
         - id: summarize
@@ -31,7 +32,8 @@ public sealed class LlmCallExecutor : IStepExecutor
             model: gpt-4                        # optional when runtime defaults are configured
             prompt: "Summarize: ${data.steps.prev.text}"  # required — plain string
             system: "You are a helpful assistant."  # optional
-            temperature: 0.7                     # optional
+            temperature: 0.7                     # optional override; omit by default
+            reasoning: high                      # optional override; omit by default
             max_tokens: 2048                     # optional
         ```
         Structured output:

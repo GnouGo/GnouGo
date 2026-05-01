@@ -19,13 +19,13 @@ public static partial class ModelPricingCatalog
     /// </summary>
     public static bool TryGetPricing(string modelName, out ModelPricing pricing)
     {
-        if (Models.TryGetValue(modelName, out pricing))
+        if (GnOuGo.AI.Core.ModelMetadataCatalog.TryGetBuiltinPricing(modelName, out var metadataPricing))
+        {
+            pricing = new ModelPricing(
+                metadataPricing.InputPer1MTokens ?? 0m,
+                metadataPricing.OutputPer1MTokens ?? 0m);
             return true;
-
-        // Try alias resolution
-        if (Aliases.TryGetValue(modelName, out var canonical) &&
-            Models.TryGetValue(canonical, out pricing))
-            return true;
+        }
 
         pricing = default;
         return false;

@@ -146,6 +146,16 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("  main:");
         basePrompt.AppendLine("    steps: []");
 
+        basePrompt.AppendLine();
+        basePrompt.AppendLine("[LLM MODEL PARAMETERS]");
+        basePrompt.AppendLine("The runtime resolves default provider/model values for LLM-capable steps when they are omitted.");
+        basePrompt.AppendLine("The runtime also owns model metadata (token limits, pricing, and capabilities) and removes unsupported optional request parameters before provider calls.");
+        basePrompt.AppendLine("When generating `llm.call` or LLM-assisted `mcp.call` steps:");
+        basePrompt.AppendLine("- Prefer omitting provider/model when the runtime default should apply.");
+        basePrompt.AppendLine("- Do NOT add `temperature` by habit. Include it only when the task explicitly needs a sampling override.");
+        basePrompt.AppendLine("- Do NOT add `reasoning` by habit. Include it only when the task explicitly needs a reasoning-effort override.");
+        basePrompt.AppendLine("- If a generated workflow includes unsupported optional LLM parameters, the runtime may omit them automatically based on model capabilities.");
+
         if (mcpServersDoc != null)
         {
             basePrompt.AppendLine();
@@ -1121,7 +1131,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         }
         else
         {
-            sb.AppendLine("Required MCP planning pattern: discover candidate servers from these descriptions -> choose one server -> use mcp.list to inspect capabilities -> either (a) choose the exact tool/prompt and call mcp.call with explicit method/methods, or (b) pass tools/prompts from mcp.list into mcp.call and use prompt/model/temperature for LLM-assisted selection.");
+            sb.AppendLine("Required MCP planning pattern: discover candidate servers from these descriptions -> choose one server -> use mcp.list to inspect capabilities -> either (a) choose the exact tool/prompt and call mcp.call with explicit method/methods, or (b) pass tools/prompts from mcp.list into mcp.call and use prompt/model for LLM-assisted selection; include temperature only for an explicit sampling override.");
         }
         sb.AppendLine("Choose servers from these static descriptions only; do not assume any global initialize/probing step across all servers.");
         sb.AppendLine("Do NOT generate mcp.call with only input.server as the default plan. That runtime auto-discovery mode is only for explicit call-everything scenarios on the chosen server.");

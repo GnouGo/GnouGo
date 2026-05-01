@@ -1,0 +1,82 @@
+﻿using GnOuGo.AI.Core;
+
+namespace GnOuGo.AI.Core.Tests;
+
+public sealed class ModelMetadataCatalogTests
+{
+    [Fact]
+    public void Resolve_ReturnsBuiltinPricingLimitsAndCapabilities()
+    {
+        var resolver = new LLMModelMetadataResolver(new LLMOptions());
+
+        var metadata = resolver.Resolve("openai", "o4-mini");
+
+        Assert.Equal("o4-mini", metadata.Id);
+        Assert.Equal(200000, metadata.ContextWindowTokens);
+        Assert.Equal(100000, metadata.MaxOutputTokens);
+        Assert.Equal(1.10m, metadata.Pricing!.InputPer1MTokens);
+        Assert.False(metadata.Capabilities.SupportsTemperature);
+        Assert.True(metadata.Capabilities.SupportsReasoningEffort);
+        Assert.Contains("temperature", metadata.Capabilities.UnsupportedRequestParameters!);
+    }
+
+    [Fact]
+    public void Resolve_AppliesInlineOverrides()
+    {
+        var options = new LLMOptions();
+        options.ModelOverrides["o4-mini"] = new LLMModelMetadata
+        {
+            Id = "o4-mini",
+            MaxOutputTokens = 1234,
+            Capabilities = new ModelCapabilityMetadata
+            {
+                SupportsTemperature = true,
+                UnsupportedRequestParameters = []
+            }
+        };
+
+        var metadata = new LLMModelMetadataResolver(options).Resolve("openai", "o4-mini");
+
+        Assert.Equal(1234, metadata.MaxOutputTokens);
+        Assert.True(metadata.Capabilities.SupportsTemperature);
+    }
+
+    [Fact]
+    public void Resolve_LoadsExternalMetadataFile()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gnougo-model-metadata-{Guid.NewGuid():N}.json");
+        File.WriteAllText(path, """
+        {
+          "models": {
+            "my-model": {
+              "providerType": "openai",
+              "contextWindowTokens": 999,
+              "maxOutputTokens": 111,
+              "pricing": { "inputPer1MTokens": 0.5, "outputPer1MTokens": 1.5 },
+              "capabilities": { "supportsTemperature": false, "supportsReasoningEffort": false }
+            }
+          },
+          "aliases": { "mine": "my-model" }
+        }
+        """);
+
+        try
+        {
+            var resolver = new LLMModelMetadataResolver(new LLMOptions { ModelMetadataFiles = [path] });
+
+            var metadata = resolver.Resolve("openai", "mine");
+
+            Assert.Equal("my-model", metadata.Id);
+            Assert.Equal(999, metadata.ContextWindowTokens);
+            Assert.Equal(111, metadata.MaxOutputTokens);
+            Assert.Equal(0.5m, metadata.Pricing!.InputPer1MTokens);
+            Assert.False(metadata.Capabilities.SupportsTemperature);
+            Assert.False(metadata.Capabilities.SupportsReasoningEffort);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+}
+

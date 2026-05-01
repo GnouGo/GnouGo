@@ -1,0 +1,37 @@
+﻿{
+  "_comment": "Model metadata in USD, token limits and capabilities. Builtin generated source is ModelMetadataCatalog.Generated.cs; user overrides can be configured through LLM.ModelMetadataFiles and LLM.ModelOverrides.",
+  "_updated": "2026-05-01",
+  "models": {
+    "gpt-4o-mini": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 128000,
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 16384,
+      "pricing": { "currency": "USD", "inputPer1MTokens": 0.15, "outputPer1MTokens": 0.60 },
+      "capabilities": { "supportsTemperature": true, "supportsReasoningEffort": false, "supportsStructuredOutput": true, "supportsTools": true, "supportsJsonMode": true, "supportsVision": true }
+    },
+    "o4-mini": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 200000,
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 100000,
+      "pricing": { "currency": "USD", "inputPer1MTokens": 1.10, "outputPer1MTokens": 4.40 },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": ["minimal", "low", "medium", "high"],
+        "unsupportedRequestParameters": ["temperature"]
+      }
+    }
+  },
+  "aliases": {
+    "gpt4o-mini": "gpt-4o-mini",
+    "openai/o4-mini": "o4-mini"
+  }
+}
+

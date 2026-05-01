@@ -211,6 +211,7 @@ public sealed class LLMRuntimeOptionsStore
         {
             DefaultProvider = src.DefaultProvider,
             DefaultModel = src.DefaultModel,
+            ModelMetadataFiles = [.. src.ModelMetadataFiles],
         };
         foreach (var kv in src.Models)
         {
@@ -227,6 +228,8 @@ public sealed class LLMRuntimeOptionsStore
         }
         foreach (var kv in src.McpServers)
             clone.McpServers[kv.Key] = CloneMcpServerOptions(kv.Value);
+        foreach (var kv in src.ModelOverrides)
+            clone.ModelOverrides[kv.Key] = ModelMetadataCatalog.Clone(kv.Value);
         return clone;
     }
 
