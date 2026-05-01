@@ -93,16 +93,18 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
 
         var prefilterModel = model;
         var prefilterProvider = provider;
+        double? prefilterTemperature = null;
         if (shouldPrefilter && prefilterNode is JsonObject pfObj)
         {
             prefilterModel = pfObj["model"]?.GetValue<string>() ?? model;
             prefilterProvider = pfObj["provider"]?.GetValue<string>() ?? provider;
+            prefilterTemperature = pfObj["temperature"]?.GetValue<double>();
         }
 
         var candidateMcpServers = shouldPrefilter
             ? await PrefilterMcpServerMetadataAsync(
                 llmClient, ctx.Engine.McpClientFactory, instruction, generatorContext,
-                prefilterModel, prefilterProvider, planReasoning, ctx, ct)
+                prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, ct)
             : null;
 
         var discovered = await DiscoverMcpServersAsync(
@@ -112,7 +114,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         {
             discovered = await PrefilterMcpServersAsync(
                 llmClient, discovered, instruction, generatorContext,
-                prefilterModel, prefilterProvider, planReasoning, ctx, ct);
+                prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, ct);
         }
 
         var mcpServersDoc = discovered != null && discovered.Count > 0
@@ -546,6 +548,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         string context,
         string model,
         string? provider,
+        double? temperature,
         string? planReasoning,
         StepExecutionContext ctx,
         CancellationToken ct)
@@ -616,7 +619,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 Provider = provider,
                 Model = model,
                 Prompt = prefilterPrompt,
-                Temperature = 0.0,
+                Temperature = temperature,
                 StructuredOutputSchema = JsonNode.Parse("""
                 {
                   "type": "object",
@@ -763,6 +766,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         string context,
         string model,
         string? provider,
+        double? temperature,
         string? planReasoning,
         StepExecutionContext ctx,
         CancellationToken ct)
@@ -835,7 +839,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     $"Pre-filtering MCP servers with {model} ({allServers.Count} server(s), {allServers.Sum(s => s.Tools.Count)} tool(s))…"),
                 new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "thinking")
             });
-
+        
             ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.start", new[]
             {
                 new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count),
@@ -859,7 +863,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 Provider = provider,
                 Model = model,
                 Prompt = prefilterPrompt,
-                Temperature = 0.0,
+                Temperature = temperature,
                 StructuredOutputSchema = JsonNode.Parse("""
                 {
                   "type": "object",

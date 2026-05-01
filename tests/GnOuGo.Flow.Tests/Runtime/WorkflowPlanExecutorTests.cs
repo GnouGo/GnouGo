@@ -613,17 +613,86 @@ workflows:
         Assert.Equal(3, requests.Count);
         Assert.NotNull(requests[0].StructuredOutputSchema);
         Assert.True(requests[0].StructuredOutputStrict);
+        Assert.Null(requests[0].Temperature);
         Assert.Contains("[SERVER CATALOG]", requests[0].Prompt);
         Assert.Contains("GitHub repository automation", requests[0].Prompt);
         Assert.Contains("Weather forecasts", requests[0].Prompt);
         Assert.DoesNotContain("list_repos", requests[0].Prompt);
         Assert.NotNull(requests[1].StructuredOutputSchema);
+        Assert.Null(requests[1].Temperature);
         var mcpSectionStart = requests[2].Prompt.LastIndexOf("[AVAILABLE MCP SERVERS]", StringComparison.Ordinal);
         var mcpSectionEnd = requests[2].Prompt.IndexOf("[MCP OUTPUT ACCESS]", mcpSectionStart, StringComparison.Ordinal);
         var mcpSection = requests[2].Prompt[mcpSectionStart..mcpSectionEnd];
         Assert.Contains("list_repos", mcpSection);
         Assert.DoesNotContain("get_weather", mcpSection);
         Assert.DoesNotContain("delete_repo", mcpSection);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_ServerPrefilter_UsesExplicitTemperatureOnlyWhenConfigured()
+    {
+        var requests = new List<LLMRequest>();
+        var callIndex = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => requests.Add(req))
+            .ReturnsAsync(() => (++callIndex) switch
+            {
+                1 => new LLMResponse
+                {
+                    Text = "{\"servers\":[{\"name\":\"github\",\"reason\":\"repository task\"}]}",
+                    Json = JsonNode.Parse("{\"servers\":[{\"name\":\"github\",\"reason\":\"repository task\"}]}")
+                },
+                2 => new LLMResponse
+                {
+                    Text = "{\"servers\":[{\"name\":\"github\",\"tools\":[\"list_repos\"],\"prompts\":[]}]}",
+                    Json = JsonNode.Parse("{\"servers\":[{\"name\":\"github\",\"tools\":[\"list_repos\"],\"prompts\":[]}]}")
+                },
+                _ => new LLMResponse
+                {
+                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                }
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Description = "GitHub repository automation and file operations",
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "list_repos", Description = "List repositories for a user" }
+            }
+        });
+
+        var wf = CompileMain(@"
+ version: 1
+ workflows:
+   main:
+     steps:
+       - id: plan
+         type: workflow.plan
+         input:
+           generator:
+             model: gpt-4
+             instruction: Build a workflow that lists GitHub repositories
+             prefilter:
+               temperature: 1.0
+           validate:
+             compile: false
+ ");
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            McpClientFactory = mcpFactory
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(3, requests.Count);
+        Assert.Equal(1.0, requests[0].Temperature);
+        Assert.Equal(1.0, requests[1].Temperature);
+        Assert.Null(requests[2].Temperature);
     }
 
     [Fact]

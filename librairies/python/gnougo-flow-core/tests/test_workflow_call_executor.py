@@ -71,7 +71,7 @@ async def test_workflow_call_local_cycle_detected() -> None:
     try:
         compiled = _compile(yaml_text)
     except Exception as exc:
-        # If the static analyser catches it, accept that — the cycle code is reported.
+        # If the static analyser catches it, accept that - the cycle code is reported.
         assert "WORKFLOW_CYCLE_DETECTED" in str(exc)
         return
     engine.compiled_document = compiled

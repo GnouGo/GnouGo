@@ -203,16 +203,19 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         return prefilter is None or isinstance(prefilter, dict) or bool(prefilter)
 
     @staticmethod
-    def _prefilter_target(generator: dict[str, Any]) -> tuple[str | None, str | None]:
+    def _prefilter_target(generator: dict[str, Any]) -> tuple[str | None, str | None, float | None]:
         prefilter = generator.get("prefilter")
         provider = None
         model = None
+        temperature = None
         if isinstance(prefilter, dict):
             provider = prefilter.get("provider")
             model = prefilter.get("model")
+            if prefilter.get("temperature") is not None:
+                temperature = float(prefilter["temperature"])
         model = model or generator.get("model")
         provider = provider or generator.get("provider")
-        return provider, model
+        return provider, model, temperature
 
     @staticmethod
     def _add_prefilter_usage_event(
@@ -266,7 +269,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         if not server_meta:
             return None
 
-        provider, model = self._prefilter_target(generator)
+        provider, model, temperature = self._prefilter_target(generator)
         if not model:
             return None
 
@@ -326,7 +329,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     provider=provider,
                     model=str(model),
                     prompt=prompt,
-                    temperature=0.0,
+                    temperature=temperature,
                     structured_output_schema={
                         "type": "object",
                         "properties": {
@@ -527,7 +530,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         if llm_client is None:
             return mcp_doc
 
-        provider, model = self._prefilter_target(generator)
+        provider, model, temperature = self._prefilter_target(generator)
         if not model:
             return mcp_doc
 
@@ -563,6 +566,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     provider=provider,
                     model=model,
                     prompt=prompt,
+                    temperature=temperature,
                     structured_output_schema={
                         "type": "object",
                         "properties": {"filtered": {"type": "string"}},

@@ -69,7 +69,7 @@ async def test_ct_event_cancels_during_retry_sleep() -> None:
         """
     )
 
-    # Use a step that's retryable instead — emit with retry that always fails.
+    # Use a step that's retryable instead - emit with retry that always fails.
     compiled = _compile(
         """
         version: 1
@@ -96,7 +96,7 @@ async def test_ct_event_cancels_during_retry_sleep() -> None:
     result = await engine.execute_async(compiled.workflows["main"], {}, ct=ct)
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
-    # set with non-object input is non-retryable ? may not retry. Just ensure no 5s wait;
+    # set with non-object input is non-retryable and may not retry. Just ensure no 5s wait;
     # acceptance: returns within 500 ms either as CANCELLED or as INPUT_VALIDATION.
     assert elapsed_ms < 1500.0
     assert result.success is False
