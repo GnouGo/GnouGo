@@ -128,6 +128,43 @@ public static partial class ModelMetadataCatalog
         return false;
     }
 
+    /// <summary>
+    /// Computes the estimated cost in USD from model metadata pricing.
+    /// When <paramref name="options"/> or <paramref name="providerType"/> is provided,
+    /// pricing is resolved through the full metadata resolver, including external metadata
+    /// files and <see cref="LLMOptions.ModelOverrides"/>.
+    /// </summary>
+    public static decimal? EstimateCost(
+        string? modelName,
+        long? inputTokens = null,
+        long? outputTokens = null,
+        LLMOptions? options = null,
+        string? providerType = null)
+    {
+        if (string.IsNullOrWhiteSpace(modelName))
+            return null;
+
+        ModelPricingMetadata? pricing;
+        if (options != null || !string.IsNullOrWhiteSpace(providerType))
+        {
+            var metadata = new LLMModelMetadataResolver(options).Resolve(providerType, modelName);
+            pricing = metadata.Pricing;
+        }
+        else
+        {
+            pricing = TryGetBuiltinPricing(modelName, out var builtinPricing) ? builtinPricing : null;
+        }
+
+        if (pricing == null)
+            return null;
+
+        var input = inputTokens ?? 0;
+        var output = outputTokens ?? 0;
+
+        return input / 1_000_000m * (pricing.InputPer1MTokens ?? 0m)
+             + output / 1_000_000m * (pricing.OutputPer1MTokens ?? 0m);
+    }
+
     public static IReadOnlyList<string> GetMissingRequiredMetadataFields(
         LLMOptions? options,
         string? providerType,
@@ -499,6 +536,7 @@ public static partial class ModelMetadataCatalog
         return values;
     }
 }
+
 
 
 

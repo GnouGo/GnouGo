@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using GnOuGo.Agent.Server.Telemetry;
-using GnOuGo.AI.Core.Telemetry;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
 
@@ -174,7 +174,7 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         var model = ss.Activity.GetTagItem("gen_ai.request.model") as string;
         if (model is not null && (result.GenAiInputTokens.HasValue || result.GenAiOutputTokens.HasValue))
         {
-            var cost = ModelPricingCatalog.EstimateCost(model,
+            var cost = ModelMetadataCatalog.EstimateCost(model,
                 result.GenAiInputTokens ?? 0, result.GenAiOutputTokens ?? 0);
             if (cost.HasValue)
                 ss.Activity.SetTag("gen_ai.usage.cost", (double)cost.Value);

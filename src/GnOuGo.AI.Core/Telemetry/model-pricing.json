@@ -1,6 +1,0 @@
-﻿{
-  "_comment": "Deprecated compatibility placeholder. Pricing is now stored in model-metadata.json under each model's pricing object. Run scripts/update-model-pricing.ps1 or .sh to update model-metadata.json and regenerate ModelMetadataCatalog.Generated.cs.",
-  "_deprecatedSince": "2026-05-01",
-  "models": {},
-  "aliases": {}
-}

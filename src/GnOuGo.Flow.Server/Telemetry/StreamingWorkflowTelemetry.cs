@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using GnOuGo.AI.Core.Telemetry;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Server.Telemetry;
@@ -156,7 +156,7 @@ public sealed class StreamingWorkflowTelemetry : IWorkflowTelemetry
 			totalTokens = (inputTokens ?? 0) + (outputTokens ?? 0);
 
 		var finishReason = GetString(attributes, "gen_ai.response.finish_reason") ?? result.GenAiFinishReason;
-		var estimatedCostUsd = ModelPricingCatalog.EstimateCost(model, inputTokens, outputTokens);
+		var estimatedCostUsd = ModelMetadataCatalog.EstimateCost(model, inputTokens, outputTokens);
 
 		return new StepUsageSummary(
 			Model: model,

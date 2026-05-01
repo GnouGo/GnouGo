@@ -80,6 +80,56 @@ public sealed class ModelMetadataCatalogTests
     }
 
     [Fact]
+    public void EstimateCost_UsesBuiltinPricing()
+    {
+        var cost = ModelMetadataCatalog.EstimateCost("gpt-4o-mini", inputTokens: 500_000, outputTokens: 100_000);
+
+        Assert.Equal(0.135m, cost);
+    }
+
+    [Fact]
+    public void EstimateCost_ResolvesAliases()
+    {
+        var direct = ModelMetadataCatalog.EstimateCost("gpt-4o", inputTokens: 1_000_000);
+        var alias = ModelMetadataCatalog.EstimateCost("gpt4o", inputTokens: 1_000_000);
+
+        Assert.NotNull(direct);
+        Assert.Equal(direct, alias);
+    }
+
+    [Fact]
+    public void EstimateCost_ReturnsNullForUnknownModelWithoutPricing()
+    {
+        var cost = ModelMetadataCatalog.EstimateCost("unknown-model", inputTokens: 1_000);
+
+        Assert.Null(cost);
+    }
+
+    [Fact]
+    public void EstimateCost_UsesUserOverridePricing()
+    {
+        var options = new LLMOptions();
+        options.ModelOverrides["custom-priced-model"] = new LLMModelMetadata
+        {
+            Id = "custom-priced-model",
+            Pricing = new ModelPricingMetadata
+            {
+                InputPer1MTokens = 3m,
+                OutputPer1MTokens = 9m
+            }
+        };
+
+        var cost = ModelMetadataCatalog.EstimateCost(
+            "custom-priced-model",
+            inputTokens: 1_000_000,
+            outputTokens: 500_000,
+            options: options,
+            providerType: "openai");
+
+        Assert.Equal(7.5m, cost);
+    }
+
+    [Fact]
     public void GetMissingRequiredMetadataFields_ReturnsPricingAndLimitsForUnknownModel()
     {
         var missing = ModelMetadataCatalog.GetMissingRequiredMetadataFields(
@@ -124,5 +174,6 @@ public sealed class ModelMetadataCatalogTests
         Assert.True(ModelMetadataCatalog.HasCompleteRequiredMetadata(options, "openai", "custom-model"));
     }
 }
+
 
 

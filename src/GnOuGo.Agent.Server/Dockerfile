@@ -76,7 +76,7 @@ RUN dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj \
     -p:SkipClientBuild=true \
     -p:PublishAot=false \
     -p:PublishTrimmed=false \
-    -p:SkipPricingGeneration=true \
+    -p:SkipModelMetadataGeneration=true \
     --no-restore
 # ----------------------------------------------
 # Stage 3: Final runtime image

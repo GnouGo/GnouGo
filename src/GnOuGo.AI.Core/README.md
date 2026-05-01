@@ -21,8 +21,8 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 - The embedded metadata catalog adds pricing, token limits and request capabilities when known.
 - User metadata files and inline overrides can add new models or override builtin values without recompilation.
 - `RoutingLLMClient` removes unsupported optional fields (for example `temperature` on reasoning models) before calling the provider.
-gi- Builtin metadata is authored in `Telemetry/model-metadata.json`; pricing is stored under each model's `pricing` object.
-- Regenerate `ModelMetadataCatalog.Generated.cs` with `scripts/update-model-pricing.ps1` or `scripts/update-model-pricing.sh`.
+- Builtin metadata is authored in `Telemetry/model-metadata.json`; pricing is stored under each model's `pricing` object.
+- Regenerate `ModelMetadataCatalog.Generated.cs` with `scripts/update-model-metadata.ps1` or `scripts/update-model-metadata.sh`.
 
 Metadata precedence is:
 

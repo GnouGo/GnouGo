@@ -71,7 +71,7 @@ RUN dotnet publish src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj \
     -c Release \
     -o /app/publish \
     -p:SkipClientBuild=true \
-    -p:SkipPricingGeneration=true \
+    -p:SkipModelMetadataGeneration=true \
     --no-restore
 
 # ──────────────────────────────────────────────
