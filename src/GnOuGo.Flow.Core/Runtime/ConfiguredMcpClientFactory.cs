@@ -144,8 +144,26 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             Command = config.Command,
             Arguments = config.Args ?? [],
             Name = "GnOuGo.Flow",
+            WorkingDirectory = ResolveStdioWorkingDirectory(config.Command),
             EnvironmentVariables = BuildCorrelationEnvironment(correlation)
         });
+    }
+
+    internal static string? ResolveStdioWorkingDirectory(string command)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            return null;
+
+        var normalizedCommand = command.Replace('/', Path.DirectorySeparatorChar)
+                                       .Replace('\\', Path.DirectorySeparatorChar);
+        var commandPath = Path.IsPathRooted(normalizedCommand)
+            ? normalizedCommand
+            : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, normalizedCommand));
+
+        if (!File.Exists(commandPath))
+            return null;
+
+        return Path.GetDirectoryName(commandPath);
     }
 
     private static void AddCorrelationHeaders(HttpRequestHeaders headers, McpCorrelationContext? correlation)

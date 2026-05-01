@@ -103,6 +103,27 @@ public class ConfiguredMcpClientFactoryTests
         Assert.IsType<double>(result["ratio"]);
     }
 
+    [Fact]
+    public void ResolveStdioWorkingDirectory_ReturnsExecutableDirectory_ForExistingCommandPath()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "gnougo-stdio-working-dir-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var executable = Path.Combine(root, OperatingSystem.IsWindows() ? "tool.exe" : "tool");
+        File.WriteAllText(executable, string.Empty);
+
+        try
+        {
+            var result = InvokeResolveStdioWorkingDirectory(executable);
+
+            Assert.Equal(root, result);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); }
+            catch { }
+        }
+    }
+
     private static bool InvokeIsUnexpectedServerExit(Exception ex)
     {
         var method = typeof(ConfiguredMcpClientFactory).GetMethod(
@@ -127,6 +148,16 @@ public class ConfiguredMcpClientFactoryTests
         Assert.NotNull(method);
         var value = method.Invoke(null, [arguments]);
         return Assert.IsType<Dictionary<string, object?>>(value);
+    }
+
+    private static string? InvokeResolveStdioWorkingDirectory(string command)
+    {
+        var method = typeof(ConfiguredMcpClientFactory).GetMethod(
+            "ResolveStdioWorkingDirectory",
+            BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+
+        Assert.NotNull(method);
+        return (string?)method.Invoke(null, [command]);
     }
 }
 

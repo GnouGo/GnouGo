@@ -79,13 +79,28 @@ jobs:
           $requiredTools = @(
             "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp$toolExtension",
             "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp$toolExtension",
-            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp$toolExtension"
+            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp$toolExtension",
+            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Code.Mcp/GnOuGo.Code.Mcp$toolExtension"
           )
 
           foreach ($path in $requiredTools) {
             if (-not (Test-Path $path)) {
               throw "Missing bundled desktop tool: $path"
             }
+          }
+
+          $browserToolRoot = "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp"
+          $playwrightRoot = Join-Path $browserToolRoot "ms-playwright"
+          if (-not (Test-Path $playwrightRoot)) {
+            throw "Missing bundled Playwright browsers directory: $playwrightRoot"
+          }
+
+          $browserExecutables = Get-ChildItem $playwrightRoot -Recurse -File | Where-Object {
+            $_.Name -in @('chrome.exe', 'chrome', 'headless_shell', 'Chromium') -or $_.Name -like 'Chromium.app'
+          }
+
+          if (-not $browserExecutables) {
+            throw "Missing bundled Playwright Chromium executable under: $playwrightRoot"
           }
 
           $requiredUiAssets = @(
