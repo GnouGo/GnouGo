@@ -56,11 +56,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         # Reasoning effort: workflow planning is heavy reasoning, default to "high" (max).
         # Authors can override via `generator.reasoning: auto|minimal|low|medium|high|max`.
         plan_reasoning_raw = generator.get("reasoning")
-        plan_reasoning = (
-            plan_reasoning_raw.strip()
-            if isinstance(plan_reasoning_raw, str) and plan_reasoning_raw.strip()
-            else "high"
-        )
+        plan_reasoning = plan_reasoning_raw.strip() if isinstance(plan_reasoning_raw, str) and plan_reasoning_raw.strip() else "high"
 
         policy = input_obj.get("policy") if isinstance(input_obj.get("policy"), dict) else {}
         limits = input_obj.get("limits") if isinstance(input_obj.get("limits"), dict) else {}
@@ -82,9 +78,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         last_error: Exception | None = None
 
         for attempt in range(1, max_attempts + 1):
-            response = await client.call_async(
-                LLMRequest(provider=provider, model=model, prompt=prompt, reasoning=plan_reasoning)
-            )
+            response = await ctx.engine.call_llm_async(LLMRequest(provider=provider, model=model, prompt=prompt, reasoning=plan_reasoning))
             yaml_text = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
             yaml_text = self._normalize_planned_yaml(yaml_text)
 
@@ -141,13 +135,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         plan_reasoning: str | None = None,
     ) -> str:
         allowed_types = set(policy.get("allowed_step_types") or []) or None
-        candidate_mcp_servers = await self._maybe_prefilter_mcp_server_metadata(
-            ctx, generator, instruction, context_text, plan_reasoning
-        )
+        candidate_mcp_servers = await self._maybe_prefilter_mcp_server_metadata(ctx, generator, instruction, context_text, plan_reasoning)
         mcp_doc = await self._build_mcp_documentation(ctx, candidate_mcp_servers)
-        mcp_doc = await self._maybe_prefilter_mcp_documentation(
-            ctx, generator, instruction, mcp_doc, plan_reasoning
-        )
+        mcp_doc = await self._maybe_prefilter_mcp_documentation(ctx, generator, instruction, mcp_doc, plan_reasoning)
         steps_doc = "\n\n".join(ctx.engine.registry.get_dsl_snippets(allowed_types))
         exc_doc = self._build_step_exceptions_doc(ctx.engine.registry, allowed_types)
         constraints_lines: list[str] = []
@@ -181,12 +171,18 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "Required MCP planning pattern: discover candidate servers with `mcp.list`, then use mcp.call with prompt + model (+ optional temperature) "
             "when exact tool names or arguments are not known.\n"
             "For LLM-assisted MCP calls, put the natural-language instruction in input.prompt and pass discovered `tools`/`prompts`.\n"
-            "mcp.call single-tool output shape: `{ status: \"ok\"|\"error\", response: <tool-specific JSON> }`\n"
+            'mcp.call single-tool output shape: `{ status: "ok"|"error", response: <tool-specific JSON> }`\n'
             "Access status via `data.steps.<id>.status` and full result via `data.steps.<id>.response`.\n"
             "Do not assume any field inside `response` unless MCP docs explicitly define it.\n"
             "When `response` is an array, access items directly (`response[0]...`) or through `response.content[0]...` compatibility alias.\n"
             "For batch output: `{ status, results: [{ method, status, response }] }`.\n"
-            "For LLM-assisted output: `{ status, selection_mode: \"llm\", text, tool_calls, results, json? }`.\n\n"
+            'For LLM-assisted output: `{ status, selection_mode: "llm", text, tool_calls, results, json? }`.\n\n'
+            "[LLM MODEL PARAMETERS]\n"
+            "The runtime owns model metadata (token limits, pricing, and capabilities) "
+            "and removes unsupported optional request parameters before provider calls.\n"
+            "Prefer omitting provider/model when runtime defaults should apply. "
+            "Do NOT add `temperature` or `reasoning` by habit; include them only for explicit overrides.\n"
+            "If a generated workflow includes unsupported optional LLM parameters, the runtime may omit them automatically based on model capabilities.\n\n"
             "[ERROR HANDLING AND RETRIES]\n"
             "Use retry only for transient errors explicitly marked retryable.\n"
             "Retries run before on_error. on_error runs after retries are exhausted (or immediately for non-retryable errors).\n"
@@ -273,10 +269,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         if not model:
             return None
 
-        catalog = "\n".join(
-            f"- {getattr(meta, 'name', str(meta))}: {getattr(meta, 'description', None) or '(no description)'}"
-            for meta in server_meta
-        )
+        catalog = "\n".join(f"- {getattr(meta, 'name', str(meta))}: {getattr(meta, 'description', None) or '(no description)'}" for meta in server_meta)
         prompt = (
             "You are an MCP server-selection assistant. Given a task description and a catalog of MCP server "
             "descriptions, select only the servers likely to contain relevant capabilities.\n\n"
@@ -324,7 +317,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     ],
                 )
 
-            response = await llm_client.call_async(
+            response = await ctx.engine.call_llm_async(
                 LLMRequest(
                     provider=provider,
                     model=str(model),
@@ -365,9 +358,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                         ("gnougo-flow.plan.phase", "mcp_server_prefilter"),
                     ],
                 )
-            self._add_prefilter_usage_event(
-                ctx, response.usage, str(model), provider, "mcp_server_prefilter", "gnougo-flow.plan.prefilter.servers.usage"
-            )
+            self._add_prefilter_usage_event(ctx, response.usage, str(model), provider, "mcp_server_prefilter", "gnougo-flow.plan.prefilter.servers.usage")
 
             payload = response.json_payload
             if not isinstance(payload, dict) and response.text:
@@ -536,7 +527,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
         prompt = (
             "Select only MCP servers/capabilities relevant to the task.\n"
-            "Return JSON object {\"filtered\":\"...\"} where filtered is a markdown subset.\n\n"
+            'Return JSON object {"filtered":"..."} where filtered is a markdown subset.\n\n'
             f"Task:\n{instruction}\n\n"
             f"Available MCP:\n{mcp_doc}\n"
         )
@@ -561,7 +552,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                         ("gnougo-flow.plan.phase", "mcp_capability_prefilter"),
                     ],
                 )
-            response = await llm_client.call_async(
+            response = await ctx.engine.call_llm_async(
                 LLMRequest(
                     provider=provider,
                     model=model,
@@ -631,9 +622,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
         return mcp_doc
 
-    async def _build_mcp_documentation(
-        self, ctx: StepExecutionContext, server_meta_override: list[McpServerMetadata] | None = None
-    ) -> str:
+    async def _build_mcp_documentation(self, ctx: StepExecutionContext, server_meta_override: list[McpServerMetadata] | None = None) -> str:
         factory = ctx.engine.mcp_client_factory
         if factory is None:
             return "No MCP client factory configured."
@@ -746,11 +735,13 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         }
         visible_containers = [c for c in container_types if allowed_types is None or c in allowed_types]
         if visible_containers:
-            lines.extend([
-                "",
-                "Container child-error propagation:",
-                "- These container steps can raise both their own errors and nested child-step errors.",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "Container child-error propagation:",
+                    "- These container steps can raise both their own errors and nested child-step errors.",
+                ]
+            )
             for container in visible_containers:
                 lines.append(f"- {container}: {container_types[container]}")
 
@@ -758,8 +749,5 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         for catalog in catalogs:
             lines.append(f"- {catalog.step_type}")
             for exc in sorted(catalog.exceptions, key=lambda e: (e.code, e.retryable)):
-                lines.append(
-                    f"  - {exc.code} ({'retryable' if exc.retryable else 'non-retryable'}): {exc.description}"
-                )
+                lines.append(f"  - {exc.code} ({'retryable' if exc.retryable else 'non-retryable'}): {exc.description}")
         return "\n".join(lines).strip()
-

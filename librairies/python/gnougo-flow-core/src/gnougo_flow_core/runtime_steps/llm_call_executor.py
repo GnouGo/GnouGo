@@ -19,10 +19,7 @@ def _matches_json_schema(value: Any, schema: Any) -> bool:
         if any(key not in value for key in required):
             return False
         properties = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
-        return all(
-            key not in value or _matches_json_schema(value[key], prop_schema)
-            for key, prop_schema in properties.items()
-        )
+        return all(key not in value or _matches_json_schema(value[key], prop_schema) for key, prop_schema in properties.items())
     if schema_type == "array":
         if not isinstance(value, list):
             return False
@@ -44,12 +41,15 @@ class LlmCallExecutor:
     step_description = "Call an LLM with prompt/model and optional structured output."
     dsl_snippet = """
 ### llm.call - Call a language model
+IMPORTANT: `temperature` and `reasoning` are optional overrides.
+Omit them unless the task explicitly needs them; the runtime removes unsupported parameters based on model capabilities.
 ```yaml
 - id: analyze
   type: llm.call
   input:
     model: gpt-4o-mini
-    temperature: 0.2
+    temperature: 0.2        # optional override; omit by default
+    reasoning: high         # optional override; omit by default
     prompt: "Summarize: ${data.inputs.task}"
     structured_output:
       schema_inline:
@@ -97,14 +97,15 @@ Output: `{ text, json?, usage?, raw? }`.
             structured_output_strict=bool(structured.get("strict")) if structured and "strict" in structured else None,
             reasoning=reasoning,
         )
+        request = ctx.engine.sanitize_llm_request(request)
 
         ctx.set_telemetry_attribute("gen_ai.operation.name", "chat")
         ctx.set_telemetry_attribute("gen_ai.system", provider or "default")
         ctx.set_telemetry_attribute("gen_ai.request.model", model)
         if request.temperature is not None:
             ctx.set_telemetry_attribute("gen_ai.request.temperature", request.temperature)
-        if reasoning is not None:
-            ctx.set_telemetry_attribute("gen_ai.request.reasoning_effort", reasoning)
+        if request.reasoning is not None:
+            ctx.set_telemetry_attribute("gen_ai.request.reasoning_effort", request.reasoning)
 
         if ctx.limits.log_step_content:
             ctx.add_telemetry_event(
@@ -121,7 +122,7 @@ Output: `{ text, json?, usage?, raw? }`.
         )
 
         try:
-            response = await client.call_async(request)
+            response = await ctx.engine.call_llm_async(request)
         except TimeoutError as exc:
             raise WorkflowRuntimeException(ErrorCodes.LLM_TIMEOUT, str(exc), True) from exc
         except Exception as exc:

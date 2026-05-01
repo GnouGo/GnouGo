@@ -400,18 +400,10 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
 
         ctx.set_telemetry_attribute("gen_ai.system", provider or "default")
         ctx.set_telemetry_attribute("gen_ai.request.model", model)
-        if temperature is not None:
-            ctx.set_telemetry_attribute("gen_ai.request.temperature", temperature)
         ctx.set_telemetry_attribute("mcp.capabilities_count", len(capabilities))
 
         selection_prompt = _runtime._build_llm_selection_prompt(prompt)
-        if ctx.limits.log_step_content:
-            ctx.add_telemetry_event(
-                "gen_ai.content.prompt",
-                [("gen_ai.prompt", selection_prompt), ("prompt.role", "user"), ("gnougo-flow.mcp.phase", "selection")],
-            )
-
-        llm_response = await llm_client.call_async(
+        selection_request = ctx.engine.sanitize_llm_request(
             LLMRequest(
                 provider=provider,
                 model=model,
@@ -420,6 +412,15 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                 tools=[c["tool"] for c in capabilities],
             )
         )
+        if selection_request.temperature is not None:
+            ctx.set_telemetry_attribute("gen_ai.request.temperature", selection_request.temperature)
+        if ctx.limits.log_step_content:
+            ctx.add_telemetry_event(
+                "gen_ai.content.prompt",
+                [("gen_ai.prompt", selection_prompt), ("prompt.role", "user"), ("gnougo-flow.mcp.phase", "selection")],
+            )
+
+        llm_response = await ctx.engine.call_llm_async(selection_request)
 
         finish_reason = "tool_calls" if llm_response.tool_calls else "stop"
         ctx.set_telemetry_attribute("gen_ai.response.model", model)
@@ -491,7 +492,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                     [("gen_ai.prompt", finalize_prompt), ("prompt.role", "user"), ("gnougo-flow.mcp.phase", "finalize")],
                 )
 
-            finalize_response = await llm_client.call_async(
+            finalize_request = ctx.engine.sanitize_llm_request(
                 LLMRequest(
                     provider=provider,
                     model=model,
@@ -501,6 +502,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                     structured_output_strict=strict,
                 )
             )
+            finalize_response = await ctx.engine.call_llm_async(finalize_request)
             _runtime._extract_usage_telemetry(ctx, finalize_response.usage, model)
 
             structured_json = finalize_response.json_payload

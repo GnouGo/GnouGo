@@ -20,6 +20,7 @@ from .compilation import WorkflowCompiler
 from .errors import ErrorCodes, WorkflowRuntimeException
 from .expressions import ExpressionEvaluator, StringInterpolator
 from .mcp_cache import McpCacheHelper
+from .model_metadata import LLMModelMetadataResolver, sanitize_llm_request
 from .models import (
     CompiledDocument,
     CompiledStep,
@@ -30,6 +31,8 @@ from .models import (
     LLMRequest,
     LLMResponse,
     LLMTool,
+    LLMOptions,
+    LLMModelMetadata,
     LlmRuntimeDefaults,
     McpCallResult,
     McpGetPromptResult,
@@ -340,6 +343,7 @@ class WorkflowEngine:
 
         self.telemetry: IWorkflowTelemetry = NullWorkflowTelemetry()
         self.lm_defaults = LlmRuntimeDefaults()
+        self.llm_options = LLMOptions()
         self.fetch_policy: FetchPolicy | None = None
         self.limits = ExecutionLimits()
         self.compiled_document: CompiledDocument | None = None
@@ -362,6 +366,18 @@ class WorkflowEngine:
         rp = provider if provider and provider.strip() else self.lm_defaults.provider
         rm = model if model and model.strip() else self.lm_defaults.model
         return rp or None, rm or None
+
+    def resolve_model_metadata(self, provider_type: str | None, model: str) -> LLMModelMetadata:
+        return LLMModelMetadataResolver(self.llm_options).resolve(provider_type, model)
+
+    def sanitize_llm_request(self, request: LLMRequest) -> LLMRequest:
+        metadata = self.resolve_model_metadata(request.provider, request.model)
+        return sanitize_llm_request(request, metadata)
+
+    async def call_llm_async(self, request: LLMRequest) -> LLMResponse:
+        if self.llm_client is None:
+            raise WorkflowRuntimeException(ErrorCodes.LLM_NETWORK, "No LLM client configured")
+        return await self.llm_client.call_async(self.sanitize_llm_request(request))
 
     def _prepare_workflow_execution(self, workflow: CompiledWorkflow) -> None:
         self.compiled_document = workflow.document
