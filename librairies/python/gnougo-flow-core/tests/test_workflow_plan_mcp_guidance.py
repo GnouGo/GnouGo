@@ -188,13 +188,48 @@ async def test_workflow_plan_server_prefilter_uses_descriptions_before_capabilit
     assert len(llm.requests) == 3
     assert llm.requests[0].structured_output_schema is not None
     assert llm.requests[0].structured_output_strict is True
+    assert llm.requests[0].temperature is None
     assert "[SERVER CATALOG]" in llm.requests[0].prompt
     assert "GitHub repository automation" in llm.requests[0].prompt
     assert "Weather forecasts" in llm.requests[0].prompt
     assert "list_repos" not in llm.requests[0].prompt
     assert llm.requests[1].structured_output_schema is not None
+    assert llm.requests[1].temperature is None
     assert "list_repos" in llm.requests[2].prompt
     assert "get_weather" not in llm.requests[2].prompt
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_server_prefilter_uses_explicit_temperature_when_configured() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: gpt-4
+                instruction: Build a workflow that lists GitHub repositories
+                prefilter:
+                  temperature: 1.0
+              validate:
+                compile: false
+    """
+    llm = _SequencePrefilterLlm()
+    factory = _TwoServerFactory()
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = factory
+
+    result = await engine.execute_async(_compile_main(source), {})
+
+    assert result.success
+    assert len(llm.requests) == 3
+    assert llm.requests[0].temperature == 1.0
+    assert llm.requests[1].temperature == 1.0
+    assert llm.requests[2].temperature is None
 
 
 @pytest.mark.asyncio
