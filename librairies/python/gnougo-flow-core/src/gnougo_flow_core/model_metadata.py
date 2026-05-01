@@ -443,6 +443,45 @@ def try_get_builtin(model_name: str) -> LLMModelMetadata | None:
     return None
 
 
+def get_missing_required_metadata_fields(metadata: LLMModelMetadata) -> list[str]:
+    """Return metadata fields required by the .NET /llm configuration flow."""
+
+    missing: list[str] = []
+    if metadata.context_window_tokens is None or metadata.context_window_tokens <= 0:
+        missing.append("contextWindowTokens")
+    if metadata.max_input_tokens is None or metadata.max_input_tokens <= 0:
+        missing.append("maxInputTokens")
+    if metadata.max_output_tokens is None or metadata.max_output_tokens <= 0:
+        missing.append("maxOutputTokens")
+
+    if metadata.pricing is None:
+        missing.extend(["pricing.inputPer1MTokens", "pricing.outputPer1MTokens"])
+    else:
+        if metadata.pricing.input_per_1m_tokens is None or metadata.pricing.input_per_1m_tokens < 0:
+            missing.append("pricing.inputPer1MTokens")
+        if metadata.pricing.output_per_1m_tokens is None or metadata.pricing.output_per_1m_tokens < 0:
+            missing.append("pricing.outputPer1MTokens")
+
+    capabilities = metadata.capabilities
+    if capabilities.supports_temperature is None:
+        missing.append("capabilities.supportsTemperature")
+    if capabilities.supports_reasoning_effort is None:
+        missing.append("capabilities.supportsReasoningEffort")
+    if capabilities.supports_structured_output is None:
+        missing.append("capabilities.supportsStructuredOutput")
+    if capabilities.supports_tools is None:
+        missing.append("capabilities.supportsTools")
+    if capabilities.supports_json_mode is None:
+        missing.append("capabilities.supportsJsonMode")
+
+    return missing
+
+
+def has_complete_required_metadata(options: LLMOptions | None, provider_type: str | None, model: str) -> bool:
+    metadata = LLMModelMetadataResolver(options).resolve(provider_type, model)
+    return not get_missing_required_metadata_fields(metadata)
+
+
 def _merge_into(target: LLMModelMetadata, source: LLMModelMetadata, fallback_id: str | None = None) -> None:
     if source.id:
         target.id = source.id
@@ -662,4 +701,5 @@ def estimate_cost(model_name: str, input_tokens: int | None = 0, output_tokens: 
     return ((input_tokens or 0) / 1_000_000.0) * (pricing.input_per_1m_tokens or 0.0) + ((output_tokens or 0) / 1_000_000.0) * (
         pricing.output_per_1m_tokens or 0.0
     )
+
 

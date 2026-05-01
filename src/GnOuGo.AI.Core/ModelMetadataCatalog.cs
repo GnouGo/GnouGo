@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿
+using System.Text.Json.Nodes;
 
 namespace GnOuGo.AI.Core;
 
@@ -125,6 +126,62 @@ public static partial class ModelMetadataCatalog
 
         pricing = default!;
         return false;
+    }
+
+    public static IReadOnlyList<string> GetMissingRequiredMetadataFields(
+        LLMOptions? options,
+        string? providerType,
+        string modelName,
+        out LLMModelMetadata metadata)
+    {
+        metadata = new LLMModelMetadataResolver(options).Resolve(providerType, modelName);
+        return GetMissingRequiredMetadataFields(metadata);
+    }
+
+    public static bool HasCompleteRequiredMetadata(LLMOptions? options, string? providerType, string modelName)
+    {
+        var missing = GetMissingRequiredMetadataFields(options, providerType, modelName, out _);
+        return missing.Count == 0;
+    }
+
+    public static IReadOnlyList<string> GetMissingRequiredMetadataFields(LLMModelMetadata metadata)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+
+        var missing = new List<string>();
+        if (metadata.ContextWindowTokens is null or <= 0)
+            missing.Add("contextWindowTokens");
+        if (metadata.MaxInputTokens is null or <= 0)
+            missing.Add("maxInputTokens");
+        if (metadata.MaxOutputTokens is null or <= 0)
+            missing.Add("maxOutputTokens");
+
+        if (metadata.Pricing is null)
+        {
+            missing.Add("pricing.inputPer1MTokens");
+            missing.Add("pricing.outputPer1MTokens");
+        }
+        else
+        {
+            if (metadata.Pricing.InputPer1MTokens is null or < 0)
+                missing.Add("pricing.inputPer1MTokens");
+            if (metadata.Pricing.OutputPer1MTokens is null or < 0)
+                missing.Add("pricing.outputPer1MTokens");
+        }
+
+        var capabilities = metadata.Capabilities;
+        if (capabilities.SupportsTemperature is null)
+            missing.Add("capabilities.supportsTemperature");
+        if (capabilities.SupportsReasoningEffort is null)
+            missing.Add("capabilities.supportsReasoningEffort");
+        if (capabilities.SupportsStructuredOutput is null)
+            missing.Add("capabilities.supportsStructuredOutput");
+        if (capabilities.SupportsTools is null)
+            missing.Add("capabilities.supportsTools");
+        if (capabilities.SupportsJsonMode is null)
+            missing.Add("capabilities.supportsJsonMode");
+
+        return missing;
     }
 
     internal static bool TryGetBuiltinCore(string modelName, out LLMModelMetadata metadata)
@@ -442,6 +499,7 @@ public static partial class ModelMetadataCatalog
         return values;
     }
 }
+
 
 
 

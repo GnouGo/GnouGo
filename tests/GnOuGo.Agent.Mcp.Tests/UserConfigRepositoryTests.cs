@@ -1,5 +1,6 @@
 ﻿using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Nodes;
 using GnOuGo.Agent.Mcp.Data;
 using GnOuGo.Agent.Mcp.Services;
 
@@ -65,6 +66,45 @@ public sealed class UserConfigRepositoryTests : IAsyncDisposable
         Assert.Null(snapshot.DefaultLlmProvider);
         Assert.Null(snapshot.DefaultLlmModel);
         Assert.Null(snapshot.DefaultAgent);
+    }
+
+    [Fact]
+    public async Task SetAsync_PersistsAndReadsBack_ModelOverrides()
+    {
+        await _repository.SetAsync(new UserConfigUpdate(
+            DefaultLlmProvider: null,
+            DefaultLlmModel: null,
+            DefaultAgent: null,
+            ModelOverrides: new JsonObject
+            {
+                ["local/custom"] = new JsonObject
+                {
+                    ["id"] = "local/custom",
+                    ["providerType"] = "ollama",
+                    ["contextWindowTokens"] = 32768,
+                    ["maxInputTokens"] = 32768,
+                    ["maxOutputTokens"] = 4096,
+                    ["pricing"] = new JsonObject { ["inputPer1MTokens"] = 0, ["outputPer1MTokens"] = 0 },
+                    ["capabilities"] = new JsonObject
+                    {
+                        ["supportsTemperature"] = true,
+                        ["supportsReasoningEffort"] = false,
+                        ["supportsStructuredOutput"] = true,
+                        ["supportsTools"] = true,
+                        ["supportsJsonMode"] = true
+                    }
+                }
+            }));
+
+        var snapshot = await _repository.GetAsync();
+
+        Assert.NotNull(snapshot.ModelOverrides);
+        var overrides = snapshot.ModelOverrides!;
+        var metadata = Assert.Single(overrides).Value!.AsObject();
+        Assert.Equal("local/custom", metadata["id"]!.GetValue<string>());
+        Assert.Equal(32768, metadata["contextWindowTokens"]!.GetValue<int>());
+        Assert.Equal(0, metadata["pricing"]!.AsObject()["inputPer1MTokens"]!.GetValue<int>());
+        Assert.True(metadata["capabilities"]!.AsObject()["supportsTools"]!.GetValue<bool>());
     }
 
     public async ValueTask DisposeAsync()

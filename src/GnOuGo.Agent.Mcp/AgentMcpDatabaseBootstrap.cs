@@ -33,6 +33,7 @@ internal static class AgentMcpDatabaseBootstrap
         if (await TableExistsAsync(agentDb, "UserConfigs", ct))
         {
             await EnsureColumnAsync(agentDb, "UserConfigs", "DefaultEmbeddingConfig", "TEXT NULL", ct);
+            await EnsureColumnAsync(agentDb, "UserConfigs", "ModelOverridesJson", "TEXT NULL", ct);
             return;
         }
 
@@ -46,6 +47,7 @@ internal static class AgentMcpDatabaseBootstrap
                 "DefaultLlmModel" TEXT NULL,
                 "DefaultEmbeddingConfig" TEXT NULL,
                 "DefaultAgent" TEXT NULL,
+                "ModelOverridesJson" TEXT NULL,
                 "UpdatedAtTicks" INTEGER NOT NULL
             );
             """,

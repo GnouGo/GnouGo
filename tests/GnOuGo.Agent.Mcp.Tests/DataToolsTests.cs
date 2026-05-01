@@ -263,6 +263,37 @@ public class DataToolsTests
         Assert.Null(config["default_agent"]);
     }
 
+    [Fact]
+    public async Task UserConfigSet_SavesAndReturnsModelOverrides()
+    {
+        var result = await _tools.UserConfigSet(
+            modelOverridesJson: """
+            {
+              "local/custom": {
+                "id": "local/custom",
+                "providerType": "ollama",
+                "contextWindowTokens": 32768,
+                "maxInputTokens": 32768,
+                "maxOutputTokens": 4096,
+                "pricing": { "inputPer1MTokens": 0, "outputPer1MTokens": 0 },
+                "capabilities": {
+                  "supportsTemperature": true,
+                  "supportsReasoningEffort": false,
+                  "supportsStructuredOutput": true,
+                  "supportsTools": true,
+                  "supportsJsonMode": true
+                }
+              }
+            }
+            """);
+
+        Assert.True(result["success"]!.GetValue<bool>());
+        var overrides = result["config"]!.AsObject()["model_overrides"]!.AsObject();
+        var custom = overrides["local/custom"]!.AsObject();
+        Assert.Equal(32768, custom["contextWindowTokens"]!.GetValue<int>());
+        Assert.True(custom["capabilities"]!.AsObject()["supportsTools"]!.GetValue<bool>());
+    }
+
     private sealed class InMemoryUserConfigRepository : IUserConfigRepository
     {
         private UserConfigSnapshot _snapshot = new(null, null, null, null);
@@ -281,8 +312,9 @@ public class DataToolsTests
             var agent = update.ClearDefaultAgent
                 ? null
                 : string.IsNullOrWhiteSpace(update.DefaultAgent) ? _snapshot.DefaultAgent : update.DefaultAgent.Trim();
+            var overrides = update.ModelOverrides ?? _snapshot.ModelOverrides;
 
-            _snapshot = new UserConfigSnapshot(provider, model, agent, DateTimeOffset.UtcNow);
+            _snapshot = new UserConfigSnapshot(provider, model, agent, DateTimeOffset.UtcNow, ModelOverrides: overrides);
             return Task.FromResult(_snapshot);
         }
     }

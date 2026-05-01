@@ -78,5 +78,51 @@ public sealed class ModelMetadataCatalogTests
             File.Delete(path);
         }
     }
+
+    [Fact]
+    public void GetMissingRequiredMetadataFields_ReturnsPricingAndLimitsForUnknownModel()
+    {
+        var missing = ModelMetadataCatalog.GetMissingRequiredMetadataFields(
+            new LLMOptions(),
+            "openai",
+            "vendor/new-model",
+            out var metadata);
+
+        Assert.Equal("new-model", metadata.Id);
+        Assert.Contains("contextWindowTokens", missing);
+        Assert.Contains("maxInputTokens", missing);
+        Assert.Contains("maxOutputTokens", missing);
+        Assert.Contains("pricing.inputPer1MTokens", missing);
+        Assert.Contains("pricing.outputPer1MTokens", missing);
+    }
+
+    [Fact]
+    public void HasCompleteRequiredMetadata_ReturnsTrueForCompleteOverride()
+    {
+        var options = new LLMOptions();
+        options.ModelOverrides["custom-model"] = new LLMModelMetadata
+        {
+            Id = "custom-model",
+            ContextWindowTokens = 32768,
+            MaxInputTokens = 32768,
+            MaxOutputTokens = 4096,
+            Pricing = new ModelPricingMetadata
+            {
+                InputPer1MTokens = 0m,
+                OutputPer1MTokens = 0m
+            },
+            Capabilities = new ModelCapabilityMetadata
+            {
+                SupportsTemperature = true,
+                SupportsReasoningEffort = false,
+                SupportsStructuredOutput = true,
+                SupportsTools = true,
+                SupportsJsonMode = true
+            }
+        };
+
+        Assert.True(ModelMetadataCatalog.HasCompleteRequiredMetadata(options, "openai", "custom-model"));
+    }
 }
+
 

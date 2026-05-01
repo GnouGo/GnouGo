@@ -149,6 +149,27 @@ public sealed class LLMRuntimeOptionsStore
     }
 
     /// <summary>
+    /// Updates or inserts model metadata in memory without restarting the server.
+    /// </summary>
+    public void UpsertModelOverride(string modelId, LLMModelMetadata metadata)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        ArgumentNullException.ThrowIfNull(metadata);
+
+        lock (_lock)
+        {
+            var opts = DeepClone(_current);
+            var clone = ModelMetadataCatalog.Clone(metadata);
+            if (string.IsNullOrWhiteSpace(clone.Id))
+                clone.Id = modelId.Trim();
+            opts.ModelOverrides[modelId.Trim()] = clone;
+            _current = opts;
+        }
+
+        _logger.LogInformation("LLM model metadata override '{ModelId}' updated at runtime.", modelId);
+    }
+
+    /// <summary>
     /// Removes a named provider from the live runtime options.
     /// </summary>
     public bool RemoveProvider(string providerKey)

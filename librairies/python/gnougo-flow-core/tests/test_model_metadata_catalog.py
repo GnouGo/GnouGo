@@ -3,7 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from gnougo_flow_core.model_metadata import LLMModelMetadataResolver, estimate_cost, sanitize_llm_request
+from gnougo_flow_core.model_metadata import (
+    LLMModelMetadataResolver,
+    estimate_cost,
+    get_missing_required_metadata_fields,
+    has_complete_required_metadata,
+    sanitize_llm_request,
+)
 from gnougo_flow_core.models import LLMModelMetadata, LLMOptions, LLMRequest, LLMTool, ModelCapabilityMetadata, ModelPricingMetadata
 
 
@@ -112,3 +118,41 @@ def test_options_accept_csharp_casing() -> None:
 
     assert metadata.pricing == ModelPricingMetadata(input_per_1m_tokens=1.0, output_per_1m_tokens=2.0)
     assert metadata.capabilities.supports_temperature is False
+
+
+def test_missing_required_metadata_fields_for_unknown_model() -> None:
+    metadata = LLMModelMetadataResolver().resolve("openai", "vendor/new-model")
+
+    missing = get_missing_required_metadata_fields(metadata)
+
+    assert metadata.id == "new-model"
+    assert "contextWindowTokens" in missing
+    assert "maxInputTokens" in missing
+    assert "maxOutputTokens" in missing
+    assert "pricing.inputPer1MTokens" in missing
+    assert "pricing.outputPer1MTokens" in missing
+
+
+def test_has_complete_required_metadata_for_complete_override() -> None:
+    options = LLMOptions(
+        model_overrides={
+            "custom-model": LLMModelMetadata(
+                id="custom-model",
+                context_window_tokens=32768,
+                max_input_tokens=32768,
+                max_output_tokens=4096,
+                pricing=ModelPricingMetadata(input_per_1m_tokens=0.0, output_per_1m_tokens=0.0),
+                capabilities=ModelCapabilityMetadata(
+                    supports_temperature=True,
+                    supports_reasoning_effort=False,
+                    supports_structured_output=True,
+                    supports_tools=True,
+                    supports_json_mode=True,
+                ),
+            )
+        }
+    )
+
+    assert has_complete_required_metadata(options, "openai", "custom-model") is True
+
+

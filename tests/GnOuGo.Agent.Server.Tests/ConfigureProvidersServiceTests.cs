@@ -1,7 +1,7 @@
 ﻿using System.Reflection;
 using System.Diagnostics;
-using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.Hosting.Server.Features;
+using System.Net;
+using System.Net.Sockets;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.Agent.Server.SmartFlow;
@@ -214,7 +214,8 @@ public sealed class ConfigureProvidersServiceTests
             Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
             {
                 ["ollama"] = new() { Url = "http://localhost:11434", Type = "ollama" }
-            }
+            },
+            ModelOverrides = TestModelOverrides("llama3:8b")
         });
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -262,23 +263,92 @@ public sealed class ConfigureProvidersServiceTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_LlmAdd_PromptsForMetadata_WhenSelectedModelIsUnknown()
+    {
+        var llm = new RecordingLlmClient();
+        var modelCatalog = new FakeModelCatalog()
+            .Add("ollama", new LLMModelDescriptor("local/custom", "local/custom", "local", "ollama"));
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
+        var humanInput = new AgentHumanInputProvider();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = string.Empty,
+            DefaultModel = string.Empty,
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+        });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "llm_add.provider" => new JsonObject { ["response"] = "ollama" },
+                    "llm_add.connection" => new JsonObject { ["url"] = "http://localhost:11434" },
+                    "llm_model.select.ollama" => new JsonObject { ["model"] = "local/custom" },
+                    "llm_model.metadata.ollama" => new JsonObject
+                    {
+                        ["display_name"] = "Local Custom",
+                        ["owned_by"] = "local",
+                        ["context_window_tokens"] = 32768,
+                        ["max_input_tokens"] = 32768,
+                        ["max_output_tokens"] = 4096,
+                        ["input_price_per_1m_tokens"] = 0,
+                        ["output_price_per_1m_tokens"] = 0,
+                        ["supports_temperature"] = true,
+                        ["supports_reasoning_effort"] = false,
+                        ["supports_structured_output"] = true,
+                        ["supports_tools"] = true,
+                        ["supports_json_mode"] = true,
+                        ["supports_vision"] = "unknown",
+                        ["supports_audio"] = "unknown"
+                    },
+                    "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                if (request.StepId == "llm_add.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = new ConfigureProvidersService(
+            llm,
+            humanInput,
+            modelCatalog,
+            keyVaultStore,
+            runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<ConfigureProvidersService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
+        await responder;
+
+        Assert.Contains(events, evt => evt.Type == "thinking:info" && evt.Text?.Contains("Metadata for model 'local/custom'", StringComparison.Ordinal) == true);
+        Assert.True(runtimeStore.Current.ModelOverrides.TryGetValue("local/custom", out var metadata));
+        Assert.Equal(32768, metadata.ContextWindowTokens);
+        Assert.Equal(0m, metadata.Pricing!.InputPer1MTokens);
+        Assert.Null(metadata.Pricing.CachedInputPer1MTokens);
+        Assert.True(metadata.Capabilities.SupportsTools);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_LlmDefault_PersistsDefaultLlmViaMountedAgentMcp()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-providers-{Guid.NewGuid():N}.db");
+        var agentMcpPort = GetFreePort();
+        var agentMcpAddress = $"http://127.0.0.1:{agentMcpPort}";
         var app = AgentMcpWebHost.Build([
-            $"--Agent:DatabasePath={dbPath}"
-        ], urls: "http://127.0.0.1:0");
+            $"--Agent:DatabasePath={dbPath}",
+            $"--Kestrel:Endpoints:Http:Url={agentMcpAddress}"
+        ], urls: agentMcpAddress);
 
         try
         {
             await app.StartAsync();
-            var address = app.Services
-                .GetRequiredService<IServer>()
-                .Features
-                .Get<IServerAddressesFeature>()!
-                .Addresses
-                .Select(TestServerAddressResolver.NormalizeBaseAddress)
-                .First();
 
             var llm = new RecordingLlmClient();
             var modelCatalog = new FakeModelCatalog()
@@ -296,12 +366,13 @@ public sealed class ConfigureProvidersServiceTests
                 {
                     ["ollama"] = new() { Url = "http://localhost:11434", Type = "ollama" }
                 },
+                ModelOverrides = TestModelOverrides("llama3:8b"),
                 McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
                 {
                     [AgentMcpHostingExtensions.ServerName] = new()
                     {
                         Type = "http",
-                        Url = $"{address}/mcp",
+                        Url = $"{agentMcpAddress}/mcp",
                         Description = "Test Agent MCP"
                     }
                 }
@@ -367,6 +438,15 @@ public sealed class ConfigureProvidersServiceTests
             {
             }
         }
+    }
+
+    private static int GetFreePort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
     }
 
     [Fact]
@@ -613,7 +693,8 @@ public sealed class ConfigureProvidersServiceTests
             {
                 DefaultProvider = "ollama",
                 DefaultModel = "llama3",
-                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase),
+                ModelOverrides = TestModelOverrides("llama3:8b")
             },
             humanInput,
             keyVaultStore);
@@ -709,7 +790,8 @@ public sealed class ConfigureProvidersServiceTests
             {
                 ["copilot"] = new() { Url = "https://models.github.ai/inference", Type = "copilot" },
                 ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "runtime-secret" }
-            }
+                },
+                ModelOverrides = TestModelOverrides("gpt-5-search-api")
         });
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -794,7 +876,8 @@ public sealed class ConfigureProvidersServiceTests
             {
                 DefaultProvider = "openai",
                 DefaultModel = "gpt-4o-mini",
-                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase),
+                ModelOverrides = TestModelOverrides("gpt-5-search-api")
             },
             humanInput,
             keyVaultStore);
@@ -1174,7 +1257,8 @@ public sealed class ConfigureProvidersServiceTests
                 Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "runtime-secret" }
-                }
+                },
+                ModelOverrides = TestModelOverrides("gpt-5-search-api")
             },
             humanInput,
             keyVaultStore,
@@ -1323,6 +1407,41 @@ public sealed class ConfigureProvidersServiceTests
         }
 
         return spans;
+    }
+
+    private static Dictionary<string, LLMModelMetadata> TestModelOverrides(params string[] modelIds)
+    {
+        var result = new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
+        foreach (var modelId in modelIds)
+        {
+            var isGpt5 = modelId.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
+            result[modelId] = new LLMModelMetadata
+            {
+                Id = modelId,
+                ProviderType = isGpt5 ? "openai" : "ollama",
+                DisplayName = modelId,
+                OwnedBy = isGpt5 ? "openai" : "local",
+                ContextWindowTokens = isGpt5 ? 400000 : 32768,
+                MaxInputTokens = isGpt5 ? 400000 : 32768,
+                MaxOutputTokens = isGpt5 ? 128000 : 4096,
+                Pricing = new ModelPricingMetadata
+                {
+                    InputPer1MTokens = isGpt5 ? 75m : 0m,
+                    OutputPer1MTokens = isGpt5 ? 150m : 0m
+                },
+                Capabilities = new ModelCapabilityMetadata
+                {
+                    SupportsTemperature = !isGpt5,
+                    SupportsReasoningEffort = isGpt5,
+                    SupportsStructuredOutput = true,
+                    SupportsTools = true,
+                    SupportsJsonMode = true,
+                    UnsupportedRequestParameters = isGpt5 ? ["temperature"] : null
+                }
+            };
+        }
+
+        return result;
     }
 }
 

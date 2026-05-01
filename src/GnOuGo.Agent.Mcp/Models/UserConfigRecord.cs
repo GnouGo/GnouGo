@@ -24,6 +24,12 @@ public sealed class UserConfigRecord
 
     public string? DefaultAgent { get; set; }
 
+    /// <summary>
+    /// JSON object keyed by model id. Values follow the LLMModelMetadata shape.
+    /// Stored as user configuration because model metadata is not secret material.
+    /// </summary>
+    public string? ModelOverridesJson { get; set; }
+
     public long UpdatedAtTicks { get; set; }
 
     public DateTimeOffset UpdatedAt

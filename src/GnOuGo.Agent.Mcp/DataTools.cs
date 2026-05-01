@@ -95,8 +95,9 @@ public sealed class DataTools
     [McpServerTool(Name = "user_config_set"), Description(
         "Persist user defaults in the Agent MCP database. All arguments are optional. " +
         "Provide default_llm_provider/default_llm_model, default_embedding_config and/or default_agent to update values. " +
+        "Provide model_overrides_json as a JSON object keyed by model id to persist custom model metadata. " +
         "Use clear_default_llm, clear_default_embedding or clear_default_agent to remove persisted defaults. " +
-        "Returns { success, config: { default_llm_provider?, default_llm_model?, default_embedding_config?, default_agent?, updated_at? } }.")]
+        "Returns { success, config: { default_llm_provider?, default_llm_model?, default_embedding_config?, default_agent?, model_overrides?, updated_at? } }.")]
     public async Task<JsonObject> UserConfigSet(
         [Description("Default LLM provider name to persist.")]
         string? defaultLlmProvider = null,
@@ -111,10 +112,13 @@ public sealed class DataTools
         [Description("When true, clears default_embedding_config.")]
         bool clearDefaultEmbedding = false,
         [Description("When true, clears default_agent.")]
-        bool clearDefaultAgent = false)
+        bool clearDefaultAgent = false,
+        [Description("JSON object of LLM model metadata overrides, keyed by model id. Pass {} to clear all overrides.")]
+        string? modelOverridesJson = null)
     {
         try
         {
+            var modelOverrides = ParseModelOverrides(modelOverridesJson);
             var snapshot = await _userConfigs.SetAsync(new UserConfigUpdate(
                 DefaultLlmProvider: defaultLlmProvider,
                 DefaultLlmModel: defaultLlmModel,
@@ -122,7 +126,8 @@ public sealed class DataTools
                 DefaultAgent: defaultAgent,
                 ClearDefaultLlm: clearDefaultLlm,
                 ClearDefaultEmbedding: clearDefaultEmbedding,
-                ClearDefaultAgent: clearDefaultAgent));
+                ClearDefaultAgent: clearDefaultAgent,
+                ModelOverrides: modelOverrides));
 
             return SerializeUserConfig(snapshot);
         }
@@ -130,6 +135,11 @@ public sealed class DataTools
         {
             _logger.LogWarning(ex, "user_config_set validation error");
             return ErrorResult("INVALID_INPUT", ex.Message);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "user_config_set model overrides JSON parse error");
+            return ErrorResult("INVALID_JSON", $"Failed to parse modelOverridesJson: {ex.Message}");
         }
         catch (Exception ex)
         {
@@ -224,9 +234,21 @@ public sealed class DataTools
                 ["default_llm_model"] = snapshot.DefaultLlmModel,
                 ["default_embedding_config"] = snapshot.DefaultEmbeddingConfig,
                 ["default_agent"] = snapshot.DefaultAgent,
+                ["model_overrides"] = SerializeModelOverrides(snapshot.ModelOverrides),
                 ["updated_at"] = snapshot.UpdatedAt?.ToString("o")
             }
         };
+
+    private static JsonObject? ParseModelOverrides(string? modelOverridesJson)
+    {
+        if (modelOverridesJson is null)
+            return null;
+
+        return JsonNode.Parse(modelOverridesJson) as JsonObject ?? new JsonObject();
+    }
+
+    private static JsonNode SerializeModelOverrides(JsonObject? overrides)
+        => overrides?.DeepClone() ?? new JsonObject();
 
     private static JsonObject ErrorResult(string errorCode, string errorMessage)
         => new()
