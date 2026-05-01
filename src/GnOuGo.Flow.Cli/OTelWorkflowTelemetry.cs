@@ -198,6 +198,44 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
         }
     }
 
+    public ITelemetrySpan SpanStart(ITelemetrySpan parentSpan, TelemetrySpanInfo info)
+    {
+        var parentActivity = ResolveParentActivity(parentSpan);
+        Activity? activity;
+        if (parentActivity != null)
+        {
+            var parentContext = new ActivityContext(parentActivity.TraceId, parentActivity.SpanId, ActivityTraceFlags.Recorded);
+            activity = _source.StartActivity(info.Name, ActivityKind.Internal, parentContext);
+        }
+        else
+        {
+            activity = _source.StartActivity(info.Name, ActivityKind.Internal);
+        }
+
+        if (activity == null)
+            return new OTelWorkflowSpan(null);
+
+        ApplySpanInfo(activity, info);
+        return new OTelWorkflowSpan(activity);
+    }
+
+    public void SpanEnd(ITelemetrySpan span, TelemetrySpanResultInfo result)
+    {
+        if (span is not OTelWorkflowSpan ws || ws.Activity == null)
+            return;
+
+        ws.Activity.SetTag("gnougo-flow.span.duration_ms", result.Duration.TotalMilliseconds);
+        if (result.Success)
+        {
+            ws.Activity.SetStatus(ActivityStatusCode.Ok);
+            return;
+        }
+
+        ws.Activity.SetStatus(ActivityStatusCode.Error, result.ErrorMessage);
+        ws.Activity.SetTag("error.type", result.ErrorType);
+        ws.Activity.SetTag("error.message", result.ErrorMessage);
+    }
+
     // -- Helpers --
 
     private static string BuildStepSpanName(StepTelemetryInfo info)
@@ -217,6 +255,17 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
             OTelStepSpan stepSpan => stepSpan.Activity,
             _ => null
         };
+
+    private static void ApplySpanInfo(Activity activity, TelemetrySpanInfo info)
+    {
+        if (!string.IsNullOrWhiteSpace(info.Phase)) activity.SetTag("gnougo-flow.plan.phase", info.Phase);
+        if (!string.IsNullOrWhiteSpace(info.StepId)) activity.SetTag("gnougo-flow.step.id", info.StepId);
+        if (!string.IsNullOrWhiteSpace(info.StepType)) activity.SetTag("gnougo-flow.step.type", info.StepType);
+        if (info.CallDepth.HasValue) activity.SetTag("gnougo-flow.step.call_depth", info.CallDepth.Value);
+        if (info.Attributes == null) return;
+        foreach (var kv in info.Attributes)
+            activity.SetTag(kv.Key, kv.Value);
+    }
 
     private static void ApplyWorkflowSourceTags(Activity activity, WorkflowTelemetryInfo info)
     {
@@ -245,6 +294,21 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
     private sealed class OTelWorkflowSpan(Activity? activity) : IWorkflowSpan
     {
         public Activity? Activity { get; } = activity;
+        public void SetAttribute(string key, object? value) => Activity?.SetTag(key, value);
+        public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
+        {
+            if (Activity == null) return;
+            if (attributes != null)
+            {
+                var tags = new ActivityTagsCollection();
+                foreach (var kv in attributes) tags[kv.Key] = kv.Value;
+                Activity.AddEvent(new ActivityEvent(name, tags: tags));
+            }
+            else
+            {
+                Activity.AddEvent(new ActivityEvent(name));
+            }
+        }
         public void Dispose() => Activity?.Dispose();
     }
 

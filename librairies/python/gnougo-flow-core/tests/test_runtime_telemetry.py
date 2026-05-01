@@ -9,6 +9,7 @@ from gnougo_flow_core.runtime import ITelemetrySpan, WorkflowEngine
 class CaptureSpan(ITelemetrySpan):
     def __init__(self, name: str) -> None:
         self.name = name
+        self.parent_name: str | None = None
         self.attributes: dict[str, object] = {}
         self.events: list[tuple[str, list[tuple[str, object]]]] = []
 
@@ -23,6 +24,7 @@ class CaptureTelemetry:
     def __init__(self) -> None:
         self.workflow_starts: list[dict[str, object]] = []
         self.step_spans: list[CaptureSpan] = []
+        self.child_spans: list[CaptureSpan] = []
 
     def workflow_start(self, info):
         self.workflow_starts.append(info)
@@ -38,6 +40,17 @@ class CaptureTelemetry:
 
     def step_end(self, span, info):
         return
+
+    def span_start(self, parent, info):
+        span = CaptureSpan(str(info.get("name", "span")))
+        span.parent_name = getattr(parent, "name", None)
+        for key, value in info.get("attributes") or []:
+            span.attributes[key] = value
+        self.child_spans.append(span)
+        return span
+
+    def span_end(self, span, info):
+        span.attributes["gnougo-flow.span.success"] = info.get("success")
 
 
 class FakeLLMClient:
@@ -245,5 +258,15 @@ async def test_workflow_plan_mcp_server_prefilter_emits_genai_telemetry_events()
         and ("mcp.servers_selected", 1) in attrs
         for name, attrs in events
     )
+
+    child_spans = {span.name: span for span in telemetry.child_spans}
+    assert child_spans["workflow.plan.mcp_server_prefilter"].parent_name == "plan"
+    assert child_spans["workflow.plan.mcp_discovery"].parent_name == "plan"
+    assert child_spans["workflow.plan.mcp_capability_prefilter"].parent_name == "plan"
+    assert child_spans["workflow.plan.generate"].parent_name == "plan"
+    assert child_spans["workflow.plan.validate"].parent_name == "plan"
+    assert child_spans["workflow.plan.mcp_server_prefilter"].attributes["gen_ai.operation.name"] == "chat"
+    assert child_spans["workflow.plan.mcp_server_prefilter"].attributes["gen_ai.usage.total_tokens"] == 5
+    assert child_spans["workflow.plan.mcp_server_prefilter"].attributes["mcp.servers_selected"] == 1
 
 

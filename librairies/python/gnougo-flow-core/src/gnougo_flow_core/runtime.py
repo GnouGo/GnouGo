@@ -89,6 +89,99 @@ class StepExecutionContext:
         if callable(add_event):
             add_event(name, attributes)
 
+    def begin_telemetry_span(
+        self,
+        name: str,
+        phase: str | None = None,
+        attributes: list[tuple[str, Any]] | None = None,
+    ) -> "TelemetrySpanScope":
+        all_attributes: list[tuple[str, Any]] = [
+            ("gnougo-flow.step.id", self.step.id),
+            ("gnougo-flow.step.type", self.step.type),
+            ("gnougo-flow.step.call_depth", self.call_depth),
+        ]
+        if phase:
+            all_attributes.append(("gnougo-flow.plan.phase", phase))
+        if attributes:
+            all_attributes.extend(attributes)
+
+        parent = self.telemetry_span or ITelemetrySpan()
+        span_start = getattr(self.engine.telemetry, "span_start", None)
+        span = (
+            span_start(
+                parent,
+                {
+                    "name": name,
+                    "phase": phase,
+                    "step_id": self.step.id,
+                    "step_type": self.step.type,
+                    "call_depth": self.call_depth,
+                    "attributes": all_attributes,
+                },
+            )
+            if callable(span_start)
+            else ITelemetrySpan()
+        )
+        return TelemetrySpanScope(self.engine.telemetry, span)
+
+
+class TelemetrySpanScope:
+    def __init__(self, telemetry: IWorkflowTelemetry, span: ITelemetrySpan) -> None:
+        self._telemetry = telemetry
+        self._span = span
+        self._started = time.perf_counter()
+        self._success = True
+        self._error_type: str | None = None
+        self._error_message: str | None = None
+        self._ended = False
+
+    def __enter__(self) -> "TelemetrySpanScope":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        if exc is not None:
+            self.fail(exc)
+        self.end()
+
+    def set_attribute(self, key: str, value: Any) -> None:
+        set_attribute = getattr(self._span, "set_attribute", None)
+        if callable(set_attribute):
+            set_attribute(key, value)
+
+    def add_event(self, name: str, attributes: list[tuple[str, Any]] | None = None) -> None:
+        add_event = getattr(self._span, "add_event", None)
+        if callable(add_event):
+            add_event(name, attributes)
+
+    def fail(self, exc: BaseException | str, message: str | None = None) -> None:
+        self._success = False
+        if isinstance(exc, str):
+            self._error_type = exc
+            self._error_message = message
+        else:
+            self._error_type = type(exc).__name__
+            self._error_message = str(exc)
+
+    def end(self) -> None:
+        if self._ended:
+            return
+        self._ended = True
+        duration = time.perf_counter() - self._started
+        span_end = getattr(self._telemetry, "span_end", None)
+        if callable(span_end):
+            span_end(
+                self._span,
+                {
+                    "success": self._success,
+                    "duration_seconds": duration,
+                    "error_type": self._error_type,
+                    "error_message": self._error_message,
+                },
+            )
+        end = getattr(self._span, "end", None)
+        if callable(end):
+            end()
+
 
 def _coerce_long(value: Any) -> int | None:
     if value is None:

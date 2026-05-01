@@ -78,15 +78,52 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         last_error: Exception | None = None
 
         for attempt in range(1, max_attempts + 1):
-            response = await ctx.engine.call_llm_async(LLMRequest(provider=provider, model=model, prompt=prompt, reasoning=plan_reasoning))
-            yaml_text = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
-            yaml_text = self._normalize_planned_yaml(yaml_text)
+            with ctx.begin_telemetry_span(
+                "workflow.plan.generate",
+                "generation",
+                [
+                    ("gen_ai.operation.name", "chat"),
+                    ("gen_ai.system", provider or "unknown"),
+                    ("gen_ai.request.model", model),
+                    ("gnougo-flow.plan.attempt", attempt),
+                ],
+            ) as generation_span:
+                if ctx.limits.log_step_content:
+                    generation_span.add_event(
+                        "gen_ai.content.prompt",
+                        [
+                            ("gen_ai.prompt", prompt),
+                            ("prompt.role", "user"),
+                            ("gnougo-flow.plan.attempt", attempt),
+                            ("gnougo-flow.plan.phase", "generation"),
+                        ],
+                    )
+                response = await ctx.engine.call_llm_async(LLMRequest(provider=provider, model=model, prompt=prompt, reasoning=plan_reasoning))
+                generation_span.set_attribute("gen_ai.response.model", model)
+                generation_span.set_attribute("gen_ai.response.finish_reason", "stop")
+                self._add_usage_attributes(generation_span, response.usage)
+                if ctx.limits.log_step_content and response.text:
+                    generation_span.add_event(
+                        "gen_ai.content.completion",
+                        [
+                            ("gen_ai.completion", response.text),
+                            ("completion.role", "assistant"),
+                            ("completion.finish_reason", "stop"),
+                            ("gnougo-flow.plan.attempt", attempt),
+                            ("gnougo-flow.plan.phase", "generation"),
+                        ],
+                    )
 
             try:
-                doc = WorkflowParser.parse(yaml_text)
-                self._enforce_plan_policy(doc, policy, limits)
-                if bool(validate.get("compile", True)):
-                    WorkflowCompiler().compile(doc)
+                with ctx.begin_telemetry_span("workflow.plan.validate", "validation", [("gnougo-flow.plan.attempt", attempt)]) as validation_span:
+                    yaml_text = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
+                    yaml_text = self._normalize_planned_yaml(yaml_text)
+                    validation_span.set_attribute("gnougo-flow.plan.yaml_length", len(yaml_text))
+                    doc = WorkflowParser.parse(yaml_text)
+                    validation_span.set_attribute("gnougo-flow.plan.workflow_count", len(doc.workflows))
+                    self._enforce_plan_policy(doc, policy, limits)
+                    if bool(validate.get("compile", True)):
+                        WorkflowCompiler().compile(doc)
                 return {
                     "yaml": yaml_text,
                     "workflow": {
@@ -245,6 +282,21 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
         ctx.add_telemetry_event(event_name, attrs)
 
+    @staticmethod
+    def _add_usage_attributes(span: Any, usage: Any) -> None:
+        if not isinstance(usage, dict):
+            return
+
+        input_tokens = usage.get("prompt_tokens", usage.get("input_tokens"))
+        output_tokens = usage.get("completion_tokens", usage.get("output_tokens"))
+        total_tokens = usage.get("total_tokens")
+        if input_tokens is not None:
+            span.set_attribute("gen_ai.usage.input_tokens", int(input_tokens))
+        if output_tokens is not None:
+            span.set_attribute("gen_ai.usage.output_tokens", int(output_tokens))
+        if total_tokens is not None:
+            span.set_attribute("gen_ai.usage.total_tokens", int(total_tokens))
+
     async def _maybe_prefilter_mcp_server_metadata(
         self,
         ctx: StepExecutionContext,
@@ -285,7 +337,18 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             f"{'Context: ' + context_text if context_text else ''}"
         )
 
+        prefilter_span = ctx.begin_telemetry_span(
+            "workflow.plan.mcp_server_prefilter",
+            "mcp_server_prefilter",
+            [
+                ("gen_ai.operation.name", "chat"),
+                ("gen_ai.system", provider or "unknown"),
+                ("gen_ai.request.model", model),
+                ("mcp.servers_total", len(server_meta)),
+            ],
+        )
         try:
+            prefilter_span.__enter__()
             ctx.add_telemetry_event(
                 "gnougo-flow.step.thinking",
                 [
@@ -307,6 +370,15 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 ],
             )
             if ctx.limits.log_step_content:
+                prefilter_span.add_event(
+                    "gen_ai.content.prompt",
+                    [
+                        ("gen_ai.prompt", prompt),
+                        ("prompt.role", "user"),
+                        ("gen_ai.operation.name", "chat"),
+                        ("gnougo-flow.plan.phase", "mcp_server_prefilter"),
+                    ],
+                )
                 ctx.add_telemetry_event(
                     "gen_ai.content.prompt",
                     [
@@ -348,6 +420,16 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             )
 
             if ctx.limits.log_step_content and response.text:
+                prefilter_span.add_event(
+                    "gen_ai.content.completion",
+                    [
+                        ("gen_ai.completion", response.text),
+                        ("completion.role", "assistant"),
+                        ("completion.finish_reason", "stop"),
+                        ("gen_ai.operation.name", "chat"),
+                        ("gnougo-flow.plan.phase", "mcp_server_prefilter"),
+                    ],
+                )
                 ctx.add_telemetry_event(
                     "gen_ai.content.completion",
                     [
@@ -358,6 +440,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                         ("gnougo-flow.plan.phase", "mcp_server_prefilter"),
                     ],
                 )
+            self._add_usage_attributes(prefilter_span, response.usage)
             self._add_prefilter_usage_event(ctx, response.usage, str(model), provider, "mcp_server_prefilter", "gnougo-flow.plan.prefilter.servers.usage")
 
             payload = response.json_payload
@@ -389,6 +472,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     ("mcp.server.names", ",".join(str(meta.name) for meta in selected)),
                 ],
             )
+            prefilter_span.set_attribute("mcp.servers_selected", len(selected))
+            prefilter_span.set_attribute("mcp.server.names", ",".join(str(meta.name) for meta in selected))
             ctx.add_telemetry_event(
                 "gnougo-flow.step.thinking",
                 [
@@ -399,8 +484,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     ("gnougo-flow.thinking.level", "info"),
                 ],
             )
+            prefilter_span.end()
             return selected
         except Exception as exc:
+            prefilter_span.fail(exc)
             ctx.add_telemetry_event(
                 "gnougo-flow.plan.prefilter.servers.fallback",
                 [
@@ -421,6 +508,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     ("gnougo-flow.thinking.level", "info"),
                 ],
             )
+            prefilter_span.end()
             return server_meta
 
     @staticmethod
@@ -532,7 +620,18 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             f"Available MCP:\n{mcp_doc}\n"
         )
 
+        prefilter_span = ctx.begin_telemetry_span(
+            "workflow.plan.mcp_capability_prefilter",
+            "mcp_capability_prefilter",
+            [
+                ("gen_ai.operation.name", "chat"),
+                ("gen_ai.system", provider or "unknown"),
+                ("gen_ai.request.model", model),
+                ("mcp.documentation.input_length", len(mcp_doc)),
+            ],
+        )
         try:
+            prefilter_span.__enter__()
             ctx.add_telemetry_event(
                 "gnougo-flow.plan.prefilter.capabilities.start",
                 [
@@ -543,6 +642,15 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 ],
             )
             if ctx.limits.log_step_content:
+                prefilter_span.add_event(
+                    "gen_ai.content.prompt",
+                    [
+                        ("gen_ai.prompt", prompt),
+                        ("prompt.role", "user"),
+                        ("gen_ai.operation.name", "chat"),
+                        ("gnougo-flow.plan.phase", "mcp_capability_prefilter"),
+                    ],
+                )
                 ctx.add_telemetry_event(
                     "gen_ai.content.prompt",
                     [
@@ -569,6 +677,16 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 )
             )
             if ctx.limits.log_step_content and response.text:
+                prefilter_span.add_event(
+                    "gen_ai.content.completion",
+                    [
+                        ("gen_ai.completion", response.text),
+                        ("completion.role", "assistant"),
+                        ("completion.finish_reason", "stop"),
+                        ("gen_ai.operation.name", "chat"),
+                        ("gnougo-flow.plan.phase", "mcp_capability_prefilter"),
+                    ],
+                )
                 ctx.add_telemetry_event(
                     "gen_ai.content.completion",
                     [
@@ -579,11 +697,13 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                         ("gnougo-flow.plan.phase", "mcp_capability_prefilter"),
                     ],
                 )
+            self._add_usage_attributes(prefilter_span, response.usage)
             self._add_prefilter_usage_event(
                 ctx, response.usage, str(model), provider, "mcp_capability_prefilter", "gnougo-flow.plan.prefilter.capabilities.usage"
             )
             if isinstance(response.json_payload, dict) and isinstance(response.json_payload.get("filtered"), str):
                 filtered = response.json_payload["filtered"]
+                prefilter_span.set_attribute("mcp.documentation.filtered_length", len(filtered))
                 ctx.add_telemetry_event(
                     "gnougo-flow.plan.prefilter.capabilities.result",
                     [
@@ -593,11 +713,13 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                         ("mcp.documentation.filtered_length", len(filtered)),
                     ],
                 )
+                prefilter_span.end()
                 return filtered
             if response.text:
                 parsed = json.loads(response.text)
                 if isinstance(parsed, dict) and isinstance(parsed.get("filtered"), str):
                     filtered = parsed["filtered"]
+                    prefilter_span.set_attribute("mcp.documentation.filtered_length", len(filtered))
                     ctx.add_telemetry_event(
                         "gnougo-flow.plan.prefilter.capabilities.result",
                         [
@@ -607,8 +729,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                             ("mcp.documentation.filtered_length", len(filtered)),
                         ],
                     )
+                    prefilter_span.end()
                     return filtered
         except Exception as exc:
+            prefilter_span.fail(exc)
             ctx.add_telemetry_event(
                 "gnougo-flow.plan.prefilter.capabilities.fallback",
                 [
@@ -618,8 +742,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     ("error.type", type(exc).__name__),
                 ],
             )
+            prefilter_span.end()
             return mcp_doc
 
+        prefilter_span.end()
         return mcp_doc
 
     async def _build_mcp_documentation(self, ctx: StepExecutionContext, server_meta_override: list[McpServerMetadata] | None = None) -> str:
@@ -631,36 +757,49 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         if not server_meta:
             return "No MCP servers configured."
 
-        sections: list[str] = []
-        for meta in server_meta:
-            name = getattr(meta, "name", None) or str(meta)
-            desc = getattr(meta, "description", None) or ""
-            section = [f"## Server: {name}", f"Description: {desc or '(none)'}"]
-            try:
-                session = await factory.get_client_async(name)
-                tools = await session.list_tools_async()
-                prompts = await session.list_prompts_async()
-                resources: list[Any] = []
+        with ctx.begin_telemetry_span("workflow.plan.mcp_discovery", "mcp_discovery", [("mcp.servers_total", len(server_meta))]) as discovery_span:
+            sections: list[str] = []
+            discovered_count = 0
+            tools_total = 0
+            prompts_total = 0
+            resources_total = 0
+            for meta in server_meta:
+                name = getattr(meta, "name", None) or str(meta)
+                desc = getattr(meta, "description", None) or ""
+                section = [f"## Server: {name}", f"Description: {desc or '(none)'}"]
                 try:
-                    resources = await session.list_resources_async()
-                except Exception:
-                    resources = []
+                    session = await factory.get_client_async(name)
+                    tools = await session.list_tools_async()
+                    prompts = await session.list_prompts_async()
+                    resources: list[Any] = []
+                    try:
+                        resources = await session.list_resources_async()
+                    except Exception:
+                        resources = []
 
-                section.append(f"Tools ({len(tools)}):")
-                for t in tools:
-                    section.append(f"- {t.name}: {t.description or '(no description)'}")
-                section.append(f"Prompts ({len(prompts)}):")
-                for p in prompts:
-                    section.append(f"- {p.name}: {p.description or '(no description)'}")
-                section.append(f"Resources ({len(resources)}):")
-                for r in resources:
-                    section.append(f"- {r.name} ({r.uri}): {r.description or '(no description)'}")
-            except Exception as exc:
-                section.append(f"- {name}: {desc or '(none)'}")
-                section.append("(tool discovery unavailable)")
-                section.append(f"Error while reading capabilities: {exc}")
-            sections.append("\n".join(section))
-        return "\n\n".join(sections)
+                    discovered_count += 1
+                    tools_total += len(tools)
+                    prompts_total += len(prompts)
+                    resources_total += len(resources)
+                    section.append(f"Tools ({len(tools)}):")
+                    for t in tools:
+                        section.append(f"- {t.name}: {t.description or '(no description)'}")
+                    section.append(f"Prompts ({len(prompts)}):")
+                    for p in prompts:
+                        section.append(f"- {p.name}: {p.description or '(no description)'}")
+                    section.append(f"Resources ({len(resources)}):")
+                    for r in resources:
+                        section.append(f"- {r.name} ({r.uri}): {r.description or '(no description)'}")
+                except Exception as exc:
+                    section.append(f"- {name}: {desc or '(none)'}")
+                    section.append("(tool discovery unavailable)")
+                    section.append(f"Error while reading capabilities: {exc}")
+                sections.append("\n".join(section))
+            discovery_span.set_attribute("mcp.servers_discovered", discovered_count)
+            discovery_span.set_attribute("mcp.tools_total", tools_total)
+            discovery_span.set_attribute("mcp.prompts_total", prompts_total)
+            discovery_span.set_attribute("mcp.resources_total", resources_total)
+            return "\n\n".join(sections)
 
     def _enforce_plan_policy(self, doc: WorkflowDocument, policy: dict[str, Any], limits: dict[str, Any]) -> None:
         allowed = set(policy.get("allowed_step_types") or [])

@@ -277,13 +277,54 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 });
             }
 
-            var response = await llmClient.CallAsync(new LLMRequest
+            LLMResponse response;
+            using (var generationSpan = ctx.BeginTelemetrySpan("workflow.plan.generate", "generation", new[]
             {
-                Provider = provider,
-                Model = model,
-                Prompt = promptText,
-                Reasoning = planReasoning,
-            }, ct);
+                new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+                new KeyValuePair<string, object?>("gen_ai.system", provider ?? "openai"),
+                new KeyValuePair<string, object?>("gen_ai.request.model", model),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1)
+            }))
+            {
+                if (ctx.Limits.LogStepContent)
+                    generationSpan.AddEvent("gen_ai.content.prompt", new[]
+                    {
+                        new KeyValuePair<string, object?>("gen_ai.prompt", promptText),
+                        new KeyValuePair<string, object?>("prompt.role", "user"),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1),
+                        new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "generation")
+                    });
+
+                try
+                {
+                    response = await llmClient.CallAsync(new LLMRequest
+                    {
+                        Provider = provider,
+                        Model = model,
+                        Prompt = promptText,
+                        Reasoning = planReasoning,
+                    }, ct);
+                    generationSpan.SetAttribute("gen_ai.response.model", model);
+                    generationSpan.SetAttribute("gen_ai.response.finish_reason", "stop");
+                    AddUsageAttributes(generationSpan, response.Usage);
+                    if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
+                    {
+                        generationSpan.AddEvent("gen_ai.content.completion", new[]
+                        {
+                            new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
+                            new KeyValuePair<string, object?>("completion.role", "assistant"),
+                            new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
+                            new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1),
+                            new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "generation")
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    generationSpan.Fail(ex);
+                    throw;
+                }
+            }
 
             ctx.SetTelemetryAttribute("gen_ai.response.model", model);
             ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", "stop");
@@ -316,25 +357,43 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
 
             try
             {
-                // Strip markdown fences if the LLM wrapped the YAML
-                var yaml = StripMarkdownFences(response.Text);
-
-                // Parse + validate minimal required shape before policy/limits/compile checks.
-                var generatedDoc = ParseAndValidateGeneratedWorkflow(yaml);
-
-                // Policy enforcement
-                if (policy != null)
-                    EnforcePolicy(generatedDoc, policy);
-
-                // Limits enforcement
-                if (limits != null)
-                    EnforceLimits(generatedDoc, limits);
-
-                // Compile to validate
-                if (validate?["compile"]?.GetValue<bool>() ?? true)
+                string yaml;
+                WorkflowDocument generatedDoc;
+                using (var validationSpan = ctx.BeginTelemetrySpan("workflow.plan.validate", "validation", new[]
                 {
-                    var compiler = new Compilation.WorkflowCompiler();
-                    compiler.Compile(generatedDoc);
+                    new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1)
+                }))
+                {
+                    try
+                    {
+                        // Strip markdown fences if the LLM wrapped the YAML
+                        yaml = StripMarkdownFences(response.Text);
+                        validationSpan.SetAttribute("gnougo-flow.plan.yaml_length", yaml.Length);
+
+                        // Parse + validate minimal required shape before policy/limits/compile checks.
+                        generatedDoc = ParseAndValidateGeneratedWorkflow(yaml);
+                        validationSpan.SetAttribute("gnougo-flow.plan.workflow_count", generatedDoc.Workflows.Count);
+
+                        // Policy enforcement
+                        if (policy != null)
+                            EnforcePolicy(generatedDoc, policy);
+
+                        // Limits enforcement
+                        if (limits != null)
+                            EnforceLimits(generatedDoc, limits);
+
+                        // Compile to validate
+                        if (validate?["compile"]?.GetValue<bool>() ?? true)
+                        {
+                            var compiler = new Compilation.WorkflowCompiler();
+                            compiler.Compile(generatedDoc);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        validationSpan.Fail(ex);
+                        throw;
+                    }
                 }
 
                 // Return the generated workflow as JSON
@@ -404,6 +463,11 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             return new List<McpServerDiscovery>();
 
         var serverCount = serverMetadata.Count;
+
+        using var discoverySpan = ctx.BeginTelemetrySpan("workflow.plan.mcp_discovery", "mcp_discovery", new[]
+        {
+            new KeyValuePair<string, object?>("mcp.servers_total", serverCount)
+        });
 
         // ── Thinking: MCP discovery start ──
         ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
@@ -529,6 +593,9 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         var discoveredCount = results.Count(r => r.Discovered);
         var totalTools = results.Sum(r => r.Tools.Count);
         var totalPrompts = results.Sum(r => r.Prompts.Count);
+        discoverySpan.SetAttribute("mcp.servers_discovered", discoveredCount);
+        discoverySpan.SetAttribute("mcp.tools_total", totalTools);
+        discoverySpan.SetAttribute("mcp.prompts_total", totalPrompts);
         ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
         {
             new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
@@ -567,6 +634,13 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             return null;
 
         var allServers = factory.ServerMetadata;
+        using var prefilterSpan = ctx.BeginTelemetrySpan("workflow.plan.mcp_server_prefilter", "mcp_server_prefilter", new[]
+        {
+            new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+            new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unknown"),
+            new KeyValuePair<string, object?>("gen_ai.request.model", model),
+            new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count)
+        });
         var catalogSb = new StringBuilder();
         foreach (var server in allServers)
             catalogSb.AppendLine($"- {server.Name}: {(string.IsNullOrWhiteSpace(server.Description) ? "(no description)" : server.Description)}");
@@ -615,6 +689,13 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
 
             if (ctx.Limits.LogStepContent)
             {
+                prefilterSpan.AddEvent("gen_ai.content.prompt", new[]
+                {
+                    new KeyValuePair<string, object?>("gen_ai.prompt", prefilterPrompt),
+                    new KeyValuePair<string, object?>("prompt.role", "user"),
+                    new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter")
+                });
                 ctx.AddTelemetryEvent("gen_ai.content.prompt", new[]
                 {
                     new KeyValuePair<string, object?>("gen_ai.prompt", prefilterPrompt),
@@ -657,6 +738,14 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
 
             if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
             {
+                prefilterSpan.AddEvent("gen_ai.content.completion", new[]
+                {
+                    new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
+                    new KeyValuePair<string, object?>("completion.role", "assistant"),
+                    new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
+                    new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter")
+                });
                 ctx.AddTelemetryEvent("gen_ai.content.completion", new[]
                 {
                     new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
@@ -667,6 +756,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 });
             }
 
+            AddUsageAttributes(prefilterSpan, response.Usage);
             AddPrefilterUsageEvent(ctx, response.Usage, model, provider, "mcp_server_prefilter", "gnougo-flow.plan.prefilter.servers.usage");
 
             var payload = response.Json as JsonObject;
@@ -696,6 +786,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 new KeyValuePair<string, object?>("mcp.servers_selected", selected.Count),
                 new KeyValuePair<string, object?>("mcp.server.names", string.Join(",", selected.Select(s => s.Name)))
             });
+            prefilterSpan.SetAttribute("mcp.servers_selected", selected.Count);
+            prefilterSpan.SetAttribute("mcp.server.names", string.Join(",", selected.Select(s => s.Name)));
 
             ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
             {
@@ -708,6 +800,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         }
         catch (Exception ex)
         {
+            prefilterSpan.Fail(ex);
             ctx.Engine.Logger.LogWarning(ex, "workflow.plan: MCP server prefilter failed, falling back to full server list");
             ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.servers.fallback", new[]
             {
@@ -762,6 +855,25 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             attrs.Add(new("gen_ai.usage.total_tokens", totalTokens.GetValue<int>()));
 
         ctx.AddTelemetryEvent(eventName, attrs.ToArray());
+    }
+
+    private static void AddUsageAttributes(TelemetrySpanScope span, JsonNode? usage)
+    {
+        if (usage is not JsonObject usageObject)
+            return;
+
+        if (usageObject.TryGetPropertyValue("prompt_tokens", out var promptTokens) && promptTokens != null)
+            span.SetAttribute("gen_ai.usage.input_tokens", promptTokens.GetValue<int>());
+        else if (usageObject.TryGetPropertyValue("input_tokens", out var inputTokens) && inputTokens != null)
+            span.SetAttribute("gen_ai.usage.input_tokens", inputTokens.GetValue<int>());
+
+        if (usageObject.TryGetPropertyValue("completion_tokens", out var completionTokens) && completionTokens != null)
+            span.SetAttribute("gen_ai.usage.output_tokens", completionTokens.GetValue<int>());
+        else if (usageObject.TryGetPropertyValue("output_tokens", out var outputTokens) && outputTokens != null)
+            span.SetAttribute("gen_ai.usage.output_tokens", outputTokens.GetValue<int>());
+
+        if (usageObject.TryGetPropertyValue("total_tokens", out var totalTokens) && totalTokens != null)
+            span.SetAttribute("gen_ai.usage.total_tokens", totalTokens.GetValue<int>());
     }
 
     /// <summary>
@@ -840,6 +952,15 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             {{(string.IsNullOrWhiteSpace(context) ? "" : $"Context: {context}")}}
             """;
 
+        using var prefilterSpan = ctx.BeginTelemetrySpan("workflow.plan.mcp_capability_prefilter", "mcp_capability_prefilter", new[]
+        {
+            new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+            new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unknown"),
+            new KeyValuePair<string, object?>("gen_ai.request.model", model),
+            new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count),
+            new KeyValuePair<string, object?>("mcp.tools_total", allServers.Sum(s => s.Tools.Count))
+        });
+
         try
         {
             // ── Thinking: prefilter start ──
@@ -860,6 +981,12 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             // ── GenAI: log prefilter prompt ──
             if (ctx.Limits.LogStepContent)
             {
+                prefilterSpan.AddEvent("gen_ai.content.prompt", new[]
+                {
+                    new KeyValuePair<string, object?>("gen_ai.prompt", prefilterPrompt),
+                    new KeyValuePair<string, object?>("prompt.role", "user"),
+                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_capability_prefilter")
+                });
                 ctx.AddTelemetryEvent("gen_ai.content.prompt", new[]
                 {
                     new KeyValuePair<string, object?>("gen_ai.prompt", prefilterPrompt),
@@ -903,6 +1030,13 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             // ── GenAI: log prefilter completion + usage ──
             if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
             {
+                prefilterSpan.AddEvent("gen_ai.content.completion", new[]
+                {
+                    new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
+                    new KeyValuePair<string, object?>("completion.role", "assistant"),
+                    new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
+                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_capability_prefilter")
+                });
                 ctx.AddTelemetryEvent("gen_ai.content.completion", new[]
                 {
                     new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
@@ -912,6 +1046,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 });
             }
 
+            AddUsageAttributes(prefilterSpan, response.Usage);
             if (response.Usage is JsonObject prefilterUsage)
             {
                 var attrs = new List<KeyValuePair<string, object?>>
@@ -948,6 +1083,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     new KeyValuePair<string, object?>("mcp.servers_selected", 0),
                     new KeyValuePair<string, object?>("mcp.tools_selected", 0)
                 });
+                prefilterSpan.SetAttribute("mcp.servers_selected", 0);
+                prefilterSpan.SetAttribute("mcp.tools_selected", 0);
 
                 // ── Thinking: prefilter result (none selected) ──
                 ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
@@ -1027,6 +1164,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 new KeyValuePair<string, object?>("mcp.servers_selected", filtered.Count),
                 new KeyValuePair<string, object?>("mcp.tools_selected", filtered.Sum(s => s.Tools.Count))
             });
+            prefilterSpan.SetAttribute("mcp.servers_selected", filtered.Count);
+            prefilterSpan.SetAttribute("mcp.tools_selected", filtered.Sum(s => s.Tools.Count));
 
             // ── Thinking: prefilter result summary ──
             ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
@@ -1040,6 +1179,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         }
         catch (Exception ex)
         {
+            prefilterSpan.Fail(ex);
             // On any failure, fall back to the full unfiltered list
             ctx.Engine.Logger.LogWarning(ex, "workflow.plan: MCP prefilter failed, falling back to full server list");
             ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.fallback", Array.Empty<KeyValuePair<string, object?>>());
