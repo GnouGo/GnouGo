@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import copy
@@ -689,17 +690,24 @@ def sanitize_llm_request(request: LLMRequest, metadata: LLMModelMetadata) -> LLM
     return sanitized
 
 
-def try_get_pricing(model_name: str) -> ModelPricingMetadata | None:
-    metadata = try_get_builtin(model_name)
+def try_get_pricing(model_name: str, options: LLMOptions | None = None, provider_type: str | None = None) -> ModelPricingMetadata | None:
+    metadata = LLMModelMetadataResolver(options).resolve(provider_type, model_name) if options is not None else try_get_builtin(model_name)
     return copy.deepcopy(metadata.pricing) if metadata and metadata.pricing else None
 
 
-def estimate_cost(model_name: str, input_tokens: int | None = 0, output_tokens: int | None = 0) -> float | None:
-    pricing = try_get_pricing(model_name)
+def estimate_cost(
+    model_name: str,
+    input_tokens: int | None = 0,
+    output_tokens: int | None = 0,
+    options: LLMOptions | None = None,
+    provider_type: str | None = None,
+) -> float | None:
+    pricing = try_get_pricing(model_name, options=options, provider_type=provider_type)
     if pricing is None:
         return None
     return ((input_tokens or 0) / 1_000_000.0) * (pricing.input_per_1m_tokens or 0.0) + ((output_tokens or 0) / 1_000_000.0) * (
         pricing.output_per_1m_tokens or 0.0
     )
+
 
 

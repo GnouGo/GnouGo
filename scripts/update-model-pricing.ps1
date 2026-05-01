@@ -1,160 +1,216 @@
-<#
+﻿<#
 .SYNOPSIS
-    Downloads latest model pricing data and regenerates the C# pricing catalog.
-
+    Updates model pricing inside model-metadata.json and regenerates the C# model metadata catalog.
 .DESCRIPTION
-    1) Optionally downloads model pricing from the LiteLLM community catalog (GitHub).
-    2) Merges with the local model-pricing.json (local overrides win).
-    3) Regenerates ModelPricingCatalog.Generated.cs for AOT-friendly embedding.
-
+    model-metadata.json is the single source for builtin model limits, capabilities and pricing.
+    This script optionally downloads pricing from LiteLLM, merges it into each model's
+    pricing object, then regenerates ModelMetadataCatalog.Generated.cs.
 .PARAMETER DownloadLatest
-    If set, fetches the latest prices from LiteLLM GitHub and merges them.
-    Without this flag, only regenerates the C# file from the existing JSON.
-
+    Fetches latest pricing from LiteLLM GitHub and merges it into model-metadata.json.
 .PARAMETER JsonPath
-    Path to the local model-pricing.json file.
-
+    Path to model-metadata.json.
 .PARAMETER OutputPath
-    Path for the generated C# file.
-
-.EXAMPLE
-    # Regenerate C# from existing JSON only
-    .\update-model-pricing.ps1
-
-    # Download latest + merge + regenerate
-    .\update-model-pricing.ps1 -DownloadLatest
+    Path for ModelMetadataCatalog.Generated.cs.
 #>
 param(
     [switch]$DownloadLatest,
-    [string]$JsonPath = "$PSScriptRoot\..\src\GnOuGo.AI.Core\Telemetry\model-pricing.json",
-    [string]$OutputPath = "$PSScriptRoot\..\src\GnOuGo.AI.Core\Telemetry\ModelPricingCatalog.Generated.cs"
+    [string]$JsonPath = "$PSScriptRoot\..\src\GnOuGo.AI.Core\Telemetry\model-metadata.json",
+    [string]$OutputPath = "$PSScriptRoot\..\src\GnOuGo.AI.Core\ModelMetadataCatalog.Generated.cs"
 )
-
 $ErrorActionPreference = "Stop"
-
 $resolved = Resolve-Path $JsonPath -ErrorAction SilentlyContinue
 if ($resolved) { $JsonPath = $resolved.Path }
-Write-Host "JSON path : $JsonPath"
-Write-Host "Output path: $OutputPath"
-
-# ── 1) Optionally download & merge from LiteLLM ─────────────────────
+Write-Host "Metadata JSON path : $JsonPath"
+Write-Host "Generated output   : $OutputPath"
+function Get-JsonPropertyValue($Object, [string]$Name) {
+    if ($null -eq $Object) { return $null }
+    $prop = $Object.PSObject.Properties[$Name]
+    if ($null -eq $prop) { return $null }
+    return $prop.Value
+}
+function Ensure-ObjectProperty($Object, [string]$Name) {
+    $value = Get-JsonPropertyValue $Object $Name
+    if ($null -eq $value) {
+        $value = [PSCustomObject]@{}
+        $Object | Add-Member -NotePropertyName $Name -NotePropertyValue $value
+    }
+    return $value
+}
+function Set-ObjectProperty($Object, [string]$Name, $Value) {
+    if ($Object.PSObject.Properties[$Name]) { $Object.$Name = $Value }
+    else { $Object | Add-Member -NotePropertyName $Name -NotePropertyValue $Value }
+}
 if ($DownloadLatest) {
     Write-Host "`nDownloading latest pricing from LiteLLM..."
     $litellmUrl = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
-
     try {
         $raw = Invoke-RestMethod -Uri $litellmUrl -TimeoutSec 30
         $local = Get-Content $JsonPath -Raw | ConvertFrom-Json
-
+        $models = Ensure-ObjectProperty $local "models"
+        $validProviders = @("openai", "anthropic", "mistralai", "deepseek", "cohere", "text-completion-openai")
         $addedCount = 0
         $updatedCount = 0
-
         foreach ($prop in $raw.PSObject.Properties) {
             $modelName = $prop.Name
             $data = $prop.Value
-
-            # Skip entries without pricing
-            $inputCost = $data.input_cost_per_token
-            $outputCost = $data.output_cost_per_token
+            $inputCost = Get-JsonPropertyValue $data "input_cost_per_token"
+            $outputCost = Get-JsonPropertyValue $data "output_cost_per_token"
             if (-not $inputCost -and -not $outputCost) { continue }
-
-            # Filter to known providers
-            $provider = ""
-            if ($data.PSObject.Properties["litellm_provider"]) {
-                $provider = $data.litellm_provider
-            }
-            $validProviders = @("openai", "anthropic", "mistralai", "deepseek", "cohere", "text-completion-openai")
+            $provider = [string](Get-JsonPropertyValue $data "litellm_provider")
             $isValid = $false
             foreach ($vp in $validProviders) {
                 if ($provider -like "*$vp*") { $isValid = $true; break }
             }
             if (-not $isValid) { continue }
-
             if (-not $inputCost) { $inputCost = 0 }
             if (-not $outputCost) { $outputCost = 0 }
             $inputPer1M = [math]::Round([double]$inputCost * 1000000, 4)
             $outputPer1M = [math]::Round([double]$outputCost * 1000000, 4)
-
-            # Clean model name (remove provider prefix like "openai/")
             $cleanName = $modelName -replace "^[^/]+/", ""
-
-            if (-not $local.models.PSObject.Properties[$cleanName]) {
-                $local.models | Add-Member -NotePropertyName $cleanName -NotePropertyValue ([PSCustomObject]@{
-                    inputPer1MTokens  = $inputPer1M
-                    outputPer1MTokens = $outputPer1M
-                })
+            $model = Get-JsonPropertyValue $models $cleanName
+            if ($null -eq $model) {
+                $model = [PSCustomObject]@{
+                    providerType = $provider
+                    ownedBy = $provider
+                    pricing = [PSCustomObject]@{
+                        currency = "USD"
+                        inputPer1MTokens = $inputPer1M
+                        outputPer1MTokens = $outputPer1M
+                    }
+                }
+                Set-ObjectProperty $models $cleanName $model
                 $addedCount++
             }
             else {
-                $existing = $local.models.$cleanName
-                if ($existing.inputPer1MTokens -ne $inputPer1M -or $existing.outputPer1MTokens -ne $outputPer1M) {
-                    $existing.inputPer1MTokens = $inputPer1M
-                    $existing.outputPer1MTokens = $outputPer1M
-                    $updatedCount++
-                }
+                $pricing = Ensure-ObjectProperty $model "pricing"
+                $oldInput = Get-JsonPropertyValue $pricing "inputPer1MTokens"
+                $oldOutput = Get-JsonPropertyValue $pricing "outputPer1MTokens"
+                Set-ObjectProperty $pricing "currency" "USD"
+                Set-ObjectProperty $pricing "inputPer1MTokens" $inputPer1M
+                Set-ObjectProperty $pricing "outputPer1MTokens" $outputPer1M
+                if ($oldInput -ne $inputPer1M -or $oldOutput -ne $outputPer1M) { $updatedCount++ }
+            }
+            $contextWindow = Get-JsonPropertyValue $data "max_input_tokens"
+            if ($null -eq $contextWindow) { $contextWindow = Get-JsonPropertyValue $data "max_tokens" }
+            if ($null -ne $contextWindow -and $null -eq (Get-JsonPropertyValue $model "contextWindowTokens")) {
+                Set-ObjectProperty $model "contextWindowTokens" ([int]$contextWindow)
             }
         }
-
-        $local._updated = (Get-Date).ToString("yyyy-MM-dd")
-        $local | ConvertTo-Json -Depth 10 | Set-Content $JsonPath -Encoding UTF8
-        Write-Host "Merged: $addedCount added, $updatedCount updated"
+        Set-ObjectProperty $local "_updated" (Get-Date).ToString("yyyy-MM-dd")
+        $local | ConvertTo-Json -Depth 32 | Set-Content $JsonPath -Encoding UTF8
+        Write-Host "Merged pricing into metadata: $addedCount added, $updatedCount updated"
     }
     catch {
         Write-Warning "Could not download LiteLLM pricing: $_"
-        Write-Host "Continuing with existing local data..."
+        Write-Host "Continuing with existing local metadata..."
     }
 }
-
-# ── 2) Read local JSON ───────────────────────────────────────────────
 $json = Get-Content $JsonPath -Raw | ConvertFrom-Json
-$models = $json.models
-$aliases = $json.aliases
-
-# ── 3) Generate C# ──────────────────────────────────────────────────
+$models = Get-JsonPropertyValue $json "models"
+$aliases = Get-JsonPropertyValue $json "aliases"
+function CsString($Value) {
+    if ($null -eq $Value -or [string]::IsNullOrWhiteSpace([string]$Value)) { return "null" }
+    $escaped = ([string]$Value).Replace("\", "\\").Replace('"', '\"')
+    return "`"$escaped`""
+}
+function CsInt($Value) {
+    if ($null -eq $Value) { return "null" }
+    return ([int]$Value).ToString([System.Globalization.CultureInfo]::InvariantCulture)
+}
+function CsDecimal($Value) {
+    if ($null -eq $Value) { return "null" }
+    return ([decimal]$Value).ToString([System.Globalization.CultureInfo]::InvariantCulture) + "m"
+}
+function CsBool($Value) {
+    if ($null -eq $Value) { return "null" }
+    if ([bool]$Value) { return "true" }
+    return "false"
+}
+function CsStringList($Value) {
+    if ($null -eq $Value) { return "null" }
+    $items = @($Value) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | ForEach-Object { CsString $_ }
+    if ($items.Count -eq 0) { return "null" }
+    return "[" + ($items -join ", ") + "]"
+}
+function Append-IfNotNull($Builder, [string]$Name, [string]$ValueLiteral) {
+    if ($ValueLiteral -ne "null") { [void]$Builder.AppendLine("                $Name = $ValueLiteral,") }
+}
 $sb = New-Object System.Text.StringBuilder
-
 [void]$sb.AppendLine("// <auto-generated/>")
 [void]$sb.AppendLine("// Generated by scripts/update-model-pricing.ps1 on $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))")
-[void]$sb.AppendLine("// Source: src/GnOuGo.AI.Core/Telemetry/model-pricing.json")
+[void]$sb.AppendLine("// Source: src/GnOuGo.AI.Core/Telemetry/model-metadata.json")
 [void]$sb.AppendLine("// DO NOT EDIT MANUALLY - run the script to regenerate.")
 [void]$sb.AppendLine("")
 [void]$sb.AppendLine("using System.Collections.Frozen;")
 [void]$sb.AppendLine("")
-[void]$sb.AppendLine("namespace GnOuGo.AI.Core.Telemetry;")
+[void]$sb.AppendLine("namespace GnOuGo.AI.Core;")
 [void]$sb.AppendLine("")
-[void]$sb.AppendLine("public static partial class ModelPricingCatalog")
+[void]$sb.AppendLine("public static partial class ModelMetadataCatalog")
 [void]$sb.AppendLine("{")
-[void]$sb.AppendLine("    private static readonly FrozenDictionary<string, ModelPricing> Models = new Dictionary<string, ModelPricing>(StringComparer.OrdinalIgnoreCase)")
+[void]$sb.AppendLine("    private static readonly FrozenDictionary<string, LLMModelMetadata> BuiltinModels = new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase)")
 [void]$sb.AppendLine("    {")
-
 $modelCount = 0
 foreach ($prop in $models.PSObject.Properties) {
     $name = $prop.Name
     if ($name.StartsWith("_")) { continue }
-    $inp = [decimal]$prop.Value.inputPer1MTokens
-    $outp = [decimal]$prop.Value.outputPer1MTokens
-    $inpStr = $inp.ToString([System.Globalization.CultureInfo]::InvariantCulture) + "m"
-    $outpStr = $outp.ToString([System.Globalization.CultureInfo]::InvariantCulture) + "m"
-    [void]$sb.AppendLine("        [`"$name`"] = new($inpStr, $outpStr),")
+    $m = $prop.Value
+    $pricing = Get-JsonPropertyValue $m "pricing"
+    $cap = Get-JsonPropertyValue $m "capabilities"
+    $id = Get-JsonPropertyValue $m "id"
+    if ([string]::IsNullOrWhiteSpace([string]$id)) { $id = $name }
+    $displayName = Get-JsonPropertyValue $m "displayName"
+    if ([string]::IsNullOrWhiteSpace([string]$displayName)) { $displayName = $name }
+    [void]$sb.AppendLine("        [$((CsString $name))] = new LLMModelMetadata")
+    [void]$sb.AppendLine("        {")
+    [void]$sb.AppendLine("            Id = $((CsString $id)),")
+    [void]$sb.AppendLine("            DisplayName = $((CsString $displayName)),")
+    Append-IfNotNull $sb "ProviderType" (CsString (Get-JsonPropertyValue $m "providerType"))
+    Append-IfNotNull $sb "OwnedBy" (CsString (Get-JsonPropertyValue $m "ownedBy"))
+    Append-IfNotNull $sb "ContextWindowTokens" (CsInt (Get-JsonPropertyValue $m "contextWindowTokens"))
+    Append-IfNotNull $sb "MaxInputTokens" (CsInt (Get-JsonPropertyValue $m "maxInputTokens"))
+    Append-IfNotNull $sb "MaxOutputTokens" (CsInt (Get-JsonPropertyValue $m "maxOutputTokens"))
+    if ($null -ne $pricing) {
+        $currency = Get-JsonPropertyValue $pricing "currency"
+        if ([string]::IsNullOrWhiteSpace([string]$currency)) { $currency = "USD" }
+        [void]$sb.AppendLine("            Pricing = new ModelPricingMetadata")
+        [void]$sb.AppendLine("            {")
+        [void]$sb.AppendLine("                Currency = $((CsString $currency)),")
+        Append-IfNotNull $sb "InputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "inputPer1MTokens"))
+        Append-IfNotNull $sb "OutputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "outputPer1MTokens"))
+        Append-IfNotNull $sb "CachedInputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "cachedInputPer1MTokens"))
+        Append-IfNotNull $sb "ReasoningOutputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "reasoningOutputPer1MTokens"))
+        [void]$sb.AppendLine("            },")
+    }
+    if ($null -ne $cap) {
+        [void]$sb.AppendLine("            Capabilities = new ModelCapabilityMetadata")
+        [void]$sb.AppendLine("            {")
+        Append-IfNotNull $sb "SupportsTemperature" (CsBool (Get-JsonPropertyValue $cap "supportsTemperature"))
+        Append-IfNotNull $sb "SupportsReasoningEffort" (CsBool (Get-JsonPropertyValue $cap "supportsReasoningEffort"))
+        Append-IfNotNull $sb "SupportsStructuredOutput" (CsBool (Get-JsonPropertyValue $cap "supportsStructuredOutput"))
+        Append-IfNotNull $sb "SupportsTools" (CsBool (Get-JsonPropertyValue $cap "supportsTools"))
+        Append-IfNotNull $sb "SupportsJsonMode" (CsBool (Get-JsonPropertyValue $cap "supportsJsonMode"))
+        Append-IfNotNull $sb "SupportsVision" (CsBool (Get-JsonPropertyValue $cap "supportsVision"))
+        Append-IfNotNull $sb "SupportsAudio" (CsBool (Get-JsonPropertyValue $cap "supportsAudio"))
+        Append-IfNotNull $sb "SupportsEmbeddings" (CsBool (Get-JsonPropertyValue $cap "supportsEmbeddings"))
+        Append-IfNotNull $sb "SupportedReasoningEfforts" (CsStringList (Get-JsonPropertyValue $cap "supportedReasoningEfforts"))
+        Append-IfNotNull $sb "UnsupportedRequestParameters" (CsStringList (Get-JsonPropertyValue $cap "unsupportedRequestParameters"))
+        [void]$sb.AppendLine("            },")
+    }
+    [void]$sb.AppendLine("        },")
     $modelCount++
 }
-
 [void]$sb.AppendLine("    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);")
 [void]$sb.AppendLine("")
-[void]$sb.AppendLine("    private static readonly FrozenDictionary<string, string> Aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)")
+[void]$sb.AppendLine("    private static readonly FrozenDictionary<string, string> BuiltinAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)")
 [void]$sb.AppendLine("    {")
-
 $aliasCount = 0
 if ($aliases) {
     foreach ($prop in $aliases.PSObject.Properties) {
-        [void]$sb.AppendLine("        [`"$($prop.Name)`"] = `"$($prop.Value)`",")
+        [void]$sb.AppendLine("        [$((CsString $prop.Name))] = $((CsString $prop.Value)),")
         $aliasCount++
     }
 }
-
 [void]$sb.AppendLine("    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);")
 [void]$sb.AppendLine("}")
-
-$content = $sb.ToString()
-Set-Content $OutputPath -Value $content -Encoding UTF8
+Set-Content $OutputPath -Value $sb.ToString() -Encoding UTF8
 Write-Host "`nGenerated $OutputPath ($modelCount models, $aliasCount aliases)"

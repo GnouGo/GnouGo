@@ -1,3 +1,4 @@
+using GnOuGo.AI.Core;
 using GnOuGo.AI.Core.Telemetry;
 using Xunit;
 
@@ -112,6 +113,30 @@ public sealed class ModelPricingCatalogTests
         Assert.NotNull(direct);
         Assert.NotNull(alias);
         Assert.Equal(direct, alias);
+    }
+
+    [Fact]
+    public void EstimateCost_WithOptions_UsesUserOverridePricing()
+    {
+        var options = new LLMOptions();
+        options.ModelOverrides["custom-priced-model"] = new LLMModelMetadata
+        {
+            Id = "custom-priced-model",
+            Pricing = new ModelPricingMetadata
+            {
+                InputPer1MTokens = 3m,
+                OutputPer1MTokens = 9m
+            }
+        };
+
+        var cost = ModelPricingCatalog.EstimateCost(
+            "custom-priced-model",
+            inputTokens: 1_000_000,
+            outputTokens: 500_000,
+            options: options,
+            providerType: "openai");
+
+        Assert.Equal(7.5m, cost);
     }
 
     [Fact]

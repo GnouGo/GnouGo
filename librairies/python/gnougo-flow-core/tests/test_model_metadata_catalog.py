@@ -101,6 +101,19 @@ def test_estimate_cost_uses_builtin_pricing() -> None:
     assert estimate_cost("gpt-4o-mini", input_tokens=500_000, output_tokens=100_000) == 0.135
 
 
+def test_estimate_cost_uses_user_override_pricing() -> None:
+    options = LLMOptions(
+        model_overrides={
+            "custom-priced-model": LLMModelMetadata(
+                id="custom-priced-model",
+                pricing=ModelPricingMetadata(input_per_1m_tokens=3.0, output_per_1m_tokens=9.0),
+            )
+        }
+    )
+
+    assert estimate_cost("custom-priced-model", input_tokens=1_000_000, output_tokens=500_000, options=options, provider_type="openai") == 7.5
+
+
 def test_options_accept_csharp_casing() -> None:
     options = LLMOptions.model_validate(
         {
@@ -154,5 +167,6 @@ def test_has_complete_required_metadata_for_complete_override() -> None:
     )
 
     assert has_complete_required_metadata(options, "openai", "custom-model") is True
+
 
 
