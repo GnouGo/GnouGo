@@ -95,6 +95,22 @@ jobs:
             throw "Missing bundled Playwright browsers directory: $playwrightRoot"
           }
 
+          $playwrightDriverRoot = Join-Path $browserToolRoot ".playwright"
+          if (-not (Test-Path $playwrightDriverRoot)) {
+            throw "Missing bundled Playwright driver directory: $playwrightDriverRoot"
+          }
+
+          $nodeExecutableNames = if ('${{ matrix.rid }}' -like 'win-*') { @('node.exe') } else { @('node') }
+          $playwrightDriverNodes = Get-ChildItem $playwrightDriverRoot -Recurse -File | Where-Object {
+            $_.Name -in $nodeExecutableNames
+          }
+
+          if (-not $playwrightDriverNodes) {
+            Write-Host "Playwright driver tree under ${playwrightDriverRoot}:"
+            Get-ChildItem $playwrightDriverRoot -Recurse | Select-Object -First 200 FullName, Length | Format-Table -AutoSize | Out-String | Write-Host
+            throw "Missing bundled Playwright Node driver under: $playwrightDriverRoot"
+          }
+
           $browserFiles = Get-ChildItem $playwrightRoot -Recurse -File
           $browserAppBundles = @()
           $browserExecutables = @()
@@ -129,6 +145,8 @@ jobs:
           Write-Host "Found bundled Playwright Chromium executable(s):"
           $browserExecutables | Select-Object -First 20 FullName | Format-Table -AutoSize | Out-String | Write-Host
           $browserAppBundles | Select-Object -First 20 FullName | Format-Table -AutoSize | Out-String | Write-Host
+          Write-Host "Found bundled Playwright Node driver(s):"
+          $playwrightDriverNodes | Select-Object -First 20 FullName | Format-Table -AutoSize | Out-String | Write-Host
 
           $requiredUiAssets = @(
             "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js"

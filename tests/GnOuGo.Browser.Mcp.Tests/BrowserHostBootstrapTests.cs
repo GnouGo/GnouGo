@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace GnOuGo.Browser.Mcp.Tests;
@@ -104,6 +106,17 @@ public class BrowserHostBootstrapTests
         {
             Environment.SetEnvironmentVariable(PlaywrightBrowsersPathEnvironmentVariable, previous);
         }
+    }
+
+    [Fact]
+    public async Task PlaywrightBrowserHost_DisposeAsync_IsIdempotent()
+    {
+        var host = new PlaywrightBrowserHost(
+            Options.Create(new BrowserServerSettings()),
+            NullLogger<PlaywrightBrowserHost>.Instance);
+
+        await host.DisposeAsync();
+        await host.DisposeAsync();
     }
 }
 
