@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Text.Json.Nodes;
+using Microsoft.EntityFrameworkCore;
 using GnOuGo.Agent.Mcp.Data;
 using GnOuGo.Agent.Mcp.Models;
 
@@ -75,6 +76,13 @@ public sealed class UserConfigRepository : IUserConfigRepository
             entity.DefaultEmbeddingConfig = update.DefaultEmbeddingConfig.Trim();
         }
 
+        if (update.ModelOverrides is not null)
+        {
+            entity.ModelOverridesJson = update.ModelOverrides.Count == 0
+                ? null
+                : update.ModelOverrides.ToJsonString();
+        }
+
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
@@ -90,6 +98,22 @@ public sealed class UserConfigRepository : IUserConfigRepository
             DefaultLlmModel: string.IsNullOrWhiteSpace(entity.DefaultLlmModel) ? null : entity.DefaultLlmModel,
             DefaultAgent: string.IsNullOrWhiteSpace(entity.DefaultAgent) ? null : entity.DefaultAgent,
             UpdatedAt: entity.UpdatedAtTicks == 0 ? null : entity.UpdatedAt,
-            DefaultEmbeddingConfig: string.IsNullOrWhiteSpace(entity.DefaultEmbeddingConfig) ? null : entity.DefaultEmbeddingConfig);
+            DefaultEmbeddingConfig: string.IsNullOrWhiteSpace(entity.DefaultEmbeddingConfig) ? null : entity.DefaultEmbeddingConfig,
+            ModelOverrides: DeserializeModelOverrides(entity.ModelOverridesJson));
+
+    private static JsonObject? DeserializeModelOverrides(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new JsonObject();
+
+        try
+        {
+            return JsonNode.Parse(json) as JsonObject ?? new JsonObject();
+        }
+        catch
+        {
+            return new JsonObject();
+        }
+    }
 }
 

@@ -78,7 +78,7 @@ RUN dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.c
     -c Release \
     -o /app/publish \
     -p:SkipClientBuild=true \
-    -p:SkipPricingGeneration=true \
+    -p:SkipModelMetadataGeneration=true \
     -p:Protobuf_ProtocPath=/usr/bin/protoc
 
 # ──────────────────────────────────────────────

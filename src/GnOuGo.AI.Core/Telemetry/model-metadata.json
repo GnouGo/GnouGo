@@ -1,0 +1,665 @@
+{
+  "_comment": "Model metadata in USD, token limits and capabilities. This is the single builtin source for limits, capabilities and pricing. User overrides can be configured through LLM.ModelMetadataFiles and LLM.ModelOverrides.",
+  "_source": "https://openai.com/api/pricing/ + https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json + provider documentation",
+  "_updated": "2026-05-01",
+  "models": {
+    "text-embedding-3-large": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": null,
+      "maxInputTokens": null,
+      "maxOutputTokens": null,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.13,
+        "outputPer1MTokens": 0.0
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": false,
+        "supportsTools": false,
+        "supportsJsonMode": false,
+        "supportsEmbeddings": true
+      }
+    },
+    "text-embedding-3-small": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": null,
+      "maxInputTokens": null,
+      "maxOutputTokens": null,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.02,
+        "outputPer1MTokens": 0.0
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": false,
+        "supportsTools": false,
+        "supportsJsonMode": false,
+        "supportsEmbeddings": true
+      }
+    },
+    "text-embedding-ada-002": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": null,
+      "maxInputTokens": null,
+      "maxOutputTokens": null,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.1,
+        "outputPer1MTokens": 0.0
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": false,
+        "supportsTools": false,
+        "supportsJsonMode": false,
+        "supportsEmbeddings": true
+      }
+    },
+    "gpt-4o": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 128000,
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 16384,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 2.5,
+        "outputPer1MTokens": 10.0
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportsVision": true
+      }
+    },
+    "gpt-4o-2024-11-20": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 128000,
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 16384,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 2.5,
+        "outputPer1MTokens": 10.0
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportsVision": true
+      }
+    },
+    "gpt-4o-mini": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 128000,
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 16384,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.15,
+        "outputPer1MTokens": 0.6
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportsVision": true
+      }
+    },
+    "gpt-4o-mini-2024-07-18": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 128000,
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 16384,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.15,
+        "outputPer1MTokens": 0.6
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportsVision": true
+      }
+    },
+    "gpt-4.1": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 1047576,
+      "maxInputTokens": 1047576,
+      "maxOutputTokens": 32768,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 2.0,
+        "outputPer1MTokens": 8.0
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportsVision": true
+      }
+    },
+    "gpt-4.1-mini": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 1047576,
+      "maxInputTokens": 1047576,
+      "maxOutputTokens": 32768,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.4,
+        "outputPer1MTokens": 1.6
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportsVision": true
+      }
+    },
+    "gpt-4.1-nano": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 1047576,
+      "maxInputTokens": 1047576,
+      "maxOutputTokens": 32768,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.1,
+        "outputPer1MTokens": 0.4
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportsVision": true
+      }
+    },
+    "gpt-4-turbo": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 128000,
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 4096,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 10.0,
+        "outputPer1MTokens": 30.0
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportsVision": true
+      }
+    },
+    "gpt-3.5-turbo": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 16385,
+      "maxInputTokens": 16385,
+      "maxOutputTokens": 4096,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.5,
+        "outputPer1MTokens": 1.5
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true
+      }
+    },
+    "o1": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 200000,
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 100000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 15.0,
+        "outputPer1MTokens": 60.0
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "unsupportedRequestParameters": [
+          "temperature"
+        ]
+      }
+    },
+    "o1-mini": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 128000,
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 65536,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 1.1,
+        "outputPer1MTokens": 4.4
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "unsupportedRequestParameters": [
+          "temperature"
+        ]
+      }
+    },
+    "o1-pro": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 200000,
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 100000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 150.0,
+        "outputPer1MTokens": 600.0
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "unsupportedRequestParameters": [
+          "temperature"
+        ]
+      }
+    },
+    "o3": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 200000,
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 100000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 2.0,
+        "outputPer1MTokens": 8.0
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "unsupportedRequestParameters": [
+          "temperature"
+        ]
+      }
+    },
+    "o3-mini": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 200000,
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 100000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 1.1,
+        "outputPer1MTokens": 4.4
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "unsupportedRequestParameters": [
+          "temperature"
+        ]
+      }
+    },
+    "o4-mini": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 200000,
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 100000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 1.1,
+        "outputPer1MTokens": 4.4
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "unsupportedRequestParameters": [
+          "temperature"
+        ]
+      }
+    },
+    "claude-3-5-sonnet-20241022": {
+      "providerType": "copilot",
+      "ownedBy": "anthropic",
+      "contextWindowTokens": 200000,
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 8192,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 3.0,
+        "outputPer1MTokens": 15.0
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": false,
+        "supportsTools": true,
+        "supportsJsonMode": true
+      }
+    },
+    "claude-3-5-haiku-20241022": {
+      "providerType": "copilot",
+      "ownedBy": "anthropic",
+      "contextWindowTokens": 200000,
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 8192,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.8,
+        "outputPer1MTokens": 4.0
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": false,
+        "supportsTools": true,
+        "supportsJsonMode": true
+      }
+    },
+    "claude-sonnet-4-20250514": {
+      "providerType": "copilot",
+      "ownedBy": "anthropic",
+      "contextWindowTokens": 200000,
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 64000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 3.0,
+        "outputPer1MTokens": 15.0
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": false,
+        "supportsTools": true,
+        "supportsJsonMode": true
+      }
+    },
+    "claude-haiku-4-20250514": {
+      "providerType": "copilot",
+      "ownedBy": "anthropic",
+      "contextWindowTokens": 200000,
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 8192,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.8,
+        "outputPer1MTokens": 4.0
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": false,
+        "supportsTools": true,
+        "supportsJsonMode": true
+      }
+    },
+    "claude-3-7-sonnet-20250219": {
+      "providerType": "copilot",
+      "ownedBy": "anthropic",
+      "contextWindowTokens": 200000,
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 64000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 3.0,
+        "outputPer1MTokens": 15.0
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": false,
+        "supportsTools": true,
+        "supportsJsonMode": true
+      }
+    },
+    "mistral-large-latest": {
+      "providerType": "copilot",
+      "ownedBy": "mistral",
+      "contextWindowTokens": 128000,
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8192,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 2.0,
+        "outputPer1MTokens": 6.0
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true
+      }
+    },
+    "mistral-small-latest": {
+      "providerType": "copilot",
+      "ownedBy": "mistral",
+      "contextWindowTokens": 128000,
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8192,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.2,
+        "outputPer1MTokens": 0.6
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true
+      }
+    },
+    "mistral-embed": {
+      "providerType": "copilot",
+      "ownedBy": "mistral",
+      "contextWindowTokens": null,
+      "maxInputTokens": null,
+      "maxOutputTokens": null,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.1,
+        "outputPer1MTokens": 0.0
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": false,
+        "supportsTools": false,
+        "supportsJsonMode": false,
+        "supportsEmbeddings": true
+      }
+    },
+    "deepseek-chat": {
+      "providerType": "copilot",
+      "ownedBy": "deepseek",
+      "contextWindowTokens": 64000,
+      "maxInputTokens": 64000,
+      "maxOutputTokens": 8192,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.14,
+        "outputPer1MTokens": 0.28
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true
+      }
+    },
+    "deepseek-reasoner": {
+      "providerType": "copilot",
+      "ownedBy": "deepseek",
+      "contextWindowTokens": 64000,
+      "maxInputTokens": 64000,
+      "maxOutputTokens": 8192,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.55,
+        "outputPer1MTokens": 2.19
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "unsupportedRequestParameters": [
+          "temperature"
+        ]
+      }
+    },
+    "gpt-5.4": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 400000,
+      "maxInputTokens": 400000,
+      "maxOutputTokens": 128000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 75.0,
+        "outputPer1MTokens": 150.0
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "unsupportedRequestParameters": [
+          "temperature"
+        ]
+      }
+    }
+  },
+  "aliases": {
+    "gpt4o": "gpt-4o",
+    "gpt4o-mini": "gpt-4o-mini",
+    "gpt-4-o": "gpt-4o",
+    "gpt-4-o-mini": "gpt-4o-mini",
+    "embedding-3-large": "text-embedding-3-large",
+    "embedding-3-small": "text-embedding-3-small",
+    "ada-002": "text-embedding-ada-002",
+    "text-embedding-ada": "text-embedding-ada-002",
+    "claude-3.5-sonnet": "claude-3-5-sonnet-20241022",
+    "claude-3.5-haiku": "claude-3-5-haiku-20241022",
+    "claude-3.7-sonnet": "claude-3-7-sonnet-20250219",
+    "claude-4-sonnet": "claude-sonnet-4-20250514",
+    "claude-4-haiku": "claude-haiku-4-20250514",
+    "gpt-4.5": "chatgpt-4.5-preview",
+    "openai/gpt-4o": "gpt-4o",
+    "openai/gpt-4o-mini": "gpt-4o-mini",
+    "openai/o4-mini": "o4-mini",
+    "openai/o3-mini": "o3-mini",
+    "anthropic/claude-sonnet-4": "claude-sonnet-4-20250514",
+    "anthropic/claude-haiku-4": "claude-haiku-4-20250514",
+    "gpt-5.4": "gpt-5.4"
+  }
+}

@@ -37,5 +37,11 @@ public sealed record LLMModelDescriptor(
     string Id,
     string DisplayName,
     string ProviderType,
-    string? OwnedBy = null);
+    string? OwnedBy = null,
+    int? ContextWindowTokens = null,
+    int? MaxInputTokens = null,
+    int? MaxOutputTokens = null,
+    ModelPricingMetadata? Pricing = null,
+    ModelCapabilityMetadata? Capabilities = null,
+    IReadOnlyDictionary<string, string>? Extra = null);
 

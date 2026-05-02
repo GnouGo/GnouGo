@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using GnOuGo.AI.Core.Telemetry;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Server.Telemetry;
@@ -106,6 +106,42 @@ public sealed class StreamingWorkflowTelemetry : IWorkflowTelemetry
 		Emit("workflow.summary", new WorkflowSummaryStreamData(GetSummarySnapshot()));
 	}
 
+	public ITelemetrySpan SpanStart(ITelemetrySpan parentSpan, TelemetrySpanInfo info)
+	{
+		var innerParentSpan = parentSpan switch
+		{
+			StreamingWorkflowSpan streamingSpan => streamingSpan.Inner,
+			StreamingStepSpan streamingStepSpan => streamingStepSpan.Inner,
+			StreamingTelemetrySpan streamingTelemetrySpan => streamingTelemetrySpan.Inner,
+			_ => parentSpan
+		};
+		var innerSpan = _inner.SpanStart(innerParentSpan, info);
+		Emit("workflow.phase.started", new
+		{
+			info.Name,
+			info.Phase,
+			info.StepId,
+			info.StepType,
+			info.CallDepth,
+			Attributes = info.Attributes?.ToDictionary(kv => kv.Key, kv => kv.Value)
+		});
+		return new StreamingTelemetrySpan(innerSpan);
+	}
+
+	public void SpanEnd(ITelemetrySpan span, TelemetrySpanResultInfo result)
+	{
+		var streamingSpan = span as StreamingTelemetrySpan;
+		var innerSpan = streamingSpan?.Inner ?? span;
+		_inner.SpanEnd(innerSpan, result);
+		Emit("workflow.phase.completed", new
+		{
+			result.Success,
+			DurationMs = result.Duration.TotalMilliseconds,
+			result.ErrorType,
+			result.ErrorMessage
+		});
+	}
+
 	public WorkflowUsageSummary GetSummarySnapshot()
 	{
 		lock (_gate)
@@ -156,7 +192,7 @@ public sealed class StreamingWorkflowTelemetry : IWorkflowTelemetry
 			totalTokens = (inputTokens ?? 0) + (outputTokens ?? 0);
 
 		var finishReason = GetString(attributes, "gen_ai.response.finish_reason") ?? result.GenAiFinishReason;
-		var estimatedCostUsd = ModelPricingCatalog.EstimateCost(model, inputTokens, outputTokens);
+		var estimatedCostUsd = ModelMetadataCatalog.EstimateCost(model, inputTokens, outputTokens);
 
 		return new StepUsageSummary(
 			Model: model,
@@ -235,6 +271,16 @@ public sealed class StreamingWorkflowTelemetry : IWorkflowTelemetry
 	private sealed class StreamingWorkflowSpan(IWorkflowSpan inner) : IWorkflowSpan
 	{
 		public IWorkflowSpan Inner { get; } = inner;
+		public void SetAttribute(string key, object? value) => Inner.SetAttribute(key, value);
+		public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null) => Inner.AddEvent(name, attributes);
+		public void Dispose() => Inner.Dispose();
+	}
+
+	private sealed class StreamingTelemetrySpan(ITelemetrySpan inner) : ITelemetrySpan
+	{
+		public ITelemetrySpan Inner { get; } = inner;
+		public void SetAttribute(string key, object? value) => Inner.SetAttribute(key, value);
+		public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null) => Inner.AddEvent(name, attributes);
 		public void Dispose() => Inner.Dispose();
 	}
 

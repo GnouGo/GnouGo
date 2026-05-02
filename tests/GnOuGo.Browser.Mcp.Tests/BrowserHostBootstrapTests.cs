@@ -5,6 +5,8 @@ namespace GnOuGo.Browser.Mcp.Tests;
 
 public class BrowserHostBootstrapTests
 {
+    private const string PlaywrightBrowsersPathEnvironmentVariable = "PLAYWRIGHT_BROWSERS_PATH";
+
     [Fact]
     public void CreateBuilder_UsesAppContextBaseDirectoryAsContentRoot()
     {
@@ -57,6 +59,51 @@ public class BrowserHostBootstrapTests
         Assert.Null(configuration["Browser:SlowMoMs"]);
         Assert.Null(configuration["Browser:HoldOpenMs"]);
         Assert.Null(configuration["Browser:KeepBrowserOpen"]);
+    }
+
+    [Fact]
+    public void ConfigureBundledPlaywrightBrowserPath_UsesLocalMsPlaywrightDirectory_WhenEnvironmentIsMissing()
+    {
+        var previous = Environment.GetEnvironmentVariable(PlaywrightBrowsersPathEnvironmentVariable);
+        var root = Path.Combine(Path.GetTempPath(), "gnougo-browser-bootstrap-" + Guid.NewGuid().ToString("N"));
+        var browsers = Path.Combine(root, "ms-playwright");
+        Directory.CreateDirectory(browsers);
+        File.WriteAllText(Path.Combine(browsers, "marker.txt"), "present");
+
+        try
+        {
+            Environment.SetEnvironmentVariable(PlaywrightBrowsersPathEnvironmentVariable, null);
+
+            var resolved = BrowserHostBootstrap.ConfigureBundledPlaywrightBrowserPath(root);
+
+            Assert.Equal(browsers, resolved);
+            Assert.Equal(browsers, Environment.GetEnvironmentVariable(PlaywrightBrowsersPathEnvironmentVariable));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(PlaywrightBrowsersPathEnvironmentVariable, previous);
+            try { Directory.Delete(root, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public void ConfigureBundledPlaywrightBrowserPath_PreservesExplicitEnvironmentValue()
+    {
+        var previous = Environment.GetEnvironmentVariable(PlaywrightBrowsersPathEnvironmentVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(PlaywrightBrowsersPathEnvironmentVariable, "custom-playwright-path");
+
+            var resolved = BrowserHostBootstrap.ConfigureBundledPlaywrightBrowserPath(AppContext.BaseDirectory);
+
+            Assert.Equal("custom-playwright-path", resolved);
+            Assert.Equal("custom-playwright-path", Environment.GetEnvironmentVariable(PlaywrightBrowsersPathEnvironmentVariable));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(PlaywrightBrowsersPathEnvironmentVariable, previous);
+        }
     }
 }
 

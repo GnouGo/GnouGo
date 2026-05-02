@@ -151,6 +151,58 @@ public class RoutingLLMClientTests
         Assert.Equal("claude-sonnet-4", copilot.LastModel);
     }
 
+    [Fact]
+    public async Task CallAsync_SanitizesTemperatureForReasoningModels()
+    {
+        var openai = new FakeProvider("openai");
+        var client = new RoutingLLMClient(CreateOptions(defaultModel: "o4-mini"), [openai]);
+
+        await client.CallAsync(new LLMClientRequest
+        {
+            Model = "o4-mini",
+            Prompt = "Plan",
+            Temperature = 0.7,
+            Reasoning = "high"
+        });
+
+        Assert.NotNull(openai.LastRequest);
+        Assert.Null(openai.LastRequest!.Temperature);
+        Assert.Equal("high", openai.LastRequest.Reasoning);
+    }
+
+    [Fact]
+    public async Task CallAsync_InlineOverrideCanDisableReasoningAndTools()
+    {
+        var openai = new FakeProvider("openai");
+        var options = CreateOptions();
+        options.ModelOverrides["custom-model"] = new LLMModelMetadata
+        {
+            Id = "custom-model",
+            ProviderType = "openai",
+            Capabilities = new ModelCapabilityMetadata
+            {
+                SupportsTemperature = true,
+                SupportsReasoningEffort = false,
+                SupportsTools = false
+            }
+        };
+        var client = new RoutingLLMClient(options, [openai]);
+
+        await client.CallAsync(new LLMClientRequest
+        {
+            Model = "custom-model",
+            Prompt = "Hello",
+            Temperature = 0.2,
+            Reasoning = "high",
+            Tools = [new LLMToolDef { Name = "tool" }]
+        });
+
+        Assert.NotNull(openai.LastRequest);
+        Assert.Equal(0.2, openai.LastRequest!.Temperature);
+        Assert.Null(openai.LastRequest.Reasoning);
+        Assert.Null(openai.LastRequest.Tools);
+    }
+
     /// <summary>
     /// Fake provider for testing routing without network calls.
     /// </summary>
@@ -161,12 +213,14 @@ public class RoutingLLMClientTests
         public string ProviderType { get; }
         public int CallCount { get; private set; }
         public string? LastModel { get; private set; }
+        public LLMClientRequest? LastRequest { get; private set; }
 
         public Task<LLMClientResponse> CallAsync(
             string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
         {
             CallCount++;
             LastModel = model;
+            LastRequest = request;
             return Task.FromResult(new LLMClientResponse { Text = $"[{ProviderType}] response" });
         }
     }

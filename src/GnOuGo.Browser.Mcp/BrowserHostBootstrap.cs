@@ -8,6 +8,8 @@ public static class BrowserHostBootstrap
 {
     public static HostApplicationBuilder CreateBuilder(string[] args)
     {
+        ConfigureBundledPlaywrightBrowserPath(AppContext.BaseDirectory);
+
         var builder = new HostApplicationBuilder(new HostApplicationBuilderSettings
         {
             Args = args,
@@ -16,6 +18,19 @@ public static class BrowserHostBootstrap
 
         ApplyVisualDebugDefaults(builder.Configuration, Debugger.IsAttached);
         return builder;
+    }
+
+    public static string? ConfigureBundledPlaywrightBrowserPath(string baseDirectory)
+    {
+        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH")))
+            return Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH");
+
+        var localBrowsersPath = Path.Combine(Path.GetFullPath(baseDirectory), "ms-playwright");
+        if (!Directory.Exists(localBrowsersPath) || !Directory.EnumerateFileSystemEntries(localBrowsersPath).Any())
+            return null;
+
+        Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", localBrowsersPath);
+        return localBrowsersPath;
     }
 
     public static void ApplyVisualDebugDefaults(ConfigurationManager configuration, bool debuggerAttached)

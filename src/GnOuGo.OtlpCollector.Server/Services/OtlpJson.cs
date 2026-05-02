@@ -1,5 +1,5 @@
 using System.Text.Json;
-using GnOuGo.AI.Core.Telemetry;
+using GnOuGo.AI.Core;
 using OpenTelemetry.Proto.Common.V1;
 using OtlpTenantCollector.Models;
 
@@ -128,7 +128,7 @@ public static class OtlpJson
     /// <summary>
     /// Enrichit les attributs d'un span GenAI avec le coût estimé (gen_ai.usage.cost)
     /// si celui-ci est absent mais que le modèle et les tokens sont présents.
-    /// Utilise ModelPricingCatalog pour le calcul (même catalogue que Flow.Server / DocIngestor).
+    /// Uses ModelMetadataCatalog for cost calculation (same metadata catalog as Flow.Server / DocIngestor).
     /// </summary>
     private static void EnrichGenAiCost(Dictionary<string, object?> attributes)
     {
@@ -151,7 +151,7 @@ public static class OtlpJson
 
         if (!inputTokens.HasValue && !outputTokens.HasValue) return;
 
-        var cost = ModelPricingCatalog.EstimateCost(model, inputTokens ?? 0, outputTokens ?? 0);
+        var cost = ModelMetadataCatalog.EstimateCost(model, inputTokens ?? 0, outputTokens ?? 0);
         if (cost.HasValue && cost.Value > 0)
             attributes["gen_ai.usage.cost"] = (double)cost.Value;
     }

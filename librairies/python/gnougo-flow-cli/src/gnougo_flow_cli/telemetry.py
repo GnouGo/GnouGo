@@ -63,6 +63,27 @@ class OTelWorkflowTelemetry:
                 span.set_attribute(f"gnougo-flow.step.result.{key}", _to_attr(value))
         span.end()
 
+    def span_start(self, parent, info: dict[str, Any]):
+        parent_span = parent.span if isinstance(parent, _SpanAdapter) else parent
+        ctx = trace.set_span_in_context(parent_span)
+        span = _SpanAdapter(self._tracer.start_span(str(info.get("name") or "workflow.phase"), context=ctx))
+        phase = info.get("phase")
+        if phase:
+            span.set_attribute("gnougo-flow.plan.phase", _to_attr(phase))
+        for key in ("step_id", "step_type", "call_depth"):
+            value = info.get(key)
+            if value is not None:
+                span.set_attribute(f"gnougo-flow.step.{key}", _to_attr(value))
+        for key, value in info.get("attributes") or []:
+            if value is not None:
+                span.set_attribute(str(key), _to_attr(value))
+        return span
+
+    def span_end(self, span, info: dict[str, Any]) -> None:
+        for key, value in info.items():
+            if value is not None:
+                span.set_attribute(f"gnougo-flow.span.result.{key}", _to_attr(value))
+
 
 def _to_attr(value: Any) -> Any:
     if isinstance(value, (str, bool, int, float)):

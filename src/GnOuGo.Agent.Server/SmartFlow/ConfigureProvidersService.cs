@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
@@ -452,6 +453,10 @@ public sealed class ConfigureProvidersService
 
         flowSpan.SetTag("gen_ai.request.model", model);
 
+        LLMModelMetadata? modelOverride = null;
+        await foreach (var evt in CollectModelMetadataOverrideIfNeededAsync(runId, provider, model, metadata => modelOverride = metadata, ct))
+            yield return evt;
+
         var summary = RenderLlmConfigSummary(provider, url, model, auth);
         yield return new SmartFlowEvent("thinking:thinking", summary);
 
@@ -478,6 +483,7 @@ public sealed class ConfigureProvidersService
 
         yield return new SmartFlowEvent("thinking:progress", "💾 Saving LLM provider configuration to KeyVault…");
         await SaveLlmProviderConfigAsync(provider, url, model, auth, ct);
+        await PersistModelMetadataOverrideAsync(modelOverride, ct);
         yield return new SmartFlowEvent(
             "answer",
             $"✅ LLM provider '{provider}' saved to KeyVault as `{KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider)}`.");
@@ -570,6 +576,10 @@ public sealed class ConfigureProvidersService
         if (string.IsNullOrWhiteSpace(model))
             yield break;
 
+        LLMModelMetadata? modelOverride = null;
+        await foreach (var evt in CollectModelMetadataOverrideIfNeededAsync(runId, selectedConfig.Provider, model, metadata => modelOverride = metadata, ct))
+            yield return evt;
+
         var summary = RenderDefaultProviderSummary(selectedConfig.Provider, model);
         yield return new SmartFlowEvent("thinking:thinking", summary);
 
@@ -590,6 +600,7 @@ public sealed class ConfigureProvidersService
         }
 
         await SaveLlmProviderConfigAsync(selectedConfig.Provider, selectedConfig.Config.Url, model, selectedConfig.Config, ct);
+        await PersistModelMetadataOverrideAsync(modelOverride, ct);
         _optionsStore.UpdateProvider(
             providerKey: selectedConfig.Provider,
             url: selectedConfig.Config.Url,
@@ -702,6 +713,10 @@ public sealed class ConfigureProvidersService
 
         flowSpan.SetTag("gen_ai.request.model", model);
 
+        LLMModelMetadata? modelOverride = null;
+        await foreach (var evt in CollectModelMetadataOverrideIfNeededAsync(runId, provider, model, metadata => modelOverride = metadata, ct))
+            yield return evt;
+
         var summary = RenderLlmConfigSummary(provider, url, model, auth);
         yield return new SmartFlowEvent("thinking:thinking", summary);
 
@@ -718,6 +733,7 @@ public sealed class ConfigureProvidersService
 
         yield return new SmartFlowEvent("thinking:progress", "💾 Saving LLM provider configuration to KeyVault…");
         await SaveLlmProviderConfigAsync(provider, url, model, auth, ct);
+        await PersistModelMetadataOverrideAsync(modelOverride, ct);
         yield return new SmartFlowEvent("answer", $"✅ LLM provider '{provider}' updated.");
 
         var outputs = BuildSavedLlmOutputs(provider, url, model, auth);
@@ -789,6 +805,19 @@ public sealed class ConfigureProvidersService
             defaultLlmModel: clearDefaultLlm ? null : current.DefaultModel,
             clearDefaultLlm: clearDefaultLlm,
             ct: ct);
+    }
+
+    private async Task PersistModelMetadataOverrideAsync(LLMModelMetadata? metadata, CancellationToken ct)
+    {
+        if (metadata is null || string.IsNullOrWhiteSpace(metadata.Id))
+            return;
+
+        _optionsStore.UpsertModelOverride(metadata.Id, metadata);
+
+        if (_userConfigClient is null)
+            return;
+
+        await _userConfigClient.SetAsync(modelOverrides: _optionsStore.Current.ModelOverrides, ct: ct);
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveEmbeddingAddAsync(
@@ -1206,6 +1235,45 @@ public sealed class ConfigureProvidersService
     private static int ReadInt(string? value, int fallback)
         => int.TryParse(value, out var parsed) && parsed > 0 ? parsed : fallback;
 
+    private static int ReadPositiveInt(string? value, int fallback)
+        => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed > 0 ? parsed : fallback;
+
+    private static decimal ReadNonNegativeDecimal(string? value, decimal fallback)
+        => decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed) && parsed >= 0m ? parsed : fallback;
+
+    private static decimal? ReadOptionalNonNegativeDecimal(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        return decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed) && parsed >= 0m
+            ? parsed
+            : null;
+    }
+
+    private static bool ReadBool(string? value, bool fallback)
+        => bool.TryParse(value, out var parsed) ? parsed : fallback;
+
+    private static bool? ReadOptionalBool(string? value)
+        => bool.TryParse(value, out var parsed) ? parsed : null;
+
+    private static string FormatInt(int? value, int fallback)
+        => (value is > 0 ? value.Value : fallback).ToString(CultureInfo.InvariantCulture);
+
+    private static string FormatDecimal(decimal? value, decimal fallback)
+        => (value is >= 0m ? value.Value : fallback).ToString(CultureInfo.InvariantCulture);
+
+    private static string FormatOptionalDecimal(decimal? value)
+        => value is >= 0m ? value.Value.ToString(CultureInfo.InvariantCulture) : string.Empty;
+
+    private static string FormatBool(bool? value, bool fallback)
+        => (value ?? fallback).ToString().ToLowerInvariant();
+
+    private static string FormatOptionalBool(bool? value)
+        => value is null ? "unknown" : value.Value.ToString().ToLowerInvariant();
+
+    private static string? EmptyToNull(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
     private static string RenderEmbeddingConfigSummary(EmbeddingProviderConfig config)
     {
         var sb = new StringBuilder();
@@ -1505,6 +1573,94 @@ public sealed class ConfigureProvidersService
         span.SetStatus(ActivityStatusCode.Ok);
     }
 
+    private async IAsyncEnumerable<SmartFlowEvent> CollectModelMetadataOverrideIfNeededAsync(
+        string runId,
+        string provider,
+        string model,
+        Action<LLMModelMetadata?> setMetadata,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        using var span = StartNestedTrace("configure.providers.llm.model.metadata", "llm.model.metadata");
+        span.SetTag("gnougo.agent.configure.run_id", runId);
+        span.SetTag("gen_ai.system", provider);
+        span.SetTag("gen_ai.request.model", model);
+
+        var missing = ModelMetadataCatalog.GetMissingRequiredMetadataFields(_optionsStore.Current, provider, model, out var resolved);
+        if (missing.Count == 0)
+        {
+            setMetadata(null);
+            span.SetTag("gnougo.agent.llm.model_metadata.complete", true);
+            span.SetStatus(ActivityStatusCode.Ok);
+            yield break;
+        }
+
+        span.SetTag("gnougo.agent.llm.model_metadata.complete", false);
+        span.SetTag("gnougo.agent.llm.model_metadata.missing", string.Join(",", missing));
+
+        JsonNode? response = null;
+        var request = CreateFieldsRequest(
+            runId,
+            $"llm_model.metadata.{provider}",
+            $"Model '{model}' is not fully known. Please provide the metadata required for pricing, limits and request compatibility:",
+            [
+                new HumanInputFieldDef { Name = "display_name", Type = "string", Required = false, Description = "Human-readable model name", Default = resolved.DisplayName ?? model },
+                new HumanInputFieldDef { Name = "owned_by", Type = "string", Required = false, Description = "Model owner or vendor", Default = resolved.OwnedBy ?? provider },
+                new HumanInputFieldDef { Name = "context_window_tokens", Type = "number", Required = true, Description = "Total context window in tokens", Default = FormatInt(resolved.ContextWindowTokens, 128000) },
+                new HumanInputFieldDef { Name = "max_input_tokens", Type = "number", Required = true, Description = "Maximum input tokens", Default = FormatInt(resolved.MaxInputTokens ?? resolved.ContextWindowTokens, 128000) },
+                new HumanInputFieldDef { Name = "max_output_tokens", Type = "number", Required = true, Description = "Maximum generated/output tokens", Default = FormatInt(resolved.MaxOutputTokens, 4096) },
+                new HumanInputFieldDef { Name = "input_price_per_1m_tokens", Type = "number", Required = true, Description = "Input price per 1M tokens", Default = FormatDecimal(resolved.Pricing?.InputPer1MTokens, 0m) },
+                new HumanInputFieldDef { Name = "output_price_per_1m_tokens", Type = "number", Required = true, Description = "Output price per 1M tokens", Default = FormatDecimal(resolved.Pricing?.OutputPer1MTokens, 0m) },
+                new HumanInputFieldDef { Name = "cached_input_price_per_1m_tokens", Type = "number", Required = false, Description = "Cached input price per 1M tokens, if applicable", Default = FormatOptionalDecimal(resolved.Pricing?.CachedInputPer1MTokens) },
+                new HumanInputFieldDef { Name = "reasoning_output_price_per_1m_tokens", Type = "number", Required = false, Description = "Reasoning output price per 1M tokens, if applicable", Default = FormatOptionalDecimal(resolved.Pricing?.ReasoningOutputPer1MTokens) },
+                new HumanInputFieldDef { Name = "supports_temperature", Type = "select", Required = true, Description = "Whether the model accepts temperature", Options = ["true", "false"], Default = FormatBool(resolved.Capabilities.SupportsTemperature, true) },
+                new HumanInputFieldDef { Name = "supports_reasoning_effort", Type = "select", Required = true, Description = "Whether the model accepts reasoning effort", Options = ["true", "false"], Default = FormatBool(resolved.Capabilities.SupportsReasoningEffort, false) },
+                new HumanInputFieldDef { Name = "supports_structured_output", Type = "select", Required = true, Description = "Whether the model supports structured output", Options = ["true", "false"], Default = FormatBool(resolved.Capabilities.SupportsStructuredOutput, true) },
+                new HumanInputFieldDef { Name = "supports_tools", Type = "select", Required = true, Description = "Whether the model supports tool/function calls", Options = ["true", "false"], Default = FormatBool(resolved.Capabilities.SupportsTools, true) },
+                new HumanInputFieldDef { Name = "supports_json_mode", Type = "select", Required = true, Description = "Whether the model supports JSON mode", Options = ["true", "false"], Default = FormatBool(resolved.Capabilities.SupportsJsonMode, true) },
+                new HumanInputFieldDef { Name = "supports_vision", Type = "select", Required = false, Description = "Whether the model supports vision inputs", Options = ["unknown", "true", "false"], Default = FormatOptionalBool(resolved.Capabilities.SupportsVision) },
+                new HumanInputFieldDef { Name = "supports_audio", Type = "select", Required = false, Description = "Whether the model supports audio inputs", Options = ["unknown", "true", "false"], Default = FormatOptionalBool(resolved.Capabilities.SupportsAudio) }
+            ],
+            JsonValue.Create($"Missing metadata: {string.Join(", ", missing)}. Values will be saved as an LLM model override, not as a secret."));
+
+        await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+            yield return evt;
+
+        var fields = ReadFieldResponse(response, request.Fields!);
+        var metadata = new LLMModelMetadata
+        {
+            Id = model,
+            ProviderType = provider,
+            DisplayName = EmptyToNull(fields.GetValueOrDefault("display_name")) ?? model,
+            OwnedBy = EmptyToNull(fields.GetValueOrDefault("owned_by")) ?? provider,
+            ContextWindowTokens = ReadPositiveInt(fields.GetValueOrDefault("context_window_tokens"), resolved.ContextWindowTokens ?? 128000),
+            MaxInputTokens = ReadPositiveInt(fields.GetValueOrDefault("max_input_tokens"), resolved.MaxInputTokens ?? resolved.ContextWindowTokens ?? 128000),
+            MaxOutputTokens = ReadPositiveInt(fields.GetValueOrDefault("max_output_tokens"), resolved.MaxOutputTokens ?? 4096),
+            Pricing = new ModelPricingMetadata
+            {
+                Currency = resolved.Pricing?.Currency ?? "USD",
+                InputPer1MTokens = ReadNonNegativeDecimal(fields.GetValueOrDefault("input_price_per_1m_tokens"), resolved.Pricing?.InputPer1MTokens ?? 0m),
+                OutputPer1MTokens = ReadNonNegativeDecimal(fields.GetValueOrDefault("output_price_per_1m_tokens"), resolved.Pricing?.OutputPer1MTokens ?? 0m),
+                CachedInputPer1MTokens = ReadOptionalNonNegativeDecimal(fields.GetValueOrDefault("cached_input_price_per_1m_tokens")),
+                ReasoningOutputPer1MTokens = ReadOptionalNonNegativeDecimal(fields.GetValueOrDefault("reasoning_output_price_per_1m_tokens"))
+            },
+            Capabilities = new ModelCapabilityMetadata
+            {
+                SupportsTemperature = ReadBool(fields.GetValueOrDefault("supports_temperature"), resolved.Capabilities.SupportsTemperature ?? true),
+                SupportsReasoningEffort = ReadBool(fields.GetValueOrDefault("supports_reasoning_effort"), resolved.Capabilities.SupportsReasoningEffort ?? false),
+                SupportsStructuredOutput = ReadBool(fields.GetValueOrDefault("supports_structured_output"), resolved.Capabilities.SupportsStructuredOutput ?? true),
+                SupportsTools = ReadBool(fields.GetValueOrDefault("supports_tools"), resolved.Capabilities.SupportsTools ?? true),
+                SupportsJsonMode = ReadBool(fields.GetValueOrDefault("supports_json_mode"), resolved.Capabilities.SupportsJsonMode ?? true),
+                SupportsVision = ReadOptionalBool(fields.GetValueOrDefault("supports_vision")),
+                SupportsAudio = ReadOptionalBool(fields.GetValueOrDefault("supports_audio")),
+                SupportedReasoningEfforts = resolved.Capabilities.SupportedReasoningEfforts is null ? null : [.. resolved.Capabilities.SupportedReasoningEfforts]
+            }
+        };
+
+        setMetadata(metadata);
+        span.SetStatus(ActivityStatusCode.Ok);
+        yield return new SmartFlowEvent("thinking:info", $"📚 Metadata for model '{model}' will be saved with this LLM configuration.");
+    }
+
     private async IAsyncEnumerable<SmartFlowEvent> CollectAuthConfigAsync(
         string runId,
         string provider,
@@ -1652,8 +1808,38 @@ public sealed class ConfigureProvidersService
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var obj = response as JsonObject;
         foreach (var field in fields)
-            result[field.Name] = obj?[field.Name]?.GetValue<string>() ?? field.Default ?? "";
+            result[field.Name] = ReadFieldValue(obj?[field.Name]) ?? field.Default ?? "";
         return result;
+    }
+
+    private static string? ReadFieldValue(JsonNode? node)
+    {
+        if (node is null)
+            return null;
+
+        try
+        {
+            if (node is JsonValue value)
+            {
+                if (value.TryGetValue<string>(out var stringValue))
+                    return stringValue;
+                if (value.TryGetValue<int>(out var intValue))
+                    return intValue.ToString(CultureInfo.InvariantCulture);
+                if (value.TryGetValue<long>(out var longValue))
+                    return longValue.ToString(CultureInfo.InvariantCulture);
+                if (value.TryGetValue<decimal>(out var decimalValue))
+                    return decimalValue.ToString(CultureInfo.InvariantCulture);
+                if (value.TryGetValue<double>(out var doubleValue))
+                    return doubleValue.ToString(CultureInfo.InvariantCulture);
+                if (value.TryGetValue<bool>(out var boolValue))
+                    return boolValue.ToString().ToLowerInvariant();
+            }
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        return node.ToJsonString();
     }
 
     private async Task<IReadOnlyList<LLMModelDescriptor>> DiscoverModelsAsync(string provider, ModelProviderOptions providerOptions, CancellationToken ct)

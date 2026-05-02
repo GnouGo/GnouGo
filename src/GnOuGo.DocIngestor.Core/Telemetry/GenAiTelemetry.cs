@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using GnOuGo.AI.Core.Telemetry;
+using GnOuGo.AI.Core;
 
 namespace DocIngestor.Core.Telemetry;
 
@@ -94,7 +94,7 @@ public sealed class GenAiTelemetry : IDisposable
         // Enregistre le coût estimé
         if (success)
         {
-            var cost = ModelPricingCatalog.EstimateCost(modelName, inputTokens);
+            var cost = ModelMetadataCatalog.EstimateCost(modelName, inputTokens);
             if (cost.HasValue && cost.Value > 0)
                 _costCounter.Add((double)cost.Value, tags);
         }
@@ -121,7 +121,7 @@ public sealed class GenAiTelemetry : IDisposable
         var modelName = activity.GetTagItem("gen_ai.request.model") as string;
         if (success && modelName != null)
         {
-            var cost = ModelPricingCatalog.EstimateCost(modelName, inputTokens);
+            var cost = ModelMetadataCatalog.EstimateCost(modelName, inputTokens);
             if (cost.HasValue)
                 activity.SetTag("gen_ai.usage.cost", (double)cost.Value);
         }
@@ -180,7 +180,7 @@ public sealed class GenAiTelemetry : IDisposable
 
         if (success)
         {
-            var cost = ModelPricingCatalog.EstimateCost(modelName, inputTokens, outputTokens);
+            var cost = ModelMetadataCatalog.EstimateCost(modelName, inputTokens, outputTokens);
             if (cost.HasValue && cost.Value > 0)
                 _costCounter.Add((double)cost.Value, tags);
         }
@@ -207,7 +207,7 @@ public sealed class GenAiTelemetry : IDisposable
         var modelName = activity.GetTagItem("gen_ai.request.model") as string;
         if (success && modelName != null)
         {
-            var cost = ModelPricingCatalog.EstimateCost(modelName, inputTokens, outputTokens);
+            var cost = ModelMetadataCatalog.EstimateCost(modelName, inputTokens, outputTokens);
             if (cost.HasValue)
                 activity.SetTag("gen_ai.usage.cost", (double)cost.Value);
         }
@@ -266,7 +266,7 @@ public sealed class GenAiTelemetry : IDisposable
 
         if (success)
         {
-            var cost = ModelPricingCatalog.EstimateCost(modelName, inputTokens, outputTokens);
+            var cost = ModelMetadataCatalog.EstimateCost(modelName, inputTokens, outputTokens);
             if (cost.HasValue && cost.Value > 0)
                 _costCounter.Add((double)cost.Value, tags);
         }
@@ -293,7 +293,7 @@ public sealed class GenAiTelemetry : IDisposable
         var modelName = activity.GetTagItem("gen_ai.request.model") as string;
         if (success && modelName != null)
         {
-            var cost = ModelPricingCatalog.EstimateCost(modelName, inputTokens, outputTokens);
+            var cost = ModelMetadataCatalog.EstimateCost(modelName, inputTokens, outputTokens);
             if (cost.HasValue)
                 activity.SetTag("gen_ai.usage.cost", (double)cost.Value);
         }

@@ -13,11 +13,22 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 
 ## Model Catalog Behavior
 
-`ILLMModelCatalog` returns the provider-discovered catalog as-is for the configured credentials.
+`ILLMModelCatalog` returns the provider-discovered catalog enriched with GnOuGo model metadata.
 
 - OpenAI-compatible providers and Copilot/GitHub Models return the advertised catalog directly.
 - GnOuGo does not run extra chat-completions probes during model listing.
 - OIDC client-credentials authentication is supported for both inference calls and model discovery.
+- The embedded metadata catalog adds pricing, token limits and request capabilities when known.
+- User metadata files and inline overrides can add new models or override builtin values without recompilation.
+- `RoutingLLMClient` removes unsupported optional fields (for example `temperature` on reasoning models) before calling the provider.
+- Builtin metadata is authored in `Telemetry/model-metadata.json`; pricing is stored under each model's `pricing` object.
+- Regenerate `ModelMetadataCatalog.Generated.cs` with `scripts/update-model-metadata.ps1` or `scripts/update-model-metadata.sh`.
+
+Metadata precedence is:
+
+```text
+embedded catalog < LLM.ModelMetadataFiles < LLM.ModelOverrides < provider/model heuristics for missing values
+```
 
 ## Architecture
 
@@ -57,7 +68,67 @@ RoutingLLMClient  (routes requests to the right ILLMProvider based on config)
         "Type": "copilot",
         "ApiKey": null                  // or set GITHUB_TOKEN env var
       }
+    },
+    "ModelMetadataFiles": [
+      "config/my-models.json"
+    ],
+    "ModelOverrides": {
+      "o4-mini": {
+        "maxOutputTokens": 100000,
+        "capabilities": {
+          "supportsTemperature": false,
+          "supportsReasoningEffort": true,
+          "unsupportedRequestParameters": ["temperature"]
+        }
+      },
+      "my-local-model:latest": {
+        "providerType": "ollama",
+        "contextWindowTokens": 32768,
+        "maxOutputTokens": 8192,
+        "pricing": {
+          "currency": "USD",
+          "inputPer1MTokens": 0,
+          "outputPer1MTokens": 0
+        },
+        "capabilities": {
+          "supportsTemperature": true,
+          "supportsReasoningEffort": false,
+          "supportsStructuredOutput": false,
+          "supportsTools": false
+        }
+      }
     }
+  }
+}
+```
+
+External metadata files use this shape:
+
+```jsonc
+{
+  "models": {
+    "model-id": {
+      "providerType": "openai",
+      "displayName": "Model name",
+      "contextWindowTokens": 128000,
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 16384,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.15,
+        "outputPer1MTokens": 0.60
+      },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "unsupportedRequestParameters": []
+      }
+    }
+  },
+  "aliases": {
+    "short-name": "model-id"
   }
 }
 ```
@@ -91,8 +162,8 @@ Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `n
 | `high` / `max`  | `reasoning_effort: "high"`              | `think: true`         |
 | `none` / `off`  | (treated as `auto`)                     | `think: false`        |
 
-Models that don't support thinking simply ignore the field. The mapping lives in
-`ChatRequestBuilder.NormalizeOpenAiReasoning` / `NormalizeOllamaThink`.
+Models that don't support thinking have the field removed by `LLMRequestSanitizer` before the provider call.
+Provider-specific mapping still lives in `ChatRequestBuilder.NormalizeOpenAiReasoning` / `NormalizeOllamaThink`.
 
 ## Build
 
@@ -113,6 +184,8 @@ dotnet test tests/GnOuGo.AI.Core.Tests/GnOuGo.AI.Core.Tests.csproj
 | `ILLMProvider` | Interface — implement to add a new backend |
 | `RoutingLLMClient` | Routes `LLMClientRequest` to the correct provider |
 | `LLMOptions` / `ModelProviderOptions` | Configuration model |
+| `LLMModelMetadataResolver` | Merges builtin metadata, files and inline overrides |
+| `LLMRequestSanitizer` | Removes unsupported optional request parameters |
 | `ChatRequestBuilder` | AOT-friendly JSON request builder |
 | `ChatResponseParser` | Response parser for all providers |
 | `CopilotEndpoints` / `OpenAiEndpoints` / `OllamaEndpoints` | URL helpers |

@@ -74,7 +74,7 @@ RUN dotnet publish src/GnOuGo.DocIngestor.Server/GnOuGo.DocIngestor.Server.cspro
     -c Release \
     -o /app/publish \
     -p:SkipClientBuild=true \
-    -p:SkipPricingGeneration=true \
+    -p:SkipModelMetadataGeneration=true \
     --no-restore
 
 # ──────────────────────────────────────────────

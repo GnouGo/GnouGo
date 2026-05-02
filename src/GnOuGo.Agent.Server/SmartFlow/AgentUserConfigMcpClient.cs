@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Flow.Core.Runtime;
@@ -10,6 +12,7 @@ public sealed record AgentUserConfigSnapshot(
     string? DefaultLlmModel,
     string? DefaultEmbeddingConfig,
     string? DefaultAgent,
+    IReadOnlyDictionary<string, LLMModelMetadata> ModelOverrides,
     DateTimeOffset? UpdatedAt);
 
 /// <summary>
@@ -17,6 +20,11 @@ public sealed record AgentUserConfigSnapshot(
 /// </summary>
 public sealed class AgentUserConfigMcpClient
 {
+    private static readonly JsonSerializerOptions ModelMetadataJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     private readonly LLMRuntimeOptionsStore _optionsStore;
     private readonly ILogger<AgentUserConfigMcpClient> _logger;
 
@@ -39,6 +47,7 @@ public sealed class AgentUserConfigMcpClient
         string? defaultLlmModel = null,
         string? defaultEmbeddingConfig = null,
         string? defaultAgent = null,
+        IReadOnlyDictionary<string, LLMModelMetadata>? modelOverrides = null,
         bool clearDefaultLlm = false,
         bool clearDefaultEmbedding = false,
         bool clearDefaultAgent = false,
@@ -53,6 +62,8 @@ public sealed class AgentUserConfigMcpClient
             arguments["defaultEmbeddingConfig"] = defaultEmbeddingConfig;
         if (defaultAgent is not null)
             arguments["defaultAgent"] = defaultAgent;
+        if (modelOverrides is not null)
+            arguments["modelOverridesJson"] = JsonSerializer.Serialize(modelOverrides, ModelMetadataJsonOptions);
         if (clearDefaultLlm)
             arguments["clearDefaultLlm"] = true;
         if (clearDefaultEmbedding)
@@ -137,18 +148,35 @@ public sealed class AgentUserConfigMcpClient
             DefaultLlmModel: config["default_llm_model"]?.GetValue<string>(),
             DefaultEmbeddingConfig: config["default_embedding_config"]?.GetValue<string>(),
             DefaultAgent: config["default_agent"]?.GetValue<string>(),
+            ModelOverrides: ParseModelOverrides(config["model_overrides"]),
             UpdatedAt: DateTimeOffset.TryParse(config["updated_at"]?.GetValue<string>(), out var updatedAt) ? updatedAt : null);
     }
 
     private static AgentUserConfigSnapshot Empty()
-        => new(null, null, null, null, null);
+        => new(null, null, null, null, new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase), null);
+
+    private static IReadOnlyDictionary<string, LLMModelMetadata> ParseModelOverrides(JsonNode? node)
+    {
+        if (node is null)
+            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, LLMModelMetadata>>(node.ToJsonString(), ModelMetadataJsonOptions)
+                   ?? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
 
     private static McpServerOptions CloneServerOptions(McpServerOptions source)
         => new()
         {
             Type = source.Type,
             Description = source.Description,
-            Url = source.Url,
+            Url = NormalizeClientUrl(source.Url),
             ApiKey = source.ApiKey,
             Issuer = source.Issuer,
             ClientId = source.ClientId,
@@ -157,5 +185,17 @@ public sealed class AgentUserConfigMcpClient
             Command = source.Command,
             Args = source.Args is null ? null : [.. source.Args]
         };
+
+    private static string NormalizeClientUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            || uri.Host is not "0.0.0.0" and not "::")
+        {
+            return url;
+        }
+
+        var builder = new UriBuilder(uri) { Host = "127.0.0.1" };
+        return builder.Uri.ToString();
+    }
 }
 

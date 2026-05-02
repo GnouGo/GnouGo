@@ -34,6 +34,18 @@ public interface IWorkflowTelemetry
     /// Called when a step finishes execution (success, failure, or skipped).
     /// </summary>
     void StepEnd(IStepSpan span, StepResultInfo result);
+
+    /// <summary>
+    /// Called when an internal phase starts inside an existing workflow/step span.
+    /// These spans are not counted as workflow steps; they are used for real-time
+    /// observability of long-running operations such as workflow planning phases.
+    /// </summary>
+    ITelemetrySpan SpanStart(ITelemetrySpan parentSpan, TelemetrySpanInfo info) => NullTelemetrySpan.Instance;
+
+    /// <summary>
+    /// Called when an internal phase span finishes.
+    /// </summary>
+    void SpanEnd(ITelemetrySpan span, TelemetrySpanResultInfo result) { }
 }
 
 /// <summary>
@@ -41,6 +53,17 @@ public interface IWorkflowTelemetry
 /// </summary>
 public interface ITelemetrySpan : IDisposable
 {
+    /// <summary>
+    /// Set a telemetry attribute on this span.
+    /// Implementations map this to their tracing backend (e.g., Activity.SetTag for OTel).
+    /// </summary>
+    void SetAttribute(string key, object? value) { }
+
+    /// <summary>
+    /// Add a span event with attributes.
+    /// Used for GenAI content events and phase diagnostics.
+    /// </summary>
+    void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null) { }
 }
 
 /// <summary>
@@ -52,21 +75,10 @@ public interface IWorkflowSpan : ITelemetrySpan
 
 /// <summary>
 /// Opaque handle representing an in-flight step trace span.
-/// Executors can call <see cref="SetAttribute"/> to attach GenAI semantic attributes.
+/// Executors can call <see cref="ITelemetrySpan.SetAttribute"/> to attach GenAI semantic attributes.
 /// </summary>
 public interface IStepSpan : ITelemetrySpan
 {
-    /// <summary>
-    /// Set a telemetry attribute on this span.
-    /// Implementations map this to their tracing backend (e.g., Activity.SetTag for OTel).
-    /// </summary>
-    void SetAttribute(string key, object? value);
-
-    /// <summary>
-    /// Add a span event with attributes.
-    /// Used for GenAI content events (gen_ai.content.prompt, gen_ai.content.completion, etc.).
-    /// </summary>
-    void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null);
 }
 
 // ────── Telemetry data models ──────
@@ -168,6 +180,40 @@ public sealed record StepResultInfo
     public long? GenAiOutputTokens { get; init; }
 }
 
+/// <summary>
+/// Information about an internal child span started inside a workflow or step span.
+/// </summary>
+public sealed record TelemetrySpanInfo
+{
+    public string Name { get; init; } = "";
+    public string? Phase { get; init; }
+    public string? StepId { get; init; }
+    public string? StepType { get; init; }
+    public int? CallDepth { get; init; }
+    public IReadOnlyList<KeyValuePair<string, object?>>? Attributes { get; init; }
+}
+
+/// <summary>
+/// Information about an internal child span that finished.
+/// </summary>
+public sealed record TelemetrySpanResultInfo
+{
+    public bool Success { get; init; } = true;
+    public TimeSpan Duration { get; init; }
+    public string? ErrorType { get; init; }
+    public string? ErrorMessage { get; init; }
+}
+
+/// <summary>
+/// Shared no-op telemetry span.
+/// </summary>
+public sealed class NullTelemetrySpan : IWorkflowSpan, IStepSpan
+{
+    public static readonly NullTelemetrySpan Instance = new();
+    private NullTelemetrySpan() { }
+    public void Dispose() { }
+}
+
 // ────── Null (no-op) implementation ──────
 
 /// <summary>
@@ -177,17 +223,9 @@ public sealed class NullWorkflowTelemetry : IWorkflowTelemetry
 {
     public static readonly NullWorkflowTelemetry Instance = new();
 
-    public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info) => NullSpan.Instance;
+    public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info) => NullTelemetrySpan.Instance;
     public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result) { }
-    public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info) => NullSpan.Instance;
+    public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info) => NullTelemetrySpan.Instance;
     public void StepEnd(IStepSpan span, StepResultInfo result) { }
-
-    private sealed class NullSpan : IWorkflowSpan, IStepSpan
-    {
-        public static readonly NullSpan Instance = new();
-        public void SetAttribute(string key, object? value) { }
-        public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null) { }
-        public void Dispose() { }
-    }
 }
 

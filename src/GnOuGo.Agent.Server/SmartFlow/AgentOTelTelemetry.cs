@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using GnOuGo.Agent.Server.Telemetry;
-using GnOuGo.AI.Core.Telemetry;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
 
@@ -174,7 +174,7 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         var model = ss.Activity.GetTagItem("gen_ai.request.model") as string;
         if (model is not null && (result.GenAiInputTokens.HasValue || result.GenAiOutputTokens.HasValue))
         {
-            var cost = ModelPricingCatalog.EstimateCost(model,
+            var cost = ModelMetadataCatalog.EstimateCost(model,
                 result.GenAiInputTokens ?? 0, result.GenAiOutputTokens ?? 0);
             if (cost.HasValue)
                 ss.Activity.SetTag("gen_ai.usage.cost", (double)cost.Value);
@@ -197,6 +197,32 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
                 new KeyValuePair<string, object?>("gen_ai.request.model",     model));
 
         _collectorTracePersistence.Persist(ss.Activity);
+    }
+
+    public ITelemetrySpan SpanStart(ITelemetrySpan parentSpan, TelemetrySpanInfo info)
+    {
+        var parent = ResolveParentActivity(parentSpan) ?? ResolveImplicitParent();
+        var activity = StartActivity(info.Name, ActivityKind.Internal, parent);
+        ApplyCorrelationTags(activity);
+        ApplySpanInfo(activity, info);
+        return new GenericSpan(activity);
+    }
+
+    public void SpanEnd(ITelemetrySpan span, TelemetrySpanResultInfo result)
+    {
+        if (span is not GenericSpan genericSpan || genericSpan.Activity is null) return;
+        genericSpan.Activity.SetTag("gnougo-flow.span.duration_ms", result.Duration.TotalMilliseconds);
+        if (result.Success)
+        {
+            genericSpan.Activity.SetStatus(ActivityStatusCode.Ok);
+        }
+        else
+        {
+            genericSpan.Activity.SetStatus(ActivityStatusCode.Error, result.ErrorMessage);
+            genericSpan.Activity.SetTag("error.type", result.ErrorType);
+            genericSpan.Activity.SetTag("error.message", result.ErrorMessage);
+        }
+        _collectorTracePersistence.Persist(genericSpan.Activity);
     }
 
     public void Dispose()
@@ -264,8 +290,20 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         {
             WfSpan workflowSpan => workflowSpan.Activity,
             StSpan stepSpan => stepSpan.Activity,
+            GenericSpan genericSpan => genericSpan.Activity,
             _ => null
         };
+
+    private static void ApplySpanInfo(Activity activity, TelemetrySpanInfo info)
+    {
+        if (!string.IsNullOrWhiteSpace(info.Phase)) activity.SetTag("gnougo-flow.plan.phase", info.Phase);
+        if (!string.IsNullOrWhiteSpace(info.StepId)) activity.SetTag("gnougo-flow.step.id", info.StepId);
+        if (!string.IsNullOrWhiteSpace(info.StepType)) activity.SetTag("gnougo-flow.step.type", info.StepType);
+        if (info.CallDepth.HasValue) activity.SetTag("gnougo-flow.step.call_depth", info.CallDepth.Value);
+        if (info.Attributes is null) return;
+        foreach (var kv in info.Attributes)
+            activity.SetTag(kv.Key, kv.Value);
+    }
 
     /// <summary>
     /// Returns the best-effort implicit parent activity for spans that don't receive an
@@ -408,7 +446,34 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
     private sealed class WfSpan(Activity? activity) : IWorkflowSpan
     {
         public Activity? Activity { get; } = activity;
+        public void SetAttribute(string key, object? value) => Activity?.SetTag(key, value);
+        public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
+            => AddActivityEvent(Activity, name, attributes);
         public void Dispose() => Activity?.Dispose();
+    }
+
+    private sealed class GenericSpan(Activity? activity) : ITelemetrySpan
+    {
+        public Activity? Activity { get; } = activity;
+        public void SetAttribute(string key, object? value) => Activity?.SetTag(key, value);
+        public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
+            => AddActivityEvent(Activity, name, attributes);
+        public void Dispose() => Activity?.Dispose();
+    }
+
+    private static void AddActivityEvent(Activity? activity, string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes)
+    {
+        if (activity is null) return;
+        if (attributes is not null)
+        {
+            var tags = new ActivityTagsCollection();
+            foreach (var kv in attributes) tags[kv.Key] = kv.Value;
+            activity.AddEvent(new ActivityEvent(name, tags: tags));
+        }
+        else
+        {
+            activity.AddEvent(new ActivityEvent(name));
+        }
     }
 
     private sealed class StSpan(Activity? activity) : IStepSpan

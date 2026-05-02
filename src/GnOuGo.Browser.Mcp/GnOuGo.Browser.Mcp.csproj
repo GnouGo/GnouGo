@@ -25,5 +25,19 @@
     <Exec Command="node &quot;$(TargetDir).playwright/package/cli.js&quot; install chromium" WorkingDirectory="$(TargetDir)" StandardOutputImportance="low" />
   </Target>
 
+  <!--
+    Published MCP tools must be self-contained. The default Playwright install location is a user/machine cache,
+    which is not included in GitHub release ZIPs. Install Chromium beside the published executable and the
+    runtime bootstrap will set PLAYWRIGHT_BROWSERS_PATH to this folder when present.
+  -->
+  <Target Name="InstallPublishedPlaywrightBrowsers" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+    <PropertyGroup>
+      <PublishedPlaywrightBrowsersDir>$([System.IO.Path]::Combine('$(PublishDir)', 'ms-playwright'))</PublishedPlaywrightBrowsersDir>
+    </PropertyGroup>
+    <Message Importance="high" Text="Installing published Playwright Chromium browsers into $(PublishedPlaywrightBrowsersDir)..." />
+    <MakeDir Directories="$(PublishedPlaywrightBrowsersDir)" />
+    <Exec Command="node &quot;$(PublishDir).playwright/package/cli.js&quot; install chromium" WorkingDirectory="$(PublishDir)" EnvironmentVariables="PLAYWRIGHT_BROWSERS_PATH=$(PublishedPlaywrightBrowsersDir)" StandardOutputImportance="low" />
+  </Target>
+
 </Project>
 

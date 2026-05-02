@@ -91,6 +91,12 @@ class IWorkflowTelemetry:
     def step_end(self, span: ITelemetrySpan, info: dict[str, Any]) -> None:
         return
 
+    def span_start(self, parent: ITelemetrySpan, info: dict[str, Any]) -> ITelemetrySpan:
+        return ITelemetrySpan()
+
+    def span_end(self, span: ITelemetrySpan, info: dict[str, Any]) -> None:
+        return
+
 
 class NullWorkflowTelemetry(IWorkflowTelemetry):
     pass

@@ -210,7 +210,9 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
             DefaultProvider = source.DefaultProvider,
             DefaultModel = source.DefaultModel,
             Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase),
-            McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+            McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase),
+            ModelMetadataFiles = [.. source.ModelMetadataFiles],
+            ModelOverrides = new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase)
         };
 
         foreach (var kv in source.Models)
@@ -243,6 +245,9 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 Args = kv.Value.Args is null ? null : [.. kv.Value.Args]
             };
         }
+
+        foreach (var kv in source.ModelOverrides)
+            clone.ModelOverrides[kv.Key] = ModelMetadataCatalog.Clone(kv.Value);
 
         return clone;
     }

@@ -21,6 +21,9 @@
 - ✅ `WorkflowDocument.version` (with `dsl` alias, both at the model and the
   parser). Replaces the previous `dsl` field.
 - ✅ `LLMRequest.reasoning` field.
+- ✅ Model metadata catalog parity: pricing, token limits, capabilities,
+  external metadata files, inline overrides, and centralized LLM request
+  sanitation (`temperature`, `reasoning`, `structured_output`, `tools`).
 - ✅ `LlmCallExecutor` reads `input["reasoning"]` and forwards it; emits
   `gen_ai.request.reasoning_effort` telemetry attribute.
 - ✅ `WorkflowPlanExecutor` defaults `generator.reasoning` to `"high"` and

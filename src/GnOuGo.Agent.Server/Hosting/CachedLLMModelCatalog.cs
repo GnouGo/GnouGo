@@ -73,11 +73,11 @@ internal sealed class CachedLlmModelCatalog : ILLMModelCatalog
         if (options is null)
             return null;
 
-        var fingerprint = ComputeFingerprint(options);
+        var fingerprint = ComputeFingerprint(options, _store.Current);
         return $"llm-model-catalog::{provider.Trim().ToLowerInvariant()}::{fingerprint}";
     }
 
-    private static string ComputeFingerprint(ModelProviderOptions options)
+    private static string ComputeFingerprint(ModelProviderOptions options, LLMOptions runtimeOptions)
     {
         var payload = string.Join("\n",
             options.Url,
@@ -87,7 +87,9 @@ internal sealed class CachedLlmModelCatalog : ILLMModelCatalog
             options.ClientId ?? string.Empty,
             options.Scopes ?? string.Empty,
             options.ApiKey ?? string.Empty,
-            options.ClientSecret ?? string.Empty);
+            options.ClientSecret ?? string.Empty,
+            string.Join(";", runtimeOptions.ModelMetadataFiles),
+            string.Join(";", runtimeOptions.ModelOverrides.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase)));
 
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload)));
     }

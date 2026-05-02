@@ -63,6 +63,7 @@ public class WorkflowTelemetryTests
 
         /// <summary>Captured step spans (accessible after execution to inspect attributes).</summary>
         public List<TestSpan> StepSpans { get; } = new();
+        public List<TestSpan> ChildSpans { get; } = new();
 
         public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info)
         {
@@ -86,6 +87,30 @@ public class WorkflowTelemetryTests
         public void StepEnd(IStepSpan span, StepResultInfo result)
         {
             Events.Add(("StepEnd", result));
+        }
+
+        public ITelemetrySpan SpanStart(ITelemetrySpan parentSpan, TelemetrySpanInfo info)
+        {
+            Events.Add(("SpanStart", info));
+            var span = new TestSpan { Name = info.Name, ParentName = (parentSpan as TestSpan)?.Name };
+            if (info.Attributes != null)
+            {
+                foreach (var kv in info.Attributes)
+                    span.Attributes[kv.Key] = kv.Value;
+            }
+            ChildSpans.Add(span);
+            return span;
+        }
+
+        public void SpanEnd(ITelemetrySpan span, TelemetrySpanResultInfo result)
+        {
+            Events.Add(("SpanEnd", result));
+            if (span is TestSpan testSpan)
+            {
+                testSpan.Attributes["gnougo-flow.span.success"] = result.Success;
+                if (result.ErrorType != null)
+                    testSpan.Attributes["error.type"] = result.ErrorType;
+            }
         }
     }
 
@@ -343,6 +368,16 @@ workflows:
         Assert.Contains(planSpan.SpanEvents, e => e.Name == "gnougo-flow.plan.prefilter.servers.result"
             && e.Attributes != null
             && e.Attributes.Any(kv => kv.Key == "mcp.servers_selected" && (int)kv.Value! == 1));
+
+        var childSpans = recording.ChildSpans.ToDictionary(s => s.Name, StringComparer.Ordinal);
+        Assert.Equal("plan", childSpans["workflow.plan.mcp_server_prefilter"].ParentName);
+        Assert.Equal("plan", childSpans["workflow.plan.mcp_discovery"].ParentName);
+        Assert.Equal("plan", childSpans["workflow.plan.mcp_capability_prefilter"].ParentName);
+        Assert.Equal("plan", childSpans["workflow.plan.generate"].ParentName);
+        Assert.Equal("plan", childSpans["workflow.plan.validate"].ParentName);
+        Assert.Equal("chat", childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.operation.name"]);
+        Assert.Equal(5, childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.usage.total_tokens"]);
+        Assert.Equal(1, childSpans["workflow.plan.mcp_server_prefilter"].Attributes["mcp.servers_selected"]);
     }
 
     [Fact]

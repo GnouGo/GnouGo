@@ -187,6 +187,62 @@ class LlmRuntimeDefaults(BaseModel):
     model: str | None = None
 
 
+class ModelPricingMetadata(BaseModel):
+    """Pricing metadata for a model, expressed per one million tokens."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    currency: str = "USD"
+    input_per_1m_tokens: float | None = Field(default=None, alias="inputPer1MTokens")
+    output_per_1m_tokens: float | None = Field(default=None, alias="outputPer1MTokens")
+    cached_input_per_1m_tokens: float | None = Field(default=None, alias="cachedInputPer1MTokens")
+    reasoning_output_per_1m_tokens: float | None = Field(default=None, alias="reasoningOutputPer1MTokens")
+
+
+class ModelCapabilityMetadata(BaseModel):
+    """Capability metadata used to decide which optional request parameters are safe to emit."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    supports_temperature: bool | None = Field(default=None, alias="supportsTemperature")
+    supports_reasoning_effort: bool | None = Field(default=None, alias="supportsReasoningEffort")
+    supports_structured_output: bool | None = Field(default=None, alias="supportsStructuredOutput")
+    supports_tools: bool | None = Field(default=None, alias="supportsTools")
+    supports_json_mode: bool | None = Field(default=None, alias="supportsJsonMode")
+    supports_vision: bool | None = Field(default=None, alias="supportsVision")
+    supports_audio: bool | None = Field(default=None, alias="supportsAudio")
+    supports_embeddings: bool | None = Field(default=None, alias="supportsEmbeddings")
+    supported_reasoning_efforts: list[str] | None = Field(default=None, alias="supportedReasoningEfforts")
+    unsupported_request_parameters: list[str] | None = Field(default=None, alias="unsupportedRequestParameters")
+
+
+class LLMModelMetadata(BaseModel):
+    """Complete model metadata: limits, pricing, capabilities and extension values."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = ""
+    provider_type: str | None = Field(default=None, alias="providerType")
+    display_name: str | None = Field(default=None, alias="displayName")
+    owned_by: str | None = Field(default=None, alias="ownedBy")
+    context_window_tokens: int | None = Field(default=None, alias="contextWindowTokens")
+    max_input_tokens: int | None = Field(default=None, alias="maxInputTokens")
+    max_output_tokens: int | None = Field(default=None, alias="maxOutputTokens")
+    pricing: ModelPricingMetadata | None = None
+    capabilities: ModelCapabilityMetadata = Field(default_factory=ModelCapabilityMetadata)
+    aliases: dict[str, str] = Field(default_factory=dict)
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class LLMOptions(BaseModel):
+    """Model metadata options for the Python runtime."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    model_metadata_files: list[str] = Field(default_factory=list, alias="ModelMetadataFiles")
+    model_overrides: dict[str, LLMModelMetadata] = Field(default_factory=dict, alias="ModelOverrides")
+
+
 class LLMTool(BaseModel):
     name: str
     description: str | None = None

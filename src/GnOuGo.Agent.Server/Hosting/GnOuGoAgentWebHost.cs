@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using System.Net;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.Components;
@@ -735,6 +737,9 @@ public static class GnOuGoAgentWebHost
                 .CreateLogger("GnOuGo.Agent.Server.UserConfigBootstrap");
 
             var snapshot = await userConfigs.GetAsync(ct: CancellationToken.None);
+            foreach (var kv in ParseModelOverrides(snapshot.ModelOverrides))
+                runtimeOptions.UpsertModelOverride(kv.Key, kv.Value);
+
             if (!string.IsNullOrWhiteSpace(snapshot.DefaultLlmProvider))
             {
                 if (!runtimeOptions.SetDefaultProvider(snapshot.DefaultLlmProvider, snapshot.DefaultLlmModel))
@@ -771,6 +776,22 @@ public static class GnOuGoAgentWebHost
             var logger = services.GetRequiredService<ILoggerFactory>()
                 .CreateLogger("GnOuGo.Agent.Server.KeyVaultConfigBootstrap");
             logger.LogWarning(ex, "Could not hydrate runtime LLM and MCP settings from KeyVault.");
+        }
+    }
+
+    private static IReadOnlyDictionary<string, LLMModelMetadata> ParseModelOverrides(JsonObject? modelOverrides)
+    {
+        if (modelOverrides is null)
+            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, LLMModelMetadata>>(modelOverrides.ToJsonString(), new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                   ?? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
         }
     }
 

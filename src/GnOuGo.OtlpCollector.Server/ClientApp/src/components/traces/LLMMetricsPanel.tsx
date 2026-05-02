@@ -71,7 +71,8 @@ function LLMMetricsPanel({ trace }: LLMMetricsPanelProps) {
         else if (model.includes('gemini')) provider = 'Google';
         else if (model.includes('llama') || model.includes('mistral')) provider = 'Ollama';
 
-        // Extraire le coût depuis gen_ai.usage.cost (calculé par le backend via ModelPricingCatalog)
+
+        // Extraire le coût depuis gen_ai.usage.cost (calculé par le backend via ModelMetadataCatalog)
         const cost = Number(attrs['gen_ai.usage.cost'] || 0);
 
         // Extraire le nom d'opération

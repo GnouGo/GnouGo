@@ -24,18 +24,18 @@
     <ProjectReference Include="..\GnOuGo.Auth.Core\GnOuGo.Auth.Core.csproj" />
   </ItemGroup>
 
-  <!-- Pre-build: regenerate ModelPricingCatalog.Generated.cs from model-pricing.json -->
-  <Target Name="GeneratePricingCatalog" BeforeTargets="CoreCompile"
-          Condition="'$(SkipPricingGeneration)' != 'true'"
-          Inputs="$(MSBuildThisFileDirectory)Telemetry\model-pricing.json"
-          Outputs="$(MSBuildThisFileDirectory)Telemetry\ModelPricingCatalog.Generated.cs">
+  <!-- Pre-build: regenerate ModelMetadataCatalog.Generated.cs from model-metadata.json -->
+  <Target Name="GenerateModelMetadataCatalog" BeforeTargets="CoreCompile"
+          Condition="'$(SkipModelMetadataGeneration)' != 'true'"
+          Inputs="$(MSBuildThisFileDirectory)Telemetry\model-metadata.json"
+          Outputs="$(MSBuildThisFileDirectory)ModelMetadataCatalog.Generated.cs">
     <!-- Windows: use PowerShell script -->
     <Exec Condition="$([MSBuild]::IsOSPlatform('Windows'))"
-          Command="powershell -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\..\scripts\update-model-pricing.ps1&quot; -JsonPath &quot;$(MSBuildThisFileDirectory)Telemetry\model-pricing.json&quot; -OutputPath &quot;$(MSBuildThisFileDirectory)Telemetry\ModelPricingCatalog.Generated.cs&quot;"
+          Command="powershell -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\..\scripts\update-model-metadata.ps1&quot; -JsonPath &quot;$(MSBuildThisFileDirectory)Telemetry\model-metadata.json&quot; -OutputPath &quot;$(MSBuildThisFileDirectory)ModelMetadataCatalog.Generated.cs&quot;"
           IgnoreExitCode="true" />
     <!-- Linux / macOS: use bash script -->
     <Exec Condition="!$([MSBuild]::IsOSPlatform('Windows'))"
-          Command="bash &quot;$(MSBuildThisFileDirectory)../../scripts/update-model-pricing.sh&quot; --json-path &quot;$(MSBuildThisFileDirectory)Telemetry/model-pricing.json&quot; --output-path &quot;$(MSBuildThisFileDirectory)Telemetry/ModelPricingCatalog.Generated.cs&quot;"
+          Command="bash &quot;$(MSBuildThisFileDirectory)../../scripts/update-model-metadata.sh&quot; --json-path &quot;$(MSBuildThisFileDirectory)Telemetry/model-metadata.json&quot; --output-path &quot;$(MSBuildThisFileDirectory)ModelMetadataCatalog.Generated.cs&quot;"
           IgnoreExitCode="true" />
   </Target>
 </Project>

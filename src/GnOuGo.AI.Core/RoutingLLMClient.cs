@@ -11,6 +11,7 @@ public sealed class RoutingLLMClient
 {
     private readonly LLMOptions _options;
     private readonly Dictionary<string, ILLMProvider> _providers;
+    private readonly LLMModelMetadataResolver _metadataResolver;
 
     /// <summary>
     /// Creates a new routing client with the given options and provider implementations.
@@ -20,6 +21,7 @@ public sealed class RoutingLLMClient
     public RoutingLLMClient(LLMOptions options, IEnumerable<ILLMProvider> providers)
     {
         _options = options;
+        _metadataResolver = new LLMModelMetadataResolver(options);
         _providers = new Dictionary<string, ILLMProvider>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in providers)
             _providers[p.ProviderType] = p;
@@ -62,7 +64,11 @@ public sealed class RoutingLLMClient
         var resolvedType = providerOpts.ResolvedType;
 
         if (_providers.TryGetValue(resolvedType, out var provider))
-            return await provider.CallAsync(model, providerOpts, request, ct);
+        {
+            var metadata = _metadataResolver.Resolve(resolvedType, model);
+            var sanitizedRequest = LLMRequestSanitizer.Sanitize(request, metadata);
+            return await provider.CallAsync(model, providerOpts, sanitizedRequest, ct);
+        }
 
         throw new InvalidOperationException(
             $"No ILLMProvider registered for type '{resolvedType}'. " +

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Caching.Memory;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Shared;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
@@ -486,7 +488,24 @@ public sealed class SmartFlowService
             snapshot.DefaultLlmModel,
             snapshot.DefaultEmbeddingConfig,
             snapshot.DefaultAgent,
+            ParseModelOverrides(snapshot.ModelOverrides),
             snapshot.UpdatedAt);
+
+    private static IReadOnlyDictionary<string, LLMModelMetadata> ParseModelOverrides(JsonObject? modelOverrides)
+    {
+        if (modelOverrides is null)
+            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, LLMModelMetadata>>(modelOverrides.ToJsonString(), new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                   ?? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
 
     private async Task<AgentWorkflowLoadResult> LoadAgentWorkflowAsync(
         SecureWorkflowRuntimeSession runtime,

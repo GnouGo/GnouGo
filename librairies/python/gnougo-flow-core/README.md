@@ -23,6 +23,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
 | Step types: `set`, `emit`, `sequence`, `parallel`, `loop.sequential`, `loop.parallel`, `switch`, `template.render`, `llm.call`, `mcp.list`, `mcp.call`, `human.input`, `workflow.call`, `workflow.plan`, `workflow.execute` | Yes |
 | MCP integrations (`InMemoryMcpClientFactory`, `ConfiguredMcpClientFactory`, cache helper) | Yes |
 | `LLMRequest.reasoning` field | Yes |
+| Model metadata catalog (pricing, token limits, capabilities, overrides) | Yes |
 | `workflow.plan` defaults `reasoning="high"` | Yes |
 | Workflow source telemetry (`source_text` / `source_format`) | Yes |
 | `JsonSchemaConverter` (inputs/outputs to JSON Schema) | Yes |
@@ -58,6 +59,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
 - [Expressions `${...}`](#expressions-)
 - [WFScript - Custom JavaScript Functions](#wfscript--custom-javascript-functions)
 - [Error Handling](#error-handling)
+- [Model Metadata Catalog](#model-metadata-catalog)
 - [CLI](#cli)
 - [Python Runtime Notes](#python-runtime-notes)
 
@@ -266,12 +268,14 @@ Sends a prompt to an LLM and returns the response. Supports structured JSON outp
     prompt: "Summarize this: ${data.inputs.text}"    # Required
     system: "You are a concise summarizer."          # Optional
     provider: openai                                 # Optional (default: auto-routed)
-    temperature: 0.7                                 # Optional
+    temperature: 0.7                                 # Optional override; omit by default
     max_tokens: 2048                                 # Optional
     reasoning: auto                                  # Optional — auto|minimal|low|medium|high|max
                                                      # Default: omitted (provider decides).
-                                                     # Models without thinking support ignore it.
+                                                     # Unsupported optional fields are removed by runtime metadata.
 ```
+
+`temperature`, `reasoning`, `structured_output`, and tool-calling support are checked against the runtime model metadata catalog before the configured LLM client is called. For example, a request to `o4-mini` with `temperature: 0.7` is automatically sent without `temperature`.
 
 **Output:** `{ text: "...", usage: { prompt_tokens, completion_tokens, total_tokens }, meta: { model } }`
 
@@ -1049,6 +1053,71 @@ on_error:
         set_output:
           text: "Summary temporarily unavailable."
       - action: stop
+```
+
+---
+
+## Model Metadata Catalog
+
+The Python runtime includes a model metadata catalog aligned with the .NET implementation. It centralizes:
+
+- token limits: `context_window_tokens`, `max_input_tokens`, `max_output_tokens`
+- pricing: `input_per_1m_tokens`, `output_per_1m_tokens`
+- capabilities: temperature, reasoning effort, structured output, tools, JSON mode, vision, embeddings
+- aliases and user-provided extensions
+
+`WorkflowEngine.sanitize_llm_request()` removes unsupported optional request fields before calling the configured LLM client. This prevents provider crashes such as sending `temperature` to reasoning models that reject it.
+
+Pricing uses the same metadata resolver. `try_get_pricing()` and `estimate_cost()` read builtin pricing by default and can also use `LLMOptions.model_metadata_files` / `LLMOptions.model_overrides` when passed explicitly.
+
+```python
+from gnougo_flow_core import WorkflowEngine, LLMOptions, LLMModelMetadata, ModelCapabilityMetadata
+
+engine = WorkflowEngine()
+engine.llm_options = LLMOptions(
+    model_metadata_files=["config/my-models.json"],
+    model_overrides={
+        "my-local-model:latest": LLMModelMetadata(
+            provider_type="ollama",
+            context_window_tokens=32768,
+            max_output_tokens=8192,
+            capabilities=ModelCapabilityMetadata(
+                supports_temperature=True,
+                supports_reasoning_effort=False,
+                supports_structured_output=False,
+                supports_tools=False,
+            ),
+        )
+    },
+)
+```
+
+External metadata files can also use .NET-style camelCase field names:
+
+```jsonc
+{
+  "models": {
+    "model-id": {
+      "providerType": "openai",
+      "contextWindowTokens": 128000,
+      "maxOutputTokens": 16384,
+      "pricing": { "inputPer1MTokens": 0.15, "outputPer1MTokens": 0.60 },
+      "capabilities": {
+        "supportsTemperature": true,
+        "supportsReasoningEffort": false,
+        "supportsStructuredOutput": true,
+        "supportsTools": true
+      }
+    }
+  },
+  "aliases": { "short-name": "model-id" }
+}
+```
+
+Metadata precedence is:
+
+```text
+builtin catalog < model_metadata_files < model_overrides < heuristics for missing fields
 ```
 
 ---
