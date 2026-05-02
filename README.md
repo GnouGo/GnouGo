@@ -36,6 +36,20 @@ Supporting libraries such as **GnOuGo.AI.Core**, **GnOuGo.Auth.Core**, and **GnO
 
 ---
 
+## 🔌 MCP Servers
+
+| Server | Transport | Description |
+|---|---|---|
+| **GnOuGo.Agent.Mcp** | HTTP | Agent definitions, chat history, and user configuration (default LLM, default agent). |
+| **GnOuGo.KeyVault.Mcp** | HTTP | Encrypted secret storage: tenant management, create/read/update/delete secrets. |
+| **GnOuGo.Browser.Mcp** | stdio | Web navigation via Playwright: open pages, click, fill forms, screenshot, and more. |
+| **GnOuGo.Cmd.Mcp** | stdio | Safe shell command execution through a strict allowlist (deny-by-default, cross-platform). |
+| **GnOuGo.Code.Mcp** | stdio | Local code operations: read files, search text, summarize a project, and suggest changes via GitHub Copilot. |
+| **GnOuGo.Document.Mcp** | stdio | Read and write office/text documents (PDF, DOCX, XLSX, PPTX, Markdown, CSV, JSON…). |
+| **GnOuGo.DocIngestor.Mcp** | HTTP | Document ingestion pipeline: download, chunk, embed into a vector store, and semantic search. |
+
+---
+
 ## 📚 Published Flow Libraries
 
 The Flow DSL engine is available as two user-facing libraries:
