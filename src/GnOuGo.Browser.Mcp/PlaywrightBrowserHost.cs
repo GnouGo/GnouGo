@@ -15,6 +15,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
     private IBrowser? _browser;
     private IBrowserContext? _context;
     private IPage? _page;
+    private bool _disposed;
 
     public PlaywrightBrowserHost(
         IOptions<BrowserServerSettings> settings,
@@ -473,9 +474,15 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (_disposed)
+            return;
+
         await _gate.WaitAsync();
         try
         {
+            if (_disposed)
+                return;
+
             await HoldOpenIfConfiguredAsync(CancellationToken.None);
 
             if (_settings.KeepBrowserOpen)
@@ -498,6 +505,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         }
         finally
         {
+            _disposed = true;
             _gate.Release();
             _gate.Dispose();
         }
