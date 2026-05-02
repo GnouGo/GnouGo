@@ -71,30 +71,45 @@ jobs:
             /p:SkipClientBuild=true `
             /p:PublishSingleFile=true `
             /p:EnableCompressionInSingleFile=true `
-            /p:IncludeAllContentForSelfExtract=true `
+            /p:IncludeAllContentForSelfExtract=false `
             /p:DebugSymbols=false `
             /p:DebugType=None
 
-      - name: Validate OTLP Collector executable
+      - name: Validate OTLP Collector output
         shell: pwsh
         run: |
+          $publishRoot = "artifacts/publish/otlp-collector/${{ matrix.rid }}"
           $exeExt = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
-          $collectorExe = "artifacts/publish/otlp-collector/${{ matrix.rid }}/GnOuGo.OtlpCollector.Server$exeExt"
+          $collectorExe = Join-Path $publishRoot "GnOuGo.OtlpCollector.Server$exeExt"
           if (-not (Test-Path $collectorExe)) {
             throw "Missing OTLP Collector executable: $collectorExe"
+          }
+
+          $requiredUiAssets = @(
+            (Join-Path $publishRoot "wwwroot/index.html"),
+            (Join-Path $publishRoot "wwwroot/assets")
+          )
+
+          foreach ($path in $requiredUiAssets) {
+            if (-not (Test-Path $path)) {
+              Write-Host "Published OTLP Collector tree under ${publishRoot}:"
+              Get-ChildItem $publishRoot -Recurse | Select-Object -First 200 FullName, Length | Format-Table -AutoSize | Out-String | Write-Host
+              throw "Missing required OTLP Collector web UI asset: $path"
+            }
           }
 
       - name: Zip OTLP Collector output
         shell: pwsh
         run: |
+          $publishRoot = "artifacts/publish/otlp-collector/${{ matrix.rid }}"
           $exeExt = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
-          $collectorExe = "artifacts/publish/otlp-collector/${{ matrix.rid }}/GnOuGo.OtlpCollector.Server$exeExt"
+          $collectorExe = Join-Path $publishRoot "GnOuGo.OtlpCollector.Server$exeExt"
           if (-not (Test-Path $collectorExe)) {
             throw "Missing OTLP Collector executable: $collectorExe"
           }
           $zip = "GnOuGo.OtlpCollector.Server-${{ matrix.rid }}.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
-          Compress-Archive -Path $collectorExe -DestinationPath $zip
+          Compress-Archive -Path "$publishRoot/*" -DestinationPath $zip
 
       - name: Upload OTLP Collector artifact
         uses: actions/upload-artifact@v4
