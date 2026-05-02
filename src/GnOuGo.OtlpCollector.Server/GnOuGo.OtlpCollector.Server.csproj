@@ -38,8 +38,7 @@
       <_RequiredOtlpProto Include="opentelemetry/proto/collector/trace/v1/trace_service.proto" />
       <_RequiredOtlpProto Include="opentelemetry/proto/collector/logs/v1/logs_service.proto" />
       <_RequiredOtlpProto Include="opentelemetry/proto/collector/metrics/v1/metrics_service.proto" />
-      <_MissingOtlpProto Include="@(_RequiredOtlpProto)"
-                         Condition="!Exists('$(OtlpProtoDir)/%(Identity)')" />
+      <_MissingOtlpProto Include="@(_RequiredOtlpProto)" Condition="!Exists('$(OtlpProtoDir)/%(Identity)')" />
     </ItemGroup>
 
     <!-- Read current version if file exists -->
@@ -51,41 +50,28 @@
     <PropertyGroup>
       <_ProtoUpToDate Condition="'@(_CurrentProtoVersion)' == '$(OtlpProtoVersion)' and '@(_MissingOtlpProto)' == ''">true</_ProtoUpToDate>
     </PropertyGroup>
-    <Message Importance="normal" Text="OpenTelemetry Proto $(OtlpProtoVersion) already present — skipping download."
-             Condition="'$(_ProtoUpToDate)' == 'true'" />
-    <Message Importance="high"
-             Text="OpenTelemetry Proto $(OtlpProtoVersion) will be refreshed because required files are missing: @(_MissingOtlpProto, ', ')"
-             Condition="'$(_ProtoUpToDate)' != 'true' and '@(_MissingOtlpProto)' != ''" />
+    <Message Importance="normal" Text="OpenTelemetry Proto $(OtlpProtoVersion) already present — skipping download." Condition="'$(_ProtoUpToDate)' == 'true'" />
+    <Message Importance="high" Text="OpenTelemetry Proto $(OtlpProtoVersion) will be refreshed because required files are missing: @(_MissingOtlpProto, ', ')" Condition="'$(_ProtoUpToDate)' != 'true' and '@(_MissingOtlpProto)' != ''" />
 
     <!-- Download each proto file if not up to date -->
     <ItemGroup Condition="'$(_ProtoUpToDate)' != 'true'">
       <_OtlpProtoFile Include="@(_RequiredOtlpProto)" />
     </ItemGroup>
 
-    <Message Importance="high" Text="Downloading OpenTelemetry Proto $(OtlpProtoVersion) ..."
-             Condition="'$(_ProtoUpToDate)' != 'true'" />
+    <Message Importance="high" Text="Downloading OpenTelemetry Proto $(OtlpProtoVersion) ..." Condition="'$(_ProtoUpToDate)' != 'true'" />
 
-    <MakeDir Directories="$(OtlpProtoDir)/$([System.IO.Path]::GetDirectoryName('%(_OtlpProtoFile.Identity)').Replace('\', '/'))"
-             Condition="'$(_ProtoUpToDate)' != 'true'" />
+    <MakeDir Directories="$(OtlpProtoDir)/$([System.IO.Path]::GetDirectoryName('%(_OtlpProtoFile.Identity)').Replace('\', '/'))" Condition="'$(_ProtoUpToDate)' != 'true'" />
 
-    <DownloadFile SourceUrl="$(OtlpProtoBaseUrl)/%(_OtlpProtoFile.Identity)"
-                  DestinationFolder="$(OtlpProtoDir)/$([System.IO.Path]::GetDirectoryName('%(_OtlpProtoFile.Identity)').Replace('\', '/'))"
-                  DestinationFileName="$([System.IO.Path]::GetFileName('%(_OtlpProtoFile.Identity)'))"
-                  SkipUnchangedFiles="false"
-                  Condition="'$(_ProtoUpToDate)' != 'true'" />
+    <DownloadFile SourceUrl="$(OtlpProtoBaseUrl)/%(_OtlpProtoFile.Identity)" DestinationFolder="$(OtlpProtoDir)/$([System.IO.Path]::GetDirectoryName('%(_OtlpProtoFile.Identity)').Replace('\', '/'))" DestinationFileName="$([System.IO.Path]::GetFileName('%(_OtlpProtoFile.Identity)'))" SkipUnchangedFiles="false" Condition="'$(_ProtoUpToDate)' != 'true'" />
 
-    <WriteLinesToFile File="$(OtlpProtoVersionFile)" Lines="$(OtlpProtoVersion)" Overwrite="true"
-                     Condition="'$(_ProtoUpToDate)' != 'true'" />
+    <WriteLinesToFile File="$(OtlpProtoVersionFile)" Lines="$(OtlpProtoVersion)" Overwrite="true" Condition="'$(_ProtoUpToDate)' != 'true'" />
 
     <!-- Register proto files for Grpc.Tools compilation (needed when files were just downloaded) -->
     <ItemGroup Condition="'$(_ProtoUpToDate)' != 'true'">
-      <Protobuf Include="$(OtlpProtoDir)/opentelemetry/proto/**/*.proto"
-                ProtoRoot="$(OtlpProtoDir)"
-                GrpcServices="Server" />
+      <Protobuf Include="$(OtlpProtoDir)/opentelemetry/proto/**/*.proto" ProtoRoot="$(OtlpProtoDir)" GrpcServices="Server" />
     </ItemGroup>
 
-    <Message Importance="high" Text="OpenTelemetry Proto $(OtlpProtoVersion) ready."
-             Condition="'$(_ProtoUpToDate)' != 'true'" />
+    <Message Importance="high" Text="OpenTelemetry Proto $(OtlpProtoVersion) ready." Condition="'$(_ProtoUpToDate)' != 'true'" />
   </Target>
 
   <ItemGroup>
@@ -94,9 +80,7 @@
       Change OtlpProtoVersion above to bump. Manual: Protos/download-protos.ps1 -Force
       The glob below picks up pre-existing files; the target above handles first-time download.
     -->
-    <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/**/*.proto"
-              ProtoRoot="Protos/otlp-proto"
-              GrpcServices="Server" />
+    <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/**/*.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="Server" />
     <PackageReference Include="Grpc.Tools" Version="2.80.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -104,11 +88,11 @@
     <PackageReference Include="Google.Protobuf" Version="3.34.1" />
 
     <!-- gRPC server -->
-    <PackageReference Include="Grpc.AspNetCore" Version="2.76.0" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.80.0" />
 
     <!-- SQLite with Entity Framework Core -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.5" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
