@@ -76,11 +76,45 @@ public class ConfiguredMcpClientFactoryTests
         Assert.Contains("The server shut down unexpectedly.", diagnostics);
         Assert.Contains("System.InvalidOperationException", diagnostics);
         Assert.Contains("System.IO.IOException", diagnostics);
-        Assert.Contains("command=tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp", diagnostics);
+        Assert.Contains("configuredCommand=tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp", diagnostics);
+        Assert.Contains("command=", diagnostics);
         Assert.Contains("args=--sample", diagnostics);
         Assert.Contains("workingDirectory=", diagnostics);
         Assert.Contains("first stderr line", diagnostics);
         Assert.Contains("fatal browser crash", diagnostics);
+    }
+
+    [Fact]
+    public void ResolveStdioCommand_PreservesBarePathCommand()
+    {
+        var resolution = InvokeResolveStdioCommand("dotnet", AppContext.BaseDirectory);
+
+        Assert.Equal("dotnet", resolution.Command);
+        Assert.Null(resolution.WorkingDirectory);
+    }
+
+    [Fact]
+    public void ResolveStdioCommand_ResolvesRelativeBundledToolExecutable()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "gnougo-stdio-command-" + Guid.NewGuid().ToString("N"));
+        var toolDirectory = Path.Combine(root, "tools", "GnOuGo.Browser.Mcp");
+        Directory.CreateDirectory(toolDirectory);
+        var executableName = OperatingSystem.IsWindows() ? "GnOuGo.Browser.Mcp.exe" : "GnOuGo.Browser.Mcp";
+        var executable = Path.Combine(toolDirectory, executableName);
+        File.WriteAllText(executable, string.Empty);
+
+        try
+        {
+            var resolution = InvokeResolveStdioCommand("tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp", root);
+
+            Assert.Equal(executable, resolution.Command);
+            Assert.Equal(toolDirectory, resolution.WorkingDirectory);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); }
+            catch { }
+        }
     }
 
     [Fact]
@@ -187,6 +221,25 @@ public class ConfiguredMcpClientFactoryTests
 
         Assert.NotNull(method);
         return (string?)method.Invoke(null, [command]);
+    }
+
+    private static (string Command, string? WorkingDirectory) InvokeResolveStdioCommand(string command, string baseDirectory)
+    {
+        var method = typeof(ConfiguredMcpClientFactory).GetMethods(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
+            .Single(m => m.Name == "ResolveStdioCommand" && m.GetParameters().Length == 2);
+
+        var value = method.Invoke(null, [command, baseDirectory]);
+        Assert.NotNull(value);
+
+        var type = value.GetType();
+        var commandProperty = type.GetProperty("Command");
+        var workingDirectoryProperty = type.GetProperty("WorkingDirectory");
+        Assert.NotNull(commandProperty);
+        Assert.NotNull(workingDirectoryProperty);
+
+        return (
+            Assert.IsType<string>(commandProperty.GetValue(value)),
+            (string?)workingDirectoryProperty.GetValue(value));
     }
 
     private static void InvokeCreateStdioTransport(string serverName, McpServerOptions options)

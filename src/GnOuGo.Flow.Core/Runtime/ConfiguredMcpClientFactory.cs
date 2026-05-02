@@ -142,16 +142,16 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
                 ErrorCodes.McpConnectionError,
                 "MCP stdio transport requires a 'Command'");
 
-        var workingDirectory = ResolveStdioWorkingDirectory(config.Command);
+        var commandResolution = ResolveStdioCommand(config.Command);
         var diagnostics = StdioDiagnostics.GetOrAdd(serverName, _ => new StdioServerDiagnostics());
-        diagnostics.Reset(config.Command, config.Args ?? [], workingDirectory);
+        diagnostics.Reset(config.Command, commandResolution.Command, config.Args ?? [], commandResolution.WorkingDirectory);
 
         return new StdioClientTransport(new StdioClientTransportOptions
         {
-            Command = config.Command,
+            Command = commandResolution.Command,
             Arguments = config.Args ?? [],
             Name = "GnOuGo.Flow",
-            WorkingDirectory = workingDirectory,
+            WorkingDirectory = commandResolution.WorkingDirectory,
             EnvironmentVariables = BuildCorrelationEnvironment(correlation),
             StandardErrorLines = line => CaptureStdioErrorLine(serverName, line)
         });
@@ -201,21 +201,52 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
     }
 
     internal static string? ResolveStdioWorkingDirectory(string command)
+        => ResolveStdioCommand(command).WorkingDirectory;
+
+    internal static StdioCommandResolution ResolveStdioCommand(string command)
+        => ResolveStdioCommand(command, AppContext.BaseDirectory);
+
+    internal static StdioCommandResolution ResolveStdioCommand(string command, string baseDirectory)
     {
         if (string.IsNullOrWhiteSpace(command))
-            return null;
+            return new StdioCommandResolution(command, null);
 
         var normalizedCommand = command.Replace('/', Path.DirectorySeparatorChar)
                                        .Replace('\\', Path.DirectorySeparatorChar);
+        if (!LooksLikeFileSystemCommand(normalizedCommand))
+            return new StdioCommandResolution(command, null);
+
         var commandPath = Path.IsPathRooted(normalizedCommand)
             ? normalizedCommand
-            : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, normalizedCommand));
+            : Path.GetFullPath(Path.Combine(baseDirectory, normalizedCommand));
 
-        if (!File.Exists(commandPath))
+        var resolvedCommandPath = ResolveExistingExecutablePath(commandPath) ?? commandPath;
+        var workingDirectory = File.Exists(resolvedCommandPath)
+            ? Path.GetDirectoryName(resolvedCommandPath)
+            : null;
+
+        return new StdioCommandResolution(resolvedCommandPath, workingDirectory);
+    }
+
+    private static bool LooksLikeFileSystemCommand(string command)
+        => Path.IsPathRooted(command)
+           || command.Contains(Path.DirectorySeparatorChar, StringComparison.Ordinal)
+           || (Path.AltDirectorySeparatorChar != Path.DirectorySeparatorChar
+               && command.Contains(Path.AltDirectorySeparatorChar, StringComparison.Ordinal));
+
+    private static string? ResolveExistingExecutablePath(string commandPath)
+    {
+        if (File.Exists(commandPath))
+            return commandPath;
+
+        if (!OperatingSystem.IsWindows() || commandPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
             return null;
 
-        return Path.GetDirectoryName(commandPath);
+        var windowsExecutablePath = commandPath + ".exe";
+        return File.Exists(windowsExecutablePath) ? windowsExecutablePath : null;
     }
+
+    internal readonly record struct StdioCommandResolution(string Command, string? WorkingDirectory);
 
     private static void AddCorrelationHeaders(HttpRequestHeaders headers, McpCorrelationContext? correlation)
     {
@@ -320,14 +351,16 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
     {
         private readonly object _gate = new();
         private readonly Queue<string> _stderrLines = new(MaxCapturedStdioErrorLines);
+        private string? _configuredCommand;
         private string? _command;
         private IReadOnlyList<string> _arguments = [];
         private string? _workingDirectory;
 
-        public void Reset(string command, IReadOnlyList<string> arguments, string? workingDirectory)
+        public void Reset(string configuredCommand, string command, IReadOnlyList<string> arguments, string? workingDirectory)
         {
             lock (_gate)
             {
+                _configuredCommand = configuredCommand;
                 _command = command;
                 _arguments = arguments.ToArray();
                 _workingDirectory = workingDirectory;
@@ -353,8 +386,12 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
                 if (string.IsNullOrWhiteSpace(_command))
                     return string.Empty;
 
-                var args = _arguments.Count == 0 ? "<none>" : string.Join(" ", _arguments.Select(QuoteArgument));
-                return $"command={QuoteArgument(_command)}, args={args}, workingDirectory={_workingDirectory ?? "<null>"}";
+                var args = BuildArgumentsSummary(_arguments);
+                var configuredCommand = string.IsNullOrWhiteSpace(_configuredCommand) ? "<null>" : _configuredCommand;
+                var workingDirectory = string.IsNullOrWhiteSpace(_workingDirectory) ? "<null>" : _workingDirectory;
+                return string.Equals(_configuredCommand, _command, StringComparison.Ordinal)
+                    ? $"command={QuoteArgument(_command)}, args={args}, workingDirectory={workingDirectory}"
+                    : $"configuredCommand={QuoteArgument(configuredCommand)}, command={QuoteArgument(_command)}, args={args}, workingDirectory={workingDirectory}";
             }
         }
 
@@ -370,6 +407,23 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
 
         private static string QuoteArgument(string value)
             => value.Contains(' ', StringComparison.Ordinal) ? $"\"{value}\"" : value;
+
+        private static string BuildArgumentsSummary(IReadOnlyList<string> arguments)
+        {
+            if (arguments.Count == 0)
+                return "<none>";
+
+            var builder = new StringBuilder();
+            for (var i = 0; i < arguments.Count; i++)
+            {
+                if (i > 0)
+                    builder.Append(' ');
+
+                builder.Append(QuoteArgument(arguments[i]));
+            }
+
+            return builder.ToString();
+        }
     }
 }
 
