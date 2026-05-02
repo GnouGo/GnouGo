@@ -11,15 +11,15 @@
   },
   "dependencies": {
     "react": "19.2.5",
-    "react-diff-viewer-continued": "4.2.0",
+    "react-diff-viewer-continued": "4.2.2",
     "react-dom": "19.2.5"
   },
   "devDependencies": {
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.0",
+    "@vitejs/plugin-react": "6.0.1",
     "sass": "1.99.0",
-    "typescript": "6.0.2",
-    "vite": "7.3.2"
+    "typescript": "6.0.3",
+    "vite": "8.0.10"
   }
 }
