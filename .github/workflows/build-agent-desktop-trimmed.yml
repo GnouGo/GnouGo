@@ -2,6 +2,12 @@
 
 on:
   workflow_call:
+    inputs:
+      package_version:
+        description: Version used for Linux package metadata. Defaults to the tag version or the current run number.
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -203,11 +209,18 @@ jobs:
             if (Test-Path $packageRoot) { Remove-Item $packageRoot -Recurse -Force }
             New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
             Copy-Item "artifacts/publish/desktop/${{ matrix.rid }}/*" $packageRoot -Recurse
+            Write-Host "Renaming Linux apphost from GnOuGo.Agent to public command name gnougo."
             Move-Item "$packageRoot/GnOuGo.Agent" "$packageRoot/gnougo" -Force
             chmod +x "$packageRoot/gnougo"
             tar -czf $archive -C $packageRoot .
 
-            $packageVersion = "0.0.${{ github.run_number }}"
+            $packageVersion = "${{ inputs.package_version }}"
+            if ([string]::IsNullOrWhiteSpace($packageVersion)) {
+              $packageVersion = "${{ github.ref_name }}" -replace '^v', ''
+            }
+            if ($packageVersion -notmatch '^[0-9][0-9A-Za-z.+:~_-]*$') {
+              $packageVersion = "0.0.${{ github.run_number }}"
+            }
             $debRoot = "artifacts/package/deb"
             if (Test-Path $debRoot) { Remove-Item $debRoot -Recurse -Force }
             New-Item -ItemType Directory -Path "$debRoot/DEBIAN", "$debRoot/opt/gnougo", "$debRoot/usr/bin" -Force | Out-Null

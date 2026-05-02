@@ -82,6 +82,8 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("archive: gnougo-osx-x64.tar.gz", yaml);
         Assert.Contains("artifacts/package/gnougo.app", yaml);
         Assert.Contains("dpkg-deb --build", yaml);
+        Assert.Contains("inputs.package_version", yaml);
+        Assert.Contains("public command name gnougo", yaml);
         Assert.Contains("gnougo_${packageVersion}_${{ matrix.deb_arch }}.deb", yaml);
     }
 
@@ -96,7 +98,6 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("release-assets/**/*.zip", yaml);
         Assert.Contains("release-assets/**/*.tar.gz", yaml);
         Assert.Contains("release-assets/**/*.deb", yaml);
-        Assert.Contains("release-assets/**/*.rpm", yaml);
         Assert.Contains("release-assets/checksums.txt", yaml);
     }
 
@@ -142,4 +143,3 @@ public sealed class BundledBrowserMcpPublishTests
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
             .SingleOrDefault(line => line.Contains($"dotnet publish &quot;$({bundledToolProjectProperty})&quot;", StringComparison.Ordinal));
 }
-
