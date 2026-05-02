@@ -36,6 +36,25 @@ Supporting libraries such as **GnOuGo.AI.Core**, **GnOuGo.Auth.Core**, and **GnO
 
 ---
 
+## 📦 Install gnougo
+
+Windows:
+
+```powershell
+winget install GnouGo.GnouGo
+```
+
+macOS:
+
+```bash
+brew tap GnouGo/tap
+brew install --cask gnougo
+```
+
+You can also download the Windows and macOS archives from the GitHub Releases page.
+
+---
+
 ## 🔌 MCP Servers
 
 | Server | Transport | Description |

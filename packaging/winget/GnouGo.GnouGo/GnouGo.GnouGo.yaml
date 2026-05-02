@@ -1,0 +1,6 @@
+# Template for wingetcreate. Replace 0.0.0 with the release version before submitting to winget-pkgs.
+PackageIdentifier: GnouGo.GnouGo
+PackageVersion: 0.0.0
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.10.0

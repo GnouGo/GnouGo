@@ -28,7 +28,24 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-assets
-          pattern: GnOuGo.*
+
+      - name: Generate release checksums
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem release-assets -Recurse -File | Where-Object {
+            $_.Name -match '\.(zip|tar\.gz|dmg|msi)$'
+          } | Sort-Object Name
+
+          if (-not $files) {
+            throw "No release archives were found under release-assets."
+          }
+
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash -Algorithm SHA256 $file.FullName).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+
+          $lines | Set-Content -Path "release-assets/checksums.txt" -Encoding utf8
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
@@ -40,4 +57,7 @@ jobs:
           prerelease: ${{ inputs.channel_tag != 'release' }}
           files: |
             release-assets/**/*.zip
-
+            release-assets/**/*.tar.gz
+            release-assets/**/*.dmg
+            release-assets/**/*.msi
+            release-assets/checksums.txt
