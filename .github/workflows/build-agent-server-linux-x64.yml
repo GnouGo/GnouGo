@@ -68,6 +68,21 @@ jobs:
             }
           }
 
+          $toolRuntimeConfigs = Get-ChildItem "artifacts/publish/server/linux-x64/tools" -Recurse -File -Filter "*.runtimeconfig.json"
+          if (-not $toolRuntimeConfigs) {
+            throw "No bundled server tool runtimeconfig files were found. Expected at least GnOuGo.Browser.Mcp.runtimeconfig.json."
+          }
+
+          foreach ($runtimeConfigFile in $toolRuntimeConfigs) {
+            $runtimeConfig = Get-Content $runtimeConfigFile.FullName -Raw | ConvertFrom-Json
+            $invariantGlobalization = $runtimeConfig.runtimeOptions.configProperties.'System.Globalization.Invariant'
+            if ($invariantGlobalization -ne $false) {
+              throw "Bundled server tool must not use invariant globalization: $($runtimeConfigFile.FullName)"
+            }
+          }
+
+          Write-Host "Validated $($toolRuntimeConfigs.Count) bundled server tool runtimeconfig file(s). Single-file tools embed their runtimeconfig."
+
           $browserToolRoot = "artifacts/publish/server/linux-x64/tools/GnOuGo.Browser.Mcp"
           $playwrightRoot = Join-Path $browserToolRoot "ms-playwright"
           if (-not (Test-Path $playwrightRoot)) {

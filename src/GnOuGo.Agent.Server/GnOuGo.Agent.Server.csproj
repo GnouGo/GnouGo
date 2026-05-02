@@ -77,16 +77,17 @@
       <BundledCmdToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj'))</BundledCmdToolProject>
       <BundledDocumentToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Document.Mcp\GnOuGo.Document.Mcp.csproj'))</BundledDocumentToolProject>
       <BundledCodeToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Code.Mcp\GnOuGo.Code.Mcp.csproj'))</BundledCodeToolProject>
+      <BundledToolInvariantGlobalization>false</BundledToolInvariantGlobalization>
       <BundledCmdToolRidArg Condition="'$(RuntimeIdentifier)' != ''">-r $(RuntimeIdentifier)</BundledCmdToolRidArg>
       <BundledCmdToolSelfContainedArg Condition="'$(RuntimeIdentifier)' != ''">--self-contained true</BundledCmdToolSelfContainedArg>
     </PropertyGroup>
 
     <Message Importance="high" Text="Publishing bundled server MCP tools into $(BundledServerToolsRoot)..." />
 
-    <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
-    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
-    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
-    <Exec Command="dotnet publish &quot;$(BundledCodeToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledCodeToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=true -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
+    <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
+    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
+    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
+    <Exec Command="dotnet publish &quot;$(BundledCodeToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledCodeToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
   </Target>
 
   <Target Name="RemovePdbFilesFromPublish" AfterTargets="PublishBundledServerTools" Condition="'$(PublishDir)' != ''">

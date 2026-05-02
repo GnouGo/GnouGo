@@ -76,6 +76,7 @@ public class ConfiguredMcpClientFactoryTests
         Assert.Contains("The server shut down unexpectedly.", diagnostics);
         Assert.Contains("System.InvalidOperationException", diagnostics);
         Assert.Contains("System.IO.IOException", diagnostics);
+
         Assert.Contains("configuredCommand=tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp", diagnostics);
         Assert.Contains("command=", diagnostics);
         Assert.Contains("args=--sample", diagnostics);
@@ -93,22 +94,28 @@ public class ConfiguredMcpClientFactoryTests
         Assert.Null(resolution.WorkingDirectory);
     }
 
-    [Fact]
-    public void ResolveStdioCommand_ResolvesRelativeBundledToolExecutable()
+    [Theory]
+    [InlineData("GnOuGo.Browser.Mcp")]
+    [InlineData("GnOuGo.Cmd.Mcp")]
+    [InlineData("GnOuGo.Document.Mcp")]
+    [InlineData("GnOuGo.Code.Mcp")]
+    public void ResolveStdioCommand_ResolvesRelativeBundledToolExecutable_ForAllBundledMcpTools(string toolName)
     {
         var root = Path.Combine(Path.GetTempPath(), "gnougo-stdio-command-" + Guid.NewGuid().ToString("N"));
-        var toolDirectory = Path.Combine(root, "tools", "GnOuGo.Browser.Mcp");
+        var toolDirectory = Path.Combine(root, "tools", toolName);
         Directory.CreateDirectory(toolDirectory);
-        var executableName = OperatingSystem.IsWindows() ? "GnOuGo.Browser.Mcp.exe" : "GnOuGo.Browser.Mcp";
+        var executableName = OperatingSystem.IsWindows() ? toolName + ".exe" : toolName;
         var executable = Path.Combine(toolDirectory, executableName);
         File.WriteAllText(executable, string.Empty);
 
         try
         {
-            var resolution = InvokeResolveStdioCommand("tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp", root);
+            var resolution = InvokeResolveStdioCommand($"tools/{toolName}/{toolName}", root);
 
             Assert.Equal(executable, resolution.Command);
             Assert.Equal(toolDirectory, resolution.WorkingDirectory);
+            if (OperatingSystem.IsWindows())
+                Assert.EndsWith(".exe", resolution.Command, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
