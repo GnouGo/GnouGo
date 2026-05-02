@@ -17,6 +17,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - os: ubuntu-latest
+            rid: linux-x64
+            archive: gnougo-linux-x64.tar.gz
+            deb_arch: amd64
+          - os: ubuntu-latest
+            rid: linux-arm64
+            archive: gnougo-linux-arm64.tar.gz
+            deb_arch: arm64
           - os: windows-latest
             rid: win-x64
             archive: gnougo-win-x64.zip
@@ -190,6 +198,34 @@ jobs:
             New-Item -ItemType Directory -Path "artifacts/package" -Force | Out-Null
             bash scripts/create-macos-app-bundle.sh "artifacts/publish/desktop/${{ matrix.rid }}" "artifacts/package/gnougo.app"
             tar -czf $archive -C "artifacts/package" "gnougo.app"
+          } elseif ("${{ matrix.rid }}" -like "linux-*") {
+            $packageRoot = "artifacts/package/gnougo-${{ matrix.rid }}"
+            if (Test-Path $packageRoot) { Remove-Item $packageRoot -Recurse -Force }
+            New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
+            Copy-Item "artifacts/publish/desktop/${{ matrix.rid }}/*" $packageRoot -Recurse
+            Move-Item "$packageRoot/GnOuGo.Agent" "$packageRoot/gnougo" -Force
+            chmod +x "$packageRoot/gnougo"
+            tar -czf $archive -C $packageRoot .
+
+            $packageVersion = "0.0.${{ github.run_number }}"
+            $debRoot = "artifacts/package/deb"
+            if (Test-Path $debRoot) { Remove-Item $debRoot -Recurse -Force }
+            New-Item -ItemType Directory -Path "$debRoot/DEBIAN", "$debRoot/opt/gnougo", "$debRoot/usr/bin" -Force | Out-Null
+            Copy-Item "$packageRoot/*" "$debRoot/opt/gnougo" -Recurse
+            ln -s "/opt/gnougo/gnougo" "$debRoot/usr/bin/gnougo"
+            $installedSize = [Math]::Max(1, [Math]::Ceiling(((Get-ChildItem "$debRoot/opt/gnougo" -Recurse -File | Measure-Object Length -Sum).Sum) / 1KB))
+            @(
+              "Package: gnougo",
+              "Version: $packageVersion",
+              "Section: utils",
+              "Priority: optional",
+              "Architecture: ${{ matrix.deb_arch }}",
+              "Maintainer: GnouGo <noreply@github.com>",
+              "Installed-Size: $installedSize",
+              "Homepage: https://github.com/GnouGo/GnouGo",
+              "Description: Friendly Bear Agent desktop application."
+            ) | Set-Content -Path "$debRoot/DEBIAN/control" -Encoding ascii
+            dpkg-deb --build $debRoot "gnougo_${packageVersion}_${{ matrix.deb_arch }}.deb"
           } else {
             Compress-Archive -Path "artifacts/publish/desktop/${{ matrix.rid }}/*" -DestinationPath $archive
           }
@@ -198,5 +234,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gnougo-${{ matrix.rid }}
-          path: ${{ matrix.archive }}
+          path: |
+            ${{ matrix.archive }}
+            gnougo_*.deb
           if-no-files-found: error

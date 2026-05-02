@@ -51,7 +51,20 @@ brew tap GnouGo/tap
 brew install --cask gnougo
 ```
 
-You can also download the Windows and macOS archives from the GitHub Releases page.
+Generic Linux:
+
+```bash
+tar -xzf gnougo-linux-x64.tar.gz
+sudo install gnougo /usr/local/bin/gnougo
+```
+
+Ubuntu/Debian:
+
+```bash
+sudo apt install ./gnougo_*_amd64.deb
+```
+
+You can also download the Windows, macOS, and Linux archives from the GitHub Releases page.
 
 ---
 

@@ -33,7 +33,7 @@ jobs:
         shell: pwsh
         run: |
           $files = Get-ChildItem release-assets -Recurse -File | Where-Object {
-            $_.Name -match '\.(zip|tar\.gz|dmg|msi)$'
+            $_.Name -match '\.(zip|tar\.gz|dmg|msi|deb|rpm)$'
           } | Sort-Object Name
 
           if (-not $files) {
@@ -60,4 +60,6 @@ jobs:
             release-assets/**/*.tar.gz
             release-assets/**/*.dmg
             release-assets/**/*.msi
+            release-assets/**/*.deb
+            release-assets/**/*.rpm
             release-assets/checksums.txt

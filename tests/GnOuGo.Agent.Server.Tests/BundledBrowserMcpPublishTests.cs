@@ -70,11 +70,19 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("archive: gnougo-win-x64.zip", yaml);
         Assert.Contains("rid: win-arm64", yaml);
         Assert.Contains("archive: gnougo-win-arm64.zip", yaml);
+        Assert.Contains("rid: linux-x64", yaml);
+        Assert.Contains("archive: gnougo-linux-x64.tar.gz", yaml);
+        Assert.Contains("deb_arch: amd64", yaml);
+        Assert.Contains("rid: linux-arm64", yaml);
+        Assert.Contains("archive: gnougo-linux-arm64.tar.gz", yaml);
+        Assert.Contains("deb_arch: arm64", yaml);
         Assert.Contains("rid: osx-arm64", yaml);
         Assert.Contains("archive: gnougo-osx-arm64.tar.gz", yaml);
         Assert.Contains("rid: osx-x64", yaml);
         Assert.Contains("archive: gnougo-osx-x64.tar.gz", yaml);
         Assert.Contains("artifacts/package/gnougo.app", yaml);
+        Assert.Contains("dpkg-deb --build", yaml);
+        Assert.Contains("gnougo_${packageVersion}_${{ matrix.deb_arch }}.deb", yaml);
     }
 
     [Fact]
@@ -87,6 +95,8 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("Get-FileHash -Algorithm SHA256", yaml);
         Assert.Contains("release-assets/**/*.zip", yaml);
         Assert.Contains("release-assets/**/*.tar.gz", yaml);
+        Assert.Contains("release-assets/**/*.deb", yaml);
+        Assert.Contains("release-assets/**/*.rpm", yaml);
         Assert.Contains("release-assets/checksums.txt", yaml);
     }
 
@@ -113,6 +123,8 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("app \"gnougo.app\"", homebrewCask);
         Assert.Contains("winget install GnouGo.GnouGo", readme);
         Assert.Contains("brew install --cask gnougo", readme);
+        Assert.Contains("tar -xzf gnougo-linux-x64.tar.gz", readme);
+        Assert.Contains("sudo apt install ./gnougo_*_amd64.deb", readme);
     }
 
     private static string GetRepositoryRoot()
@@ -130,5 +142,4 @@ public sealed class BundledBrowserMcpPublishTests
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
             .SingleOrDefault(line => line.Contains($"dotnet publish &quot;$({bundledToolProjectProperty})&quot;", StringComparison.Ordinal));
 }
-
 
