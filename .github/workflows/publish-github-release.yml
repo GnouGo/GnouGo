@@ -41,7 +41,7 @@ jobs:
           }
 
           $lines = foreach ($file in $files) {
-            $hash = (Get-FileHash -Algorithm SHA256 $file.FullName).Hash.ToLowerInvariant()
+            $hash = (Get-FileHash -Algorithm SHA256 $file.FullName).Hash.ToLower()
             "$hash  $($file.Name)"
           }
 
