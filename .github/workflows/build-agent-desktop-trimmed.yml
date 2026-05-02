@@ -95,13 +95,40 @@ jobs:
             throw "Missing bundled Playwright browsers directory: $playwrightRoot"
           }
 
-          $browserExecutables = Get-ChildItem $playwrightRoot -Recurse -File | Where-Object {
-            $_.Name -in @('chrome.exe', 'chrome', 'headless_shell', 'Chromium') -or $_.Name -like 'Chromium.app'
+          $browserFiles = Get-ChildItem $playwrightRoot -Recurse -File
+          $browserAppBundles = @()
+          $browserExecutables = @()
+          if ('${{ matrix.rid }}' -like 'osx-*') {
+            $browserExecutables = $browserFiles | Where-Object {
+              $normalizedDirectory = $_.DirectoryName -replace '\\', '/'
+              $_.Name -in @(
+                'Chromium',
+                'Chromium Headless Shell',
+                'Google Chrome for Testing',
+                'chrome',
+                'headless_shell'
+              ) -or $normalizedDirectory -like '*/Contents/MacOS'
+            }
+
+            $browserAppBundles = Get-ChildItem $playwrightRoot -Recurse -Directory -Filter '*.app' | Where-Object {
+              $macOsDir = Join-Path $_.FullName 'Contents/MacOS'
+              (Test-Path $macOsDir) -and @(Get-ChildItem $macOsDir -File -ErrorAction SilentlyContinue).Count -gt 0
+            }
+          } else {
+            $browserExecutables = $browserFiles | Where-Object {
+              $_.Name -in @('chrome.exe', 'chrome', 'headless_shell', 'Chromium')
+            }
           }
 
-          if (-not $browserExecutables) {
+          if (-not $browserExecutables -and -not $browserAppBundles) {
+            Write-Host "Playwright browsers tree under ${playwrightRoot}:"
+            Get-ChildItem $playwrightRoot -Recurse | Select-Object -First 200 FullName, Length | Format-Table -AutoSize | Out-String | Write-Host
             throw "Missing bundled Playwright Chromium executable under: $playwrightRoot"
           }
+
+          Write-Host "Found bundled Playwright Chromium executable(s):"
+          $browserExecutables | Select-Object -First 20 FullName | Format-Table -AutoSize | Out-String | Write-Host
+          $browserAppBundles | Select-Object -First 20 FullName | Format-Table -AutoSize | Out-String | Write-Host
 
           $requiredUiAssets = @(
             "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js"
