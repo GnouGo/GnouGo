@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
@@ -338,8 +339,9 @@ public sealed class McpCallExecutor : IStepExecutor
         {
             var errorCode = kind == "prompt" ? ErrorCodes.McpPromptError : ErrorCodes.McpCallError;
             var target = batchMethods != null ? string.Join(", ", batchMethods) : singleMethod ?? (hasPromptSelection ? "(llm-selection)" : "(auto)");
+            var diagnostics = ConfiguredMcpClientFactory.FormatMcpFailureDiagnostics(serverName, ex);
             throw new WorkflowRuntimeException(errorCode,
-                $"mcp.call ({kind}) to '{serverName}/{target}' failed: {ex.Message}", retryable: false);
+                $"mcp.call ({kind}) to '{serverName}/{target}' failed: {diagnostics}", retryable: false, inner: ex);
         }
     }
 

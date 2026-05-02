@@ -5,6 +5,14 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
 using GnOuGo.Browser.Mcp;
 
+AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+{
+    if (args.ExceptionObject is Exception ex)
+        Console.Error.WriteLine($"[GnOuGo.Browser.Mcp] Unhandled exception: {ex}");
+    else
+        Console.Error.WriteLine($"[GnOuGo.Browser.Mcp] Unhandled exception object: {args.ExceptionObject}");
+};
+
 var builder = BrowserHostBootstrap.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
@@ -52,6 +60,11 @@ startupLogger.LogInformation(
 try
 {
     await host.RunAsync();
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine($"[GnOuGo.Browser.Mcp] Fatal host failure: {ex}");
+    throw;
 }
 finally
 {

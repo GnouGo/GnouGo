@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ModelContextProtocol.Client;
@@ -20,6 +21,8 @@ namespace GnOuGo.Flow.Core.Runtime;
 public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDisposable
 {
     private static readonly AsyncLocal<McpCorrelationContext?> CurrentCorrelation = new();
+    private const int MaxCapturedStdioErrorLines = 80;
+    private static readonly ConcurrentDictionary<string, StdioServerDiagnostics> StdioDiagnostics = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly Dictionary<string, McpServerOptions> _serverConfigs;
     private readonly ConcurrentDictionary<string, McpClient> _clients = new();
@@ -74,7 +77,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         IClientTransport transport = type switch
         {
             "http" or "sse" => CreateHttpTransport(config, correlation),
-            "stdio" => CreateStdioTransport(config, correlation),
+            "stdio" => CreateStdioTransport(serverName, config, correlation),
             _ => throw new WorkflowRuntimeException(
                 ErrorCodes.McpConnectionError,
                 $"Unknown MCP transport type '{config.Type}' for server '{serverName}'")
@@ -132,21 +135,69 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         return IPAddress.TryParse(endpoint.Host, out var address) && IPAddress.IsLoopback(address);
     }
 
-    private static StdioClientTransport CreateStdioTransport(McpServerOptions config, McpCorrelationContext? correlation)
+    private static StdioClientTransport CreateStdioTransport(string serverName, McpServerOptions config, McpCorrelationContext? correlation)
     {
         if (string.IsNullOrWhiteSpace(config.Command))
             throw new WorkflowRuntimeException(
                 ErrorCodes.McpConnectionError,
                 "MCP stdio transport requires a 'Command'");
 
+        var workingDirectory = ResolveStdioWorkingDirectory(config.Command);
+        var diagnostics = StdioDiagnostics.GetOrAdd(serverName, _ => new StdioServerDiagnostics());
+        diagnostics.Reset(config.Command, config.Args ?? [], workingDirectory);
+
         return new StdioClientTransport(new StdioClientTransportOptions
         {
             Command = config.Command,
             Arguments = config.Args ?? [],
             Name = "GnOuGo.Flow",
-            WorkingDirectory = ResolveStdioWorkingDirectory(config.Command),
-            EnvironmentVariables = BuildCorrelationEnvironment(correlation)
+            WorkingDirectory = workingDirectory,
+            EnvironmentVariables = BuildCorrelationEnvironment(correlation),
+            StandardErrorLines = line => CaptureStdioErrorLine(serverName, line)
         });
+    }
+
+    internal static string FormatMcpFailureDiagnostics(string serverName, Exception exception)
+    {
+        var builder = new StringBuilder();
+        builder.Append(exception.Message);
+
+        var exceptionDetails = BuildExceptionChain(exception);
+        if (!string.IsNullOrWhiteSpace(exceptionDetails) && !string.Equals(exceptionDetails, exception.Message, StringComparison.Ordinal))
+            builder.Append(" Exception chain: ").Append(exceptionDetails);
+
+        if (StdioDiagnostics.TryGetValue(serverName, out var diagnostics))
+        {
+            var launch = diagnostics.GetLaunchSummary();
+            if (!string.IsNullOrWhiteSpace(launch))
+                builder.Append(" Stdio launch: ").Append(launch);
+
+            var stderrTail = diagnostics.GetStandardErrorTail();
+            if (!string.IsNullOrWhiteSpace(stderrTail))
+                builder.Append(" Stderr tail: ").Append(stderrTail);
+        }
+
+        return builder.ToString();
+    }
+
+    private static void CaptureStdioErrorLine(string serverName, string? line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+            return;
+
+        StdioDiagnostics.GetOrAdd(serverName, _ => new StdioServerDiagnostics()).AppendStandardError(line);
+    }
+
+    private static string BuildExceptionChain(Exception exception)
+    {
+        var parts = new List<string>();
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            var typeName = current.GetType().FullName ?? current.GetType().Name;
+            parts.Add($"{typeName}: {current.Message}");
+        }
+
+        return string.Join(" -> ", parts);
     }
 
     internal static string? ResolveStdioWorkingDirectory(string command)
@@ -263,6 +314,62 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             CurrentCorrelation.Value = _previous;
             _disposed = true;
         }
+    }
+
+    private sealed class StdioServerDiagnostics
+    {
+        private readonly object _gate = new();
+        private readonly Queue<string> _stderrLines = new(MaxCapturedStdioErrorLines);
+        private string? _command;
+        private IReadOnlyList<string> _arguments = [];
+        private string? _workingDirectory;
+
+        public void Reset(string command, IReadOnlyList<string> arguments, string? workingDirectory)
+        {
+            lock (_gate)
+            {
+                _command = command;
+                _arguments = arguments.ToArray();
+                _workingDirectory = workingDirectory;
+                _stderrLines.Clear();
+            }
+        }
+
+        public void AppendStandardError(string line)
+        {
+            lock (_gate)
+            {
+                if (_stderrLines.Count == MaxCapturedStdioErrorLines)
+                    _stderrLines.Dequeue();
+
+                _stderrLines.Enqueue(line.TrimEnd());
+            }
+        }
+
+        public string GetLaunchSummary()
+        {
+            lock (_gate)
+            {
+                if (string.IsNullOrWhiteSpace(_command))
+                    return string.Empty;
+
+                var args = _arguments.Count == 0 ? "<none>" : string.Join(" ", _arguments.Select(QuoteArgument));
+                return $"command={QuoteArgument(_command)}, args={args}, workingDirectory={_workingDirectory ?? "<null>"}";
+            }
+        }
+
+        public string GetStandardErrorTail()
+        {
+            lock (_gate)
+            {
+                return _stderrLines.Count == 0
+                    ? string.Empty
+                    : string.Join(" | ", _stderrLines);
+            }
+        }
+
+        private static string QuoteArgument(string value)
+            => value.Contains(' ', StringComparison.Ordinal) ? $"\"{value}\"" : value;
     }
 }
 

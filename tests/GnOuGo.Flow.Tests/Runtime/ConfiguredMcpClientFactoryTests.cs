@@ -55,6 +55,35 @@ public class ConfiguredMcpClientFactoryTests
     }
 
     [Fact]
+    public void FormatMcpFailureDiagnostics_IncludesLaunchExceptionChainAndStderrTail()
+    {
+        const string serverName = "diagnostic-browser";
+        InvokeCreateStdioTransport(serverName, new McpServerOptions
+        {
+            Type = "stdio",
+            Command = "tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp",
+            Args = ["--sample"]
+        });
+        InvokeCaptureStdioErrorLine(serverName, "first stderr line");
+        InvokeCaptureStdioErrorLine(serverName, "fatal browser crash");
+
+        var ex = new InvalidOperationException(
+            "The server shut down unexpectedly.",
+            new IOException("The pipe is broken."));
+
+        var diagnostics = InvokeFormatMcpFailureDiagnostics(serverName, ex);
+
+        Assert.Contains("The server shut down unexpectedly.", diagnostics);
+        Assert.Contains("System.InvalidOperationException", diagnostics);
+        Assert.Contains("System.IO.IOException", diagnostics);
+        Assert.Contains("command=tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp", diagnostics);
+        Assert.Contains("args=--sample", diagnostics);
+        Assert.Contains("workingDirectory=", diagnostics);
+        Assert.Contains("first stderr line", diagnostics);
+        Assert.Contains("fatal browser crash", diagnostics);
+    }
+
+    [Fact]
     public void ConvertArguments_PreservesJsonArraysAndNestedObjects()
     {
         var arguments = new JsonObject
@@ -158,6 +187,37 @@ public class ConfiguredMcpClientFactoryTests
 
         Assert.NotNull(method);
         return (string?)method.Invoke(null, [command]);
+    }
+
+    private static void InvokeCreateStdioTransport(string serverName, McpServerOptions options)
+    {
+        var method = typeof(ConfiguredMcpClientFactory).GetMethod(
+            "CreateStdioTransport",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        method.Invoke(null, [serverName, options, null]);
+    }
+
+    private static void InvokeCaptureStdioErrorLine(string serverName, string line)
+    {
+        var method = typeof(ConfiguredMcpClientFactory).GetMethod(
+            "CaptureStdioErrorLine",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        method.Invoke(null, [serverName, line]);
+    }
+
+    private static string InvokeFormatMcpFailureDiagnostics(string serverName, Exception exception)
+    {
+        var method = typeof(ConfiguredMcpClientFactory).GetMethod(
+            "FormatMcpFailureDiagnostics",
+            BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+
+        Assert.NotNull(method);
+        var value = method.Invoke(null, [serverName, exception]);
+        return Assert.IsType<string>(value);
     }
 }
 
