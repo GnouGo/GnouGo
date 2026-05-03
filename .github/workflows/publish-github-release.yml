@@ -130,7 +130,7 @@ jobs:
           $caskPath = "homebrew-tap/Casks/gnougo.rb"
           New-Item -ItemType Directory -Path (Split-Path $caskPath) -Force | Out-Null
           @(
-            '# Generated from the GnouGo release workflow.',
+            '# Generated from the GnOuGo release workflow.',
             'cask "gnougo" do',
             "  version `"$version`"",
             '  arch arm: "arm64", intel: "x64"',
@@ -140,7 +140,7 @@ jobs:
             '',
             '  url "https://github.com/GnouGo/GnouGo/releases/download/v#{version}/gnougo-osx-#{arch}.tar.gz"',
             '  name "gnougo"',
-            '  desc "Friendly Bear Agent desktop application"',
+            '  desc "Local AI agent desktop application with bundled MCP tools"',
             '  homepage "https://github.com/GnouGo/GnouGo"',
             '',
             '  app "gnougo.app"',

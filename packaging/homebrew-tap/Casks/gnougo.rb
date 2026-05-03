@@ -8,7 +8,7 @@ cask "gnougo" do
 
   url "https://github.com/GnouGo/GnouGo/releases/download/v#{version}/gnougo-osx-#{arch}.tar.gz"
   name "gnougo"
-  desc "Friendly Bear Agent desktop application"
+  desc "Local AI agent desktop application with bundled MCP tools"
   homepage "https://github.com/GnouGo/GnouGo"
 
   app "gnougo.app"
