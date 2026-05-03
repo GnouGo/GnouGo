@@ -100,6 +100,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/publish-github-release.yml
     permissions:
+      actions: read
       contents: write
     with:
       version_tag: ${{ needs.tags.outputs.version_tag }}

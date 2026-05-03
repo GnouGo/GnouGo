@@ -102,7 +102,8 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("release-assets/checksums.txt", yaml);
         Assert.Contains("publish_winget:", yaml);
         Assert.Contains("needs: publish_release_main", yaml);
-        Assert.Contains("wingetcreate.exe update GnouGo.GnouGo", yaml);
+        Assert.Contains("actions: read", yaml);
+        Assert.Contains("wingetcreate.exe update GnOuGo.Agent", yaml);
         Assert.Contains("secrets.WINGET_CREATE_GITHUB_TOKEN", yaml);
         Assert.Contains("publish_homebrew:", yaml);
         Assert.Contains("repository: GnouGo/homebrew-tap", yaml);
@@ -117,20 +118,24 @@ public sealed class BundledBrowserMcpPublishTests
     public void PackageManagerTemplates_UsePublicPackageNames()
     {
         var root = GetRepositoryRoot();
-        var wingetInstallerFile = Path.Combine(root, "packaging", "winget", "GnouGo.GnouGo", "GnouGo.GnouGo.installer.yaml");
-        var wingetLocaleFile = Path.Combine(root, "packaging", "winget", "GnouGo.GnouGo", "GnouGo.GnouGo.locale.en-US.yaml");
+        var wingetVersionFile = Path.Combine(root, "packaging", "winget", "GnOuGo.Agent", "GnOuGo.Agent.yaml");
+        var wingetInstallerFile = Path.Combine(root, "packaging", "winget", "GnOuGo.Agent", "GnOuGo.Agent.installer.yaml");
+        var wingetLocaleFile = Path.Combine(root, "packaging", "winget", "GnOuGo.Agent", "GnOuGo.Agent.locale.en-US.yaml");
         var homebrewCaskFile = Path.Combine(root, "packaging", "homebrew-tap", "Casks", "gnougo.rb");
         var readmeFile = Path.Combine(root, "README.md");
 
+        var wingetVersion = File.ReadAllText(wingetVersionFile);
         var wingetInstaller = File.ReadAllText(wingetInstallerFile);
         var wingetLocale = File.ReadAllText(wingetLocaleFile);
         var homebrewCask = File.ReadAllText(homebrewCaskFile);
         var readme = File.ReadAllText(readmeFile);
 
-        Assert.Contains("PackageIdentifier: GnouGo.GnouGo", wingetInstaller);
-        Assert.Contains("PackageName: GnouGo", wingetLocale);
-        Assert.Contains("Moniker: GnouGo", wingetLocale);
-        Assert.Contains("ShortDescription: The Friendly Bear Agent", wingetLocale);
+        Assert.Contains("PackageIdentifier: GnOuGo.Agent", wingetVersion);
+        Assert.Contains("PackageIdentifier: GnOuGo.Agent", wingetInstaller);
+        Assert.Contains("PackageIdentifier: GnOuGo.Agent", wingetLocale);
+        Assert.Contains("PackageName: GnOuGo", wingetLocale);
+        Assert.Contains("Moniker: gnougo", wingetLocale);
+        Assert.Contains("ShortDescription: The Friendly Bear AI Agent", wingetLocale);
         Assert.Contains("gnougo-win-x64.zip", wingetInstaller);
         Assert.Contains("gnougo-win-arm64.zip", wingetInstaller);
         Assert.Contains("cask \"gnougo\"", homebrewCask);
@@ -152,6 +157,7 @@ public sealed class BundledBrowserMcpPublishTests
         var yaml = File.ReadAllText(workflowFile);
 
         Assert.Contains("uses: ./.github/workflows/publish-github-release.yml", yaml);
+        Assert.Contains("actions: read", yaml);
         Assert.Contains("WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}", yaml);
         Assert.Contains("HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}", yaml);
     }

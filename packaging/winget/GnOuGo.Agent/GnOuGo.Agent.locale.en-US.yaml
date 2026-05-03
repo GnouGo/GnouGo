@@ -1,17 +1,17 @@
 # Template for wingetcreate. Replace 0.0.0 with the release version before submitting to winget-pkgs.
-PackageIdentifier: GnouGo.GnouGo
+PackageIdentifier: GnOuGo.Agent
 PackageVersion: 0.0.0
 PackageLocale: en-US
-Publisher: GnouGo
+Publisher: GnOuGo
 PublisherUrl: https://github.com/GnouGo
 PublisherSupportUrl: https://github.com/GnouGo/GnouGo/issues
-PackageName: GnouGo
-Moniker: GnouGo
+PackageName: GnOuGo
+Moniker: gnougo
 PackageUrl: https://github.com/GnouGo/GnouGo
 License: Apache-2.0
 LicenseUrl: https://github.com/GnouGo/GnouGo/blob/main/LICENSE.md
-ShortDescription: The Friendly Bear Agent
-Description: The Friendly Bear Agent
+ShortDescription: The Friendly Bear AI Agent
+Description: The Friendly Bear AI Agent
 Tags:
   - agent
   - ai

@@ -1,5 +1,5 @@
 # Template for wingetcreate. Replace version, URLs, and hashes from the GitHub release before submitting to winget-pkgs.
-PackageIdentifier: GnouGo.GnouGo
+PackageIdentifier: GnOuGo.Agent
 PackageVersion: 0.0.0
 InstallerLocale: en-US
 InstallerType: zip

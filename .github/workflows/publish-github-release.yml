@@ -20,6 +20,7 @@ on:
         required: true
 
 permissions:
+  actions: read
   contents: write
 
 env:
@@ -93,7 +94,7 @@ jobs:
             "$releaseBaseUrl/gnougo-win-arm64.zip"
           )
 
-          ./wingetcreate.exe update GnouGo.GnouGo `
+          ./wingetcreate.exe update GnOuGo.Agent `
             --version $version `
             --urls $installerUrls `
             --submit `
