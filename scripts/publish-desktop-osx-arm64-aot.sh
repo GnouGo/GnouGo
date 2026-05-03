@@ -10,7 +10,7 @@ dotnet publish "$ROOT/src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj" -c R
   -o "$OUT/desktop"
 
 echo "Creating .app bundle..."
-bash "$ROOT/scripts/create-macos-app-bundle.sh" "$OUT/desktop" "$OUT/GnOuGo.Agent.app"
+bash "$ROOT/scripts/create-macos-app-bundle.sh" "$OUT/desktop" "$OUT/gnougo.app"
 
 echo "Done:"
-echo "  $OUT/GnOuGo.Agent.app"
+echo "  $OUT/gnougo.app"

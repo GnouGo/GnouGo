@@ -4,8 +4,8 @@ set -euo pipefail
 PUBLISH_DIR="${1:?Publish output directory required}"
 APP_PATH="${2:?Destination .app path required}"
 
-APP_NAME="GnOuGo.Agent"
-BUNDLE_ID="dev.slimfaas.gnougo-agent"
+APP_NAME="gnougo"
+BUNDLE_ID="dev.gnougo.gnougo"
 EXECUTABLE="GnOuGo.Agent"   # AssemblyName in Desktop csproj
 VERSION="1.0.0"
 
