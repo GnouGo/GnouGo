@@ -1,4 +1,4 @@
-# Template for wingetcreate. Replace 0.0.0 with the release version before submitting to winget-pkgs.
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
 PackageIdentifier: GnOuGo.Agent
 PackageVersion: 0.0.0
 PackageLocale: en-US
@@ -17,4 +17,4 @@ Tags:
   - ai
   - desktop
 ManifestType: defaultLocale
-ManifestVersion: 1.10.0
+ManifestVersion: 1.12.0
