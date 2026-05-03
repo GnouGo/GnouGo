@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\GnOuGo.Code.Mcp\GnOuGo.Code.Mcp.csproj" />
+    <ProjectReference Include="..\..\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj" />
   </ItemGroup>
 
   <ItemGroup>

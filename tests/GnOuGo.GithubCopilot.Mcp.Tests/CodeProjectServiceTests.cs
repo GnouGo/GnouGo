@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Options;
 using Xunit;
 
-namespace GnOuGo.Code.Mcp.Tests;
+namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
 public sealed class CodeProjectServiceTests : IDisposable
 {

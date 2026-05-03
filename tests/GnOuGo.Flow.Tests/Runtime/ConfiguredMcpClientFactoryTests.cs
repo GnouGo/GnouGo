@@ -99,7 +99,7 @@ public class ConfiguredMcpClientFactoryTests
     [InlineData("GnOuGo.Browser.Mcp")]
     [InlineData("GnOuGo.Cmd.Mcp")]
     [InlineData("GnOuGo.Document.Mcp")]
-    [InlineData("GnOuGo.Code.Mcp")]
+    [InlineData("GnOuGo.GithubCopilot.Mcp")]
     public void ResolveStdioCommand_ResolvesRelativeBundledToolExecutable_ForAllBundledMcpTools(string toolName)
     {
         var root = Path.Combine(Path.GetTempPath(), "gnougo-stdio-command-" + Guid.NewGuid().ToString("N"));
@@ -187,7 +187,7 @@ public class ConfiguredMcpClientFactoryTests
             RunId = "run-1",
             StepId = "step-1",
             StepType = "mcp.call",
-            ServerName = "GnOuGo.Code.Mcp",
+            ServerName = "GnOuGo.GithubCopilot.Mcp",
             MethodName = "code_suggest_change",
             Kind = "tool"
         });

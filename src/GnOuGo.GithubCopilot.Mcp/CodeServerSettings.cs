@@ -1,4 +1,4 @@
-﻿namespace GnOuGo.Code.Mcp;
+﻿namespace GnOuGo.GithubCopilot.Mcp;
 
 public sealed class CodeServerSettings
 {
@@ -41,7 +41,7 @@ public sealed class CodeCopilotTelemetrySettings
     public string ExporterType { get; set; } = "otlp";
     public string? OtlpEndpoint { get; set; } = "http://127.0.0.1:4317";
     public string? FilePath { get; set; }
-    public string SourceName { get; set; } = "GnOuGo.Code.Mcp.Copilot";
+    public string SourceName { get; set; } = "GnOuGo.GithubCopilot.Mcp.Copilot";
     public bool CaptureContent { get; set; }
 }
 

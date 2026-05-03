@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Text.Json.Nodes;
 
-namespace GnOuGo.Code.Mcp;
+namespace GnOuGo.GithubCopilot.Mcp;
 
 internal sealed record CodeMcpTraceContext(
     string? TraceParent,

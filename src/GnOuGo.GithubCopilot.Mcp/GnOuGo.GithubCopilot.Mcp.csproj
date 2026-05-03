@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="GnOuGo.Code.Mcp.Tests" />
+    <InternalsVisibleTo Include="GnOuGo.GithubCopilot.Mcp.Tests" />
   </ItemGroup>
 
   <ItemGroup>

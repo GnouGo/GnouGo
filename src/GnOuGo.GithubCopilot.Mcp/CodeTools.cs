@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 
-namespace GnOuGo.Code.Mcp;
+namespace GnOuGo.GithubCopilot.Mcp;
 
 [McpServerToolType]
 public sealed class CodeTools

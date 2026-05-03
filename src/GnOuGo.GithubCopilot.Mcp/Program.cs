@@ -1,4 +1,4 @@
-﻿using GnOuGo.Code.Mcp;
+﻿using GnOuGo.GithubCopilot.Mcp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -26,7 +26,7 @@ builder.Services
     {
         options.ServerInfo = new Implementation
         {
-            Name = "GnOuGo.Code.Mcp",
+            Name = "GnOuGo.GithubCopilot.Mcp",
             Version = "1.0.0"
         };
         options.Filters.Request.CallToolFilters.Add(next => async (request, cancellationToken) =>
@@ -41,7 +41,7 @@ builder.Services
     .WithTools<CodeTools>();
 
 var host = builder.Build();
-var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Code.Mcp.Startup");
+var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.GithubCopilot.Mcp.Startup");
 var policy = host.Services.GetRequiredService<CodePolicy>();
 var settings = host.Services.GetRequiredService<IOptions<CodeServerSettings>>().Value;
 var info = policy.DescribePolicy();

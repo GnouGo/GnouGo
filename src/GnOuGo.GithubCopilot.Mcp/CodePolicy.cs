@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 
-namespace GnOuGo.Code.Mcp;
+namespace GnOuGo.GithubCopilot.Mcp;
 
 public sealed class CodePolicy
 {

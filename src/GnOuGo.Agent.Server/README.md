@@ -101,7 +101,7 @@ Standalone MCP hosts still expose `/mcp` directly in their own projects:
 
 ## Bundled stdio MCP tools
 
-The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, `GnOuGo.Document.Mcp`, and `GnOuGo.Code.Mcp` for non-development runs using bundled executable paths:
+The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, `GnOuGo.Document.Mcp`, and `GnOuGo.GithubCopilot.Mcp` for non-development runs using bundled executable paths:
 
 ```json
 {
@@ -122,9 +122,9 @@ The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, 
 		"Command": "tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp",
 		"Args": []
 	  },
-	  "GnOuGo.Code.Mcp": {
+	  "GnOuGo.GithubCopilot.Mcp": {
 		"Type": "stdio",
-		"Command": "tools/GnOuGo.Code.Mcp/GnOuGo.Code.Mcp",
+		"Command": "tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp",
 		"Args": []
 	  }
 	}
@@ -136,8 +136,8 @@ During local source-based development, `appsettings.Development.json` still over
 
 Published outputs now bundle the MCP stdio tools under `tools/`:
 
-- `GnOuGo.Agent.Server` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, `tools/GnOuGo.Document.Mcp/`, and `tools/GnOuGo.Code.Mcp/`
-- `GnOuGo.Agent.Desktop` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, `tools/GnOuGo.Document.Mcp/`, and `tools/GnOuGo.Code.Mcp/`
+- `GnOuGo.Agent.Server` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, `tools/GnOuGo.Document.Mcp/`, and `tools/GnOuGo.GithubCopilot.Mcp/`
+- `GnOuGo.Agent.Desktop` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, `tools/GnOuGo.Document.Mcp/`, and `tools/GnOuGo.GithubCopilot.Mcp/`
 
 This keeps the browser, command, document, and code MCP servers available in packaged server, desktop, and container runs without requiring the repository source tree.
 Final publish outputs also strip all `.pdb` files from both the main application and bundled MCP tools before packaging.

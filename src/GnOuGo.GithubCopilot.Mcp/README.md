@@ -1,4 +1,4 @@
-﻿# GnOuGo.Code.Mcp
+﻿# GnOuGo.GithubCopilot.Mcp
 
 MCP stdio server for safe code operations on a local project.
 
@@ -32,7 +32,7 @@ PowerShell example:
 
 ```powershell
 $env:GITHUB_TOKEN = "ghp_your_token_here"
-dotnet run --project "C:\github\GnouGo\src\GnOuGo.Code.Mcp\GnOuGo.Code.Mcp.csproj"
+dotnet run --project "C:\github\GnouGo\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj"
 ```
 
 The first build may download the Copilot CLI binary through the `GitHub.Copilot.SDK` package targets.
@@ -40,13 +40,13 @@ The first build may download the Copilot CLI binary through the `GitHub.Copilot.
 ## Build
 
 ```powershell
-dotnet build "C:\github\GnouGo\src\GnOuGo.Code.Mcp\GnOuGo.Code.Mcp.csproj" -p:SkipModelMetadataGeneration=true
+dotnet build "C:\github\GnouGo\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj" -p:SkipModelMetadataGeneration=true
 ```
 
 ## Test
 
 ```powershell
-dotnet test "C:\github\GnouGo\tests\GnOuGo.Code.Mcp.Tests\GnOuGo.Code.Mcp.Tests.csproj" -p:SkipModelMetadataGeneration=true
+dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Mcp.Tests\GnOuGo.GithubCopilot.Mcp.Tests.csproj" -p:SkipModelMetadataGeneration=true
 ```
 
 

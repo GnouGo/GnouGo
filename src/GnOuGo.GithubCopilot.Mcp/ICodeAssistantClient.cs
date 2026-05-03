@@ -1,4 +1,4 @@
-﻿namespace GnOuGo.Code.Mcp;
+﻿namespace GnOuGo.GithubCopilot.Mcp;
 
 public interface ICodeAssistantClient
 {

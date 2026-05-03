@@ -5,7 +5,7 @@ using GitHub.Copilot.SDK;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace GnOuGo.Code.Mcp;
+namespace GnOuGo.GithubCopilot.Mcp;
 
 internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
 {
@@ -49,7 +49,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
 
         await using var session = await client.CreateSessionAsync(new SessionConfig
         {
-            ClientName = "GnOuGo.Code.Mcp",
+            ClientName = "GnOuGo.GithubCopilot.Mcp",
             Model = _settings.Copilot.Model,
             ReasoningEffort = NormalizeNullable(_settings.Copilot.ReasoningEffort),
             WorkingDirectory = projectRoot,
@@ -158,7 +158,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             ExporterType = string.IsNullOrWhiteSpace(telemetry.ExporterType) ? "otlp" : telemetry.ExporterType,
             OtlpEndpoint = ResolveTelemetryEndpoint(telemetry),
             FilePath = string.IsNullOrWhiteSpace(telemetry.FilePath) ? null : telemetry.FilePath,
-            SourceName = string.IsNullOrWhiteSpace(telemetry.SourceName) ? "GnOuGo.Code.Mcp.Copilot" : telemetry.SourceName,
+            SourceName = string.IsNullOrWhiteSpace(telemetry.SourceName) ? "GnOuGo.GithubCopilot.Mcp.Copilot" : telemetry.SourceName,
             CaptureContent = telemetry.CaptureContent
         };
     }
@@ -172,7 +172,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         if (string.IsNullOrWhiteSpace(context?.TraceParent))
             return null;
 
-        var activity = new Activity("GnOuGo.Code.Mcp.Copilot.SuggestChange");
+        var activity = new Activity("GnOuGo.GithubCopilot.Mcp.Copilot.SuggestChange");
         activity.SetParentId(context.TraceParent);
         if (!string.IsNullOrWhiteSpace(context.TraceState))
             activity.TraceStateString = context.TraceState;

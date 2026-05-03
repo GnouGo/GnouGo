@@ -101,9 +101,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.DocIngestor.Mcp.Test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.OtlpCollector.Server.Tests", "tests\GnOuGo.OtlpCollector.Server.Tests\GnOuGo.OtlpCollector.Server.Tests.csproj", "{9017C7FA-C60E-48D3-9E6B-3D1EEDAB7C4B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.Code.Mcp", "src\GnOuGo.Code.Mcp\GnOuGo.Code.Mcp.csproj", "{7C521B25-2322-4FD6-A395-CBD3F4CD0031}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.GithubCopilot.Mcp", "src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj", "{7C521B25-2322-4FD6-A395-CBD3F4CD0031}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.Code.Mcp.Tests", "tests\GnOuGo.Code.Mcp.Tests\GnOuGo.Code.Mcp.Tests.csproj", "{909D1204-72D4-4F8B-B93F-9A8CCCAD403B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.GithubCopilot.Mcp.Tests", "tests\GnOuGo.GithubCopilot.Mcp.Tests\GnOuGo.GithubCopilot.Mcp.Tests.csproj", "{909D1204-72D4-4F8B-B93F-9A8CCCAD403B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

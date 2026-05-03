@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Options;
 using Xunit;
 
-namespace GnOuGo.Code.Mcp.Tests;
+namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
 public sealed class CodeToolsTests : IDisposable
 {
@@ -74,7 +74,7 @@ public sealed class CodeToolsTests : IDisposable
 			RunId: "run-1",
 			StepId: "step-1",
 			StepType: "mcp.call",
-			McpServer: "GnOuGo.Code.Mcp",
+			McpServer: "GnOuGo.GithubCopilot.Mcp",
 			McpMethod: "code_suggest_change",
 			McpKind: "tool");
 
@@ -170,6 +170,4 @@ public sealed class CodeToolsTests : IDisposable
 		}
 	}
 }
-
-
 
