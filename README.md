@@ -41,7 +41,7 @@ Supporting libraries such as **GnOuGo.AI.Core**, **GnOuGo.Auth.Core**, and **GnO
 Windows:
 
 ```powershell
-winget install GnouGo.GnouGo
+winget install GnouGo
 ```
 
 macOS:
@@ -53,12 +53,16 @@ brew install --cask gnougo
 
 Generic Linux:
 
+Download the `gnougo-linux-*.tar.gz` archive from the GitHub Release first, then run:
+
 ```bash
 tar -xzf gnougo-linux-x64.tar.gz
 sudo install gnougo /usr/local/bin/gnougo
 ```
 
 Ubuntu/Debian:
+
+Download the matching `.deb` package from the GitHub Release first, then run:
 
 ```bash
 sudo apt install ./gnougo_*_amd64.deb

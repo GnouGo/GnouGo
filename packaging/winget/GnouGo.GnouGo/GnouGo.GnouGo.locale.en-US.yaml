@@ -5,11 +5,13 @@ PackageLocale: en-US
 Publisher: GnouGo
 PublisherUrl: https://github.com/GnouGo
 PublisherSupportUrl: https://github.com/GnouGo/GnouGo/issues
-PackageName: gnougo
+PackageName: GnouGo
+Moniker: GnouGo
 PackageUrl: https://github.com/GnouGo/GnouGo
 License: Apache-2.0
 LicenseUrl: https://github.com/GnouGo/GnouGo/blob/main/LICENSE.md
-ShortDescription: Friendly Bear Agent desktop application.
+ShortDescription: The Friendly Bear Agent
+Description: The Friendly Bear Agent
 Tags:
   - agent
   - ai

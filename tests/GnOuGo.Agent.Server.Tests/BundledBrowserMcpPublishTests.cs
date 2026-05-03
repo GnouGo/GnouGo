@@ -94,6 +94,7 @@ public sealed class BundledBrowserMcpPublishTests
         var yaml = File.ReadAllText(workflowFile);
 
         Assert.Contains("Generate release checksums", yaml);
+        Assert.Contains("pattern: \"!*.dockerbuild\"", yaml);
         Assert.Contains("Get-FileHash -Algorithm SHA256", yaml);
         Assert.Contains("release-assets/**/*.zip", yaml);
         Assert.Contains("release-assets/**/*.tar.gz", yaml);
@@ -108,6 +109,7 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("secrets.HOMEBREW_TAP_GITHUB_TOKEN", yaml);
         Assert.Contains("gnougo-osx-arm64.tar.gz", yaml);
         Assert.Contains("gnougo-osx-x64.tar.gz", yaml);
+        Assert.Contains("desc \"The Friendly Bear Agent\"", yaml);
         Assert.Contains("git push", yaml);
     }
 
@@ -126,14 +128,19 @@ public sealed class BundledBrowserMcpPublishTests
         var readme = File.ReadAllText(readmeFile);
 
         Assert.Contains("PackageIdentifier: GnouGo.GnouGo", wingetInstaller);
-        Assert.Contains("PackageName: gnougo", wingetLocale);
+        Assert.Contains("PackageName: GnouGo", wingetLocale);
+        Assert.Contains("Moniker: GnouGo", wingetLocale);
+        Assert.Contains("ShortDescription: The Friendly Bear Agent", wingetLocale);
         Assert.Contains("gnougo-win-x64.zip", wingetInstaller);
         Assert.Contains("gnougo-win-arm64.zip", wingetInstaller);
         Assert.Contains("cask \"gnougo\"", homebrewCask);
         Assert.Contains("gnougo-osx-#{arch}.tar.gz", homebrewCask);
+        Assert.Contains("desc \"The Friendly Bear Agent\"", homebrewCask);
         Assert.Contains("app \"gnougo.app\"", homebrewCask);
-        Assert.Contains("winget install GnouGo.GnouGo", readme);
+        Assert.Contains("winget install GnouGo", readme);
         Assert.Contains("brew install --cask gnougo", readme);
+        Assert.Contains("Download the `gnougo-linux-*.tar.gz` archive from the GitHub Release first", readme);
+        Assert.Contains("Download the matching `.deb` package from the GitHub Release first", readme);
         Assert.Contains("tar -xzf gnougo-linux-x64.tar.gz", readme);
         Assert.Contains("sudo apt install ./gnougo_*_amd64.deb", readme);
     }
