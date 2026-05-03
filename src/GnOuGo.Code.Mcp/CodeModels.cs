@@ -10,6 +10,9 @@ public sealed record CodePolicyInfo(
     bool AllowWrites,
     string CopilotProvider,
     string CopilotModel,
+    string CopilotMode,
+    bool CopilotForwardTraceContext,
+    bool CopilotTelemetryEnabled,
     bool HasConfiguredToken,
     IReadOnlyList<string> TokenEnvironmentVariables,
     CodeGitPolicyInfo Git);

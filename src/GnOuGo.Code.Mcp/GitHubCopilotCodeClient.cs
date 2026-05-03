@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using GitHub.Copilot.SDK;
 using Microsoft.Extensions.Logging;
@@ -10,15 +11,18 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
 {
     private readonly CodeServerSettings _settings;
     private readonly CodePolicy _policy;
+    private readonly CodeMcpTraceContextAccessor _traceContextAccessor;
     private readonly ILogger<GitHubCopilotCodeClient> _logger;
 
     public GitHubCopilotCodeClient(
         IOptions<CodeServerSettings> settings,
         CodePolicy policy,
+        CodeMcpTraceContextAccessor traceContextAccessor,
         ILogger<GitHubCopilotCodeClient> logger)
     {
         _settings = settings.Value;
         _policy = policy;
+        _traceContextAccessor = traceContextAccessor;
         _logger = logger;
     }
 
@@ -38,6 +42,8 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         if (string.IsNullOrWhiteSpace(token))
             throw new InvalidOperationException("A GitHub token is required. Configure Code:Copilot:ApiKey or one of Code:Copilot:TokenEnvironmentVariables.");
 
+        using var activity = StartCopilotActivity(_settings, _traceContextAccessor);
+
         await using var client = CreateClient(projectRoot, token);
         await client.StartAsync(cancellationToken);
 
@@ -55,7 +61,8 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         var response = await session.SendAndWaitAsync(new MessageOptions
         {
             Prompt = prompt,
-            Mode = "plan"
+            Mode = NormalizeMessageMode(_settings.Copilot.Mode),
+            RequestHeaders = BuildRequestHeaders(_settings, _traceContextAccessor)
         }, timeout, cancellationToken);
 
         var data = response?.Data;
@@ -91,8 +98,97 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             GitHubToken = token,
             UseLoggedInUser = settings.Copilot.UseLoggedInUser,
             LogLevel = string.IsNullOrWhiteSpace(settings.Copilot.LogLevel) ? "warn" : settings.Copilot.LogLevel,
+            Environment = BuildClientEnvironment(settings),
+            Telemetry = BuildTelemetryConfig(settings.Copilot.Telemetry),
             Logger = logger
         };
+    }
+
+    public static string NormalizeMessageMode(string? mode)
+    {
+        if (string.IsNullOrWhiteSpace(mode))
+            return "plan";
+
+        var normalized = mode.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "plan" or "edit" or "agent" => normalized,
+            _ => throw new InvalidOperationException($"Unsupported Copilot mode '{mode}'. Supported modes: plan, edit, agent.")
+        };
+    }
+
+    internal static Dictionary<string, string>? BuildRequestHeaders(CodeServerSettings settings, CodeMcpTraceContextAccessor? accessor = null)
+    {
+        if (!settings.Copilot.ForwardTraceContext)
+            return null;
+
+        var context = CodeMcpTraceContext.Capture(accessor);
+        var headers = context?.ToHeaders();
+        return headers is { Count: > 0 } ? headers : null;
+    }
+
+    internal static IReadOnlyDictionary<string, string>? BuildClientEnvironment(CodeServerSettings settings)
+    {
+        var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (settings.Copilot.ForwardTraceContext && CodeMcpTraceContext.Capture() is { } context)
+        {
+            foreach (var item in context.ToEnvironment())
+                env[item.Key] = item.Value;
+        }
+
+        var telemetry = settings.Copilot.Telemetry;
+        if (telemetry.Enabled)
+        {
+            AddEnv(env, "OTEL_SERVICE_NAME", telemetry.SourceName);
+            AddEnv(env, "OTEL_EXPORTER_OTLP_ENDPOINT", ResolveTelemetryEndpoint(telemetry));
+            AddEnv(env, "OTEL_TRACES_EXPORTER", string.IsNullOrWhiteSpace(telemetry.ExporterType) ? "otlp" : telemetry.ExporterType);
+        }
+
+        return env.Count == 0 ? null : env;
+    }
+
+    internal static TelemetryConfig? BuildTelemetryConfig(CodeCopilotTelemetrySettings telemetry)
+    {
+        if (!telemetry.Enabled)
+            return null;
+
+        return new TelemetryConfig
+        {
+            ExporterType = string.IsNullOrWhiteSpace(telemetry.ExporterType) ? "otlp" : telemetry.ExporterType,
+            OtlpEndpoint = ResolveTelemetryEndpoint(telemetry),
+            FilePath = string.IsNullOrWhiteSpace(telemetry.FilePath) ? null : telemetry.FilePath,
+            SourceName = string.IsNullOrWhiteSpace(telemetry.SourceName) ? "GnOuGo.Code.Mcp.Copilot" : telemetry.SourceName,
+            CaptureContent = telemetry.CaptureContent
+        };
+    }
+
+    private static IDisposable? StartCopilotActivity(CodeServerSettings settings, CodeMcpTraceContextAccessor accessor)
+    {
+        if (!settings.Copilot.ForwardTraceContext || Activity.Current is not null)
+            return null;
+
+        var context = accessor.Current ?? CodeMcpTraceContext.FromEnvironment();
+        if (string.IsNullOrWhiteSpace(context?.TraceParent))
+            return null;
+
+        var activity = new Activity("GnOuGo.Code.Mcp.Copilot.SuggestChange");
+        activity.SetParentId(context.TraceParent);
+        if (!string.IsNullOrWhiteSpace(context.TraceState))
+            activity.TraceStateString = context.TraceState;
+        activity.Start();
+        return activity;
+    }
+
+    private static string? ResolveTelemetryEndpoint(CodeCopilotTelemetrySettings telemetry)
+        => string.IsNullOrWhiteSpace(telemetry.OtlpEndpoint)
+            ? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")
+            : telemetry.OtlpEndpoint;
+
+    private static void AddEnv(Dictionary<string, string> env, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            env[name] = value;
     }
 
     private static string? BuildUsageJson(AssistantMessageData data)

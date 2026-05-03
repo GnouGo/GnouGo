@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Diagnostics;
 using System.Text.Json.Nodes;
 
 using GnOuGo.AI.Core;
@@ -174,6 +175,35 @@ public class ConfiguredMcpClientFactoryTests
     }
 
     [Fact]
+    public void BuildCurrentCorrelationMeta_IncludesTraceParentAndParentSpanId()
+    {
+        using var activity = new Activity("test-mcp-call");
+        activity.SetParentId("00-00112233445566778899aabbccddeeff-0123456789abcdef-01");
+        activity.Start();
+
+        using var _ = ConfiguredMcpClientFactory.PushCorrelationContext(new McpCorrelationContext
+        {
+            CorrelationId = "corr-1",
+            RunId = "run-1",
+            StepId = "step-1",
+            StepType = "mcp.call",
+            ServerName = "GnOuGo.Code.Mcp",
+            MethodName = "code_suggest_change",
+            Kind = "tool"
+        });
+
+        var meta = InvokeBuildCurrentCorrelationMeta();
+
+        Assert.NotNull(meta);
+        Assert.Equal(activity.Id, meta["traceparent"]!.GetValue<string>());
+        var gnougo = Assert.IsType<JsonObject>(meta["gnougo"]);
+        Assert.Equal("corr-1", gnougo["correlationId"]!.GetValue<string>());
+        Assert.Equal(activity.TraceId.ToString(), gnougo["traceId"]!.GetValue<string>());
+        Assert.Equal(activity.SpanId.ToString(), gnougo["spanId"]!.GetValue<string>());
+        Assert.Equal(activity.ParentSpanId.ToString(), gnougo["parentSpanId"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void ResolveStdioWorkingDirectory_ReturnsExecutableDirectory_ForExistingCommandPath()
     {
         var root = Path.Combine(Path.GetTempPath(), "gnougo-stdio-working-dir-" + Guid.NewGuid().ToString("N"));
@@ -218,6 +248,16 @@ public class ConfiguredMcpClientFactoryTests
         Assert.NotNull(method);
         var value = method.Invoke(null, [arguments]);
         return Assert.IsType<Dictionary<string, object?>>(value);
+    }
+
+    private static JsonObject? InvokeBuildCurrentCorrelationMeta()
+    {
+        var method = typeof(ConfiguredMcpClientFactory).GetMethod(
+            "BuildCurrentCorrelationMeta",
+            BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+
+        Assert.NotNull(method);
+        return method.Invoke(null, []) as JsonObject;
     }
 
     private static string? InvokeResolveStdioWorkingDirectory(string command)

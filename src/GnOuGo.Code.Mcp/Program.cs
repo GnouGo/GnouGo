@@ -18,6 +18,7 @@ builder.Services.Configure<CodeServerSettings>(
 builder.Services.AddSingleton<CodePolicy>();
 builder.Services.AddSingleton<CodeProjectService>();
 builder.Services.AddSingleton<GitRepositoryService>();
+builder.Services.AddSingleton<CodeMcpTraceContextAccessor>();
 builder.Services.AddSingleton<ICodeAssistantClient, GitHubCopilotCodeClient>();
 builder.Services.AddTransient<CodeTools>();
 builder.Services
@@ -28,6 +29,13 @@ builder.Services
             Name = "GnOuGo.Code.Mcp",
             Version = "1.0.0"
         };
+        options.Filters.Request.CallToolFilters.Add(next => async (request, cancellationToken) =>
+        {
+            var accessor = request.Services is null ? null : request.Services.GetService<CodeMcpTraceContextAccessor>();
+            var context = CodeMcpTraceContext.FromMcpMeta(request.Params.Meta);
+            using var scope = accessor?.Push(context);
+            return await next(request, cancellationToken);
+        });
     })
     .WithStdioServerTransport()
     .WithTools<CodeTools>();
@@ -39,7 +47,7 @@ var settings = host.Services.GetRequiredService<IOptions<CodeServerSettings>>().
 var info = policy.DescribePolicy();
 
 logger.LogInformation(
-    "Code MCP configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, defaultWorkingDirectory={DefaultWorkingDirectory}, allowedRoots={AllowedRoots}, allowedExtensions={AllowedExtensions}, allowWrites={AllowWrites}, gitAllowMutations={GitAllowMutations}, gitAllowNetworkOperations={GitAllowNetworkOperations}, copilotProvider={CopilotProvider}, copilotModel={CopilotModel}, copilotReasoningEffort={CopilotReasoningEffort}, hasToken={HasToken}, useLoggedInUser={UseLoggedInUser}, requestTimeoutSeconds={RequestTimeoutSeconds}",
+    "Code MCP configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, defaultWorkingDirectory={DefaultWorkingDirectory}, allowedRoots={AllowedRoots}, allowedExtensions={AllowedExtensions}, allowWrites={AllowWrites}, gitAllowMutations={GitAllowMutations}, gitAllowNetworkOperations={GitAllowNetworkOperations}, copilotProvider={CopilotProvider}, copilotModel={CopilotModel}, copilotMode={CopilotMode}, copilotReasoningEffort={CopilotReasoningEffort}, copilotForwardTraceContext={CopilotForwardTraceContext}, copilotTelemetryEnabled={CopilotTelemetryEnabled}, hasToken={HasToken}, useLoggedInUser={UseLoggedInUser}, requestTimeoutSeconds={RequestTimeoutSeconds}",
     builder.Environment.ContentRootPath,
     Environment.CurrentDirectory,
     AppContext.BaseDirectory,
@@ -51,7 +59,10 @@ logger.LogInformation(
     info.Git.AllowNetworkOperations,
     info.CopilotProvider,
     info.CopilotModel,
+    info.CopilotMode,
     settings.Copilot.ReasoningEffort,
+    info.CopilotForwardTraceContext,
+    info.CopilotTelemetryEnabled,
     info.HasConfiguredToken,
     settings.Copilot.UseLoggedInUser,
     settings.Copilot.RequestTimeoutSeconds);
