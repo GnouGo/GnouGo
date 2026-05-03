@@ -19,35 +19,19 @@ Their main objective: your safety and saving you time!
 
 ---
 
-## 🧱 Project Building Blocks
-
-The GnOuGo project is composed of several complementary families:
-
-| Family | Description |
-|---|---|
-| **GnOuGo.Agent** | End-user chat experience: local web app, desktop host, and shared contracts for the main assistant UI. |
-| **GnOuGo.Flow** | Workflow automation platform: DSL execution engine, CLI/server hosting, browser automation, command execution, and workflow user data. |
-| **GnOuGo.Diff** | Audit and comparison tools: revision storage, diff computation, API, UI, and sample-data utilities. |
-| **GnOuGo.DocIngestor** | Document ingestion pipeline: extract, chunk, embed, and expose documents through CLI and server components. |
-| **GnOuGo.KeyVault** | Secret management services: encrypted storage, tenant-aware vault features, and management APIs. |
-| **GnOuGo.OtlpCollector** | OpenTelemetry ingestion stack: multi-tenant OTLP collection plus tooling to send and inspect telemetry data. |
-
-Supporting libraries such as **GnOuGo.AI.Core**, **GnOuGo.Auth.Core**, and **GnOuGo.VectorDbDisk** provide shared AI, authentication, and storage foundations across these families.
-
----
 
 ## 📦 Install gnougo
 
 Windows:
 
 ```powershell
-winget install GnouGo
+winget install gnougo
 ```
 
 macOS:
 
 ```bash
-brew tap GnouGo/tap
+brew tap gnougo/tap
 brew install --cask gnougo
 ```
 
@@ -69,6 +53,24 @@ sudo apt install ./gnougo_*_amd64.deb
 ```
 
 You can also download the Windows, macOS, and Linux archives from the GitHub Releases page.
+
+
+---
+
+## 🧱 Project Building Blocks
+
+The GnOuGo project is composed of several complementary families:
+
+| Family | Description |
+|---|---|
+| **GnOuGo.Agent** | End-user chat experience: local web app, desktop host, and shared contracts for the main assistant UI. |
+| **GnOuGo.Flow** | Workflow automation platform: DSL execution engine, CLI/server hosting, browser automation, command execution, and workflow user data. |
+| **GnOuGo.Diff** | Audit and comparison tools: revision storage, diff computation, API, UI, and sample-data utilities. |
+| **GnOuGo.DocIngestor** | Document ingestion pipeline: extract, chunk, embed, and expose documents through CLI and server components. |
+| **GnOuGo.KeyVault** | Secret management services: encrypted storage, tenant-aware vault features, and management APIs. |
+| **GnOuGo.OtlpCollector** | OpenTelemetry ingestion stack: multi-tenant OTLP collection plus tooling to send and inspect telemetry data. |
+
+Supporting libraries such as **GnOuGo.AI.Core**, **GnOuGo.Auth.Core**, and **GnOuGo.VectorDbDisk** provide shared AI, authentication, and storage foundations across these families.
 
 ---
 
