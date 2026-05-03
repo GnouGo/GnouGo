@@ -1,0 +1,18 @@
+# Template for wingetcreate. Replace version, URLs, and hashes from the GitHub release before submitting to winget-pkgs.
+PackageIdentifier: GnouGo.GnouGo
+PackageVersion: 0.0.0
+InstallerLocale: en-US
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: GnOuGo.Agent.exe
+    PortableCommandAlias: gnougo
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/GnouGo/GnouGo/releases/download/v0.0.0/gnougo-win-x64.zip
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+  - Architecture: arm64
+    InstallerUrl: https://github.com/GnouGo/GnouGo/releases/download/v0.0.0/gnougo-win-arm64.zip
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+ManifestType: installer
+ManifestVersion: 1.10.0
