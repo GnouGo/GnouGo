@@ -1,7 +1,7 @@
 {
   "_comment": "Model metadata in USD, token limits and capabilities. This is the single builtin source for limits, capabilities and pricing. User overrides can be configured through LLM.ModelMetadataFiles and LLM.ModelOverrides.",
   "_source": "https://openai.com/api/pricing/ + https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json + provider documentation",
-  "_updated": "2026-05-01",
+  "_updated": "2026-05-03",
   "models": {
     "text-embedding-3-large": {
       "providerType": "openai",
@@ -637,6 +637,90 @@
           "temperature"
         ]
       }
+    },
+    "gpt-5.5": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 400000,
+      "maxInputTokens": 400000,
+      "maxOutputTokens": 128000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 75.0,
+        "outputPer1MTokens": 150.0
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "unsupportedRequestParameters": [
+          "temperature"
+        ]
+      }
+    },
+    "gpt-5.5-mini": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 400000,
+      "maxInputTokens": 400000,
+      "maxOutputTokens": 128000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 15.0,
+        "outputPer1MTokens": 30.0
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "unsupportedRequestParameters": [
+          "temperature"
+        ]
+      }
+    },
+    "gpt-5.5-nano": {
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "contextWindowTokens": 400000,
+      "maxInputTokens": 400000,
+      "maxOutputTokens": 128000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 3.75,
+        "outputPer1MTokens": 7.5
+      },
+      "capabilities": {
+        "supportsTemperature": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
+        "supportsTools": true,
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "unsupportedRequestParameters": [
+          "temperature"
+        ]
+      }
     }
   },
   "aliases": {
@@ -658,8 +742,14 @@
     "openai/gpt-4o-mini": "gpt-4o-mini",
     "openai/o4-mini": "o4-mini",
     "openai/o3-mini": "o3-mini",
+    "openai/gpt-5.5": "gpt-5.5",
+    "openai/gpt-5.5-mini": "gpt-5.5-mini",
+    "openai/gpt-5.5-nano": "gpt-5.5-nano",
     "anthropic/claude-sonnet-4": "claude-sonnet-4-20250514",
     "anthropic/claude-haiku-4": "claude-haiku-4-20250514",
-    "gpt-5.4": "gpt-5.4"
+    "gpt-5.4": "gpt-5.4",
+    "gpt-5.5": "gpt-5.5",
+    "gpt-5.5-mini": "gpt-5.5-mini",
+    "gpt-5.5-nano": "gpt-5.5-nano"
   }
 }

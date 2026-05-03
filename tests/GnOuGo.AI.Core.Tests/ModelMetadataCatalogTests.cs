@@ -88,6 +88,43 @@ public sealed class ModelMetadataCatalogTests
     }
 
     [Fact]
+    public void Resolve_ReturnsBuiltinMetadataForGpt55()
+    {
+        var resolver = new LLMModelMetadataResolver(new LLMOptions());
+
+        var metadata = resolver.Resolve("openai", "gpt-5.5");
+
+        Assert.Equal("gpt-5.5", metadata.Id);
+        Assert.Equal(400000, metadata.ContextWindowTokens);
+        Assert.Equal(128000, metadata.MaxOutputTokens);
+        Assert.Equal(75.0m, metadata.Pricing!.InputPer1MTokens);
+        Assert.Equal(150.0m, metadata.Pricing.OutputPer1MTokens);
+        Assert.False(metadata.Capabilities.SupportsTemperature);
+        Assert.True(metadata.Capabilities.SupportsReasoningEffort);
+        Assert.Contains("temperature", metadata.Capabilities.UnsupportedRequestParameters!);
+    }
+
+    [Theory]
+    [InlineData("gpt-5.5-mini", 15.0, 30.0)]
+    [InlineData("gpt-5.5-nano", 3.75, 7.5)]
+    [InlineData("openai/gpt-5.5-mini", 15.0, 30.0)]
+    public void Resolve_ReturnsBuiltinMetadataForGpt55Variants(string model, decimal expectedInputPrice, decimal expectedOutputPrice)
+    {
+        var resolver = new LLMModelMetadataResolver(new LLMOptions());
+
+        var metadata = resolver.Resolve("openai", model);
+
+        Assert.EndsWith(model.Replace("openai/", string.Empty, StringComparison.Ordinal), metadata.Id, StringComparison.Ordinal);
+        Assert.Equal(400000, metadata.ContextWindowTokens);
+        Assert.Equal(128000, metadata.MaxOutputTokens);
+        Assert.Equal(expectedInputPrice, metadata.Pricing!.InputPer1MTokens);
+        Assert.Equal(expectedOutputPrice, metadata.Pricing.OutputPer1MTokens);
+        Assert.False(metadata.Capabilities.SupportsTemperature);
+        Assert.True(metadata.Capabilities.SupportsReasoningEffort);
+        Assert.Contains("temperature", metadata.Capabilities.UnsupportedRequestParameters!);
+    }
+
+    [Fact]
     public void EstimateCost_ResolvesAliases()
     {
         var direct = ModelMetadataCatalog.EstimateCost("gpt-4o", inputTokens: 1_000_000);
