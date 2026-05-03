@@ -105,5 +105,5 @@ jobs:
       version_tag: ${{ needs.tags.outputs.version_tag }}
       channel_tag: ${{ needs.tags.outputs.tag }}
     secrets:
-      WINGETCREATE_TOKEN: ${{ secrets.WINGETCREATE_TOKEN }}
-      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
+      HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}

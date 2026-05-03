@@ -12,10 +12,10 @@ on:
         required: true
         type: string
     secrets:
-      WINGETCREATE_TOKEN:
+      WINGET_CREATE_GITHUB_TOKEN:
         description: GitHub token used by wingetcreate to submit the WinGet package update.
         required: true
-      HOMEBREW_TAP_TOKEN:
+      HOMEBREW_TAP_GITHUB_TOKEN:
         description: GitHub token with write access to GnouGo/homebrew-tap.
         required: true
 
@@ -83,7 +83,7 @@ jobs:
       - name: Publish WinGet package
         shell: pwsh
         env:
-          WINGETCREATE_TOKEN: ${{ secrets.WINGETCREATE_TOKEN }}
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}
         run: |
           $version = "${{ inputs.version_tag }}" -replace '^v', ''
           $releaseBaseUrl = "https://github.com/GnouGo/GnouGo/releases/download/${{ inputs.version_tag }}"
@@ -96,7 +96,7 @@ jobs:
             --version $version `
             --urls $installerUrls `
             --submit `
-            --token $env:WINGETCREATE_TOKEN
+            --token $env:WINGET_CREATE_GITHUB_TOKEN
 
   publish_homebrew:
     name: Publish Homebrew cask (${{ inputs.version_tag }})
@@ -112,7 +112,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: GnouGo/homebrew-tap
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          token: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
           path: homebrew-tap
 
       - name: Update Homebrew cask
