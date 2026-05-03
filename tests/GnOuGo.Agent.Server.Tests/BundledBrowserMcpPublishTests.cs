@@ -99,6 +99,16 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("release-assets/**/*.tar.gz", yaml);
         Assert.Contains("release-assets/**/*.deb", yaml);
         Assert.Contains("release-assets/checksums.txt", yaml);
+        Assert.Contains("publish_winget:", yaml);
+        Assert.Contains("needs: publish_release_main", yaml);
+        Assert.Contains("wingetcreate.exe update GnouGo.GnouGo", yaml);
+        Assert.Contains("secrets.WINGETCREATE_TOKEN", yaml);
+        Assert.Contains("publish_homebrew:", yaml);
+        Assert.Contains("repository: GnouGo/homebrew-tap", yaml);
+        Assert.Contains("secrets.HOMEBREW_TAP_TOKEN", yaml);
+        Assert.Contains("gnougo-osx-arm64.tar.gz", yaml);
+        Assert.Contains("gnougo-osx-x64.tar.gz", yaml);
+        Assert.Contains("git push", yaml);
     }
 
     [Fact]
@@ -126,6 +136,17 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("brew install --cask gnougo", readme);
         Assert.Contains("tar -xzf gnougo-linux-x64.tar.gz", readme);
         Assert.Contains("sudo apt install ./gnougo_*_amd64.deb", readme);
+    }
+
+    [Fact]
+    public void MainWorkflow_PassesPackagePublishingSecrets()
+    {
+        var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "main.yaml");
+        var yaml = File.ReadAllText(workflowFile);
+
+        Assert.Contains("uses: ./.github/workflows/publish-github-release.yml", yaml);
+        Assert.Contains("WINGETCREATE_TOKEN: ${{ secrets.WINGETCREATE_TOKEN }}", yaml);
+        Assert.Contains("HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}", yaml);
     }
 
     private static string GetRepositoryRoot()

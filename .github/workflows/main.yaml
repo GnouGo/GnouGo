@@ -104,3 +104,6 @@ jobs:
     with:
       version_tag: ${{ needs.tags.outputs.version_tag }}
       channel_tag: ${{ needs.tags.outputs.tag }}
+    secrets:
+      WINGETCREATE_TOKEN: ${{ secrets.WINGETCREATE_TOKEN }}
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
