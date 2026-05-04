@@ -33,15 +33,16 @@ RUN pnpm --dir src/GnOuGo.Agent.Server/ClientApp build
 # This avoids QEMU emulation which can crash during dotnet build.
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
-# bash + python3 are needed by the GeneratePricingCatalog target in GnOuGo.AI.Core.
-# nodejs is needed when publishing the bundled GnOuGo.Browser.Mcp tool.
-RUN apt-get update && apt-get install -y --no-install-recommends bash python3 nodejs && rm -rf /var/lib/apt/lists/*
+# Node.js is needed when publishing the bundled GnOuGo.Browser.Mcp Playwright tool.
+RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 # Copy global.json for SDK version pinning
 COPY global.json ./
 
-# Copy scripts needed by the AI.Core pre-build target (model pricing generation)
+# Copy scripts used by local metadata generation; Docker publish skips this target.
 COPY scripts/ scripts/
 
 # Copy csproj files for layer caching (server + shared/project dependencies)

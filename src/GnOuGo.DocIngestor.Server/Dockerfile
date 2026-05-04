@@ -41,15 +41,12 @@ RUN pnpm --dir src/GnOuGo.DocIngestor.Server/ClientApp build
 # This avoids QEMU emulation which can crash during dotnet build.
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
-# bash + python3 are needed by the GeneratePricingCatalog target in GnOuGo.AI.Core
-RUN apt-get update && apt-get install -y --no-install-recommends bash python3 && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /src
 
 # Copy global.json for SDK version pinning
 COPY global.json ./
 
-# Copy scripts needed by the Core pre-build target (model pricing generation)
+# Copy scripts used by local metadata generation; Docker publish skips this target.
 COPY scripts/ scripts/
 
 # Copy csproj files for layer caching (server + core dependency)
@@ -83,11 +80,12 @@ RUN dotnet publish src/GnOuGo.DocIngestor.Server/GnOuGo.DocIngestor.Server.cspro
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
 # SkiaSharp (PDF rendering) needs native libs: fontconfig + libfreetype
-# ICU is needed for non-invariant globalization
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# ICU is needed for non-invariant globalization. Use runtime libraries only.
+RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
     libfontconfig1 \
     libfreetype6 \
-    libicu-dev \
+    libicu74 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -43,14 +43,16 @@ RUN pnpm --dir src/GnOuGo.OtlpCollector.Server/ClientApp build
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 # Install system protoc (runs natively — no QEMU)
-RUN apt-get update && apt-get install -y --no-install-recommends protobuf-compiler && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 
 # Copy global.json for SDK version pinning
 COPY global.json ./
 
-# Copy scripts needed by the AI.Core pre-build target (model pricing generation)
+# Copy scripts used by local metadata generation; Docker publish skips this target.
 COPY scripts/ scripts/
 
 # Copy csproj files for layer caching (server + dependency projects)
@@ -86,8 +88,10 @@ RUN dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.c
 # ──────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
-# Install curl for healthcheck + ICU for globalization (non-invariant)
-RUN apt-get update && apt-get install -y --no-install-recommends curl libicu-dev && rm -rf /var/lib/apt/lists/*
+# Install curl for healthcheck + ICU runtime for globalization (non-invariant)
+RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 curl libicu74 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
