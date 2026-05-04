@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using GnOuGo.KeyVault.Core;
+using GnOuGo.Observability.Core;
 
 namespace GnOuGo.KeyVault.Mcp;
 
@@ -12,6 +13,10 @@ public static class KeyVaultMcpWebHost
 
         if (!string.IsNullOrWhiteSpace(urls))
             builder.WebHost.UseUrls(urls);
+
+        builder.Logging.ClearProviders();
+        builder.Logging.AddConsole();
+        builder.AddGnOuGoOpenTelemetry("GnOuGo.KeyVault.Mcp");
 
         var dbRelativePath = builder.Configuration.GetValue<string>("KeyVault:DatabasePath")
             ?? KeyVaultDatabasePathResolver.DefaultRelativePath;

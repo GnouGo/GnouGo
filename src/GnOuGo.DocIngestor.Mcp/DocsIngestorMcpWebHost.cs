@@ -1,4 +1,5 @@
 using GnOuGo.KeyVault.Core;
+using GnOuGo.Observability.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -15,6 +16,7 @@ public static class DocsIngestorMcpWebHost
 
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
+        builder.AddGnOuGoOpenTelemetry("GnOuGo.DocIngestor.Mcp");
 
         builder.Services.Configure<DocsIngestorMcpOptions>(builder.Configuration.GetSection("DocsIngestorMcp"));
         var options = builder.Configuration.GetSection("DocsIngestorMcp").Get<DocsIngestorMcpOptions>() ?? new();
@@ -42,7 +44,7 @@ public static class DocsIngestorMcpWebHost
         var logger = app.Services.GetRequiredService<ILoggerFactory>()
             .CreateLogger("GnOuGo.DocIngestor.Mcp.Startup");
         logger.LogInformation(
-            "GnOuGo.DocIngestor.Mcp HTTP server configured — baseDirectory={BaseDirectory}, metadataDb={MetadataDbPath}, vectorDb={VectorDbPath}, originals={OriginalsDirectory}, keyVaultDb={KeyVaultDbPath}, routePrefix={RoutePrefix}.",
+            "GnOuGo.DocIngestor.Mcp HTTP server configured ï¿½ baseDirectory={BaseDirectory}, metadataDb={MetadataDbPath}, vectorDb={VectorDbPath}, originals={OriginalsDirectory}, keyVaultDb={KeyVaultDbPath}, routePrefix={RoutePrefix}.",
             AppContext.BaseDirectory,
             metadataDbPath,
             vectorDbPath,

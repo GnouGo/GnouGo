@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
+using GnOuGo.Observability.Core;
 
 var builder = CodeHostBootstrap.CreateBuilder(args);
 
@@ -11,6 +12,10 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole(options =>
 {
     options.LogToStandardErrorThreshold = LogLevel.Trace;
+});
+builder.AddGnOuGoOpenTelemetry("GnOuGo.GithubCopilot.Mcp", settings =>
+{
+    settings.ActivitySources = [.. settings.ActivitySources, "GnOuGo.GithubCopilot.Mcp.Copilot"];
 });
 
 builder.Services.Configure<CodeServerSettings>(

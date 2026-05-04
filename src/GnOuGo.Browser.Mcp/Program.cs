@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
 using GnOuGo.Browser.Mcp;
+using GnOuGo.Observability.Core;
 
 AppDomain.CurrentDomain.UnhandledException += (_, args) =>
 {
@@ -20,6 +21,7 @@ builder.Logging.AddConsole(options =>
 {
     options.LogToStandardErrorThreshold = LogLevel.Trace;
 });
+builder.AddGnOuGoOpenTelemetry("GnOuGo.Browser.Mcp");
 
 builder.Services.Configure<BrowserServerSettings>(
     builder.Configuration.GetSection(BrowserServerSettings.SectionName));

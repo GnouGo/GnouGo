@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.Diff.Core\GnOuGo.Diff.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.Observability.Core\GnOuGo.Observability.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

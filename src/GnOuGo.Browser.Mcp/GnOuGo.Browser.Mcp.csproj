@@ -19,6 +19,10 @@
     <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\GnOuGo.Observability.Core\GnOuGo.Observability.Core.csproj" />
+  </ItemGroup>
+
   <!-- Automatically install Playwright Chromium browsers after build -->
   <Target Name="InstallPlaywrightBrowsers" AfterTargets="Build">
     <Message Importance="high" Text="Installing Playwright Chromium browsers..." />

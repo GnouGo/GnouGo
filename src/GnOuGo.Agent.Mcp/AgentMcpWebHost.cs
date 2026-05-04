@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using GnOuGo.Observability.Core;
 
 namespace GnOuGo.Agent.Mcp;
 
@@ -14,6 +15,7 @@ public static class AgentMcpWebHost
 
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
+        builder.AddGnOuGoOpenTelemetry("GnOuGo.Agent.Mcp");
 
         var dbRelativePath = builder.Configuration.GetValue<string>("Agent:DatabasePath")
             ?? AgentMcpHostingExtensions.DefaultDatabasePath;
