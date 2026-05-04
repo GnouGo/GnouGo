@@ -105,6 +105,24 @@ class InjectedClient:
         return McpCallResult(is_error=False, content={"name": name, "arguments": arguments})
 
 
+class MetaAwareInjectedClient:
+    def __init__(self):
+        self.meta = None
+
+    async def list_tools_async(self):
+        return []
+
+    async def list_resources_async(self):
+        return []
+
+    async def list_prompts_async(self):
+        return []
+
+    async def call_tool_async(self, name, arguments, meta=None):
+        self.meta = meta
+        return McpCallResult(is_error=False, content={"name": name})
+
+
 @pytest.mark.asyncio
 async def test_configured_mcp_factory_uses_injected_client_adapter():
     factory = ConfiguredMcpClientFactory(
@@ -117,6 +135,17 @@ async def test_configured_mcp_factory_uses_injected_client_adapter():
     assert tools[0].name == "tool"
     result = await session.call_tool_async("tool", {"nested": {"items": [1, True]}})
     assert result.content["arguments"] == {"nested": {"items": [1, True]}}
+
+
+@pytest.mark.asyncio
+async def test_configured_mcp_factory_forwards_optional_mcp_meta_to_injected_client_adapter():
+    client = MetaAwareInjectedClient()
+    factory = ConfiguredMcpClientFactory({"demo": McpServerOptions(client=client)})
+
+    session = await factory.get_client_async("demo")
+    await session.call_tool_async("tool", {}, {"traceparent": "00-a-b-01", "gnougo": {"mcpServer": "demo"}})
+
+    assert client.meta == {"traceparent": "00-a-b-01", "gnougo": {"mcpServer": "demo"}}
 
 
 def test_mcp_cache_helper_deep_copies_and_expires():

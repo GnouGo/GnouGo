@@ -61,6 +61,29 @@ public sealed class BundledBrowserMcpPublishTests
     }
 
     [Fact]
+    public void BuildAndRuntimeConfig_UseGithubCopilotMcpAfterRename()
+    {
+        var root = GetRepositoryRoot();
+        var files = new[]
+        {
+            Path.Combine(root, "src", "GnOuGo.Agent.Desktop", "GnOuGo.Agent.Desktop.csproj"),
+            Path.Combine(root, "src", "GnOuGo.Agent.Server", "GnOuGo.Agent.Server.csproj"),
+            Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.json"),
+            Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.Desktop.json"),
+            Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.Development.json"),
+            Path.Combine(root, ".github", "workflows", "build-agent-desktop-trimmed.yml"),
+            Path.Combine(root, ".github", "workflows", "build-agent-server-linux-x64.yml")
+        };
+
+        foreach (var file in files)
+        {
+            var text = File.ReadAllText(file);
+            Assert.Contains("GnOuGo.GithubCopilot.Mcp", text);
+            Assert.DoesNotContain("GnOuGo.Code.Mcp", text);
+        }
+    }
+
+    [Fact]
     public void DesktopTrimmedWorkflow_PackagesPublicGnougoReleaseArchives()
     {
         var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "build-agent-desktop-trimmed.yml");
@@ -142,7 +165,7 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("gnougo-osx-#{arch}.tar.gz", homebrewCask);
         Assert.Contains("desc \"The Friendly Bear Agent\"", homebrewCask);
         Assert.Contains("app \"gnougo.app\"", homebrewCask);
-        Assert.Contains("winget install GnouGo", readme);
+        Assert.Contains("winget install GnOuGo.Agent", readme);
         Assert.Contains("brew install --cask gnougo", readme);
         Assert.Contains("Download the `gnougo-linux-*.tar.gz` archive from the GitHub Release first", readme);
         Assert.Contains("Download the matching `.deb` package from the GitHub Release first", readme);

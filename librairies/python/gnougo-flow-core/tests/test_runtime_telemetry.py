@@ -102,6 +102,38 @@ class FakeMcpFactory:
         return FakeMcpSession()
 
 
+class TraceCapturingMcpSession:
+    server_name = "GnOuGo.GithubCopilot.Mcp"
+
+    def __init__(self) -> None:
+        self.captured_meta = None
+
+    async def list_tools_async(self):
+        return []
+
+    async def list_resources_async(self):
+        return []
+
+    async def list_prompts_async(self):
+        return []
+
+    async def call_tool_async(self, tool_name, arguments, mcp_meta=None):
+        self.captured_meta = mcp_meta
+        return McpCallResult(is_error=False, content={"ok": True})
+
+    async def get_prompt_async(self, prompt_name, arguments):
+        raise NotImplementedError
+
+
+class TraceCapturingMcpFactory:
+    def __init__(self) -> None:
+        self.server_metadata = []
+        self.session = TraceCapturingMcpSession()
+
+    async def get_client_async(self, server_name):
+        return self.session
+
+
 class WorkflowPlanPrefilterLlm:
     def __init__(self) -> None:
         self.requests = []
@@ -204,6 +236,43 @@ async def test_llm_and_mcp_emit_expected_telemetry_keys() -> None:
     assert spans["smart"].attributes["gen_ai.request.model"] == "fake"
     assert spans["smart"].attributes["mcp.methods_count"] == 1
     assert spans["smart"].attributes["gen_ai.usage.total_tokens"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_mcp_call_forwards_opentelemetry_parent_meta_to_session(monkeypatch) -> None:
+    monkeypatch.setenv("TRACEPARENT", "00-11111111111111111111111111111111-2222222222222222-01")
+    monkeypatch.setenv("TRACESTATE", "vendor=value")
+
+    yaml_text = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: code
+            type: mcp.call
+            input:
+              server: GnOuGo.GithubCopilot.Mcp
+              method: code_project_summary
+              request:
+                projectRoot: null
+    """
+
+    compiled = WorkflowCompiler().compile(WorkflowParser.parse(yaml_text))
+    engine = WorkflowEngine()
+    factory = TraceCapturingMcpFactory()
+    engine.mcp_client_factory = factory
+
+    result = await engine.execute_async(compiled.workflows["main"], {})
+
+    assert result.success is True
+    meta = factory.session.captured_meta
+    assert meta["traceparent"] == "00-11111111111111111111111111111111-2222222222222222-01"
+    assert meta["tracestate"] == "vendor=value"
+    assert meta["gnougo"]["traceId"] == "11111111111111111111111111111111"
+    assert meta["gnougo"]["parentSpanId"] == "2222222222222222"
+    assert meta["gnougo"]["mcpServer"] == "GnOuGo.GithubCopilot.Mcp"
+    assert meta["gnougo"]["mcpMethod"] == "code_project_summary"
+    assert meta["gnougo"]["mcpKind"] == "tool"
 
 
 @pytest.mark.asyncio

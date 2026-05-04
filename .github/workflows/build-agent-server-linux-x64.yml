@@ -59,7 +59,7 @@ jobs:
             "artifacts/publish/server/linux-x64/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp",
             "artifacts/publish/server/linux-x64/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp",
             "artifacts/publish/server/linux-x64/tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp",
-            "artifacts/publish/server/linux-x64/tools/GnOuGo.Code.Mcp/GnOuGo.Code.Mcp"
+            "artifacts/publish/server/linux-x64/tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp"
           )
 
           foreach ($path in $requiredTools) {

@@ -25,7 +25,7 @@ Their main objective: your safety and saving you time!
 Windows:
 
 ```powershell
-winget install gnougo
+winget install GnOuGo.Agent
 ```
 
 macOS:

@@ -73,7 +73,7 @@ class InMemoryMcpSession:
         await asyncio.sleep(0)
         return list(self._config.prompts)
 
-    async def call_tool_async(self, tool_name: str, arguments: Any) -> McpCallResult:
+    async def call_tool_async(self, tool_name: str, arguments: Any, mcp_meta: dict[str, Any] | None = None) -> McpCallResult:
         handler = self._config.tool_handlers.get(tool_name)
         if handler is not None:
             result = handler(arguments)
@@ -208,8 +208,8 @@ class McpSessionAdapter:
         prompts = await _maybe_await(_call_first(self._client, ["list_prompts_async", "list_prompts"]))
         return [_coerce_prompt(p) for p in (prompts or [])]
 
-    async def call_tool_async(self, tool_name: str, arguments: Any) -> McpCallResult:
-        result = await _maybe_await(_call_first(self._client, ["call_tool_async", "call_tool"], tool_name, convert_arguments(arguments)))
+    async def call_tool_async(self, tool_name: str, arguments: Any, mcp_meta: dict[str, Any] | None = None) -> McpCallResult:
+        result = await _maybe_await(_call_tool_on_client(self._client, tool_name, convert_arguments(arguments), mcp_meta))
         if isinstance(result, McpCallResult):
             return result
         content = _build_content(result)
@@ -328,6 +328,43 @@ def _call_first(client: Any, names: list[str], *args: Any) -> Any:
         if func is not None:
             return func(*args)
     raise WorkflowRuntimeException(ErrorCodes.MCP_CONNECTION_ERROR, f"MCP client does not implement any of: {', '.join(names)}")
+
+
+def _call_tool_on_client(client: Any, tool_name: str, arguments: dict[str, Any] | None, mcp_meta: dict[str, Any] | None) -> Any:
+    for name in ["call_tool_async", "call_tool"]:
+        func = getattr(client, name, None)
+        if func is None:
+            continue
+
+        if not mcp_meta:
+            return func(tool_name, arguments)
+
+        try:
+            signature = inspect.signature(func)
+        except (TypeError, ValueError):
+            return func(tool_name, arguments)
+
+        parameters = signature.parameters
+        if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in parameters.values()):
+            return func(tool_name, arguments, meta=mcp_meta)
+        if "mcp_meta" in parameters:
+            return func(tool_name, arguments, mcp_meta=mcp_meta)
+        if "meta" in parameters:
+            return func(tool_name, arguments, meta=mcp_meta)
+        if "_meta" in parameters:
+            return func(tool_name, arguments, _meta=mcp_meta)
+
+        # Some MCP client wrappers expose the protocol request shape as the second argument.
+        # Preserve the original arguments under `arguments` and add top-level `_meta` only for
+        # clients that explicitly name their parameter like a full request object.
+        request_parameter_names = {"request", "params", "request_params"}
+        positional = [p for p in parameters.values() if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+        if len(positional) >= 2 and positional[1].name in request_parameter_names:
+            return func(tool_name, {"arguments": arguments or {}, "_meta": mcp_meta})
+
+        return func(tool_name, arguments)
+
+    raise WorkflowRuntimeException(ErrorCodes.MCP_CONNECTION_ERROR, "MCP client does not implement any of: call_tool_async, call_tool")
 
 
 async def _maybe_await(value: Any) -> Any:
