@@ -36,6 +36,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
 
 - [Package Status and Parity](#package-status-and-parity)
 - [Architecture](#architecture)
+- [Get Started — One-file with mocks](#get-started--one-file-with-mocks)
 - [Quick Start](#quick-start)
 - [Document Structure](#document-structure)
 - [Step Types Reference](#step-types-reference)
@@ -87,6 +88,168 @@ librairies/python/gnougo-flow-core/
 ```
 
 The package is intentionally independent from the .NET assembly at runtime. It keeps the same DSL concepts and stable contracts so workflows can be shared across Python and .NET hosts.
+
+---
+
+## Get Started — One-file with mocks
+
+This example is a complete Python script that runs fully locally: the LLM client and MCP server are mocked in memory, so no API key, network call, or external MCP process is required.
+
+Install the package:
+
+```bash
+python -m pip install gnougo-flow-core
+```
+
+Create `one_file_flow.py`:
+
+```python
+import asyncio
+import json
+
+from gnougo_flow_core.compilation import WorkflowCompiler
+from gnougo_flow_core.integrations import InMemoryMcpClientFactory, MockMcpServerConfig
+from gnougo_flow_core.models import LLMResponse, McpCallResult, McpToolInfo
+from gnougo_flow_core.parsing import WorkflowParser
+from gnougo_flow_core.runtime import WorkflowEngine, apply_workflow_input_defaults
+
+WORKFLOW_YAML = """
+version: 1
+name: one-file-mocked-flow
+workflows:
+  main:
+    inputs:
+      topic: { type: string, required: true }
+    steps:
+      - id: discover
+        type: mcp.list
+        input:
+          servers: [demo]
+          include: ["tools"]
+      - id: facts
+        type: mcp.call
+        input:
+          server: demo
+          kind: tool
+          method: get_facts
+          request:
+            topic: "${data.inputs.topic}"
+      - id: summarize
+        type: llm.call
+        input:
+          model: mock-gpt
+          prompt: "Summarize these facts as one sentence: ${json(data.steps.facts.response)}"
+      - id: final
+        type: template.render
+        input:
+          engine: mustache
+          template: "{{summary}}"
+          data:
+            summary: "${data.steps.summarize.text}"
+          mode: text
+    outputs:
+      answer: "${data.steps.final.text}"
+      tools_seen: "${len(data.steps.discover.tools)}"
+      facts: "${data.steps.facts.response}"
+"""
+
+
+class MockLLMClient:
+    async def call_async(self, request):
+        return LLMResponse(
+            text=f"[Mock {request.model}] Summary generated from MCP facts.",
+            usage={"prompt_tokens": 12, "completion_tokens": 18, "total_tokens": 30},
+        )
+
+
+def build_mcp_factory() -> InMemoryMcpClientFactory:
+    factory = InMemoryMcpClientFactory()
+
+    def get_facts(arguments):
+        topic = (arguments or {}).get("topic", "unknown")
+        return McpCallResult(
+            is_error=False,
+            content={
+                "topic": topic,
+                "facts": [
+                    f"{topic} is handled by a mocked MCP tool.",
+                    "No network or external service is required.",
+                ],
+            },
+        )
+
+    factory.register_server(
+        "demo",
+        MockMcpServerConfig(
+            description="A mock knowledge server",
+            tools=[
+                McpToolInfo(
+                    name="get_facts",
+                    description="Returns deterministic facts for a topic",
+                    input_schema={
+                        "type": "object",
+                        "properties": {"topic": {"type": "string"}},
+                        "required": ["topic"],
+                    },
+                )
+            ],
+            tool_handlers={"get_facts": get_facts},
+        ),
+    )
+    return factory
+
+
+async def main() -> None:
+    document = WorkflowParser.parse(WORKFLOW_YAML)
+    compiled = WorkflowCompiler().compile(document)
+    workflow = compiled.workflows[compiled.entrypoint]
+
+    engine = WorkflowEngine()
+    engine.llm_client = MockLLMClient()
+    engine.mcp_client_factory = build_mcp_factory()
+
+    inputs = apply_workflow_input_defaults(workflow.source, {"topic": "GnOuGo.Flow"})
+    result = await engine.execute_async(workflow, inputs)
+
+    if not result.success:
+        message = result.error.message if result.error else "unknown error"
+        raise RuntimeError(f"Workflow failed: {message}")
+
+    print(json.dumps(result.outputs, indent=2, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Run it:
+
+```bash
+python one_file_flow.py
+```
+
+Expected output shape:
+
+```json
+{
+  "answer": "[Mock mock-gpt] Summary generated from MCP facts.",
+  "tools_seen": 1,
+  "facts": {
+    "topic": "GnOuGo.Flow",
+    "facts": [
+      "GnOuGo.Flow is handled by a mocked MCP tool.",
+      "No network or external service is required."
+    ]
+  }
+}
+```
+
+When developing inside this repository, you can run against the local source tree instead of the published package:
+
+```powershell
+$env:PYTHONPATH = "C:\github\GnouGo\librairies\python\gnougo-flow-core\src"
+python one_file_flow.py
+```
 
 ---
 
