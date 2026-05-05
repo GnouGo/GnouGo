@@ -33,6 +33,9 @@ macOS:
 ```bash
 brew tap gnougo/tap
 brew install --cask gnougo
+# To run GnOuGo
+sudo xattr -r -d com.apple.quarantine /Applications/GnOuGo.app
+open /Applications/GnOuGo.app
 ```
 
 Generic Linux:
