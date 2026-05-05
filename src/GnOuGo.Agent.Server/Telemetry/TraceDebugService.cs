@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
+using System.Text.Json;
 using GnOuGo.Agent.Server.Configuration;
 using OtlpTenantCollector.Services;
 
@@ -236,10 +237,122 @@ public sealed class TraceDebugService
             DurationMs: span.DurationMs,
             StatusCode: span.StatusCode,
             StatusMessage: span.StatusMessage,
-            Attributes: new Dictionary<string, object?>(span.Attributes, StringComparer.Ordinal),
-            Events: span.Events
-                .Select(evt => new TraceEventDto(evt.Name, evt.TimeUtc, new Dictionary<string, object?>(evt.Attributes, StringComparer.Ordinal)))
-                .ToList(),
-            Resource: new Dictionary<string, object?>(span.Resource, StringComparer.Ordinal),
-            Scope: new Dictionary<string, object?>(span.Scope, StringComparer.Ordinal));
+            Attributes: ToObjectDictionary(span.Attributes),
+            Events: ToTraceEvents(span.Events),
+            Resource: ToObjectDictionary(span.Resource),
+            Scope: ToObjectDictionary(span.Scope));
+
+    private static Dictionary<string, object?> ToObjectDictionary(object? value)
+    {
+        if (value is null)
+            return new Dictionary<string, object?>(StringComparer.Ordinal);
+
+        if (value is JsonElement element)
+            return element.ValueKind == JsonValueKind.Object
+                ? JsonObjectToDictionary(element)
+                : new Dictionary<string, object?>(StringComparer.Ordinal);
+
+        if (value is IEnumerable<KeyValuePair<string, object?>> pairs)
+        {
+            var values = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (var pair in pairs)
+                values[pair.Key] = ObjectValueToObject(pair.Value);
+
+            return values;
+        }
+
+        if (value is System.Collections.IDictionary dictionary)
+        {
+            var values = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (System.Collections.DictionaryEntry entry in dictionary)
+            {
+                var key = entry.Key.ToString();
+                if (!string.IsNullOrWhiteSpace(key))
+                    values[key] = ObjectValueToObject(entry.Value);
+            }
+
+            return values;
+        }
+
+        return new Dictionary<string, object?>(StringComparer.Ordinal);
+    }
+
+    private static List<TraceEventDto> ToTraceEvents(object? value)
+    {
+        if (value is null)
+            return [];
+
+        if (value is JsonElement element)
+        {
+            if (element.ValueKind != JsonValueKind.Array)
+                return [];
+
+            var events = new List<TraceEventDto>();
+            foreach (var item in element.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                var name = TryGetProperty(item, "name", "Name", out var nameElement)
+                    ? nameElement.GetString() ?? string.Empty
+                    : string.Empty;
+                var timeUtc = TryGetProperty(item, "timeUtc", "TimeUtc", out var timeElement) &&
+                    TryReadDateTimeOffset(timeElement, out var parsedTimeUtc)
+                    ? parsedTimeUtc
+                    : DateTimeOffset.MinValue;
+                var attributes = TryGetProperty(item, "attributes", "Attributes", out var attributesElement)
+                    ? ToObjectDictionary(attributesElement)
+                    : new Dictionary<string, object?>(StringComparer.Ordinal);
+
+                events.Add(new TraceEventDto(name, timeUtc, attributes));
+            }
+
+            return events;
+        }
+
+        if (value is IEnumerable<OtlpTenantCollector.Models.SpanEventDto> spanEvents)
+            return spanEvents
+                .Select(evt => new TraceEventDto(evt.Name, evt.TimeUtc, ToObjectDictionary(evt.Attributes)))
+                .ToList();
+
+        return [];
+    }
+
+    private static Dictionary<string, object?> JsonObjectToDictionary(JsonElement element)
+    {
+        var values = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (var property in element.EnumerateObject())
+            values[property.Name] = JsonValueToObject(property.Value);
+
+        return values;
+    }
+
+    private static object? JsonValueToObject(JsonElement element)
+        => element.ValueKind switch
+        {
+            JsonValueKind.Object => JsonObjectToDictionary(element),
+            JsonValueKind.Array => element.EnumerateArray().Select(JsonValueToObject).ToList(),
+            JsonValueKind.String => element.GetString(),
+            JsonValueKind.Number when element.TryGetInt64(out var int64) => int64,
+            JsonValueKind.Number when element.TryGetDouble(out var doubleValue) => doubleValue,
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null or JsonValueKind.Undefined => null,
+            _ => element.ToString()
+        };
+
+    private static object? ObjectValueToObject(object? value)
+        => value is JsonElement element ? JsonValueToObject(element) : value;
+
+    private static bool TryGetProperty(JsonElement element, string camelCaseName, string pascalCaseName, out JsonElement property)
+        => element.TryGetProperty(camelCaseName, out property) || element.TryGetProperty(pascalCaseName, out property);
+
+    private static bool TryReadDateTimeOffset(JsonElement element, out DateTimeOffset value)
+    {
+        if (element.ValueKind == JsonValueKind.String && element.TryGetDateTimeOffset(out value))
+            return true;
+
+        value = default;
+        return false;
+    }
 }

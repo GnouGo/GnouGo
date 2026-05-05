@@ -107,6 +107,67 @@ public sealed class TraceDebugServiceTests
     }
 
     [Fact]
+    public async Task GetSnapshotAsync_PreservesStoredSpanPayloads_ForDebugSidebar()
+    {
+        await using var host = await CollectorTestHost.CreateAsync();
+        var settings = new OpenTelemetrySettings { Enabled = true, ServiceName = "GnOuGo.Agent.Server" };
+        var traceIdHex = "12121212121212121212121212121212";
+
+        await host.AddSpansAsync(CreateSpan(
+            traceIdHex,
+            "3434343434343434",
+            parentSpanIdHex: null,
+            name: "chat.completions gpt-4o-mini",
+            correlationId: "corr-payloads",
+            serviceName: settings.ServiceName,
+            startUnixNs: 1_710_000_000_000_000_000,
+            endUnixNs: 1_710_000_000_500_000_000,
+            additionalAttributes: new Dictionary<string, object?>
+            {
+                ["nested"] = new Dictionary<string, object?> { ["ok"] = true },
+                ["temperature"] = 0.2d
+            },
+            eventsJson: """
+                [{"name":"tokens.counted","timeUtc":"2024-03-09T16:00:00+00:00","attributes":{"tokens":42,"labels":["prompt","completion"]}}]
+                """,
+            resource: new Dictionary<string, object?>
+            {
+                ["service.name"] = settings.ServiceName,
+                ["deployment.environment"] = "test"
+            },
+            scope: new Dictionary<string, object?>
+            {
+                ["name"] = "GnOuGo.Agent.Server.Tests",
+                ["version"] = "1.0.0"
+            }));
+
+        var service = CreateService(host.Services, settings);
+
+        var snapshot = await service.GetSnapshotAsync(null, traceIdHex, CancellationToken.None);
+
+        Assert.NotNull(snapshot.Trace);
+        Assert.Single(snapshot.Trace!.Spans);
+        var span = snapshot.Trace.Spans[0];
+        Assert.Equal("chat.completions gpt-4o-mini", span.Name);
+        Assert.Equal("gpt-4o-mini", span.Attributes["gen_ai.request.model"]);
+        Assert.Equal(0.2d, Convert.ToDouble(span.Attributes["temperature"]));
+        var nested = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(span.Attributes["nested"]);
+        Assert.Equal(true, nested["ok"]);
+        Assert.Equal(settings.ServiceName, span.Resource["service.name"]);
+        Assert.Equal("test", span.Resource["deployment.environment"]);
+        Assert.Equal("GnOuGo.Agent.Server.Tests", span.Scope["name"]);
+
+        Assert.Single(span.Events);
+        var traceEvent = span.Events[0];
+        Assert.Equal("tokens.counted", traceEvent.Name);
+        Assert.Equal(DateTimeOffset.Parse("2024-03-09T16:00:00+00:00"), traceEvent.TimeUtc);
+        Assert.Equal(42L, Convert.ToInt64(traceEvent.Attributes["tokens"]));
+        var labels = Assert.IsAssignableFrom<IReadOnlyList<object?>>(traceEvent.Attributes["labels"]);
+        Assert.Equal("prompt", labels[0]);
+        Assert.Equal("completion", labels[1]);
+    }
+
+    [Fact]
     public async Task GetSnapshotAsync_DeduplicatesSpansBySpanId_WhenDualWritePathProducesDuplicates()
     {
         await using var host = await CollectorTestHost.CreateAsync();
@@ -257,7 +318,11 @@ public sealed class TraceDebugServiceTests
         string correlationId,
         string serviceName,
         long startUnixNs,
-        long endUnixNs)
+        long endUnixNs,
+        Dictionary<string, object?>? additionalAttributes = null,
+        string? eventsJson = null,
+        Dictionary<string, object?>? resource = null,
+        Dictionary<string, object?>? scope = null)
     {
         var attributes = new Dictionary<string, object?>
         {
@@ -266,6 +331,12 @@ public sealed class TraceDebugServiceTests
             ["gen_ai.usage.input_tokens"] = 10,
             ["gen_ai.usage.output_tokens"] = 20
         };
+
+        if (additionalAttributes is not null)
+        {
+            foreach (var attribute in additionalAttributes)
+                attributes[attribute.Key] = attribute.Value;
+        }
 
         return new SpanRecordEntity
         {
@@ -281,12 +352,12 @@ public sealed class TraceDebugServiceTests
             EndUnixNs = endUnixNs,
             StatusCode = 1,
             AttributesJson = JsonSerializer.Serialize(attributes),
-            EventsJson = "[]",
-            ResourceJson = JsonSerializer.Serialize(new Dictionary<string, object?>
+            EventsJson = eventsJson ?? "[]",
+            ResourceJson = JsonSerializer.Serialize(resource ?? new Dictionary<string, object?>
             {
                 ["service.name"] = serviceName
             }),
-            ScopeJson = "{}",
+            ScopeJson = JsonSerializer.Serialize(scope ?? new Dictionary<string, object?>()),
             ServiceName = serviceName
         };
     }
