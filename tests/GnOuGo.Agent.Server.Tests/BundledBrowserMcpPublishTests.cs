@@ -185,6 +185,28 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}", yaml);
     }
 
+
+    [Fact]
+    public void AgentDockerfile_AllowsRestoreDuringPublishForGeneratedOtlpProtos()
+    {
+        var dockerfile = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "src", "GnOuGo.Agent.Server", "Dockerfile"));
+
+        Assert.Contains("GnOuGo.Observability.Core.csproj", dockerfile);
+        Assert.Contains("Grpc.Tools must be allowed to refresh generated inputs", dockerfile);
+        Assert.DoesNotContain("    --no-restore", dockerfile);
+    }
+
+    [Fact]
+    public void OtlpCollectorDockerfile_BuildsClientAppAndPublishesGeneratedWwwroot()
+    {
+        var dockerfile = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "src", "GnOuGo.OtlpCollector.Server", "Dockerfile"));
+
+        Assert.Contains("RUN pnpm --dir src/GnOuGo.OtlpCollector.Server/ClientApp build", dockerfile);
+        Assert.Contains("COPY --from=clientapp /workspace/src/GnOuGo.OtlpCollector.Server/wwwroot src/GnOuGo.OtlpCollector.Server/wwwroot/", dockerfile);
+        Assert.Contains("RUN test -f src/GnOuGo.OtlpCollector.Server/wwwroot/index.html", dockerfile);
+        Assert.Contains("-p:SkipClientBuild=true", dockerfile);
+    }
+
     private static string GetRepositoryRoot()
     {
         var root = Path.GetFullPath(Path.Combine(

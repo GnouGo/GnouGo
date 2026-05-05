@@ -32,6 +32,7 @@ RUN pnpm --dir src/GnOuGo.OtlpCollector.Server/ClientApp install --frozen-lockfi
 
 COPY src/GnOuGo.OtlpCollector.Server/ClientApp/ src/GnOuGo.OtlpCollector.Server/ClientApp/
 RUN pnpm --dir src/GnOuGo.OtlpCollector.Server/ClientApp build
+RUN test -f src/GnOuGo.OtlpCollector.Server/wwwroot/index.html
 # vite outDir: '../wwwroot' → output lands in /workspace/src/GnOuGo.OtlpCollector.Server/wwwroot
 
 # ──────────────────────────────────────────────
@@ -72,6 +73,7 @@ COPY src/GnOuGo.Auth.Core/ src/GnOuGo.Auth.Core/
 
 # Copy pre-built wwwroot from the Node stage
 COPY --from=clientapp /workspace/src/GnOuGo.OtlpCollector.Server/wwwroot src/GnOuGo.OtlpCollector.Server/wwwroot/
+RUN test -f src/GnOuGo.OtlpCollector.Server/wwwroot/index.html
 
 # Publish (skip ClientApp build — already done in stage 1).
 # NOTE: we intentionally omit --no-restore so that Grpc.Tools can properly

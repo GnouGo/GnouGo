@@ -61,6 +61,7 @@ COPY src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj src/GnOuGo.Files.Server/
 COPY src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj src/GnOuGo.Flow.Core/
 COPY src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj src/GnOuGo.KeyVault.Core/
 COPY src/GnOuGo.KeyVault.Mcp/GnOuGo.KeyVault.Mcp.csproj src/GnOuGo.KeyVault.Mcp/
+COPY src/GnOuGo.Observability.Core/GnOuGo.Observability.Core.csproj src/GnOuGo.Observability.Core/
 COPY src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj src/GnOuGo.OtlpCollector.Server/
 RUN dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj
 # Copy full source
@@ -71,14 +72,16 @@ COPY --from=clientapp /workspace/src/GnOuGo.Agent.Server/wwwroot/ui src/GnOuGo.A
 # Publish in Release (without AOT - container uses the managed runtime).
 # SkipClientBuild=true avoids re-running pnpm inside dotnet publish.
 # PublishAot=false overrides the csproj Release default for container builds.
+# Do not use --no-restore here: the embedded OTLP collector downloads proto files
+# during build, and Grpc.Tools must be allowed to refresh generated inputs in a
+# clean Docker layer. The earlier restore is still useful for cache warming.
 RUN dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj \
     -c Release \
     -o /app/publish \
     -p:SkipClientBuild=true \
     -p:PublishAot=false \
     -p:PublishTrimmed=false \
-    -p:SkipModelMetadataGeneration=true \
-    --no-restore
+    -p:SkipModelMetadataGeneration=true
 # ----------------------------------------------
 # Stage 3: Final runtime image
 # ----------------------------------------------
