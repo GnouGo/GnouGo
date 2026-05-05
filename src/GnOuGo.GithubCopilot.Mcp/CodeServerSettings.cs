@@ -1,4 +1,4 @@
-﻿namespace GnOuGo.Code.Mcp;
+﻿namespace GnOuGo.GithubCopilot.Mcp;
 
 public sealed class CodeServerSettings
 {
@@ -23,13 +23,26 @@ public sealed class CodeCopilotSettings
 {
     public string Provider { get; set; } = "Copilot";
     public string Model { get; set; } = "gpt-4.1";
+    public string Mode { get; set; } = "plan";
     public string? ReasoningEffort { get; set; } = "high";
     public string Endpoint { get; set; } = "https://models.github.ai/inference";
     public string? ApiKey { get; set; }
     public bool UseLoggedInUser { get; set; }
+    public bool ForwardTraceContext { get; set; } = true;
     public string LogLevel { get; set; } = "warn";
     public int RequestTimeoutSeconds { get; set; } = 120;
     public List<string> TokenEnvironmentVariables { get; set; } = ["GITHUB_TOKEN", "COPILOT_API_KEY"];
+    public CodeCopilotTelemetrySettings Telemetry { get; set; } = new();
+}
+
+public sealed class CodeCopilotTelemetrySettings
+{
+    public bool Enabled { get; set; } = true;
+    public string ExporterType { get; set; } = "otlp";
+    public string? OtlpEndpoint { get; set; } = "http://127.0.0.1:4317";
+    public string? FilePath { get; set; }
+    public string SourceName { get; set; } = "GnOuGo.GithubCopilot.Mcp.Copilot";
+    public bool CaptureContent { get; set; }
 }
 
 public sealed class CodeGitSettings

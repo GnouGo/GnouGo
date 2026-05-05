@@ -41,13 +41,18 @@ internal static class Program
         Log($"BaseDirectory={AppContext.BaseDirectory}");
         Log($"Args={string.Join(' ', args)}");
 
+        var desktopDevMode = IsEnabled(Environment.GetEnvironmentVariable("GNOUGO_DESKTOP_DEV")) ||
+            HasArgument(args, "--desktop-dev") ||
+            HasArgument(args, "--dev");
+
 #if DEBUG
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")) &&
+        if (desktopDevMode &&
+            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")) &&
             string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")))
         {
             Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", Environments.Development);
             Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", Environments.Development);
-            Log("Debug mode: defaulting ASPNETCORE_ENVIRONMENT and DOTNET_ENVIRONMENT to Development");
+            Log("Desktop developer mode: defaulting ASPNETCORE_ENVIRONMENT and DOTNET_ENVIRONMENT to Development");
         }
 #endif
 
@@ -57,6 +62,9 @@ internal static class Program
             Environment.GetEnvironmentVariable("GNOUGO_FORCE_EXTERNAL_BROWSER"),
             "1",
             StringComparison.Ordinal);
+        var allowExternalBrowserFallback = useExternalBrowserShell ||
+            desktopDevMode ||
+            IsEnabled(Environment.GetEnvironmentVariable("GNOUGO_ENABLE_EXTERNAL_BROWSER_FALLBACK"));
         var webViewDataPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "GnOuGo.Agent",
@@ -66,7 +74,9 @@ internal static class Program
 
         Log($"RequestedServerUrl={RequestedServerUrl}");
         Log($"DesktopToken={desktopToken}");
+        Log($"DesktopDevMode={desktopDevMode}");
         Log($"UseExternalBrowserShell={useExternalBrowserShell}");
+        Log($"AllowExternalBrowserFallback={allowExternalBrowserFallback}");
         Log($"DesktopWwwRoot={desktopWwwRoot} Exists={Directory.Exists(desktopWwwRoot)}");
         Log($"WebViewDataPath={webViewDataPath}");
 
@@ -97,21 +107,21 @@ internal static class Program
 
         if (OperatingSystem.IsWindows())
         {
-#if DEBUG
-            window.SetBrowserControlInitParameters("--disable-gpu --auto-open-devtools-for-tabs");
-            Log("Windows WebView2 args=--disable-gpu --auto-open-devtools-for-tabs");
-#else
-            window.SetBrowserControlInitParameters("--disable-gpu");
-            Log("Windows WebView2 args=--disable-gpu");
-#endif
+            var webViewArgs = desktopDevMode
+                ? "--disable-gpu --auto-open-devtools-for-tabs"
+                : "--disable-gpu";
+
+            window.SetBrowserControlInitParameters(webViewArgs);
+            Log($"Windows WebView2 args={webViewArgs}");
         }
 
-#if DEBUG
-        window
-            .SetDevToolsEnabled(true)
-            .SetContextMenuEnabled(true);
-        Log("Debug mode: DevTools enabled");
-#endif
+        if (desktopDevMode)
+        {
+            window
+                .SetDevToolsEnabled(true)
+                .SetContextMenuEnabled(true);
+            Log("Desktop developer mode: DevTools enabled");
+        }
 
         if (useExternalBrowserShell)
         {
@@ -361,22 +371,33 @@ internal static class Program
 
                     if (attempt == 59 && !pageLoadedObserved)
                     {
-                        Log("Embedded webview still has not reported page-loaded after 15 seconds; opening external browser fallback");
-                        Process.Start(new ProcessStartInfo
+                        if (allowExternalBrowserFallback)
                         {
-                            FileName = appUrl,
-                            UseShellExecute = true
-                        });
-                        return;
+                            Log("Embedded webview still has not reported page-loaded after 15 seconds; opening external browser fallback");
+                            Process.Start(new ProcessStartInfo
+                            {
+                                FileName = appUrl,
+                                UseShellExecute = true
+                            });
+                            return;
+                        }
+
+                        Log("Embedded webview still has not reported page-loaded after 15 seconds; external browser fallback is disabled by default");
                     }
                 }
 
-                Log("Embedded webview did not report client-ready after extended wait; opening external browser fallback");
-                Process.Start(new ProcessStartInfo
+                if (allowExternalBrowserFallback)
                 {
-                    FileName = appUrl,
-                    UseShellExecute = true
-                });
+                    Log("Embedded webview did not report client-ready after extended wait; opening external browser fallback");
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = appUrl,
+                        UseShellExecute = true
+                    });
+                    return;
+                }
+
+                Log("Embedded webview did not report client-ready after extended wait; external browser fallback is disabled by default");
             }
             catch (Exception ex)
             {
@@ -425,6 +446,24 @@ internal static class Program
         }
 
         Log("Desktop shutdown end");
+    }
+
+    private static bool HasArgument(string[] args, string name)
+    {
+        foreach (var arg in args)
+        {
+            if (string.Equals(arg, name, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsEnabled(string? value)
+    {
+        return string.Equals(value, "1", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool ProbeServer(string url)

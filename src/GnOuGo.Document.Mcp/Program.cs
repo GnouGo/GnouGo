@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using GnOuGo.Document.Mcp;
+using GnOuGo.Observability.Core;
 
 var builder = DocumentHostBootstrap.CreateBuilder(args);
 
@@ -12,6 +13,7 @@ builder.Logging.AddConsole(options =>
 {
     options.LogToStandardErrorThreshold = LogLevel.Trace;
 });
+builder.AddGnOuGoOpenTelemetry("GnOuGo.Document.Mcp");
 
 builder.Services.Configure<DocumentServerSettings>(
     builder.Configuration.GetSection(DocumentServerSettings.SectionName));

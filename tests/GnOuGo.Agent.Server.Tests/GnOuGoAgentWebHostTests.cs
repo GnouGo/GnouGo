@@ -76,8 +76,8 @@ public sealed class GnOuGoAgentWebHostTests
         var bundledCodeToolPath = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "tools",
-            "GnOuGo.Code.Mcp",
-            "GnOuGo.Code.Mcp"));
+            "GnOuGo.GithubCopilot.Mcp",
+            "GnOuGo.GithubCopilot.Mcp"));
 
         Directory.CreateDirectory(tempContentRoot);
         File.Copy(
@@ -102,7 +102,7 @@ public sealed class GnOuGoAgentWebHostTests
             AssertBundledToolServer(llmOptions, "GnOuGo.Browser.Mcp", bundledBrowserToolPath);
             AssertBundledToolServer(llmOptions, "GnOuGo.Cmd.Mcp", bundledCmdToolPath);
             AssertBundledToolServer(llmOptions, "GnOuGo.Document.Mcp", bundledDocumentToolPath);
-            AssertBundledToolServer(llmOptions, "GnOuGo.Code.Mcp", bundledCodeToolPath);
+            AssertBundledToolServer(llmOptions, "GnOuGo.GithubCopilot.Mcp", bundledCodeToolPath);
         }
         finally
         {
@@ -137,8 +137,8 @@ public sealed class GnOuGoAgentWebHostTests
         var bundledCodeToolPath = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "tools",
-            "GnOuGo.Code.Mcp",
-            "GnOuGo.Code.Mcp"));
+            "GnOuGo.GithubCopilot.Mcp",
+            "GnOuGo.GithubCopilot.Mcp"));
 
         Directory.CreateDirectory(tempContentRoot);
         File.Copy(
@@ -167,7 +167,7 @@ public sealed class GnOuGoAgentWebHostTests
             AssertBundledToolServer(llmOptions, "GnOuGo.Browser.Mcp", bundledBrowserToolPath);
             AssertBundledToolServer(llmOptions, "GnOuGo.Cmd.Mcp", bundledCmdToolPath);
             AssertBundledToolServer(llmOptions, "GnOuGo.Document.Mcp", bundledDocumentToolPath);
-            AssertBundledToolServer(llmOptions, "GnOuGo.Code.Mcp", bundledCodeToolPath);
+            AssertBundledToolServer(llmOptions, "GnOuGo.GithubCopilot.Mcp", bundledCodeToolPath);
         }
         finally
         {
@@ -215,7 +215,7 @@ public sealed class GnOuGoAgentWebHostTests
             AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Browser.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Browser.Mcp", "GnOuGo.Browser.Mcp.csproj")));
             AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Cmd.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Cmd.Mcp", "GnOuGo.Cmd.Mcp.csproj")));
             AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Document.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Document.Mcp", "GnOuGo.Document.Mcp.csproj")));
-            AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Code.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Code.Mcp", "GnOuGo.Code.Mcp.csproj")));
+            AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.GithubCopilot.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.GithubCopilot.Mcp", "GnOuGo.GithubCopilot.Mcp.csproj")));
         }
         finally
         {

@@ -61,6 +61,29 @@ public sealed class BundledBrowserMcpPublishTests
     }
 
     [Fact]
+    public void BuildAndRuntimeConfig_UseGithubCopilotMcpAfterRename()
+    {
+        var root = GetRepositoryRoot();
+        var files = new[]
+        {
+            Path.Combine(root, "src", "GnOuGo.Agent.Desktop", "GnOuGo.Agent.Desktop.csproj"),
+            Path.Combine(root, "src", "GnOuGo.Agent.Server", "GnOuGo.Agent.Server.csproj"),
+            Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.json"),
+            Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.Desktop.json"),
+            Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.Development.json"),
+            Path.Combine(root, ".github", "workflows", "build-agent-desktop-trimmed.yml"),
+            Path.Combine(root, ".github", "workflows", "build-agent-server-linux-x64.yml")
+        };
+
+        foreach (var file in files)
+        {
+            var text = File.ReadAllText(file);
+            Assert.Contains("GnOuGo.GithubCopilot.Mcp", text);
+            Assert.DoesNotContain("GnOuGo.Code.Mcp", text);
+        }
+    }
+
+    [Fact]
     public void DesktopTrimmedWorkflow_PackagesPublicGnougoReleaseArchives()
     {
         var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "build-agent-desktop-trimmed.yml");
@@ -142,7 +165,7 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("gnougo-osx-#{arch}.tar.gz", homebrewCask);
         Assert.Contains("desc \"The Friendly Bear Agent\"", homebrewCask);
         Assert.Contains("app \"gnougo.app\"", homebrewCask);
-        Assert.Contains("winget install GnouGo", readme);
+        Assert.Contains("winget install GnOuGo.Agent", readme);
         Assert.Contains("brew install --cask gnougo", readme);
         Assert.Contains("Download the `gnougo-linux-*.tar.gz` archive from the GitHub Release first", readme);
         Assert.Contains("Download the matching `.deb` package from the GitHub Release first", readme);
@@ -160,6 +183,28 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("actions: read", yaml);
         Assert.Contains("WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}", yaml);
         Assert.Contains("HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}", yaml);
+    }
+
+
+    [Fact]
+    public void AgentDockerfile_AllowsRestoreDuringPublishForGeneratedOtlpProtos()
+    {
+        var dockerfile = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "src", "GnOuGo.Agent.Server", "Dockerfile"));
+
+        Assert.Contains("GnOuGo.Observability.Core.csproj", dockerfile);
+        Assert.Contains("Grpc.Tools must be allowed to refresh generated inputs", dockerfile);
+        Assert.DoesNotContain("    --no-restore", dockerfile);
+    }
+
+    [Fact]
+    public void OtlpCollectorDockerfile_BuildsClientAppAndPublishesGeneratedWwwroot()
+    {
+        var dockerfile = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "src", "GnOuGo.OtlpCollector.Server", "Dockerfile"));
+
+        Assert.Contains("RUN pnpm --dir src/GnOuGo.OtlpCollector.Server/ClientApp build", dockerfile);
+        Assert.Contains("COPY --from=clientapp /workspace/src/GnOuGo.OtlpCollector.Server/wwwroot src/GnOuGo.OtlpCollector.Server/wwwroot/", dockerfile);
+        Assert.Contains("RUN test -f src/GnOuGo.OtlpCollector.Server/wwwroot/index.html", dockerfile);
+        Assert.Contains("-p:SkipClientBuild=true", dockerfile);
     }
 
     private static string GetRepositoryRoot()

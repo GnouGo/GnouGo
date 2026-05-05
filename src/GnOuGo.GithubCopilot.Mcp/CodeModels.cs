@@ -1,4 +1,4 @@
-﻿namespace GnOuGo.Code.Mcp;
+﻿namespace GnOuGo.GithubCopilot.Mcp;
 
 public sealed record CodePolicyInfo(
     string DefaultWorkingDirectory,
@@ -10,6 +10,9 @@ public sealed record CodePolicyInfo(
     bool AllowWrites,
     string CopilotProvider,
     string CopilotModel,
+    string CopilotMode,
+    bool CopilotForwardTraceContext,
+    bool CopilotTelemetryEnabled,
     bool HasConfiguredToken,
     IReadOnlyList<string> TokenEnvironmentVariables,
     CodeGitPolicyInfo Git);

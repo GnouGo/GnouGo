@@ -10,6 +10,7 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 ## Table of Contents
 
 - [Architecture](#architecture)
+- [Get Started — One-file with mocks](#get-started--one-file-with-mocks)
 - [Quick Start](#quick-start)
 - [Document Structure](#document-structure)
 - [Step Types Reference](#step-types-reference)
@@ -57,6 +58,178 @@ src/
 tests/
   GnOuGo.Flow.Tests/         # Unit tests
 ```
+
+---
+
+## Get Started — One-file with mocks
+
+This example is a complete `Program.cs` that runs fully locally: the LLM client and MCP server are mocked in memory, so no API key, network call, or external MCP process is required.
+
+Create a tiny console app and add `GnOuGo.Flow.Core`:
+
+```powershell
+dotnet new console -n FlowOneFileDemo
+Set-Location FlowOneFileDemo
+dotnet add package GnOuGo.Flow.Core
+```
+
+Replace `Program.cs` with this one-file implementation:
+
+```csharp
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Runtime;
+
+const string workflowYaml = """
+version: 1
+name: one-file-mocked-flow
+workflows:
+  main:
+    inputs:
+      topic: { type: string, required: true }
+    steps:
+      - id: discover
+        type: mcp.list
+        input:
+          servers: [demo]
+          include: ["tools"]
+      - id: facts
+        type: mcp.call
+        input:
+          server: demo
+          kind: tool
+          method: get_facts
+          request:
+            topic: "${data.inputs.topic}"
+      - id: summarize
+        type: llm.call
+        input:
+          model: mock-gpt
+          prompt: "Summarize these facts as one sentence: ${json(data.steps.facts.response)}"
+      - id: final
+        type: template.render
+        input:
+          engine: mustache
+          template: "{{summary}}"
+          data:
+            summary: "${data.steps.summarize.text}"
+          mode: text
+    outputs:
+      answer: "${data.steps.final.text}"
+      tools_seen: "${len(data.steps.discover.tools)}"
+      facts: "${data.steps.facts.response}"
+""";
+
+var document = WorkflowParser.Parse(workflowYaml);
+var compiled = new WorkflowCompiler().Compile(document);
+var workflow = compiled.Workflows[compiled.Entrypoint ?? "main"];
+
+var mcp = new InMemoryMcpClientFactory();
+mcp.RegisterServer("demo", new MockMcpServerConfig
+{
+    Description = "A mock knowledge server",
+    Tools =
+    [
+        new McpToolInfo
+        {
+            Name = "get_facts",
+            Description = "Returns deterministic facts for a topic",
+            InputSchema = JsonNode.Parse("""
+            {
+              "type": "object",
+              "properties": { "topic": { "type": "string" } },
+              "required": ["topic"]
+            }
+            """)
+        }
+    ],
+    ToolHandlers =
+    {
+        ["get_facts"] = args =>
+        {
+            var topic = args?["topic"]?.GetValue<string>() ?? "unknown";
+            return new McpCallResult
+            {
+                IsError = false,
+                Content = new JsonObject
+                {
+                    ["topic"] = topic,
+                    ["facts"] = new JsonArray(
+                        $"{topic} is handled by a mocked MCP tool.",
+                        "No network or external service is required.")
+                }
+            };
+        }
+    }
+});
+
+var engine = new WorkflowEngine
+{
+    LLMClient = new MockLLMClient(),
+    McpClientFactory = mcp
+};
+
+var inputs = WorkflowInputDefaults.Apply(workflow.Source, new JsonObject
+{
+    ["topic"] = "GnOuGo.Flow"
+});
+
+var result = await engine.ExecuteAsync(workflow, inputs, CancellationToken.None);
+
+if (!result.Success)
+{
+    Console.Error.WriteLine($"Workflow failed: {result.Error?.Code} - {result.Error?.Message}");
+    Environment.ExitCode = 1;
+    return;
+}
+
+Console.WriteLine(result.Outputs?.ToJsonString(new System.Text.Json.JsonSerializerOptions
+{
+    WriteIndented = true
+}));
+
+internal sealed class MockLLMClient : ILLMClient
+{
+    public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+    {
+        return Task.FromResult(new LLMResponse
+        {
+            Text = $"[Mock {request.Model}] Summary generated from MCP facts.",
+            Usage = new JsonObject
+            {
+                ["prompt_tokens"] = 12,
+                ["completion_tokens"] = 18,
+                ["total_tokens"] = 30
+            }
+        });
+    }
+}
+```
+
+Run it:
+
+```powershell
+dotnet run
+```
+
+Expected output shape:
+
+```json
+{
+  "answer": "[Mock mock-gpt] Summary generated from MCP facts.",
+  "tools_seen": 1,
+  "facts": {
+    "topic": "GnOuGo.Flow",
+    "facts": [
+      "GnOuGo.Flow is handled by a mocked MCP tool.",
+      "No network or external service is required."
+    ]
+  }
+}
+```
+
+When developing inside this repository, you can use a `ProjectReference` to `src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj` instead of the NuGet package.
 
 ---
 

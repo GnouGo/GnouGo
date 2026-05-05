@@ -1,8 +1,12 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import copy
+import inspect
 import json
+import os
+import uuid
+from dataclasses import dataclass
 from typing import Any
 
 import gnougo_flow_core.runtime as _runtime
@@ -17,6 +21,42 @@ from gnougo_flow_core.models import LLMRequest, LLMTool, McpPromptInfo
 from gnougo_flow_core.runtime import StepExecutionContext
 from gnougo_flow_core.runtime_contracts import IMcpSession
 from gnougo_flow_core.templating import MustacheEngine
+
+
+@dataclass(slots=True)
+class McpCorrelationContext:
+    traceparent: str | None = None
+    tracestate: str | None = None
+    trace_id: str | None = None
+    span_id: str | None = None
+    parent_span_id: str | None = None
+    correlation_id: str | None = None
+    run_id: str | None = None
+    step_id: str | None = None
+    step_type: str | None = None
+    mcp_server: str | None = None
+    mcp_method: str | None = None
+    mcp_kind: str | None = None
+
+    def to_mcp_meta(self) -> dict[str, Any]:
+        gnougo: dict[str, Any] = {}
+        _add_if_present(gnougo, "traceparent", self.traceparent)
+        _add_if_present(gnougo, "tracestate", self.tracestate)
+        _add_if_present(gnougo, "traceId", self.trace_id)
+        _add_if_present(gnougo, "spanId", self.span_id)
+        _add_if_present(gnougo, "parentSpanId", self.parent_span_id)
+        _add_if_present(gnougo, "correlationId", self.correlation_id)
+        _add_if_present(gnougo, "runId", self.run_id)
+        _add_if_present(gnougo, "stepId", self.step_id)
+        _add_if_present(gnougo, "stepType", self.step_type)
+        _add_if_present(gnougo, "mcpServer", self.mcp_server)
+        _add_if_present(gnougo, "mcpMethod", self.mcp_method)
+        _add_if_present(gnougo, "mcpKind", self.mcp_kind)
+
+        meta: dict[str, Any] = {"gnougo": gnougo}
+        _add_if_present(meta, "traceparent", self.traceparent)
+        _add_if_present(meta, "tracestate", self.tracestate)
+        return meta
 
 
 def _is_unsupported_capability(exc: Exception, method_name: str) -> bool:
@@ -260,7 +300,8 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
             text = "\n".join(f"[{m.role}] {m.content}" for m in result.messages)
             return {"status": "ok", "description": result.description, "messages": messages, "text": text}
 
-        op = session.call_tool_async(method, request_args)
+        correlation = _build_mcp_correlation_context(ctx, session, kind, method)
+        op = _call_tool_with_optional_meta(session, method, request_args, correlation.to_mcp_meta())
         result = await (asyncio.wait_for(op, timeout=timeout) if timeout is not None else op)
         _runtime._extract_usage_telemetry(ctx, result.usage, result.model)
         return {"status": "error" if result.is_error else "ok", "response": result.content}
@@ -286,6 +327,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
             return json.loads(rendered)
         except Exception as exc:
             raise WorkflowRuntimeException(ErrorCodes.JSON_PARSE, f"mcp.call request_template rendered invalid JSON: {exc}") from exc
+
 
     async def _execute_llm_assisted(
         self,
@@ -525,3 +567,137 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                 response["text"] = finalize_response.text
 
         return response
+
+def _build_mcp_correlation_context(
+    ctx: StepExecutionContext,
+    session: IMcpSession,
+    kind: str,
+    method: str,
+) -> McpCorrelationContext:
+    trace_context = _capture_current_trace_context(ctx)
+    traceparent = trace_context.get("traceparent")
+    parsed_trace_id, parsed_parent_span_id = _parse_traceparent(traceparent)
+    trace_id = trace_context.get("trace_id") or parsed_trace_id
+    span_id = trace_context.get("span_id") or parsed_parent_span_id
+
+    return McpCorrelationContext(
+        traceparent=traceparent,
+        tracestate=trace_context.get("tracestate"),
+        trace_id=trace_id,
+        span_id=span_id,
+        parent_span_id=trace_context.get("parent_span_id") or parsed_parent_span_id or span_id,
+        correlation_id=ctx.limits.run_id or trace_id or uuid.uuid4().hex,
+        run_id=ctx.limits.run_id,
+        step_id=ctx.step.id,
+        step_type=ctx.step.type,
+        mcp_server=getattr(session, "server_name", None),
+        mcp_method=method,
+        mcp_kind=kind,
+    )
+
+
+def _capture_current_trace_context(ctx: StepExecutionContext) -> dict[str, str]:
+    from_otel = _capture_opentelemetry_context()
+    if from_otel:
+        return from_otel
+
+    span = ctx.telemetry_span
+    values: dict[str, str] = {}
+    for source_name, target_name in (
+        ("traceparent", "traceparent"),
+        ("tracestate", "tracestate"),
+        ("trace_state", "tracestate"),
+        ("trace_id", "trace_id"),
+        ("span_id", "span_id"),
+        ("parent_span_id", "parent_span_id"),
+    ):
+        value = getattr(span, source_name, None)
+        if isinstance(value, str) and value.strip():
+            values[target_name] = value
+
+    attributes = getattr(span, "attributes", None)
+    if isinstance(attributes, dict):
+        for source_name, target_name in (
+            ("traceparent", "traceparent"),
+            ("tracestate", "tracestate"),
+            ("trace_id", "trace_id"),
+            ("span_id", "span_id"),
+            ("parent_span_id", "parent_span_id"),
+        ):
+            value = attributes.get(source_name)
+            if isinstance(value, str) and value.strip():
+                values.setdefault(target_name, value)
+
+    values.setdefault("traceparent", os.environ.get("TRACEPARENT") or os.environ.get("GNouGo__TraceParent") or "")
+    values.setdefault("tracestate", os.environ.get("TRACESTATE") or os.environ.get("GNouGo__TraceState") or "")
+    values.setdefault("trace_id", os.environ.get("GNouGo__TraceId") or "")
+    values.setdefault("span_id", os.environ.get("GNouGo__SpanId") or "")
+    return {key: value for key, value in values.items() if value}
+
+
+def _capture_opentelemetry_context() -> dict[str, str]:
+    try:
+        from opentelemetry import trace  # type: ignore[import-not-found]
+        from opentelemetry.trace import INVALID_SPAN_CONTEXT  # type: ignore[import-not-found]
+    except Exception:
+        return {}
+
+    try:
+        span = trace.get_current_span()
+        span_context = span.get_span_context()
+        if span_context is INVALID_SPAN_CONTEXT or not getattr(span_context, "is_valid", False):
+            return {}
+
+        trace_id = f"{span_context.trace_id:032x}"
+        span_id = f"{span_context.span_id:016x}"
+        flags = int(getattr(span_context, "trace_flags", 0)) & 0xFF
+        values = {
+            "traceparent": f"00-{trace_id}-{span_id}-{flags:02x}",
+            "trace_id": trace_id,
+            "span_id": span_id,
+        }
+        trace_state = str(getattr(span_context, "trace_state", "") or "")
+        if trace_state:
+            values["tracestate"] = trace_state
+        parent = getattr(span, "parent", None)
+        parent_span_id = getattr(parent, "span_id", None)
+        if isinstance(parent_span_id, int) and parent_span_id:
+            values["parent_span_id"] = f"{parent_span_id:016x}"
+        return values
+    except Exception:
+        return {}
+
+
+def _parse_traceparent(traceparent: str | None) -> tuple[str | None, str | None]:
+    if not traceparent:
+        return None, None
+    parts = traceparent.split("-")
+    if len(parts) < 4:
+        return None, None
+    return parts[1], parts[2]
+
+
+async def _call_tool_with_optional_meta(
+    session: IMcpSession,
+    method: str,
+    request_args: Any,
+    mcp_meta: dict[str, Any],
+) -> Any:
+    call_tool = session.call_tool_async
+    try:
+        parameters = inspect.signature(call_tool).parameters
+        if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in parameters.values()) or "mcp_meta" in parameters:
+            return await call_tool(method, request_args, mcp_meta=mcp_meta)
+    except (TypeError, ValueError):
+        pass
+
+    try:
+        return await call_tool(method, request_args, mcp_meta)
+    except TypeError:
+        return await call_tool(method, request_args)
+
+
+def _add_if_present(values: dict[str, Any], key: str, value: Any) -> None:
+    if value is not None and str(value).strip():
+        values[key] = value
+

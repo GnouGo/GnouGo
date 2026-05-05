@@ -72,11 +72,11 @@
       <BundledBrowserToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Browser.Mcp'))</BundledBrowserToolDir>
       <BundledCmdToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Cmd.Mcp'))</BundledCmdToolDir>
       <BundledDocumentToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Document.Mcp'))</BundledDocumentToolDir>
-      <BundledCodeToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Code.Mcp'))</BundledCodeToolDir>
+      <BundledCodeToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.GithubCopilot.Mcp'))</BundledCodeToolDir>
       <BundledBrowserToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj'))</BundledBrowserToolProject>
       <BundledCmdToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj'))</BundledCmdToolProject>
       <BundledDocumentToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Document.Mcp\GnOuGo.Document.Mcp.csproj'))</BundledDocumentToolProject>
-      <BundledCodeToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Code.Mcp\GnOuGo.Code.Mcp.csproj'))</BundledCodeToolProject>
+      <BundledCodeToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj'))</BundledCodeToolProject>
       <BundledToolInvariantGlobalization>false</BundledToolInvariantGlobalization>
       <BundledCmdToolRidArg Condition="'$(RuntimeIdentifier)' != ''">-r $(RuntimeIdentifier)</BundledCmdToolRidArg>
       <BundledCmdToolSelfContainedArg Condition="'$(RuntimeIdentifier)' != ''">--self-contained true</BundledCmdToolSelfContainedArg>

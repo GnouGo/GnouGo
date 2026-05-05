@@ -33,15 +33,16 @@ RUN pnpm --dir src/GnOuGo.Agent.Server/ClientApp build
 # This avoids QEMU emulation which can crash during dotnet build.
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
-# bash + python3 are needed by the GeneratePricingCatalog target in GnOuGo.AI.Core.
-# nodejs is needed when publishing the bundled GnOuGo.Browser.Mcp tool.
-RUN apt-get update && apt-get install -y --no-install-recommends bash python3 nodejs && rm -rf /var/lib/apt/lists/*
+# Node.js is needed when publishing the bundled GnOuGo.Browser.Mcp Playwright tool.
+RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 # Copy global.json for SDK version pinning
 COPY global.json ./
 
-# Copy scripts needed by the AI.Core pre-build target (model pricing generation)
+# Copy scripts used by local metadata generation; Docker publish skips this target.
 COPY scripts/ scripts/
 
 # Copy csproj files for layer caching (server + shared/project dependencies)
@@ -60,6 +61,7 @@ COPY src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj src/GnOuGo.Files.Server/
 COPY src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj src/GnOuGo.Flow.Core/
 COPY src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj src/GnOuGo.KeyVault.Core/
 COPY src/GnOuGo.KeyVault.Mcp/GnOuGo.KeyVault.Mcp.csproj src/GnOuGo.KeyVault.Mcp/
+COPY src/GnOuGo.Observability.Core/GnOuGo.Observability.Core.csproj src/GnOuGo.Observability.Core/
 COPY src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj src/GnOuGo.OtlpCollector.Server/
 RUN dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj
 # Copy full source
@@ -70,14 +72,16 @@ COPY --from=clientapp /workspace/src/GnOuGo.Agent.Server/wwwroot/ui src/GnOuGo.A
 # Publish in Release (without AOT - container uses the managed runtime).
 # SkipClientBuild=true avoids re-running pnpm inside dotnet publish.
 # PublishAot=false overrides the csproj Release default for container builds.
+# Do not use --no-restore here: the embedded OTLP collector downloads proto files
+# during build, and Grpc.Tools must be allowed to refresh generated inputs in a
+# clean Docker layer. The earlier restore is still useful for cache warming.
 RUN dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj \
     -c Release \
     -o /app/publish \
     -p:SkipClientBuild=true \
     -p:PublishAot=false \
     -p:PublishTrimmed=false \
-    -p:SkipModelMetadataGeneration=true \
-    --no-restore
+    -p:SkipModelMetadataGeneration=true
 # ----------------------------------------------
 # Stage 3: Final runtime image
 # ----------------------------------------------

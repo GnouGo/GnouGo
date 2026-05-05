@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Hosting;
 
-namespace GnOuGo.Code.Mcp;
+namespace GnOuGo.GithubCopilot.Mcp;
 
 public static class CodeHostBootstrap
 {

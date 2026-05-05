@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 
-namespace GnOuGo.Code.Mcp;
+namespace GnOuGo.GithubCopilot.Mcp;
 
 public sealed class CodePolicy
 {
@@ -35,6 +35,9 @@ public sealed class CodePolicy
             AllowWrites: _settings.AllowWrites,
             CopilotProvider: _settings.Copilot.Provider,
             CopilotModel: _settings.Copilot.Model,
+            CopilotMode: GitHubCopilotCodeClient.NormalizeMessageMode(_settings.Copilot.Mode),
+            CopilotForwardTraceContext: _settings.Copilot.ForwardTraceContext,
+            CopilotTelemetryEnabled: _settings.Copilot.Telemetry.Enabled,
             HasConfiguredToken: !string.IsNullOrWhiteSpace(ResolveConfiguredToken()),
             TokenEnvironmentVariables: _settings.Copilot.TokenEnvironmentVariables,
             Git: new CodeGitPolicyInfo(

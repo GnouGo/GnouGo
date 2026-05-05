@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using GnOuGo.Cmd.Mcp;
+using GnOuGo.Observability.Core;
 
 var builder = CmdHostBootstrap.CreateBuilder(args);
 
@@ -12,6 +13,7 @@ builder.Logging.AddConsole(options =>
 {
     options.LogToStandardErrorThreshold = LogLevel.Trace;
 });
+builder.AddGnOuGoOpenTelemetry("GnOuGo.Cmd.Mcp");
 
 builder.Services.Configure<CmdServerSettings>(
     builder.Configuration.GetSection(CmdServerSettings.SectionName));

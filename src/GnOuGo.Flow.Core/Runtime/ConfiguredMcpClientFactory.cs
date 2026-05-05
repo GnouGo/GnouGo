@@ -288,10 +288,47 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         return env.Count == 0 ? null : env;
     }
 
+    internal static JsonObject? BuildCurrentCorrelationMeta()
+    {
+        var correlation = CurrentCorrelation.Value;
+        var activity = System.Diagnostics.Activity.Current;
+
+        if (correlation is null && activity is null)
+            return null;
+
+        var gnougo = new JsonObject();
+        AddJson(gnougo, "correlationId", correlation?.CorrelationId);
+        AddJson(gnougo, "runId", correlation?.RunId);
+        AddJson(gnougo, "traceId", activity?.TraceId.ToString() ?? correlation?.TraceId);
+        AddJson(gnougo, "spanId", activity?.SpanId.ToString() ?? correlation?.SpanId);
+        AddJson(gnougo, "parentSpanId", activity?.ParentSpanId.ToString() ?? correlation?.SpanId);
+        AddJson(gnougo, "traceparent", activity?.Id ?? correlation?.TraceParent);
+        AddJson(gnougo, "tracestate", activity?.TraceStateString);
+        AddJson(gnougo, "stepId", correlation?.StepId);
+        AddJson(gnougo, "stepType", correlation?.StepType);
+        AddJson(gnougo, "mcpServer", correlation?.ServerName);
+        AddJson(gnougo, "mcpMethod", correlation?.MethodName);
+        AddJson(gnougo, "mcpKind", correlation?.Kind);
+
+        if (gnougo.Count == 0)
+            return null;
+
+        var meta = new JsonObject { ["gnougo"] = gnougo };
+        AddJson(meta, "traceparent", activity?.Id ?? correlation?.TraceParent);
+        AddJson(meta, "tracestate", activity?.TraceStateString);
+        return meta;
+    }
+
     private static void AddEnv(Dictionary<string, string?> env, string name, string? value)
     {
         if (!string.IsNullOrWhiteSpace(value))
             env[name] = value;
+    }
+
+    private static void AddJson(JsonObject obj, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            obj[name] = value;
     }
 
     public async ValueTask DisposeAsync()
