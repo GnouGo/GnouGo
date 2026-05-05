@@ -192,7 +192,7 @@ class WorkflowParser:
                         **{
                             "if": case.get("if"),
                             "action": case.get("action", "stop"),
-                            "set_output": str(case.get("set_output")) if case.get("set_output") is not None else None,
+                            "set_output": case.get("set_output"),
                             "retry": RetryPolicy(**case["retry"]) if isinstance(case.get("retry"), dict) else None,
                         }
                     )

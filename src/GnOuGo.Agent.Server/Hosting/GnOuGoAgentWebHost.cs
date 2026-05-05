@@ -165,6 +165,10 @@ public static class GnOuGoAgentWebHost
         var primaryUrls = string.IsNullOrWhiteSpace(urls)
             ? builder.Configuration[WebHostDefaults.ServerUrlsKey] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
             : urls;
+        var applicationBasePath = isDesktopHosted
+            ? builder.Environment.ContentRootPath
+            : AppContext.BaseDirectory;
+        Log($"ApplicationBasePath={applicationBasePath}");
         var collectorEndpointSettings = builder.WebHost.ConfigureEmbeddedCollectorEndpoints(builder.Configuration);
 
         if (collectorEndpointSettings.Enabled)
@@ -188,8 +192,8 @@ public static class GnOuGoAgentWebHost
         var dotnetExe = ResolveDotnetExecutable();
         EnsureDotnetRootEnv(dotnetExe);
         SubstituteDotnetCommand(llmOptions.McpServers, dotnetExe);
-        ResolveRelativeMcpProjectPaths(llmOptions.McpServers);
-        ResolveRelativeMcpCommandPaths(llmOptions.McpServers);
+        ResolveRelativeMcpProjectPaths(llmOptions.McpServers, applicationBasePath);
+        ResolveRelativeMcpCommandPaths(llmOptions.McpServers, applicationBasePath);
 
         // Register the normalized LLM options so runtime services receive the same MCP
         // configuration after command/path resolution.
@@ -307,10 +311,10 @@ public static class GnOuGoAgentWebHost
 
         var agentDbRelativePath = builder.Configuration.GetValue<string>("Agent:DatabasePath")
             ?? AgentMcpHostingExtensions.DefaultDatabasePath;
-        var agentDbPath = AgentMcpHostingExtensions.ResolveDatabasePath(agentDbRelativePath, AppContext.BaseDirectory);
+        var agentDbPath = AgentMcpHostingExtensions.ResolveDatabasePath(agentDbRelativePath, applicationBasePath);
         var keyVaultDbRelativePath = builder.Configuration.GetValue<string>("KeyVault:DatabasePath")
             ?? "data/gnougo-keyvault.db";
-        var keyVaultDbPath = KeyVaultDatabasePathResolver.Resolve(keyVaultDbRelativePath, AppContext.BaseDirectory);
+        var keyVaultDbPath = KeyVaultDatabasePathResolver.Resolve(keyVaultDbRelativePath, applicationBasePath);
         Directory.CreateDirectory(Path.GetDirectoryName(agentDbPath)!);
         Directory.CreateDirectory(Path.GetDirectoryName(keyVaultDbPath)!);
 
@@ -619,9 +623,11 @@ public static class GnOuGoAgentWebHost
     /// which may not match the relative path written in appsettings.json.
     /// </summary>
     private static void ResolveRelativeMcpProjectPaths(
-        Dictionary<string, McpServerOptions> servers)
+        Dictionary<string, McpServerOptions> servers,
+        string applicationBasePath)
     {
-        var solutionRoot = FindSolutionRoot(AppContext.BaseDirectory);
+        var solutionRoot = FindSolutionRoot(applicationBasePath)
+            ?? FindSolutionRoot(AppContext.BaseDirectory);
         if (solutionRoot is null) return;
 
         var srcDir = Path.Combine(solutionRoot, "src");
@@ -660,7 +666,8 @@ public static class GnOuGoAgentWebHost
     /// them correctly regardless of the process working directory.
     /// </summary>
     private static void ResolveRelativeMcpCommandPaths(
-        Dictionary<string, McpServerOptions> servers)
+        Dictionary<string, McpServerOptions> servers,
+        string applicationBasePath)
     {
         foreach (var cfg in servers.Values)
         {
@@ -670,11 +677,18 @@ public static class GnOuGoAgentWebHost
 
             var normalizedCommand = cfg.Command.Replace('/', Path.DirectorySeparatorChar)
                                                .Replace('\\', Path.DirectorySeparatorChar);
-            var resolvedCommand = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, normalizedCommand));
+            var resolvedCommand = Path.GetFullPath(Path.Combine(applicationBasePath, normalizedCommand));
 
             if (File.Exists(resolvedCommand))
             {
                 cfg.Command = resolvedCommand;
+                continue;
+            }
+
+            var appContextCommand = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, normalizedCommand));
+            if (File.Exists(appContextCommand))
+            {
+                cfg.Command = appContextCommand;
                 continue;
             }
 
@@ -683,7 +697,14 @@ public static class GnOuGoAgentWebHost
 
             var windowsExecutable = resolvedCommand + ".exe";
             if (File.Exists(windowsExecutable))
+            {
                 cfg.Command = windowsExecutable;
+                continue;
+            }
+
+            var appContextWindowsExecutable = appContextCommand + ".exe";
+            if (File.Exists(appContextWindowsExecutable))
+                cfg.Command = appContextWindowsExecutable;
         }
     }
 

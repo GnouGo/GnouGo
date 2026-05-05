@@ -51,7 +51,7 @@ public static class OtlpCollectorHostingExtensions
             var ingest = sp.GetRequiredService<IOptions<IngestOptions>>().Value;
             var retention = sp.GetRequiredService<IOptions<RetentionOptions>>().Value;
             var devMode = sp.GetRequiredService<IOptions<DevModeOptions>>().Value;
-            return AppOptions.FromOptions(db, ingest, retention, devMode);
+            return AppOptions.FromOptions(db, ingest, retention, devMode, AppContext.BaseDirectory);
         });
 
         services.AddDbContext<TelemetryDbContext>((sp, options) =>

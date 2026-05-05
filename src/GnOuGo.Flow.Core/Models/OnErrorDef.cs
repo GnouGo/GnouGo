@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+
 namespace GnOuGo.Flow.Core.Models;
 
 /// <summary>
@@ -16,8 +18,8 @@ public sealed class OnErrorCase
     /// <summary>Action: stop or continue in the current runtime.</summary>
     public string Action { get; set; } = "stop";
 
-    /// <summary>Expression for output when action=continue.</summary>
-    public string? SetOutput { get; set; }
+    /// <summary>Scalar, object, or array output template when action=continue.</summary>
+    public JsonNode? SetOutput { get; set; }
 
     /// <summary>Reserved retry override metadata parsed from YAML for future use.</summary>
     public RetryPolicy? Retry { get; set; }

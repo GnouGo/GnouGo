@@ -827,6 +827,8 @@ class WorkflowEngine:
                         step_result.status = StepStatus.SUCCEEDED
                         if handled_output is not None:
                             data.setdefault("steps", {})[step.id] = handled_output
+                            if step.source.output:
+                                data[step.source.output] = handled_output
                             step_result.output = handled_output
                         step_result.duration = time.perf_counter() - started
                         self.telemetry.step_end(step_span or ITelemetrySpan(), {"status": StepStatus.SUCCEEDED})
@@ -913,7 +915,7 @@ class WorkflowEngine:
             if case.if_:
                 if not ExpressionEvaluator.get_bool(self._interpolator.interpolate(case.if_, error_ctx)):
                     continue
-            out = self._interpolator.interpolate(case.set_output, error_ctx) if isinstance(case.set_output, str) else case.set_output
+            out = self._interpolator.resolve_deep(copy.deepcopy(case.set_output), error_ctx) if case.set_output is not None else None
             return case.action, out
         return "stop", None
 

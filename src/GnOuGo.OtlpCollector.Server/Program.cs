@@ -6,6 +6,12 @@ using OtlpTenantCollector.Web;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.SingleLine = true;
+    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss.fff zzz ";
+});
+
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
     options.Configure(context.Configuration.GetSection("Kestrel"));
@@ -16,6 +22,25 @@ builder.Services.AddRouting();
 
 var app = builder.Build();
 
+app.Logger.LogInformation(
+    "GnOuGo OTLP Collector starting. Environment={Environment}; ContentRoot={ContentRoot}; BaseDirectory={BaseDirectory}; Urls={Urls}",
+    app.Environment.EnvironmentName,
+    app.Environment.ContentRootPath,
+    AppContext.BaseDirectory,
+    builder.Configuration[WebHostDefaults.ServerUrlsKey] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "<not set>");
+
+app.Logger.LogInformation(
+    "Configured Kestrel endpoints: Grpc={GrpcUrl} ({GrpcProtocols}); Http={HttpUrl} ({HttpProtocols})",
+    builder.Configuration["Kestrel:Endpoints:Grpc:Url"] ?? "<not set>",
+    builder.Configuration["Kestrel:Endpoints:Grpc:Protocols"] ?? "<not set>",
+    builder.Configuration["Kestrel:Endpoints:Http:Url"] ?? "<not set>",
+    builder.Configuration["Kestrel:Endpoints:Http:Protocols"] ?? "<not set>");
+
+app.Logger.LogInformation(
+    "Configured collector storage: Database:Path={DatabasePath}; DevMode:Enabled={DevModeEnabled}",
+    builder.Configuration["Database:Path"] ?? "<not set>",
+    builder.Configuration["DevMode:Enabled"] ?? "<not set>");
+
 await app.Services.InitializeOtlpCollectorAsync();
 
 using (var scope = app.Services.CreateScope())
@@ -25,7 +50,16 @@ using (var scope = app.Services.CreateScope())
         app.Logger.LogInformation("[DevMode] Enabled — tenant ID is optional. Data without tenant will use null.");
 }
 
-app.MapOtlpCollectorApi();
+app.MapOtlpCollectorApi(includeHealthEndpoint: false);
+
+app.MapGet("/health", async httpContext =>
+{
+    await OtlpApiResponses.ExecuteAsync(
+        httpContext,
+        OtlpApiResponses.Json(
+            new HealthStatusResponse("ok"),
+            OtlpApiJsonContext.Default.HealthStatusResponse));
+});
 
 app.MapGet("/admin/queue-status", async httpContext =>
 {

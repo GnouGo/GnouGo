@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Moq;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
@@ -754,6 +755,59 @@ workflows:
         Assert.True(result.Success || result.StepResults.Count > 1);
     }
 
+    [Fact]
+    public async Task Execute_LoopParallel_OnErrorObjectSetOutput_CanUseErrorAndItemContext()
+    {
+        var registry = new StepExecutorRegistry();
+        registry.Register(new GnOuGo.Flow.Core.Runtime.Executors.LoopParallelExecutor());
+        registry.Register(new ThrowingStepExecutor(
+            "fail.step",
+            new WorkflowRuntimeException("MCP_TIMEOUT", "simulated timeout", retryable: true)));
+
+        var wf = CompileMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: fetch_pages
+        type: loop.parallel
+        input:
+          items:
+            - url: https://slimfaas.dev/docs
+          max_concurrency: 1
+        item_var: item
+        index_var: idx
+        steps:
+          - id: fetch_page
+            type: fail.step
+            on_error:
+              cases:
+                - if: "${error.code == \"MCP_TIMEOUT\"}"
+                  action: continue
+                  set_output:
+                    status: error
+                    response:
+                      url: "${data.item.url}"
+                      error_code: "${error.code}"
+                      error_message: "${error.message}"
+""");
+
+        var engine = new WorkflowEngine(registry);
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var fetchPages = Assert.IsType<JsonObject>(result.Outputs!["fetch_pages"]);
+        var results = Assert.IsType<JsonArray>(fetchPages["results"]);
+        var firstIterationSteps = Assert.IsType<JsonObject>(results[0]);
+        var fetchPage = Assert.IsType<JsonObject>(firstIterationSteps["fetch_page"]);
+        var response = Assert.IsType<JsonObject>(fetchPage["response"]);
+
+        Assert.Equal("error", fetchPage["status"]!.GetValue<string>());
+        Assert.Equal("https://slimfaas.dev/docs", response["url"]!.GetValue<string>());
+        Assert.Equal("MCP_TIMEOUT", response["error_code"]!.GetValue<string>());
+        Assert.Equal("simulated timeout", response["error_message"]!.GetValue<string>());
+    }
+
     // === StepExecutorRegistry Tests ===
 
     [Fact]
@@ -771,5 +825,21 @@ workflows:
     {
         var registry = new StepExecutorRegistry();
         Assert.Null(registry.Get("nonexistent"));
+    }
+
+    private sealed class ThrowingStepExecutor : IStepExecutor
+    {
+        private readonly Exception _exception;
+
+        public ThrowingStepExecutor(string stepType, Exception exception)
+        {
+            StepType = stepType;
+            _exception = exception;
+        }
+
+        public string StepType { get; }
+
+        public Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
+            => Task.FromException<JsonNode?>(_exception);
     }
 }

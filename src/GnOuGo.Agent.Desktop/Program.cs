@@ -39,6 +39,7 @@ internal static class Program
 
         Log("Desktop startup begin");
         Log($"BaseDirectory={AppContext.BaseDirectory}");
+        Log($"ProcessPath={Environment.ProcessPath ?? "<null>"}");
         Log($"Args={string.Join(' ', args)}");
 
         var desktopDevMode = IsEnabled(Environment.GetEnvironmentVariable("GNOUGO_DESKTOP_DEV")) ||
@@ -57,7 +58,8 @@ internal static class Program
 #endif
 
         var desktopToken = Guid.NewGuid().ToString("N");
-        var desktopWwwRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+        var desktopContentRoot = ResolveDesktopContentRoot(AppContext.BaseDirectory);
+        var desktopWwwRoot = Path.Combine(desktopContentRoot, "wwwroot");
         var useExternalBrowserShell = string.Equals(
             Environment.GetEnvironmentVariable("GNOUGO_FORCE_EXTERNAL_BROWSER"),
             "1",
@@ -74,6 +76,7 @@ internal static class Program
 
         Log($"RequestedServerUrl={RequestedServerUrl}");
         Log($"DesktopToken={desktopToken}");
+        Log($"DesktopContentRoot={desktopContentRoot}");
         Log($"DesktopDevMode={desktopDevMode}");
         Log($"UseExternalBrowserShell={useExternalBrowserShell}");
         Log($"AllowExternalBrowserFallback={allowExternalBrowserFallback}");
@@ -92,7 +95,7 @@ internal static class Program
         var window = new PhotinoWindow();
         Log("PhotinoWindow created");
 
-        var iconFile = ResolveIconFile();
+        var iconFile = ResolveIconFile(desktopContentRoot);
         if (!string.IsNullOrWhiteSpace(iconFile) && File.Exists(iconFile))
         {
             try { window.SetIconFile(iconFile); } catch { /* ignore */ }
@@ -299,7 +302,7 @@ internal static class Program
         window.RegisterLocationChangedHandler((_, pos) => Log($"WindowLocationChanged={pos.X},{pos.Y}"));
 
         using var cts = new CancellationTokenSource();
-        var app = GnOuGoAgentWebHost.Build(args, urls: RequestedServerUrl, contentRoot: AppContext.BaseDirectory, enableHttpsRedirection: false);
+        var app = GnOuGoAgentWebHost.Build(args, urls: RequestedServerUrl, contentRoot: desktopContentRoot, enableHttpsRedirection: false);
         Log("Web host built");
 
         Task? serverTask = null;
@@ -466,6 +469,102 @@ internal static class Program
             string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static string ResolveDesktopContentRoot(string baseDirectory)
+    {
+        var candidates = new List<string>();
+
+        AddCandidate(Environment.GetEnvironmentVariable("GNOUGO_DESKTOP_CONTENT_ROOT"));
+        AddCandidate(baseDirectory);
+
+        var processPath = Environment.ProcessPath;
+        if (!string.IsNullOrWhiteSpace(processPath))
+        {
+            AddCandidate(Path.GetDirectoryName(processPath));
+            AddCandidate(ResolveExecutableLinkTargetDirectory(processPath));
+        }
+
+        foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (IsDesktopContentRoot(candidate))
+            {
+                Log($"Resolved desktop content root: {candidate}");
+                return candidate;
+            }
+
+            Log($"Rejected desktop content root candidate: {candidate} ({DescribeDesktopContentRoot(candidate)})");
+        }
+
+        Log($"Could not resolve a complete desktop content root; falling back to BaseDirectory={baseDirectory}");
+        return baseDirectory;
+
+        void AddCandidate(string? candidate)
+        {
+            if (string.IsNullOrWhiteSpace(candidate))
+                return;
+
+            try
+            {
+                candidates.Add(Path.GetFullPath(candidate));
+            }
+            catch (Exception ex)
+            {
+                Log($"Invalid desktop content root candidate '{candidate}': {ex.Message}");
+            }
+        }
+    }
+
+    private static string? ResolveExecutableLinkTargetDirectory(string executablePath)
+    {
+        try
+        {
+            var executable = new FileInfo(executablePath);
+            var finalTarget = executable.ResolveLinkTarget(returnFinalTarget: true);
+            if (finalTarget is FileInfo finalTargetFile)
+                return finalTargetFile.DirectoryName;
+
+            if (finalTarget is DirectoryInfo finalTargetDirectory)
+                return finalTargetDirectory.FullName;
+
+            var linkTarget = executable.LinkTarget;
+            if (string.IsNullOrWhiteSpace(linkTarget))
+                return null;
+
+            var resolvedTarget = Path.IsPathRooted(linkTarget)
+                ? linkTarget
+                : Path.GetFullPath(Path.Combine(executable.DirectoryName ?? AppContext.BaseDirectory, linkTarget));
+
+            return File.Exists(resolvedTarget)
+                ? Path.GetDirectoryName(resolvedTarget)
+                : resolvedTarget;
+        }
+        catch (Exception ex)
+        {
+            Log($"Could not resolve executable link target for '{executablePath}': {ex.Message}");
+            return null;
+        }
+    }
+
+    private static bool IsDesktopContentRoot(string candidate)
+    {
+        return Directory.Exists(candidate) &&
+            File.Exists(Path.Combine(candidate, "appsettings.json")) &&
+            Directory.Exists(Path.Combine(candidate, "wwwroot")) &&
+            File.Exists(Path.Combine(candidate, "wwwroot", "ui", "app.js")) &&
+            File.Exists(Path.Combine(candidate, "wwwroot", "ui", "app.css"));
+    }
+
+    private static string DescribeDesktopContentRoot(string candidate)
+    {
+        return string.Join(", ", new[]
+        {
+            $"dir={Directory.Exists(candidate)}",
+            $"appsettings={File.Exists(Path.Combine(candidate, "appsettings.json"))}",
+            $"wwwroot={Directory.Exists(Path.Combine(candidate, "wwwroot"))}",
+            $"ui/app.js={File.Exists(Path.Combine(candidate, "wwwroot", "ui", "app.js"))}",
+            $"ui/app.css={File.Exists(Path.Combine(candidate, "wwwroot", "ui", "app.css"))}"
+        });
+    }
+
     private static bool ProbeServer(string url)
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
@@ -572,9 +671,9 @@ internal static class Program
             + "\"";
     }
 
-    private static string? ResolveIconFile()
+    private static string? ResolveIconFile(string contentRoot)
     {
-        var assets = Path.Combine(AppContext.BaseDirectory, "Assets");
+        var assets = Path.Combine(contentRoot, "Assets");
         if (OperatingSystem.IsWindows())
             return Path.Combine(assets, "icon.ico");
         if (OperatingSystem.IsLinux())
