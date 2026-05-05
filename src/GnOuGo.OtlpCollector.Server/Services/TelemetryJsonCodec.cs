@@ -38,7 +38,15 @@ internal static class TelemetryJsonCodec
             writer.WriteString("name", spanEvent.Name);
             writer.WriteString("timeUtc", spanEvent.TimeUtc);
             writer.WritePropertyName("attributes");
-            WriteObject(writer, spanEvent.Attributes);
+            if (spanEvent.Attributes.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+            {
+                writer.WriteStartObject();
+                writer.WriteEndObject();
+            }
+            else
+            {
+                spanEvent.Attributes.WriteTo(writer);
+            }
             writer.WriteEndObject();
         }
 
@@ -77,13 +85,19 @@ internal static class TelemetryJsonCodec
                 : throw new JsonException("Span event is missing 'timeUtc'.");
 
             var attributes = item.TryGetProperty("attributes", out var attributesElement)
-                ? DeserializeObject(attributesElement)
-                : [];
+                ? attributesElement.Clone()
+                : EmptyJsonObject();
 
             events.Add(new SpanEventDto(name, timeUtc, attributes));
         }
 
         return events;
+    }
+
+    private static JsonElement EmptyJsonObject()
+    {
+        using var document = JsonDocument.Parse("{}");
+        return document.RootElement.Clone();
     }
 
     private static Dictionary<string, object?> DeserializeObject(JsonElement element)

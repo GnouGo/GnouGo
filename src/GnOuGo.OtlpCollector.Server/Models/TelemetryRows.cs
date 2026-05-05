@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace OtlpTenantCollector.Models;
 
 public interface ITelemetryRow
@@ -55,7 +57,7 @@ public sealed record TraceSummaryDto(
 public sealed record SpanEventDto(
     string Name,
     DateTimeOffset TimeUtc,
-    Dictionary<string, object?> Attributes
+    JsonElement Attributes
 );
 
 public sealed record SpanDto(
@@ -68,10 +70,10 @@ public sealed record SpanDto(
     double DurationMs,
     int StatusCode,
     string? StatusMessage,
-    Dictionary<string, object?> Attributes,
+    JsonElement Attributes,
     List<SpanEventDto> Events,
-    Dictionary<string, object?> Resource,
-    Dictionary<string, object?> Scope
+    JsonElement Resource,
+    JsonElement Scope
 );
 
 public sealed record TraceDto(string TraceId, DateTimeOffset StartUtc, DateTimeOffset EndUtc, List<SpanDto> Spans);

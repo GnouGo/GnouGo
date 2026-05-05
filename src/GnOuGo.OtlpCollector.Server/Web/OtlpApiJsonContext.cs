@@ -22,6 +22,13 @@ namespace OtlpTenantCollector.Web;
 [JsonSerializable(typeof(List<TraceSummaryDto>))]
 [JsonSerializable(typeof(TraceDto))]
 [JsonSerializable(typeof(JsonElement))]
+[JsonSerializable(typeof(object))]
+[JsonSerializable(typeof(long))]
+[JsonSerializable(typeof(double))]
+[JsonSerializable(typeof(bool))]
+[JsonSerializable(typeof(string))]
+[JsonSerializable(typeof(Dictionary<string, object?>))]
+[JsonSerializable(typeof(List<object?>))]
 public partial class OtlpApiJsonContext : JsonSerializerContext
 {
 }

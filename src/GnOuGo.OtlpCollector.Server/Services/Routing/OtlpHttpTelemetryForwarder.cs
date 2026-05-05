@@ -237,6 +237,25 @@ public sealed class OtlpHttpTelemetryForwarder
     private static IEnumerable<KeyValue> BuildKeyValues(string? json)
         => BuildKeyValues(ReadObject(json));
 
+    private static IEnumerable<KeyValue> BuildKeyValues(JsonElement attributes)
+    {
+        if (attributes.ValueKind != JsonValueKind.Object)
+            yield break;
+
+        foreach (var property in attributes.EnumerateObject())
+        {
+            var value = JsonElementToObject(property.Value);
+            if (string.IsNullOrWhiteSpace(property.Name) || value is null)
+                continue;
+
+            yield return new KeyValue
+            {
+                Key = property.Name,
+                Value = ToAnyValue(value)
+            };
+        }
+    }
+
     private static IEnumerable<KeyValue> BuildKeyValues(Dictionary<string, object?> attributes)
     {
         foreach (var pair in attributes)

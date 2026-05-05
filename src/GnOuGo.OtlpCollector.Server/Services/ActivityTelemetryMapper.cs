@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text.Json;
 using OtlpTenantCollector.Models;
 
 namespace OtlpTenantCollector.Services;
@@ -36,7 +37,7 @@ public static class ActivityTelemetryMapper
                     eventAttrs[tag.Key] = NormalizeValue(tag.Value);
             }
 
-            events.Add(new SpanEventDto(evt.Name, evt.Timestamp.UtcDateTime, eventAttrs));
+            events.Add(new SpanEventDto(evt.Name, evt.Timestamp.UtcDateTime, ToJsonElement(eventAttrs)));
         }
 
         var resource = new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -103,6 +104,13 @@ public static class ActivityTelemetryMapper
             ActivityKind.Consumer => 5,
             _ => 0
         };
+
+    private static JsonElement ToJsonElement(Dictionary<string, object?> values)
+    {
+        var json = TelemetryJsonCodec.SerializeObject(values);
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
+    }
 }
 
 

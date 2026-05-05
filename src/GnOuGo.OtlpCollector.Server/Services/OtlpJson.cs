@@ -55,7 +55,7 @@ public static class OtlpJson
             eventList.Add(new SpanEventDto(
                 Name:       evt.Name,
                 TimeUtc:    timeUtc,
-                Attributes: attrs
+                Attributes: ToJsonElement(attrs)
             ));
         }
 
@@ -90,13 +90,9 @@ public static class OtlpJson
             ? new List<SpanEventDto>()
             : TelemetryJsonCodec.DeserializeSpanEvents(span.EventsJson);
 
-        var resource = string.IsNullOrEmpty(span.ResourceJson)
-            ? new Dictionary<string, object?>()
-            : TelemetryJsonCodec.DeserializeObject(span.ResourceJson);
+        var resource = ToJsonElement(span.ResourceJson);
 
-        var scope = string.IsNullOrEmpty(span.ScopeJson)
-            ? new Dictionary<string, object?>()
-            : TelemetryJsonCodec.DeserializeObject(span.ScopeJson);
+        var scope = ToJsonElement(span.ScopeJson);
 
         // EndUnixNs a déjà été corrigé à l'ingestion si invalide
         var endUnixNs = span.EndUnixNs;
@@ -118,11 +114,24 @@ public static class OtlpJson
             DurationMs: durationMs,
             StatusCode: span.StatusCode,
             StatusMessage: span.StatusMessage,
-            Attributes: attributes,
+            Attributes: ToJsonElement(attributes),
             Events: events,
             Resource: resource,
             Scope: scope
         );
+    }
+
+    private static JsonElement ToJsonElement(Dictionary<string, object?> values)
+    {
+        var json = TelemetryJsonCodec.SerializeObject(values);
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
+    }
+
+    private static JsonElement ToJsonElement(string? json)
+    {
+        using var document = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+        return document.RootElement.Clone();
     }
 
     /// <summary>
