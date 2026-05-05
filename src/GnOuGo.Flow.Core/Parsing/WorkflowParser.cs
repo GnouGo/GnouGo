@@ -412,11 +412,15 @@ public static class WorkflowParser
             {
                 if (c is YamlMappingNode caseMap)
                 {
+                    var setOutputNode = caseMap.Children
+                        .FirstOrDefault(child => (child.Key as YamlScalarNode)?.Value == "set_output")
+                        .Value;
+
                     def.Cases.Add(new OnErrorCase
                     {
                         If = caseMap.GetScalar("if"),
                         Action = caseMap.GetScalar("action") ?? "stop",
-                        SetOutput = caseMap.GetScalar("set_output"),
+                        SetOutput = setOutputNode is null ? null : YamlToJson(setOutputNode),
                         Retry = caseMap.HasKey("retry") ? new RetryPolicy
                         {
                             Max = caseMap.GetMapping("retry")?.GetInt("max") ?? 1,

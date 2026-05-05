@@ -73,6 +73,34 @@ def test_parse_accepts_version_string_one(version: str) -> None:
     assert doc.version == 1
 
 
+def test_parse_on_error_object_set_output_preserves_template_object() -> None:
+    yaml_text = '''
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch_page
+            type: mcp.call
+            on_error:
+              cases:
+                - action: continue
+                  set_output:
+                    status: error
+                    response:
+                      url: "${data.item.url}"
+                      error_code: "${error.code}"
+                      error_message: "${error.message}"
+    '''
+
+    doc = WorkflowParser.parse(yaml_text)
+    set_output = doc.workflows["main"].steps[0].on_error.cases[0].set_output
+
+    assert isinstance(set_output, dict)
+    assert set_output["status"] == "error"
+    assert set_output["response"]["url"] == "${data.item.url}"
+    assert set_output["response"]["error_code"] == "${error.code}"
+
+
 def test_parse_input_required_bool_and_object_required_list() -> None:
     yaml_text = """
     version: 1

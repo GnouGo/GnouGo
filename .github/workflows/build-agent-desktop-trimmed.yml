@@ -184,7 +184,9 @@ jobs:
           $playwrightDriverNodes | Select-Object -First 20 FullName | Format-Table -AutoSize | Out-String | Write-Host
 
           $requiredUiAssets = @(
-            "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js"
+            "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js",
+            "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/ui/app.js",
+            "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/ui/app.css"
           )
 
           foreach ($path in $requiredUiAssets) {

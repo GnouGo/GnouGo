@@ -109,15 +109,16 @@ COPY --from=build /app/publish ./
 EXPOSE 4317
 EXPOSE 4318
 
-# Health check — Web UI / HTTP endpoint
+# Health check — lightweight collector endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:4318/admin/config || exit 1
+    CMD curl -f http://localhost:4318/health || exit 1
 
 # Volume for persistent SQLite data
 VOLUME ["/app/data"]
 
-# Environment defaults
+# Environment defaults. Keep the container self-contained even when appsettings*.json
+# are intentionally omitted from publish output.
 ENV ASPNETCORE_ENVIRONMENT=Production \
-    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false 
 
 ENTRYPOINT ["dotnet", "GnOuGo.OtlpCollector.Server.dll"]

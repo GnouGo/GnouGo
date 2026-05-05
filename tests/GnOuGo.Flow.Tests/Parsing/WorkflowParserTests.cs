@@ -1,5 +1,6 @@
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
+using System.Text.Json.Nodes;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Parsing;
@@ -109,7 +110,37 @@ workflows:
         Assert.NotNull(oe);
         Assert.Equal(2, oe!.Cases.Count);
         Assert.Equal("continue", oe.Cases[0].Action);
+        Assert.Equal("fallback", oe.Cases[0].SetOutput!.GetValue<string>());
         Assert.Equal("retry", oe.Cases[1].Action);
+    }
+
+    [Fact]
+    public void Parse_StepWithObjectOnErrorSetOutput_PreservesTemplateObject()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    steps:
+      - id: s1
+        type: llm.call
+        on_error:
+          cases:
+            - action: continue
+              set_output:
+                status: error
+                response:
+                  url: "${data.item.url}"
+                  error_code: "${error.code}"
+                  error_message: "${error.message}"
+""";
+        var doc = WorkflowParser.Parse(yaml);
+        var setOutput = Assert.IsType<JsonObject>(doc.Workflows["main"].Steps[0].OnError!.Cases[0].SetOutput);
+        var response = Assert.IsType<JsonObject>(setOutput["response"]);
+
+        Assert.Equal("error", setOutput["status"]!.GetValue<string>());
+        Assert.Equal("${data.item.url}", response["url"]!.GetValue<string>());
+        Assert.Equal("${error.code}", response["error_code"]!.GetValue<string>());
     }
 
     [Fact]

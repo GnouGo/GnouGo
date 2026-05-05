@@ -18,7 +18,7 @@ class RetryPolicy(BaseModel):
 class OnErrorCase(BaseModel):
     if_: str | None = Field(default=None, alias="if")
     action: str = "stop"
-    set_output: str | None = None
+    set_output: Any = None
     retry: RetryPolicy | None = None
 
 

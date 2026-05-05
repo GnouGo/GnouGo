@@ -1,8 +1,16 @@
 import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
+from gnougo_flow_core.errors import WorkflowRuntimeException
 from gnougo_flow_core.parsing import WorkflowParser
-from gnougo_flow_core.runtime import WorkflowEngine
+from gnougo_flow_core.runtime import StepExecutionContext, StepExecutorRegistry, WorkflowEngine
+
+
+class ThrowingStepExecutor:
+    step_type = "fail.step"
+
+    async def execute_async(self, ctx: StepExecutionContext):
+        raise WorkflowRuntimeException("MCP_TIMEOUT", "simulated timeout", retryable=True)
 
 
 def _compile(yaml_text: str):
@@ -117,4 +125,55 @@ async def test_loop_parallel_strips_dunder_keys() -> None:
     first = result.outputs["first"]
     assert all(not (k.startswith("__") and k.endswith("__")) for k in first.keys())
     assert "only_step" in first
+
+
+@pytest.mark.asyncio
+async def test_loop_parallel_on_error_object_set_output_can_use_error_and_item_context() -> None:
+    yaml_text = '''
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch_pages
+            type: loop.parallel
+            input:
+              items:
+                - url: https://slimfaas.dev/docs
+              max_concurrency: 1
+            item_var: item
+            index_var: idx
+            steps:
+              - id: fetch_page
+                type: fail.step
+                on_error:
+                  cases:
+                    - if: '${error.code == "MCP_TIMEOUT"}'
+                      action: continue
+                      set_output:
+                        status: error
+                        response:
+                          url: "${data.item.url}"
+                          error_code: "${error.code}"
+                          error_message: "${error.message}"
+    '''
+    registry = StepExecutorRegistry()
+    from gnougo_flow_core.runtime_steps import LoopParallelExecutor
+
+    registry.register(LoopParallelExecutor())
+    registry.register(ThrowingStepExecutor())
+
+    engine = WorkflowEngine(registry)
+    compiled = _compile(yaml_text)
+    result = await engine.execute_async(compiled.workflows["main"], {})
+
+    assert result.success is True, result.error
+    fetch_pages = result.outputs["fetch_pages"]
+    fetch_page = fetch_pages["results"][0]["fetch_page"]
+    response = fetch_page["response"]
+
+    assert fetch_page["status"] == "error"
+    assert response["url"] == "https://slimfaas.dev/docs"
+    assert response["error_code"] == "MCP_TIMEOUT"
+    assert response["error_message"] == "simulated timeout"
+
 

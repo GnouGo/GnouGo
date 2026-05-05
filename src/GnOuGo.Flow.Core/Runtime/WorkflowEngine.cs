@@ -482,8 +482,13 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                         if (handled.output != null)
                         {
                             var stepsObj2 = data["steps"] as JsonObject ?? new JsonObject();
-                            stepsObj2[step.Id] = handled.output;
+                            stepsObj2[step.Id] = handled.output.DeepClone();
                             data["steps"] = stepsObj2;
+
+                            if (step.Source.Output != null)
+                                data[step.Source.Output] = handled.output.DeepClone();
+
+                            stepResult.Output = handled.output;
                         }
                         stepResult.Duration = sw.Elapsed;
                         Telemetry.StepEnd(stepSpan, new StepResultInfo
@@ -613,7 +618,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             // Match found
             JsonNode? output = null;
             if (c.SetOutput != null)
-                output = _interpolator.Interpolate(c.SetOutput, errorContext);
+                output = _interpolator.ResolveDeep(c.SetOutput.DeepClone(), errorContext);
 
             return (c.Action, output);
         }

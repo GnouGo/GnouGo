@@ -15,9 +15,10 @@ public sealed record AppOptions(
         DatabaseOptions db,
         IngestOptions ingest,
         RetentionOptions retention,
-        DevModeOptions devMode) =>
+        DevModeOptions devMode,
+        string baseDirectory) =>
         new(
-            DbPath: db.Path,
+            DbPath: OtlpTenantCollector.Hosting.OtlpCollectorHostingExtensions.ResolveDatabasePath(db.Path, baseDirectory),
             BatchSize: ingest.BatchSize,
             FlushSeconds: ingest.FlushSeconds,
             ChannelCapacity: ingest.ChannelCapacity,
