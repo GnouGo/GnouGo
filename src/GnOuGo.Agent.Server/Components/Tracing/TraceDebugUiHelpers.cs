@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using GnOuGo.Agent.Server.Telemetry;
+using GnOuGo.AI.Core;
 namespace GnOuGo.Agent.Server.Components.Tracing;
 internal static class TraceDebugUiHelpers
 {
@@ -53,7 +54,7 @@ internal static class TraceDebugUiHelpers
                 CompletionTokens: GetLongAttribute(span.Attributes, "gen_ai.usage.completion_tokens", "gen_ai.usage.output_tokens", "llm.usage.completion_tokens"),
                 TotalTokens: GetLongAttribute(span.Attributes, "gen_ai.usage.total_tokens", "llm.usage.total_tokens"),
                 DurationMs: GetSpanDurationMs(span),
-                Cost: GetDecimalAttribute(span.Attributes, "gen_ai.usage.cost")))
+                Cost: ResolveCost(span.Attributes)))
             .Select(metric => metric.TotalTokens > 0
                 ? metric
                 : metric with { TotalTokens = metric.PromptTokens + metric.CompletionTokens })
@@ -135,7 +136,7 @@ internal static class TraceDebugUiHelpers
             return $"{milliseconds * 1000d:0}us";
         if (milliseconds < 1000)
             return $"{milliseconds:0.0}ms";
-            return $"{milliseconds * 1000d:0}us";
+        return $"{milliseconds / 1000d:0.00}s";
     }
     public static string ToDisplayString(object? value)
     {
@@ -201,10 +202,10 @@ internal static class TraceDebugUiHelpers
     private static string GetSpanColor(TraceSpanDto span)
     {
         if (span.StatusCode == 2) return "#ef4444";
-        if (IsGenAiSpan(span)) return "AI";
-        if (ContainsAny(span.Name, "search", "retrieval", "query")) return "Search";
-        if (ContainsAny(span.Name, "embed")) return "Embed";
-        if (ContainsAny(span.Name, "chunk")) return "Chunk";
+        if (IsGenAiSpan(span)) return "#8b5cf6";
+        if (ContainsAny(span.Name, "search", "retrieval", "query")) return "#06b6d4";
+        if (ContainsAny(span.Name, "embed")) return "#10b981";
+        if (ContainsAny(span.Name, "chunk")) return "#f59e0b";
         return "#64748b";
     }
     private static bool ContainsAny(string? value, params string[] terms)
@@ -270,5 +271,24 @@ internal static class TraceDebugUiHelpers
             }
         }
         return 0m;
+    }
+
+    private static decimal ResolveCost(Dictionary<string, object?> attributes)
+    {
+        var explicitCost = GetDecimalAttribute(attributes, "gen_ai.usage.cost");
+        if (explicitCost > 0m)
+            return explicitCost;
+
+        var model = GetFirstAttribute(attributes, "gen_ai.request.model", "gen_ai.response.model", "llm.request.model");
+        if (string.IsNullOrWhiteSpace(model))
+            return explicitCost;
+
+        var inputTokens = GetLongAttribute(attributes, "gen_ai.usage.prompt_tokens", "gen_ai.usage.input_tokens", "llm.usage.prompt_tokens");
+        var outputTokens = GetLongAttribute(attributes, "gen_ai.usage.completion_tokens", "gen_ai.usage.output_tokens", "llm.usage.completion_tokens");
+        if (inputTokens <= 0 && outputTokens <= 0)
+            return explicitCost;
+
+        var providerType = GetFirstAttribute(attributes, "gen_ai.system");
+        return ModelMetadataCatalog.EstimateCost(model, inputTokens, outputTokens, providerType: providerType) ?? explicitCost;
     }
 }

@@ -218,7 +218,8 @@ workflows:
       - id: ask
         type: llm.call
         input:
-          model: gpt-4o
+
+          model: gpt-5.5
           provider: openai
           prompt: ""Hello""
           temperature: 0.7
@@ -239,15 +240,16 @@ workflows:
         // Request attributes (written by executor before the LLM call)
         Assert.Equal("chat", llmSpan!.Attributes["gen_ai.operation.name"]);
         Assert.Equal("openai", llmSpan.Attributes["gen_ai.system"]);
-        Assert.Equal("gpt-4o", llmSpan.Attributes["gen_ai.request.model"]);
+        Assert.Equal("gpt-5.5", llmSpan.Attributes["gen_ai.request.model"]);
         Assert.Equal(0.7, llmSpan.Attributes["gen_ai.request.temperature"]);
 
         // Response attributes (written by executor after the LLM call)
-        Assert.Equal("gpt-4o", llmSpan.Attributes["gen_ai.response.model"]);
+        Assert.Equal("gpt-5.5", llmSpan.Attributes["gen_ai.response.model"]);
         Assert.Equal("stop", llmSpan.Attributes["gen_ai.response.finish_reason"]);
-        Assert.Equal(10, llmSpan.Attributes["gen_ai.usage.input_tokens"]);
-        Assert.Equal(20, llmSpan.Attributes["gen_ai.usage.output_tokens"]);
+        Assert.Equal(10L, llmSpan.Attributes["gen_ai.usage.input_tokens"]);
+        Assert.Equal(20L, llmSpan.Attributes["gen_ai.usage.output_tokens"]);
         Assert.Equal(30, llmSpan.Attributes["gen_ai.usage.total_tokens"]);
+        Assert.Equal(0.00375d, Assert.IsType<double>(llmSpan.Attributes["gen_ai.usage.cost"]), precision: 8);
     }
 
     [Fact]
