@@ -156,6 +156,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- Do NOT add `reasoning` by habit. Include it only when the task explicitly needs a reasoning-effort override.");
         basePrompt.AppendLine("- If a generated workflow includes unsupported optional LLM parameters, the runtime may omit them automatically based on model capabilities.");
 
+
         if (mcpServersDoc != null)
         {
             basePrompt.AppendLine();

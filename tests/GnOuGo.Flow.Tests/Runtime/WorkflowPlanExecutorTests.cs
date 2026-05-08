@@ -146,6 +146,7 @@ workflows:
         Assert.Contains("[AVAILABLE STEP TYPES]", capturedPrompt);
         Assert.Contains("[TASK]", capturedPrompt);
         Assert.Contains("[ERROR HANDLING AND RETRIES]", capturedPrompt);
+        Assert.DoesNotContain("[STRUCTURED OUTPUT STRICT SCHEMAS]", capturedPrompt);
         Assert.Contains("Use `retry` only for transient errors that are explicitly marked retryable by the runtime.", capturedPrompt);
         Assert.Contains("Retries run before `on_error` is evaluated.", capturedPrompt);
         Assert.Contains("Inside `on_error.cases[].if`, the error context exposes `error.code`, `error.message`, `error.retryable`, `step.id`, and `step.type`.", capturedPrompt);
@@ -730,6 +731,10 @@ workflows:
         Assert.Contains("structured_output:", llmCallSnippet);
         Assert.Contains("schema_inline:", llmCallSnippet);
         Assert.Contains("strict: true", llmCallSnippet);
+        Assert.Contains("Every schema object with `properties` MUST have `required` listing EVERY key from `properties`", llmCallSnippet);
+        Assert.Contains("Optional fields must still be listed in `required`", llmCallSnippet);
+        Assert.Contains("additionalProperties: false", llmCallSnippet);
+        Assert.Contains("anyOf:", llmCallSnippet);
         Assert.Contains("structured_output.schema_ref", llmCallSnippet);
     }
 

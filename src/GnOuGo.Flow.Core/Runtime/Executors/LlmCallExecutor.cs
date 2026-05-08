@@ -37,6 +37,11 @@ public sealed class LlmCallExecutor : IStepExecutor
             max_tokens: 2048                     # optional
         ```
         Structured output:
+        IMPORTANT for `strict: true` (OpenAI/GitHub Models response_format json_schema):
+        - Every schema object with `properties` MUST have `required` listing EVERY key from `properties`.
+        - Do NOT list only the fields that feel mandatory; strict mode rejects omitted property names.
+        - Optional fields must still be listed in `required`; represent them as nullable with `anyOf: [{ type: <type> }, { type: "null" }]`.
+        - Add `additionalProperties: false` on every object schema for portability. The OpenAI provider also patches it automatically in strict mode.
         ```yaml
         - id: classify
           type: llm.call
@@ -49,7 +54,12 @@ public sealed class LlmCallExecutor : IStepExecutor
                 properties:
                   category: { type: string }
                   priority: { type: string }
-                required: [category, priority]
+                  notes:
+                    anyOf:
+                      - type: string
+                      - type: "null"
+                required: [category, priority, notes]   # every property above is listed, including nullable optional fields
+                additionalProperties: false
               strict: true                       # optional
         ```
         You can also use `structured_output.schema_ref` instead of `schema_inline`.

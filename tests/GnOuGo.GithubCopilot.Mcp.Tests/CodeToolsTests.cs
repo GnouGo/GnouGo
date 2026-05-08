@@ -41,6 +41,32 @@ public sealed class CodeToolsTests : IDisposable
 	}
 
 	[Fact]
+	public async Task SuggestChangeAsync_ResolvesRelativeProjectRootUnderDefaultWorkingDirectory()
+	{
+		var desktop = Path.Combine(_root, "Desktop");
+		var expectedProjectRoot = Path.GetFullPath(Path.Combine(desktop, "GnOuGo", "workspace", "oidc-client"));
+		Directory.CreateDirectory(Path.Combine(expectedProjectRoot, "src"));
+		File.WriteAllText(Path.Combine(expectedProjectRoot, "src", "Program.cs"), "Console.WriteLine(\"Desktop workspace\");\n");
+		var settings = CreateSettings();
+		settings.DefaultWorkingDirectory = "GnOuGo";
+		settings.AllowedWorkingRoots = [];
+		var policy = new CodePolicy(settings, _root, desktop);
+		var projectService = new CodeProjectService(policy, Options.Create(settings));
+		var gitService = new GitRepositoryService(policy, Options.Create(settings));
+		var assistant = new CapturingAssistantClient();
+		var tools = new CodeTools(projectService, gitService, assistant, NullLogger<CodeTools>.Instance);
+
+		var result = await tools.SuggestChangeAsync("workspace/oidc-client", "Plan this change.", "[\"src/Program.cs\"]");
+
+		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
+		Assert.Equal("fake suggestion", suggestion.Suggestion);
+		Assert.Equal(expectedProjectRoot, assistant.ProjectRoot);
+		var file = Assert.Single(assistant.ContextFiles);
+		Assert.Equal("src\\Program.cs", file.Path.Replace('/', '\\'));
+		Assert.Contains("Desktop workspace", file.Content, StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void BuildClientOptions_UsesExplicitGitHubTokenAndProjectRoot()
 	{
 		var settings = CreateSettings();
@@ -57,6 +83,75 @@ public sealed class CodeToolsTests : IDisposable
 		Assert.Equal("agent", GitHubCopilotCodeClient.NormalizeMessageMode(settings.Copilot.Mode));
 		Assert.NotNull(options.Telemetry);
 		Assert.Equal("http://127.0.0.1:4317", options.Telemetry.OtlpEndpoint);
+	}
+
+	[Theory]
+	[InlineData(null, "ask")]
+	[InlineData("", "ask")]
+	[InlineData("Ask", "ask")]
+	[InlineData("ask", "ask")]
+	[InlineData("Agent", "agent")]
+	[InlineData("agent", "agent")]
+	[InlineData("Edit", "edit")]
+	[InlineData("plan", "ask")]
+	public void NormalizeMessageMode_MapsConfiguredValueToCopilotCliMode(string? configured, string expected)
+	{
+		Assert.Equal(expected, GitHubCopilotCodeClient.NormalizeMessageMode(configured));
+	}
+
+	[Fact]
+	public void NormalizeMessageMode_RejectsUnsupportedValue()
+	{
+		var ex = Assert.Throws<InvalidOperationException>(() => GitHubCopilotCodeClient.NormalizeMessageMode("review"));
+
+		Assert.Contains("Unsupported Copilot mode", ex.Message, StringComparison.OrdinalIgnoreCase);
+		Assert.Contains("ask, edit, agent", ex.Message, StringComparison.OrdinalIgnoreCase);
+	}
+
+	[Fact]
+	public void BuildClientOptions_AllowsMissingTokenWhenUseLoggedInUserIsEnabled()
+	{
+		var settings = CreateSettings();
+		settings.Copilot.UseLoggedInUser = true;
+
+		var options = GitHubCopilotCodeClient.BuildClientOptions(settings, _root, token: null);
+
+		Assert.Equal(_root, options.Cwd);
+		Assert.True(options.UseLoggedInUser);
+		Assert.True(string.IsNullOrWhiteSpace(options.GitHubToken));
+	}
+
+	[Fact]
+	public void BuildClientOptions_RequiresTokenWhenUseLoggedInUserIsDisabled()
+	{
+		var settings = CreateSettings();
+		settings.Copilot.UseLoggedInUser = false;
+
+		var ex = Assert.Throws<ArgumentException>(() =>
+			GitHubCopilotCodeClient.BuildClientOptions(settings, _root, token: null));
+
+		Assert.Contains("GitHub token is required", ex.Message, StringComparison.OrdinalIgnoreCase);
+	}
+
+	[Theory]
+	[InlineData(null, "warning")]
+	[InlineData("", "warning")]
+	[InlineData("warn", "warning")]
+	[InlineData("WARNING", "warning")]
+	[InlineData("trace", "all")]
+	[InlineData("debug", "debug")]
+	[InlineData("default", "default")]
+	public void NormalizeLogLevel_MapsConfiguredValueToCopilotCliValue(string? configured, string expected)
+	{
+		Assert.Equal(expected, GitHubCopilotCodeClient.NormalizeLogLevel(configured));
+	}
+
+	[Fact]
+	public void NormalizeLogLevel_RejectsUnsupportedValue()
+	{
+		var ex = Assert.Throws<InvalidOperationException>(() => GitHubCopilotCodeClient.NormalizeLogLevel("verbose"));
+
+		Assert.Contains("Unsupported Copilot log level", ex.Message, StringComparison.OrdinalIgnoreCase);
 	}
 
 	[Fact]
@@ -108,6 +203,14 @@ public sealed class CodeToolsTests : IDisposable
 			Assert.Equal("00-11112222333344445555666677778888-9999aaaabbbbcccc-01", env["TRACEPARENT"]);
 			Assert.Equal("11112222333344445555666677778888", env["GNouGo__TraceId"]);
 			Assert.Equal("http://127.0.0.1:4317", env["OTEL_EXPORTER_OTLP_ENDPOINT"]);
+			AssertPreservedEnvironmentVariable(env, "PATH");
+			if (OperatingSystem.IsWindows())
+			{
+				AssertPreservedEnvironmentVariable(env, "SystemRoot");
+				AssertPreservedEnvironmentVariable(env, "WINDIR");
+				AssertPreservedEnvironmentVariable(env, "TEMP");
+				AssertPreservedEnvironmentVariable(env, "TMP");
+			}
 		}
 		finally
 		{
@@ -141,16 +244,27 @@ public sealed class CodeToolsTests : IDisposable
 		{
 			ApiKey = "ghp_test-token",
 			Model = "gpt-4.1",
-			Mode = "plan",
+			Mode = "ask",
 			ReasoningEffort = "high",
 			RequestTimeoutSeconds = 30
 		}
 	};
 
+	private static void AssertPreservedEnvironmentVariable(IReadOnlyDictionary<string, string> env, string name)
+	{
+		var value = Environment.GetEnvironmentVariable(name);
+		if (string.IsNullOrWhiteSpace(value))
+			return;
+
+		Assert.True(env.TryGetValue(name, out var actual), $"Expected Copilot CLI environment to preserve {name}.");
+		Assert.Equal(value, actual);
+	}
+
 	public void Dispose()
 	{
 		try { Directory.Delete(_root, recursive: true); }
-		catch { }
+		catch (IOException) { }
+		catch (UnauthorizedAccessException) { }
 	}
 
 	private sealed class CapturingAssistantClient : ICodeAssistantClient

@@ -41,24 +41,48 @@ class LlmCallExecutor:
     step_description = "Call an LLM with prompt/model and optional structured output."
     dsl_snippet = """
 ### llm.call - Call a language model
+IMPORTANT: use `prompt` (NOT `messages`). `prompt` is REQUIRED. `model` is required unless the runtime injects a default model.
 IMPORTANT: `temperature` and `reasoning` are optional overrides.
 Omit them unless the task explicitly needs them; the runtime removes unsupported parameters based on model capabilities.
+Basic call:
 ```yaml
-- id: analyze
+- id: summarize
   type: llm.call
   input:
-    model: gpt-4o-mini
-    temperature: 0.2        # optional override; omit by default
-    reasoning: high         # optional override; omit by default
-    prompt: "Summarize: ${data.inputs.task}"
+    model: gpt-4                        # optional when runtime defaults are configured
+    prompt: "Summarize: ${data.inputs.task}"  # required - plain string
+    system: "You are a helpful assistant."    # optional
+    temperature: 0.7                     # optional override; omit by default
+    reasoning: high                      # optional override; omit by default
+    max_tokens: 2048                     # optional
+```
+Structured output:
+IMPORTANT for `strict: true` (OpenAI/GitHub Models response_format json_schema):
+- Every schema object with `properties` MUST have `required` listing EVERY key from `properties`.
+- Do NOT list only the fields that feel mandatory; strict mode rejects omitted property names.
+- Optional fields must still be listed in `required`; represent them as nullable with `anyOf: [{ type: <type> }, { type: "null" }]`.
+- Add `additionalProperties: false` on every object schema for portability. The OpenAI provider also patches/adapts it automatically in strict mode.
+```yaml
+- id: classify
+  type: llm.call
+  input:
+    model: gpt-4
+    prompt: "Classify this ticket and return JSON"
     structured_output:
       schema_inline:
         type: object
         properties:
-          summary: { type: string }
-        required: [summary]
+          category: { type: string }
+          priority: { type: string }
+          notes:
+            anyOf:
+              - type: string
+              - type: "null"
+        required: [category, priority, notes]   # every property above is listed, including nullable optional fields
+        additionalProperties: false
       strict: true
 ```
+You can also use `structured_output.schema_ref` instead of `schema_inline`.
 Output: `{ text, json?, usage?, raw? }`.
 """
     documented_exceptions = [
