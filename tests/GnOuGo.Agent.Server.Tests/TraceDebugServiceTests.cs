@@ -107,6 +107,44 @@ public sealed class TraceDebugServiceTests
     }
 
     [Fact]
+    public async Task GetSnapshotAsync_IncludesLogsForResolvedTrace()
+    {
+        await using var host = await CollectorTestHost.CreateAsync();
+        var settings = new OpenTelemetrySettings { Enabled = true, ServiceName = "GnOuGo.Agent.Server" };
+        var traceIdHex = "77777777777777777777777777777777";
+        var spanIdHex = "8888888888888888";
+
+        await host.AddSpansAsync(CreateSpan(
+            traceIdHex,
+            spanIdHex,
+            parentSpanIdHex: null,
+            name: "chat.message",
+            correlationId: "corr-logs",
+            serviceName: settings.ServiceName,
+            startUnixNs: 1_710_000_000_000_000_000,
+            endUnixNs: 1_710_000_000_500_000_000));
+
+        await host.AddLogsAsync(
+            CreateLog(traceIdHex, spanIdHex, 9, "Information", "first correlated log", settings.ServiceName, 1),
+            CreateLog(traceIdHex, spanIdHex, 17, "Error", "second correlated log", settings.ServiceName, 2));
+
+        var service = CreateService(host.Services, settings);
+
+        var snapshot = await service.GetSnapshotAsync("corr-logs", null, CancellationToken.None);
+
+        Assert.NotNull(snapshot.Trace);
+        Assert.Equal(traceIdHex, snapshot.TraceId);
+        Assert.Equal(2, snapshot.Logs.Count);
+        Assert.Equal("first correlated log", snapshot.Logs[0].Body);
+        Assert.Equal("second correlated log", snapshot.Logs[1].Body);
+        Assert.Equal(traceIdHex, snapshot.Logs[0].TraceId);
+        Assert.Equal(spanIdHex, snapshot.Logs[0].SpanId);
+        Assert.Equal("Information", snapshot.Logs[0].SeverityText);
+        Assert.Equal(1L, Convert.ToInt64(snapshot.Logs[0].Attributes["sequence"]));
+        Assert.Equal(settings.ServiceName, snapshot.Logs[0].Resource["service.name"]);
+    }
+
+    [Fact]
     public async Task GetSnapshotAsync_PreservesStoredSpanPayloads_ForDebugSidebar()
     {
         await using var host = await CollectorTestHost.CreateAsync();
@@ -362,6 +400,41 @@ public sealed class TraceDebugServiceTests
         };
     }
 
+    private static LogRecordEntity CreateLog(
+        string traceIdHex,
+        string spanIdHex,
+        int severityNumber,
+        string severityText,
+        string body,
+        string serviceName,
+        int sequence)
+    {
+        return new LogRecordEntity
+        {
+            Id = Guid.NewGuid(),
+            TenantId = null,
+            ReceivedUtc = DateTimeOffset.Parse($"2024-03-09T16:00:0{sequence}+00:00"),
+            TraceId = Convert.FromHexString(traceIdHex),
+            SpanId = Convert.FromHexString(spanIdHex),
+            SeverityNumber = severityNumber,
+            SeverityText = severityText,
+            Body = body,
+            AttributesJson = JsonSerializer.Serialize(new Dictionary<string, object?>
+            {
+                ["sequence"] = sequence
+            }),
+            ResourceJson = JsonSerializer.Serialize(new Dictionary<string, object?>
+            {
+                ["service.name"] = serviceName
+            }),
+            ScopeJson = JsonSerializer.Serialize(new Dictionary<string, object?>
+            {
+                ["name"] = "GnOuGo.Agent.Server.Tests"
+            }),
+            ServiceName = serviceName
+        };
+    }
+
     private sealed class StaticOptionsMonitor<T>(T currentValue) : IOptionsMonitor<T>
     {
         public T CurrentValue { get; } = currentValue;
@@ -406,6 +479,13 @@ public sealed class TraceDebugServiceTests
             using var scope = _provider.CreateScope();
             var store = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
             await store.AddSpansAsync(spans);
+        }
+
+        public async Task AddLogsAsync(params LogRecordEntity[] logs)
+        {
+            using var scope = _provider.CreateScope();
+            var store = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
+            await store.AddLogsAsync(logs);
         }
 
         public async ValueTask DisposeAsync()

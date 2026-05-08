@@ -1,33 +1,20 @@
-@using System.Globalization
-@using System.Collections
-@using System.Net
-@using System.Text
-@using System.Text.Json
-@using System.Text.Json.Nodes
-@using System.Text.RegularExpressions
-@using Markdig
-@using Microsoft.AspNetCore.Components.Rendering
 @using GnOuGo.Agent.Server.Telemetry
-@using YamlDotNet.Serialization
 @implements IAsyncDisposable
 @inject TraceDebugService TraceDebug
-
 @if (IsOpen)
 {
     <button class="sa-trace-panel__backdrop" type="button" aria-label="Close trace panel" @onclick="HandleCloseAsync"></button>
 }
-
-<aside class="sa-trace-panel @(IsOpen ? "sa-trace-panel--open" : "")" aria-hidden="@(!IsOpen)">
+<aside class="sa-trace-panel @(IsOpen ? "sa-trace-panel--open" : string.Empty)" aria-hidden="@(!IsOpen)">
     <header class="sa-trace-panel__header">
         <div>
-            <div class="sa-trace-panel__eyebrow">OpenTelemetry · GenAI · RAG</div>
+            <div class="sa-trace-panel__eyebrow">OpenTelemetry / GenAI / RAG</div>
             <h2 class="sa-trace-panel__title">Message Trace Debug</h2>
             <div class="sa-trace-panel__meta">
                 <span>Correlation: <code>@(Message?.CorrelationId ?? "n/a")</code></span>
                 <span>Trace: <code>@(_snapshot.TraceId ?? Message?.TraceId ?? "pending")</code></span>
             </div>
         </div>
-
         <div class="sa-trace-panel__header-actions">
             <button class="sa-trace-panel__toggle"
                     type="button"
@@ -36,10 +23,27 @@
                 @(_renderFormatted ? "Formatted" : "Raw")
             </button>
             <span class="sa-trace-panel__badge @GetStatusBadgeClass()">@GetStatusLabel()</span>
-            <button class="sa-trace-panel__close" type="button" @onclick="HandleCloseAsync" aria-label="Close trace panel">✕</button>
+            <button class="sa-trace-panel__close" type="button" @onclick="HandleCloseAsync" aria-label="Close trace panel">x</button>
         </div>
     </header>
-
+    <nav class="sa-trace-panel__tabs" aria-label="Trace debug sections">
+        <button class="sa-trace-panel__tab @GetTabClass(TracePanelTab.Traces)"
+                type="button"
+                role="tab"
+                aria-selected="@(_activeTab == TracePanelTab.Traces)"
+                @onclick="() => SelectTab(TracePanelTab.Traces)">
+            <span>Traces</span>
+            <span class="sa-trace-panel__tab-count">@(_snapshot.Trace?.Spans.Count ?? 0)</span>
+        </button>
+        <button class="sa-trace-panel__tab @GetTabClass(TracePanelTab.Logs)"
+                type="button"
+                role="tab"
+                aria-selected="@(_activeTab == TracePanelTab.Logs)"
+                @onclick="() => SelectTab(TracePanelTab.Logs)">
+            <span>Logs</span>
+            <span class="sa-trace-panel__tab-count">@_snapshot.Logs.Count</span>
+        </button>
+    </nav>
     <div class="sa-trace-panel__body">
         @if (!IsOpen || Message is null)
         {
@@ -62,332 +66,56 @@
                 <div class="sa-trace-panel__state-text">@_loadError</div>
             </div>
         }
+        else if (_activeTab == TracePanelTab.Logs)
+        {
+            <ChatTraceLogs Logs="_snapshot.Logs"
+                           IsLoading="_isLoading"
+                           RenderFormatted="_renderFormatted" />
+        }
         else if (_snapshot.Trace is null)
         {
             <div class="sa-trace-panel__state">
-                <div class="sa-trace-panel__state-title">@(_snapshot.Pending ? "Waiting for spans…" : "Trace not found")</div>
+                <div class="sa-trace-panel__state-title">@(_snapshot.Pending ? "Waiting for spans..." : "Trace not found")</div>
                 <div class="sa-trace-panel__state-text">@_snapshot.Message</div>
                 @if (_isLoading)
                 {
                     <div class="sa-trace-panel__spinner-row">
                         <span class="sa-trace-panel__spinner"></span>
-                        <span>Polling the OTLP collector…</span>
+                        <span>Polling the OTLP collector...</span>
                     </div>
                 }
             </div>
         }
         else
         {
-            var trace = _snapshot.Trace;
-            var selectedSpan = GetSelectedSpan(trace);
-            var summary = BuildSummary(trace);
-            var timeline = BuildTimeline(trace);
-
-            <div class="sa-trace-summary__hero">
-                <div class="sa-trace-summary__hero-title">Live trace for this answer</div>
-                <div class="sa-trace-summary__hero-text">Every GnOuGo response carries a client-generated correlation identifier that is propagated through the RAG workflow and exposed here in OpenTelemetry GenAI format.</div>
-                @if (!string.IsNullOrWhiteSpace(_snapshot.Message) && !string.Equals(_snapshot.Message, "Trace loaded.", StringComparison.Ordinal))
-                {
-                    <div class="sa-trace-summary__hero-text">@_snapshot.Message</div>
-                }
-            </div>
-
-            <div class="sa-trace-summary__kpis">
-                <div class="sa-trace-summary__kpi">
-                    <span class="sa-trace-summary__kpi-icon">🎯</span>
-                    <div>
-                        <div class="sa-trace-summary__kpi-value">@summary.TotalTokens.ToString("N0", CultureInfo.InvariantCulture)</div>
-                        <div class="sa-trace-summary__kpi-label">Tokens</div>
-                    </div>
-                </div>
-                <div class="sa-trace-summary__kpi">
-                    <span class="sa-trace-summary__kpi-icon">💰</span>
-                    <div>
-                        <div class="sa-trace-summary__kpi-value">$@summary.EstimatedCost.ToString("0.000000", CultureInfo.InvariantCulture)</div>
-                        <div class="sa-trace-summary__kpi-label">Estimated cost</div>
-                    </div>
-                </div>
-                <div class="sa-trace-summary__kpi">
-                    <span class="sa-trace-summary__kpi-icon">⏱️</span>
-                    <div>
-                        <div class="sa-trace-summary__kpi-value">@FormatDuration(summary.TraceDurationMs)</div>
-                        <div class="sa-trace-summary__kpi-label">Trace duration</div>
-                    </div>
-                </div>
-                <div class="sa-trace-summary__kpi">
-                    <span class="sa-trace-summary__kpi-icon">🤖</span>
-                    <div>
-                        <div class="sa-trace-summary__kpi-value">@summary.LlmCalls</div>
-                        <div class="sa-trace-summary__kpi-label">LLM calls</div>
-                    </div>
-                </div>
-            </div>
-
-            @if (summary.Providers.Count > 0 || summary.Models.Count > 0)
-            {
-                <div class="sa-trace-summary__tags">
-                    @foreach (var provider in summary.Providers)
-                    {
-                        <span class="sa-trace-summary__tag sa-trace-summary__tag--provider">@provider</span>
-                    }
-                    @foreach (var model in summary.Models)
-                    {
-                        <span class="sa-trace-summary__tag sa-trace-summary__tag--model">@model</span>
-                    }
-                </div>
-            }
-
-            <div class="sa-trace-split">
-                <div class="sa-trace-split__left">
-                    <button class="sa-trace-split__summary-button @(selectedSpan is null ? "sa-trace-split__summary-button--active" : "")"
-                            type="button"
-                            @onclick="() => _selectedSpanId = null">
-                        <span>📊 Summary</span>
-                        <span>@trace.Spans.Count span(s)</span>
-                    </button>
-
-                    @if (summary.RagSteps.Count > 0)
-                    {
-                        <div class="sa-trace-rag">
-                            @foreach (var step in summary.RagSteps)
-                            {
-                                <div class="sa-trace-rag__step">
-                                    <div class="sa-trace-rag__head">
-                                        <span>@step.Icon</span>
-                                        <strong>@step.Name</strong>
-                                        <span class="sa-trace-rag__count">@step.SpanCount span(s)</span>
-                                    </div>
-                                    <div class="sa-trace-rag__bar">
-                                        <div class="sa-trace-rag__fill" style="@BuildWidthStyle(step.Percentage)"></div>
-                                    </div>
-                                    <div class="sa-trace-rag__meta">
-                                        <span>@FormatDuration(step.DurationMs)</span>
-                                        <span>@step.Percentage.ToString("0.0", CultureInfo.InvariantCulture)%</span>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
-
-                    <div class="sa-trace-timeline">
-                        @foreach (var item in timeline)
-                        {
-                            <button class="sa-trace-timeline__item @(item.Span.SpanId == _selectedSpanId ? "sa-trace-timeline__item--active" : "") @(item.Span.StatusCode == 2 ? "sa-trace-timeline__item--error" : "")"
-                                    type="button"
-                                    @onclick="() => ToggleSelectedSpan(item.Span.SpanId)">
-                                <div class="sa-trace-timeline__label" style="@BuildPaddingLeftStyle(item.Depth)">
-                                    <span class="sa-trace-timeline__icon">@GetSpanIcon(item.Span)</span>
-                                    <span class="sa-trace-timeline__name">@item.Span.Name</span>
-                                    <span class="sa-trace-timeline__duration">@FormatDuration(item.DurationMs)</span>
-                                </div>
-                                <div class="sa-trace-timeline__track">
-                                    <div class="sa-trace-timeline__bar"
-                                         style="@BuildTimelineBarStyle(item)">
-                                    </div>
-                                </div>
-                            </button>
-                        }
-                    </div>
-                </div>
-
-                <div class="sa-trace-split__right">
-                    @if (selectedSpan is null)
-                    {
-                        <div class="sa-trace-detail">
-                            <div class="sa-trace-detail__header">
-                                <h3>Trace Summary</h3>
-                                <span>@FormatDuration(summary.TraceDurationMs) total</span>
-                            </div>
-
-                            <div class="sa-trace-detail__section">
-                                <h4>Token distribution</h4>
-                                <div class="sa-trace-detail__token-bar">
-                                    @if (summary.TotalTokens > 0)
-                                    {
-                                        <div class="sa-trace-detail__token-segment sa-trace-detail__token-segment--prompt"
-                                             style="@BuildWidthStyle(summary.PromptTokens * 100d / summary.TotalTokens)"></div>
-                                        <div class="sa-trace-detail__token-segment sa-trace-detail__token-segment--completion"
-                                             style="@BuildWidthStyle(summary.CompletionTokens * 100d / summary.TotalTokens)"></div>
-                                    }
-                                </div>
-                                <div class="sa-trace-detail__token-legend">
-                                    <span>Prompt: @summary.PromptTokens.ToString("N0", CultureInfo.InvariantCulture)</span>
-                                    <span>Completion: @summary.CompletionTokens.ToString("N0", CultureInfo.InvariantCulture)</span>
-                                </div>
-                            </div>
-
-                            <div class="sa-trace-detail__section">
-                                <h4>Trace identifiers</h4>
-                                <table class="sa-trace-detail__table">
-                                    <tbody>
-                                        <tr><td>Correlation</td><td><code>@(Message.CorrelationId ?? "n/a")</code></td></tr>
-                                        <tr><td>Trace</td><td><code>@trace.TraceId</code></td></tr>
-                                        @if (!string.IsNullOrWhiteSpace(_snapshot.Message) && !string.Equals(_snapshot.Message, "Trace loaded.", StringComparison.Ordinal))
-                                        {
-                                            <tr><td>Aggregation</td><td>@_snapshot.Message</td></tr>
-                                        }
-                                        <tr><td>Start</td><td>@trace.StartUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</td></tr>
-                                        <tr><td>End</td><td>@trace.EndUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div class="sa-trace-detail__section">
-                                <h4>LLM calls</h4>
-                                @if (summary.LlmCalls == 0)
-                                {
-                                    <div class="sa-trace-detail__empty">No GenAI span detected yet.</div>
-                                }
-                                else
-                                {
-                                    @foreach (var llmCall in summary.LlmMetrics)
-                                    {
-                                        <div class="sa-trace-detail__call">
-                                            <div class="sa-trace-detail__call-head">
-                                                <strong>@llmCall.OperationName</strong>
-                                                <span>@FormatDuration(llmCall.DurationMs)</span>
-                                            </div>
-                                            <div class="sa-trace-detail__call-meta">
-                                                <span>@llmCall.Provider</span>
-                                                <code>@llmCall.Model</code>
-                                            </div>
-                                            <div class="sa-trace-detail__call-stats">
-                                                <span>@llmCall.TotalTokens.ToString("N0", CultureInfo.InvariantCulture) tok</span>
-                                                <span>$@llmCall.Cost.ToString("0.000000", CultureInfo.InvariantCulture)</span>
-                                            </div>
-                                        </div>
-                                    }
-                                }
-                            </div>
-                        </div>
-                    }
-                    else
-                    {
-                        var genAiAttributes = selectedSpan.Attributes.Where(pair => pair.Key.StartsWith("gen_ai.", StringComparison.OrdinalIgnoreCase) || pair.Key.StartsWith("llm.", StringComparison.OrdinalIgnoreCase)).ToList();
-                        var otherAttributes = selectedSpan.Attributes.Where(pair => !pair.Key.StartsWith("gen_ai.", StringComparison.OrdinalIgnoreCase) && !pair.Key.StartsWith("llm.", StringComparison.OrdinalIgnoreCase)).ToList();
-
-                        <div class="sa-trace-detail">
-                            <div class="sa-trace-detail__header">
-                                <h3>@selectedSpan.Name</h3>
-                                <span>@FormatDuration(GetSpanDurationMs(selectedSpan))</span>
-                            </div>
-
-                            @if (!string.IsNullOrWhiteSpace(selectedSpan.StatusMessage))
-                            {
-                                <div class="sa-trace-detail__error">@selectedSpan.StatusMessage</div>
-                            }
-
-                            <div class="sa-trace-detail__section">
-                                <h4>Overview</h4>
-                                <table class="sa-trace-detail__table">
-                                    <tbody>
-                                        <tr><td>Span Id</td><td><code>@selectedSpan.SpanId</code></td></tr>
-                                        <tr><td>Parent</td><td><code>@(selectedSpan.ParentSpanId ?? "root")</code></td></tr>
-                                        <tr><td>Status</td><td>@GetStatusLabel(selectedSpan.StatusCode)</td></tr>
-                                        <tr><td>Kind</td><td>@GetKindLabel(selectedSpan.Kind)</td></tr>
-                                        <tr><td>Start</td><td>@selectedSpan.StartUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</td></tr>
-                                        <tr><td>End</td><td>@selectedSpan.EndUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            @if (genAiAttributes.Count > 0)
-                            {
-                                <div class="sa-trace-detail__section">
-                                    <h4>GenAI attributes</h4>
-                                    <table class="sa-trace-detail__table">
-                                        <tbody>
-                                            @foreach (var entry in genAiAttributes)
-                                            {
-                                                <tr>
-                                                    <td>@entry.Key</td>
-                                                    <td>@RenderValue(entry.Value)</td>
-                                                </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-                            }
-
-                            @if (otherAttributes.Count > 0)
-                            {
-                                <div class="sa-trace-detail__section">
-                                    <h4>Attributes</h4>
-                                    <table class="sa-trace-detail__table">
-                                        <tbody>
-                                            @foreach (var entry in otherAttributes)
-                                            {
-                                                <tr>
-                                                    <td>@entry.Key</td>
-                                                    <td>@RenderValue(entry.Value)</td>
-                                                </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-                            }
-
-                            <div class="sa-trace-detail__section">
-                                <h4>Events</h4>
-                                @if (selectedSpan.Events.Count == 0)
-                                {
-                                    <div class="sa-trace-detail__empty">No events on this span.</div>
-                                }
-                                else
-                                {
-                                    @foreach (var traceEvent in selectedSpan.Events)
-                                    {
-                                        <div class="sa-trace-detail__event">
-                                            <div class="sa-trace-detail__event-head">
-                                                <strong>@traceEvent.Name</strong>
-                                                <span>@traceEvent.TimeUtc.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)</span>
-                                            </div>
-                                            @if (traceEvent.Attributes.Count > 0)
-                                            {
-                                                <table class="sa-trace-detail__table">
-                                                    <tbody>
-                                                        @foreach (var entry in traceEvent.Attributes)
-                                                        {
-                                                            <tr>
-                                                                <td>@entry.Key</td>
-                                                                <td>@RenderValue(entry.Value)</td>
-                                                            </tr>
-                                                        }
-                                                    </tbody>
-                                                </table>
-                                            }
-                                        </div>
-                                    }
-                                }
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
+            <ChatTraceTraces Trace="_snapshot.Trace"
+                             CorrelationId="Message.CorrelationId"
+                             SnapshotMessage="_snapshot.Message"
+                             SelectedSpanId="_selectedSpanId"
+                             SelectedSpanIdChanged="OnSelectedSpanChanged"
+                             RenderFormatted="_renderFormatted" />
         }
     </div>
 </aside>
-
 @code {
     [Parameter] public ChatMessageDto? Message { get; set; }
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
-
     private TraceDebugSnapshot _snapshot = new(
         new TraceDebugAvailability(false, "Trace debug not initialized yet."),
         CorrelationId: null,
         TraceId: null,
         Trace: null,
+        Logs: [],
         Pending: false,
         Message: "Select a message to inspect.");
-
     private CancellationTokenSource? _refreshCts;
     private string? _parameterKey;
     private bool _isLoading;
     private string? _loadError;
     private string? _selectedSpanId;
     private bool _renderFormatted = true;
-
+    private TracePanelTab _activeTab = TracePanelTab.Traces;
     protected override async Task OnParametersSetAsync()
     {
         if (!IsOpen || Message is null)
@@ -396,28 +124,23 @@
             _parameterKey = null;
             return;
         }
-
         var nextKey = string.Join('|', Message.MessageId ?? string.Empty, Message.CorrelationId ?? string.Empty, Message.TraceId ?? string.Empty, IsOpen);
         if (string.Equals(nextKey, _parameterKey, StringComparison.Ordinal))
             return;
-
         _parameterKey = nextKey;
         _selectedSpanId = null;
         _loadError = null;
-
+        _activeTab = TracePanelTab.Traces;
         StopRefreshLoop();
         _refreshCts = new CancellationTokenSource();
-
         await RefreshAsync(_refreshCts.Token);
         _ = RunRefreshLoopAsync(_refreshCts.Token);
     }
-
     public ValueTask DisposeAsync()
     {
         StopRefreshLoop();
         return ValueTask.CompletedTask;
     }
-
     private async Task RunRefreshLoopAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
@@ -426,7 +149,6 @@
             {
                 await RefreshAsync(ct);
             }
-
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 break;
@@ -435,10 +157,8 @@
             {
                 // Keep polling even if one refresh cycle fails.
             }
-
             if (!IsOpen)
                 break;
-
             try
             {
                 await Task.Delay(TraceDebug.RefreshInterval, ct);
@@ -449,15 +169,12 @@
             }
         }
     }
-
     private async Task RefreshAsync(CancellationToken ct)
     {
         if (Message is null)
             return;
-
         _isLoading = true;
         _loadError = null;
-
         try
         {
             _snapshot = await TraceDebug.GetSnapshotAsync(Message.CorrelationId, Message.TraceId, ct);
@@ -481,22 +198,25 @@
             await InvokeAsync(StateHasChanged);
         }
     }
-
     private void StopRefreshLoop()
     {
         if (_refreshCts is null)
             return;
-
         try { _refreshCts.Cancel(); }
         catch (ObjectDisposedException) { }
         _refreshCts.Dispose();
         _refreshCts = null;
     }
-
     private Task HandleCloseAsync() => OnClose.InvokeAsync();
-
     private void ToggleRenderMode() => _renderFormatted = !_renderFormatted;
-
+    private void SelectTab(TracePanelTab tab) => _activeTab = tab;
+    private Task OnSelectedSpanChanged(string? spanId)
+    {
+        _selectedSpanId = spanId;
+        return Task.CompletedTask;
+    }
+    private string GetTabClass(TracePanelTab tab)
+        => _activeTab == tab ? "sa-trace-panel__tab--active" : string.Empty;
     private string GetStatusBadgeClass()
     {
         if (!_snapshot.Availability.Enabled)
@@ -507,7 +227,6 @@
             return "sa-trace-panel__badge--live";
         return "sa-trace-panel__badge--pending";
     }
-
     private string GetStatusLabel()
     {
         if (!_snapshot.Availability.Enabled)
@@ -518,864 +237,9 @@
             return _isLoading ? "Live" : "Loaded";
         return _snapshot.Pending ? "Pending" : "Idle";
     }
-
-    private static string GetStatusLabel(int statusCode)
-        => statusCode switch
-        {
-            1 => "OK",
-            2 => "ERROR",
-            _ => "UNSET"
-        };
-
-    private static string GetKindLabel(int kind)
-        => kind switch
-        {
-            1 => "INTERNAL",
-            2 => "SERVER",
-            3 => "CLIENT",
-            4 => "PRODUCER",
-            5 => "CONSUMER",
-            _ => "UNSPECIFIED"
-        };
-
-    private TraceSpanDto? GetSelectedSpan(TraceGroupDto trace)
-        => string.IsNullOrWhiteSpace(_selectedSpanId)
-            ? null
-            : trace.Spans.FirstOrDefault(span => string.Equals(span.SpanId, _selectedSpanId, StringComparison.Ordinal));
-
-    private void ToggleSelectedSpan(string spanId)
-        => _selectedSpanId = string.Equals(_selectedSpanId, spanId, StringComparison.Ordinal) ? null : spanId;
-
-    private static List<FlatSpanModel> BuildTimeline(TraceGroupDto trace)
+    private enum TracePanelTab
     {
-        var spans = trace.Spans;
-        if (spans.Count == 0)
-            return [];
-
-        var byParent = spans
-            .GroupBy(span => span.ParentSpanId ?? string.Empty)
-            .ToDictionary(group => group.Key, group => group.OrderBy(span => span.StartUtc).ToList(), StringComparer.Ordinal);
-
-        var knownIds = spans.Select(span => span.SpanId).ToHashSet(StringComparer.Ordinal);
-        var roots = spans
-            .Where(span => string.IsNullOrWhiteSpace(span.ParentSpanId) || !knownIds.Contains(span.ParentSpanId))
-            .OrderBy(span => span.StartUtc)
-            .ToList();
-
-        var flat = new List<FlatSpanModel>(spans.Count);
-        foreach (var root in roots)
-            Visit(root, 0, flat, byParent);
-
-        var minTime = flat.Min(item => item.StartMs);
-        var maxTime = flat.Max(item => item.EndMs);
-        var totalMs = Math.Max(1d, maxTime - minTime);
-
-        return flat.Select(item => item with
-        {
-            LeftPercent = (item.StartMs - minTime) * 100d / totalMs,
-            WidthPercent = Math.Max(1d, item.EndMs - item.StartMs) * 100d / totalMs
-        }).ToList();
-
-        static void Visit(TraceSpanDto span, int depth, List<FlatSpanModel> output, Dictionary<string, List<TraceSpanDto>> byParent)
-        {
-            var startMs = span.StartUtc.UtcDateTime.Subtract(DateTime.UnixEpoch).TotalMilliseconds;
-            var endMs = span.EndUtc.UtcDateTime.Subtract(DateTime.UnixEpoch).TotalMilliseconds;
-            if (endMs <= startMs)
-                endMs = startMs + Math.Max(1d, span.DurationMs);
-
-            output.Add(new FlatSpanModel(span, depth, startMs, endMs, Math.Max(0d, endMs - startMs), 0d, 0d));
-
-            if (!byParent.TryGetValue(span.SpanId, out var children))
-                return;
-
-            foreach (var child in children)
-                Visit(child, depth + 1, output, byParent);
-        }
+        Traces,
+        Logs
     }
-
-    private static SummaryModel BuildSummary(TraceGroupDto trace)
-    {
-        var llmMetrics = trace.Spans
-            .Where(IsGenAiSpan)
-            .Select(span => new LlmCallModel(
-                OperationName: GetFirstAttribute(span.Attributes, "gen_ai.operation.name", "llm.operation.name") ?? span.Name,
-                Model: GetFirstAttribute(span.Attributes, "gen_ai.request.model", "gen_ai.response.model", "llm.request.model") ?? "unknown",
-                Provider: ResolveProvider(span.Attributes),
-                PromptTokens: GetLongAttribute(span.Attributes, "gen_ai.usage.prompt_tokens", "gen_ai.usage.input_tokens", "llm.usage.prompt_tokens"),
-                CompletionTokens: GetLongAttribute(span.Attributes, "gen_ai.usage.completion_tokens", "gen_ai.usage.output_tokens", "llm.usage.completion_tokens"),
-                TotalTokens: GetLongAttribute(span.Attributes, "gen_ai.usage.total_tokens", "llm.usage.total_tokens"),
-                DurationMs: GetSpanDurationMs(span),
-                Cost: GetDecimalAttribute(span.Attributes, "gen_ai.usage.cost")))
-            .Select(metric => metric.TotalTokens > 0
-                ? metric
-                : metric with { TotalTokens = metric.PromptTokens + metric.CompletionTokens })
-            .ToList();
-
-        var totalPrompt = llmMetrics.Sum(metric => metric.PromptTokens);
-        var totalCompletion = llmMetrics.Sum(metric => metric.CompletionTokens);
-        var totalTokens = llmMetrics.Sum(metric => metric.TotalTokens);
-        var estimatedCost = llmMetrics.Sum(metric => metric.Cost);
-        var llmDuration = llmMetrics.Sum(metric => metric.DurationMs);
-        var traceDuration = Math.Max(0d, (trace.EndUtc - trace.StartUtc).TotalMilliseconds);
-
-        var providers = llmMetrics
-            .Select(metric => metric.Provider)
-            .Where(provider => !string.IsNullOrWhiteSpace(provider) && !string.Equals(provider, "unknown", StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(provider => provider, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        var models = llmMetrics
-            .Select(metric => metric.Model)
-            .Where(model => !string.IsNullOrWhiteSpace(model) && !string.Equals(model, "unknown", StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(model => model, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        return new SummaryModel(
-            TotalTokens: totalTokens,
-            PromptTokens: totalPrompt,
-            CompletionTokens: totalCompletion,
-            EstimatedCost: estimatedCost,
-            TraceDurationMs: traceDuration,
-            LlmCalls: llmMetrics.Count,
-            LlmMetrics: llmMetrics,
-            Providers: providers,
-            Models: models,
-            RagSteps: BuildRagSteps(trace.Spans));
-    }
-
-    private static List<RagStepModel> BuildRagSteps(List<TraceSpanDto> spans)
-    {
-        var categories = new (string Name, string Icon, Func<TraceSpanDto, bool> Predicate)[]
-        {
-            ("Retrieval", "🔍", span => ContainsAny(span.Name, "search", "retrieval", "query")),
-            ("Embedding", "🧬", span => ContainsAny(span.Name, "embed") || string.Equals(GetFirstAttribute(span.Attributes, "gen_ai.operation.name"), "embeddings", StringComparison.OrdinalIgnoreCase)),
-            ("Generation", "🤖", IsGenAiSpan),
-            ("Chunking", "✂️", span => ContainsAny(span.Name, "chunk")),
-            ("Storage", "💾", span => ContainsAny(span.Name, "store", "upsert"))
-        };
-
-        var steps = new List<RagStepModel>();
-        foreach (var category in categories)
-        {
-            var matches = spans.Where(category.Predicate).ToList();
-            if (matches.Count == 0)
-                continue;
-
-            var duration = matches.Sum(GetSpanDurationMs);
-            steps.Add(new RagStepModel(category.Name, category.Icon, matches.Count, duration, 0d));
-        }
-
-        var total = steps.Sum(step => step.DurationMs);
-        if (total > 0)
-        {
-            for (var i = 0; i < steps.Count; i++)
-                steps[i] = steps[i] with { Percentage = steps[i].DurationMs * 100d / total };
-        }
-
-        return steps;
-    }
-
-    private static bool IsGenAiSpan(TraceSpanDto span)
-        => !string.IsNullOrWhiteSpace(GetFirstAttribute(span.Attributes, "gen_ai.request.model", "gen_ai.response.model", "llm.request.model"));
-
-    private static string ResolveProvider(Dictionary<string, object?> attributes)
-    {
-        var model = GetFirstAttribute(attributes, "gen_ai.request.model", "gen_ai.response.model", "llm.request.model") ?? string.Empty;
-        var system = GetFirstAttribute(attributes, "gen_ai.system")?.ToLowerInvariant();
-        if (system is "openai" or "ollama" or "anthropic")
-            return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(system);
-        if (model.Contains("gpt", StringComparison.OrdinalIgnoreCase))
-            return "OpenAI";
-        if (model.Contains("claude", StringComparison.OrdinalIgnoreCase))
-            return "Anthropic";
-        if (model.Contains("gemini", StringComparison.OrdinalIgnoreCase))
-            return "Google";
-        return string.IsNullOrWhiteSpace(system) ? "unknown" : system;
-    }
-
-    private static double GetSpanDurationMs(TraceSpanDto span)
-        => span.DurationMs > 0 ? span.DurationMs : Math.Max(0d, (span.EndUtc - span.StartUtc).TotalMilliseconds);
-
-    private static string GetSpanColor(TraceSpanDto span)
-    {
-        if (span.StatusCode == 2) return "#ef4444";
-        if (IsGenAiSpan(span)) return "#8b5cf6";
-        if (ContainsAny(span.Name, "search", "retrieval", "query")) return "#10b981";
-        if (ContainsAny(span.Name, "embed")) return "#3b82f6";
-        if (ContainsAny(span.Name, "chunk")) return "#06b6d4";
-        return "#64748b";
-    }
-
-    private static string GetSpanIcon(TraceSpanDto span)
-    {
-        if (IsGenAiSpan(span)) return "🤖";
-        if (ContainsAny(span.Name, "search", "retrieval", "query")) return "🔍";
-        if (ContainsAny(span.Name, "embed")) return "🧬";
-        if (ContainsAny(span.Name, "chunk")) return "✂️";
-        if (ContainsAny(span.Name, "store", "upsert")) return "💾";
-        return span.StatusCode == 2 ? "❌" : "📌";
-    }
-
-    private static bool ContainsAny(string? value, params string[] terms)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return false;
-
-        foreach (var term in terms)
-        {
-            if (value.Contains(term, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-
-        return false;
-    }
-
-    private static string? GetFirstAttribute(Dictionary<string, object?> attributes, params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            if (attributes.TryGetValue(key, out var value))
-            {
-                var text = ToDisplayString(value);
-                if (!string.IsNullOrWhiteSpace(text))
-                    return text;
-            }
-        }
-
-        return null;
-    }
-
-    private static long GetLongAttribute(Dictionary<string, object?> attributes, params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            if (!attributes.TryGetValue(key, out var value))
-                continue;
-
-            if (value is JsonElement element)
-            {
-                if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out var number))
-                    return number;
-                if (element.ValueKind == JsonValueKind.String && long.TryParse(element.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out number))
-                    return number;
-            }
-            else if (long.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var number))
-            {
-                return number;
-            }
-        }
-
-        return 0L;
-    }
-
-    private static decimal GetDecimalAttribute(Dictionary<string, object?> attributes, params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            if (!attributes.TryGetValue(key, out var value))
-                continue;
-
-            if (value is JsonElement element)
-            {
-                if (element.ValueKind == JsonValueKind.Number && element.TryGetDecimal(out var number))
-                    return number;
-                if (element.ValueKind == JsonValueKind.String && decimal.TryParse(element.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out number))
-                    return number;
-            }
-            else if (decimal.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var number))
-            {
-                return number;
-            }
-        }
-
-        return 0m;
-    }
-
-    private static readonly Regex OrderedListRegex = new(@"^\d+\.\s+", RegexOptions.Compiled);
-    private static readonly Regex HeadingRegex = new(@"^#{1,6}\s+\S+", RegexOptions.Compiled);
-    private static readonly IDeserializer YamlDeserializer = new DeserializerBuilder().Build();
-    private static readonly MarkdownPipeline MarkdownPipeline = new MarkdownPipelineBuilder()
-        .UseAdvancedExtensions()
-        .DisableHtml()
-        .Build();
-
-    private RenderFragment RenderValue(object? value) => builder =>
-    {
-        try
-        {
-            if (!_renderFormatted)
-            {
-                var rawText = ToDisplayString(value);
-                if (string.IsNullOrWhiteSpace(rawText))
-                {
-                    builder.OpenElement(0, "span");
-                    builder.AddContent(1, string.Empty);
-                    builder.CloseElement();
-                    return;
-                }
-
-                builder.OpenElement(2, "pre");
-                builder.AddAttribute(3, "class", "sa-trace-detail__code");
-                builder.AddContent(4, rawText);
-                builder.CloseElement();
-                return;
-            }
-
-            var display = PrepareDisplayValue(value);
-            switch (display.Format)
-            {
-                case TraceValueFormat.Markdown:
-                    builder.OpenElement(0, "div");
-                    builder.AddAttribute(1, "class", "sa-trace-detail__markdown markdown-body");
-                    builder.AddContent(2, RenderMarkdown(display.Content));
-                    builder.CloseElement();
-                    return;
-                case TraceValueFormat.Json:
-                    builder.OpenElement(3, "pre");
-                    builder.AddAttribute(4, "class", "sa-trace-detail__code sa-trace-detail__code--json");
-                    builder.OpenElement(5, "code");
-                    builder.AddAttribute(6, "class", "sa-trace-detail__syntax");
-                    builder.AddMarkupContent(7, BuildJsonHighlightedHtml(display.Content));
-                    builder.CloseElement();
-                    builder.CloseElement();
-                    return;
-                case TraceValueFormat.Yaml:
-                    builder.OpenElement(6, "pre");
-                    builder.AddAttribute(7, "class", "sa-trace-detail__code sa-trace-detail__code--yaml");
-                    builder.OpenElement(8, "code");
-                    builder.AddAttribute(9, "class", "sa-trace-detail__syntax");
-                    builder.AddMarkupContent(10, BuildYamlHighlightedHtml(display.Content));
-                    builder.CloseElement();
-                    builder.CloseElement();
-                    return;
-                default:
-                    if (display.Content.Length > 180)
-                    {
-                        builder.OpenElement(9, "pre");
-                        builder.AddAttribute(10, "class", "sa-trace-detail__code");
-                        builder.AddContent(11, display.Content);
-                        builder.CloseElement();
-                        return;
-                    }
-
-                    builder.OpenElement(12, "span");
-                    builder.AddContent(13, display.Content);
-                    builder.CloseElement();
-                    return;
-            }
-        }
-        catch
-        {
-            var fallback = ToDisplayString(value);
-            builder.OpenElement(20, "pre");
-            builder.AddAttribute(21, "class", "sa-trace-detail__code");
-            builder.AddContent(22, fallback);
-            builder.CloseElement();
-        }
-    };
-
-    private static DisplayValue PrepareDisplayValue(object? value)
-    {
-        var text = ToDisplayString(value);
-        if (string.IsNullOrWhiteSpace(text))
-            return new DisplayValue(TraceValueFormat.Plain, string.Empty);
-
-        var trimmed = text.Trim();
-        if (TryExtractSingleCodeFence(trimmed, out var language, out var fencedContent))
-        {
-            var content = fencedContent.Trim();
-            if (IsJsonLanguage(language) && TryFormatJson(content, out var fencedJson))
-                return new DisplayValue(TraceValueFormat.Json, fencedJson);
-            if (IsYamlLanguage(language) || LooksLikeYaml(content))
-                return new DisplayValue(TraceValueFormat.Yaml, content);
-            return new DisplayValue(TraceValueFormat.Plain, content);
-        }
-
-        if (TryFormatJson(trimmed, out var prettyJson))
-            return new DisplayValue(TraceValueFormat.Json, prettyJson);
-        if (LooksLikeMarkdown(trimmed) && !LooksLikeYaml(trimmed))
-            return new DisplayValue(TraceValueFormat.Markdown, trimmed);
-        if (LooksLikeYaml(trimmed))
-            return new DisplayValue(TraceValueFormat.Yaml, trimmed);
-
-        return new DisplayValue(TraceValueFormat.Plain, text);
-    }
-
-    private static bool TryFormatJson(string input, out string prettyJson)
-    {
-        prettyJson = string.Empty;
-        if (!(input.StartsWith('{') || input.StartsWith('[')))
-            return false;
-
-        try
-        {
-            using var doc = JsonDocument.Parse(input);
-            prettyJson = JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool TryExtractSingleCodeFence(string markdown, out string language, out string content)
-    {
-        language = string.Empty;
-        content = string.Empty;
-
-        var lines = markdown.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
-        if (lines.Length < 2 || !lines[0].TrimStart().StartsWith("```", StringComparison.Ordinal))
-            return false;
-
-        var firstLine = lines[0].Trim();
-        if (!lines[^1].Trim().StartsWith("```", StringComparison.Ordinal))
-            return false;
-
-        language = firstLine.Length > 3 ? firstLine[3..].Trim() : string.Empty;
-        content = string.Join("\n", lines.Skip(1).Take(lines.Length - 2));
-        return true;
-    }
-
-    private static bool IsJsonLanguage(string language)
-        => language.Equals("json", StringComparison.OrdinalIgnoreCase)
-           || language.Equals("jsonc", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsYamlLanguage(string language)
-        => language.Equals("yaml", StringComparison.OrdinalIgnoreCase)
-           || language.Equals("yml", StringComparison.OrdinalIgnoreCase);
-
-    private static bool LooksLikeYaml(string value)
-    {
-        if (value.StartsWith("---", StringComparison.Ordinal) || value.StartsWith("...", StringComparison.Ordinal))
-            return true;
-
-        if (!value.Contains(':', StringComparison.Ordinal) && !value.Contains("- ", StringComparison.Ordinal))
-            return false;
-
-        var lines = value.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (lines.Length < 2)
-            return false;
-
-        var yamlLikeLines = 0;
-        foreach (var line in lines)
-        {
-            if (line.StartsWith('#') || line.StartsWith('-') || line.StartsWith('*') || line.StartsWith("```", StringComparison.Ordinal))
-                continue;
-            if (!line.Contains(':', StringComparison.Ordinal))
-                continue;
-
-            var idx = line.IndexOf(':', StringComparison.Ordinal);
-            if (idx <= 0)
-                continue;
-
-            var key = line[..idx].Trim();
-            if (string.IsNullOrWhiteSpace(key) || key.Contains(' ') || key.Contains('{') || key.Contains('['))
-                continue;
-
-            yamlLikeLines++;
-            if (yamlLikeLines >= 2)
-                break;
-        }
-
-        if (yamlLikeLines < 2)
-            return false;
-
-        try
-        {
-            var parsed = YamlDeserializer.Deserialize<object?>(value);
-            return parsed is IDictionary or IList;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool LooksLikeMarkdown(string value)
-    {
-        if (value.Contains("```", StringComparison.Ordinal)
-            || value.Contains("\n> ", StringComparison.Ordinal)
-            || value.Contains("| ---", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        foreach (var line in value.Split('\n'))
-        {
-            var trimmed = line.TrimStart();
-            if (HeadingRegex.IsMatch(trimmed)
-                || trimmed.StartsWith("- ", StringComparison.Ordinal)
-                || trimmed.StartsWith("* ", StringComparison.Ordinal)
-                || trimmed.StartsWith("> ", StringComparison.Ordinal)
-                || OrderedListRegex.IsMatch(trimmed))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static string BuildJsonHighlightedHtml(string json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-            return string.Empty;
-
-        try
-        {
-            var node = JsonNode.Parse(json);
-            var sb = new StringBuilder(json.Length + 128);
-            WriteJsonNode(sb, node, 0);
-            return sb.ToString();
-        }
-        catch
-        {
-            return WebUtility.HtmlEncode(json);
-        }
-    }
-
-    private static string BuildYamlHighlightedHtml(string yaml)
-    {
-        if (string.IsNullOrWhiteSpace(yaml))
-            return string.Empty;
-
-        try
-        {
-            var parsed = YamlDeserializer.Deserialize<object?>(yaml);
-            var sb = new StringBuilder(yaml.Length + 128);
-            WriteYamlNode(sb, parsed, 0, isRoot: true);
-            return sb.ToString();
-        }
-        catch
-        {
-            return WebUtility.HtmlEncode(yaml);
-        }
-    }
-
-    private static void WriteJsonNode(StringBuilder sb, JsonNode? node, int indent)
-    {
-        switch (node)
-        {
-            case JsonObject obj:
-                sb.Append("<span class=\"sa-trace-detail__tok-punc\">{</span>");
-                if (obj.Count > 0)
-                {
-                    var index = 0;
-                    foreach (var pair in obj)
-                    {
-                        sb.Append('\n').Append(new string(' ', (indent + 1) * 2));
-                        sb.Append("<span class=\"sa-trace-detail__tok-key\">\"")
-                          .Append(WebUtility.HtmlEncode(pair.Key))
-                          .Append("\"</span><span class=\"sa-trace-detail__tok-punc\">: </span>");
-                        WriteJsonNode(sb, pair.Value, indent + 1);
-                        if (index++ < obj.Count - 1)
-                            sb.Append("<span class=\"sa-trace-detail__tok-punc\">,</span>");
-                    }
-
-                    sb.Append('\n').Append(new string(' ', indent * 2));
-                }
-
-                sb.Append("<span class=\"sa-trace-detail__tok-punc\">}</span>");
-                return;
-            case JsonArray arr:
-                sb.Append("<span class=\"sa-trace-detail__tok-punc\">[</span>");
-                for (var i = 0; i < arr.Count; i++)
-                {
-                    sb.Append('\n').Append(new string(' ', (indent + 1) * 2));
-                    WriteJsonNode(sb, arr[i], indent + 1);
-                    if (i < arr.Count - 1)
-                        sb.Append("<span class=\"sa-trace-detail__tok-punc\">,</span>");
-                }
-
-                if (arr.Count > 0)
-                    sb.Append('\n').Append(new string(' ', indent * 2));
-                sb.Append("<span class=\"sa-trace-detail__tok-punc\">]</span>");
-                return;
-            case JsonValue val:
-                if (val.TryGetValue<string>(out var s))
-                {
-                    sb.Append("<span class=\"sa-trace-detail__tok-string\">\"")
-                      .Append(WebUtility.HtmlEncode(s))
-                      .Append("\"</span>");
-                    return;
-                }
-
-                if (val.TryGetValue<bool>(out var b))
-                {
-                    sb.Append("<span class=\"sa-trace-detail__tok-bool\">")
-                      .Append(b ? "true" : "false")
-                      .Append("</span>");
-                    return;
-                }
-
-                var raw = val.ToJsonString();
-                if (string.Equals(raw, "null", StringComparison.Ordinal))
-                {
-                    sb.Append("<span class=\"sa-trace-detail__tok-null\">null</span>");
-                    return;
-                }
-
-                sb.Append("<span class=\"sa-trace-detail__tok-number\">")
-                  .Append(WebUtility.HtmlEncode(raw))
-                  .Append("</span>");
-                return;
-            default:
-                sb.Append("<span class=\"sa-trace-detail__tok-null\">null</span>");
-                return;
-        }
-    }
-
-    private static void WriteYamlNode(StringBuilder sb, object? node, int indent, bool isRoot = false)
-    {
-        if (node is IDictionary dictionary)
-        {
-            var hasLines = false;
-            foreach (DictionaryEntry entry in dictionary)
-            {
-                if (hasLines)
-                    sb.Append('\n');
-
-                sb.Append(new string(' ', indent * 2));
-                sb.Append("<span class=\"sa-trace-detail__tok-key\">")
-                  .Append(WebUtility.HtmlEncode(Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty))
-                  .Append("</span><span class=\"sa-trace-detail__tok-punc\">:</span>");
-
-                if (entry.Value is IDictionary or IList)
-                {
-                    sb.Append('\n');
-                    WriteYamlNode(sb, entry.Value, indent + 1);
-                }
-                else
-                {
-                    sb.Append(' ');
-                    AppendYamlScalarToken(sb, entry.Value);
-                }
-
-                hasLines = true;
-            }
-
-            if (!hasLines && isRoot)
-                sb.Append("<span class=\"sa-trace-detail__tok-null\">null</span>");
-            return;
-        }
-
-        if (node is IList list)
-        {
-            var hasItems = false;
-            foreach (var item in list)
-            {
-                if (hasItems)
-                    sb.Append('\n');
-
-                sb.Append(new string(' ', indent * 2));
-                sb.Append("<span class=\"sa-trace-detail__tok-punc\">-</span>");
-
-                if (item is IDictionary or IList)
-                {
-                    sb.Append('\n');
-                    WriteYamlNode(sb, item, indent + 1);
-                }
-                else
-                {
-                    sb.Append(' ');
-                    AppendYamlScalarToken(sb, item);
-                }
-
-                hasItems = true;
-            }
-
-            if (!hasItems && isRoot)
-                sb.Append("<span class=\"sa-trace-detail__tok-punc\">[]</span>");
-            return;
-        }
-
-        AppendYamlScalarToken(sb, node);
-    }
-
-    private static void AppendYamlScalarToken(StringBuilder sb, object? value)
-    {
-        if (value is null)
-        {
-            sb.Append("<span class=\"sa-trace-detail__tok-null\">null</span>");
-            return;
-        }
-
-        switch (value)
-        {
-            case bool b:
-                sb.Append("<span class=\"sa-trace-detail__tok-bool\">")
-                  .Append(b ? "true" : "false")
-                  .Append("</span>");
-                return;
-            case sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal:
-                sb.Append("<span class=\"sa-trace-detail__tok-number\">")
-                  .Append(WebUtility.HtmlEncode(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty))
-                  .Append("</span>");
-                return;
-            default:
-                var text = Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
-                sb.Append("<span class=\"sa-trace-detail__tok-string\">\"")
-                  .Append(WebUtility.HtmlEncode(text))
-                  .Append("\"</span>");
-                return;
-        }
-    }
-
-    private static RenderFragment RenderMarkdown(string markdown) => builder =>
-    {
-        try
-        {
-            var html = Markdown.ToHtml(markdown ?? string.Empty, MarkdownPipeline);
-            builder.AddMarkupContent(0, html);
-        }
-        catch
-        {
-            builder.OpenElement(1, "pre");
-            builder.AddAttribute(2, "class", "sa-trace-detail__code");
-            builder.AddContent(3, markdown ?? string.Empty);
-            builder.CloseElement();
-        }
-    };
-
-    private static bool TryParseHeading(string line, out int level, out string content)
-    {
-        level = 0;
-        content = string.Empty;
-
-        var count = 0;
-        while (count < line.Length && line[count] == '#')
-            count++;
-
-        if (count == 0 || count >= line.Length || line[count] != ' ')
-            return false;
-
-        level = count;
-        content = line[(count + 1)..].Trim();
-        return !string.IsNullOrWhiteSpace(content);
-    }
-
-    private static bool TryParseListItem(string line, out bool isOrdered, out string content)
-    {
-        isOrdered = false;
-        content = string.Empty;
-
-        if (line.StartsWith("- ", StringComparison.Ordinal) || line.StartsWith("* ", StringComparison.Ordinal))
-        {
-            content = line[2..].Trim();
-            return !string.IsNullOrWhiteSpace(content);
-        }
-
-        var match = OrderedListRegex.Match(line);
-        if (!match.Success)
-            return false;
-
-        isOrdered = true;
-        content = line[match.Length..].Trim();
-        return !string.IsNullOrWhiteSpace(content);
-    }
-
-    private static void CloseList(RenderTreeBuilder builder, ref int seq, ref bool inUnorderedList, ref bool inOrderedList)
-    {
-        if (inUnorderedList)
-        {
-            builder.CloseElement();
-            inUnorderedList = false;
-        }
-
-        if (inOrderedList)
-        {
-            builder.CloseElement();
-            inOrderedList = false;
-        }
-    }
-
-    private static string ToDisplayString(object? value)
-    {
-        return value switch
-        {
-            null => string.Empty,
-            JsonElement json => json.ValueKind switch
-            {
-                JsonValueKind.Null => string.Empty,
-                JsonValueKind.String => json.GetString() ?? string.Empty,
-                JsonValueKind.Object or JsonValueKind.Array => json.GetRawText(),
-                _ => json.ToString()
-            },
-            _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty
-        };
-    }
-
-    private static string BuildWidthStyle(double percentage)
-        => $"width:{percentage.ToString("0.##", CultureInfo.InvariantCulture)}%";
-
-    private static string BuildPaddingLeftStyle(int depth)
-        => $"padding-left:{depth * 12 + 8}px";
-
-    private static string BuildTimelineBarStyle(FlatSpanModel item)
-        => $"left:{item.LeftPercent.ToString("0.##", CultureInfo.InvariantCulture)}%;width:{item.WidthPercent.ToString("0.##", CultureInfo.InvariantCulture)}%;background:{GetSpanColor(item.Span)}";
-
-    private static string FormatDuration(double milliseconds)
-    {
-        if (milliseconds <= 0)
-            return "< 1ms";
-        if (milliseconds < 1)
-            return $"{milliseconds * 1000d:0}µs";
-        if (milliseconds < 1000)
-            return $"{milliseconds:0.0}ms";
-        return $"{milliseconds / 1000d:0.00}s";
-    }
-
-    private sealed record FlatSpanModel(
-        TraceSpanDto Span,
-        int Depth,
-        double StartMs,
-        double EndMs,
-        double DurationMs,
-        double LeftPercent,
-        double WidthPercent);
-
-    private sealed record LlmCallModel(
-        string OperationName,
-        string Model,
-        string Provider,
-        long PromptTokens,
-        long CompletionTokens,
-        long TotalTokens,
-        double DurationMs,
-        decimal Cost);
-
-    private sealed record RagStepModel(
-        string Name,
-        string Icon,
-        int SpanCount,
-        double DurationMs,
-        double Percentage);
-
-    private sealed record SummaryModel(
-        long TotalTokens,
-        long PromptTokens,
-        long CompletionTokens,
-        decimal EstimatedCost,
-        double TraceDurationMs,
-        int LlmCalls,
-        List<LlmCallModel> LlmMetrics,
-        List<string> Providers,
-        List<string> Models,
-        List<RagStepModel> RagSteps);
-
-    private enum TraceValueFormat
-    {
-        Plain,
-        Json,
-        Yaml,
-        Markdown
-    }
-
-    private sealed record DisplayValue(TraceValueFormat Format, string Content);
 }
-
-
-

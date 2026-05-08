@@ -7,8 +7,21 @@ public sealed record TraceDebugSnapshot(
     string? CorrelationId,
     string? TraceId,
     TraceGroupDto? Trace,
+    List<TraceLogDto> Logs,
     bool Pending,
     string Message);
+
+public sealed record TraceLogDto(
+    DateTimeOffset ReceivedUtc,
+    string? TraceId,
+    string? SpanId,
+    int SeverityNumber,
+    string? SeverityText,
+    string? Body,
+    string? ServiceName,
+    Dictionary<string, object?> Attributes,
+    Dictionary<string, object?> Resource,
+    Dictionary<string, object?> Scope);
 
 public sealed record TraceSummaryDto(
     string TraceId,

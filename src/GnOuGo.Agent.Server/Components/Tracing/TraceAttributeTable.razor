@@ -1,0 +1,22 @@
+@if (Attributes.Count > 0)
+{
+    <div class="sa-trace-detail__section">
+        <h4>@Title</h4>
+        <table class="sa-trace-detail__table">
+            <tbody>
+                @foreach (var entry in Attributes)
+                {
+                    <tr>
+                        <td>@entry.Key</td>
+                        <td>@TraceDebugValueRenderer.RenderValue(entry.Value, RenderFormatted)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public IReadOnlyDictionary<string, object?> Attributes { get; set; } = new Dictionary<string, object?>();
+    [Parameter] public bool RenderFormatted { get; set; }
+}
