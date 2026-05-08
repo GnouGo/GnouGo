@@ -157,6 +157,7 @@ async def test_workflow_plan_prompt_mentions_llm_assisted_and_direct_mcp_call() 
     assert "put the natural-language instruction in input.prompt" in prompt
     assert "Preferred MCP planning pattern: when tool names and input schemas are listed above, use `mcp.call` directly" in prompt
     assert "list_repos" in prompt
+    assert "[STRUCTURED OUTPUT STRICT SCHEMAS]" not in prompt
 
 
 @pytest.mark.asyncio
@@ -262,4 +263,16 @@ def test_mcp_executors_dsl_snippets_contain_llm_assisted_patterns() -> None:
     assert "can be passed directly into `mcp.call.input.tools` and/or `mcp.call.input.prompts`" in mcp_list.dsl_snippet
     assert "model: gpt-4o-mini" in mcp_list.dsl_snippet
     assert "prompt: \"Choose the right MCP capability and call it\"" in mcp_list.dsl_snippet
+
+    llm_call = engine.registry.get("llm.call")
+    assert llm_call is not None
+    assert "Structured output:" in llm_call.dsl_snippet
+    assert "structured_output:" in llm_call.dsl_snippet
+    assert "schema_inline:" in llm_call.dsl_snippet
+    assert "strict: true" in llm_call.dsl_snippet
+    assert "Every schema object with `properties` MUST have `required` listing EVERY key from `properties`" in llm_call.dsl_snippet
+    assert "Optional fields must still be listed in `required`" in llm_call.dsl_snippet
+    assert "additionalProperties: false" in llm_call.dsl_snippet
+    assert "anyOf:" in llm_call.dsl_snippet
+    assert "structured_output.schema_ref" in llm_call.dsl_snippet
 

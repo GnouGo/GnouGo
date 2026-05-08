@@ -156,39 +156,6 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- Do NOT add `reasoning` by habit. Include it only when the task explicitly needs a reasoning-effort override.");
         basePrompt.AppendLine("- If a generated workflow includes unsupported optional LLM parameters, the runtime may omit them automatically based on model capabilities.");
 
-        basePrompt.AppendLine();
-        basePrompt.AppendLine("[STRUCTURED OUTPUT STRICT SCHEMAS]");
-        basePrompt.AppendLine("When generating `llm.call.input.structured_output` with `strict: true`, use an OpenAI-compatible JSON Schema:");
-        basePrompt.AppendLine("- Every object schema that declares `properties` MUST also declare `required`.");
-        basePrompt.AppendLine("- `required` MUST include EVERY key from that same object's `properties`, including fields that are conceptually optional.");
-        basePrompt.AppendLine("- Do NOT generate partial required lists such as `required: [id, title]` when `properties` also contains `body`, `labels`, or `state`.");
-        basePrompt.AppendLine("- Represent optional values as nullable while still listing them in `required`, preferably with `anyOf: [{ type: string }, { type: \"null\" }]` or the corresponding non-string type.");
-        basePrompt.AppendLine("- Add `additionalProperties: false` on every object schema, including nested objects and array `items` objects. The OpenAI provider also patches this automatically in strict mode, but generated YAML should be explicit.");
-        basePrompt.AppendLine("- Avoid YAML/JSON Schema `type: [string, \"null\"]`; prefer `anyOf` for nullable values for provider compatibility.");
-        basePrompt.AppendLine("- For arrays of objects, apply the same rules to `items`: all item `properties` must appear in item `required`.");
-        basePrompt.AppendLine("Correct strict array item pattern:");
-        basePrompt.AppendLine("```yaml");
-        basePrompt.AppendLine("structured_output:");
-        basePrompt.AppendLine("  schema_inline:");
-        basePrompt.AppendLine("    type: object");
-        basePrompt.AppendLine("    properties:");
-        basePrompt.AppendLine("      issues:");
-        basePrompt.AppendLine("        type: array");
-        basePrompt.AppendLine("        items:");
-        basePrompt.AppendLine("          type: object");
-        basePrompt.AppendLine("          properties:");
-        basePrompt.AppendLine("            issue_link: { type: string }");
-        basePrompt.AppendLine("            title: { type: string }");
-        basePrompt.AppendLine("            body:");
-        basePrompt.AppendLine("              anyOf:");
-        basePrompt.AppendLine("                - type: string");
-        basePrompt.AppendLine("                - type: \"null\"");
-        basePrompt.AppendLine("          required: [issue_link, title, body]");
-        basePrompt.AppendLine("          additionalProperties: false");
-        basePrompt.AppendLine("    required: [issues]");
-        basePrompt.AppendLine("    additionalProperties: false");
-        basePrompt.AppendLine("  strict: true");
-        basePrompt.AppendLine("```");
 
         if (mcpServersDoc != null)
         {

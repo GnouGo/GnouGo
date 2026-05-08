@@ -146,10 +146,7 @@ workflows:
         Assert.Contains("[AVAILABLE STEP TYPES]", capturedPrompt);
         Assert.Contains("[TASK]", capturedPrompt);
         Assert.Contains("[ERROR HANDLING AND RETRIES]", capturedPrompt);
-        Assert.Contains("[STRUCTURED OUTPUT STRICT SCHEMAS]", capturedPrompt);
-        Assert.Contains("Every object schema that declares `properties` MUST also declare `required`", capturedPrompt);
-        Assert.Contains("`required` MUST include EVERY key from that same object's `properties`", capturedPrompt);
-        Assert.Contains("For arrays of objects, apply the same rules to `items`", capturedPrompt);
+        Assert.DoesNotContain("[STRUCTURED OUTPUT STRICT SCHEMAS]", capturedPrompt);
         Assert.Contains("Use `retry` only for transient errors that are explicitly marked retryable by the runtime.", capturedPrompt);
         Assert.Contains("Retries run before `on_error` is evaluated.", capturedPrompt);
         Assert.Contains("Inside `on_error.cases[].if`, the error context exposes `error.code`, `error.message`, `error.retryable`, `step.id`, and `step.type`.", capturedPrompt);

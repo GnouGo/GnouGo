@@ -58,6 +58,48 @@ public sealed class ChatRequestBuilderTests
     }
 
     [Fact]
+    public void NormalizeJsonSchemaForOpenAi_CoercesQuotedSchemaKeywordScalars()
+    {
+        var schema = JsonNode.Parse("""
+        {
+          "type": "object",
+          "additionalProperties": "false",
+          "properties": {
+            "issues": {
+              "type": "array",
+              "maxItems": "10",
+              "minItems": "1",
+              "uniqueItems": "true",
+              "items": {
+                "type": "object",
+                "additionalProperties": "false",
+                "properties": {
+                  "score": {
+                    "type": "number",
+                    "minimum": "0.5",
+                    "maximum": "1"
+                  }
+                }
+              }
+            }
+          }
+        }
+        """)!;
+
+        var normalized = ChatRequestBuilder.NormalizeJsonSchemaForOpenAi(schema.DeepClone()) as JsonObject;
+        var issues = normalized!["properties"]!["issues"]!.AsObject();
+        var score = issues["items"]!["properties"]!["score"]!.AsObject();
+
+        Assert.False(normalized["additionalProperties"]!.GetValue<bool>());
+        Assert.Equal(10, issues["maxItems"]!.GetValue<int>());
+        Assert.Equal(1, issues["minItems"]!.GetValue<int>());
+        Assert.True(issues["uniqueItems"]!.GetValue<bool>());
+        Assert.False(issues["items"]!["additionalProperties"]!.GetValue<bool>());
+        Assert.Equal(0.5, score["minimum"]!.GetValue<double>());
+        Assert.Equal(1d, score["maximum"]!.GetValue<double>());
+    }
+
+    [Fact]
     public void OpenAiFull_NormalizesYamlDerivedNullTypeAndPatchesAdditionalProperties()
     {
         var schema = JsonNode.Parse("""
@@ -66,8 +108,10 @@ public sealed class ChatRequestBuilderTests
           "properties": {
             "issues": {
               "type": "array",
+              "maxItems": "10",
               "items": {
                 "type": "object",
+                "additionalProperties": "true",
                 "properties": {
                   "issue_link": { "type": "string" },
                   "issue_number": {
@@ -106,6 +150,7 @@ public sealed class ChatRequestBuilderTests
             .GetProperty("anyOf");
 
         Assert.Equal("null", issueNumberAnyOf[1].GetProperty("type").GetString());
+        Assert.Equal(10, responseSchema.GetProperty("properties").GetProperty("issues").GetProperty("maxItems").GetInt32());
         Assert.False(responseSchema.GetProperty("additionalProperties").GetBoolean());
         Assert.False(responseSchema.GetProperty("properties").GetProperty("issues").GetProperty("items").GetProperty("additionalProperties").GetBoolean());
     }

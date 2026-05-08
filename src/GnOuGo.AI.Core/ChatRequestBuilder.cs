@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -8,6 +9,31 @@ namespace GnOuGo.AI.Core;
 /// </summary>
 public static class ChatRequestBuilder
 {
+    private static readonly string[] IntegerSchemaKeywords =
+    [
+        "maxItems",
+        "minItems",
+        "maxLength",
+        "minLength",
+        "maxProperties",
+        "minProperties"
+    ];
+
+    private static readonly string[] NumberSchemaKeywords =
+    [
+        "multipleOf",
+        "minimum",
+        "maximum",
+        "exclusiveMinimum",
+        "exclusiveMaximum"
+    ];
+
+    private static readonly string[] BooleanSchemaKeywords =
+    [
+        "additionalProperties",
+        "uniqueItems"
+    ];
+
     /// <summary>
     /// Builds an OpenAI-compatible chat completion request body (simple system+user).
     /// </summary>
@@ -251,8 +277,9 @@ public static class ChatRequestBuilder
     /// Normalizes YAML-derived JSON Schema nodes for OpenAI. The workflow YAML parser treats
     /// the scalar value <c>null</c> as JSON null even when it was written as <c>"null"</c>,
     /// but JSON Schema requires <c>{ "type": "null" }</c> as a string literal.
-    /// Only the JSON Schema <c>type</c> keyword is normalized; real schema values such as
-    /// <c>default</c>, <c>const</c>, or <c>enum</c> entries are left untouched.
+    /// It also coerces quoted JSON Schema boolean/integer/number keywords emitted by YAML into
+    /// their native JSON types. Real schema values such as <c>default</c>, <c>const</c>, or
+    /// <c>enum</c> entries are left untouched.
     /// </summary>
     internal static JsonNode NormalizeJsonSchemaForOpenAi(JsonNode schema)
     {
@@ -273,6 +300,8 @@ public static class ChatRequestBuilder
                 }
             }
         }
+
+        NormalizeOpenAiSchemaKeywordScalars(obj);
 
         if (obj["properties"] is JsonObject props)
         {
@@ -301,6 +330,39 @@ public static class ChatRequestBuilder
         return obj;
     }
 
+    private static void NormalizeOpenAiSchemaKeywordScalars(JsonObject obj)
+    {
+        foreach (var keyword in BooleanSchemaKeywords)
+        {
+            if (TryGetStringValue(obj[keyword], out var text) && bool.TryParse(text, out var value))
+                obj[keyword] = value;
+        }
+
+        foreach (var keyword in IntegerSchemaKeywords)
+        {
+            if (TryGetStringValue(obj[keyword], out var text) && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+                obj[keyword] = value;
+        }
+
+        foreach (var keyword in NumberSchemaKeywords)
+        {
+            if (TryGetStringValue(obj[keyword], out var text) && double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                obj[keyword] = value;
+        }
+    }
+
+    private static bool TryGetStringValue(JsonNode? node, out string text)
+    {
+        if (node is JsonValue value && value.TryGetValue<string>(out var raw) && !string.IsNullOrWhiteSpace(raw))
+        {
+            text = raw.Trim();
+            return true;
+        }
+
+        text = string.Empty;
+        return false;
+    }
+
     /// <summary>
     /// Recursively patches a JSON Schema node to add <c>"additionalProperties": false</c>
     /// on every object definition. Required by OpenAI when <c>strict: true</c>.
@@ -311,7 +373,7 @@ public static class ChatRequestBuilder
 
         // If this node describes an object type, inject additionalProperties: false
         var typeVal = obj["type"]?.GetValue<string>();
-        if (typeVal == "object" && !obj.ContainsKey("additionalProperties"))
+        if (typeVal == "object")
         {
             obj["additionalProperties"] = false;
         }

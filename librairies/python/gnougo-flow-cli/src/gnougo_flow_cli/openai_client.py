@@ -9,6 +9,65 @@ from openai import AsyncOpenAI
 
 from .settings import OpenAiSettings
 
+_INTEGER_SCHEMA_KEYWORDS = {
+    "maxItems",
+    "minItems",
+    "maxLength",
+    "minLength",
+    "maxProperties",
+    "minProperties",
+}
+
+_NUMBER_SCHEMA_KEYWORDS = {
+    "multipleOf",
+    "minimum",
+    "maximum",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
+}
+
+_BOOLEAN_SCHEMA_KEYWORDS = {
+    "additionalProperties",
+    "uniqueItems",
+}
+
+
+def _parse_bool_text(value: str) -> bool | None:
+    lowered = value.strip().lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    return None
+
+
+def _normalize_schema_keyword_value(key: str, value: Any) -> Any:
+    if key == "type":
+        if value is None:
+            return "null"
+        if isinstance(value, list):
+            return ["null" if item is None else item for item in value]
+        return value
+
+    if isinstance(value, str):
+        text = value.strip()
+        if key in _BOOLEAN_SCHEMA_KEYWORDS:
+            parsed = _parse_bool_text(text)
+            if parsed is not None:
+                return parsed
+        if key in _INTEGER_SCHEMA_KEYWORDS:
+            try:
+                return int(text)
+            except ValueError:
+                return value
+        if key in _NUMBER_SCHEMA_KEYWORDS:
+            try:
+                return float(text)
+            except ValueError:
+                return value
+
+    return value
+
 
 def _normalize_openai_json_schema(schema: Any, *, strict: bool) -> Any:
     def walk(node: Any) -> Any:
@@ -17,7 +76,10 @@ def _normalize_openai_json_schema(schema: Any, *, strict: bool) -> Any:
         if not isinstance(node, dict):
             return node
 
-        normalized = {key: walk(value) for key, value in node.items()}
+        normalized = {
+            key: _normalize_schema_keyword_value(key, walk(value))
+            for key, value in node.items()
+        }
         if normalized.get("type") == "object" and strict:
             # OpenAI strict json_schema requires explicit additionalProperties=false.
             normalized["additionalProperties"] = False
