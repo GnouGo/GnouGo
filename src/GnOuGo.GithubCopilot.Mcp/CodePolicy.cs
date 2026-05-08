@@ -7,6 +7,7 @@ public sealed class CodePolicy
     private readonly CodeServerSettings _settings;
     private readonly string _contentRootPath;
     private readonly string? _workspaceRootPath;
+    private readonly string? _desktopDirectoryPath;
     private readonly string _defaultWorkingDirectory;
 
     public CodePolicy(IOptions<CodeServerSettings> settings)
@@ -15,10 +16,16 @@ public sealed class CodePolicy
     }
 
     public CodePolicy(CodeServerSettings settings, string contentRootPath)
+        : this(settings, contentRootPath, desktopDirectoryPath: null)
+    {
+    }
+
+    internal CodePolicy(CodeServerSettings settings, string contentRootPath, string? desktopDirectoryPath)
     {
         _settings = settings;
         _contentRootPath = Path.GetFullPath(contentRootPath);
         _workspaceRootPath = DiscoverWorkspaceRoot(_contentRootPath);
+        _desktopDirectoryPath = string.IsNullOrWhiteSpace(desktopDirectoryPath) ? null : Path.GetFullPath(desktopDirectoryPath);
         _defaultWorkingDirectory = ResolveDefaultWorkingDirectory();
     }
 
@@ -54,7 +61,7 @@ public sealed class CodePolicy
     {
         var candidate = string.IsNullOrWhiteSpace(projectRoot)
             ? _defaultWorkingDirectory
-            : ResolvePath(projectRoot, mustExist: true, expectDirectory: true);
+            : ResolvePath(projectRoot, mustExist: true, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
 
         if (!Directory.Exists(candidate))
             throw new InvalidOperationException($"Project root '{candidate}' does not exist.");
@@ -67,7 +74,7 @@ public sealed class CodePolicy
         if (string.IsNullOrWhiteSpace(targetDirectory))
             throw new InvalidOperationException("targetDirectory must not be empty.");
 
-        var path = ResolvePath(targetDirectory, mustExist: false, expectDirectory: true);
+        var path = ResolvePath(targetDirectory, mustExist: false, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
         if (File.Exists(path))
             throw new InvalidOperationException($"Clone target '{path}' is an existing file.");
         if (Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any())
@@ -178,21 +185,30 @@ public sealed class CodePolicy
     private string ResolveDefaultWorkingDirectory()
     {
         var configuredPath = string.IsNullOrWhiteSpace(_settings.DefaultWorkingDirectory)
-            ? _workspaceRootPath ?? _contentRootPath
+            ? "GnOuGo"
             : _settings.DefaultWorkingDirectory.Trim();
-        var basePath = _workspaceRootPath ?? _contentRootPath;
-        var resolved = Path.GetFullPath(Path.IsPathRooted(configuredPath) ? configuredPath : Path.Combine(basePath, configuredPath));
-        Directory.CreateDirectory(resolved);
-        EnsureWithinAllowedRoots(resolved, includeDefault: false);
-        return resolved;
+        var desktopPath = _desktopDirectoryPath ?? ResolveDesktopDirectory();
+
+        var resolvedPath = Path.IsPathRooted(configuredPath)
+            ? Path.GetFullPath(configuredPath)
+            : Path.GetFullPath(Path.Combine(desktopPath, configuredPath));
+
+        if (!Path.IsPathRooted(configuredPath) && !IsPathWithinRoot(resolvedPath, desktopPath))
+        {
+            throw new InvalidOperationException(
+                $"Default working directory '{configuredPath}' must stay within the current user's Desktop directory '{desktopPath}'.");
+        }
+
+        Directory.CreateDirectory(resolvedPath);
+        return resolvedPath;
     }
 
-    private string ResolvePath(string configuredPath, bool mustExist, bool expectDirectory)
+    private string ResolvePath(string configuredPath, bool mustExist, bool expectDirectory, string? relativeBasePath = null)
     {
         if (ContainsParentTraversalSegment(configuredPath) || configuredPath.IndexOfAny(['*', '?']) >= 0)
             throw new InvalidOperationException("Paths must not contain parent traversal segments or wildcard characters.");
 
-        var basePath = _workspaceRootPath ?? _contentRootPath;
+        var basePath = relativeBasePath ?? _workspaceRootPath ?? _contentRootPath;
         var path = Path.GetFullPath(Path.IsPathRooted(configuredPath) ? configuredPath : Path.Combine(basePath, configuredPath));
         EnsureWithinAllowedRoots(path);
         if (mustExist)
@@ -255,6 +271,23 @@ public sealed class CodePolicy
 
     private static bool ContainsParentTraversalSegment(string path)
         => path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).Any(static segment => string.Equals(segment, "..", StringComparison.Ordinal));
+
+    private static string ResolveDesktopDirectory()
+    {
+        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (!string.IsNullOrWhiteSpace(desktopPath))
+            return Path.GetFullPath(desktopPath);
+
+        var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfilePath))
+            return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
+
+        var homePath = Environment.GetEnvironmentVariable("HOME");
+        if (!string.IsNullOrWhiteSpace(homePath))
+            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
+
+        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
+    }
 
     private static bool HasDriveRelativePrefix(string path)
         => path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':';

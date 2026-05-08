@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Options;
-using Xunit;
+﻿using Xunit;
 
 namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
@@ -64,6 +63,80 @@ public sealed class CodePolicyTests : IDisposable
         Assert.Contains("Writes are disabled", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void DefaultWorkingDirectory_UsesDesktopGnOuGoWhenConfiguredPathIsRelative()
+    {
+        var desktop = Path.Combine(_root, "Desktop");
+        var settings = CreateSettings();
+        settings.DefaultWorkingDirectory = "GnOuGo";
+        settings.AllowedWorkingRoots = [];
+
+        var policy = new CodePolicy(settings, _root, desktop);
+        var expected = Path.GetFullPath(Path.Combine(desktop, "GnOuGo"));
+
+        Assert.Equal(expected, policy.DefaultWorkingDirectory);
+        Assert.True(Directory.Exists(expected));
+        Assert.Contains(expected, policy.DescribePolicy().AllowedWorkingRoots, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DefaultWorkingDirectory_UsesDesktopGnOuGoWhenNotConfigured()
+    {
+        var desktop = Path.Combine(_root, "Desktop");
+        var settings = CreateSettings();
+        settings.DefaultWorkingDirectory = string.Empty;
+        settings.AllowedWorkingRoots = [];
+
+        var policy = new CodePolicy(settings, _root, desktop);
+        var expected = Path.GetFullPath(Path.Combine(desktop, "GnOuGo"));
+
+        Assert.Equal(expected, policy.ResolveProjectRoot(null));
+    }
+
+    [Fact]
+    public void ResolveGitCloneTargetDirectory_ResolvesRelativeTargetsUnderDefaultWorkingDirectory()
+    {
+        var desktop = Path.Combine(_root, "Desktop");
+        var settings = CreateSettings();
+        settings.DefaultWorkingDirectory = "GnOuGo";
+        settings.AllowedWorkingRoots = [];
+        var policy = new CodePolicy(settings, _root, desktop);
+
+        var target = policy.ResolveGitCloneTargetDirectory("sample-repository");
+
+        Assert.Equal(Path.GetFullPath(Path.Combine(desktop, "GnOuGo", "sample-repository")), target);
+    }
+
+    [Fact]
+    public void ResolveProjectRoot_ResolvesRelativePathUnderDefaultWorkingDirectory()
+    {
+        var desktop = Path.Combine(_root, "Desktop");
+        var settings = CreateSettings();
+        settings.DefaultWorkingDirectory = "GnOuGo";
+        settings.AllowedWorkingRoots = [];
+        var expectedProjectRoot = Path.GetFullPath(Path.Combine(desktop, "GnOuGo", "workspace", "oidc-client"));
+        Directory.CreateDirectory(expectedProjectRoot);
+        var policy = new CodePolicy(settings, _root, desktop);
+
+        var projectRoot = policy.ResolveProjectRoot("workspace/oidc-client");
+
+        Assert.Equal(expectedProjectRoot, projectRoot);
+    }
+
+    [Fact]
+    public void ResolveGitCloneTargetDirectory_RejectsTraversalOutsideDefaultWorkingDirectory()
+    {
+        var desktop = Path.Combine(_root, "Desktop");
+        var settings = CreateSettings();
+        settings.DefaultWorkingDirectory = "GnOuGo";
+        settings.AllowedWorkingRoots = [];
+        var policy = new CodePolicy(settings, _root, desktop);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveGitCloneTargetDirectory("..\\outside"));
+
+        Assert.Contains("parent traversal", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private CodePolicy CreatePolicy() => new(CreateSettings(), _root);
 
     private CodeServerSettings CreateSettings() => new()
@@ -83,7 +156,8 @@ public sealed class CodePolicyTests : IDisposable
     public void Dispose()
     {
         try { Directory.Delete(_root, recursive: true); }
-        catch { }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 }
 

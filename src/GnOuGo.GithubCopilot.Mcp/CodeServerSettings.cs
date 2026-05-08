@@ -22,14 +22,14 @@ public sealed class CodeServerSettings
 public sealed class CodeCopilotSettings
 {
     public string Provider { get; set; } = "Copilot";
-    public string Model { get; set; } = "gpt-4.1";
-    public string Mode { get; set; } = "plan";
+    public string Model { get; set; } = "gpt-5.4";
+    public string Mode { get; set; } = "ask";
     public string? ReasoningEffort { get; set; } = "high";
     public string Endpoint { get; set; } = "https://models.github.ai/inference";
     public string? ApiKey { get; set; }
     public bool UseLoggedInUser { get; set; }
     public bool ForwardTraceContext { get; set; } = true;
-    public string LogLevel { get; set; } = "warn";
+    public string LogLevel { get; set; } = "warning";
     public int RequestTimeoutSeconds { get; set; } = 120;
     public List<string> TokenEnvironmentVariables { get; set; } = ["GITHUB_TOKEN", "COPILOT_API_KEY"];
     public CodeCopilotTelemetrySettings Telemetry { get; set; } = new();

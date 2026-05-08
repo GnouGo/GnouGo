@@ -88,11 +88,12 @@ public static class ChatRequestBuilder
             // Structured output (response_format)
             if (structuredOutputSchema != null)
             {
+                var schema = NormalizeJsonSchemaForOpenAi(structuredOutputSchema.DeepClone());
+
                 // When strict mode is enabled, OpenAI requires "additionalProperties": false
                 // on every object in the schema. Patch it automatically.
-                var schema = structuredOutputStrict == true
-                    ? PatchAdditionalProperties(structuredOutputSchema.DeepClone())
-                    : structuredOutputSchema;
+                if (structuredOutputStrict == true)
+                    schema = PatchAdditionalProperties(schema);
 
                 w.WriteStartObject("response_format");
                 w.WriteString("type", "json_schema");
@@ -244,6 +245,60 @@ public static class ChatRequestBuilder
         w.WriteEndObject();
 
         w.WriteEndArray();
+    }
+
+    /// <summary>
+    /// Normalizes YAML-derived JSON Schema nodes for OpenAI. The workflow YAML parser treats
+    /// the scalar value <c>null</c> as JSON null even when it was written as <c>"null"</c>,
+    /// but JSON Schema requires <c>{ "type": "null" }</c> as a string literal.
+    /// Only the JSON Schema <c>type</c> keyword is normalized; real schema values such as
+    /// <c>default</c>, <c>const</c>, or <c>enum</c> entries are left untouched.
+    /// </summary>
+    internal static JsonNode NormalizeJsonSchemaForOpenAi(JsonNode schema)
+    {
+        if (schema is not JsonObject obj) return schema;
+
+        if (obj.ContainsKey("type"))
+        {
+            if (obj["type"] is null)
+            {
+                obj["type"] = "null";
+            }
+            else if (obj["type"] is JsonArray typeArray)
+            {
+                for (var i = 0; i < typeArray.Count; i++)
+                {
+                    if (typeArray[i] is null)
+                        typeArray[i] = "null";
+                }
+            }
+        }
+
+        if (obj["properties"] is JsonObject props)
+        {
+            foreach (var kv in props)
+            {
+                if (kv.Value is JsonObject propObj)
+                    NormalizeJsonSchemaForOpenAi(propObj);
+            }
+        }
+
+        if (obj["items"] is JsonObject items)
+            NormalizeJsonSchemaForOpenAi(items);
+
+        foreach (var keyword in new[] { "anyOf", "oneOf", "allOf" })
+        {
+            if (obj[keyword] is JsonArray arr)
+            {
+                foreach (var item in arr)
+                {
+                    if (item is JsonObject itemObj)
+                        NormalizeJsonSchemaForOpenAi(itemObj);
+                }
+            }
+        }
+
+        return obj;
     }
 
     /// <summary>

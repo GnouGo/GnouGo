@@ -39,8 +39,12 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         var prompt = BuildPrompt(task, projectRoot, contextFiles);
 
         var token = _policy.ResolveConfiguredToken();
-        if (string.IsNullOrWhiteSpace(token))
-            throw new InvalidOperationException("A GitHub token is required. Configure Code:Copilot:ApiKey or one of Code:Copilot:TokenEnvironmentVariables.");
+        if (!_settings.Copilot.UseLoggedInUser && string.IsNullOrWhiteSpace(token))
+        {
+            throw new InvalidOperationException(
+                "A GitHub token is required unless Code:Copilot:UseLoggedInUser=true. " +
+                "For Copilot SDK authentication, use a locally signed-in GitHub account or configure Code:Copilot:ApiKey / token environment variables.");
+        }
 
         using var activity = StartCopilotActivity(_settings, _traceContextAccessor);
 
@@ -80,24 +84,24 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             UsageJson: data is null ? null : BuildUsageJson(data));
     }
 
-    internal CopilotClient CreateClient(string projectRoot, string token)
+    internal CopilotClient CreateClient(string projectRoot, string? token)
         => new(BuildClientOptions(_settings, projectRoot, token, _logger));
 
     internal static CopilotClientOptions BuildClientOptions(
         CodeServerSettings settings,
         string projectRoot,
-        string token,
+        string? token,
         ILogger? logger = null)
     {
-        if (string.IsNullOrWhiteSpace(token))
-            throw new ArgumentException("A GitHub token is required.", nameof(token));
+        if (!settings.Copilot.UseLoggedInUser && string.IsNullOrWhiteSpace(token))
+            throw new ArgumentException("A GitHub token is required when Code:Copilot:UseLoggedInUser=false.", nameof(token));
 
         return new CopilotClientOptions
         {
             Cwd = projectRoot,
-            GitHubToken = token,
+            GitHubToken = string.IsNullOrWhiteSpace(token) ? null : token,
             UseLoggedInUser = settings.Copilot.UseLoggedInUser,
-            LogLevel = string.IsNullOrWhiteSpace(settings.Copilot.LogLevel) ? "warn" : settings.Copilot.LogLevel,
+            LogLevel = NormalizeLogLevel(settings.Copilot.LogLevel),
             Environment = BuildClientEnvironment(settings),
             Telemetry = BuildTelemetryConfig(settings.Copilot.Telemetry),
             Logger = logger
@@ -107,13 +111,29 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
     public static string NormalizeMessageMode(string? mode)
     {
         if (string.IsNullOrWhiteSpace(mode))
-            return "plan";
+            return "ask";
 
         var normalized = mode.Trim().ToLowerInvariant();
         return normalized switch
         {
-            "plan" or "edit" or "agent" => normalized,
-            _ => throw new InvalidOperationException($"Unsupported Copilot mode '{mode}'. Supported modes: plan, edit, agent.")
+            "plan" => "ask",
+            "ask" or "edit" or "agent" => normalized,
+            _ => throw new InvalidOperationException($"Unsupported Copilot mode '{mode}'. Supported modes: ask, edit, agent. Legacy alias: plan -> ask.")
+        };
+    }
+
+    internal static string NormalizeLogLevel(string? logLevel)
+    {
+        if (string.IsNullOrWhiteSpace(logLevel))
+            return "warning";
+
+        return logLevel.Trim().ToLowerInvariant() switch
+        {
+            "warn" => "warning",
+            "trace" => "all",
+            "none" or "error" or "warning" or "info" or "debug" or "all" or "default" => logLevel.Trim().ToLowerInvariant(),
+            _ => throw new InvalidOperationException(
+                $"Unsupported Copilot log level '{logLevel}'. Supported levels: none, error, warning, info, debug, all, default.")
         };
     }
 
@@ -130,6 +150,8 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
     internal static IReadOnlyDictionary<string, string>? BuildClientEnvironment(CodeServerSettings settings)
     {
         var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        AddEssentialProcessEnvironment(env);
 
         if (settings.Copilot.ForwardTraceContext && CodeMcpTraceContext.Capture() is { } context)
         {
@@ -189,6 +211,50 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
     {
         if (!string.IsNullOrWhiteSpace(value))
             env[name] = value;
+    }
+
+    private static void AddEssentialProcessEnvironment(Dictionary<string, string> env)
+    {
+        foreach (var name in GetEssentialProcessEnvironmentVariables())
+            AddEnv(env, name, Environment.GetEnvironmentVariable(name));
+    }
+
+    private static IReadOnlyList<string> GetEssentialProcessEnvironmentVariables()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return
+            [
+                "PATH",
+                "PATHEXT",
+                "SystemRoot",
+                "WINDIR",
+                "ComSpec",
+                "TEMP",
+                "TMP",
+                "USERPROFILE",
+                "HOME",
+                "APPDATA",
+                "LOCALAPPDATA",
+                "PROGRAMDATA",
+                "PROCESSOR_ARCHITECTURE",
+                "PROCESSOR_ARCHITEW6432",
+                "NUMBER_OF_PROCESSORS"
+            ];
+        }
+
+        return
+        [
+            "PATH",
+            "HOME",
+            "TMPDIR",
+            "TEMP",
+            "TMP",
+            "USER",
+            "SHELL",
+            "LANG",
+            "LC_ALL"
+        ];
     }
 
     private static string? BuildUsageJson(AssistantMessageData data)
