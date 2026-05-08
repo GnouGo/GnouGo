@@ -1096,27 +1096,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 });
             }
 
-            AddUsageAttributes(prefilterSpan, response.Usage);
-            if (response.Usage is JsonObject prefilterUsage)
-            {
-                var attrs = new List<KeyValuePair<string, object?>>
-                {
-                    new("gnougo-flow.plan.phase", "prefilter"),
-                    new("gen_ai.request.model", model)
-                };
-                if (prefilterUsage.TryGetPropertyValue("prompt_tokens", out var pt) && pt != null)
-                    attrs.Add(new("gen_ai.usage.input_tokens", pt.GetValue<int>()));
-                else if (prefilterUsage.TryGetPropertyValue("input_tokens", out var it) && it != null)
-                    attrs.Add(new("gen_ai.usage.input_tokens", it.GetValue<int>()));
-                if (prefilterUsage.TryGetPropertyValue("completion_tokens", out var ct2) && ct2 != null)
-                    attrs.Add(new("gen_ai.usage.output_tokens", ct2.GetValue<int>()));
-                else if (prefilterUsage.TryGetPropertyValue("output_tokens", out var ot) && ot != null)
-                    attrs.Add(new("gen_ai.usage.output_tokens", ot.GetValue<int>()));
-                if (prefilterUsage.TryGetPropertyValue("total_tokens", out var tt) && tt != null)
-                    attrs.Add(new("gen_ai.usage.total_tokens", tt.GetValue<int>()));
-
-                ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.usage", attrs.ToArray());
-            }
+            AddUsageAttributes(prefilterSpan, response.Usage, model, provider);
+            AddPrefilterUsageEvent(ctx, response.Usage, model, provider, "prefilter", "gnougo-flow.plan.prefilter.usage");
 
             var filterResult = response.Json as JsonObject;
             if (filterResult == null)

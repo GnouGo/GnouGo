@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
@@ -422,7 +423,7 @@ public sealed class McpCallExecutor : IStepExecutor
         var finishReason = llmResponse.ToolCalls is { Count: > 0 } ? "tool_calls" : "stop";
         ctx.SetTelemetryAttribute("gen_ai.response.model", model);
         ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", finishReason);
-        ExtractUsageTelemetry(ctx, llmResponse.Usage as JsonObject, model);
+        ExtractUsageTelemetry(ctx, llmResponse.Usage as JsonObject, model, provider);
 
         if (ctx.Limits.LogStepContent && (!string.IsNullOrWhiteSpace(llmResponse.Text) || llmResponse.Json != null))
         {
@@ -559,7 +560,7 @@ public sealed class McpCallExecutor : IStepExecutor
             StructuredOutputStrict = structuredOutputStrict
         }, ct);
 
-        ExtractUsageTelemetry(ctx, response.Usage as JsonObject, model);
+        ExtractUsageTelemetry(ctx, response.Usage as JsonObject, model, provider);
 
         if (ctx.Limits.LogStepContent && (!string.IsNullOrWhiteSpace(response.Text) || response.Json != null))
         {
@@ -868,7 +869,7 @@ Produce the final answer strictly from the executed MCP results.
             var promptResult = await session.GetPromptAsync(method, requestArgs, ct);
 
             // ── Telemetry: extract LLM metrics from prompt result ──
-            ExtractUsageTelemetry(ctx, promptResult.Usage, promptResult.Model);
+            ExtractUsageTelemetry(ctx, promptResult.Usage, promptResult.Model, provider: null);
 
             var messagesArr = new JsonArray();
             var textParts = new StringBuilder();
@@ -895,7 +896,7 @@ Produce the final answer strictly from the executed MCP results.
             var callResult = await session.CallToolAsync(method, requestArgs, ct);
 
             // ── Telemetry: extract LLM metrics from tool result ──
-            ExtractUsageTelemetry(ctx, callResult.Usage, callResult.Model);
+            ExtractUsageTelemetry(ctx, callResult.Usage, callResult.Model, provider: null);
 
             return new JsonObject
             {
@@ -975,7 +976,7 @@ Produce the final answer strictly from the executed MCP results.
     /// Extracts LLM usage telemetry (tokens, model) from an MCP result and writes
     /// them to the step span, following the same GenAI semantic conventions as llm.call.
     /// </summary>
-    private static void ExtractUsageTelemetry(StepExecutionContext ctx, JsonObject? usage, string? model)
+    private static void ExtractUsageTelemetry(StepExecutionContext ctx, JsonObject? usage, string? model, string? provider)
     {
         if (!string.IsNullOrWhiteSpace(model) && !ctx.TelemetryAttributes.ContainsKey("gen_ai.request.model"))
             ctx.SetTelemetryAttribute("gen_ai.request.model", model);
@@ -999,6 +1000,23 @@ Produce the final answer strictly from the executed MCP results.
                 "gen_ai.usage.total_tokens",
                 (GetTelemetryLong(ctx, "gen_ai.usage.input_tokens") ?? 0) +
                 (GetTelemetryLong(ctx, "gen_ai.usage.output_tokens") ?? 0));
+
+        var effectiveModel = !string.IsNullOrWhiteSpace(model)
+            ? model
+            : ctx.TelemetryAttributes.TryGetValue("gen_ai.request.model", out var currentModel) ? currentModel?.ToString() : null;
+        var effectiveProvider = !string.IsNullOrWhiteSpace(provider)
+            ? provider
+            : ctx.TelemetryAttributes.TryGetValue("gen_ai.system", out var currentProvider) ? currentProvider?.ToString() : null;
+        if (!string.IsNullOrWhiteSpace(effectiveModel) && (inputTokens.HasValue || outputTokens.HasValue))
+        {
+            var estimatedCost = ModelMetadataCatalog.EstimateCost(
+                effectiveModel,
+                inputTokens ?? 0,
+                outputTokens ?? 0,
+                providerType: effectiveProvider);
+            if (estimatedCost.HasValue)
+                AddTelemetryDecimal(ctx, "gen_ai.usage.cost", estimatedCost.Value);
+        }
     }
 
     private static long? GetUsageValue(JsonObject usage, string primaryKey, string? secondaryKey)
@@ -1024,6 +1042,20 @@ Produce the final answer strictly from the executed MCP results.
         return CoerceLong(value);
     }
 
+    private static void AddTelemetryDecimal(StepExecutionContext ctx, string key, decimal delta)
+    {
+        var current = GetTelemetryDecimal(ctx, key) ?? 0m;
+        ctx.SetTelemetryAttribute(key, (double)(current + delta));
+    }
+
+    private static decimal? GetTelemetryDecimal(StepExecutionContext ctx, string key)
+    {
+        if (!ctx.TelemetryAttributes.TryGetValue(key, out var value) || value == null)
+            return null;
+
+        return CoerceDecimal(value);
+    }
+
     private static long? CoerceLong(object value)
     {
         if (value is JsonNode node)
@@ -1045,6 +1077,31 @@ Produce the final answer strictly from the executed MCP results.
             double d => (long)d,
             decimal m => (long)m,
             _ when long.TryParse(value.ToString(), out var parsed) => parsed,
+            _ => null
+        };
+    }
+
+    private static decimal? CoerceDecimal(object value)
+    {
+        if (value is JsonNode node)
+        {
+            if (node is JsonValue jsonValue && jsonValue.TryGetValue<decimal>(out var parsedDecimal))
+                return parsedDecimal;
+            if (node is JsonValue jsonValueDouble && jsonValueDouble.TryGetValue<double>(out var parsedDouble))
+                return (decimal)parsedDouble;
+            value = node.ToJsonString().Trim('"');
+        }
+
+        return value switch
+        {
+            byte b => b,
+            short s => s,
+            int i => i,
+            long l => l,
+            float f => (decimal)f,
+            double d => (decimal)d,
+            decimal m => m,
+            _ when decimal.TryParse(value.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed) => parsed,
             _ => null
         };
     }
