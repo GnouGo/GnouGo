@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
@@ -307,7 +308,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     }, ct);
                     generationSpan.SetAttribute("gen_ai.response.model", model);
                     generationSpan.SetAttribute("gen_ai.response.finish_reason", "stop");
-                    AddUsageAttributes(generationSpan, response.Usage);
+                    AddUsageAttributes(generationSpan, response.Usage, model, provider);
                     if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
                     {
                         generationSpan.AddEvent("gen_ai.content.completion", new[]
@@ -329,21 +330,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
 
             ctx.SetTelemetryAttribute("gen_ai.response.model", model);
             ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", "stop");
-            if (response.Usage is JsonObject usage)
-            {
-                if (usage.TryGetPropertyValue("prompt_tokens", out var pt) && pt != null)
-                    ctx.SetTelemetryAttribute("gen_ai.usage.input_tokens", pt.GetValue<int>());
-                else if (usage.TryGetPropertyValue("input_tokens", out var it) && it != null)
-                    ctx.SetTelemetryAttribute("gen_ai.usage.input_tokens", it.GetValue<int>());
-
-                if (usage.TryGetPropertyValue("completion_tokens", out var ct2) && ct2 != null)
-                    ctx.SetTelemetryAttribute("gen_ai.usage.output_tokens", ct2.GetValue<int>());
-                else if (usage.TryGetPropertyValue("output_tokens", out var ot) && ot != null)
-                    ctx.SetTelemetryAttribute("gen_ai.usage.output_tokens", ot.GetValue<int>());
-
-                if (usage.TryGetPropertyValue("total_tokens", out var tt) && tt != null)
-                    ctx.SetTelemetryAttribute("gen_ai.usage.total_tokens", tt.GetValue<int>());
-            }
+            SetStepUsageTelemetry(ctx, response.Usage, model, provider);
 
             if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
             {
@@ -757,7 +744,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 });
             }
 
-            AddUsageAttributes(prefilterSpan, response.Usage);
+            AddUsageAttributes(prefilterSpan, response.Usage, model, provider);
             AddPrefilterUsageEvent(ctx, response.Usage, model, provider, "mcp_server_prefilter", "gnougo-flow.plan.prefilter.servers.usage");
 
             var payload = response.Json as JsonObject;
@@ -842,39 +829,101 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             new("gen_ai.request.model", model)
         };
 
-        if (usageObject.TryGetPropertyValue("prompt_tokens", out var promptTokens) && promptTokens != null)
-            attrs.Add(new("gen_ai.usage.input_tokens", promptTokens.GetValue<int>()));
-        else if (usageObject.TryGetPropertyValue("input_tokens", out var inputTokens) && inputTokens != null)
-            attrs.Add(new("gen_ai.usage.input_tokens", inputTokens.GetValue<int>()));
+        var inputTokens = ReadUsageLong(usageObject, "prompt_tokens", "input_tokens");
+        var outputTokens = ReadUsageLong(usageObject, "completion_tokens", "output_tokens");
+        var totalTokens = ReadUsageLong(usageObject, "total_tokens", null);
 
-        if (usageObject.TryGetPropertyValue("completion_tokens", out var completionTokens) && completionTokens != null)
-            attrs.Add(new("gen_ai.usage.output_tokens", completionTokens.GetValue<int>()));
-        else if (usageObject.TryGetPropertyValue("output_tokens", out var outputTokens) && outputTokens != null)
-            attrs.Add(new("gen_ai.usage.output_tokens", outputTokens.GetValue<int>()));
+        if (inputTokens.HasValue)
+            attrs.Add(new("gen_ai.usage.input_tokens", inputTokens.Value));
+        if (outputTokens.HasValue)
+            attrs.Add(new("gen_ai.usage.output_tokens", outputTokens.Value));
+        if (totalTokens.HasValue)
+            attrs.Add(new("gen_ai.usage.total_tokens", totalTokens.Value));
 
-        if (usageObject.TryGetPropertyValue("total_tokens", out var totalTokens) && totalTokens != null)
-            attrs.Add(new("gen_ai.usage.total_tokens", totalTokens.GetValue<int>()));
+        var estimatedCost = EstimateUsageCost(model, provider, inputTokens, outputTokens);
+        if (estimatedCost.HasValue)
+            attrs.Add(new("gen_ai.usage.cost", (double)estimatedCost.Value));
 
         ctx.AddTelemetryEvent(eventName, attrs.ToArray());
     }
 
-    private static void AddUsageAttributes(TelemetrySpanScope span, JsonNode? usage)
+    private static void AddUsageAttributes(TelemetrySpanScope span, JsonNode? usage, string model, string? provider)
     {
         if (usage is not JsonObject usageObject)
             return;
 
-        if (usageObject.TryGetPropertyValue("prompt_tokens", out var promptTokens) && promptTokens != null)
-            span.SetAttribute("gen_ai.usage.input_tokens", promptTokens.GetValue<int>());
-        else if (usageObject.TryGetPropertyValue("input_tokens", out var inputTokens) && inputTokens != null)
-            span.SetAttribute("gen_ai.usage.input_tokens", inputTokens.GetValue<int>());
+        var inputTokens = ReadUsageLong(usageObject, "prompt_tokens", "input_tokens");
+        var outputTokens = ReadUsageLong(usageObject, "completion_tokens", "output_tokens");
+        var totalTokens = ReadUsageLong(usageObject, "total_tokens", null);
 
-        if (usageObject.TryGetPropertyValue("completion_tokens", out var completionTokens) && completionTokens != null)
-            span.SetAttribute("gen_ai.usage.output_tokens", completionTokens.GetValue<int>());
-        else if (usageObject.TryGetPropertyValue("output_tokens", out var outputTokens) && outputTokens != null)
-            span.SetAttribute("gen_ai.usage.output_tokens", outputTokens.GetValue<int>());
+        if (inputTokens.HasValue)
+            span.SetAttribute("gen_ai.usage.input_tokens", inputTokens.Value);
+        if (outputTokens.HasValue)
+            span.SetAttribute("gen_ai.usage.output_tokens", outputTokens.Value);
+        if (totalTokens.HasValue)
+            span.SetAttribute("gen_ai.usage.total_tokens", totalTokens.Value);
 
-        if (usageObject.TryGetPropertyValue("total_tokens", out var totalTokens) && totalTokens != null)
-            span.SetAttribute("gen_ai.usage.total_tokens", totalTokens.GetValue<int>());
+        var estimatedCost = EstimateUsageCost(model, provider, inputTokens, outputTokens);
+        if (estimatedCost.HasValue)
+            span.SetAttribute("gen_ai.usage.cost", (double)estimatedCost.Value);
+    }
+
+    private static void SetStepUsageTelemetry(StepExecutionContext ctx, JsonNode? usage, string model, string? provider)
+    {
+        if (usage is not JsonObject usageObject)
+            return;
+
+        var inputTokens = ReadUsageLong(usageObject, "prompt_tokens", "input_tokens");
+        var outputTokens = ReadUsageLong(usageObject, "completion_tokens", "output_tokens");
+        var totalTokens = ReadUsageLong(usageObject, "total_tokens", null);
+
+        if (inputTokens.HasValue)
+            ctx.SetTelemetryAttribute("gen_ai.usage.input_tokens", inputTokens.Value);
+        if (outputTokens.HasValue)
+            ctx.SetTelemetryAttribute("gen_ai.usage.output_tokens", outputTokens.Value);
+        if (totalTokens.HasValue)
+            ctx.SetTelemetryAttribute("gen_ai.usage.total_tokens", totalTokens.Value);
+        else if (inputTokens.HasValue || outputTokens.HasValue)
+            ctx.SetTelemetryAttribute("gen_ai.usage.total_tokens", (inputTokens ?? 0) + (outputTokens ?? 0));
+
+        var estimatedCost = EstimateUsageCost(model, provider, inputTokens, outputTokens);
+        if (estimatedCost.HasValue)
+            ctx.SetTelemetryAttribute("gen_ai.usage.cost", (double)estimatedCost.Value);
+    }
+
+    private static decimal? EstimateUsageCost(string model, string? provider, long? inputTokens, long? outputTokens)
+    {
+        if (inputTokens is null && outputTokens is null)
+            return null;
+
+        return ModelMetadataCatalog.EstimateCost(model, inputTokens ?? 0, outputTokens ?? 0, providerType: provider);
+    }
+
+    private static long? ReadUsageLong(JsonObject usageObject, string primaryKey, string? secondaryKey)
+    {
+        if (usageObject.TryGetPropertyValue(primaryKey, out var primary) && primary != null)
+            return CoerceLong(primary);
+        if (secondaryKey != null && usageObject.TryGetPropertyValue(secondaryKey, out var secondary) && secondary != null)
+            return CoerceLong(secondary);
+        return null;
+    }
+
+    private static long? CoerceLong(JsonNode value)
+    {
+        if (value is JsonValue jsonValue)
+        {
+            if (jsonValue.TryGetValue<long>(out var parsedLong))
+                return parsedLong;
+            if (jsonValue.TryGetValue<int>(out var parsedInt))
+                return parsedInt;
+            if (jsonValue.TryGetValue<double>(out var parsedDouble))
+                return (long)parsedDouble;
+            if (jsonValue.TryGetValue<string>(out var parsedString)
+                && long.TryParse(parsedString, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedText))
+                return parsedText;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -1047,27 +1096,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 });
             }
 
-            AddUsageAttributes(prefilterSpan, response.Usage);
-            if (response.Usage is JsonObject prefilterUsage)
-            {
-                var attrs = new List<KeyValuePair<string, object?>>
-                {
-                    new("gnougo-flow.plan.phase", "prefilter"),
-                    new("gen_ai.request.model", model)
-                };
-                if (prefilterUsage.TryGetPropertyValue("prompt_tokens", out var pt) && pt != null)
-                    attrs.Add(new("gen_ai.usage.input_tokens", pt.GetValue<int>()));
-                else if (prefilterUsage.TryGetPropertyValue("input_tokens", out var it) && it != null)
-                    attrs.Add(new("gen_ai.usage.input_tokens", it.GetValue<int>()));
-                if (prefilterUsage.TryGetPropertyValue("completion_tokens", out var ct2) && ct2 != null)
-                    attrs.Add(new("gen_ai.usage.output_tokens", ct2.GetValue<int>()));
-                else if (prefilterUsage.TryGetPropertyValue("output_tokens", out var ot) && ot != null)
-                    attrs.Add(new("gen_ai.usage.output_tokens", ot.GetValue<int>()));
-                if (prefilterUsage.TryGetPropertyValue("total_tokens", out var tt) && tt != null)
-                    attrs.Add(new("gen_ai.usage.total_tokens", tt.GetValue<int>()));
-
-                ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.usage", attrs.ToArray());
-            }
+            AddUsageAttributes(prefilterSpan, response.Usage, model, provider);
+            AddPrefilterUsageEvent(ctx, response.Usage, model, provider, "prefilter", "gnougo-flow.plan.prefilter.usage");
 
             var filterResult = response.Json as JsonObject;
             if (filterResult == null)

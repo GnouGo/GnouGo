@@ -218,7 +218,8 @@ workflows:
       - id: ask
         type: llm.call
         input:
-          model: gpt-4o
+
+          model: gpt-5.5
           provider: openai
           prompt: ""Hello""
           temperature: 0.7
@@ -239,15 +240,16 @@ workflows:
         // Request attributes (written by executor before the LLM call)
         Assert.Equal("chat", llmSpan!.Attributes["gen_ai.operation.name"]);
         Assert.Equal("openai", llmSpan.Attributes["gen_ai.system"]);
-        Assert.Equal("gpt-4o", llmSpan.Attributes["gen_ai.request.model"]);
+        Assert.Equal("gpt-5.5", llmSpan.Attributes["gen_ai.request.model"]);
         Assert.Equal(0.7, llmSpan.Attributes["gen_ai.request.temperature"]);
 
         // Response attributes (written by executor after the LLM call)
-        Assert.Equal("gpt-4o", llmSpan.Attributes["gen_ai.response.model"]);
+        Assert.Equal("gpt-5.5", llmSpan.Attributes["gen_ai.response.model"]);
         Assert.Equal("stop", llmSpan.Attributes["gen_ai.response.finish_reason"]);
-        Assert.Equal(10, llmSpan.Attributes["gen_ai.usage.input_tokens"]);
-        Assert.Equal(20, llmSpan.Attributes["gen_ai.usage.output_tokens"]);
+        Assert.Equal(10L, llmSpan.Attributes["gen_ai.usage.input_tokens"]);
+        Assert.Equal(20L, llmSpan.Attributes["gen_ai.usage.output_tokens"]);
         Assert.Equal(30, llmSpan.Attributes["gen_ai.usage.total_tokens"]);
+        Assert.Equal(0.00375d, Assert.IsType<double>(llmSpan.Attributes["gen_ai.usage.cost"]), precision: 8);
     }
 
     [Fact]
@@ -313,7 +315,8 @@ workflows:
                 },
                 _ => new LLMResponse
                 {
-                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text",
+                    Usage = JsonNode.Parse("{\"prompt_tokens\":10,\"completion_tokens\":20,\"total_tokens\":30}")!
                 }
             });
 
@@ -338,7 +341,8 @@ workflows:
         type: workflow.plan
         input:
           generator:
-            model: gpt-4
+            provider: openai
+            model: gpt-5.5
             instruction: list repositories
           validate:
             compile: false
@@ -358,10 +362,11 @@ workflows:
         Assert.Contains(planSpan.SpanEvents, e => e.Name == "gnougo-flow.plan.prefilter.servers.start"
             && e.Attributes != null
             && e.Attributes.Any(kv => kv.Key == "gen_ai.operation.name" && (string?)kv.Value == "chat")
-            && e.Attributes.Any(kv => kv.Key == "gen_ai.request.model" && (string?)kv.Value == "gpt-4"));
+            && e.Attributes.Any(kv => kv.Key == "gen_ai.request.model" && (string?)kv.Value == "gpt-5.5"));
         Assert.Contains(planSpan.SpanEvents, e => e.Name == "gnougo-flow.plan.prefilter.servers.usage"
             && e.Attributes != null
-            && e.Attributes.Any(kv => kv.Key == "gen_ai.usage.total_tokens" && (int)kv.Value! == 5));
+            && e.Attributes.Any(kv => kv.Key == "gen_ai.usage.total_tokens" && (long)kv.Value! == 5L)
+            && e.Attributes.Any(kv => kv.Key == "gen_ai.usage.cost" && Math.Abs((double)kv.Value! - 0.000525d) < 0.00000001d));
         Assert.Contains(planSpan.SpanEvents, e => e.Name == "gen_ai.content.prompt"
             && e.Attributes != null
             && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.phase" && (string?)kv.Value == "mcp_server_prefilter"));
@@ -376,8 +381,11 @@ workflows:
         Assert.Equal("plan", childSpans["workflow.plan.generate"].ParentName);
         Assert.Equal("plan", childSpans["workflow.plan.validate"].ParentName);
         Assert.Equal("chat", childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.operation.name"]);
-        Assert.Equal(5, childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.usage.total_tokens"]);
+        Assert.Equal(5L, childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.usage.total_tokens"]);
+        Assert.Equal(0.000525d, Assert.IsType<double>(childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.usage.cost"]), precision: 8);
         Assert.Equal(1, childSpans["workflow.plan.mcp_server_prefilter"].Attributes["mcp.servers_selected"]);
+        Assert.Equal(0.00375d, Assert.IsType<double>(childSpans["workflow.plan.generate"].Attributes["gen_ai.usage.cost"]), precision: 8);
+        Assert.Equal(0.00375d, Assert.IsType<double>(planSpan.Attributes["gen_ai.usage.cost"]), precision: 8);
     }
 
     [Fact]
@@ -388,7 +396,22 @@ workflows:
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("my-server", new MockMcpServerConfig
         {
-            Tools = new List<McpToolInfo> { new() { Name = "ping" } }
+            Tools = new List<McpToolInfo> { new() { Name = "ping" } },
+            ToolHandlers = new()
+            {
+                ["ping"] = _ => new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject { ["ok"] = true },
+                    Model = "gpt-5.5",
+                    Usage = new JsonObject
+                    {
+                        ["prompt_tokens"] = 5,
+                        ["completion_tokens"] = 15,
+                        ["total_tokens"] = 20
+                    }
+                }
+            }
         });
 
         var wf = CompileMain(@"
@@ -422,10 +445,11 @@ workflows:
         Assert.Equal("stop", mcpSpan.Attributes["gen_ai.response.finish_reason"]);
 
         // LLM usage metrics from MCP response (same as llm.call)
-        Assert.Equal("mock-model", mcpSpan.Attributes["gen_ai.request.model"]);
+        Assert.Equal("gpt-5.5", mcpSpan.Attributes["gen_ai.request.model"]);
         Assert.Equal(5L, mcpSpan.Attributes["gen_ai.usage.input_tokens"]);
         Assert.Equal(15L, mcpSpan.Attributes["gen_ai.usage.output_tokens"]);
         Assert.Equal(20L, mcpSpan.Attributes["gen_ai.usage.total_tokens"]);
+        Assert.Equal(0.002625d, Assert.IsType<double>(mcpSpan.Attributes["gen_ai.usage.cost"]), precision: 8);
     }
 
     [Fact]
@@ -436,7 +460,22 @@ workflows:
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("srv", new MockMcpServerConfig
         {
-            Prompts = new List<McpPromptInfo> { new() { Name = "summarize" } }
+            Prompts = new List<McpPromptInfo> { new() { Name = "summarize" } },
+            PromptHandlers = new()
+            {
+                ["summarize"] = _ => new McpGetPromptResult
+                {
+                    Description = "Summary prompt",
+                    Messages = new List<McpPromptMessage> { new() { Role = "user", Content = "Summarize" } },
+                    Model = "gpt-5.5",
+                    Usage = new JsonObject
+                    {
+                        ["prompt_tokens"] = 8,
+                        ["completion_tokens"] = 12,
+                        ["total_tokens"] = 20
+                    }
+                }
+            }
         });
 
         var wf = CompileMain(@"
@@ -469,10 +508,118 @@ workflows:
         Assert.Equal("stop", span.Attributes["gen_ai.response.finish_reason"]);
 
         // LLM usage metrics from MCP prompt response
-        Assert.Equal("mock-model", span.Attributes["gen_ai.request.model"]);
+        Assert.Equal("gpt-5.5", span.Attributes["gen_ai.request.model"]);
         Assert.Equal(8L, span.Attributes["gen_ai.usage.input_tokens"]);
         Assert.Equal(12L, span.Attributes["gen_ai.usage.output_tokens"]);
         Assert.Equal(20L, span.Attributes["gen_ai.usage.total_tokens"]);
+        Assert.Equal(0.0024d, Assert.IsType<double>(span.Attributes["gen_ai.usage.cost"]), precision: 8);
+    }
+
+    [Fact]
+    public async Task CustomTelemetry_McpCallLlmAssisted_AccumulatesSelectionAndFinalizeCost()
+    {
+        var recording = new RecordingTelemetry();
+
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("browser");
+        mockSession.Setup(s => s.CallToolAsync("browser_get_content", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new McpCallResult
+            {
+                IsError = false,
+                Content = new JsonObject { ["content"] = "<nav><a href=\"/docs\">Docs</a></nav>" }
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("browser", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mockSession.Object);
+
+        var callIndex = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => (++callIndex) switch
+            {
+                1 => new LLMResponse
+                {
+                    Text = "I will inspect rendered HTML.",
+                    ToolCalls = new List<LLMToolCall>
+                    {
+                        new()
+                        {
+                            Name = "browser_get_content",
+                            Arguments = new JsonObject { ["url"] = "https://example.test", ["format"] = "html" }
+                        }
+                    },
+                    Usage = new JsonObject
+                    {
+                        ["prompt_tokens"] = 10,
+                        ["completion_tokens"] = 5,
+                        ["total_tokens"] = 15
+                    }
+                },
+                _ => new LLMResponse
+                {
+                    Text = "{\"links\":[{\"title\":\"Docs\",\"url\":\"https://example.test/docs\"}]}",
+                    Json = JsonNode.Parse("{\"links\":[{\"title\":\"Docs\",\"url\":\"https://example.test/docs\"}]}")!,
+                    Usage = new JsonObject
+                    {
+                        ["prompt_tokens"] = 20,
+                        ["completion_tokens"] = 8,
+                        ["total_tokens"] = 28
+                    }
+                }
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: scrape
+        type: mcp.call
+        input:
+          server: browser
+          provider: openai
+          model: gpt-5.5
+          prompt: Extract navigation links from https://example.test.
+          tools:
+            - name: browser_get_content
+              description: Read rendered page content.
+              input_schema:
+                type: object
+                properties:
+                  url: { type: string }
+                  format: { type: string }
+          structured_output:
+            schema_inline:
+              type: object
+              properties:
+                links:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      title: { type: string }
+                      url: { type: string }
+                    required: [title, url]
+              required: [links]
+");
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            McpClientFactory = mockFactory.Object,
+            Telemetry = recording
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        var span = recording.StepSpans.Single(s => s.Name == "scrape");
+        Assert.Equal("gpt-5.5", span.Attributes["gen_ai.request.model"]);
+        Assert.Equal(30L, span.Attributes["gen_ai.usage.input_tokens"]);
+        Assert.Equal(13L, span.Attributes["gen_ai.usage.output_tokens"]);
+        Assert.Equal(43L, span.Attributes["gen_ai.usage.total_tokens"]);
+        Assert.Equal(0.0042d, Assert.IsType<double>(span.Attributes["gen_ai.usage.cost"]), precision: 8);
     }
 
     [Fact]

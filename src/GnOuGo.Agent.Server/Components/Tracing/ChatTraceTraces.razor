@@ -1,0 +1,141 @@
+@using System.Globalization
+@using GnOuGo.Agent.Server.Telemetry
+@if (Trace is not null)
+{
+    var selectedSpan = GetSelectedSpan();
+    var summary = TraceDebugUiHelpers.BuildSummary(Trace);
+    var timeline = TraceDebugUiHelpers.BuildTimeline(Trace);
+    <div class="sa-trace-summary__hero">
+        <div class="sa-trace-summary__hero-title">Live trace for this answer</div>
+        <div class="sa-trace-summary__hero-text">Every GnOuGo response carries a client-generated correlation identifier that is propagated through the RAG workflow and exposed here in OpenTelemetry GenAI format.</div>
+        @if (!string.IsNullOrWhiteSpace(SnapshotMessage) && !string.Equals(SnapshotMessage, "Trace loaded.", StringComparison.Ordinal))
+        {
+            <div class="sa-trace-summary__hero-text">@SnapshotMessage</div>
+        }
+    </div>
+    <div class="sa-trace-summary__kpis">
+        <TraceKpi Icon="Tok" Value="@summary.TotalTokens.ToString("N0", CultureInfo.InvariantCulture)" Label="Tokens" />
+        <TraceKpi Icon="$" Value="@("$" + summary.EstimatedCost.ToString("0.000000", CultureInfo.InvariantCulture))" Label="Estimated cost" />
+        <TraceKpi Icon="Time" Value="@TraceDebugUiHelpers.FormatDuration(summary.TraceDurationMs)" Label="Trace duration" />
+        <TraceKpi Icon="AI" Value="@summary.LlmCalls.ToString(CultureInfo.InvariantCulture)" Label="LLM calls" />
+    </div>
+    @if (summary.Providers.Count > 0 || summary.Models.Count > 0)
+    {
+        <div class="sa-trace-summary__tags">
+            @foreach (var provider in summary.Providers)
+            {
+                <span class="sa-trace-summary__tag sa-trace-summary__tag--provider">@provider</span>
+            }
+            @foreach (var model in summary.Models)
+            {
+                <span class="sa-trace-summary__tag sa-trace-summary__tag--model">@model</span>
+            }
+        </div>
+    }
+    <div class="sa-trace-split">
+        <div class="sa-trace-split__left">
+            <button class="sa-trace-split__summary-button @(selectedSpan is null ? "sa-trace-split__summary-button--active" : string.Empty)"
+                    type="button"
+                    @onclick="() => SelectSpanAsync(null)">
+                <span>Summary</span>
+                <span>@Trace.Spans.Count span(s)</span>
+            </button>
+            @if (summary.RagSteps.Count > 0)
+            {
+                <div class="sa-trace-rag">
+                    @foreach (var step in summary.RagSteps)
+                    {
+                        <div class="sa-trace-rag__step">
+                            <div class="sa-trace-rag__head">
+                                <span>@step.Icon</span>
+                                <strong>@step.Name</strong>
+                                <span class="sa-trace-rag__count">@step.SpanCount span(s)</span>
+                            </div>
+                            <div class="sa-trace-rag__bar">
+                                <div class="sa-trace-rag__fill" style="@TraceDebugUiHelpers.BuildWidthStyle(step.Percentage)"></div>
+                            </div>
+                            <div class="sa-trace-rag__meta">
+                                <span>@TraceDebugUiHelpers.FormatDuration(step.DurationMs)</span>
+                                <span>@step.Percentage.ToString("0.0", CultureInfo.InvariantCulture)%</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            <div class="sa-trace-timeline">
+                @foreach (var item in timeline)
+                {
+                    <button class="sa-trace-timeline__item @(string.Equals(item.Span.SpanId, _localSelectedSpanId, StringComparison.OrdinalIgnoreCase) ? "sa-trace-timeline__item--active" : string.Empty) @(item.Span.StatusCode == 2 ? "sa-trace-timeline__item--error" : string.Empty)"
+                            type="button"
+                            @onclick="() => ToggleSpanAsync(item.Span.SpanId)">
+                        <div class="sa-trace-timeline__label" style="@TraceDebugUiHelpers.BuildPaddingLeftStyle(item.Depth)">
+                            <span class="sa-trace-timeline__icon">@TraceDebugUiHelpers.GetSpanIcon(item.Span)</span>
+                            <span class="sa-trace-timeline__name">@item.Span.Name</span>
+                            <span class="sa-trace-timeline__duration">@TraceDebugUiHelpers.FormatDuration(item.DurationMs)</span>
+                        </div>
+                        <div class="sa-trace-timeline__track">
+                            <div class="sa-trace-timeline__bar" style="@TraceDebugUiHelpers.BuildTimelineBarStyle(item)"></div>
+                        </div>
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="sa-trace-split__right">
+            @if (selectedSpan is null)
+            {
+                <TraceSummaryDetail Trace="Trace"
+                                    Summary="summary"
+                                    CorrelationId="@CorrelationId"
+                                    SnapshotMessage="@SnapshotMessage" />
+            }
+            else
+            {
+                <TraceSpanDetail Span="selectedSpan" RenderFormatted="RenderFormatted" />
+            }
+        </div>
+    </div>
+}
+@code {
+    [Parameter, EditorRequired] public TraceGroupDto Trace { get; set; } = default!;
+    [Parameter] public string? CorrelationId { get; set; }
+    [Parameter] public string? SnapshotMessage { get; set; }
+    [Parameter] public string? SelectedSpanId { get; set; }
+    [Parameter] public EventCallback<string?> SelectedSpanIdChanged { get; set; }
+    [Parameter] public bool RenderFormatted { get; set; }
+    private string? _localSelectedSpanId;
+    private string? _lastTraceId;
+
+    protected override void OnParametersSet()
+    {
+        var traceChanged = !string.Equals(_lastTraceId, Trace.TraceId, StringComparison.Ordinal);
+        _lastTraceId = Trace.TraceId;
+
+        if (traceChanged)
+        {
+            _localSelectedSpanId = SelectedSpanId;
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(SelectedSpanId)
+            && !string.Equals(_localSelectedSpanId, SelectedSpanId, StringComparison.OrdinalIgnoreCase))
+        {
+            _localSelectedSpanId = SelectedSpanId;
+        }
+    }
+
+    private TraceSpanDto? GetSelectedSpan()
+        => string.IsNullOrWhiteSpace(_localSelectedSpanId)
+            ? null
+            : Trace.Spans.FirstOrDefault(span => string.Equals(span.SpanId, _localSelectedSpanId, StringComparison.OrdinalIgnoreCase));
+
+    private Task ToggleSpanAsync(string spanId)
+        => SelectSpanAsync(string.Equals(_localSelectedSpanId, spanId, StringComparison.OrdinalIgnoreCase) ? null : spanId);
+
+    private async Task SelectSpanAsync(string? spanId)
+    {
+        _localSelectedSpanId = spanId;
+        if (SelectedSpanIdChanged.HasDelegate)
+            await SelectedSpanIdChanged.InvokeAsync(spanId);
+    }
+}
+

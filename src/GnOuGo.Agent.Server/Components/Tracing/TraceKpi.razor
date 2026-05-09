@@ -1,0 +1,12 @@
+<div class="sa-trace-summary__kpi">
+    <span class="sa-trace-summary__kpi-icon">@Icon</span>
+    <div>
+        <div class="sa-trace-summary__kpi-value">@Value</div>
+        <div class="sa-trace-summary__kpi-label">@Label</div>
+    </div>
+</div>
+@code {
+    [Parameter] public string Icon { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public string Label { get; set; } = string.Empty;
+}

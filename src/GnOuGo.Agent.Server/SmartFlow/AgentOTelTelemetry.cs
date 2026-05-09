@@ -171,14 +171,9 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         if (result.GenAiInputTokens.HasValue)        ss.Activity.SetTag("gen_ai.usage.input_tokens",   result.GenAiInputTokens.Value);
         if (result.GenAiOutputTokens.HasValue)       ss.Activity.SetTag("gen_ai.usage.output_tokens",  result.GenAiOutputTokens.Value);
 
-        var model = ss.Activity.GetTagItem("gen_ai.request.model") as string;
-        if (model is not null && (result.GenAiInputTokens.HasValue || result.GenAiOutputTokens.HasValue))
-        {
-            var cost = ModelMetadataCatalog.EstimateCost(model,
-                result.GenAiInputTokens ?? 0, result.GenAiOutputTokens ?? 0);
-            if (cost.HasValue)
-                ss.Activity.SetTag("gen_ai.usage.cost", (double)cost.Value);
-        }
+        var model = ss.Activity.GetTagItem("gen_ai.request.model") as string
+                    ?? ss.Activity.GetTagItem("gen_ai.response.model") as string;
+        EnsureGenAiCostTag(ss.Activity, result.GenAiInputTokens, result.GenAiOutputTokens);
 
         _stepCounter.Add(1,
             new KeyValuePair<string, object?>("gnougo-flow.step.type",   stepType),
@@ -222,6 +217,7 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
             genericSpan.Activity.SetTag("error.type", result.ErrorType);
             genericSpan.Activity.SetTag("error.message", result.ErrorMessage);
         }
+        EnsureGenAiCostTag(genericSpan.Activity);
         _collectorTracePersistence.Persist(genericSpan.Activity);
     }
 
@@ -241,6 +237,48 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         if (info.GenAiOperationName is not null)
             return info.GenAiOperationName;
         return $"{info.StepType} {info.StepId}";
+    }
+
+    private static long? TryReadLongTag(Activity activity, string key)
+    {
+        var value = activity.GetTagItem(key);
+        return value switch
+        {
+            long longValue => longValue,
+            int intValue => intValue,
+            double doubleValue => (long)doubleValue,
+            decimal decimalValue => (long)decimalValue,
+            string text when long.TryParse(text, out var parsed) => parsed,
+            _ => null
+        };
+    }
+
+    private static void EnsureGenAiCostTag(Activity activity, long? inputTokensOverride = null, long? outputTokensOverride = null)
+    {
+        if (activity.GetTagItem("gen_ai.usage.cost") is not null)
+            return;
+
+        var model = activity.GetTagItem("gen_ai.request.model") as string
+                    ?? activity.GetTagItem("gen_ai.response.model") as string
+                    ?? activity.GetTagItem("llm.request.model") as string;
+        if (string.IsNullOrWhiteSpace(model))
+            return;
+
+        var inputTokens = inputTokensOverride
+                          ?? TryReadLongTag(activity, "gen_ai.usage.input_tokens")
+                          ?? TryReadLongTag(activity, "gen_ai.usage.prompt_tokens")
+                          ?? TryReadLongTag(activity, "llm.usage.prompt_tokens");
+        var outputTokens = outputTokensOverride
+                           ?? TryReadLongTag(activity, "gen_ai.usage.output_tokens")
+                           ?? TryReadLongTag(activity, "gen_ai.usage.completion_tokens")
+                           ?? TryReadLongTag(activity, "llm.usage.completion_tokens");
+        if (!inputTokens.HasValue && !outputTokens.HasValue)
+            return;
+
+        var providerType = activity.GetTagItem("gen_ai.system") as string;
+        var cost = ModelMetadataCatalog.EstimateCost(model, inputTokens ?? 0, outputTokens ?? 0, providerType: providerType);
+        if (cost.HasValue)
+            activity.SetTag("gen_ai.usage.cost", (double)cost.Value);
     }
 
     private static void ApplyCorrelationTags(Activity activity)

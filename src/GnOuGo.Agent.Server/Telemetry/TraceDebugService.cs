@@ -56,12 +56,14 @@ public sealed class TraceDebugService
                 correlationId,
                 traceId,
                 Trace: null,
+                Logs: [],
                 Pending: false,
                 Message: "This message does not carry telemetry metadata yet. Only newly generated GnOuGo messages can be traced.");
         }
 
         var resolvedTraceId = string.IsNullOrWhiteSpace(traceId) ? null : traceId.Trim();
         var traceIds = await ResolveCandidateTraceIdsAsync(correlationId, resolvedTraceId).ConfigureAwait(false);
+        var logs = await TryGetLogsAsync(traceIds, correlationId).ConfigureAwait(false);
         var trace = await TryGetMergedTraceAsync(traceIds).ConfigureAwait(false);
         if (trace is not null)
         {
@@ -70,6 +72,7 @@ public sealed class TraceDebugService
                 correlationId,
                 trace.TraceId,
                 Trace: trace,
+                Logs: logs,
                 Pending: false,
                 Message: traceIds.Count > 1
                     ? $"Trace loaded from {traceIds.Count} related traces."
@@ -81,8 +84,61 @@ public sealed class TraceDebugService
             correlationId,
             resolvedTraceId,
             Trace: null,
+            Logs: logs,
             Pending: true,
             Message: BuildPendingMessage());
+    }
+
+    private async Task<List<TraceLogDto>> TryGetLogsAsync(IReadOnlyList<string> traceIds, string? correlationId)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var store = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
+            var tenantId = ResolveTenantId();
+            var logs = new List<OtlpTenantCollector.Models.LogRecordEntity>();
+
+            foreach (var traceId in traceIds)
+            {
+                if (string.IsNullOrWhiteSpace(traceId))
+                    continue;
+
+                try
+                {
+                    var traceIdBytes = Convert.FromHexString(traceId);
+                    logs.AddRange(await store.GetLogsForTraceAsync(tenantId, traceIdBytes).ConfigureAwait(false));
+                }
+                catch (FormatException ex)
+                {
+                    _logger.LogDebug(ex, "Invalid trace id format '{TraceId}' while loading trace logs.", traceId);
+                }
+            }
+
+            if (logs.Count == 0 && !string.IsNullOrWhiteSpace(correlationId))
+            {
+                logs.AddRange(await store.GetRecentLogsAsync(
+                    tenantId: tenantId,
+                    limit: 200,
+                    serviceName: _openTelemetrySettings.CurrentValue.ServiceName,
+                    startUtc: null,
+                    endUtc: null,
+                    severityLevels: null,
+                    traceIdFilter: null,
+                    attributeContains: correlationId).ConfigureAwait(false));
+            }
+
+            return logs
+                .GroupBy(log => log.Id)
+                .Select(group => group.First())
+                .OrderBy(log => log.ReceivedUtc)
+                .Select(MapLog)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not load trace logs for correlation '{CorrelationId}'.", correlationId);
+            return [];
+        }
     }
 
     private async Task<IReadOnlyList<string>> ResolveCandidateTraceIdsAsync(string? correlationId, string? traceId)
@@ -242,10 +298,41 @@ public sealed class TraceDebugService
             Resource: ToObjectDictionary(span.Resource),
             Scope: ToObjectDictionary(span.Scope));
 
+    private static TraceLogDto MapLog(OtlpTenantCollector.Models.LogRecordEntity log)
+        => new(
+            ReceivedUtc: log.ReceivedUtc,
+            TraceId: log.TraceId is null ? null : Convert.ToHexString(log.TraceId).ToLowerInvariant(),
+            SpanId: log.SpanId is null ? null : Convert.ToHexString(log.SpanId).ToLowerInvariant(),
+            SeverityNumber: log.SeverityNumber,
+            SeverityText: log.SeverityText,
+            Body: log.Body,
+            ServiceName: log.ServiceName,
+            Attributes: ToObjectDictionary(log.AttributesJson),
+            Resource: ToObjectDictionary(log.ResourceJson),
+            Scope: ToObjectDictionary(log.ScopeJson));
+
     private static Dictionary<string, object?> ToObjectDictionary(object? value)
     {
         if (value is null)
             return new Dictionary<string, object?>(StringComparer.Ordinal);
+
+        if (value is string jsonText)
+        {
+            if (string.IsNullOrWhiteSpace(jsonText))
+                return new Dictionary<string, object?>(StringComparer.Ordinal);
+
+            try
+            {
+                using var document = JsonDocument.Parse(jsonText);
+                return document.RootElement.ValueKind == JsonValueKind.Object
+                    ? JsonObjectToDictionary(document.RootElement)
+                    : new Dictionary<string, object?>(StringComparer.Ordinal);
+            }
+            catch
+            {
+                return new Dictionary<string, object?>(StringComparer.Ordinal);
+            }
+        }
 
         if (value is JsonElement element)
             return element.ValueKind == JsonValueKind.Object

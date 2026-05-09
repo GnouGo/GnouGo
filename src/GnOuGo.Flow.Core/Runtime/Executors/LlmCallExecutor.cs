@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
@@ -164,20 +165,31 @@ public sealed class LlmCallExecutor : IStepExecutor
             var finishReason = response.ToolCalls?.Count > 0 ? "tool_calls" : "stop";
             ctx.SetTelemetryAttribute("gen_ai.response.model", model);
             ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", finishReason);
+            long? inputTokens = null;
+            long? outputTokens = null;
             if (response.Usage is JsonObject usage)
             {
                 if (usage.TryGetPropertyValue("prompt_tokens", out var pt) && pt != null)
-                    ctx.SetTelemetryAttribute("gen_ai.usage.input_tokens", pt.GetValue<int>());
+                    inputTokens = pt.GetValue<int>();
                 else if (usage.TryGetPropertyValue("input_tokens", out var it) && it != null)
-                    ctx.SetTelemetryAttribute("gen_ai.usage.input_tokens", it.GetValue<int>());
+                    inputTokens = it.GetValue<int>();
 
                 if (usage.TryGetPropertyValue("completion_tokens", out var ct2) && ct2 != null)
-                    ctx.SetTelemetryAttribute("gen_ai.usage.output_tokens", ct2.GetValue<int>());
+                    outputTokens = ct2.GetValue<int>();
                 else if (usage.TryGetPropertyValue("output_tokens", out var ot) && ot != null)
-                    ctx.SetTelemetryAttribute("gen_ai.usage.output_tokens", ot.GetValue<int>());
+                    outputTokens = ot.GetValue<int>();
+
+                if (inputTokens.HasValue)
+                    ctx.SetTelemetryAttribute("gen_ai.usage.input_tokens", inputTokens.Value);
+                if (outputTokens.HasValue)
+                    ctx.SetTelemetryAttribute("gen_ai.usage.output_tokens", outputTokens.Value);
 
                 if (usage.TryGetPropertyValue("total_tokens", out var tt) && tt != null)
                     ctx.SetTelemetryAttribute("gen_ai.usage.total_tokens", tt.GetValue<int>());
+
+                var estimatedCost = ModelMetadataCatalog.EstimateCost(model, inputTokens, outputTokens, providerType: provider);
+                if (estimatedCost.HasValue)
+                    ctx.SetTelemetryAttribute("gen_ai.usage.cost", (double)estimatedCost.Value);
             }
 
             if (ctx.Limits.LogStepContent && (!string.IsNullOrWhiteSpace(response.Text) || response.Json != null))

@@ -10,8 +10,7 @@ public sealed class FilesStoragePaths
         StorageRootPath = ResolvePath(value.StorageRootPath, Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
             "GnOuGo",
-            "Files",
-            "Temp"));
+            "data"));
 
         DatabasePath = ResolvePath(value.DatabasePath, Path.Combine(StorageRootPath, "gnougo-files.db"));
     }

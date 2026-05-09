@@ -1,0 +1,72 @@
+@using System.Globalization
+@using GnOuGo.Agent.Server.Telemetry
+<div class="sa-trace-detail">
+    <div class="sa-trace-detail__header">
+        <h3>Trace Summary</h3>
+        <span>@TraceDebugUiHelpers.FormatDuration(Summary.TraceDurationMs) total</span>
+    </div>
+    <div class="sa-trace-detail__section">
+        <h4>Token distribution</h4>
+        <div class="sa-trace-detail__token-bar">
+            @if (Summary.TotalTokens > 0)
+            {
+                <div class="sa-trace-detail__token-segment sa-trace-detail__token-segment--prompt"
+                     style="@TraceDebugUiHelpers.BuildWidthStyle(Summary.PromptTokens * 100d / Summary.TotalTokens)"></div>
+                <div class="sa-trace-detail__token-segment sa-trace-detail__token-segment--completion"
+                     style="@TraceDebugUiHelpers.BuildWidthStyle(Summary.CompletionTokens * 100d / Summary.TotalTokens)"></div>
+            }
+        </div>
+        <div class="sa-trace-detail__token-legend">
+            <span>Prompt: @Summary.PromptTokens.ToString("N0", CultureInfo.InvariantCulture)</span>
+            <span>Completion: @Summary.CompletionTokens.ToString("N0", CultureInfo.InvariantCulture)</span>
+        </div>
+    </div>
+    <div class="sa-trace-detail__section">
+        <h4>Trace identifiers</h4>
+        <table class="sa-trace-detail__table">
+            <tbody>
+                <tr><td>Correlation</td><td><code>@(CorrelationId ?? "n/a")</code></td></tr>
+                <tr><td>Trace</td><td><code>@Trace.TraceId</code></td></tr>
+                @if (!string.IsNullOrWhiteSpace(SnapshotMessage) && !string.Equals(SnapshotMessage, "Trace loaded.", StringComparison.Ordinal))
+                {
+                    <tr><td>Aggregation</td><td>@SnapshotMessage</td></tr>
+                }
+                <tr><td>Start</td><td>@Trace.StartUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</td></tr>
+                <tr><td>End</td><td>@Trace.EndUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="sa-trace-detail__section">
+        <h4>LLM calls</h4>
+        @if (Summary.LlmCalls == 0)
+        {
+            <div class="sa-trace-detail__empty">No GenAI span detected yet.</div>
+        }
+        else
+        {
+            @foreach (var llmCall in Summary.LlmMetrics)
+            {
+                <div class="sa-trace-detail__call">
+                    <div class="sa-trace-detail__call-head">
+                        <strong>@llmCall.OperationName</strong>
+                        <span>@TraceDebugUiHelpers.FormatDuration(llmCall.DurationMs)</span>
+                    </div>
+                    <div class="sa-trace-detail__call-meta">
+                        <span>@llmCall.Provider</span>
+                        <code>@llmCall.Model</code>
+                    </div>
+                    <div class="sa-trace-detail__call-stats">
+                        <span>@llmCall.TotalTokens.ToString("N0", CultureInfo.InvariantCulture) tok</span>
+                        <span>$@llmCall.Cost.ToString("0.000000", CultureInfo.InvariantCulture)</span>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+@code {
+    [Parameter, EditorRequired] public TraceGroupDto Trace { get; set; } = default!;
+    [Parameter, EditorRequired] public SummaryModel Summary { get; set; } = default!;
+    [Parameter] public string? CorrelationId { get; set; }
+    [Parameter] public string? SnapshotMessage { get; set; }
+}

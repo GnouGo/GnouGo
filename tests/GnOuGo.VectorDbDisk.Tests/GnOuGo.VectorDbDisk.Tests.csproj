@@ -24,7 +24,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
 
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.25.1" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.26.0" />
     <PackageReference Include="Tokenizers.HuggingFace" Version="2.21.4" />
   </ItemGroup>
   

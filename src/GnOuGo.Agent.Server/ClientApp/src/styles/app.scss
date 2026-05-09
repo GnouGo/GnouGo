@@ -233,6 +233,41 @@ html, body {
 
 .sa-chat__topbar-actions { display: flex; align-items: center; gap: 10px; }
 
+.sa-chat__agent-select-label {
+  font-size: 12px;
+  color: var(--sa-muted);
+  white-space: nowrap;
+}
+
+.sa-chat__agent-select {
+  min-width: 170px;
+  max-width: 260px;
+  height: 34px;
+  padding: 0 30px 0 10px;
+  border: 1px solid var(--sa-border);
+  border-radius: 10px;
+  background: var(--sa-surface);
+  color: var(--sa-text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sa-chat__agent-select:hover:not(:disabled) {
+  background: var(--sa-surface-2);
+}
+
+.sa-chat__agent-select:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--sa-accent) 45%, transparent);
+  outline-offset: 1px;
+}
+
+.sa-chat__agent-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .sa-chat__streaming {
   display: inline-flex;
   align-items: center;
@@ -773,6 +808,21 @@ html, body {
   }
 
   .sa-chat__menu { display: inline-flex; align-items: center; justify-content: center; }
+
+  .sa-chat__topbar-actions {
+    margin-left: auto;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .sa-chat__agent-select-label {
+    display: none;
+  }
+
+  .sa-chat__agent-select {
+    min-width: 120px;
+    max-width: 44vw;
+  }
 }
 
 /* --------------------------- Markdown (GitHub-ish) ------------------------ */
@@ -941,7 +991,7 @@ html, body {
   background: var(--sa-surface-2);
 }
 .sa-diagram-tabs__tab{
-  sa-appearance: none;
+  appearance: none;
   border: 0;
   background: transparent;
   color: var(--sa-muted);
@@ -1083,6 +1133,8 @@ html, body {
 }
 
 .sa-trace-panel__toggle {
+  appearance: none;
+  font-family: inherit;
   border: 1px solid rgba(148, 163, 184, 0.35);
   background: rgba(30, 41, 59, 0.95);
   color: #e2e8f0;
@@ -1096,6 +1148,16 @@ html, body {
 .sa-trace-panel__toggle:hover {
   border-color: rgba(96, 165, 250, 0.6);
   color: #f8fafc;
+}
+
+.sa-trace-panel__toggle:focus-visible,
+.sa-trace-panel__close:focus-visible,
+.sa-trace-panel__tab:focus-visible,
+.sa-trace-split__summary-button:focus-visible,
+.sa-trace-timeline__item:focus-visible,
+.sa-trace-log__summary:focus-visible {
+  outline: 2px solid rgba(147, 197, 253, 0.9);
+  outline-offset: 2px;
 }
 
 .sa-trace-panel__badge {
@@ -1115,6 +1177,8 @@ html, body {
 .sa-trace-panel__badge--disabled { background: rgba(148, 163, 184, 0.18); color: #cbd5e1; }
 
 .sa-trace-panel__close {
+  appearance: none;
+  font-family: inherit;
   width: 38px;
   height: 38px;
   border-radius: 12px;
@@ -1122,6 +1186,56 @@ html, body {
   background: rgba(30, 41, 59, 0.9);
   color: #f8fafc;
   cursor: pointer;
+}
+
+.sa-trace-panel__tabs {
+  display: flex;
+  gap: 8px;
+  padding: 10px 20px 0;
+  background: #0f172a;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.sa-trace-panel__tab {
+  appearance: none;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: -1px;
+  padding: 10px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-bottom-color: transparent;
+  border-radius: 12px 12px 0 0;
+  background: rgba(15, 23, 42, 0.74);
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sa-trace-panel__tab:hover {
+  color: #e2e8f0;
+  border-color: rgba(96, 165, 250, 0.32);
+  border-bottom-color: transparent;
+}
+
+.sa-trace-panel__tab--active {
+  color: #f8fafc;
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(96, 165, 250, 0.42);
+  border-bottom-color: #0f172a;
+}
+
+.sa-trace-panel__tab-count {
+  min-width: 24px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.16);
+  color: #93c5fd;
+  text-align: center;
+  font-size: 12px;
 }
 
 .sa-trace-panel__body {
@@ -1133,6 +1247,7 @@ html, body {
 .sa-trace-panel__state,
 .sa-trace-summary__hero,
 .sa-trace-detail,
+.sa-trace-log,
 .sa-trace-rag,
 .sa-trace-split__summary-button,
 .sa-trace-timeline__item {
@@ -1254,6 +1369,8 @@ html, body {
 }
 
 .sa-trace-split__summary-button {
+  appearance: none;
+  font-family: inherit;
   width: 100%;
   display: flex;
   justify-content: space-between;
@@ -1321,6 +1438,8 @@ html, body {
 }
 
 .sa-trace-timeline__item {
+  appearance: none;
+  font-family: inherit;
   width: 100%;
   text-align: left;
   border-radius: 16px;
@@ -1442,6 +1561,93 @@ html, body {
   background: rgba(30, 41, 59, 0.72);
 }
 
+.sa-trace-logs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.sa-trace-log {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.sa-trace-log--trace { border-color: rgba(148, 163, 184, 0.22); }
+.sa-trace-log--debug { border-color: rgba(59, 130, 246, 0.28); }
+.sa-trace-log--info { border-color: rgba(16, 185, 129, 0.28); }
+.sa-trace-log--warn { border-color: rgba(245, 158, 11, 0.38); }
+.sa-trace-log--error,
+.sa-trace-log--fatal { border-color: rgba(239, 68, 68, 0.42); }
+
+.sa-trace-log__summary {
+  display: grid;
+  grid-template-columns: 18px 96px minmax(78px, auto) minmax(120px, 180px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  cursor: pointer;
+  color: #e2e8f0;
+  list-style: none;
+  min-width: 0;
+}
+
+.sa-trace-log__summary::marker {
+  content: "";
+}
+
+.sa-trace-log__summary::-webkit-details-marker {
+  display: none;
+}
+
+.sa-trace-log__chevron {
+  color: #93c5fd;
+  transition: transform 160ms ease;
+}
+
+.sa-trace-log[open] .sa-trace-log__chevron {
+  transform: rotate(180deg);
+}
+
+.sa-trace-log__time,
+.sa-trace-log__service {
+  color: #94a3b8;
+  font-family: var(--sa-mono);
+  font-size: 12px;
+}
+
+.sa-trace-log__severity {
+  justify-self: start;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.16);
+  color: #bfdbfe;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sa-trace-log--trace .sa-trace-log__severity,
+.sa-trace-log--debug .sa-trace-log__severity { background: rgba(59, 130, 246, 0.16); color: #bfdbfe; }
+.sa-trace-log--info .sa-trace-log__severity { background: rgba(16, 185, 129, 0.16); color: #86efac; }
+.sa-trace-log--warn .sa-trace-log__severity { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
+.sa-trace-log--error .sa-trace-log__severity,
+.sa-trace-log--fatal .sa-trace-log__severity { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
+
+.sa-trace-log__body,
+.sa-trace-log__service {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sa-trace-log__body {
+  color: #f8fafc;
+}
+
+.sa-trace-log__content {
+  padding: 0 14px 14px;
+}
+
 .sa-trace-detail__empty {
   margin-top: 10px;
   color: #94a3b8;
@@ -1523,6 +1729,10 @@ html, body {
   }
 
   .sa-trace-summary__kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .sa-trace-log__summary {
     grid-template-columns: 1fr;
   }
 }
