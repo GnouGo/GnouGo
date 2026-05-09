@@ -233,6 +233,41 @@ html, body {
 
 .sa-chat__topbar-actions { display: flex; align-items: center; gap: 10px; }
 
+.sa-chat__agent-select-label {
+  font-size: 12px;
+  color: var(--sa-muted);
+  white-space: nowrap;
+}
+
+.sa-chat__agent-select {
+  min-width: 170px;
+  max-width: 260px;
+  height: 34px;
+  padding: 0 30px 0 10px;
+  border: 1px solid var(--sa-border);
+  border-radius: 10px;
+  background: var(--sa-surface);
+  color: var(--sa-text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sa-chat__agent-select:hover:not(:disabled) {
+  background: var(--sa-surface-2);
+}
+
+.sa-chat__agent-select:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--sa-accent) 45%, transparent);
+  outline-offset: 1px;
+}
+
+.sa-chat__agent-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .sa-chat__streaming {
   display: inline-flex;
   align-items: center;
@@ -773,6 +808,21 @@ html, body {
   }
 
   .sa-chat__menu { display: inline-flex; align-items: center; justify-content: center; }
+
+  .sa-chat__topbar-actions {
+    margin-left: auto;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .sa-chat__agent-select-label {
+    display: none;
+  }
+
+  .sa-chat__agent-select {
+    min-width: 120px;
+    max-width: 44vw;
+  }
 }
 
 /* --------------------------- Markdown (GitHub-ish) ------------------------ */
