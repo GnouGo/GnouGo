@@ -65,7 +65,7 @@
             <div class="sa-trace-timeline">
                 @foreach (var item in timeline)
                 {
-                    <button class="sa-trace-timeline__item @(item.Span.SpanId == SelectedSpanId ? "sa-trace-timeline__item--active" : string.Empty) @(item.Span.StatusCode == 2 ? "sa-trace-timeline__item--error" : string.Empty)"
+                    <button class="sa-trace-timeline__item @(string.Equals(item.Span.SpanId, _localSelectedSpanId, StringComparison.OrdinalIgnoreCase) ? "sa-trace-timeline__item--active" : string.Empty) @(item.Span.StatusCode == 2 ? "sa-trace-timeline__item--error" : string.Empty)"
                             type="button"
                             @onclick="() => ToggleSpanAsync(item.Span.SpanId)">
                         <div class="sa-trace-timeline__label" style="@TraceDebugUiHelpers.BuildPaddingLeftStyle(item.Depth)">
@@ -85,8 +85,8 @@
             {
                 <TraceSummaryDetail Trace="Trace"
                                     Summary="summary"
-                                    CorrelationId="CorrelationId"
-                                    SnapshotMessage="SnapshotMessage" />
+                                    CorrelationId="@CorrelationId"
+                                    SnapshotMessage="@SnapshotMessage" />
             }
             else
             {
@@ -102,13 +102,40 @@
     [Parameter] public string? SelectedSpanId { get; set; }
     [Parameter] public EventCallback<string?> SelectedSpanIdChanged { get; set; }
     [Parameter] public bool RenderFormatted { get; set; }
+    private string? _localSelectedSpanId;
+    private string? _lastTraceId;
+
+    protected override void OnParametersSet()
+    {
+        var traceChanged = !string.Equals(_lastTraceId, Trace.TraceId, StringComparison.Ordinal);
+        _lastTraceId = Trace.TraceId;
+
+        if (traceChanged)
+        {
+            _localSelectedSpanId = SelectedSpanId;
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(SelectedSpanId)
+            && !string.Equals(_localSelectedSpanId, SelectedSpanId, StringComparison.OrdinalIgnoreCase))
+        {
+            _localSelectedSpanId = SelectedSpanId;
+        }
+    }
+
     private TraceSpanDto? GetSelectedSpan()
-        => string.IsNullOrWhiteSpace(SelectedSpanId)
+        => string.IsNullOrWhiteSpace(_localSelectedSpanId)
             ? null
-            : Trace.Spans.FirstOrDefault(span => string.Equals(span.SpanId, SelectedSpanId, StringComparison.Ordinal));
+            : Trace.Spans.FirstOrDefault(span => string.Equals(span.SpanId, _localSelectedSpanId, StringComparison.OrdinalIgnoreCase));
+
     private Task ToggleSpanAsync(string spanId)
-        => SelectSpanAsync(string.Equals(SelectedSpanId, spanId, StringComparison.Ordinal) ? null : spanId);
-    private Task SelectSpanAsync(string? spanId)
-        => SelectedSpanIdChanged.InvokeAsync(spanId);
+        => SelectSpanAsync(string.Equals(_localSelectedSpanId, spanId, StringComparison.OrdinalIgnoreCase) ? null : spanId);
+
+    private async Task SelectSpanAsync(string? spanId)
+    {
+        _localSelectedSpanId = spanId;
+        if (SelectedSpanIdChanged.HasDelegate)
+            await SelectedSpanIdChanged.InvokeAsync(spanId);
+    }
 }
 

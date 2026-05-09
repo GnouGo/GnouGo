@@ -89,10 +89,10 @@
         else
         {
             <ChatTraceTraces Trace="_snapshot.Trace"
-                             CorrelationId="Message.CorrelationId"
-                             SnapshotMessage="_snapshot.Message"
-                             SelectedSpanId="_selectedSpanId"
-                             SelectedSpanIdChanged="OnSelectedSpanChanged"
+                             CorrelationId="@Message.CorrelationId"
+                             SnapshotMessage="@_snapshot.Message"
+                             SelectedSpanId="@_selectedSpanId"
+                             SelectedSpanIdChanged="@OnSelectedSpanChanged"
                              RenderFormatted="_renderFormatted" />
         }
     </div>
@@ -115,6 +115,7 @@
     private string? _loadError;
     private string? _selectedSpanId;
     private bool _renderFormatted = true;
+    private bool _stickySpanSelection = true;
     private TracePanelTab _activeTab = TracePanelTab.Traces;
     protected override async Task OnParametersSetAsync()
     {
@@ -147,7 +148,13 @@
         {
             try
             {
-                await RefreshAsync(ct);
+                // Keep selected span detail stable while user is inspecting one span.
+                if (!(_stickySpanSelection
+                    && _activeTab == TracePanelTab.Traces
+                    && !string.IsNullOrWhiteSpace(_selectedSpanId)))
+                {
+                    await RefreshAsync(ct);
+                }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -178,10 +185,13 @@
         try
         {
             _snapshot = await TraceDebug.GetSnapshotAsync(Message.CorrelationId, Message.TraceId, ct);
-            if (_snapshot.Trace is not null && !string.IsNullOrWhiteSpace(_selectedSpanId)
-                && !_snapshot.Trace.Spans.Any(span => string.Equals(span.SpanId, _selectedSpanId, StringComparison.Ordinal)))
+            if (_snapshot.Trace is not null && !string.IsNullOrWhiteSpace(_selectedSpanId))
             {
-                _selectedSpanId = null;
+                var matchingSpan = _snapshot.Trace.Spans.FirstOrDefault(
+                    span => string.Equals(span.SpanId, _selectedSpanId, StringComparison.OrdinalIgnoreCase));
+
+                // Keep selection stable across refreshes even if span id casing changes.
+                _selectedSpanId = matchingSpan?.SpanId;
             }
         }
         catch (OperationCanceledException)
@@ -210,11 +220,11 @@
     private Task HandleCloseAsync() => OnClose.InvokeAsync();
     private void ToggleRenderMode() => _renderFormatted = !_renderFormatted;
     private void SelectTab(TracePanelTab tab) => _activeTab = tab;
-    private Task OnSelectedSpanChanged(string? spanId)
-    {
-        _selectedSpanId = spanId;
-        return Task.CompletedTask;
-    }
+     private async Task OnSelectedSpanChanged(string? spanId)
+     {
+         _selectedSpanId = spanId;
+         await InvokeAsync(StateHasChanged);
+     }
     private string GetTabClass(TracePanelTab tab)
         => _activeTab == tab ? "sa-trace-panel__tab--active" : string.Empty;
     private string GetStatusBadgeClass()

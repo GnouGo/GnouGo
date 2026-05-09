@@ -76,6 +76,25 @@
             </div>
 
             <div class="sa-chat__topbar-actions">
+                <label for="chatAgentSelect" class="sa-chat__agent-select-label">Agent</label>
+                <select id="chatAgentSelect"
+                        class="sa-chat__agent-select"
+                        title="Select default agent"
+                        disabled="@(_isStreaming || _agentsLoading || _availableAgents.Count == 0)"
+                        value="@(_defaultAgentName ?? string.Empty)"
+                        @onchange="OnAgentSelectionChangedAsync">
+                    @if (_availableAgents.Count == 0)
+                    {
+                        <option value="">No agents</option>
+                    }
+                    else
+                    {
+                        @foreach (var agent in _availableAgents)
+                        {
+                            <option value="@agent">@agent</option>
+                        }
+                    }
+                </select>
                 @if (_isStreaming)
                 {
                     <div class="sa-chat__streaming" title="Streaming…">
@@ -444,6 +463,8 @@
     private WorkflowInputSchema? _workflowInputSchema;
     private readonly Dictionary<string, string> _workflowInputValues = new(StringComparer.Ordinal);
     private bool _workflowInputsLoading;
+    private readonly List<string> _availableAgents = new();
+    private bool _agentsLoading;
 
     private bool _sidebarOpen;
     private bool _isStreaming;
@@ -484,6 +505,7 @@
         {
             var snapshot = await UserConfigClient.GetAsync();
             _defaultAgentName = snapshot.DefaultAgent;
+            await RefreshAvailableAgentsAsync();
             await RefreshWorkflowInputSchemaAsync();
             EnsureActiveSession();
             await RegisterFileUploadInteropAsync();
@@ -696,6 +718,48 @@
         {
             _workflowInputsLoading = false;
         }
+    }
+
+    private async Task RefreshAvailableAgentsAsync()
+    {
+        _agentsLoading = true;
+        try
+        {
+            var names = await SmartFlow.ListAgentNamesAsync(CancellationToken.None);
+            _availableAgents.Clear();
+            _availableAgents.AddRange(names);
+
+            if (!string.IsNullOrWhiteSpace(_defaultAgentName)
+                && !_availableAgents.Contains(_defaultAgentName, StringComparer.OrdinalIgnoreCase))
+            {
+                _availableAgents.Insert(0, _defaultAgentName);
+            }
+        }
+        finally
+        {
+            _agentsLoading = false;
+        }
+    }
+
+    private async Task OnAgentSelectionChangedAsync(ChangeEventArgs e)
+    {
+        if (_isStreaming)
+            return;
+
+        var selectedAgent = e.Value?.ToString()?.Trim();
+        if (string.IsNullOrWhiteSpace(selectedAgent))
+            return;
+
+        if (string.Equals(_defaultAgentName, selectedAgent, StringComparison.Ordinal))
+            return;
+
+        var snapshot = await UserConfigClient.SetAsync(defaultAgent: selectedAgent, ct: CancellationToken.None);
+        _defaultAgentName = snapshot?.DefaultAgent ?? selectedAgent;
+
+        SyncSessionsToDefaultAgent();
+        await RefreshWorkflowInputSchemaAsync();
+        await PersistAsync();
+        StateHasChanged();
     }
 
     private void ResetWorkflowInputValues()
@@ -1187,6 +1251,7 @@
                     if (!string.IsNullOrWhiteSpace(evt.Text))
                     {
                         _defaultAgentName = evt.Text;
+                        await RefreshAvailableAgentsAsync();
                         SyncSessionsToDefaultAgent();
                         await RefreshWorkflowInputSchemaAsync();
                         StateHasChanged();

@@ -409,6 +409,39 @@ public sealed class SmartFlowService
         }
     }
 
+    public async Task<IReadOnlyList<string>> ListAgentNamesAsync(CancellationToken ct)
+    {
+        try
+        {
+            await using var runtime = await _runtimeFactory.CreateAsync(ct);
+            await using var session = await runtime.McpClientFactory.GetClientAsync(AgentMcpHostingExtensions.ServerName, ct);
+            var call = await session.CallToolAsync("agent_list", null, ct);
+
+            if (call.IsError)
+                return Array.Empty<string>();
+
+            var response = call.Content as JsonObject;
+            if (response is null || (response["success"]?.GetValue<bool>() ?? false) != true)
+                return Array.Empty<string>();
+
+            var names = (response["agents"] as JsonArray ?? [])
+                .OfType<JsonObject>()
+                .Select(agent => agent["name"]?.GetValue<string>())
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            return names;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not list configured agents from Agent MCP.");
+            return Array.Empty<string>();
+        }
+    }
+
     private async Task<(CompiledWorkflow Workflow, string? AgentName)> ResolveWorkflowAsync(
         SecureWorkflowRuntimeSession runtime,
         string? requestedAgentName,
