@@ -132,13 +132,20 @@ public static class GnOuGoAgentWebHost
 
             if (!builder.Environment.IsDevelopment())
             {
-                // Desktop-specific publish overrides (for example bundled MCP tools under ./tools)
-                // should win over both appsettings.json and appsettings.Development.json when present.
-                // In Development, keep the source-project stdio MCP commands from appsettings.Development.json.
-                builder.Configuration.AddJsonFile(
-                    Path.Combine(contentRoot, "appsettings.Desktop.json"),
-                    optional: true,
-                    reloadOnChange: false);
+                // Only apply desktop publish overrides when bundled tools are actually present.
+                // In local source runs (no ./tools folder), keep Development MCP commands.
+                var bundledToolsDirectory = Path.Combine(contentRoot, "tools");
+                if (Directory.Exists(bundledToolsDirectory))
+                {
+                    builder.Configuration.AddJsonFile(
+                        Path.Combine(contentRoot, "appsettings.Desktop.json"),
+                        optional: true,
+                        reloadOnChange: false);
+                }
+                else
+                {
+                    Log($"Skipping appsettings.Desktop.json because bundled tools directory '{bundledToolsDirectory}' was not found.");
+                }
             }
 
             // Re-apply command-line arguments after the extra desktop JSON layers so
