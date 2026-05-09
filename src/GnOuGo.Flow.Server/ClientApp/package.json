@@ -12,8 +12,8 @@
     "@types/js-yaml": "4.0.9",
     "@xyflow/react": "12.10.2",
     "js-yaml": "4.1.1",
-    "react": "19.2.5",
-    "react-dom": "19.2.5"
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
     "@types/react": "19.2.14",
@@ -21,6 +21,6 @@
     "@vitejs/plugin-react": "6.0.1",
     "sass": "1.99.0",
     "typescript": "6.0.3",
-    "vite": "8.0.10"
+    "vite": "8.0.11"
   }
 }

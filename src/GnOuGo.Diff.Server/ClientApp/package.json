@@ -10,9 +10,9 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "react": "19.2.5",
+    "react": "19.2.6",
     "react-diff-viewer-continued": "4.2.2",
-    "react-dom": "19.2.5"
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
     "@types/react": "19.2.14",
@@ -20,6 +20,6 @@
     "@vitejs/plugin-react": "6.0.1",
     "sass": "1.99.0",
     "typescript": "6.0.3",
-    "vite": "8.0.10"
+    "vite": "8.0.11"
   }
 }
