@@ -1,5 +1,6 @@
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Shared;
+using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Agent.Server.Endpoints;
 
@@ -38,8 +39,10 @@ public static class ChatEndpoints
         HttpContext ctx,
         ChatStreamRequestDto request,
         SmartFlowService smartFlow,
+        ILoggerFactory loggerFactory,
         CancellationToken ct)
     {
+        var logger = loggerFactory.CreateLogger(typeof(ChatEndpoints).FullName ?? nameof(ChatEndpoints));
         ctx.Response.Headers.CacheControl = "no-store";
         ctx.Response.Headers.Pragma = "no-cache";
         ctx.Response.Headers.Append("X-Accel-Buffering", "no");
@@ -71,8 +74,9 @@ public static class ChatEndpoints
                 await ctx.Response.Body.FlushAsync(ct).ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
+            logger.LogDebug(ex, "Chat stream was cancelled, likely because the client disconnected.");
             // client disconnected
         }
         catch (Exception ex)
@@ -82,7 +86,10 @@ public static class ChatEndpoints
                 await ctx.Response.WriteAsync($"event: error\ndata: {ex.Message}\n\n", ct).ConfigureAwait(false);
                 await ctx.Response.Body.FlushAsync(ct).ConfigureAwait(false);
             }
-            catch { }
+            catch (Exception writeEx)
+            {
+                logger.LogDebug(writeEx, "Failed to write chat stream error event to the response.");
+            }
         }
     }
 }

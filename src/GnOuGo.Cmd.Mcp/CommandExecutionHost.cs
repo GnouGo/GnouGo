@@ -118,8 +118,9 @@ public sealed class CommandExecutionHost
                     {
                         process.Kill(entireProcessTree: true);
                     }
-                    catch (InvalidOperationException)
+                    catch (InvalidOperationException ex)
                     {
+                        _logger.LogDebug(ex, "Process for command {CommandName} already exited before timeout kill.", commandName);
                         // Process already exited.
                     }
                 }

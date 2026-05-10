@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Photino.NET;
 using GnOuGo.Agent.Server.Hosting;
 
@@ -22,6 +23,7 @@ internal static class Program
 
     private static readonly string DiagnosticsFile = Path.Combine(DiagnosticsDir, "desktop.log");
     private static readonly object DiagnosticsSync = new();
+    private static readonly ILogger DesktopLogger = new DesktopDiagnosticsLogger();
 
     [STAThread]
     private static void Main(string[] args)
@@ -98,7 +100,11 @@ internal static class Program
         var iconFile = ResolveIconFile(desktopContentRoot);
         if (!string.IsNullOrWhiteSpace(iconFile) && File.Exists(iconFile))
         {
-            try { window.SetIconFile(iconFile); } catch { /* ignore */ }
+            try { window.SetIconFile(iconFile); }
+            catch (Exception ex)
+            {
+                DesktopLogger.LogWarning(ex, "Failed to set desktop window icon file '{IconFile}'.", iconFile);
+            }
         }
 
         window
@@ -417,7 +423,11 @@ internal static class Program
         window.RegisterWindowClosingHandler((_, _) =>
         {
             Log("WindowClosing");
-            try { cts.Cancel(); } catch { /* ignore */ }
+            try { cts.Cancel(); }
+            catch (Exception ex)
+            {
+                DesktopLogger.LogDebug(ex, "Failed to cancel desktop shutdown token source.");
+            }
             return false;
         });
 
@@ -430,9 +440,9 @@ internal static class Program
             app.StopAsync().GetAwaiter().GetResult();
             Log("Web host stopped");
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore
+            DesktopLogger.LogDebug(ex, "Web host StopAsync failed during desktop shutdown.");
         }
 
         try
@@ -443,9 +453,9 @@ internal static class Program
                 Log("Server task completed cleanly");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore
+            DesktopLogger.LogDebug(ex, "Server task failed or was cancelled during desktop shutdown.");
         }
 
         Log("Desktop shutdown end");
@@ -645,11 +655,34 @@ internal static class Program
     private static void Log(string message)
     {
         var line = $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff zzz}] [PID {Environment.ProcessId}] {message}{Environment.NewLine}";
+
         lock (DiagnosticsSync)
         {
             using var stream = new FileStream(DiagnosticsFile, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
             using var writer = new StreamWriter(stream);
             writer.Write(line);
+        }
+    }
+
+    private sealed class DesktopDiagnosticsLogger : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => logLevel != LogLevel.None;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            ArgumentNullException.ThrowIfNull(formatter);
+            var message = formatter(state, exception);
+            if (exception is not null)
+                message = string.IsNullOrWhiteSpace(message) ? exception.ToString() : $"{message} {exception}";
+
+            Program.Log($"[{logLevel}] GnOuGo.Agent.Desktop: {message}");
         }
     }
 

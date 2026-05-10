@@ -4,6 +4,8 @@ using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GnOuGo.Agent.Server.SmartFlow;
 
@@ -25,6 +27,7 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
     private readonly Meter _meter;
     private readonly CollectorTracePersistence _collectorTracePersistence;
     private readonly LocalTraceDebugStore _localTraceStore;
+    private readonly ILogger<AgentOTelTelemetry> _logger;
 
     /// <summary>
     /// Tracks the root chat activity for the current async flow. This provides a reliable fallback
@@ -43,10 +46,12 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
 
     public AgentOTelTelemetry(
         CollectorTracePersistence collectorTracePersistence,
-        LocalTraceDebugStore localTraceStore)
+        LocalTraceDebugStore localTraceStore,
+        ILogger<AgentOTelTelemetry>? logger = null)
     {
         _collectorTracePersistence = collectorTracePersistence;
         _localTraceStore = localTraceStore;
+        _logger = logger ?? NullLogger<AgentOTelTelemetry>.Instance;
         _source = new ActivitySource(ActivitySourceName, "1.0.0");
         _listener = new ActivityListener
         {
@@ -408,8 +413,9 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
                     .SetParentId(traceId, syntheticParent, ActivityTraceFlags.Recorded)
                     .Start();
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogDebug(ex, "Correlation identifier '{CorrelationId}' is not a valid W3C trace-id; starting a new root activity.", correlationId);
                 // Fallback below when the correlation identifier is not valid W3C trace-id hex.
             }
         }

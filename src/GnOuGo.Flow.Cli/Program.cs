@@ -188,7 +188,8 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
 
             var llmOptions = appConfig.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
             var http = new HttpClient { Timeout = LLMHttpClientDefaults.MinimumTimeout };
-            var routingClient = new RoutingLLMClient(http, llmOptions);
+            var llmLoggerFactory = LoggerFactory.Create(logging => logging.AddSimpleConsole());
+            var routingClient = new RoutingLLMClient(http, llmOptions, llmLoggerFactory);
             llmClient = new RoutingLLMClientAdapter(routingClient);
             mcpFactory = llmOptions.McpServers.Count > 0
                 ? new ConfiguredMcpClientFactory(llmOptions.McpServers)

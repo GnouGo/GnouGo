@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using GnOuGo.DocIngestor.Mcp.Models;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace GnOuGo.DocIngestor.Mcp.Services;
@@ -9,11 +10,16 @@ public sealed class UrlDownloadService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly DocsIngestorMcpOptions _options;
+    private readonly ILogger<UrlDownloadService> _logger;
 
-    public UrlDownloadService(IHttpClientFactory httpClientFactory, IOptions<DocsIngestorMcpOptions> options)
+    public UrlDownloadService(
+        IHttpClientFactory httpClientFactory,
+        IOptions<DocsIngestorMcpOptions> options,
+        ILogger<UrlDownloadService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _options = options.Value;
+        _logger = logger;
     }
 
     public async Task<DownloadedDocument> DownloadAsync(string url, CancellationToken ct = default)
@@ -53,7 +59,10 @@ public sealed class UrlDownloadService
         }
 
         var sha256 = Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
-        return new DownloadedDocument(url, tempPath, fileName, contentType, total, sha256);
+        return new DownloadedDocument(url, tempPath, fileName, contentType, total, sha256)
+        {
+            Logger = _logger
+        };
     }
 
     private static string ResolveFileName(Uri uri, ContentDispositionHeaderValue? contentDisposition)

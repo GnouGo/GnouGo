@@ -8,11 +8,20 @@ using DocIngestor.Core.Abstractions;
 using DocIngestor.Core.Images;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DocIngestor.Core.Images;
 
 public sealed class PptxImageExtractor : IImageExtractor
 {
+    private readonly ILogger<PptxImageExtractor> _logger;
+
+    public PptxImageExtractor(ILogger<PptxImageExtractor>? logger = null)
+    {
+        _logger = logger ?? NullLogger<PptxImageExtractor>.Instance;
+    }
+
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".pptx", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/vnd.openxmlformats-officedocument.presentationml.presentation", StringComparison.OrdinalIgnoreCase);
@@ -104,7 +113,11 @@ public sealed class PptxImageExtractor : IImageExtractor
 
                         using (var s = imgPart.GetStream())
                         {
-                            try { len = s.Length; } catch { /* ignore */ }
+                            try { len = s.Length; }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to read PPTX image stream length for '{FileName}' ({PartUri}).", source.FileName, imgPart.Uri);
+                            }
 
                             if (len is not null &&
                                 len.Value > options.MaxImageBytes &&
@@ -160,6 +173,13 @@ public sealed class PptxImageExtractor : IImageExtractor
 
 public sealed class DocxImageExtractor : IImageExtractor
 {
+    private readonly ILogger<DocxImageExtractor> _logger;
+
+    public DocxImageExtractor(ILogger<DocxImageExtractor>? logger = null)
+    {
+        _logger = logger ?? NullLogger<DocxImageExtractor>.Instance;
+    }
+
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".docx", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", StringComparison.OrdinalIgnoreCase);
@@ -198,7 +218,11 @@ public sealed class DocxImageExtractor : IImageExtractor
 
                     using (var s = imgPart.GetStream())
                     {
-                        try { len = s.Length; } catch { /* ignore */ }
+                        try { len = s.Length; }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Failed to read DOCX image stream length for '{FileName}' ({PartUri}).", source.FileName, imgPart.Uri);
+                        }
 
                         if (len is not null &&
                             len.Value > options.MaxImageBytes &&

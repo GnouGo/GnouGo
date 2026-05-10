@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GnOuGo.AI.Core;
 
@@ -13,10 +15,12 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     private static readonly TimeSpan BackgroundMaxPollDelay = TimeSpan.FromSeconds(10);
 
     private readonly HttpClient _http;
+    private readonly ILogger<OpenAiLLMProvider> _logger;
 
-    public OpenAiLLMProvider(HttpClient http)
+    public OpenAiLLMProvider(HttpClient http, ILogger<OpenAiLLMProvider>? logger = null)
     {
         _http = http;
+        _logger = logger ?? NullLogger<OpenAiLLMProvider>.Instance;
         LLMHttpClientDefaults.EnsureMinimumTimeout(_http);
     }
 
@@ -71,7 +75,10 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         if (request.StructuredOutputSchema != null && !string.IsNullOrWhiteSpace(content))
         {
             try { jsonOutput = JsonNode.Parse(content); }
-            catch { /* not valid JSON, leave null */ }
+            catch (JsonException ex)
+            {
+                _logger.LogDebug(ex, "OpenAI chat completion structured output was not valid JSON for model '{Model}'.", model);
+            }
         }
 
         return new LLMClientResponse
@@ -157,7 +164,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         }
     }
 
-    private static LLMClientResponse BuildResponsesApiResponse(JsonElement root, LLMClientRequest request)
+    private LLMClientResponse BuildResponsesApiResponse(JsonElement root, LLMClientRequest request)
     {
         var content = ChatResponseParser.ExtractResponsesApiContent(root).Trim();
         var usage = ChatResponseParser.ExtractUsage(root);
@@ -166,7 +173,10 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         if (request.StructuredOutputSchema != null && !string.IsNullOrWhiteSpace(content))
         {
             try { jsonOutput = JsonNode.Parse(content); }
-            catch { /* not valid JSON, leave null */ }
+            catch (JsonException ex)
+            {
+                _logger.LogDebug(ex, "OpenAI responses structured output was not valid JSON.");
+            }
         }
 
         return new LLMClientResponse

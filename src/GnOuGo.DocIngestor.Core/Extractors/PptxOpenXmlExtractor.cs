@@ -4,6 +4,8 @@ using DocIngestor.Core.Metadata;
 using DocIngestor.Core.Models;
 using DocIngestor.Core.Formatting;
 using DocumentFormat.OpenXml.Packaging;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using A = DocumentFormat.OpenXml.Drawing;
 using P = DocumentFormat.OpenXml.Presentation;
 
@@ -11,6 +13,13 @@ namespace DocIngestor.Core.Extractors;
 
 public sealed class PptxOpenXmlExtractor : IDocumentTextExtractor
 {
+    private readonly ILogger<PptxOpenXmlExtractor> _logger;
+
+    public PptxOpenXmlExtractor(ILogger<PptxOpenXmlExtractor>? logger = null)
+    {
+        _logger = logger ?? NullLogger<PptxOpenXmlExtractor>.Instance;
+    }
+
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".pptx", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/vnd.openxmlformats-officedocument.presentationml.presentation", StringComparison.OrdinalIgnoreCase);
@@ -31,7 +40,10 @@ public sealed class PptxOpenXmlExtractor : IDocumentTextExtractor
                 if (!string.IsNullOrWhiteSpace(p.Title)) meta["title"] = p.Title!;
                 if (!string.IsNullOrWhiteSpace(p.Creator)) meta["author"] = p.Creator!;
             }
-            catch { /* ignore */ }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to read PPTX package properties for '{FileName}'.", source.FileName);
+            }
 
             var presPart = pres.PresentationPart;
             var slideIds = presPart?.Presentation?.SlideIdList?.Elements<P.SlideId>().ToList()

@@ -1,6 +1,8 @@
 using DocIngestor.Core.Abstractions;
 using DocIngestor.Core.Images;
 using DocumentFormat.OpenXml.Packaging;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DocIngestor.Core.Images;
 
@@ -11,6 +13,13 @@ namespace DocIngestor.Core.Images;
 /// </summary>
 public sealed class XlsxImageExtractor : IImageExtractor
 {
+    private readonly ILogger<XlsxImageExtractor> _logger;
+
+    public XlsxImageExtractor(ILogger<XlsxImageExtractor>? logger = null)
+    {
+        _logger = logger ?? NullLogger<XlsxImageExtractor>.Instance;
+    }
+
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", StringComparison.OrdinalIgnoreCase);
@@ -57,9 +66,9 @@ public sealed class XlsxImageExtractor : IImageExtractor
                     else if (relId is not null)
                         sectionId = $"xlsx:{relId}";
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // ignore
+                    _logger.LogDebug(ex, "Failed to resolve XLSX worksheet relationship for '{FileName}'.", source.FileName);
                 }
 
                 var drawingsPart = wsPart.DrawingsPart;
@@ -77,7 +86,11 @@ public sealed class XlsxImageExtractor : IImageExtractor
 
                     using (var s = imgPart.GetStream())
                     {
-                        try { len = s.Length; } catch { /* ignore */ }
+                        try { len = s.Length; }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Failed to read XLSX image stream length for '{FileName}' ({ContentType}).", source.FileName, ctType);
+                        }
 
                         if (len is not null && len.Value > options.MaxImageBytes)
                             continue;

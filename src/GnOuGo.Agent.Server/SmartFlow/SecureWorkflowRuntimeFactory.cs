@@ -1,5 +1,7 @@
 ﻿using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GnOuGo.Agent.Server.SmartFlow;
 
@@ -7,13 +9,16 @@ public sealed class SecureWorkflowRuntimeFactory
 {
     private readonly LLMRuntimeOptionsStore _optionsStore;
     private readonly IKeyVaultRuntimeConfigStore _keyVaultStore;
+    private readonly ILoggerFactory _loggerFactory;
 
     public SecureWorkflowRuntimeFactory(
         LLMRuntimeOptionsStore optionsStore,
-        IKeyVaultRuntimeConfigStore keyVaultStore)
+        IKeyVaultRuntimeConfigStore keyVaultStore,
+        ILoggerFactory? loggerFactory = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
+        _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
     }
 
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
@@ -25,7 +30,7 @@ public sealed class SecureWorkflowRuntimeFactory
             : new InMemoryMcpClientFactory();
 
         return new SecureWorkflowRuntimeSession(
-            new SnapshotRoutingLlmClientAdapter(http, options),
+            new SnapshotRoutingLlmClientAdapter(http, options, _loggerFactory),
             mcpFactory,
             options,
             http);
@@ -67,16 +72,18 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
 {
     private readonly HttpClient _http;
     private readonly LLMOptions _options;
+    private readonly ILoggerFactory _loggerFactory;
 
-    public SnapshotRoutingLlmClientAdapter(HttpClient http, LLMOptions options)
+    public SnapshotRoutingLlmClientAdapter(HttpClient http, LLMOptions options, ILoggerFactory loggerFactory)
     {
         _http = http;
         _options = options;
+        _loggerFactory = loggerFactory;
     }
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
-        var routingClient = new RoutingLLMClient(_http, _options);
+        var routingClient = new RoutingLLMClient(_http, _options, _loggerFactory);
         var aiRequest = new LLMClientRequest
         {
             Provider = request.Provider,

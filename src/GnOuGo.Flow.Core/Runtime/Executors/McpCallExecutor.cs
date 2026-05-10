@@ -509,7 +509,10 @@ public sealed class McpCallExecutor : IStepExecutor
             if (structuredJson == null && !string.IsNullOrWhiteSpace(structuredResponse.Text))
             {
                 try { structuredJson = JsonNode.Parse(structuredResponse.Text); }
-                catch { }
+                catch (JsonException ex)
+                {
+                    ctx.Engine.Logger.LogDebug(ex, "mcp.call structured post-process response was not valid JSON for model '{Model}'.", model);
+                }
             }
 
             if (structuredJson == null)

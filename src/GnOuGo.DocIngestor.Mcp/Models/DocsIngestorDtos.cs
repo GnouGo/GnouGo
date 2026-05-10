@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
 using DocIngestor.Core.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GnOuGo.DocIngestor.Mcp.Models;
 
@@ -17,6 +19,8 @@ public sealed record DownloadedDocument(
     long SizeBytes,
     string Sha256) : IAsyncDisposable
 {
+    public ILogger Logger { get; init; } = NullLogger.Instance;
+
     public ValueTask DisposeAsync()
     {
         try
@@ -24,8 +28,9 @@ public sealed record DownloadedDocument(
             if (File.Exists(TempPath))
                 File.Delete(TempPath);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Failed to delete temporary downloaded document '{TempPath}'.", TempPath);
             // Best-effort temporary file cleanup.
         }
 

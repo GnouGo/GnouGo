@@ -1,6 +1,9 @@
 ﻿
 using System.Text.Json.Nodes;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace GnOuGo.AI.Core;
 
 /// <summary>
@@ -102,6 +105,8 @@ public sealed class LLMModelMetadataResolver
 /// </summary>
 public static partial class ModelMetadataCatalog
 {
+    private static readonly ILogger Logger = NullLogger.Instance;
+
     public static bool TryGetBuiltin(string modelName, out LLMModelMetadata metadata)
     {
         if (TryGetBuiltinCore(modelName, out metadata))
@@ -282,8 +287,9 @@ public static partial class ModelMetadataCatalog
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Logger.LogDebug(ex, "Ignoring invalid external model metadata file '{MetadataPath}'.", resolvedPath);
                 // External metadata files are optional user extensions. Ignore invalid files here;
                 // callers can validate their files separately without making inference unavailable.
             }
