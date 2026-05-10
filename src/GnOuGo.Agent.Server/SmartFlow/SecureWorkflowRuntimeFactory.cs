@@ -19,7 +19,7 @@ public sealed class SecureWorkflowRuntimeFactory
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
     {
         var options = await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, ct);
-        var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+        var http = new HttpClient { Timeout = LLMHttpClientDefaults.MinimumTimeout };
         IMcpClientFactory mcpFactory = options.McpServers.Count > 0
             ? new ConfiguredMcpClientFactory(options.McpServers)
             : new InMemoryMcpClientFactory();
@@ -86,6 +86,7 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
             StructuredOutputSchema = request.StructuredOutputSchema,
             StructuredOutputStrict = request.StructuredOutputStrict,
             Reasoning = request.Reasoning,
+            UseBackgroundMode = request.UseBackgroundMode,
         };
 
         if (request.Tools is { Count: > 0 })

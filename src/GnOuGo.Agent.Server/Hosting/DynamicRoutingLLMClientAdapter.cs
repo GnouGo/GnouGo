@@ -36,6 +36,7 @@ internal sealed class DynamicRoutingLLMClientAdapter : ILLMClient
             StructuredOutputSchema = request.StructuredOutputSchema,
             StructuredOutputStrict = request.StructuredOutputStrict,
             Reasoning = request.Reasoning,
+            UseBackgroundMode = request.UseBackgroundMode,
         };
 
         if (request.Tools is { Count: > 0 })

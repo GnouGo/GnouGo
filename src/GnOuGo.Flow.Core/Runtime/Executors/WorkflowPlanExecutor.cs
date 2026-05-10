@@ -49,11 +49,11 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         var instruction = generator["instruction"]?.GetValue<string>() ?? "";
         var generatorContext = generator["context"]?.GetValue<string>() ?? "";
 
-        // Reasoning effort: workflow planning is heavy reasoning, default to "high" (max).
+        // Reasoning effort: workflow planning is reasoning-heavy, default to "medium".
         // Authors can override via `generator.reasoning: auto|minimal|low|medium|high|max`.
         var planReasoning = generator["reasoning"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(planReasoning))
-            planReasoning = "high";
+            planReasoning = "medium";
 
         // Determine allowed step types for filtering DSL snippets
         HashSet<string>? allowedTypes = null;
@@ -305,6 +305,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                         Model = model,
                         Prompt = promptText,
                         Reasoning = planReasoning,
+                        UseBackgroundMode = true,
                     }, ct);
                     generationSpan.SetAttribute("gen_ai.response.model", model);
                     generationSpan.SetAttribute("gen_ai.response.finish_reason", "stop");

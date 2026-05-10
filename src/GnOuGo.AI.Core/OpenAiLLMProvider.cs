@@ -9,11 +9,15 @@ namespace GnOuGo.AI.Core;
 /// </summary>
 public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 {
+    private static readonly TimeSpan BackgroundInitialPollDelay = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan BackgroundMaxPollDelay = TimeSpan.FromSeconds(10);
+
     private readonly HttpClient _http;
 
     public OpenAiLLMProvider(HttpClient http)
     {
         _http = http;
+        LLMHttpClientDefaults.EnsureMinimumTimeout(_http);
     }
 
     /// <inheritdoc />
@@ -21,6 +25,15 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 
     /// <inheritdoc />
     public async Task<LLMClientResponse> CallAsync(
+        string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
+    {
+        if (request.UseBackgroundMode)
+            return await CallResponsesBackgroundAsync(model, provider, request, ct);
+
+        return await CallChatCompletionsAsync(model, provider, request, ct);
+    }
+
+    private async Task<LLMClientResponse> CallChatCompletionsAsync(
         string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
     {
         var url = OpenAiEndpoints.ChatCompletions(provider.Url);
@@ -70,6 +83,116 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             ToolCalls = toolCalls
         };
     }
+
+    private async Task<LLMClientResponse> CallResponsesBackgroundAsync(
+        string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
+    {
+        var url = OpenAiEndpoints.Responses(provider.Url);
+        var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
+
+        byte[] payload = ChatRequestBuilder.OpenAiResponsesBackground(
+            model, request.Prompt, request.Temperature, request.Reasoning);
+
+        using var req = HttpRequestHelper.CreateJsonPost(url, payload);
+
+        if (!string.IsNullOrWhiteSpace(bearerToken))
+            HttpRequestHelper.SetBearerAuth(req, bearerToken);
+
+        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        var body = await resp.Content.ReadAsStringAsync(ct);
+
+        if (!resp.IsSuccessStatusCode)
+        {
+            if (IsBackgroundUnsupported(resp.StatusCode, body))
+                return await CallChatCompletionsAsync(model, provider, request, ct);
+
+            throw new HttpRequestException(
+                $"OpenAI background response call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+        }
+
+        return await AwaitResponsesApiCompletionAsync(url, bearerToken, body, request, ct);
+    }
+
+    private async Task<LLMClientResponse> AwaitResponsesApiCompletionAsync(
+        string responsesUrl,
+        string? bearerToken,
+        string responseBody,
+        LLMClientRequest request,
+        CancellationToken ct)
+    {
+        var delay = BackgroundInitialPollDelay;
+
+        while (true)
+        {
+            using var json = JsonDocument.Parse(responseBody);
+            var root = json.RootElement;
+            var status = root.TryGetProperty("status", out var statusElement)
+                ? statusElement.GetString()
+                : null;
+
+            if (string.IsNullOrWhiteSpace(status) || string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase))
+                return BuildResponsesApiResponse(root, request);
+
+            if (IsTerminalResponsesStatus(status))
+                throw new HttpRequestException($"OpenAI background response ended with status '{status}': {responseBody}");
+
+            var id = root.TryGetProperty("id", out var idElement) ? idElement.GetString() : null;
+            if (string.IsNullOrWhiteSpace(id))
+                throw new HttpRequestException($"OpenAI background response did not include an id: {responseBody}");
+
+            await Task.Delay(delay, ct);
+            if (delay < BackgroundMaxPollDelay)
+                delay = TimeSpan.FromMilliseconds(Math.Min(delay.TotalMilliseconds * 1.5, BackgroundMaxPollDelay.TotalMilliseconds));
+
+            using var pollReq = HttpRequestHelper.CreateGet(responsesUrl.TrimEnd('/') + "/" + Uri.EscapeDataString(id));
+            if (!string.IsNullOrWhiteSpace(bearerToken))
+                HttpRequestHelper.SetBearerAuth(pollReq, bearerToken);
+
+            using var pollResp = await _http.SendAsync(pollReq, HttpCompletionOption.ResponseHeadersRead, ct);
+            responseBody = await pollResp.Content.ReadAsStringAsync(ct);
+
+            if (!pollResp.IsSuccessStatusCode)
+                throw new HttpRequestException(
+                    $"OpenAI background response polling failed: {(int)pollResp.StatusCode} {pollResp.ReasonPhrase ?? ""} - {responseBody}");
+        }
+    }
+
+    private static LLMClientResponse BuildResponsesApiResponse(JsonElement root, LLMClientRequest request)
+    {
+        var content = ChatResponseParser.ExtractResponsesApiContent(root).Trim();
+        var usage = ChatResponseParser.ExtractUsage(root);
+
+        JsonNode? jsonOutput = null;
+        if (request.StructuredOutputSchema != null && !string.IsNullOrWhiteSpace(content))
+        {
+            try { jsonOutput = JsonNode.Parse(content); }
+            catch { /* not valid JSON, leave null */ }
+        }
+
+        return new LLMClientResponse
+        {
+            Text = content,
+            Json = jsonOutput,
+            Usage = usage,
+            Raw = JsonNode.Parse(root.GetRawText())
+        };
+    }
+
+    private static bool IsTerminalResponsesStatus(string? status)
+        => status is not null
+           && (status.Equals("failed", StringComparison.OrdinalIgnoreCase)
+               || status.Equals("cancelled", StringComparison.OrdinalIgnoreCase)
+               || status.Equals("canceled", StringComparison.OrdinalIgnoreCase)
+               || status.Equals("incomplete", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsBackgroundUnsupported(System.Net.HttpStatusCode statusCode, string body)
+        => statusCode is System.Net.HttpStatusCode.NotFound
+               or System.Net.HttpStatusCode.MethodNotAllowed
+               or System.Net.HttpStatusCode.NotImplemented
+           || ((int)statusCode == 400
+               && (body.Contains("background", StringComparison.OrdinalIgnoreCase)
+                   || body.Contains("responses", StringComparison.OrdinalIgnoreCase)
+                   || body.Contains("unsupported", StringComparison.OrdinalIgnoreCase)));
 
     private static List<LLMToolDef>? MapTools(IReadOnlyList<LLMToolDef>? tools)
         => tools is { Count: > 0 } ? tools as List<LLMToolDef> ?? new List<LLMToolDef>(tools) : null;

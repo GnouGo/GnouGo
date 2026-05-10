@@ -26,6 +26,7 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     public CopilotLLMProvider(HttpClient http)
     {
         _http = http;
+        LLMHttpClientDefaults.EnsureMinimumTimeout(_http);
     }
 
     /// <inheritdoc />

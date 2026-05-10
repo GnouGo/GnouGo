@@ -139,6 +139,45 @@ public static class ChatRequestBuilder
     }
 
     /// <summary>
+    /// Builds an OpenAI Responses API request body for provider-managed background execution.
+    /// </summary>
+    public static byte[] OpenAiResponsesBackground(
+        string model,
+        string prompt,
+        double? temperature = null,
+        string? reasoning = null)
+    {
+        using var ms = new MemoryStream();
+        using (var w = new Utf8JsonWriter(ms))
+        {
+            w.WriteStartObject();
+            w.WriteString("model", model);
+            w.WriteBoolean("background", true);
+
+            if (temperature.HasValue)
+                w.WriteNumber("temperature", temperature.Value);
+
+            var reasoningEffort = NormalizeOpenAiReasoning(reasoning);
+            if (reasoningEffort != null)
+            {
+                w.WriteStartObject("reasoning");
+                w.WriteString("effort", reasoningEffort);
+                w.WriteEndObject();
+            }
+
+            w.WriteStartArray("input");
+            w.WriteStartObject();
+            w.WriteString("role", "user");
+            w.WriteString("content", prompt);
+            w.WriteEndObject();
+            w.WriteEndArray();
+
+            w.WriteEndObject();
+        }
+        return ms.ToArray();
+    }
+
+    /// <summary>
     /// Builds an Ollama chat completion request body (stream: false).
     /// </summary>
     public static byte[] Ollama(string model, string systemPrompt, string userMessage)

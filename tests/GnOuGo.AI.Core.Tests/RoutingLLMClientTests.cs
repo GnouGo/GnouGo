@@ -203,6 +203,23 @@ public class RoutingLLMClientTests
         Assert.Null(openai.LastRequest.Tools);
     }
 
+    [Fact]
+    public async Task CallAsync_PreservesBackgroundModeHint()
+    {
+        var openai = new FakeProvider("openai");
+        var client = new RoutingLLMClient(CreateOptions(), [openai]);
+
+        await client.CallAsync(new LLMClientRequest
+        {
+            Model = "gpt-4o-mini",
+            Prompt = "Plan",
+            UseBackgroundMode = true
+        });
+
+        Assert.NotNull(openai.LastRequest);
+        Assert.True(openai.LastRequest!.UseBackgroundMode);
+    }
+
     /// <summary>
     /// Fake provider for testing routing without network calls.
     /// </summary>

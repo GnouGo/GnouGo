@@ -348,7 +348,7 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<ILLMClient>(sp =>
         {
             var store = sp.GetRequiredService<LLMRuntimeOptionsStore>();
-            var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+            var http = new HttpClient { Timeout = LLMHttpClientDefaults.MinimumTimeout };
             // DynamicRoutingLLMClientAdapter reads the LATEST options from the store on every call,
             // so a /llm wizard update takes effect for the very next message.
             return new DynamicRoutingLLMClientAdapter(http, store);

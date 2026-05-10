@@ -13,6 +13,7 @@ public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     public OllamaLLMProvider(HttpClient http)
     {
         _http = http;
+        LLMHttpClientDefaults.EnsureMinimumTimeout(_http);
     }
 
     /// <inheritdoc />

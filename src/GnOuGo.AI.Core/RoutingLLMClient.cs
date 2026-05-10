@@ -34,6 +34,7 @@ public sealed class RoutingLLMClient
     public RoutingLLMClient(HttpClient http, LLMOptions options)
         : this(options, CreateDefaultProviders(http))
     {
+        LLMHttpClientDefaults.EnsureMinimumTimeout(http);
     }
 
     /// <summary>
@@ -136,6 +137,29 @@ public sealed class RoutingLLMClient
 }
 
 /// <summary>
+/// Shared HTTP defaults for outbound LLM calls.
+/// </summary>
+public static class LLMHttpClientDefaults
+{
+    public static readonly TimeSpan MinimumTimeout = TimeSpan.FromMinutes(10);
+
+    public static void EnsureMinimumTimeout(HttpClient http)
+    {
+        if (http.Timeout == Timeout.InfiniteTimeSpan || http.Timeout >= MinimumTimeout)
+            return;
+
+        try
+        {
+            http.Timeout = MinimumTimeout;
+        }
+        catch (InvalidOperationException)
+        {
+            // The HttpClient has already started requests; keep the existing timeout.
+        }
+    }
+}
+
+/// <summary>
 /// Request DTO for <see cref="RoutingLLMClient"/>.
 /// </summary>
 public sealed class LLMClientRequest
@@ -151,6 +175,11 @@ public sealed class LLMClientRequest
     /// Accepted: "minimal"|"low"|"medium"|"high"|"max"|"auto"|null.
     /// </summary>
     public string? Reasoning { get; set; }
+    /// <summary>
+    /// Requests provider-managed background generation for long-running calls when supported.
+    /// Providers that do not support it may ignore this hint.
+    /// </summary>
+    public bool UseBackgroundMode { get; set; }
     public IReadOnlyList<LLMToolDef>? Tools { get; set; }
 }
 
