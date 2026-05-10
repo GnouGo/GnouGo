@@ -66,21 +66,36 @@
 
     <WriteLinesToFile File="$(OtlpProtoVersionFile)" Lines="$(OtlpProtoVersion)" Overwrite="true" Condition="'$(_ProtoUpToDate)' != 'true'" />
 
-    <!-- Register proto files for Grpc.Tools compilation (needed when files were just downloaded) -->
-    <ItemGroup Condition="'$(_ProtoUpToDate)' != 'true'">
-      <Protobuf Include="$(OtlpProtoDir)/opentelemetry/proto/**/*.proto" ProtoRoot="$(OtlpProtoDir)" GrpcServices="Server" />
-    </ItemGroup>
-
     <Message Importance="high" Text="OpenTelemetry Proto $(OtlpProtoVersion) ready." Condition="'$(_ProtoUpToDate)' != 'true'" />
+  </Target>
+
+  <Target Name="RemoveStaleMessageOnlyGrpcGeneratedFiles" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <_StaleMessageOnlyGrpcGeneratedFile Include="$(IntermediateOutputPath)opentelemetry/proto/common/v1/CommonGrpc.cs" />
+      <_StaleMessageOnlyGrpcGeneratedFile Include="$(IntermediateOutputPath)opentelemetry/proto/resource/v1/ResourceGrpc.cs" />
+      <_StaleMessageOnlyGrpcGeneratedFile Include="$(IntermediateOutputPath)opentelemetry/proto/trace/v1/TraceGrpc.cs" />
+      <_StaleMessageOnlyGrpcGeneratedFile Include="$(IntermediateOutputPath)opentelemetry/proto/logs/v1/LogsGrpc.cs" />
+      <_StaleMessageOnlyGrpcGeneratedFile Include="$(IntermediateOutputPath)opentelemetry/proto/metrics/v1/MetricsGrpc.cs" />
+    </ItemGroup>
+    <Delete Files="@(_StaleMessageOnlyGrpcGeneratedFile)" />
   </Target>
 
   <ItemGroup>
     <!--
       Official OpenTelemetry Proto files — auto-downloaded by EnsureOtlpProtos target.
       Change OtlpProtoVersion above to bump. Manual: Protos/download-protos.ps1 -Force
-      The glob below picks up pre-existing files; the target above handles first-time download.
+      Message-only protos must use GrpcServices="None". Only collector service
+      protos generate gRPC server stubs; otherwise stale *Grpc.cs files can
+      duplicate all message types during incremental builds.
     -->
-    <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/**/*.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="Server" />
+    <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/common/v1/common.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="None" />
+    <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/resource/v1/resource.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="None" />
+    <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/trace/v1/trace.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="None" />
+    <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/logs/v1/logs.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="None" />
+    <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/metrics/v1/metrics.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="None" />
+    <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/collector/trace/v1/trace_service.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="Server" />
+    <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/collector/logs/v1/logs_service.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="Server" />
+    <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/collector/metrics/v1/metrics_service.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="Server" />
     <PackageReference Include="Grpc.Tools" Version="2.80.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
