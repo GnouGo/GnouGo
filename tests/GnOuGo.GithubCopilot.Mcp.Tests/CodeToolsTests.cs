@@ -56,6 +56,38 @@ public sealed class CodeToolsTests : IDisposable
 	}
 
 	[Fact]
+	public async Task AgentEditAsync_ReadsContextAndDelegatesToAssistantInEditMode()
+	{
+		var settings = CreateSettings();
+		settings.AllowWrites = true;
+		var assistant = new CapturingAssistantClient();
+		var tools = new CodeTools(CreateService(settings), CreateGitService(settings), assistant, NullLogger<CodeTools>.Instance);
+
+		var result = await tools.AgentEditAsync(_root, "Implement the change.", "[\"src/Program.cs\"]", provider: "CustomCopilot");
+
+		var edit = Assert.IsType<CodeAgentEditResult>(result);
+		Assert.Equal("Implement the change.", edit.Task);
+		Assert.Equal("fake edit summary", edit.Summary);
+		Assert.Equal(_root, assistant.ProjectRoot);
+		Assert.Equal("CustomCopilot", assistant.ProviderName);
+		Assert.True(assistant.AgentEditCalled);
+		var file = Assert.Single(assistant.ContextFiles);
+		Assert.Equal("src\\Program.cs", file.Path.Replace('/', '\\'));
+	}
+
+	[Fact]
+	public void BuildClientOptions_ConfiguresSessionFsWhenEnabled()
+	{
+		var settings = CreateSettings();
+
+		var options = GitHubCopilotCodeClient.BuildClientOptions(settings, _root, "ghp_test-token", enableSessionFs: true);
+
+		Assert.NotNull(options.SessionFs);
+		Assert.Equal(_root, options.SessionFs.InitialCwd);
+		Assert.Equal(".gnougo/copilot-session-state", options.SessionFs.SessionStatePath);
+	}
+
+	[Fact]
 	public async Task SuggestChangeAsync_ResolvesRelativeProjectRootUnderDefaultWorkingDirectory()
 	{
 		var desktop = Path.Combine(_root, "Desktop");
@@ -286,6 +318,7 @@ public sealed class CodeToolsTests : IDisposable
 	{
 		public string? ProjectRoot { get; private set; }
 		public string? ProviderName { get; private set; }
+		public bool AgentEditCalled { get; private set; }
 		public IReadOnlyList<CodeFileContent> ContextFiles { get; private set; } = [];
 
 		public Task<CodeSuggestionResult> SuggestChangeAsync(
@@ -299,6 +332,20 @@ public sealed class CodeToolsTests : IDisposable
 			ProviderName = providerName;
 			ContextFiles = contextFiles;
 			return Task.FromResult(new CodeSuggestionResult(task, contextFiles.Select(static file => file.Path).ToArray(), "fake suggestion", "fake-model", null));
+		}
+
+		public Task<CodeAgentEditResult> AgentEditAsync(
+			string task,
+			string projectRoot,
+			IReadOnlyList<CodeFileContent> contextFiles,
+			string? providerName,
+			CancellationToken cancellationToken)
+		{
+			AgentEditCalled = true;
+			ProjectRoot = projectRoot;
+			ProviderName = providerName;
+			ContextFiles = contextFiles;
+			return Task.FromResult(new CodeAgentEditResult(task, contextFiles.Select(static file => file.Path).ToArray(), ["src/Program.cs"], "fake edit summary", "fake-model", null));
 		}
 	}
 }

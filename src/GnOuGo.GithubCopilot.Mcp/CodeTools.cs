@@ -59,6 +59,22 @@ public sealed class CodeTools
             return await _assistantClient.SuggestChangeAsync(task, resolvedRoot, files, provider, cancellationToken);
         });
 
+    [McpServerTool(Name = "code_agent_edit"), Description("Runs GitHub Copilot SDK in agent mode with controlled file editing through the MCP policy. Requires Code:AllowWrites=true.")]
+    public async Task<object> AgentEditAsync(
+        [Description("Project root path or null for default.")] string? projectRoot,
+        [Description("Coding task to implement by editing files.")] string task,
+        [Description("Optional JSON array of relative file paths to include as initial context, for example [\"src/App.cs\"].")] string? contextFilesJson = null,
+        [Description("Optional KeyVault LLM provider name. When provided, the matching Agent Server LLM provider secret configures a custom Copilot provider for this call.")] string? provider = null,
+        CancellationToken cancellationToken = default)
+        => await ExecuteAsync(async () =>
+        {
+            var root = projectRoot ?? string.Empty;
+            var contextFiles = ParseContextFiles(contextFilesJson);
+            var files = _projectService.ReadContextFiles(root, contextFiles);
+            var resolvedRoot = _projectService.GetSummary(root).RootPath;
+            return await _assistantClient.AgentEditAsync(task, resolvedRoot, files, provider, cancellationToken);
+        });
+
     [McpServerTool(Name = "code_write_file"), Description("Writes one allowlisted text/code file inside the project root. Disabled unless Code:AllowWrites=true in configuration.")]
     public object WriteFile(
         [Description("Project root path or null for default.")] string? projectRoot,

@@ -55,6 +55,14 @@ public sealed record CodeSuggestionResult(
     string? Model,
     string? UsageJson);
 
+public sealed record CodeAgentEditResult(
+    string Task,
+    IReadOnlyList<string> ContextFiles,
+    IReadOnlyList<string> ModifiedFiles,
+    string Summary,
+    string? Model,
+    string? UsageJson);
+
 public sealed record CodeWriteResult(string Path, string FullPath, long BytesWritten, bool CreatedDirectory);
 
 public sealed record CodeErrorResult(string Code, string Message);

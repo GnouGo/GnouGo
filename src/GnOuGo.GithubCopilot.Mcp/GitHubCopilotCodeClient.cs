@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using GitHub.Copilot.SDK;
+using GitHub.Copilot.SDK.Rpc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -99,19 +100,99 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             UsageJson: data is null ? null : BuildUsageJson(data));
     }
 
-    internal CopilotClient CreateClient(string projectRoot, string? token)
-        => new(BuildClientOptions(_settings, projectRoot, token, _logger));
+    public async Task<CodeAgentEditResult> AgentEditAsync(
+        string task,
+        string projectRoot,
+        IReadOnlyList<CodeFileContent> contextFiles,
+        string? providerName,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(task))
+            throw new InvalidOperationException("task must not be empty.");
+        if (!_settings.AllowWrites)
+            throw new InvalidOperationException("Copilot agent file edits are disabled by policy. Set Code:AllowWrites=true to enable code_agent_edit.");
+        _policy.EnsurePromptWithinLimit(task, nameof(task));
+
+        var prompt = BuildAgentEditPrompt(task, projectRoot, contextFiles);
+        var token = _policy.ResolveConfiguredToken();
+        if (!_settings.Copilot.UseLoggedInUser && string.IsNullOrWhiteSpace(token))
+        {
+            throw new InvalidOperationException(
+                "A GitHub token is required unless Code:Copilot:UseLoggedInUser=true. " +
+                "For Copilot SDK authentication, use a locally signed-in GitHub account or configure Code:Copilot:ApiKey / token environment variables.");
+        }
+
+        using var activity = StartCopilotActivity(_settings, _traceContextAccessor, "AgentEdit");
+        var providerOverride = await _providerConfigResolver.ResolveAsync(
+            providerName,
+            _settings.Copilot.Model,
+            token,
+            cancellationToken);
+        var model = providerOverride?.Model ?? _settings.Copilot.Model;
+        LocalProjectSessionFsProvider? sessionFsProvider = null;
+
+        await using var client = CreateClient(projectRoot, token, enableSessionFs: true);
+        await client.StartAsync(cancellationToken);
+
+        await using var session = await client.CreateSessionAsync(new SessionConfig
+        {
+            ClientName = "GnOuGo.GithubCopilot.Mcp",
+            Model = model,
+            ReasoningEffort = NormalizeNullable(_settings.Copilot.ReasoningEffort),
+            Provider = providerOverride?.Provider,
+            WorkingDirectory = projectRoot,
+            Streaming = false,
+            OnPermissionRequest = PermissionHandler.ApproveAll,
+            CreateSessionFsHandler = _ =>
+            {
+                sessionFsProvider = new LocalProjectSessionFsProvider(_policy, _settings, projectRoot, _logger);
+                return sessionFsProvider;
+            }
+        }, cancellationToken);
+
+        var timeout = TimeSpan.FromSeconds(Math.Max(1, _settings.Copilot.RequestTimeoutSeconds));
+        var response = await session.SendAndWaitAsync(new MessageOptions
+        {
+            Prompt = prompt,
+            Mode = "agent",
+            RequestHeaders = BuildRequestHeaders(_settings, _traceContextAccessor)
+        }, timeout, cancellationToken);
+
+        var data = response?.Data;
+        var summary = data?.Content;
+        if (string.IsNullOrWhiteSpace(summary))
+            summary = "GitHub Copilot agent completed without a textual summary.";
+
+        var modifiedFiles = sessionFsProvider?.ModifiedFiles ?? [];
+        _logger.LogInformation(
+            "GitHub Copilot SDK agent edit completed using provider {Provider}, model {Model}, modifiedFiles={ModifiedFileCount}.",
+            providerOverride?.ProviderName ?? _settings.Copilot.Provider,
+            model,
+            modifiedFiles.Count);
+
+        return new CodeAgentEditResult(
+            Task: task,
+            ContextFiles: contextFiles.Select(static file => file.Path).ToArray(),
+            ModifiedFiles: modifiedFiles,
+            Summary: summary,
+            Model: model,
+            UsageJson: data is null ? null : BuildUsageJson(data));
+    }
+
+    internal CopilotClient CreateClient(string projectRoot, string? token, bool enableSessionFs = false)
+        => new(BuildClientOptions(_settings, projectRoot, token, _logger, enableSessionFs));
 
     internal static CopilotClientOptions BuildClientOptions(
         CodeServerSettings settings,
         string projectRoot,
         string? token,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        bool enableSessionFs = false)
     {
         if (!settings.Copilot.UseLoggedInUser && string.IsNullOrWhiteSpace(token))
             throw new ArgumentException("A GitHub token is required when Code:Copilot:UseLoggedInUser=false.", nameof(token));
 
-        return new CopilotClientOptions
+        var options = new CopilotClientOptions
         {
             Cwd = projectRoot,
             GitHubToken = string.IsNullOrWhiteSpace(token) ? null : token,
@@ -121,6 +202,20 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             Telemetry = BuildTelemetryConfig(settings.Copilot.Telemetry),
             Logger = logger
         };
+
+        if (enableSessionFs)
+        {
+            options.SessionFs = new SessionFsConfig
+            {
+                InitialCwd = projectRoot,
+                SessionStatePath = ".gnougo/copilot-session-state",
+                Conventions = OperatingSystem.IsWindows()
+                    ? SessionFsSetProviderConventions.Windows
+                    : SessionFsSetProviderConventions.Posix
+            };
+        }
+
+        return options;
     }
 
     public static string NormalizeMessageMode(string? mode)
@@ -200,7 +295,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         };
     }
 
-    private static IDisposable? StartCopilotActivity(CodeServerSettings settings, CodeMcpTraceContextAccessor accessor)
+    private static IDisposable? StartCopilotActivity(CodeServerSettings settings, CodeMcpTraceContextAccessor accessor, string operation = "SuggestChange")
     {
         if (!settings.Copilot.ForwardTraceContext || Activity.Current is not null)
             return null;
@@ -209,7 +304,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         if (string.IsNullOrWhiteSpace(context?.TraceParent))
             return null;
 
-        var activity = new Activity("GnOuGo.GithubCopilot.Mcp.Copilot.SuggestChange");
+        var activity = new Activity($"GnOuGo.GithubCopilot.Mcp.Copilot.{operation}");
         activity.SetParentId(context.TraceParent);
         if (!string.IsNullOrWhiteSpace(context.TraceState))
             activity.TraceStateString = context.TraceState;
@@ -315,6 +410,39 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
                 sb.AppendLine();
             }
         }
+        return sb.ToString();
+    }
+
+    private static string BuildAgentEditPrompt(string task, string projectRoot, IReadOnlyList<CodeFileContent> contextFiles)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("You are a coding agent operating on a local project through a controlled session filesystem.");
+        sb.AppendLine("Implement the requested change by editing files directly when necessary.");
+        sb.AppendLine("Only create, update, rename, or delete files required by the task.");
+        sb.AppendLine("Respect the project structure and avoid unrelated formatting changes.");
+        sb.AppendLine("When finished, return a concise summary and list the files changed.");
+        sb.AppendLine();
+        sb.AppendLine("[PROJECT ROOT]");
+        sb.AppendLine(projectRoot);
+        sb.AppendLine();
+        sb.AppendLine("[TASK]");
+        sb.AppendLine(task);
+        sb.AppendLine();
+        sb.AppendLine("[INITIAL CONTEXT FILES]");
+        if (contextFiles.Count == 0)
+        {
+            sb.AppendLine("No file context was provided. Inspect the project as needed before editing.");
+        }
+        else
+        {
+            foreach (var file in contextFiles)
+            {
+                sb.AppendLine($"--- {file.Path} ({file.LengthBytes} bytes) ---");
+                sb.AppendLine(file.Content);
+                sb.AppendLine();
+            }
+        }
+
         return sb.ToString();
     }
 }

@@ -9,6 +9,7 @@ MCP stdio server for safe code operations on a local project.
 - Read allowlisted text/code files with `code_read_file`.
 - Search text with `code_search_text`.
 - Ask GitHub Copilot for implementation guidance with `code_suggest_change` through `GitHub.Copilot.SDK`.
+- Run GitHub Copilot in SDK agent mode with controlled local file edits via `code_agent_edit`.
 - Optionally write files with `code_write_file` when `Code:AllowWrites=true`.
 
 ## Authentication
@@ -38,6 +39,18 @@ Supported KeyVault secret names follow the Agent Server conventions:
 
 The secret value must be a JSON object containing at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`.
 If the requested provider does not exist, the tool returns a standard MCP tool error.
+
+## Agent edit mode
+
+`code_agent_edit` runs the GitHub Copilot SDK with `Mode=agent` and a local `SessionFsProvider` implementation.
+This lets Copilot edit files directly through the MCP process while still enforcing the same project policy as manual file writes:
+
+- `Code:AllowWrites` must be `true`.
+- Paths must stay inside the resolved project root / allowed roots.
+- File extensions must be allowlisted by `Code:AllowedExtensions`.
+- Parent traversal and wildcard paths are rejected.
+
+The older `code_suggest_change` tool remains suggestion-only and does not write files.
 
 PowerShell example:
 
