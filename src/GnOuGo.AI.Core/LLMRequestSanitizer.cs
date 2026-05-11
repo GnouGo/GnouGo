@@ -17,6 +17,7 @@ public static class LLMRequestSanitizer
             StructuredOutputSchema = request.StructuredOutputSchema,
             StructuredOutputStrict = request.StructuredOutputStrict,
             Reasoning = request.Reasoning,
+            UseBackgroundMode = request.UseBackgroundMode,
             Tools = request.Tools
         };
 

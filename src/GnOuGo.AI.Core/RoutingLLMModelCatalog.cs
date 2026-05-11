@@ -1,4 +1,6 @@
-﻿namespace GnOuGo.AI.Core;
+﻿using Microsoft.Extensions.Logging;
+
+namespace GnOuGo.AI.Core;
 
 /// <summary>
 /// Routes model-list requests to the appropriate provider-specific catalog implementation.
@@ -18,8 +20,8 @@ public sealed class RoutingLLMModelCatalog : ILLMModelCatalog
             _providers[provider.ProviderType] = provider;
     }
 
-    public RoutingLLMModelCatalog(HttpClient http, LLMOptions options)
-        : this(options, CreateDefaultProviders(http))
+    public RoutingLLMModelCatalog(HttpClient http, LLMOptions options, ILoggerFactory? loggerFactory = null)
+        : this(options, CreateDefaultProviders(http, loggerFactory))
     {
     }
 
@@ -88,11 +90,11 @@ public sealed class RoutingLLMModelCatalog : ILLMModelCatalog
 
     public IReadOnlyCollection<string> RegisteredProviderTypes => _providers.Keys;
 
-    public static ILLMModelCatalogProvider[] CreateDefaultProviders(HttpClient http) =>
+    public static ILLMModelCatalogProvider[] CreateDefaultProviders(HttpClient http, ILoggerFactory? loggerFactory = null) =>
     [
-        new OpenAiLLMProvider(http),
-        new OllamaLLMProvider(http),
-        new CopilotLLMProvider(http)
+        new OpenAiLLMProvider(http, loggerFactory?.CreateLogger<OpenAiLLMProvider>()),
+        new OllamaLLMProvider(http, loggerFactory?.CreateLogger<OllamaLLMProvider>()),
+        new CopilotLLMProvider(http, loggerFactory?.CreateLogger<CopilotLLMProvider>())
     ];
 }
 

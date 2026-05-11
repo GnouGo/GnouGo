@@ -41,6 +41,12 @@ public sealed class LLMRequest
     public string? Reasoning { get; set; }
 
     /// <summary>
+    /// Requests provider-managed background generation for long-running calls when supported.
+    /// Providers that do not support a background protocol may ignore this hint.
+    /// </summary>
+    public bool UseBackgroundMode { get; set; }
+
+    /// <summary>
     /// Optional list of tool definitions to make available to the LLM.
     /// Each tool is a JsonObject with at least { name, description, inputSchema }.
     /// Populated automatically by mcp.call when the LLM needs to select and invoke tools.

@@ -1,5 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GnOuGo.AI.Core;
 
@@ -9,10 +11,13 @@ namespace GnOuGo.AI.Core;
 public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 {
     private readonly HttpClient _http;
+    private readonly ILogger<OllamaLLMProvider> _logger;
 
-    public OllamaLLMProvider(HttpClient http)
+    public OllamaLLMProvider(HttpClient http, ILogger<OllamaLLMProvider>? logger = null)
     {
         _http = http;
+        _logger = logger ?? NullLogger<OllamaLLMProvider>.Instance;
+        LLMHttpClientDefaults.EnsureMinimumTimeout(_http);
     }
 
     /// <inheritdoc />
@@ -57,7 +62,10 @@ public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         if (jsonMode && !string.IsNullOrWhiteSpace(content))
         {
             try { jsonOutput = JsonNode.Parse(content); }
-            catch { /* not valid JSON */ }
+            catch (JsonException ex)
+            {
+                _logger.LogDebug(ex, "Ollama structured output was not valid JSON for model '{Model}'.", model);
+            }
         }
 
         return new LLMClientResponse

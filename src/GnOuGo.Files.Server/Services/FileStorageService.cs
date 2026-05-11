@@ -77,7 +77,7 @@ public sealed class FileStorageService
         }
         catch
         {
-            TryDeleteFile(storedPath);
+            TryDeleteFile(storedPath, _logger);
             throw;
         }
     }
@@ -126,7 +126,7 @@ public sealed class FileStorageService
         var deleted = 0;
         foreach (var file in expired.Where(file => file.ExpiresUtc <= now).OrderBy(file => file.ExpiresUtc))
         {
-            TryDeleteFile(file.StoredPath);
+            TryDeleteFile(file.StoredPath, _logger);
             await _metadata.DeleteAsync(file.Id, cancellationToken);
             deleted++;
         }
@@ -224,15 +224,16 @@ public sealed class FileStorageService
         return $"{request.Scheme}://{request.Host}/api/files/{Uri.EscapeDataString(id)}";
     }
 
-    private static void TryDeleteFile(string path)
+    private static void TryDeleteFile(string path, ILogger logger)
     {
         try
         {
             if (File.Exists(path))
                 File.Delete(path);
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogDebug(ex, "Best-effort cleanup failed for stored file '{Path}'.", path);
             // Best-effort cleanup: another process can still hold the file handle.
         }
     }

@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using Microsoft.Extensions.Caching.Memory;
@@ -327,11 +328,14 @@ public sealed class ConfigureAgentsService
             if (string.IsNullOrWhiteSpace(secretValue))
                 continue;
 
+            var normalizedSecretKey = secretKey;
             JsonObject? config = null;
             try { config = JsonNode.Parse(secretValue) as JsonObject; }
-            catch { }
+            catch (JsonException ex)
+            {
+                _logger.LogDebug(ex, "Stored LLM provider secret '{SecretKey}' is not valid JSON; falling back to key-based provider resolution.", normalizedSecretKey);
+            }
 
-            var normalizedSecretKey = secretKey;
             var provider = config?["provider"]?.GetValue<string>()
                 ?? KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.LlmProvider, normalizedSecretKey)
                 ?? string.Empty;

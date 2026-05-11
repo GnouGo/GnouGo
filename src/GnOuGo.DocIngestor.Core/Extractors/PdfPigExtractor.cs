@@ -7,11 +7,20 @@ using DocIngestor.Core.Formatting;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DocIngestor.Core.Extractors;
 
 public sealed class PdfPigExtractor : IDocumentTextExtractor
 {
+    private readonly ILogger<PdfPigExtractor> _logger;
+
+    public PdfPigExtractor(ILogger<PdfPigExtractor>? logger = null)
+    {
+        _logger = logger ?? NullLogger<PdfPigExtractor>.Instance;
+    }
+
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/pdf", StringComparison.OrdinalIgnoreCase);
@@ -36,7 +45,10 @@ public sealed class PdfPigExtractor : IDocumentTextExtractor
                 if (!string.IsNullOrWhiteSpace(info?.Creator)) meta["creator"] = info!.Creator!;
                 if (!string.IsNullOrWhiteSpace(info?.Producer)) meta["producer"] = info!.Producer!;
             }
-            catch { /* ignore */ }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to read PDF metadata for '{FileName}'.", source.FileName);
+            }
 
             var sections = new List<ExtractedSection>(pdf.NumberOfPages);
 

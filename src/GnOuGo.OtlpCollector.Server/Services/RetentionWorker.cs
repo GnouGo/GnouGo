@@ -50,7 +50,10 @@ public sealed class RetentionWorker : BackgroundService
                     _logger.LogInformation("Retention sweep deleted {Deleted} rows total", totalDeleted);
                 }
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException ex)
+            {
+                _logger.LogDebug(ex, "Retention sweep was cancelled.");
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Retention sweep failed");

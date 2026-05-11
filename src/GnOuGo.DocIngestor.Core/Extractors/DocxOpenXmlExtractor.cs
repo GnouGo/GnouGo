@@ -5,11 +5,20 @@ using DocIngestor.Core.Models;
 using DocIngestor.Core.Formatting;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DocIngestor.Core.Extractors;
 
 public sealed class DocxOpenXmlExtractor : IDocumentTextExtractor
 {
+    private readonly ILogger<DocxOpenXmlExtractor> _logger;
+
+    public DocxOpenXmlExtractor(ILogger<DocxOpenXmlExtractor>? logger = null)
+    {
+        _logger = logger ?? NullLogger<DocxOpenXmlExtractor>.Instance;
+    }
+
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".docx", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", StringComparison.OrdinalIgnoreCase);
@@ -33,7 +42,10 @@ public sealed class DocxOpenXmlExtractor : IDocumentTextExtractor
                 if (p.Created is not null) meta["docCreatedUtc"] = (p.Created.Value.Kind == DateTimeKind.Utc ? p.Created.Value : p.Created.Value.ToUniversalTime()).ToString("O");
                 if (p.Modified is not null) meta["docModifiedUtc"] = (p.Modified.Value.Kind == DateTimeKind.Utc ? p.Modified.Value : p.Modified.Value.ToUniversalTime()).ToString("O");
             }
-            catch { /* ignore */ }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to read DOCX package properties for '{FileName}'.", source.FileName);
+            }
 
             var body = doc.MainDocumentPart?.Document?.Body;
             var sbPlain = new StringBuilder();

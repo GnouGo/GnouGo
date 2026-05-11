@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net;
 using System.Text.Json;
@@ -101,6 +102,8 @@ public static class GnOuGoAgentWebHost
             writer.Write(line);
         }
 
+        var buildLogger = new DelegateLogger("GnOuGo.Agent.Server.Hosting", Log);
+
         if (string.IsNullOrWhiteSpace(contentRoot))
         {
             builder = WebApplication.CreateBuilder(args);
@@ -162,8 +165,9 @@ public static class GnOuGoAgentWebHost
             {
                 builder.WebHost.UseStaticWebAssets();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                buildLogger.LogDebug(ex, "Static web assets could not be enabled; falling back to copied wwwroot assets.");
                 // Manifest not found or references non-existent paths — expected in published Desktop builds.
                 // UseStaticFiles() + the copied wwwroot/ folder is sufficient.
             }
@@ -348,10 +352,11 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<ILLMClient>(sp =>
         {
             var store = sp.GetRequiredService<LLMRuntimeOptionsStore>();
-            var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+            var http = new HttpClient { Timeout = LLMHttpClientDefaults.MinimumTimeout };
             // DynamicRoutingLLMClientAdapter reads the LATEST options from the store on every call,
             // so a /llm wizard update takes effect for the very next message.
-            return new DynamicRoutingLLMClientAdapter(http, store);
+            return new DynamicRoutingLLMClientAdapter(http, store, loggerFactory);
         });
         builder.Services.AddSingleton<ILLMModelCatalog>(sp =>
         {
@@ -359,8 +364,9 @@ public static class GnOuGoAgentWebHost
             var cache = sp.GetRequiredService<IMemoryCache>();
             var settings = sp.GetRequiredService<IOptions<ModelCatalogCacheSettings>>().Value;
             var logger = sp.GetRequiredService<ILogger<CachedLlmModelCatalog>>();
+            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
             var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
-            var innerCatalog = new DynamicRoutingLLMModelCatalogAdapter(http, store);
+            var innerCatalog = new DynamicRoutingLLMModelCatalogAdapter(http, store, loggerFactory);
             return new CachedLlmModelCatalog(innerCatalog, store, cache, settings, logger);
         });
         builder.Services.AddSingleton<IMcpClientFactory>(sp =>
@@ -1192,14 +1198,18 @@ public static class GnOuGoAgentWebHost
 
         public async Task StopAsync(CancellationToken cancellationToken)
         {
+            var logger = _services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("GnOuGo.Agent.Server.MountedMcpHostsHolder");
+
             if (_startupCancellation is not null)
             {
                 try
                 {
                     await _startupCancellation.CancelAsync();
                 }
-                catch
+                catch (Exception ex)
                 {
+                    logger.LogDebug(ex, "Failed to cancel mounted MCP host startup.");
                     // ignore
                 }
             }
@@ -1210,8 +1220,9 @@ public static class GnOuGoAgentWebHost
                 {
                     await _startupTask;
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException ex)
                 {
+                    logger.LogDebug(ex, "Mounted MCP host startup task was cancelled during shutdown.");
                     // ignore
                 }
             }
@@ -1410,5 +1421,26 @@ public static class GnOuGoAgentWebHost
         }
 
         return null;
+    }
+
+    private sealed class DelegateLogger(string categoryName, Action<string> write) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => logLevel != LogLevel.None;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            ArgumentNullException.ThrowIfNull(formatter);
+            var message = formatter(state, exception);
+            if (exception is not null)
+                message = string.IsNullOrWhiteSpace(message) ? exception.ToString() : $"{message} {exception}";
+            write($"[{logLevel}] {categoryName}: {message}");
+        }
     }
 }

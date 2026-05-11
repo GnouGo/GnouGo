@@ -122,7 +122,7 @@ else
 builder.Services.AddSingleton<ILLMClient>(_ =>
 {
     var llmOptions = builder.Configuration.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
-    var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+    var http = new HttpClient { Timeout = LLMHttpClientDefaults.MinimumTimeout };
     var routingClient = new RoutingLLMClient(http, llmOptions);
     return new RoutingLLMClientAdapter(routingClient);
 });

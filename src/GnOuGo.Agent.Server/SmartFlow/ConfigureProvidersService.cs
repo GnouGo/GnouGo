@@ -1803,7 +1803,7 @@ public sealed class ConfigureProvidersService
     private static string? ReadChoiceResponse(JsonNode? response)
         => response?["response"]?.GetValue<string>();
 
-    private static Dictionary<string, string> ReadFieldResponse(JsonNode? response, IReadOnlyList<HumanInputFieldDef> fields)
+    private Dictionary<string, string> ReadFieldResponse(JsonNode? response, IReadOnlyList<HumanInputFieldDef> fields)
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var obj = response as JsonObject;
@@ -1812,7 +1812,7 @@ public sealed class ConfigureProvidersService
         return result;
     }
 
-    private static string? ReadFieldValue(JsonNode? node)
+    private string? ReadFieldValue(JsonNode? node)
     {
         if (node is null)
             return null;
@@ -1835,8 +1835,9 @@ public sealed class ConfigureProvidersService
                     return boolValue.ToString().ToLowerInvariant();
             }
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex)
         {
+            _logger.LogDebug(ex, "Unable to read human-input field value as a primitive JSON value; falling back to raw JSON.");
         }
 
         return node.ToJsonString();

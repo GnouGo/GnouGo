@@ -14,6 +14,17 @@ public static class OpenAiEndpoints
             : b + "/v1/chat/completions";
     }
 
+    /// <summary>Builds the Responses API URL (appends /v1/responses if needed).</summary>
+    public static string Responses(string endpointUrl)
+    {
+        var b = endpointUrl.TrimEnd('/');
+        if (b.EndsWith("/responses", StringComparison.OrdinalIgnoreCase))
+            return b;
+        return b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
+            ? b + "/responses"
+            : b + "/v1/responses";
+    }
+
     /// <summary>Builds the embeddings URL (appends /v1/embeddings if needed).</summary>
     public static string Embeddings(string endpointUrl)
     {

@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GnOuGo.AI.Core;
 
@@ -31,9 +33,10 @@ public sealed class RoutingLLMClient
     /// Convenience constructor that creates default providers (OpenAI, Ollama, Copilot)
     /// using the supplied HttpClient. Backward-compatible with existing call sites.
     /// </summary>
-    public RoutingLLMClient(HttpClient http, LLMOptions options)
-        : this(options, CreateDefaultProviders(http))
+    public RoutingLLMClient(HttpClient http, LLMOptions options, ILoggerFactory? loggerFactory = null)
+        : this(options, CreateDefaultProviders(http, loggerFactory))
     {
+        LLMHttpClientDefaults.EnsureMinimumTimeout(http);
     }
 
     /// <summary>
@@ -127,12 +130,37 @@ public sealed class RoutingLLMClient
     /// <summary>
     /// Creates the default set of providers (OpenAI, Ollama, Copilot) using a shared HttpClient.
     /// </summary>
-    public static ILLMProvider[] CreateDefaultProviders(HttpClient http) =>
+    public static ILLMProvider[] CreateDefaultProviders(HttpClient http, ILoggerFactory? loggerFactory = null) =>
     [
-        new OpenAiLLMProvider(http),
-        new OllamaLLMProvider(http),
-        new CopilotLLMProvider(http)
+        new OpenAiLLMProvider(http, loggerFactory?.CreateLogger<OpenAiLLMProvider>()),
+        new OllamaLLMProvider(http, loggerFactory?.CreateLogger<OllamaLLMProvider>()),
+        new CopilotLLMProvider(http, loggerFactory?.CreateLogger<CopilotLLMProvider>())
     ];
+}
+
+/// <summary>
+/// Shared HTTP defaults for outbound LLM calls.
+/// </summary>
+public static class LLMHttpClientDefaults
+{
+    public static readonly TimeSpan MinimumTimeout = TimeSpan.FromMinutes(10);
+    private static readonly ILogger Logger = NullLogger.Instance;
+
+    public static void EnsureMinimumTimeout(HttpClient http)
+    {
+        if (http.Timeout == Timeout.InfiniteTimeSpan || http.Timeout >= MinimumTimeout)
+            return;
+
+        try
+        {
+            http.Timeout = MinimumTimeout;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Logger.LogDebug(ex, "HttpClient timeout could not be adjusted because requests have already started.");
+            // The HttpClient has already started requests; keep the existing timeout.
+        }
+    }
 }
 
 /// <summary>
@@ -151,6 +179,11 @@ public sealed class LLMClientRequest
     /// Accepted: "minimal"|"low"|"medium"|"high"|"max"|"auto"|null.
     /// </summary>
     public string? Reasoning { get; set; }
+    /// <summary>
+    /// Requests provider-managed background generation for long-running calls when supported.
+    /// Providers that do not support it may ignore this hint.
+    /// </summary>
+    public bool UseBackgroundMode { get; set; }
     public IReadOnlyList<LLMToolDef>? Tools { get; set; }
 }
 

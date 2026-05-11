@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OtlpTenantCollector.Models;
 using OtlpTenantCollector.Services;
@@ -23,9 +24,11 @@ public static class TenantApi
             TelemetryEventBus eventBus,
             IServiceScopeFactory scopeFactory,
             IOptions<DevModeOptions> devOpts,
+            ILoggerFactory loggerFactory,
             HttpContext httpContext,
             CancellationToken ct) =>
         {
+            var logger = loggerFactory.CreateLogger(typeof(TenantApi).FullName ?? nameof(TenantApi));
             if (tenantId is null && !devOpts.Value.Enabled)
             {
                 await OtlpApiResponses.WriteJsonResponseAsync(
@@ -75,8 +78,9 @@ public static class TenantApi
                         ct);
                 }
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
+                logger.LogDebug(ex, "Tenant trace SSE stream was cancelled, likely because the client disconnected.");
                 // Client disconnected — normal
             }
             finally
@@ -212,9 +216,11 @@ public static class TenantApi
             TelemetryEventBus eventBus,
             IServiceScopeFactory scopeFactory,
             IOptions<DevModeOptions> devOpts,
+            ILoggerFactory loggerFactory,
             HttpContext httpContext,
             CancellationToken ct) =>
         {
+            var logger = loggerFactory.CreateLogger(typeof(TenantApi).FullName ?? nameof(TenantApi));
             if (tenantId is null && !devOpts.Value.Enabled)
             {
                 await OtlpApiResponses.WriteJsonResponseAsync(
@@ -265,7 +271,10 @@ public static class TenantApi
                         ct);
                 }
             }
-            catch (OperationCanceledException) { /* Client disconnected */ }
+            catch (OperationCanceledException ex)
+            {
+                logger.LogDebug(ex, "Tenant log SSE stream was cancelled, likely because the client disconnected.");
+            }
             finally
             {
                 eventBus.Unsubscribe(channel);

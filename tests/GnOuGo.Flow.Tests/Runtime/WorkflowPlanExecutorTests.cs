@@ -209,6 +209,8 @@ workflows:
         Assert.NotNull(capturedRequest);
         Assert.Equal("openai", capturedRequest!.Provider);
         Assert.Equal("gpt-4o-mini", capturedRequest.Model);
+        Assert.Equal("medium", capturedRequest.Reasoning);
+        Assert.True(capturedRequest.UseBackgroundMode);
     }
 
     [Fact]

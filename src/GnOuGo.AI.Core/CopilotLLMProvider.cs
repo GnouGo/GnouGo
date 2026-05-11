@@ -1,5 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GnOuGo.AI.Core;
 
@@ -22,10 +24,13 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     public const string DefaultEndpoint = "https://models.github.ai/inference";
 
     private readonly HttpClient _http;
+    private readonly ILogger<CopilotLLMProvider> _logger;
 
-    public CopilotLLMProvider(HttpClient http)
+    public CopilotLLMProvider(HttpClient http, ILogger<CopilotLLMProvider>? logger = null)
     {
         _http = http;
+        _logger = logger ?? NullLogger<CopilotLLMProvider>.Instance;
+        LLMHttpClientDefaults.EnsureMinimumTimeout(_http);
     }
 
     /// <inheritdoc />
@@ -83,7 +88,10 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         if (request.StructuredOutputSchema != null && !string.IsNullOrWhiteSpace(content))
         {
             try { jsonOutput = JsonNode.Parse(content); }
-            catch { /* not valid JSON, leave null */ }
+            catch (JsonException ex)
+            {
+                _logger.LogDebug(ex, "Copilot structured output was not valid JSON for model '{Model}'.", resolvedModel);
+            }
         }
 
         return new LLMClientResponse

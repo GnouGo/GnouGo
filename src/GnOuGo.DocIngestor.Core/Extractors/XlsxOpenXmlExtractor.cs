@@ -5,11 +5,20 @@ using DocIngestor.Core.Models;
 using DocIngestor.Core.Formatting;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DocIngestor.Core.Extractors;
 
 public sealed class XlsxOpenXmlExtractor : IDocumentTextExtractor
 {
+    private readonly ILogger<XlsxOpenXmlExtractor> _logger;
+
+    public XlsxOpenXmlExtractor(ILogger<XlsxOpenXmlExtractor>? logger = null)
+    {
+        _logger = logger ?? NullLogger<XlsxOpenXmlExtractor>.Instance;
+    }
+
     public bool CanHandle(string fileName, string? contentType = null)
         => fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
            || string.Equals(contentType, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", StringComparison.OrdinalIgnoreCase);
@@ -30,7 +39,10 @@ public sealed class XlsxOpenXmlExtractor : IDocumentTextExtractor
                 if (!string.IsNullOrWhiteSpace(p.Title)) meta["title"] = p.Title!;
                 if (!string.IsNullOrWhiteSpace(p.Creator)) meta["author"] = p.Creator!;
             }
-            catch { /* ignore */ }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to read XLSX package properties for '{FileName}'.", source.FileName);
+            }
 
             var wbPart = xlsx.WorkbookPart;
             var sst = wbPart?.SharedStringTablePart?.SharedStringTable;

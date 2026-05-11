@@ -3,10 +3,15 @@ using GnOuGo.AI.Core;
 using OpenTelemetry.Proto.Common.V1;
 using OtlpTenantCollector.Models;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace OtlpTenantCollector.Services;
 
 public static class OtlpJson
 {
+    private static readonly ILogger Logger = NullLogger.Instance;
+
     public static string ToJsonResource(OpenTelemetry.Proto.Resource.V1.Resource? res)
     {
         if (res is null) return "{}";
@@ -144,7 +149,11 @@ public static class OtlpJson
         // Ne pas écraser un coût déjà présent et > 0
         if (attributes.TryGetValue("gen_ai.usage.cost", out var existing) && existing != null)
         {
-            try { if (Convert.ToDouble(existing) > 0) return; } catch { /* parse error → recompute */ }
+            try { if (Convert.ToDouble(existing) > 0) return; }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Existing GenAI usage cost attribute could not be parsed; recomputing it.");
+            }
         }
 
         // Résoudre le nom du modèle

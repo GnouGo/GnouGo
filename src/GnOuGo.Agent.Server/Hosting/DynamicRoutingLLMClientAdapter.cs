@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Runtime;
+using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Agent.Server.Hosting;
 
@@ -14,18 +15,20 @@ internal sealed class DynamicRoutingLLMClientAdapter : ILLMClient
 {
     private readonly HttpClient _http;
     private readonly LLMRuntimeOptionsStore _store;
+    private readonly ILoggerFactory _loggerFactory;
 
-    public DynamicRoutingLLMClientAdapter(HttpClient http, LLMRuntimeOptionsStore store)
+    public DynamicRoutingLLMClientAdapter(HttpClient http, LLMRuntimeOptionsStore store, ILoggerFactory loggerFactory)
     {
         _http = http;
         _store = store;
+        _loggerFactory = loggerFactory;
     }
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
         // Always read the LATEST options — picks up any /llm wizard changes.
         var options = _store.Current;
-        var routingClient = new RoutingLLMClient(_http, options);
+        var routingClient = new RoutingLLMClient(_http, options, _loggerFactory);
 
         var aiRequest = new LLMClientRequest
         {
@@ -36,6 +39,7 @@ internal sealed class DynamicRoutingLLMClientAdapter : ILLMClient
             StructuredOutputSchema = request.StructuredOutputSchema,
             StructuredOutputStrict = request.StructuredOutputStrict,
             Reasoning = request.Reasoning,
+            UseBackgroundMode = request.UseBackgroundMode,
         };
 
         if (request.Tools is { Count: > 0 })
