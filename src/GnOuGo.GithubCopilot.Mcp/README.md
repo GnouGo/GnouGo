@@ -29,6 +29,16 @@ Relevant Copilot settings:
 - `Code:Copilot:UseLoggedInUser`: whether the SDK may use an already logged-in user when no explicit token is provided, default `false` in code defaults and `true` in the local appsettings template.
 - `Code:Copilot:RequestTimeoutSeconds`: wait timeout for a Copilot response, default `120`.
 
+`code_suggest_change` also accepts an optional `provider` parameter. When omitted, the default GitHub Copilot SDK behavior above is unchanged.
+When provided, the MCP reads the matching Agent Server LLM provider secret from the shared KeyVault database and passes it as a custom Copilot SDK provider for that call.
+Supported KeyVault secret names follow the Agent Server conventions:
+
+- `LLM--Models--<provider>`
+- legacy fallback: `gnougo_llm_<provider>`
+
+The secret value must be a JSON object containing at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`.
+If the requested provider does not exist, the tool returns a standard MCP tool error.
+
 PowerShell example:
 
 ```powershell

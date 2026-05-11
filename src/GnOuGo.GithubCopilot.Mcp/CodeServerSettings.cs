@@ -25,7 +25,6 @@ public sealed class CodeCopilotSettings
     public string Model { get; set; } = "gpt-5.4";
     public string Mode { get; set; } = "ask";
     public string? ReasoningEffort { get; set; } = "high";
-    public bool SkipModelDiscovery { get; set; }
     public string Endpoint { get; set; } = "https://models.github.ai/inference";
     public string? ApiKey { get; set; }
     public bool UseLoggedInUser { get; set; }

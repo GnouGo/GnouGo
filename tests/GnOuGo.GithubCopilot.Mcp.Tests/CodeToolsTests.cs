@@ -35,9 +35,24 @@ public sealed class CodeToolsTests : IDisposable
 		Assert.Equal("Add a greeting method.", suggestion.Task);
 		Assert.Equal("fake suggestion", suggestion.Suggestion);
 		Assert.Equal(_root, assistant.ProjectRoot);
+		Assert.Null(assistant.ProviderName);
 		var file = Assert.Single(assistant.ContextFiles);
 		Assert.Equal("src\\Program.cs", file.Path.Replace('/', '\\'));
 		Assert.Contains("Hello", file.Content, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task SuggestChangeAsync_ForwardsOptionalProviderToAssistant()
+	{
+		var settings = CreateSettings();
+		var assistant = new CapturingAssistantClient();
+		var tools = new CodeTools(CreateService(settings), CreateGitService(settings), assistant, NullLogger<CodeTools>.Instance);
+
+		var result = await tools.SuggestChangeAsync(_root, "Use a custom provider.", provider: "CustomCopilot");
+
+		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
+		Assert.Equal("fake suggestion", suggestion.Suggestion);
+		Assert.Equal("CustomCopilot", assistant.ProviderName);
 	}
 
 	[Fact]
@@ -270,15 +285,18 @@ public sealed class CodeToolsTests : IDisposable
 	private sealed class CapturingAssistantClient : ICodeAssistantClient
 	{
 		public string? ProjectRoot { get; private set; }
+		public string? ProviderName { get; private set; }
 		public IReadOnlyList<CodeFileContent> ContextFiles { get; private set; } = [];
 
 		public Task<CodeSuggestionResult> SuggestChangeAsync(
 			string task,
 			string projectRoot,
 			IReadOnlyList<CodeFileContent> contextFiles,
+			string? providerName,
 			CancellationToken cancellationToken)
 		{
 			ProjectRoot = projectRoot;
+			ProviderName = providerName;
 			ContextFiles = contextFiles;
 			return Task.FromResult(new CodeSuggestionResult(task, contextFiles.Select(static file => file.Path).ToArray(), "fake suggestion", "fake-model", null));
 		}

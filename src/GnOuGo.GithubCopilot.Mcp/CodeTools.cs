@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace GnOuGo.GithubCopilot.Mcp;
@@ -47,6 +48,7 @@ public sealed class CodeTools
         [Description("Project root path or null for default.")] string? projectRoot,
         [Description("Coding task to perform.")] string task,
         [Description("Optional JSON array of relative file paths to include as context, for example [\"src/App.cs\"].")] string? contextFilesJson = null,
+        [Description("Optional KeyVault LLM provider name. When provided, the matching Agent Server LLM provider secret configures a custom Copilot provider for this call.")] string? provider = null,
         CancellationToken cancellationToken = default)
         => await ExecuteAsync(async () =>
         {
@@ -54,7 +56,7 @@ public sealed class CodeTools
             var contextFiles = ParseContextFiles(contextFilesJson);
             var files = _projectService.ReadContextFiles(root, contextFiles);
             var resolvedRoot = _projectService.GetSummary(root).RootPath;
-            return await _assistantClient.SuggestChangeAsync(task, resolvedRoot, files, cancellationToken);
+            return await _assistantClient.SuggestChangeAsync(task, resolvedRoot, files, provider, cancellationToken);
         });
 
     [McpServerTool(Name = "code_write_file"), Description("Writes one allowlisted text/code file inside the project root. Disabled unless Code:AllowWrites=true in configuration.")]
@@ -200,6 +202,10 @@ public sealed class CodeTools
         catch (OperationCanceledException)
         {
             return new CodeErrorResult("CANCELLED", "The operation was cancelled by the client.");
+        }
+        catch (McpException)
+        {
+            throw;
         }
         catch (Exception ex) when (ex is InvalidOperationException or FileNotFoundException or UnauthorizedAccessException or IOException or HttpRequestException)
         {

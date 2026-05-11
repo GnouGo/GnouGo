@@ -6,6 +6,7 @@ public interface ICodeAssistantClient
         string task,
         string projectRoot,
         IReadOnlyList<CodeFileContent> contextFiles,
+        string? providerName,
         CancellationToken cancellationToken);
 }
 

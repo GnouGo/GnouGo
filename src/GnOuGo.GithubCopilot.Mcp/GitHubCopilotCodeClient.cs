@@ -11,17 +11,20 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
 {
     private readonly CodeServerSettings _settings;
     private readonly CodePolicy _policy;
+    private readonly ICopilotProviderConfigResolver _providerConfigResolver;
     private readonly CodeMcpTraceContextAccessor _traceContextAccessor;
     private readonly ILogger<GitHubCopilotCodeClient> _logger;
 
     public GitHubCopilotCodeClient(
         IOptions<CodeServerSettings> settings,
         CodePolicy policy,
+        ICopilotProviderConfigResolver providerConfigResolver,
         CodeMcpTraceContextAccessor traceContextAccessor,
         ILogger<GitHubCopilotCodeClient> logger)
     {
         _settings = settings.Value;
         _policy = policy;
+        _providerConfigResolver = providerConfigResolver;
         _traceContextAccessor = traceContextAccessor;
         _logger = logger;
     }
@@ -30,6 +33,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         string task,
         string projectRoot,
         IReadOnlyList<CodeFileContent> contextFiles,
+        string? providerName,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(task))
@@ -47,6 +51,12 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         }
 
         using var activity = StartCopilotActivity(_settings, _traceContextAccessor);
+        var providerOverride = await _providerConfigResolver.ResolveAsync(
+            providerName,
+            _settings.Copilot.Model,
+            token,
+            cancellationToken);
+        var model = providerOverride?.Model ?? _settings.Copilot.Model;
 
         await using var client = CreateClient(projectRoot, token);
         await client.StartAsync(cancellationToken);
@@ -54,8 +64,9 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         await using var session = await client.CreateSessionAsync(new SessionConfig
         {
             ClientName = "GnOuGo.GithubCopilot.Mcp",
-            Model = _settings.Copilot.Model,
+            Model = model,
             ReasoningEffort = NormalizeNullable(_settings.Copilot.ReasoningEffort),
+            Provider = providerOverride?.Provider,
             WorkingDirectory = projectRoot,
             Streaming = false,
             OnPermissionRequest = PermissionHandler.ApproveAll
@@ -74,13 +85,17 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         if (string.IsNullOrWhiteSpace(suggestion))
             throw new InvalidOperationException("GitHub Copilot returned an empty response.");
 
-        _logger.LogDebug("GitHub Copilot SDK completed code suggestion for {FileCount} context files using model {Model}.", contextFiles.Count, _settings.Copilot.Model);
+        _logger.LogDebug(
+            "GitHub Copilot SDK completed code suggestion for {FileCount} context files using provider {Provider} and model {Model}.",
+            contextFiles.Count,
+            providerOverride?.ProviderName ?? _settings.Copilot.Provider,
+            model);
 
         return new CodeSuggestionResult(
             Task: task,
             Files: contextFiles.Select(static file => file.Path).ToArray(),
             Suggestion: suggestion,
-            Model: _settings.Copilot.Model,
+            Model: model,
             UsageJson: data is null ? null : BuildUsageJson(data));
     }
 

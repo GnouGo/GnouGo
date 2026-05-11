@@ -11,7 +11,6 @@ public sealed record CodePolicyInfo(
     string CopilotProvider,
     string CopilotModel,
     string CopilotMode,
-    bool CopilotSkipModelDiscovery,
     bool CopilotForwardTraceContext,
     bool CopilotTelemetryEnabled,
     bool HasConfiguredToken,

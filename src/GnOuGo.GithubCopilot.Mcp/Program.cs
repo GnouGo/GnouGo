@@ -1,4 +1,9 @@
 ﻿using GnOuGo.GithubCopilot.Mcp;
+using GnOuGo.KeyVault.Core;
+using GnOuGo.KeyVault.Core.Data;
+using GnOuGo.KeyVault.Core.Services;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -20,6 +25,15 @@ builder.AddGnOuGoOpenTelemetry("GnOuGo.GithubCopilot.Mcp", settings =>
 
 builder.Services.Configure<CodeServerSettings>(
     builder.Configuration.GetSection(CodeServerSettings.SectionName));
+var keyVaultDbRelativePath = builder.Configuration.GetValue<string>("KeyVault:DatabasePath")
+    ?? KeyVaultDatabasePathResolver.DefaultRelativePath;
+var keyVaultDbPath = KeyVaultDatabasePathResolver.Resolve(keyVaultDbRelativePath, AppContext.BaseDirectory);
+Directory.CreateDirectory(Path.GetDirectoryName(keyVaultDbPath)!);
+builder.Services.AddDbContext<KeyVaultDbContext>(options =>
+    options.UseSqlite($"Data Source={keyVaultDbPath}"));
+builder.Services.AddScoped<KeyVaultService>();
+builder.Services.AddHttpClient(nameof(KeyVaultCopilotProviderConfigResolver));
+builder.Services.AddSingleton<ICopilotProviderConfigResolver, KeyVaultCopilotProviderConfigResolver>();
 builder.Services.AddSingleton<CodePolicy>();
 builder.Services.AddSingleton<CodeProjectService>();
 builder.Services.AddSingleton<GitRepositoryService>();
@@ -52,7 +66,7 @@ var settings = host.Services.GetRequiredService<IOptions<CodeServerSettings>>().
 var info = policy.DescribePolicy();
 
 logger.LogInformation(
-    "Code MCP configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, defaultWorkingDirectory={DefaultWorkingDirectory}, allowedRoots={AllowedRoots}, allowedExtensions={AllowedExtensions}, allowWrites={AllowWrites}, gitAllowMutations={GitAllowMutations}, gitAllowNetworkOperations={GitAllowNetworkOperations}, copilotProvider={CopilotProvider}, copilotModel={CopilotModel}, copilotMode={CopilotMode}, copilotReasoningEffort={CopilotReasoningEffort}, copilotSkipModelDiscovery={CopilotSkipModelDiscovery}, copilotForwardTraceContext={CopilotForwardTraceContext}, copilotTelemetryEnabled={CopilotTelemetryEnabled}, hasToken={HasToken}, useLoggedInUser={UseLoggedInUser}, requestTimeoutSeconds={RequestTimeoutSeconds}",
+    "Code MCP configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, defaultWorkingDirectory={DefaultWorkingDirectory}, allowedRoots={AllowedRoots}, allowedExtensions={AllowedExtensions}, allowWrites={AllowWrites}, gitAllowMutations={GitAllowMutations}, gitAllowNetworkOperations={GitAllowNetworkOperations}, copilotProvider={CopilotProvider}, copilotModel={CopilotModel}, copilotMode={CopilotMode}, copilotReasoningEffort={CopilotReasoningEffort}, copilotForwardTraceContext={CopilotForwardTraceContext}, copilotTelemetryEnabled={CopilotTelemetryEnabled}, hasToken={HasToken}, useLoggedInUser={UseLoggedInUser}, requestTimeoutSeconds={RequestTimeoutSeconds}, keyVaultDbPath={KeyVaultDbPath}",
     builder.Environment.ContentRootPath,
     Environment.CurrentDirectory,
     AppContext.BaseDirectory,
@@ -66,12 +80,12 @@ logger.LogInformation(
     info.CopilotModel,
     info.CopilotMode,
     settings.Copilot.ReasoningEffort,
-    info.CopilotSkipModelDiscovery,
     info.CopilotForwardTraceContext,
     info.CopilotTelemetryEnabled,
     info.HasConfiguredToken,
     settings.Copilot.UseLoggedInUser,
-    settings.Copilot.RequestTimeoutSeconds);
+    settings.Copilot.RequestTimeoutSeconds,
+    keyVaultDbPath);
 
 await host.RunAsync();
 
