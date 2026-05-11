@@ -227,10 +227,11 @@ public sealed class McpCallExecutor : IStepExecutor
         // Build the request arguments
         JsonNode? requestArgs = hasPromptSelection ? null : BuildRequestArgs(input, ctx);
 
-        // Parse timeout
-        int? timeoutMs = null;
-        if (input.TryGetPropertyValue("timeout_ms", out var timeoutNode) && timeoutNode != null)
-            timeoutMs = (int)ExpressionEvaluator.GetNumber(timeoutNode);
+        // Parse timeout. A server-level CallTimeoutSeconds acts as a recommended minimum,
+        // so slow configured servers cannot be undercut by generated workflows with short timeouts.
+        var timeoutMs = ResolveEffectiveTimeoutMs(input, serverName, factory);
+        if (timeoutMs.HasValue)
+            ctx.SetTelemetryAttribute("mcp.timeout_ms", timeoutMs.Value);
 
         try
         {
@@ -344,6 +345,31 @@ public sealed class McpCallExecutor : IStepExecutor
             throw new WorkflowRuntimeException(errorCode,
                 $"mcp.call ({kind}) to '{serverName}/{target}' failed: {diagnostics}", retryable: false, inner: ex);
         }
+    }
+
+    private static int? ResolveEffectiveTimeoutMs(JsonObject input, string serverName, IMcpClientFactory factory)
+    {
+        int? requestedTimeoutMs = null;
+        if (input.TryGetPropertyValue("timeout_ms", out var timeoutNode) && timeoutNode != null)
+            requestedTimeoutMs = (int)ExpressionEvaluator.GetNumber(timeoutNode);
+
+        var configuredTimeoutMs = ResolveConfiguredCallTimeoutMs(factory, serverName);
+        if (requestedTimeoutMs.HasValue && configuredTimeoutMs.HasValue)
+            return Math.Max(requestedTimeoutMs.Value, configuredTimeoutMs.Value);
+
+        return requestedTimeoutMs ?? configuredTimeoutMs;
+    }
+
+    private static int? ResolveConfiguredCallTimeoutMs(IMcpClientFactory factory, string serverName)
+    {
+        var metadata = factory.ServerMetadata?
+            .FirstOrDefault(server => string.Equals(server.Name, serverName, StringComparison.OrdinalIgnoreCase));
+        if (metadata?.CallTimeoutSeconds is not > 0)
+            return null;
+
+        return metadata.CallTimeoutSeconds.Value > int.MaxValue / 1000
+            ? int.MaxValue
+            : metadata.CallTimeoutSeconds.Value * 1000;
     }
 
     private static async Task<JsonNode?> ExecuteLlmAssistedAsync(

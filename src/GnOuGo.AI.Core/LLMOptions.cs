@@ -108,6 +108,12 @@ public sealed class McpServerOptions
     /// </summary>
     public int? DiscoveryTimeoutSeconds { get; set; }
 
+    /// <summary>
+    /// Recommended minimum timeout, in seconds, for workflow <c>mcp.call</c> executions
+    /// against this server. Useful for tools backed by slow LLM providers.
+    /// </summary>
+    public int? CallTimeoutSeconds { get; set; }
+
     /// <summary>Server URL (for http/sse transports).</summary>
     public string Url { get; set; } = "";
 

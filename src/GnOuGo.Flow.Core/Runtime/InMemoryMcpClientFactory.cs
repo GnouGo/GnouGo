@@ -14,7 +14,8 @@ public sealed class InMemoryMcpClientFactory : IMcpClientFactory
         .Select(kv => new McpServerMetadata
         {
             Name = kv.Key,
-            Description = kv.Value.Description
+            Description = kv.Value.Description,
+            CallTimeoutSeconds = kv.Value.CallTimeoutSeconds
         })
         .ToList()
         .AsReadOnly();
@@ -47,6 +48,9 @@ public sealed class MockMcpServerConfig
 {
     /// <summary>Human-friendly description of what this server is for.</summary>
     public string? Description { get; set; }
+
+    /// <summary>Recommended minimum timeout, in seconds, for mcp.call executions.</summary>
+    public int? CallTimeoutSeconds { get; set; }
 
     /// <summary>Available tools on this server.</summary>
     public List<McpToolInfo> Tools { get; set; } = new();

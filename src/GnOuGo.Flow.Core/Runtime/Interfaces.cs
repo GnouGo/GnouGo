@@ -160,6 +160,12 @@ public sealed class McpServerMetadata
     /// Slow stdio servers can require more time during cold start.
     /// </summary>
     public int? DiscoveryTimeoutSeconds { get; set; }
+
+    /// <summary>
+    /// Optional per-server timeout, in seconds, used as a recommended minimum for mcp.call executions.
+    /// Slow LLM-backed tools can require more time before returning a response.
+    /// </summary>
+    public int? CallTimeoutSeconds { get; set; }
 }
 
 /// <summary>

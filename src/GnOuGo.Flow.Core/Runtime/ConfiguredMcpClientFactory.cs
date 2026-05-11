@@ -36,7 +36,8 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             {
                 Name = kv.Key,
                 Description = kv.Value.Description,
-                DiscoveryTimeoutSeconds = kv.Value.DiscoveryTimeoutSeconds
+                DiscoveryTimeoutSeconds = kv.Value.DiscoveryTimeoutSeconds,
+                CallTimeoutSeconds = kv.Value.CallTimeoutSeconds
             })
             .ToList()
             .AsReadOnly();

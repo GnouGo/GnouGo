@@ -426,6 +426,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
     {
         public required string Name { get; init; }
         public string? Description { get; init; }
+        public int? CallTimeoutSeconds { get; init; }
         public IReadOnlyList<McpToolInfo> Tools { get; init; } = Array.Empty<McpToolInfo>();
         public IReadOnlyList<McpPromptInfo> Prompts { get; init; } = Array.Empty<McpPromptInfo>();
         /// <summary>True when the server was reachable and listing succeeded.</summary>
@@ -480,6 +481,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 {
                     Name = server.Name,
                     Description = server.Description,
+                    CallTimeoutSeconds = server.CallTimeoutSeconds,
                     Tools = cachedTools,
                     Prompts = cachedPrompts,
                     Discovered = true
@@ -526,6 +528,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 {
                     Name = server.Name,
                     Description = server.Description,
+                    CallTimeoutSeconds = server.CallTimeoutSeconds,
                     Tools = tools,
                     Prompts = prompts,
                     Discovered = true
@@ -549,6 +552,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 {
                     Name = server.Name,
                     Description = server.Description,
+                    CallTimeoutSeconds = server.CallTimeoutSeconds,
                     Discovered = false
                 });
 
@@ -566,6 +570,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 {
                     Name = server.Name,
                     Description = server.Description,
+                    CallTimeoutSeconds = server.CallTimeoutSeconds,
                     Discovered = false
                 });
 
@@ -1185,6 +1190,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 {
                     Name = srv.Name,
                     Description = srv.Description,
+                    CallTimeoutSeconds = srv.CallTimeoutSeconds,
                     Tools = filteredTools,
                     Prompts = filteredPrompts,
                     Discovered = srv.Discovered
@@ -1249,6 +1255,9 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             }
             sb.AppendLine();
 
+            if (server.CallTimeoutSeconds is > 0)
+                sb.AppendLine($"  Recommended mcp.call timeout: timeout_ms: {server.CallTimeoutSeconds.Value * 1000}");
+
             if (!server.Discovered)
             {
                 sb.AppendLine("  (tool discovery unavailable)");
@@ -1309,6 +1318,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Do NOT generate mcp.call with only input.server as the default plan. That runtime auto-discovery mode is only for explicit call-everything scenarios on the chosen server.");
         sb.AppendLine("If the exact tool or prompt name is unknown, use mcp.list first, then either add an intermediate explicit selection step or use mcp.call with prompt + model (+ optional temperature) and pass the discovered tools/prompts.");
         sb.AppendLine("When using LLM-assisted mcp.call, put the natural-language instruction in input.prompt and pass candidate capabilities through input.tools and/or input.prompts, typically from mcp.list outputs.");
+        sb.AppendLine("If a server lists a recommended mcp.call timeout, include at least that value as `input.timeout_ms` for generated calls to that server.");
         return sb.ToString().TrimEnd();
     }
 

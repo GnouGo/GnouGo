@@ -212,6 +212,50 @@ workflows:
         Assert.True(result.Success);
     }
 
+    [Fact]
+    public async Task McpCall_ServerCallTimeoutOverridesShortGeneratedTimeout()
+    {
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("slow");
+        mockSession.Setup(s => s.CallToolAsync("wait", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .Returns(async (string _, JsonNode? _, CancellationToken ct) =>
+            {
+                await Task.Delay(50, ct);
+                return new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject { ["ok"] = true }
+                };
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.ServerMetadata).Returns(new List<McpServerMetadata>
+        {
+            new() { Name = "slow", CallTimeoutSeconds = 5 }
+        }.AsReadOnly());
+        mockFactory.Setup(f => f.GetClientAsync("slow", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: slow
+          method: wait
+          timeout_ms: 1
+    outputs:
+      status: "${data.steps.call.status}"
+""", mcpFactory: mockFactory.Object);
+
+        Assert.True(result.Success);
+        Assert.Equal("ok", result.Outputs!["status"]!.GetValue<string>());
+    }
+
 
     [Fact]
     public async Task McpCall_RequestCanCarryModelAndTemperature_WhenServerSchemaSupportsThem()

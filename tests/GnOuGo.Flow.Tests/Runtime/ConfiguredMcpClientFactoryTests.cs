@@ -20,6 +20,7 @@ public class ConfiguredMcpClientFactoryTests
                 Type = "stdio",
                 Description = "Slow cold-start server",
                 DiscoveryTimeoutSeconds = 90,
+                CallTimeoutSeconds = 1200,
                 Command = "dotnet"
             }
         });
@@ -28,6 +29,7 @@ public class ConfiguredMcpClientFactoryTests
         Assert.Equal("slow", metadata.Name);
         Assert.Equal("Slow cold-start server", metadata.Description);
         Assert.Equal(90, metadata.DiscoveryTimeoutSeconds);
+        Assert.Equal(1200, metadata.CallTimeoutSeconds);
     }
 
     [Fact]
