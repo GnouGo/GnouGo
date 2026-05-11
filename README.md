@@ -31,6 +31,7 @@ winget install GnOuGo.Agent
 macOS:
 
 ```bash
+brew update
 brew tap gnougo/tap
 brew install --cask gnougo
 # To run GnOuGo

@@ -52,7 +52,7 @@ var settings = host.Services.GetRequiredService<IOptions<CodeServerSettings>>().
 var info = policy.DescribePolicy();
 
 logger.LogInformation(
-    "Code MCP configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, defaultWorkingDirectory={DefaultWorkingDirectory}, allowedRoots={AllowedRoots}, allowedExtensions={AllowedExtensions}, allowWrites={AllowWrites}, gitAllowMutations={GitAllowMutations}, gitAllowNetworkOperations={GitAllowNetworkOperations}, copilotProvider={CopilotProvider}, copilotModel={CopilotModel}, copilotMode={CopilotMode}, copilotReasoningEffort={CopilotReasoningEffort}, copilotForwardTraceContext={CopilotForwardTraceContext}, copilotTelemetryEnabled={CopilotTelemetryEnabled}, hasToken={HasToken}, useLoggedInUser={UseLoggedInUser}, requestTimeoutSeconds={RequestTimeoutSeconds}",
+    "Code MCP configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, defaultWorkingDirectory={DefaultWorkingDirectory}, allowedRoots={AllowedRoots}, allowedExtensions={AllowedExtensions}, allowWrites={AllowWrites}, gitAllowMutations={GitAllowMutations}, gitAllowNetworkOperations={GitAllowNetworkOperations}, copilotProvider={CopilotProvider}, copilotModel={CopilotModel}, copilotMode={CopilotMode}, copilotReasoningEffort={CopilotReasoningEffort}, copilotSkipModelDiscovery={CopilotSkipModelDiscovery}, copilotForwardTraceContext={CopilotForwardTraceContext}, copilotTelemetryEnabled={CopilotTelemetryEnabled}, hasToken={HasToken}, useLoggedInUser={UseLoggedInUser}, requestTimeoutSeconds={RequestTimeoutSeconds}",
     builder.Environment.ContentRootPath,
     Environment.CurrentDirectory,
     AppContext.BaseDirectory,
@@ -66,6 +66,7 @@ logger.LogInformation(
     info.CopilotModel,
     info.CopilotMode,
     settings.Copilot.ReasoningEffort,
+    info.CopilotSkipModelDiscovery,
     info.CopilotForwardTraceContext,
     info.CopilotTelemetryEnabled,
     info.HasConfiguredToken,

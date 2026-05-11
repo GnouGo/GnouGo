@@ -43,6 +43,7 @@ public sealed class CodePolicy
             CopilotProvider: _settings.Copilot.Provider,
             CopilotModel: _settings.Copilot.Model,
             CopilotMode: GitHubCopilotCodeClient.NormalizeMessageMode(_settings.Copilot.Mode),
+            CopilotSkipModelDiscovery: _settings.Copilot.SkipModelDiscovery,
             CopilotForwardTraceContext: _settings.Copilot.ForwardTraceContext,
             CopilotTelemetryEnabled: _settings.Copilot.Telemetry.Enabled,
             HasConfiguredToken: !string.IsNullOrWhiteSpace(ResolveConfiguredToken()),
