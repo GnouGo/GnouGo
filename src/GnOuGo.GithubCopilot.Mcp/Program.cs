@@ -36,7 +36,6 @@ builder.Services.AddHttpClient(nameof(KeyVaultCopilotProviderConfigResolver));
 builder.Services.AddSingleton<ICopilotProviderConfigResolver, KeyVaultCopilotProviderConfigResolver>();
 builder.Services.AddSingleton<CodePolicy>();
 builder.Services.AddSingleton<CodeProjectService>();
-builder.Services.AddSingleton<GitRepositoryService>();
 builder.Services.AddSingleton<CodeMcpTraceContextAccessor>();
 builder.Services.AddSingleton<ICodeAssistantClient, GitHubCopilotCodeClient>();
 builder.Services.AddTransient<CodeTools>();
@@ -66,7 +65,7 @@ var settings = host.Services.GetRequiredService<IOptions<CodeServerSettings>>().
 var info = policy.DescribePolicy();
 
 logger.LogInformation(
-    "Code MCP configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, defaultWorkingDirectory={DefaultWorkingDirectory}, allowedRoots={AllowedRoots}, allowedExtensions={AllowedExtensions}, allowWrites={AllowWrites}, gitAllowMutations={GitAllowMutations}, gitAllowNetworkOperations={GitAllowNetworkOperations}, copilotProvider={CopilotProvider}, copilotModel={CopilotModel}, copilotMode={CopilotMode}, copilotReasoningEffort={CopilotReasoningEffort}, copilotForwardTraceContext={CopilotForwardTraceContext}, copilotTelemetryEnabled={CopilotTelemetryEnabled}, hasToken={HasToken}, useLoggedInUser={UseLoggedInUser}, requestTimeoutSeconds={RequestTimeoutSeconds}, keyVaultDbPath={KeyVaultDbPath}",
+    "Code MCP configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, defaultWorkingDirectory={DefaultWorkingDirectory}, allowedRoots={AllowedRoots}, allowedExtensions={AllowedExtensions}, allowWrites={AllowWrites}, copilotProvider={CopilotProvider}, copilotModel={CopilotModel}, copilotMode={CopilotMode}, copilotReasoningEffort={CopilotReasoningEffort}, copilotForwardTraceContext={CopilotForwardTraceContext}, copilotTelemetryEnabled={CopilotTelemetryEnabled}, hasToken={HasToken}, useLoggedInUser={UseLoggedInUser}, requestTimeoutSeconds={RequestTimeoutSeconds}, keyVaultDbPath={KeyVaultDbPath}",
     builder.Environment.ContentRootPath,
     Environment.CurrentDirectory,
     AppContext.BaseDirectory,
@@ -74,8 +73,6 @@ logger.LogInformation(
     string.Join(", ", info.AllowedWorkingRoots),
     string.Join(", ", info.AllowedExtensions),
     info.AllowWrites,
-    info.Git.AllowMutations,
-    info.Git.AllowNetworkOperations,
     info.CopilotProvider,
     info.CopilotModel,
     info.CopilotMode,

@@ -2,11 +2,11 @@
 using Microsoft.Extensions.Options;
 using Xunit;
 
-namespace GnOuGo.GithubCopilot.Mcp.Tests;
+namespace GnOuGo.Git.Mcp.Tests;
 
 public sealed class GitRepositoryServiceTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "gnougo-code-git-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "gnougo-git-mcp-tests-" + Guid.NewGuid().ToString("N"));
 
     public GitRepositoryServiceTests()
     {
@@ -63,6 +63,40 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void CreateBranch_AllowsTagAsStartPoint()
+    {
+        var service = CreateService();
+        var initialCommit = WriteCommit(service, "README.md", "base\n", "base");
+
+        using (var repository = new Repository(_root))
+        {
+            repository.ApplyTag("v1.0.0", initialCommit.Sha);
+        }
+
+        var result = service.CreateBranch(_root, "release/from-tag", startPoint: "v1.0.0");
+
+        Assert.True(result.Success);
+
+        using var verificationRepository = new Repository(_root);
+        var branch = verificationRepository.Branches["release/from-tag"];
+        Assert.NotNull(branch);
+        Assert.Equal(initialCommit.Sha, branch.Tip?.Sha);
+    }
+
+    [Fact]
+    public void Stage_AllowsRelativeFileNamesContainingDoubleDotsWithoutTraversal()
+    {
+        File.WriteAllText(Path.Combine(_root, "a..b.txt"), "hello\n");
+        var service = CreateService();
+
+        var result = service.Stage(_root, ["a..b.txt"]);
+        var status = service.GetStatus(_root);
+
+        Assert.True(result.Success);
+        Assert.Contains(status.Entries, entry => entry.Path.Replace('\\', '/') == "a..b.txt" && entry.State.Contains("NewInIndex", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Clone_CopiesLocalRepositoryIntoAllowedEmptyDirectory()
     {
         var source = Path.Combine(_root, "source");
@@ -91,39 +125,38 @@ public sealed class GitRepositoryServiceTests : IDisposable
         Assert.Contains("disabled by policy", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    private void WriteCommit(GitRepositoryService service, string relativePath, string content, string message, string? root = null)
+    private GitCommitInfo WriteCommit(GitRepositoryService service, string relativePath, string content, string message, string? root = null)
     {
         var repositoryRoot = root ?? _root;
         var path = Path.IsPathRooted(relativePath) ? relativePath : Path.Combine(repositoryRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, content);
         service.Stage(repositoryRoot, [Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/')]);
-        service.Commit(repositoryRoot, message, "Test User", "test@example.local");
+        return service.Commit(repositoryRoot, message, "Test User", "test@example.local");
     }
 
     private GitRepositoryService CreateService(string? defaultWorkingDirectory = null, bool allowMutations = true, bool allowNetwork = false)
     {
-        var settings = new CodeServerSettings
+        var settings = new GitServerSettings
         {
             DefaultWorkingDirectory = defaultWorkingDirectory ?? _root,
             AllowedWorkingRoots = [_root],
-            Git = new CodeGitSettings
-            {
-                AllowMutations = allowMutations,
-                AllowNetworkOperations = allowNetwork,
-                RequireCleanWorkingTreeForMerge = true,
-                DefaultAuthorName = "Test User",
-                DefaultAuthorEmail = "test@example.local"
-            }
+            AllowMutations = allowMutations,
+            AllowNetworkOperations = allowNetwork,
+            RequireCleanWorkingTreeForMerge = true,
+            DefaultAuthorName = "Test User",
+            DefaultAuthorEmail = "test@example.local"
         };
-        var policy = new CodePolicy(settings, _root);
+        var policy = new GitPolicy(settings, _root);
         return new GitRepositoryService(policy, Options.Create(settings));
     }
 
     public void Dispose()
     {
         try { Directory.Delete(_root, recursive: true); }
-        catch { }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 }
+
 

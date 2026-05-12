@@ -16,7 +16,6 @@ public sealed class CodeServerSettings
         ".js", ".jsx", ".ts", ".tsx", ".py", ".css", ".html"
     ];
     public CodeCopilotSettings Copilot { get; set; } = new();
-    public CodeGitSettings Git { get; set; } = new();
 }
 
 public sealed class CodeCopilotSettings
@@ -45,20 +44,6 @@ public sealed class CodeCopilotTelemetrySettings
     public bool CaptureContent { get; set; }
 }
 
-public sealed class CodeGitSettings
-{
-    public bool AllowMutations { get; set; }
-    public bool AllowNetworkOperations { get; set; }
-    public bool RequireCleanWorkingTreeForMerge { get; set; } = true;
-    public int MaxDiffCharacters { get; set; } = 120_000;
-    public int MaxLogCount { get; set; } = 100;
-    public string DefaultAuthorName { get; set; } = "GnOuGo Agent";
-    public string DefaultAuthorEmail { get; set; } = "gnougo-agent@localhost";
-    public string DefaultRemoteName { get; set; } = "origin";
-    public string Username { get; set; } = "x-access-token";
-    public string? Token { get; set; }
-    public List<string> TokenEnvironmentVariables { get; set; } = ["GITHUB_TOKEN", "COPILOT_API_KEY"];
-}
 
 
 

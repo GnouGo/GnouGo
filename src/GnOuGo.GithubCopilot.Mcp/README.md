@@ -12,6 +12,8 @@ MCP stdio server for safe code operations on a local project.
 - Run GitHub Copilot in SDK agent mode with controlled local file edits via `code_agent_edit`.
 - Optionally write files with `code_write_file` when `Code:AllowWrites=true`.
 
+Git repository workflows are provided by the separate `GnOuGo.Git.Mcp` tool.
+
 ## Authentication
 
 `code_suggest_change` uses `GitHub.Copilot.SDK` and can authenticate with the locally signed-in GitHub user or with an explicit token when supported by the Copilot runtime.
