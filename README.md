@@ -66,7 +66,6 @@ You can also download the Windows, macOS, and Linux archives from the GitHub Rel
 | Windows | `GnOuGo.Agent` via Winget | <a href="https://github.com/GnouGo/GnouGo/tree/main/packaging/winget/GnOuGo.Agent"><img src="https://img.shields.io/winget/v/GnOuGo.Agent?label=winget" alt="Winget version"></a> | <a href="https://github.com/GnouGo/GnouGo/releases/tag/v0.6.6"><img src="https://img.shields.io/github/downloads/GnouGo/GnouGo/v0.6.6/gnougo-win-x64.zip?label=x64" alt="Windows x64 downloads"></a><br><a href="https://github.com/GnouGo/GnouGo/releases/tag/v0.6.6"><img src="https://img.shields.io/github/downloads/GnouGo/GnouGo/v0.6.6/gnougo-win-arm64.zip?label=arm64" alt="Windows arm64 downloads"></a> |
 | macOS | `gnougo` via Homebrew Cask | <a href="https://github.com/GnouGo/GnouGo/tree/main/packaging/homebrew-tap/Casks"><img src="https://img.shields.io/badge/homebrew%20cask-gnougo-blue" alt="Homebrew cask availability"></a> | <a href="https://github.com/GnouGo/GnouGo/releases/tag/v0.6.6"><img src="https://img.shields.io/github/downloads/GnouGo/GnouGo/v0.6.6/gnougo-osx-x64.tar.gz?label=x64" alt="macOS x64 downloads"></a><br><a href="https://github.com/GnouGo/GnouGo/releases/tag/v0.6.6"><img src="https://img.shields.io/github/downloads/GnouGo/GnouGo/v0.6.6/gnougo-osx-arm64.tar.gz?label=arm64" alt="macOS arm64 downloads"></a> |
 
-
 ---
 
 ## 🧱 Project Building Blocks

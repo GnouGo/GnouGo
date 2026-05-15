@@ -189,3 +189,4 @@ dotnet test tests/GnOuGo.AI.Core.Tests/GnOuGo.AI.Core.Tests.csproj
 | `ChatRequestBuilder` | AOT-friendly JSON request builder |
 | `ChatResponseParser` | Response parser for all providers |
 | `CopilotEndpoints` / `OpenAiEndpoints` / `OllamaEndpoints` | URL helpers |
+
