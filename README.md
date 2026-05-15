@@ -99,13 +99,15 @@ Supporting libraries such as **GnOuGo.AI.Core**, **GnOuGo.Auth.Core**, and **GnO
 
 ---
 
-## 📚 Published Flow Libraries
+## 📚 Published Libraries
 
-The Flow DSL engine is available as two user-facing libraries:
+The current GnOuGo release publishes these reusable libraries and packages:
 
-| Library | Package | README | Usage |
-|---|---|---|---|
-| **GnOuGo.Flow.Core** (.NET) | [NuGet: `GnOuGo.Flow.Core`](https://www.nuget.org/packages/GnOuGo.Flow.Core) | [`src/GnOuGo.Flow.Core/README.md`](src/GnOuGo.Flow.Core/README.md) | NativeAOT-compatible .NET workflow DSL engine for applications, CLIs, APIs, and agents. |
-| **gnougo-flow-core** (Python) | [PyPI: `gnougo-flow-core`](https://pypi.org/project/gnougo-flow-core/) | [`librairies/python/gnougo-flow-core/README.md`](librairies/python/gnougo-flow-core/README.md) | Python 3.10+ port with the same YAML DSL concepts and the `gnougo-flow` CLI. |
+| Library | Package | Version | Runtime | Downloads | Usage |
+|---|---|---:|---:|---:|---|
+| **GnOuGo.Auth.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Auth.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Auth.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Auth.Core.svg" alt="GnOuGo.Auth.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Auth.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.Auth.Core .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Auth.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Auth.Core.svg" alt="GnOuGo.Auth.Core downloads"></a> | Authentication abstractions and provider credential helpers for GnOuGo components. |
+| **GnOuGo.AI.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.AI.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.AI.Core.svg" alt="GnOuGo.AI.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.AI.Core .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.AI.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.AI.Core.svg" alt="GnOuGo.AI.Core downloads"></a> | Low-level, AOT-friendly provider routing for LLM integrations. See [`src/GnOuGo.AI.Core/README.md`](src/GnOuGo.AI.Core/README.md). |
+| **GnOuGo.Flow.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Flow.Core.svg" alt="GnOuGo.Flow.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.Flow.Core .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Flow.Core.svg" alt="GnOuGo.Flow.Core downloads"></a> | NativeAOT-compatible .NET workflow DSL engine. See [`src/GnOuGo.Flow.Core/README.md`](src/GnOuGo.Flow.Core/README.md). |
+| **gnougo-flow-core** (Python) | <a href="https://pypi.org/project/gnougo-flow-core/">PyPI</a> | <a href="https://pypi.org/project/gnougo-flow-core/"><img src="https://img.shields.io/pypi/v/gnougo-flow-core.svg" alt="gnougo-flow-core version"></a> | <a href="https://pypi.org/project/gnougo-flow-core/"><img src="https://img.shields.io/pypi/pyversions/gnougo-flow-core.svg" alt="gnougo-flow-core Python versions"></a> | <a href="https://pepy.tech/projects/gnougo-flow-core"><img src="https://static.pepy.tech/badge/gnougo-flow-core" alt="gnougo-flow-core downloads"></a> | Python port of the YAML workflow DSL engine. See [`librairies/python/gnougo-flow-core/README.md`](librairies/python/gnougo-flow-core/README.md). |
 
 ---

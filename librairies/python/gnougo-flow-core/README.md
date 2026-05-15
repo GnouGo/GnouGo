@@ -1,6 +1,8 @@
 # gnougo-flow-core — YAML Workflow DSL Engine (Python)
 
-[![PyPI](https://img.shields.io/pypi/v/gnougo-flow-core?label=PyPI)](https://pypi.org/project/gnougo-flow-core/)
+<a href="https://pypi.org/project/gnougo-flow-core/"><img src="https://img.shields.io/pypi/v/gnougo-flow-core.svg" alt="PyPI version"></a>
+<a href="https://pypi.org/project/gnougo-flow-core/"><img src="https://img.shields.io/pypi/pyversions/gnougo-flow-core.svg" alt="Supported Python versions"></a>
+<a href="https://pepy.tech/projects/gnougo-flow-core"><img src="https://static.pepy.tech/badge/gnougo-flow-core" alt="PyPI downloads"></a>
 
 Python 3.10+ implementation of `GnOuGo.Flow.Core`, the declarative YAML workflow DSL engine.
 Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human input, and dynamic code generation — all from a single file.
