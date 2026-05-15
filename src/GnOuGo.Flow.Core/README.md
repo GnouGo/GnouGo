@@ -1,6 +1,8 @@
 # GnOuGo.Flow — YAML Workflow DSL Engine
 
-[![NuGet](https://img.shields.io/nuget/v/GnOuGo.Flow.Core?label=NuGet)](https://www.nuget.org/packages/GnOuGo.Flow.Core)
+<a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Flow.Core.svg" alt="NuGet version"></a>
+<a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0"></a>
+<a href="https://nugettrends.com/packages?ids=GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Flow.Core.svg" alt="NuGet downloads"></a>
 
 Declarative workflow engine based on a YAML DSL, **NativeAOT**-compatible (.NET 10).
 Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human input, and dynamic code generation — all from a single file.
