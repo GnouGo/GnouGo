@@ -58,6 +58,13 @@ sudo apt install ./gnougo_*_amd64.deb
 
 You can also download the Windows, macOS, and Linux archives from the GitHub Releases page.
 
+## Downloads
+
+| Distribution | Package | Version / Availability | Downloads |
+|---|---|---:|---:|
+| GitHub Release | `v0.6.6` | <a href="https://github.com/GnouGo/GnouGo/releases/tag/v0.6.6"><img src="https://img.shields.io/github/v/release/GnouGo/GnouGo?label=release" alt="GitHub release version"></a> | <a href="https://github.com/GnouGo/GnouGo/releases/tag/v0.6.6"><img src="https://img.shields.io/github/downloads/GnouGo/GnouGo/v0.6.6/total?label=total" alt="Total downloads for v0.6.6"></a> |
+| Windows | `GnOuGo.Agent` via Winget | <a href="https://github.com/GnouGo/GnouGo/tree/main/packaging/winget/GnOuGo.Agent"><img src="https://img.shields.io/winget/v/GnOuGo.Agent?label=winget" alt="Winget version"></a> | <a href="https://github.com/GnouGo/GnouGo/releases/tag/v0.6.6"><img src="https://img.shields.io/github/downloads/GnouGo/GnouGo/v0.6.6/gnougo-win-x64.zip?label=x64" alt="Windows x64 downloads"></a><br><a href="https://github.com/GnouGo/GnouGo/releases/tag/v0.6.6"><img src="https://img.shields.io/github/downloads/GnouGo/GnouGo/v0.6.6/gnougo-win-arm64.zip?label=arm64" alt="Windows arm64 downloads"></a> |
+| macOS | `gnougo` via Homebrew Cask | <a href="https://github.com/GnouGo/GnouGo/tree/main/packaging/homebrew-tap/Casks"><img src="https://img.shields.io/badge/homebrew%20cask-gnougo-blue" alt="Homebrew cask availability"></a> | <a href="https://github.com/GnouGo/GnouGo/releases/tag/v0.6.6"><img src="https://img.shields.io/github/downloads/GnouGo/GnouGo/v0.6.6/gnougo-osx-x64.tar.gz?label=x64" alt="macOS x64 downloads"></a><br><a href="https://github.com/GnouGo/GnouGo/releases/tag/v0.6.6"><img src="https://img.shields.io/github/downloads/GnouGo/GnouGo/v0.6.6/gnougo-osx-arm64.tar.gz?label=arm64" alt="macOS arm64 downloads"></a> |
 
 ---
 
@@ -92,13 +99,15 @@ Supporting libraries such as **GnOuGo.AI.Core**, **GnOuGo.Auth.Core**, and **GnO
 
 ---
 
-## 📚 Published Flow Libraries
+## 📚 Published Libraries
 
-The Flow DSL engine is available as two user-facing libraries:
+The current GnOuGo release publishes these reusable libraries and packages:
 
-| Library | Package | README | Usage |
-|---|---|---|---|
-| **GnOuGo.Flow.Core** (.NET) | [NuGet: `GnOuGo.Flow.Core`](https://www.nuget.org/packages/GnOuGo.Flow.Core) | [`src/GnOuGo.Flow.Core/README.md`](src/GnOuGo.Flow.Core/README.md) | NativeAOT-compatible .NET workflow DSL engine for applications, CLIs, APIs, and agents. |
-| **gnougo-flow-core** (Python) | [PyPI: `gnougo-flow-core`](https://pypi.org/project/gnougo-flow-core/) | [`librairies/python/gnougo-flow-core/README.md`](librairies/python/gnougo-flow-core/README.md) | Python 3.10+ port with the same YAML DSL concepts and the `gnougo-flow` CLI. |
+| Library | Package | Version | Runtime | Downloads | Usage |
+|---|---|---:|---:|---:|---|
+| **GnOuGo.Auth.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Auth.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Auth.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Auth.Core.svg" alt="GnOuGo.Auth.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Auth.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.Auth.Core .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Auth.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Auth.Core.svg" alt="GnOuGo.Auth.Core downloads"></a> | Authentication abstractions and provider credential helpers for GnOuGo components. |
+| **GnOuGo.AI.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.AI.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.AI.Core.svg" alt="GnOuGo.AI.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.AI.Core .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.AI.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.AI.Core.svg" alt="GnOuGo.AI.Core downloads"></a> | Low-level, AOT-friendly provider routing for LLM integrations. See [`src/GnOuGo.AI.Core/README.md`](src/GnOuGo.AI.Core/README.md). |
+| **GnOuGo.Flow.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Flow.Core.svg" alt="GnOuGo.Flow.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.Flow.Core .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Flow.Core.svg" alt="GnOuGo.Flow.Core downloads"></a> | NativeAOT-compatible .NET workflow DSL engine. See [`src/GnOuGo.Flow.Core/README.md`](src/GnOuGo.Flow.Core/README.md). |
+| **gnougo-flow-core** (Python) | <a href="https://pypi.org/project/gnougo-flow-core/">PyPI</a> | <a href="https://pypi.org/project/gnougo-flow-core/"><img src="https://img.shields.io/pypi/v/gnougo-flow-core.svg" alt="gnougo-flow-core version"></a> | <a href="https://pypi.org/project/gnougo-flow-core/"><img src="https://img.shields.io/pypi/pyversions/gnougo-flow-core.svg" alt="gnougo-flow-core Python versions"></a> | <a href="https://pepy.tech/projects/gnougo-flow-core"><img src="https://static.pepy.tech/badge/gnougo-flow-core" alt="gnougo-flow-core downloads"></a> | Python port of the YAML workflow DSL engine. See [`librairies/python/gnougo-flow-core/README.md`](librairies/python/gnougo-flow-core/README.md). |
 
 ---
