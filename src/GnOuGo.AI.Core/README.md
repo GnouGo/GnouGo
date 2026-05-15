@@ -1,9 +1,5 @@
 ﻿# GnOuGo.AI.Core
 
-<a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.AI.Core.svg" alt="NuGet version"></a>
-<a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0"></a>
-<a href="https://nugettrends.com/packages?ids=GnOuGo.AI.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.AI.Core.svg" alt="NuGet downloads"></a>
-
 Low-level, AOT-friendly library for calling LLM providers.  
 Provides a **provider-agnostic routing layer** so that the rest of the system never deals with HTTP specifics.
 
