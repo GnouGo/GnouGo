@@ -65,7 +65,42 @@ internal sealed class RecordingLlmClient : ILLMClient
     {
         CallCount++;
         LastRequest = request;
-        return Task.FromResult(new LLMResponse { Text = "stub-response" });
+        return Task.FromResult(new LLMResponse { Text = BuildResponseText(request) });
+    }
+
+    private static string BuildResponseText(LLMRequest request)
+    {
+        if (request.Prompt.Contains("Generate a valid GnOuGo.Flow YAML workflow", StringComparison.OrdinalIgnoreCase)
+            || request.Prompt.Contains("Return only a complete workflow YAML document", StringComparison.OrdinalIgnoreCase))
+        {
+            return """
+                version: 1
+                name: generated-agent
+                workflows:
+                  main:
+                    inputs:
+                      task:
+                        type: string
+                        required: true
+                    steps:
+                      - id: final_answer
+                        type: set
+                        input:
+                          answer: "${data.inputs.task}"
+                    outputs:
+                      answer:
+                        expr: "${data.steps.final_answer.answer}"
+                        type: string
+                """;
+        }
+
+        if (request.Prompt.Contains("Convert the following schedule description", StringComparison.OrdinalIgnoreCase)
+            || request.Prompt.Contains("Return ONLY the JSON array", StringComparison.OrdinalIgnoreCase))
+        {
+            return """[{"name":"daily-8am","cron":"0 8 * * *"}]""";
+        }
+
+        return "stub-response";
     }
 }
 

@@ -1,26 +1,26 @@
 ﻿using Microsoft.Extensions.Options;
 
-namespace GnOuGo.GithubCopilot.Mcp;
+namespace GnOuGo.Git.Mcp;
 
-public sealed class CodePolicy
+public sealed class GitPolicy
 {
-    private readonly CodeServerSettings _settings;
+    private readonly GitServerSettings _settings;
     private readonly string _contentRootPath;
     private readonly string? _workspaceRootPath;
     private readonly string? _desktopDirectoryPath;
     private readonly string _defaultWorkingDirectory;
 
-    public CodePolicy(IOptions<CodeServerSettings> settings)
+    public GitPolicy(IOptions<GitServerSettings> settings)
         : this(settings.Value, AppContext.BaseDirectory)
     {
     }
 
-    public CodePolicy(CodeServerSettings settings, string contentRootPath)
+    public GitPolicy(GitServerSettings settings, string contentRootPath)
         : this(settings, contentRootPath, desktopDirectoryPath: null)
     {
     }
 
-    internal CodePolicy(CodeServerSettings settings, string contentRootPath, string? desktopDirectoryPath)
+    internal GitPolicy(GitServerSettings settings, string contentRootPath, string? desktopDirectoryPath)
     {
         _settings = settings;
         _contentRootPath = Path.GetFullPath(contentRootPath);
@@ -31,22 +31,18 @@ public sealed class CodePolicy
 
     public string DefaultWorkingDirectory => _defaultWorkingDirectory;
 
-    public CodePolicyInfo DescribePolicy()
+    public GitPolicyInfo DescribePolicy()
         => new(
             DefaultWorkingDirectory: _defaultWorkingDirectory,
             AllowedWorkingRoots: ResolveAllowedWorkingRoots(),
-            AllowedExtensions: NormalizeExtensions(_settings.AllowedExtensions),
-            MaxFileSizeBytes: _settings.MaxFileSizeBytes,
-            MaxSearchResults: _settings.MaxSearchResults,
-            MaxPromptCharacters: _settings.MaxPromptCharacters,
-            AllowWrites: _settings.AllowWrites,
-            CopilotProvider: _settings.Copilot.Provider,
-            CopilotModel: _settings.Copilot.Model,
-            CopilotMode: GitHubCopilotCodeClient.NormalizeMessageMode(_settings.Copilot.Mode),
-            CopilotForwardTraceContext: _settings.Copilot.ForwardTraceContext,
-            CopilotTelemetryEnabled: _settings.Copilot.Telemetry.Enabled,
-            HasConfiguredToken: !string.IsNullOrWhiteSpace(ResolveConfiguredToken()),
-            TokenEnvironmentVariables: _settings.Copilot.TokenEnvironmentVariables);
+            AllowMutations: _settings.AllowMutations,
+            AllowNetworkOperations: _settings.AllowNetworkOperations,
+            RequireCleanWorkingTreeForMerge: _settings.RequireCleanWorkingTreeForMerge,
+            MaxDiffCharacters: _settings.MaxDiffCharacters,
+            MaxLogCount: _settings.MaxLogCount,
+            DefaultRemoteName: _settings.DefaultRemoteName,
+            HasConfiguredToken: !string.IsNullOrWhiteSpace(ResolveGitToken()),
+            TokenEnvironmentVariables: _settings.TokenEnvironmentVariables);
 
     public string ResolveProjectRoot(string? projectRoot)
     {
@@ -60,35 +56,25 @@ public sealed class CodePolicy
         return candidate;
     }
 
-    public string ResolveReadableFile(string projectRoot, string relativePath)
+    public string ResolveCloneTargetDirectory(string targetDirectory)
     {
-        var resolvedRoot = ResolveProjectRoot(projectRoot);
-        var path = ResolveRelativePath(resolvedRoot, relativePath);
-        EnsureAllowedFile(path);
-        if (!File.Exists(path))
-            throw new FileNotFoundException($"File '{relativePath}' was not found inside project root.", path);
-        var length = new FileInfo(path).Length;
-        if (length > _settings.MaxFileSizeBytes)
-            throw new InvalidOperationException($"File '{relativePath}' exceeds max size {_settings.MaxFileSizeBytes} bytes.");
+        if (string.IsNullOrWhiteSpace(targetDirectory))
+            throw new InvalidOperationException("targetDirectory must not be empty.");
+
+        var path = ResolvePath(targetDirectory, mustExist: false, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
+        if (File.Exists(path))
+            throw new InvalidOperationException($"Clone target '{path}' is an existing file.");
+        if (Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any())
+            throw new InvalidOperationException($"Clone target directory '{path}' already exists and is not empty.");
         return path;
     }
 
-    public string ResolveWritableFile(string projectRoot, string relativePath)
+    public string? ResolveGitToken()
     {
-        if (!_settings.AllowWrites)
-            throw new InvalidOperationException("Writes are disabled by policy. Set Code:AllowWrites=true to enable code_write_file.");
-        var resolvedRoot = ResolveProjectRoot(projectRoot);
-        var path = ResolveRelativePath(resolvedRoot, relativePath);
-        EnsureAllowedFile(path);
-        return path;
-    }
+        if (!string.IsNullOrWhiteSpace(_settings.Token))
+            return _settings.Token;
 
-    public string? ResolveConfiguredToken()
-    {
-        if (!string.IsNullOrWhiteSpace(_settings.Copilot.ApiKey))
-            return _settings.Copilot.ApiKey;
-
-        foreach (var variable in _settings.Copilot.TokenEnvironmentVariables.Where(static v => !string.IsNullOrWhiteSpace(v)))
+        foreach (var variable in _settings.TokenEnvironmentVariables.Where(static v => !string.IsNullOrWhiteSpace(v)))
         {
             var value = Environment.GetEnvironmentVariable(variable);
             if (!string.IsNullOrWhiteSpace(value))
@@ -98,12 +84,17 @@ public sealed class CodePolicy
         return null;
     }
 
-    public void EnsurePromptWithinLimit(string value, string parameterName)
+    public void EnsureGitMutationsAllowed(string operation)
     {
-        if (value.Length > _settings.MaxPromptCharacters)
-            throw new InvalidOperationException($"{parameterName} exceeds max length {_settings.MaxPromptCharacters} characters.");
+        if (!_settings.AllowMutations)
+            throw new InvalidOperationException($"Git mutation '{operation}' is disabled by policy. Set Git:AllowMutations=true to enable it.");
     }
 
+    public void EnsureGitNetworkAllowed(string operation)
+    {
+        if (!_settings.AllowNetworkOperations)
+            throw new InvalidOperationException($"Git network operation '{operation}' is disabled by policy. Set Git:AllowNetworkOperations=true to enable it.");
+    }
 
     internal IReadOnlyList<string> ResolveAllowedWorkingRoots()
     {
@@ -172,54 +163,12 @@ public sealed class CodePolicy
         return path;
     }
 
-    private string ResolveRelativePath(string projectRoot, string relativePath)
+    private void EnsureWithinAllowedRoots(string path)
     {
-        if (string.IsNullOrWhiteSpace(relativePath))
-            throw new InvalidOperationException("relativePath must not be empty.");
-        if (Path.IsPathRooted(relativePath) || HasDriveRelativePrefix(relativePath))
-            throw new InvalidOperationException("relativePath must be relative to the project root.");
-        if (ContainsParentTraversalSegment(relativePath) || relativePath.IndexOfAny(['*', '?']) >= 0)
-            throw new InvalidOperationException("relativePath must not contain parent traversal segments or wildcard characters.");
-
-        var path = Path.GetFullPath(Path.Combine(projectRoot, relativePath));
-        if (!IsPathWithinRoot(path, projectRoot))
-            throw new InvalidOperationException("relativePath resolves outside the project root.");
-        EnsureWithinAllowedRoots(path);
-        return path;
-    }
-
-    private void EnsureAllowedFile(string path)
-    {
-        var extension = Path.GetExtension(path);
-        var allowed = NormalizeExtensions(_settings.AllowedExtensions);
-        if (allowed.Count > 0 && !allowed.Contains(extension, StringComparer.OrdinalIgnoreCase))
-            throw new InvalidOperationException($"Extension '{extension}' is not allowed. Allowed: {string.Join(", ", allowed)}.");
-    }
-
-    private void EnsureWithinAllowedRoots(string path, bool includeDefault = true)
-    {
-        var roots = includeDefault ? ResolveAllowedWorkingRoots() : ResolveAllowedWorkingRootsWithoutDefault();
+        var roots = ResolveAllowedWorkingRoots();
         if (!roots.Any(root => IsPathWithinRoot(path, root)))
             throw new InvalidOperationException($"Path '{path}' is outside the allowed roots: {string.Join(", ", roots)}.");
     }
-
-    private IReadOnlyList<string> ResolveAllowedWorkingRootsWithoutDefault()
-    {
-        var basePath = _workspaceRootPath ?? _contentRootPath;
-        var configured = _settings.AllowedWorkingRoots
-            .Where(static p => !string.IsNullOrWhiteSpace(p))
-            .Select(path => Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(basePath, path)))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        return configured.Length == 0 ? [Path.GetFullPath(_workspaceRootPath ?? _contentRootPath)] : configured;
-    }
-
-    private static IReadOnlyList<string> NormalizeExtensions(IEnumerable<string> extensions)
-        => extensions
-            .Where(static e => !string.IsNullOrWhiteSpace(e))
-            .Select(static e => e.StartsWith('.') ? e : "." + e)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
 
     private static bool ContainsParentTraversalSegment(string path)
         => path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).Any(static segment => string.Equals(segment, "..", StringComparison.Ordinal));
@@ -240,10 +189,5 @@ public sealed class CodePolicy
 
         throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
     }
-
-    private static bool HasDriveRelativePrefix(string path)
-        => path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':';
 }
-
-
 

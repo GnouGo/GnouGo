@@ -58,6 +58,57 @@ public class CommandExecutionHostTests
     }
 
     [Fact]
+    public async Task RunAsync_CanDeleteSubdirectoryRecursivelyInsideWorkspace()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var root = CreateTempDirectory();
+        var nestedDirectory = Directory.CreateDirectory(Path.Combine(root, "notes", "archive", "2026"));
+        File.WriteAllText(Path.Combine(nestedDirectory.FullName, "entry.md"), "hello");
+
+        var policy = new CommandPolicy(new CmdServerSettings
+        {
+            DefaultWorkingDirectory = root,
+            AllowedShells = ["powershell"],
+            AllowedCommands = new Dictionary<string, AllowedCommandSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["delete_directory_recursive"] = new()
+                {
+                    Shell = "powershell",
+                    Script = "$target = {{path}}; if (-not (Test-Path -LiteralPath $target -PathType Container)) { throw \"Directory not found: $target\" }; Remove-Item -LiteralPath $target -Recurse -Force; Write-Output $target",
+                    Parameters = new Dictionary<string, CommandParameterSettings>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["path"] = new()
+                        {
+                            Required = true,
+                            Pattern = "^(?![\\\\/])(?!\\.{1,2}$)(?!.*(?:^|[\\\\/])\\.{1,2}(?:[\\\\/]|$))[A-Za-z0-9_.\\\\/-]{1,240}$",
+                            MaxLength = 240,
+                            IsWorkspacePath = true,
+                            MustExist = true,
+                            PathKind = WorkspacePathKind.Directory
+                        }
+                    }
+                }
+            }
+        }, root);
+
+        var host = new CommandExecutionHost(policy, NullLogger<CommandExecutionHost>.Instance);
+
+        var result = await host.RunAsync(
+            "delete_directory_recursive",
+            "{\"path\":\"notes\"}",
+            null,
+            CancellationToken.None);
+
+        var deletedDirectory = Path.Combine(root, "notes");
+        Assert.True(result.Success);
+        Assert.Equal(0, result.ExitCode);
+        Assert.False(Directory.Exists(deletedDirectory));
+        Assert.Contains(deletedDirectory, result.Stdout, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task RunAsync_RejectsWorkspacePathTraversalBeforeLaunchingTheProcess()
     {
         if (!OperatingSystem.IsWindows())
@@ -94,6 +145,47 @@ public class CommandExecutionHostTests
             host.RunAsync("read_note", "{\"path\":\"../outside.txt\"}", null, CancellationToken.None));
 
         Assert.Contains("parent directory traversal", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RunAsync_RejectsRecursiveDeleteOutsideWorkspaceBeforeLaunchingTheProcess()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var root = CreateTempDirectory();
+        var policy = new CommandPolicy(new CmdServerSettings
+        {
+            DefaultWorkingDirectory = root,
+            AllowedShells = ["powershell"],
+            AllowedCommands = new Dictionary<string, AllowedCommandSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["delete_directory_recursive"] = new()
+                {
+                    Shell = "powershell",
+                    Script = "$target = {{path}}; Remove-Item -LiteralPath $target -Recurse -Force; Write-Output $target",
+                    Parameters = new Dictionary<string, CommandParameterSettings>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["path"] = new()
+                        {
+                            Required = true,
+                            Pattern = "^(?![\\\\/])(?!\\.{1,2}$)(?!.*(?:^|[\\\\/])\\.{1,2}(?:[\\\\/]|$))[A-Za-z0-9_.\\\\/-]{1,240}$",
+                            MaxLength = 240,
+                            IsWorkspacePath = true,
+                            MustExist = true,
+                            PathKind = WorkspacePathKind.Directory
+                        }
+                    }
+                }
+            }
+        }, root);
+
+        var host = new CommandExecutionHost(policy, NullLogger<CommandExecutionHost>.Instance);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            host.RunAsync("delete_directory_recursive", "{\"path\":\"../outside\"}", null, CancellationToken.None));
+
+        Assert.Contains("does not match the required pattern", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

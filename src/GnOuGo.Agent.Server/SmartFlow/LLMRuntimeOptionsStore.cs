@@ -259,6 +259,8 @@ public sealed class LLMRuntimeOptionsStore
         {
             Type = source.Type,
             Description = source.Description,
+            DiscoveryTimeoutSeconds = source.DiscoveryTimeoutSeconds,
+            CallTimeoutSeconds = source.CallTimeoutSeconds,
             Url = source.Url,
             ApiKey = source.ApiKey,
             Issuer = source.Issuer,

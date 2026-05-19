@@ -27,7 +27,7 @@ public sealed class CodeToolsTests : IDisposable
 	{
 		var settings = CreateSettings();
 		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(CreateService(settings), CreateGitService(settings), assistant, NullLogger<CodeTools>.Instance);
+		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
 
 		var result = await tools.SuggestChangeAsync(_root, "Add a greeting method.", "[\"src/Program.cs\"]");
 
@@ -46,7 +46,7 @@ public sealed class CodeToolsTests : IDisposable
 	{
 		var settings = CreateSettings();
 		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(CreateService(settings), CreateGitService(settings), assistant, NullLogger<CodeTools>.Instance);
+		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
 
 		var result = await tools.SuggestChangeAsync(_root, "Use a custom provider.", provider: "CustomCopilot");
 
@@ -61,7 +61,7 @@ public sealed class CodeToolsTests : IDisposable
 		var settings = CreateSettings();
 		settings.AllowWrites = true;
 		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(CreateService(settings), CreateGitService(settings), assistant, NullLogger<CodeTools>.Instance);
+		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
 
 		var result = await tools.AgentEditAsync(_root, "Implement the change.", "[\"src/Program.cs\"]", provider: "CustomCopilot");
 
@@ -99,9 +99,8 @@ public sealed class CodeToolsTests : IDisposable
 		settings.AllowedWorkingRoots = [];
 		var policy = new CodePolicy(settings, _root, desktop);
 		var projectService = new CodeProjectService(policy, Options.Create(settings));
-		var gitService = new GitRepositoryService(policy, Options.Create(settings));
 		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(projectService, gitService, assistant, NullLogger<CodeTools>.Instance);
+		var tools = new CodeTools(projectService, assistant, NullLogger<CodeTools>.Instance);
 
 		var result = await tools.SuggestChangeAsync("workspace/oidc-client", "Plan this change.", "[\"src/Program.cs\"]");
 
@@ -273,11 +272,6 @@ public sealed class CodeToolsTests : IDisposable
 		return new CodeProjectService(policy, Options.Create(settings));
 	}
 
-	private GitRepositoryService CreateGitService(CodeServerSettings settings)
-	{
-		var policy = new CodePolicy(settings, _root);
-		return new GitRepositoryService(policy, Options.Create(settings));
-	}
 
 	private CodeServerSettings CreateSettings() => new()
 	{
