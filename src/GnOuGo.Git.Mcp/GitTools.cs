@@ -160,13 +160,45 @@ public sealed class GitTools
     {
         if (string.IsNullOrWhiteSpace(pathsJson))
             return [];
-        var values = JsonSerializer.Deserialize(pathsJson, GitToolsJsonContext.Default.ListString);
+        var values = JsonSerializer.Deserialize(pathsJson, GitMcpJsonContext.Default.ListString);
         return values?.Where(static value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() ?? [];
     }
 }
 
+internal static class GitMcpJson
+{
+    public static JsonSerializerOptions SerializerOptions { get; } = CreateSerializerOptions();
+
+    private static JsonSerializerOptions CreateSerializerOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.TypeInfoResolverChain.Insert(0, GitMcpJsonContext.Default);
+        return options;
+    }
+}
+
 [JsonSerializable(typeof(List<string>))]
-internal sealed partial class GitToolsJsonContext : JsonSerializerContext;
+[JsonSerializable(typeof(IReadOnlyList<string>))]
+[JsonSerializable(typeof(GitPolicyInfo))]
+[JsonSerializable(typeof(GitErrorResult))]
+[JsonSerializable(typeof(GitRepositoryInfo))]
+[JsonSerializable(typeof(GitStatusEntry))]
+[JsonSerializable(typeof(IReadOnlyList<GitStatusEntry>))]
+[JsonSerializable(typeof(GitStatusResult))]
+[JsonSerializable(typeof(GitDiffResult))]
+[JsonSerializable(typeof(GitCommitInfo))]
+[JsonSerializable(typeof(IReadOnlyList<GitCommitInfo>))]
+[JsonSerializable(typeof(GitLogResult))]
+[JsonSerializable(typeof(GitBranchInfo))]
+[JsonSerializable(typeof(IReadOnlyList<GitBranchInfo>))]
+[JsonSerializable(typeof(GitBranchesResult))]
+[JsonSerializable(typeof(GitOperationResult))]
+[JsonSerializable(typeof(GitCloneResult))]
+[JsonSerializable(typeof(GitConflictInfo))]
+[JsonSerializable(typeof(IReadOnlyList<GitConflictInfo>))]
+[JsonSerializable(typeof(GitMergeResult))]
+[JsonSerializable(typeof(GitPushResult))]
+internal sealed partial class GitMcpJsonContext : JsonSerializerContext;
 
 
 

@@ -1,6 +1,5 @@
 ﻿using GnOuGo.Git.Mcp;
 using GnOuGo.Observability.Core;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -31,7 +30,7 @@ builder.Services
         };
     })
     .WithStdioServerTransport()
-    .WithTools<GitTools>();
+    .WithTools<GitTools>(GitMcpJson.SerializerOptions);
 
 var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Git.Mcp.Startup");

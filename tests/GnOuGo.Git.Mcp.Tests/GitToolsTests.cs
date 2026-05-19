@@ -1,5 +1,8 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
 using Xunit;
 
 namespace GnOuGo.Git.Mcp.Tests;
@@ -63,6 +66,35 @@ public sealed class GitToolsTests : IDisposable
         var error = Assert.IsType<GitErrorResult>(result);
         Assert.Equal("POLICY_OR_INPUT_ERROR", error.Code);
         Assert.False(string.IsNullOrWhiteSpace(error.Message));
+    }
+
+    [Fact]
+    public void McpToolRegistration_CreatesToolDescriptorsWithGitJsonContext()
+    {
+        var settings = CreateSettings();
+        var services = new ServiceCollection();
+
+        services.AddLogging();
+        services.AddSingleton(Options.Create(settings));
+        services.AddSingleton(new GitPolicy(settings, _root));
+        services.AddSingleton<GitRepositoryService>();
+        services.AddTransient<GitTools>();
+        services
+            .AddMcpServer(options =>
+            {
+                options.ServerInfo = new Implementation
+                {
+                    Name = "GnOuGo.Git.Mcp.Tests",
+                    Version = "1.0.0"
+                };
+            })
+            .WithTools<GitTools>(GitMcpJson.SerializerOptions);
+
+        using var provider = services.BuildServiceProvider();
+
+        var tools = provider.GetServices<McpServerTool>().ToArray();
+
+        Assert.NotEmpty(tools);
     }
 
     private GitServerSettings CreateSettings() => new()
