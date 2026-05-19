@@ -226,6 +226,12 @@ public sealed class GnOuGoAgentWebHostTests
             AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Document.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Document.Mcp", "GnOuGo.Document.Mcp.csproj")));
             AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.GithubCopilot.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.GithubCopilot.Mcp", "GnOuGo.GithubCopilot.Mcp.csproj")));
             AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Git.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Git.Mcp", "GnOuGo.Git.Mcp.csproj")));
+
+            var runtimeOptions = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current;
+            Assert.True(runtimeOptions.McpServers.TryGetValue("GnOuGo.Git.Mcp", out var runtimeGitServer));
+            Assert.NotNull(runtimeGitServer);
+            Assert.Equal(120, runtimeGitServer.DiscoveryTimeoutSeconds);
+            Assert.Equal(1200, runtimeGitServer.CallTimeoutSeconds);
         }
         finally
         {

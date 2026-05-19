@@ -8,6 +8,38 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LlmRuntimeOptionsStoreTests
 {
     [Fact]
+    public void Constructor_PreservesConfiguredMcpTimeouts()
+    {
+        var store = new LLMRuntimeOptionsStore(
+            Options.Create(new LLMOptions
+            {
+                DefaultProvider = "openai",
+                DefaultModel = "gpt-4o-mini",
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai" }
+                },
+                McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["GnOuGo.Git.Mcp"] = new()
+                    {
+                        Type = "stdio",
+                        Description = "Git repository workflows via stdio MCP server using LibGit2Sharp",
+                        DiscoveryTimeoutSeconds = 120,
+                        CallTimeoutSeconds = 1200,
+                        Command = "dotnet",
+                        Args = ["run", "--project", "src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj"]
+                    }
+                }
+            }),
+            NullLogger<LLMRuntimeOptionsStore>.Instance);
+
+        var gitMcp = store.Current.McpServers["GnOuGo.Git.Mcp"];
+        Assert.Equal(120, gitMcp.DiscoveryTimeoutSeconds);
+        Assert.Equal(1200, gitMcp.CallTimeoutSeconds);
+    }
+
+    [Fact]
     public void UpdateProvider_WhenTransientMountedMcpServersExist_KeepsEverythingInMemoryOnly()
     {
         var userSettingsPath = Path.Combine(Path.GetTempPath(), "gnougo-agent-server-tests", "runtime-settings-regression", $"{Guid.NewGuid():N}.json");

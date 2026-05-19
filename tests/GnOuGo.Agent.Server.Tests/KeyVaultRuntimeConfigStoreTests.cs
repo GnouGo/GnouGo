@@ -39,7 +39,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                     CancellationToken.None);
                 await keyVault.SetSecretAsync(
                     "LLM--McpServers--Github",
-                    "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"GitHub automation\",\"url\":\"https://api.githubcopilot.com/mcp/\",\"authType\":\"api_key\",\"apiKey\":\"gh-secret\"}",
+                    "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"GitHub automation\",\"discoveryTimeoutSeconds\":120,\"callTimeoutSeconds\":1200,\"url\":\"https://api.githubcopilot.com/mcp/\",\"authType\":\"api_key\",\"apiKey\":\"gh-secret\"}",
                     null,
                     "test",
                     CancellationToken.None);
@@ -62,7 +62,9 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                     ["GnOuGo.KeyVault.Mcp"] = new()
                     {
                         Type = "http",
-                        Url = "http://127.0.0.1:0/mcp/keyvault"
+                        Url = "http://127.0.0.1:0/mcp/keyvault",
+                        DiscoveryTimeoutSeconds = 90,
+                        CallTimeoutSeconds = 600
                     }
                 }
             };
@@ -80,10 +82,14 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal("http", github.Type);
             Assert.Equal("https://api.githubcopilot.com/mcp/", github.Url);
             Assert.Equal("gh-secret", github.ApiKey);
+            Assert.Equal(120, github.DiscoveryTimeoutSeconds);
+            Assert.Equal(1200, github.CallTimeoutSeconds);
             Assert.True(effective.McpServers.TryGetValue("GnOuGo.KeyVault.Mcp", out var keyVaultServer));
             Assert.NotNull(keyVaultServer);
             Assert.Equal("http", keyVaultServer.Type);
             Assert.Equal("http://127.0.0.1:0/mcp/keyvault", keyVaultServer.Url);
+            Assert.Equal(90, keyVaultServer.DiscoveryTimeoutSeconds);
+            Assert.Equal(600, keyVaultServer.CallTimeoutSeconds);
         }
         finally
         {
