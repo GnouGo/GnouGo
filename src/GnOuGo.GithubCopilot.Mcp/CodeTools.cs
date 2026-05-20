@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
@@ -128,9 +129,48 @@ public sealed class CodeTools
     {
         if (string.IsNullOrWhiteSpace(contextFilesJson))
             return [];
-        var values = JsonSerializer.Deserialize<List<string>>(contextFilesJson);
-        return values?.Where(static value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() ?? [];
+        var values = JsonSerializer.Deserialize<List<string>>(contextFilesJson, CodeMcpJson.SerializerOptions);
+        if (values is null)
+            return [];
+
+        var result = new List<string>();
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value) && !result.Contains(value, StringComparer.OrdinalIgnoreCase))
+                result.Add(value);
+        }
+
+        return result;
     }
 }
+
+internal static class CodeMcpJson
+{
+    public static JsonSerializerOptions SerializerOptions { get; } = CreateSerializerOptions();
+
+    private static JsonSerializerOptions CreateSerializerOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.TypeInfoResolverChain.Insert(0, CodeMcpJsonContext.Default);
+        return options;
+    }
+}
+
+[JsonSerializable(typeof(List<string>))]
+[JsonSerializable(typeof(IReadOnlyList<string>))]
+[JsonSerializable(typeof(CodePolicyInfo))]
+[JsonSerializable(typeof(CodeProjectSummary))]
+[JsonSerializable(typeof(CodeFileContent))]
+[JsonSerializable(typeof(CodeSearchResult))]
+[JsonSerializable(typeof(IReadOnlyList<CodeSearchResult>))]
+[JsonSerializable(typeof(CodeSearchResults))]
+[JsonSerializable(typeof(CodeProgressEvent))]
+[JsonSerializable(typeof(CodeMcpProgressEnvelope))]
+[JsonSerializable(typeof(IReadOnlyList<CodeProgressEvent>))]
+[JsonSerializable(typeof(CodeSuggestionResult))]
+[JsonSerializable(typeof(CodeAgentEditResult))]
+[JsonSerializable(typeof(CodeWriteResult))]
+[JsonSerializable(typeof(CodeErrorResult))]
+internal sealed partial class CodeMcpJsonContext : JsonSerializerContext;
 
 

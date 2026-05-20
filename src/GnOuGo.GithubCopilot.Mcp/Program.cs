@@ -37,6 +37,7 @@ builder.Services.AddSingleton<ICopilotProviderConfigResolver, KeyVaultCopilotPro
 builder.Services.AddSingleton<CodePolicy>();
 builder.Services.AddSingleton<CodeProjectService>();
 builder.Services.AddSingleton<CodeMcpTraceContextAccessor>();
+builder.Services.AddSingleton<CodeProgressReporter>();
 builder.Services.AddSingleton<ICodeAssistantClient, GitHubCopilotCodeClient>();
 builder.Services.AddTransient<CodeTools>();
 builder.Services
@@ -56,7 +57,7 @@ builder.Services
         });
     })
     .WithStdioServerTransport()
-    .WithTools<CodeTools>();
+    .WithTools<CodeTools>(CodeMcpJson.SerializerOptions);
 
 var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.GithubCopilot.Mcp.Startup");

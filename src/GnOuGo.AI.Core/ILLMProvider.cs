@@ -1,14 +1,14 @@
 ﻿namespace GnOuGo.AI.Core;
 
 /// <summary>
-/// Abstraction for an LLM provider backend (OpenAI, Ollama, Copilot, Azure, etc.).
+/// Abstraction for an LLM provider backend (OpenAI, Ollama, Copilot, Claude, Azure, etc.).
 /// Each implementation handles one provider type and encapsulates protocol differences.
 /// Register implementations via <see cref="RoutingLLMClient"/> to make them available.
 /// </summary>
 public interface ILLMProvider
 {
     /// <summary>
-    /// Unique type identifier for this provider (e.g. "openai", "ollama", "copilot").
+    /// Unique type identifier for this provider (e.g. "openai", "ollama", "copilot", "claude").
     /// Must match <see cref="ModelProviderOptions.ResolvedType"/>.
     /// </summary>
     string ProviderType { get; }

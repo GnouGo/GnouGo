@@ -82,6 +82,7 @@ In other words, runtime consumers should treat the mounted MCP endpoints as part
 
 The persisted values live in the Agent MCP SQLite database (`Agent:DatabasePath`) rather than only in browser state.
 LLM provider and MCP server definitions are hydrated from encrypted KeyVault secrets at startup; `user-settings.json` is no longer used.
+`/llm add` can configure `openai`, `ollama`, `copilot`, and `claude` providers. Claude uses the Anthropic Messages API endpoint `https://api.anthropic.com/v1` and stores the API key encrypted in KeyVault like the other remote providers.
 
 ## Dynamic workflow input composer
 

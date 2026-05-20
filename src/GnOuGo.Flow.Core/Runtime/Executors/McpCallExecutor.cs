@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
@@ -245,12 +246,20 @@ public sealed class McpCallExecutor : IStepExecutor
             if (!string.IsNullOrWhiteSpace(correlation.TraceId))
                 ctx.SetTelemetryAttribute("gnougo.trace_id", correlation.TraceId);
 
+            var realtimeProgressFingerprints = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
             using var correlationScope = ConfiguredMcpClientFactory.PushCorrelationContext(correlation);
+            using var progressScope = ConfiguredMcpClientFactory.PushProgressHandler(
+                correlation,
+                progressEvent =>
+                {
+                    realtimeProgressFingerprints.TryAdd(BuildProgressFingerprint(progressEvent.EventKind, progressEvent.Message, progressEvent.File), 0);
+                    EmitRealtimeMcpProgressEventAsThinking(ctx, progressEvent, correlation);
+                });
             await using var session = await factory.GetClientAsync(serverName, linkedCts.Token);
 
             if (hasPromptSelection)
             {
-                return await ExecuteLlmAssistedAsync(session, input, kind, singleMethod, batchMethods, ctx, linkedCts.Token);
+                return await ExecuteLlmAssistedAsync(session, input, kind, singleMethod, batchMethods, ctx, realtimeProgressFingerprints, linkedCts.Token);
             }
 
             // Auto-discover: list all tools or prompts from the server
@@ -302,7 +311,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 foreach (var methodName in batchMethods!)
                 {
                     var itemCorrelation = correlation with { MethodName = methodName };
-                    var itemResult = await CallSingleAsync(session, kind, methodName, requestArgs?.DeepClone(), itemCorrelation, ctx, linkedCts.Token);
+                    var itemResult = await CallSingleAsync(session, kind, methodName, requestArgs?.DeepClone(), itemCorrelation, ctx, realtimeProgressFingerprints, linkedCts.Token);
                     var itemObj = (JsonObject)itemResult!;
                     itemObj["method"] = methodName;
                     if (itemObj["status"]?.GetValue<string>() == "error")
@@ -321,7 +330,7 @@ public sealed class McpCallExecutor : IStepExecutor
             {
                 // ── Single mode (backward compatible) ──
                 var singleCorrelation = correlation with { MethodName = singleMethod };
-                var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, ctx, linkedCts.Token);
+                var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, ctx, realtimeProgressFingerprints, linkedCts.Token);
                 var statusStr = (singleResult as JsonObject)?["status"]?.GetValue<string>();
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", statusStr == "error" ? "error" : "stop");
                 return singleResult;
@@ -379,6 +388,7 @@ public sealed class McpCallExecutor : IStepExecutor
         string? singleMethod,
         List<string>? batchMethods,
         StepExecutionContext ctx,
+        ConcurrentDictionary<string, byte>? realtimeProgressFingerprints,
         CancellationToken ct)
     {
         var llmClient = ctx.Engine.LLMClient
@@ -479,7 +489,7 @@ public sealed class McpCallExecutor : IStepExecutor
                     $"mcp.call prompt mode selected unknown MCP capability '{toolCall.Name}'", retryable: false);
 
             var correlation = BuildCorrelationContext(ctx, session.ServerName, capability.Kind, capability.MethodName, null);
-            var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, ctx, ct);
+            var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, ctx, realtimeProgressFingerprints, ct);
             var itemObj = (JsonObject)itemResult!;
             itemObj["method"] = capability.MethodName;
             itemObj["kind"] = capability.Kind;
@@ -891,7 +901,7 @@ Produce the final answer strictly from the executed MCP results.
     /// <summary>Calls a single tool or prompt and returns the result JsonObject.</summary>
     private static async Task<JsonNode?> CallSingleAsync(
         IMcpSession session, string kind, string method, JsonNode? requestArgs,
-        McpCorrelationContext correlation, StepExecutionContext ctx, CancellationToken ct)
+        McpCorrelationContext correlation, StepExecutionContext ctx, ConcurrentDictionary<string, byte>? realtimeProgressFingerprints, CancellationToken ct)
     {
         if (kind == "prompt")
         {
@@ -926,6 +936,7 @@ Produce the final answer strictly from the executed MCP results.
 
             // ── Telemetry: extract LLM metrics from tool result ──
             ExtractUsageTelemetry(ctx, callResult.Usage, callResult.Model, provider: null);
+            EmitMcpProgressEventsAsThinking(ctx, callResult.Content, correlation, realtimeProgressFingerprints);
 
             return new JsonObject
             {
@@ -936,6 +947,149 @@ Produce the final answer strictly from the executed MCP results.
                 ["trace_id"] = correlation.TraceId
             };
         }
+    }
+
+    private static void EmitMcpProgressEventsAsThinking(
+        StepExecutionContext ctx,
+        JsonNode? content,
+        McpCorrelationContext correlation,
+        ConcurrentDictionary<string, byte>? realtimeProgressFingerprints)
+    {
+        foreach (var progressEvent in EnumerateMcpProgressEvents(content))
+        {
+            var message = SanitizeThinkingMessage(GetStringProperty(progressEvent, "message"));
+            if (string.IsNullOrWhiteSpace(message))
+                continue;
+
+            var eventKind = GetStringProperty(progressEvent, "kind");
+            var file = GetStringProperty(progressEvent, "file");
+            if (realtimeProgressFingerprints?.ContainsKey(BuildProgressFingerprint(eventKind, message, file)) == true)
+                continue;
+
+            var level = NormalizeThinkingLevel(GetStringProperty(progressEvent, "level"));
+            var attributes = new List<KeyValuePair<string, object?>>
+            {
+                new("gnougo-flow.thinking.message", message),
+                new("gnougo-flow.thinking.level", level),
+                new("gnougo-flow.thinking.source", "mcp.progress"),
+                new("mcp.server.name", correlation.ServerName),
+                new("mcp.method.name", correlation.MethodName),
+                new("mcp.kind", correlation.Kind)
+            };
+
+            if (!string.IsNullOrWhiteSpace(eventKind))
+                attributes.Add(new("gnougo-flow.thinking.kind", eventKind));
+
+            if (!string.IsNullOrWhiteSpace(file))
+                attributes.Add(new("gnougo-flow.thinking.file", file));
+
+            var timestamp = GetStringProperty(progressEvent, "timestamp");
+            if (!string.IsNullOrWhiteSpace(timestamp))
+                attributes.Add(new("gnougo-flow.thinking.timestamp", timestamp));
+
+            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", attributes);
+        }
+    }
+
+    private static void EmitRealtimeMcpProgressEventAsThinking(
+        StepExecutionContext ctx,
+        McpRealtimeProgressEvent progressEvent,
+        McpCorrelationContext fallbackCorrelation)
+    {
+        var message = SanitizeThinkingMessage(progressEvent.Message);
+        if (string.IsNullOrWhiteSpace(message))
+            return;
+
+        var attributes = new List<KeyValuePair<string, object?>>
+        {
+            new("gnougo-flow.thinking.message", message),
+            new("gnougo-flow.thinking.level", NormalizeThinkingLevel(progressEvent.Level)),
+            new("gnougo-flow.thinking.source", "mcp.realtime_progress"),
+            new("mcp.server.name", progressEvent.ServerName ?? fallbackCorrelation.ServerName),
+            new("mcp.method.name", progressEvent.MethodName ?? fallbackCorrelation.MethodName),
+            new("mcp.kind", progressEvent.Kind ?? fallbackCorrelation.Kind)
+        };
+
+        if (!string.IsNullOrWhiteSpace(progressEvent.EventKind))
+            attributes.Add(new("gnougo-flow.thinking.kind", progressEvent.EventKind));
+        if (!string.IsNullOrWhiteSpace(progressEvent.File))
+            attributes.Add(new("gnougo-flow.thinking.file", progressEvent.File));
+        if (!string.IsNullOrWhiteSpace(progressEvent.Timestamp))
+            attributes.Add(new("gnougo-flow.thinking.timestamp", progressEvent.Timestamp));
+        if (!string.IsNullOrWhiteSpace(progressEvent.CorrelationId))
+            attributes.Add(new("gnougo.correlation_id", progressEvent.CorrelationId));
+
+        ctx.AddTelemetryEvent("gnougo-flow.step.thinking", attributes);
+    }
+
+    private static string BuildProgressFingerprint(string? eventKind, string? message, string? file)
+        => string.Join("\u001f", eventKind ?? string.Empty, message ?? string.Empty, file ?? string.Empty);
+
+    private static IEnumerable<JsonObject> EnumerateMcpProgressEvents(JsonNode? content)
+    {
+        if (content is not JsonObject obj)
+            yield break;
+
+        var events = GetArrayProperty(obj, "progressEvents")
+            ?? GetArrayProperty(obj, "progress_events")
+            ?? GetArrayProperty(obj, "progress")
+            ?? GetArrayProperty(obj, "events");
+
+        if (events is null)
+            yield break;
+
+        foreach (var item in events.OfType<JsonObject>())
+            yield return item;
+    }
+
+    private static JsonArray? GetArrayProperty(JsonObject obj, string name)
+    {
+        foreach (var property in obj)
+        {
+            if (string.Equals(property.Key, name, StringComparison.OrdinalIgnoreCase) && property.Value is JsonArray array)
+                return array;
+        }
+
+        return null;
+    }
+
+    private static string? GetStringProperty(JsonObject obj, string name)
+    {
+        foreach (var property in obj)
+        {
+            if (!string.Equals(property.Key, name, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (property.Value is JsonValue value && value.TryGetValue<string>(out var text))
+                return text;
+
+            return property.Value?.ToJsonString().Trim('"');
+        }
+
+        return null;
+    }
+
+    private static string NormalizeThinkingLevel(string? level)
+    {
+        if (string.IsNullOrWhiteSpace(level))
+            return "thinking";
+
+        var normalized = level.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "thinking" or "info" or "warning" or "error" or "debug" => normalized,
+            "warn" => "warning",
+            _ => "thinking"
+        };
+    }
+
+    private static string? SanitizeThinkingMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return null;
+
+        var sanitized = message.Trim();
+        return sanitized.Length <= 1000 ? sanitized : sanitized[..1000] + "...";
     }
 
     private static McpCorrelationContext BuildCorrelationContext(

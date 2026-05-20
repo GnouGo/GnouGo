@@ -411,7 +411,7 @@
       }
     },
     "claude-3-5-sonnet-20241022": {
-      "providerType": "copilot",
+      "providerType": "claude",
       "ownedBy": "anthropic",
       "contextWindowTokens": 200000,
       "maxInputTokens": 200000,
@@ -424,13 +424,13 @@
       "capabilities": {
         "supportsTemperature": true,
         "supportsReasoningEffort": false,
-        "supportsStructuredOutput": false,
+        "supportsStructuredOutput": true,
         "supportsTools": true,
         "supportsJsonMode": true
       }
     },
     "claude-3-5-haiku-20241022": {
-      "providerType": "copilot",
+      "providerType": "claude",
       "ownedBy": "anthropic",
       "contextWindowTokens": 200000,
       "maxInputTokens": 200000,
@@ -443,13 +443,13 @@
       "capabilities": {
         "supportsTemperature": true,
         "supportsReasoningEffort": false,
-        "supportsStructuredOutput": false,
+        "supportsStructuredOutput": true,
         "supportsTools": true,
         "supportsJsonMode": true
       }
     },
     "claude-sonnet-4-20250514": {
-      "providerType": "copilot",
+      "providerType": "claude",
       "ownedBy": "anthropic",
       "contextWindowTokens": 200000,
       "maxInputTokens": 200000,
@@ -461,14 +461,21 @@
       },
       "capabilities": {
         "supportsTemperature": true,
-        "supportsReasoningEffort": false,
-        "supportsStructuredOutput": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
         "supportsTools": true,
-        "supportsJsonMode": true
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "max"
+        ]
       }
     },
     "claude-haiku-4-20250514": {
-      "providerType": "copilot",
+      "providerType": "claude",
       "ownedBy": "anthropic",
       "contextWindowTokens": 200000,
       "maxInputTokens": 200000,
@@ -480,14 +487,21 @@
       },
       "capabilities": {
         "supportsTemperature": true,
-        "supportsReasoningEffort": false,
-        "supportsStructuredOutput": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
         "supportsTools": true,
-        "supportsJsonMode": true
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "max"
+        ]
       }
     },
     "claude-3-7-sonnet-20250219": {
-      "providerType": "copilot",
+      "providerType": "claude",
       "ownedBy": "anthropic",
       "contextWindowTokens": 200000,
       "maxInputTokens": 200000,
@@ -499,10 +513,17 @@
       },
       "capabilities": {
         "supportsTemperature": true,
-        "supportsReasoningEffort": false,
-        "supportsStructuredOutput": false,
+        "supportsReasoningEffort": true,
+        "supportsStructuredOutput": true,
         "supportsTools": true,
-        "supportsJsonMode": true
+        "supportsJsonMode": true,
+        "supportedReasoningEfforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "max"
+        ]
       }
     },
     "mistral-large-latest": {

@@ -20,9 +20,11 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// </summary>
 public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDisposable
 {
+    private const string ProgressEnvelopeMarker = "gnougo.mcp.progress";
     private static readonly AsyncLocal<McpCorrelationContext?> CurrentCorrelation = new();
     private const int MaxCapturedStdioErrorLines = 80;
     private static readonly ConcurrentDictionary<string, StdioServerDiagnostics> StdioDiagnostics = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, Action<McpRealtimeProgressEvent>>> ProgressHandlers = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly Dictionary<string, McpServerOptions> _serverConfigs;
     private readonly ConcurrentDictionary<string, McpClient> _clients = new();
@@ -50,6 +52,51 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         var previous = CurrentCorrelation.Value;
         CurrentCorrelation.Value = context;
         return new CorrelationScope(previous);
+    }
+
+    public static IDisposable PushProgressHandler(McpCorrelationContext context, Action<McpRealtimeProgressEvent> handler)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+
+        var registrationId = Guid.NewGuid();
+        var keys = BuildProgressHandlerKeys(context).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        foreach (var key in keys)
+        {
+            var handlers = ProgressHandlers.GetOrAdd(key, _ => new ConcurrentDictionary<Guid, Action<McpRealtimeProgressEvent>>());
+            handlers[registrationId] = handler;
+        }
+
+        return new ProgressHandlerScope(registrationId, keys);
+    }
+
+    public static bool PublishProgress(McpRealtimeProgressEvent progressEvent)
+    {
+        var delivered = false;
+        var deliveredHandlers = new HashSet<Guid>();
+
+        foreach (var key in BuildProgressDispatchKeys(progressEvent).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!ProgressHandlers.TryGetValue(key, out var handlers))
+                continue;
+
+            foreach (var item in handlers)
+            {
+                if (!deliveredHandlers.Add(item.Key))
+                    continue;
+
+                try
+                {
+                    item.Value(progressEvent);
+                    delivered = true;
+                }
+                catch
+                {
+                    // Progress callbacks must never break MCP stderr processing.
+                }
+            }
+        }
+
+        return delivered;
     }
 
     public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct)
@@ -186,7 +233,116 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         if (string.IsNullOrWhiteSpace(line))
             return;
 
+        if (TryParseProgressLine(serverName, line, out var progressEvent))
+        {
+            PublishProgress(progressEvent);
+            return;
+        }
+
         StdioDiagnostics.GetOrAdd(serverName, _ => new StdioServerDiagnostics()).AppendStandardError(line);
+    }
+
+    private static bool TryParseProgressLine(string serverName, string line, out McpRealtimeProgressEvent progressEvent)
+    {
+        progressEvent = default!;
+
+        var trimmed = line.Trim();
+        if (!trimmed.StartsWith('{'))
+            return false;
+
+        JsonObject? obj;
+        try
+        {
+            obj = JsonNode.Parse(trimmed) as JsonObject;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+
+        if (obj is null)
+            return false;
+
+        var type = GetStringProperty(obj, "type") ?? GetStringProperty(obj, "$type");
+        var marker = GetStringProperty(obj, "gnougo") ?? GetStringProperty(obj, "marker");
+        if (!string.Equals(type, ProgressEnvelopeMarker, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(marker, ProgressEnvelopeMarker, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var eventObj = GetObjectProperty(obj, "event") ?? obj;
+        var message = GetStringProperty(eventObj, "message");
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+
+        progressEvent = new McpRealtimeProgressEvent
+        {
+            ServerName = GetStringProperty(obj, "server") ?? GetStringProperty(obj, "mcpServer") ?? serverName,
+            MethodName = GetStringProperty(obj, "method") ?? GetStringProperty(obj, "mcpMethod"),
+            Kind = GetStringProperty(obj, "kind") ?? GetStringProperty(obj, "mcpKind"),
+            CorrelationId = GetStringProperty(obj, "correlationId"),
+            RunId = GetStringProperty(obj, "runId"),
+            StepId = GetStringProperty(obj, "stepId"),
+            StepType = GetStringProperty(obj, "stepType"),
+            EventKind = GetStringProperty(eventObj, "kind"),
+            Level = GetStringProperty(eventObj, "level"),
+            Message = message,
+            File = GetStringProperty(eventObj, "file"),
+            Timestamp = GetStringProperty(eventObj, "timestamp")
+        };
+        return true;
+    }
+
+    private static IEnumerable<string> BuildProgressHandlerKeys(McpCorrelationContext context)
+    {
+        if (!string.IsNullOrWhiteSpace(context.CorrelationId))
+            yield return "correlation:" + context.CorrelationId;
+        if (!string.IsNullOrWhiteSpace(context.RunId) && !string.IsNullOrWhiteSpace(context.StepId))
+            yield return $"run-step:{context.RunId}:{context.StepId}";
+        if (!string.IsNullOrWhiteSpace(context.ServerName) && !string.IsNullOrWhiteSpace(context.MethodName))
+            yield return $"server-method:{context.ServerName}:{context.MethodName}";
+        if (!string.IsNullOrWhiteSpace(context.ServerName))
+            yield return "server:" + context.ServerName;
+    }
+
+    private static IEnumerable<string> BuildProgressDispatchKeys(McpRealtimeProgressEvent progressEvent)
+    {
+        if (!string.IsNullOrWhiteSpace(progressEvent.CorrelationId))
+            yield return "correlation:" + progressEvent.CorrelationId;
+        if (!string.IsNullOrWhiteSpace(progressEvent.RunId) && !string.IsNullOrWhiteSpace(progressEvent.StepId))
+            yield return $"run-step:{progressEvent.RunId}:{progressEvent.StepId}";
+        if (!string.IsNullOrWhiteSpace(progressEvent.ServerName) && !string.IsNullOrWhiteSpace(progressEvent.MethodName))
+            yield return $"server-method:{progressEvent.ServerName}:{progressEvent.MethodName}";
+        if (!string.IsNullOrWhiteSpace(progressEvent.ServerName))
+            yield return "server:" + progressEvent.ServerName;
+    }
+
+    private static JsonObject? GetObjectProperty(JsonObject obj, string name)
+    {
+        foreach (var property in obj)
+        {
+            if (string.Equals(property.Key, name, StringComparison.OrdinalIgnoreCase) && property.Value is JsonObject value)
+                return value;
+        }
+
+        return null;
+    }
+
+    private static string? GetStringProperty(JsonObject obj, string name)
+    {
+        foreach (var property in obj)
+        {
+            if (!string.Equals(property.Key, name, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (property.Value is JsonValue value && value.TryGetValue<string>(out var text))
+                return text;
+
+            return property.Value?.ToJsonString().Trim('"');
+        }
+
+        return null;
     }
 
     private static string BuildExceptionChain(Exception exception)
@@ -385,6 +541,37 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         }
     }
 
+    private sealed class ProgressHandlerScope : IDisposable
+    {
+        private readonly Guid _registrationId;
+        private readonly IReadOnlyList<string> _keys;
+        private bool _disposed;
+
+        public ProgressHandlerScope(Guid registrationId, IReadOnlyList<string> keys)
+        {
+            _registrationId = registrationId;
+            _keys = keys;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            foreach (var key in _keys)
+            {
+                if (!ProgressHandlers.TryGetValue(key, out var handlers))
+                    continue;
+
+                handlers.TryRemove(_registrationId, out _);
+                if (handlers.IsEmpty)
+                    ProgressHandlers.TryRemove(key, out _);
+            }
+
+            _disposed = true;
+        }
+    }
+
     private sealed class StdioServerDiagnostics
     {
         private readonly object _gate = new();
@@ -463,6 +650,22 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             return builder.ToString();
         }
     }
+}
+
+public sealed class McpRealtimeProgressEvent
+{
+    public string? ServerName { get; init; }
+    public string? MethodName { get; init; }
+    public string? Kind { get; init; }
+    public string? CorrelationId { get; init; }
+    public string? RunId { get; init; }
+    public string? StepId { get; init; }
+    public string? StepType { get; init; }
+    public string? EventKind { get; init; }
+    public string? Level { get; init; }
+    public string Message { get; init; } = "";
+    public string? File { get; init; }
+    public string? Timestamp { get; init; }
 }
 
 /// <summary>

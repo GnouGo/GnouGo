@@ -509,6 +509,26 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 
 > **Important:** The `response` object is tool-specific. Do not assume field names unless documented by the tool. Use `json(data.steps.<id>.response)` to serialize it.
 
+#### MCP progress events → thinking telemetry
+
+For stdio MCP servers, `mcp.call` also listens to structured JSONL progress messages written on stderr while the tool is still running. Matching events are forwarded immediately as `gnougo-flow.step.thinking` telemetry events. As a fallback/history mechanism, when the final tool result contains a `progressEvents` array (also accepted: `progress_events`, `progress`, or `events`), `mcp.call` forwards each item the same way. Agent Server can stream these as `thinking:<level>` UI events.
+
+`progressEvents` is the stable GnOuGo-facing contract. MCP servers may map provider-specific or SDK-specific events into this schema, but `GnOuGo.Flow.Core` does not depend on those native event types.
+
+Expected item shape:
+
+```json
+{
+  "kind": "session_create",
+  "level": "thinking",
+  "message": "Creating Copilot agent session.",
+  "timestamp": "2026-05-19T00:00:00Z",
+  "file": "src/Program.cs"
+}
+```
+
+Only the `message` field is required. These messages are operational progress milestones and should not contain raw model chain-of-thought.
+
 ---
 
 ### `set` — Initialize or Modify Variables

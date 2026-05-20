@@ -10,6 +10,7 @@ MCP stdio server for safe code operations on a local project.
 - Search text with `code_search_text`.
 - Ask GitHub Copilot for implementation guidance with `code_suggest_change` through `GitHub.Copilot.SDK`.
 - Run GitHub Copilot in SDK agent mode with controlled local file edits via `code_agent_edit`.
+- Emit structured GnOuGo progress events in real time on stderr and return them in `progressEvents`, so `GnOuGo.Flow.Core` can surface them as UI thinking/progress messages without depending on Copilot SDK event types.
 - Optionally write files with `code_write_file` when `Code:AllowWrites=true`.
 
 Git repository workflows are provided by the separate `GnOuGo.Git.Mcp` tool.
@@ -40,6 +41,8 @@ Supported KeyVault secret names follow the Agent Server conventions:
 - legacy fallback: `gnougo_llm_<provider>`
 
 The secret value must be a JSON object containing at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`.
+
+Claude providers saved by Agent Server `/llm add` are supported as custom SDK providers. A KeyVault secret with `provider`/`type` set to `claude` is mapped to SDK provider type `anthropic` and defaults `wireApi` to `messages`; API-key auth is passed through as `ApiKey` for the Anthropic Messages API.
 If the requested provider does not exist, the tool returns a standard MCP tool error.
 
 ## Agent edit mode
@@ -53,6 +56,20 @@ This lets Copilot edit files directly through the MCP process while still enforc
 - Parent traversal and wildcard paths are rejected.
 
 The older `code_suggest_change` tool remains suggestion-only and does not write files.
+
+Both `code_suggest_change` and `code_agent_edit` emit progress milestones as structured JSONL stderr messages while the call is running, and include the same events in the final `progressEvents` array.
+
+`progressEvents` is the official GnOuGo contract. Application milestones and native `GitHub.Copilot.SDK` session events are both normalized to this schema before they leave this MCP server. `GnOuGo.Flow.Core`, Agent Server, and the UI must consume this contract instead of coupling directly to SDK-specific event classes or payload shapes. When the SDK exposes useful complete events, this MCP maps them to stable `sdk_*` `kind` values; when it does not, the explicit GnOuGo milestones still provide progress.
+
+Each item contains:
+
+- `kind`: stable machine-readable phase, for example `prepare`, `provider`, `session_create`, `request_send`, `completed`, `file_modified`, or SDK-mapped phases such as `sdk_assistant_turn_start` and `sdk_tool_execution_progress`.
+- `level`: UI hint such as `thinking` or `info`.
+- `message`: user-facing progress text. This is an operational milestone, not raw model chain-of-thought. SDK reasoning/streaming deltas are not forwarded verbatim.
+- `timestamp`: UTC event timestamp.
+- `file`: optional relative file path for file-level events.
+
+When called through `GnOuGo.Flow.Core` `mcp.call`, stderr progress events are forwarded immediately as `gnougo-flow.step.thinking` telemetry events and can be streamed by Agent Server. The final `progressEvents` array remains as a fallback/history in the tool result. The real-time stderr JSONL transport is a GnOuGo stdio side channel; the stable product contract remains the `progressEvents` schema above.
 
 PowerShell example:
 

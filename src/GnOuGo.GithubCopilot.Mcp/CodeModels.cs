@@ -37,12 +37,35 @@ public sealed record CodeSearchResult(
 
 public sealed record CodeSearchResults(IReadOnlyList<CodeSearchResult> Results, bool Truncated);
 
+/// <summary>
+/// Stable GnOuGo progress contract emitted by code tools and consumed by Flow/UI.
+/// SDK-specific events, when available, must be mapped to this schema before leaving this MCP server.
+/// </summary>
+public sealed record CodeProgressEvent(
+    string Kind,
+    string Level,
+    string Message,
+    DateTimeOffset Timestamp,
+    string? File = null);
+
+internal sealed record CodeMcpProgressEnvelope(
+    string Type,
+    string? CorrelationId,
+    string? RunId,
+    string? StepId,
+    string? StepType,
+    string? Server,
+    string? Method,
+    string? Kind,
+    CodeProgressEvent Event);
+
 public sealed record CodeSuggestionResult(
     string Task,
     IReadOnlyList<string> Files,
     string Suggestion,
     string? Model,
-    string? UsageJson);
+    string? UsageJson,
+    IReadOnlyList<CodeProgressEvent> ProgressEvents = null!);
 
 public sealed record CodeAgentEditResult(
     string Task,
@@ -50,7 +73,8 @@ public sealed record CodeAgentEditResult(
     IReadOnlyList<string> ModifiedFiles,
     string Summary,
     string? Model,
-    string? UsageJson);
+    string? UsageJson,
+    IReadOnlyList<CodeProgressEvent> ProgressEvents = null!);
 
 public sealed record CodeWriteResult(string Path, string FullPath, long BytesWritten, bool CreatedDirectory);
 

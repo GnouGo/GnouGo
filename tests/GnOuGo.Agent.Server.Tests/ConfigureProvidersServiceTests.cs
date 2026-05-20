@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Endpoints;
 using GnOuGo.AI.Core;
@@ -769,6 +768,84 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("openai", runtimeStore.Current.DefaultProvider);
         Assert.Equal("gpt-4o-mini", runtimeStore.Current.DefaultModel);
         Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "⭐ Provider 'openai' was set as the default LLM with model 'gpt-4o-mini'.");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LlmAdd_CanConfigureClaudeProvider()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
+        var modelCatalog = new FakeModelCatalog()
+            .Add("claude",
+                new LLMModelDescriptor("claude-sonnet-4-20250514", "Claude Sonnet 4", "claude", "anthropic"));
+
+        var humanInput = new AgentHumanInputProvider();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = string.Empty,
+            DefaultModel = string.Empty,
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+        });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "llm_add.provider" => new JsonObject { ["response"] = "claude" },
+                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.anthropic.com/v1" },
+                    "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
+                    "llm.auth.api_key" => new JsonObject { ["api_key"] = "sk-ant-secret" },
+                    "llm_model.select.claude" => new JsonObject { ["model"] = "claude-sonnet-4-20250514" },
+                    "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId == "llm_add.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = new ConfigureProvidersService(
+            llm,
+            humanInput,
+            modelCatalog,
+            keyVaultStore,
+            runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<ConfigureProvidersService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
+        await responder;
+
+        var configJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--claude", CancellationToken.None);
+        Assert.NotNull(configJson);
+        var config = JsonNode.Parse(configJson!)?.AsObject();
+        Assert.NotNull(config);
+        Assert.Equal("claude", config["provider"]?.GetValue<string>());
+        Assert.Equal("claude", config["type"]?.GetValue<string>());
+        Assert.Equal("https://api.anthropic.com/v1", config["url"]?.GetValue<string>());
+        Assert.Equal("claude-sonnet-4-20250514", config["model"]?.GetValue<string>());
+        Assert.Equal("api_key", config["authType"]?.GetValue<string>());
+        Assert.Equal("sk-ant-secret", config["apiKey"]?.GetValue<string>());
+
+        Assert.True(runtimeStore.Current.Models.TryGetValue("claude", out var runtimeProvider));
+        Assert.NotNull(runtimeProvider);
+        Assert.Equal("claude", runtimeProvider.Type);
+        Assert.Equal("claude", runtimeProvider.ResolvedType);
+        Assert.Equal("claude", runtimeStore.Current.DefaultProvider);
+        Assert.Equal("claude-sonnet-4-20250514", runtimeStore.Current.DefaultModel);
+
+        Assert.Equal(1, llm.CallCount);
+        Assert.NotNull(llm.LastRequest);
+        Assert.Equal("claude", llm.LastRequest!.Provider);
+        Assert.Equal("claude-sonnet-4-20250514", llm.LastRequest.Model);
+        Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'claude' is ready.");
     }
 
     [Fact]

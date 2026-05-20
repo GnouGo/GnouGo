@@ -30,6 +30,12 @@ def _dump_model(value: Any) -> dict[str, Any]:
     return value.model_dump() if hasattr(value, "model_dump") else dict(value)
 
 
+def _get_property(value: Any, name: str) -> Any:
+    if isinstance(value, dict):
+        return value.get(name)
+    return getattr(value, name, None)
+
+
 def _resolve_server_names(input_obj: dict[str, Any], factory: Any) -> list[str]:
     servers = input_obj.get("servers")
     if not isinstance(servers, list) or not servers:
@@ -87,6 +93,32 @@ def _parse_includes(input_obj: dict[str, Any]) -> set[str]:
 
 async def _maybe_timeout(coro: Any, timeout: float | None) -> Any:
     return await (asyncio.wait_for(coro, timeout=timeout) if timeout is not None else coro)
+
+
+def _resolve_effective_timeout_ms(input_obj: dict[str, Any], server_names: list[str], factory: Any) -> int | None:
+    requested = input_obj.get("timeout_ms")
+    requested_ms = int(requested) if isinstance(requested, (int, float)) else None
+    configured_values = [_resolve_configured_discovery_timeout_ms(factory, name) for name in server_names]
+    configured_ms = max((value for value in configured_values if value is not None), default=None)
+    if requested_ms is not None and configured_ms is not None:
+        return max(requested_ms, configured_ms)
+    return requested_ms if requested_ms is not None else configured_ms
+
+
+def _resolve_configured_discovery_timeout_ms(factory: Any, server_name: str) -> int | None:
+    for metadata in getattr(factory, "server_metadata", []) or []:
+        name = _get_property(metadata, "name")
+        if not isinstance(name, str) or name.lower() != server_name.lower():
+            continue
+        seconds = _get_property(metadata, "discovery_timeout_seconds")
+        if seconds is None:
+            seconds = _get_property(metadata, "DiscoveryTimeoutSeconds")
+        try:
+            seconds_int = int(seconds)
+        except (TypeError, ValueError):
+            return None
+        return seconds_int * 1000 if seconds_int > 0 else None
+    return None
 
 
 async def _try_list_resources(session: IMcpSession, server_name: str, ctx: StepExecutionContext, timeout: float | None) -> list[McpResourceInfo]:
@@ -293,8 +325,10 @@ The discovered `tools` and `prompts` arrays can be passed directly into `mcp.cal
         else:
             ctx.set_telemetry_attribute("mcp.server.names", ",".join(server_names))
 
-        timeout_ms = input_obj.get("timeout_ms")
-        timeout = float(timeout_ms) / 1000.0 if isinstance(timeout_ms, (int, float)) else None
+        timeout_ms = _resolve_effective_timeout_ms(input_obj, server_names, factory)
+        timeout = float(timeout_ms) / 1000.0 if timeout_ms is not None else None
+        if timeout_ms is not None:
+            ctx.set_telemetry_attribute("mcp.timeout_ms", timeout_ms)
         try:
             if len(server_names) == 1:
                 server_result = await _fetch_server_capabilities(factory, server_names[0], include_set, ctx, timeout)

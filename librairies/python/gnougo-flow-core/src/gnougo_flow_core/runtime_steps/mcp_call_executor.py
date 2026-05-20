@@ -11,6 +11,7 @@ from typing import Any
 
 import gnougo_flow_core.runtime as _runtime
 from gnougo_flow_core.errors import ErrorCodes, WorkflowRuntimeException
+from gnougo_flow_core.integrations.mcp import ConfiguredMcpClientFactory, McpRealtimeProgressEvent
 from gnougo_flow_core.mcp_cache import (
     cache_prompts,
     cache_tools,
@@ -74,6 +75,31 @@ def _is_unsupported_capability(exc: Exception, method_name: str) -> bool:
 
 async def _maybe_timeout(coro: Any, timeout: float | None) -> Any:
     return await (asyncio.wait_for(coro, timeout=timeout) if timeout is not None else coro)
+
+
+def _resolve_effective_timeout_ms(input_obj: dict[str, Any], server_name: str, factory: Any) -> int | None:
+    requested = input_obj.get("timeout_ms")
+    requested_ms = int(requested) if isinstance(requested, (int, float)) else None
+    configured_ms = _resolve_configured_call_timeout_ms(factory, server_name)
+    if requested_ms is not None and configured_ms is not None:
+        return max(requested_ms, configured_ms)
+    return requested_ms if requested_ms is not None else configured_ms
+
+
+def _resolve_configured_call_timeout_ms(factory: Any, server_name: str) -> int | None:
+    for metadata in getattr(factory, "server_metadata", []) or []:
+        name = _get_property(metadata, "name")
+        if not isinstance(name, str) or name.lower() != server_name.lower():
+            continue
+        seconds = _get_property(metadata, "call_timeout_seconds")
+        if seconds is None:
+            seconds = _get_property(metadata, "CallTimeoutSeconds")
+        try:
+            seconds_int = int(seconds)
+        except (TypeError, ValueError):
+            return None
+        return seconds_int * 1000 if seconds_int > 0 else None
+    return None
 
 
 async def _try_list_prompts(session: IMcpSession, server_name: str, ctx: StepExecutionContext, timeout: float | None) -> list[McpPromptInfo]:
@@ -215,66 +241,80 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
         )
 
         request = self._build_request_args(input_obj, ctx) if not has_prompt_selection else None
-        timeout_ms = input_obj.get("timeout_ms")
-        timeout = float(timeout_ms) / 1000.0 if isinstance(timeout_ms, (int, float)) else None
+        timeout_ms = _resolve_effective_timeout_ms(input_obj, server, factory)
+        timeout = float(timeout_ms) / 1000.0 if timeout_ms is not None else None
+        if timeout_ms is not None:
+            ctx.set_telemetry_attribute("mcp.timeout_ms", timeout_ms)
         target = "(llm-selection)" if has_prompt_selection else "(auto)"
         try:
-            session = await _maybe_timeout(factory.get_client_async(server), timeout)
+            correlation = _build_mcp_correlation_context(ctx, server, kind, method if isinstance(method, str) else (",".join(methods) if methods else None))
+            ctx.set_telemetry_attribute("gnougo.correlation_id", correlation.correlation_id)
+            if correlation.trace_id:
+                ctx.set_telemetry_attribute("gnougo.trace_id", correlation.trace_id)
+            realtime_progress_fingerprints: set[str] = set()
 
-            if has_prompt_selection:
-                return await self._execute_llm_assisted(ctx, session, input_obj, kind, method if isinstance(method, str) else None, methods, timeout)
+            def on_realtime_progress(progress_event: McpRealtimeProgressEvent) -> None:
+                realtime_progress_fingerprints.add(_build_progress_fingerprint(progress_event.event_kind, progress_event.message, progress_event.file))
+                _emit_realtime_mcp_progress_event_as_thinking(ctx, progress_event, correlation)
 
-            async def single(call_method: str, req: Any) -> dict[str, Any]:
-                return await self._call_single(ctx, session, kind, call_method, req, timeout)
+            with ConfiguredMcpClientFactory.push_progress_handler(correlation, on_realtime_progress):
+                session = await _maybe_timeout(factory.get_client_async(server), timeout)
 
-            if methods is not None:
-                target = ", ".join(methods)
-                results = []
-                has_error = False
-                for m in methods:
-                    item = await single(m, copy.deepcopy(request))
-                    item["method"] = m
-                    has_error = has_error or item.get("status") == "error"
-                    results.append(item)
-                ctx.set_telemetry_attribute("mcp.methods_count", len(methods))
-                ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if has_error else "stop")
-                return {"status": "error" if has_error else "ok", "results": results}
+                if has_prompt_selection:
+                    return await self._execute_llm_assisted(ctx, session, input_obj, kind, method if isinstance(method, str) else None, methods, timeout, realtime_progress_fingerprints)
 
-            if not method:
-                cache = ctx.engine.mcp_cache
-                if kind == "prompt":
-                    prompts = get_cached_prompts(cache, server)
-                    if prompts is None:
-                        prompts = await _try_list_prompts(session, server, ctx, timeout)
-                        cache_prompts(cache, server, prompts)
-                    methods = [p.name for p in prompts]
-                else:
-                    tools = get_cached_tools(cache, server)
-                    if tools is None:
-                        tools = await _maybe_timeout(session.list_tools_async(), timeout)
-                        cache_tools(cache, server, tools)
-                    methods = [t.name for t in tools]
-                target = ", ".join(methods) if methods else "(auto)"
-                ctx.set_telemetry_attribute("mcp.auto_discover", True)
-                ctx.set_telemetry_attribute("mcp.methods_count", len(methods))
-                if not methods:
-                    ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "stop")
-                    return {"status": "ok", "results": []}
-                batch = []
-                has_error = False
-                for m in methods:
-                    item = await single(m, copy.deepcopy(request))
-                    item["method"] = m
-                    has_error = has_error or item.get("status") == "error"
-                    batch.append(item)
-                ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if has_error else "stop")
-                return {"status": "error" if has_error else "ok", "results": batch}
+                async def single(call_method: str, req: Any) -> dict[str, Any]:
+                    item_correlation = _build_mcp_correlation_context(ctx, server, kind, call_method)
+                    return await self._call_single(ctx, session, kind, call_method, req, item_correlation, realtime_progress_fingerprints, timeout)
 
-            target = method
-            ctx.set_telemetry_attribute("mcp.method.name", method)
-            single_result = await single(method, request)
-            ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if single_result.get("status") == "error" else "stop")
-            return single_result
+                if methods is not None:
+                    target = ", ".join(methods)
+                    results = []
+                    has_error = False
+                    for m in methods:
+                        item = await single(m, copy.deepcopy(request))
+                        item["method"] = m
+                        has_error = has_error or item.get("status") == "error"
+                        results.append(item)
+                    ctx.set_telemetry_attribute("mcp.methods_count", len(methods))
+                    ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if has_error else "stop")
+                    return {"status": "error" if has_error else "ok", "results": results}
+
+                if not method:
+                    cache = ctx.engine.mcp_cache
+                    if kind == "prompt":
+                        prompts = get_cached_prompts(cache, server)
+                        if prompts is None:
+                            prompts = await _try_list_prompts(session, server, ctx, timeout)
+                            cache_prompts(cache, server, prompts)
+                        methods = [p.name for p in prompts]
+                    else:
+                        tools = get_cached_tools(cache, server)
+                        if tools is None:
+                            tools = await _maybe_timeout(session.list_tools_async(), timeout)
+                            cache_tools(cache, server, tools)
+                        methods = [t.name for t in tools]
+                    target = ", ".join(methods) if methods else "(auto)"
+                    ctx.set_telemetry_attribute("mcp.auto_discover", True)
+                    ctx.set_telemetry_attribute("mcp.methods_count", len(methods))
+                    if not methods:
+                        ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "stop")
+                        return {"status": "ok", "results": []}
+                    batch = []
+                    has_error = False
+                    for m in methods:
+                        item = await single(m, copy.deepcopy(request))
+                        item["method"] = m
+                        has_error = has_error or item.get("status") == "error"
+                        batch.append(item)
+                    ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if has_error else "stop")
+                    return {"status": "error" if has_error else "ok", "results": batch}
+
+                target = method
+                ctx.set_telemetry_attribute("mcp.method.name", method)
+                single_result = await single(method, request)
+                ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if single_result.get("status") == "error" else "stop")
+                return single_result
         except WorkflowRuntimeException:
             raise
         except TimeoutError as exc:
@@ -290,6 +330,8 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
         kind: str,
         method: str,
         request_args: Any,
+        correlation: McpCorrelationContext,
+        realtime_progress_fingerprints: set[str] | None,
         timeout: float | None,
     ) -> dict[str, Any]:
         if kind == "prompt":
@@ -300,11 +342,19 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
             text = "\n".join(f"[{m.role}] {m.content}" for m in result.messages)
             return {"status": "ok", "description": result.description, "messages": messages, "text": text}
 
-        correlation = _build_mcp_correlation_context(ctx, session, kind, method)
         op = _call_tool_with_optional_meta(session, method, request_args, correlation.to_mcp_meta())
         result = await (asyncio.wait_for(op, timeout=timeout) if timeout is not None else op)
         _runtime._extract_usage_telemetry(ctx, result.usage, result.model)
-        return {"status": "error" if result.is_error else "ok", "response": result.content}
+        _emit_mcp_progress_events_as_thinking(ctx, result.content, correlation, realtime_progress_fingerprints)
+        output: dict[str, Any] = {
+            "status": "error" if result.is_error else "ok",
+            "response": copy.deepcopy(result.content),
+            "correlation_id": correlation.correlation_id,
+            "trace_id": correlation.trace_id,
+        }
+        if result.is_error:
+            output["error"] = {"message": _extract_error_message(result.content), "content": copy.deepcopy(result.content)}
+        return output
 
     def _build_request_args(self, input_obj: dict[str, Any], ctx: StepExecutionContext) -> Any:
         if input_obj.get("request") is not None:
@@ -338,6 +388,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
         single_method: str | None,
         batch_methods: list[Any] | None,
         timeout: float | None,
+        realtime_progress_fingerprints: set[str] | None,
     ) -> dict[str, Any]:
         llm_client = ctx.engine.llm_client
         if llm_client is None:
@@ -496,7 +547,8 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                 err = ErrorCodes.MCP_PROMPT_ERROR if default_kind == "prompt" else ErrorCodes.MCP_CALL_ERROR
                 raise WorkflowRuntimeException(err, f"mcp.call prompt mode selected unknown MCP capability '{tc.name}'")
 
-            result_item = await self._call_single(ctx, session, cap["kind"], cap["method"], tc.arguments, timeout)
+            correlation = _build_mcp_correlation_context(ctx, getattr(session, "server_name", input_obj.get("server", "")), cap["kind"], cap["method"])
+            result_item = await self._call_single(ctx, session, cap["kind"], cap["method"], tc.arguments, correlation, realtime_progress_fingerprints, timeout)
             result_item["method"] = cap["method"]
             result_item["kind"] = cap["kind"]
             if tc.id:
@@ -568,11 +620,140 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
 
         return response
 
+
+def _emit_mcp_progress_events_as_thinking(
+    ctx: StepExecutionContext,
+    content: Any,
+    correlation: McpCorrelationContext,
+    realtime_progress_fingerprints: set[str] | None,
+) -> None:
+    for progress_event in _enumerate_mcp_progress_events(content):
+        message = _sanitize_thinking_message(_get_case_insensitive(progress_event, "message"))
+        if not message:
+            continue
+        event_kind = _string_or_none(_get_case_insensitive(progress_event, "kind"))
+        file = _string_or_none(_get_case_insensitive(progress_event, "file"))
+        if realtime_progress_fingerprints is not None and _build_progress_fingerprint(event_kind, message, file) in realtime_progress_fingerprints:
+            continue
+        level = _normalize_thinking_level(_get_case_insensitive(progress_event, "level"))
+        attributes: list[tuple[str, Any]] = [
+            ("gnougo-flow.thinking.message", message),
+            ("gnougo-flow.thinking.level", level),
+            ("gnougo-flow.thinking.source", "mcp.progress"),
+            ("mcp.server.name", correlation.mcp_server),
+            ("mcp.method.name", correlation.mcp_method),
+            ("mcp.kind", correlation.mcp_kind),
+        ]
+        if event_kind:
+            attributes.append(("gnougo-flow.thinking.kind", event_kind))
+        if file:
+            attributes.append(("gnougo-flow.thinking.file", file))
+        timestamp = _string_or_none(_get_case_insensitive(progress_event, "timestamp"))
+        if timestamp:
+            attributes.append(("gnougo-flow.thinking.timestamp", timestamp))
+        ctx.add_telemetry_event("gnougo-flow.step.thinking", attributes)
+
+
+def _emit_realtime_mcp_progress_event_as_thinking(
+    ctx: StepExecutionContext,
+    progress_event: McpRealtimeProgressEvent,
+    fallback_correlation: McpCorrelationContext,
+) -> None:
+    message = _sanitize_thinking_message(progress_event.message)
+    if not message:
+        return
+    attributes: list[tuple[str, Any]] = [
+        ("gnougo-flow.thinking.message", message),
+        ("gnougo-flow.thinking.level", _normalize_thinking_level(progress_event.level)),
+        ("gnougo-flow.thinking.source", "mcp.realtime_progress"),
+        ("mcp.server.name", progress_event.server_name or fallback_correlation.mcp_server),
+        ("mcp.method.name", progress_event.method_name or fallback_correlation.mcp_method),
+        ("mcp.kind", progress_event.kind or fallback_correlation.mcp_kind),
+    ]
+    if progress_event.event_kind:
+        attributes.append(("gnougo-flow.thinking.kind", progress_event.event_kind))
+    if progress_event.file:
+        attributes.append(("gnougo-flow.thinking.file", progress_event.file))
+    if progress_event.timestamp:
+        attributes.append(("gnougo-flow.thinking.timestamp", progress_event.timestamp))
+    if progress_event.correlation_id:
+        attributes.append(("gnougo.correlation_id", progress_event.correlation_id))
+    ctx.add_telemetry_event("gnougo-flow.step.thinking", attributes)
+
+
+def _enumerate_mcp_progress_events(content: Any) -> list[dict[str, Any]]:
+    if not isinstance(content, dict):
+        return []
+    events = None
+    for name in ("progressEvents", "progress_events", "progress", "events"):
+        events = _get_case_insensitive(content, name)
+        if isinstance(events, list):
+            break
+    if not isinstance(events, list):
+        return []
+    return [item for item in events if isinstance(item, dict)]
+
+
+def _get_case_insensitive(values: dict[str, Any], name: str) -> Any:
+    for key, value in values.items():
+        if key.lower() == name.lower():
+            return value
+    return None
+
+
+def _normalize_thinking_level(level: Any) -> str:
+    text = str(level).strip().lower() if level is not None else ""
+    if not text:
+        return "thinking"
+    if text == "warn":
+        return "warning"
+    return text if text in {"thinking", "info", "warning", "error", "debug"} else "thinking"
+
+
+def _sanitize_thinking_message(message: Any) -> str | None:
+    if message is None:
+        return None
+    text = str(message).strip()
+    if not text:
+        return None
+    return text if len(text) <= 1000 else text[:1000] + "..."
+
+
+def _build_progress_fingerprint(event_kind: str | None, message: str | None, file: str | None) -> str:
+    return "\x1f".join((event_kind or "", message or "", file or ""))
+
+
+def _extract_error_message(content: Any) -> str:
+    if content is None:
+        return "MCP tool returned an error without content."
+    if isinstance(content, str):
+        return content
+    if isinstance(content, dict):
+        for key in ("error_message", "message", "error", "detail", "response"):
+            value = _get_case_insensitive(content, key)
+            if isinstance(value, str) and value.strip():
+                return value
+    return json.dumps(content, ensure_ascii=False, default=str)
+
+
+def _string_or_none(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _get_property(value: Any, name: str) -> Any:
+    if isinstance(value, dict):
+        return value.get(name)
+    return getattr(value, name, None)
+
+
 def _build_mcp_correlation_context(
     ctx: StepExecutionContext,
-    session: IMcpSession,
+    server_name: str,
     kind: str,
-    method: str,
+    method: str | None,
 ) -> McpCorrelationContext:
     trace_context = _capture_current_trace_context(ctx)
     traceparent = trace_context.get("traceparent")
@@ -590,7 +771,7 @@ def _build_mcp_correlation_context(
         run_id=ctx.limits.run_id,
         step_id=ctx.step.id,
         step_type=ctx.step.type,
-        mcp_server=getattr(session, "server_name", None),
+        mcp_server=server_name,
         mcp_method=method,
         mcp_kind=kind,
     )

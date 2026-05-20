@@ -88,7 +88,7 @@ public sealed class LLMRuntimeOptionsStore
                 existing.ApiKey = apiKey;
             if (!string.IsNullOrWhiteSpace(authType))
                 existing.Type = authType == "api_key" || authType == "none" || authType == "copilot_env"
-                    ? existing.Type  // keep existing Type (openai/ollama/copilot)
+                    ? existing.Type ?? NormalizeProviderType(providerKey)  // keep existing Type (openai/ollama/copilot/claude) or initialize from key
                     : authType;
             if (!string.IsNullOrWhiteSpace(oidcIssuer)) existing.Issuer = oidcIssuer;
             if (!string.IsNullOrWhiteSpace(oidcClientId)) existing.ClientId = oidcClientId;
@@ -253,6 +253,13 @@ public sealed class LLMRuntimeOptionsStore
             clone.ModelOverrides[kv.Key] = ModelMetadataCatalog.Clone(kv.Value);
         return clone;
     }
+
+    private static string NormalizeProviderType(string providerKey)
+        => providerKey.Trim().ToLowerInvariant() switch
+        {
+            "anthropic" => "claude",
+            var normalized => normalized
+        };
 
     private static McpServerOptions CloneMcpServerOptions(McpServerOptions source)
         => new()

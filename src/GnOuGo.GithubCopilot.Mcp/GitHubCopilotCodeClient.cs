@@ -14,6 +14,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
     private readonly CodePolicy _policy;
     private readonly ICopilotProviderConfigResolver _providerConfigResolver;
     private readonly CodeMcpTraceContextAccessor _traceContextAccessor;
+    private readonly CodeProgressReporter _progressReporter;
     private readonly ILogger<GitHubCopilotCodeClient> _logger;
 
     public GitHubCopilotCodeClient(
@@ -21,12 +22,14 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         CodePolicy policy,
         ICopilotProviderConfigResolver providerConfigResolver,
         CodeMcpTraceContextAccessor traceContextAccessor,
+        CodeProgressReporter progressReporter,
         ILogger<GitHubCopilotCodeClient> logger)
     {
         _settings = settings.Value;
         _policy = policy;
         _providerConfigResolver = providerConfigResolver;
         _traceContextAccessor = traceContextAccessor;
+        _progressReporter = progressReporter;
         _logger = logger;
     }
 
@@ -37,6 +40,9 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         string? providerName,
         CancellationToken cancellationToken)
     {
+        var progress = new CodeProgressRecorder(_progressReporter, "code_suggest_change");
+        progress.Add("prepare", "thinking", "Preparing Copilot code suggestion request.");
+
         if (string.IsNullOrWhiteSpace(task))
             throw new InvalidOperationException("task must not be empty.");
         _policy.EnsurePromptWithinLimit(task, nameof(task));
@@ -52,6 +58,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         }
 
         using var activity = StartCopilotActivity(_settings, _traceContextAccessor);
+        progress.Add("provider", "thinking", "Resolving Copilot provider and model.");
         var providerOverride = await _providerConfigResolver.ResolveAsync(
             providerName,
             _settings.Copilot.Model,
@@ -60,8 +67,10 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         var model = providerOverride?.Model ?? _settings.Copilot.Model;
 
         await using var client = CreateClient(projectRoot, token);
+        progress.Add("client_start", "thinking", "Starting Copilot SDK client.");
         await client.StartAsync(cancellationToken);
 
+        progress.Add("session_create", "thinking", "Creating Copilot suggestion session.");
         await using var session = await client.CreateSessionAsync(new SessionConfig
         {
             ClientName = "GnOuGo.GithubCopilot.Mcp",
@@ -72,8 +81,10 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             Streaming = false,
             OnPermissionRequest = PermissionHandler.ApproveAll
         }, cancellationToken);
+        using var sdkProgressSubscription = session.On(progress.AddSdkEvent);
 
         var timeout = TimeSpan.FromSeconds(Math.Max(1, _settings.Copilot.RequestTimeoutSeconds));
+        progress.Add("request_send", "thinking", "Sending code suggestion request to Copilot.");
         var response = await session.SendAndWaitAsync(new MessageOptions
         {
             Prompt = prompt,
@@ -91,13 +102,15 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             contextFiles.Count,
             providerOverride?.ProviderName ?? _settings.Copilot.Provider,
             model);
+        progress.Add("completed", "info", "Copilot returned a code suggestion.");
 
         return new CodeSuggestionResult(
             Task: task,
             Files: contextFiles.Select(static file => file.Path).ToArray(),
             Suggestion: suggestion,
             Model: model,
-            UsageJson: data is null ? null : BuildUsageJson(data));
+            UsageJson: data is null ? null : BuildUsageJson(data),
+            ProgressEvents: progress.ToArray());
     }
 
     public async Task<CodeAgentEditResult> AgentEditAsync(
@@ -107,6 +120,9 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         string? providerName,
         CancellationToken cancellationToken)
     {
+        var progress = new CodeProgressRecorder(_progressReporter, "code_agent_edit");
+        progress.Add("prepare", "thinking", "Preparing Copilot agent edit request.");
+
         if (string.IsNullOrWhiteSpace(task))
             throw new InvalidOperationException("task must not be empty.");
         if (!_settings.AllowWrites)
@@ -123,6 +139,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         }
 
         using var activity = StartCopilotActivity(_settings, _traceContextAccessor, "AgentEdit");
+        progress.Add("provider", "thinking", "Resolving Copilot provider and model.");
         var providerOverride = await _providerConfigResolver.ResolveAsync(
             providerName,
             _settings.Copilot.Model,
@@ -132,8 +149,10 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         LocalProjectSessionFsProvider? sessionFsProvider = null;
 
         await using var client = CreateClient(projectRoot, token, enableSessionFs: true);
+        progress.Add("client_start", "thinking", "Starting Copilot SDK client with controlled session filesystem.");
         await client.StartAsync(cancellationToken);
 
+        progress.Add("session_create", "thinking", "Creating Copilot agent session.");
         await using var session = await client.CreateSessionAsync(new SessionConfig
         {
             ClientName = "GnOuGo.GithubCopilot.Mcp",
@@ -149,8 +168,10 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
                 return sessionFsProvider;
             }
         }, cancellationToken);
+        using var sdkProgressSubscription = session.On(progress.AddSdkEvent);
 
         var timeout = TimeSpan.FromSeconds(Math.Max(1, _settings.Copilot.RequestTimeoutSeconds));
+        progress.Add("request_send", "thinking", "Sending agent edit request to Copilot.");
         var response = await session.SendAndWaitAsync(new MessageOptions
         {
             Prompt = prompt,
@@ -164,6 +185,16 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             summary = "GitHub Copilot agent completed without a textual summary.";
 
         var modifiedFiles = sessionFsProvider?.ModifiedFiles ?? [];
+        if (modifiedFiles.Count == 0)
+        {
+            progress.Add("completed", "info", "Copilot agent completed without reporting modified files.");
+        }
+        else
+        {
+            progress.Add("completed", "info", $"Copilot agent modified {modifiedFiles.Count} file(s).");
+            foreach (var file in modifiedFiles.Take(20))
+                progress.Add("file_modified", "info", $"Modified {file}.", file);
+        }
         _logger.LogInformation(
             "GitHub Copilot SDK agent edit completed using provider {Provider}, model {Model}, modifiedFiles={ModifiedFileCount}.",
             providerOverride?.ProviderName ?? _settings.Copilot.Provider,
@@ -176,7 +207,8 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             ModifiedFiles: modifiedFiles,
             Summary: summary,
             Model: model,
-            UsageJson: data is null ? null : BuildUsageJson(data));
+            UsageJson: data is null ? null : BuildUsageJson(data),
+            ProgressEvents: progress.ToArray());
     }
 
     internal CopilotClient CreateClient(string projectRoot, string? token, bool enableSessionFs = false)
@@ -444,6 +476,55 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         }
 
         return sb.ToString();
+    }
+
+    private sealed class CodeProgressRecorder
+    {
+        private readonly CodeProgressReporter _reporter;
+        private readonly string _mcpMethod;
+        private readonly CopilotSdkProgressEventMapper _sdkProgressEventMapper = new();
+        private readonly object _gate = new();
+        private readonly List<CodeProgressEvent> _events = new();
+
+        public CodeProgressRecorder(CodeProgressReporter reporter, string mcpMethod)
+        {
+            _reporter = reporter;
+            _mcpMethod = mcpMethod;
+        }
+
+        public void Add(string kind, string level, string message, string? file = null)
+        {
+            var progressEvent = _reporter.Report(
+                kind,
+                level,
+                message,
+                file,
+                fallbackServer: "GnOuGo.GithubCopilot.Mcp",
+                fallbackMethod: _mcpMethod,
+                fallbackMcpKind: "tool");
+            lock (_gate)
+                _events.Add(progressEvent);
+        }
+
+        public void AddSdkEvent(SessionEvent sdkEvent)
+        {
+            if (!_sdkProgressEventMapper.TryMap(sdkEvent, out var progressEvent))
+                return;
+
+            var reportedEvent = _reporter.Report(
+                progressEvent,
+                fallbackServer: "GnOuGo.GithubCopilot.Mcp",
+                fallbackMethod: _mcpMethod,
+                fallbackMcpKind: "tool");
+            lock (_gate)
+                _events.Add(reportedEvent);
+        }
+
+        public IReadOnlyList<CodeProgressEvent> ToArray()
+        {
+            lock (_gate)
+                return _events.ToArray();
+        }
     }
 }
 

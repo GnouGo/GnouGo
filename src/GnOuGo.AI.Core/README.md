@@ -146,6 +146,18 @@ If `Issuer`, `ClientId`, `Scopes`, and `ClientSecret` are configured, GnOuGo fir
 
 **Model names** can use the vendor prefix format (`openai/gpt-4.1`, `anthropic/claude-sonnet-4`) — the prefix is automatically stripped before sending to the API. Plain names like `gpt-4.1` or `o4-mini` also work.
 
+### Claude / Anthropic
+
+The Claude provider connects to the Anthropic Messages API. Configure it with provider type `claude` (the alias `anthropic` is also accepted) and endpoint `https://api.anthropic.com/v1`.
+
+**Authentication** (in priority order):
+1. `ApiKey` in the provider configuration, sent as `x-api-key`
+2. `ANTHROPIC_API_KEY` environment variable
+3. `CLAUDE_API_KEY` environment variable
+4. OIDC client credentials, sent as a bearer token when `Issuer`, `ClientId`, and `Scopes` are configured
+
+Claude supports text responses, tool use (`tool_use` blocks), live model discovery via `/v1/models`, and best-effort structured JSON output by appending a strict JSON instruction to the prompt.
+
 ## Reasoning / Thinking effort
 
 `LLMClientRequest.Reasoning` (and `LLMRequest.Reasoning` in `GnOuGo.Flow.Core`) controls the
@@ -153,17 +165,17 @@ If `Issuer`, `ClientId`, `Scopes`, and `ClientSecret` are configured, GnOuGo fir
 
 Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `null`).
 
-| Value           | OpenAI / Copilot (GitHub Models)        | Ollama                |
-|-----------------|-----------------------------------------|-----------------------|
-| `null` / `auto` | field omitted (provider default)        | field omitted         |
-| `minimal`       | `reasoning_effort: "minimal"`           | `think: true`         |
-| `low`           | `reasoning_effort: "low"`               | `think: true`         |
-| `medium`        | `reasoning_effort: "medium"`            | `think: true`         |
-| `high` / `max`  | `reasoning_effort: "high"`              | `think: true`         |
-| `none` / `off`  | (treated as `auto`)                     | `think: false`        |
+| Value           | OpenAI / Copilot (GitHub Models)        | Ollama                | Claude / Anthropic         |
+|-----------------|-----------------------------------------|-----------------------|----------------------------|
+| `null` / `auto` | field omitted (provider default)        | field omitted         | field omitted              |
+| `minimal`       | `reasoning_effort: "minimal"`           | `think: true`         | `thinking.budget_tokens=1024` |
+| `low`           | `reasoning_effort: "low"`               | `think: true`         | `thinking.budget_tokens=1024` |
+| `medium`        | `reasoning_effort: "medium"`            | `think: true`         | `thinking.budget_tokens=4096` |
+| `high` / `max`  | `reasoning_effort: "high"`              | `think: true`         | `thinking.budget_tokens=8192/16000` |
+| `none` / `off`  | (treated as `auto`)                     | `think: false`        | field omitted              |
 
 Models that don't support thinking have the field removed by `LLMRequestSanitizer` before the provider call.
-Provider-specific mapping still lives in `ChatRequestBuilder.NormalizeOpenAiReasoning` / `NormalizeOllamaThink`.
+Provider-specific mapping lives in `ChatRequestBuilder.NormalizeOpenAiReasoning`, `NormalizeOllamaThink`, and `ClaudeLLMProvider.NormalizeThinkingBudget`.
 
 ## Build
 

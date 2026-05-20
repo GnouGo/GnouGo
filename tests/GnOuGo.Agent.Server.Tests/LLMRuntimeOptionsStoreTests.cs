@@ -110,6 +110,26 @@ public sealed class LlmRuntimeOptionsStoreTests
         Assert.True(store.Current.Models.ContainsKey("ollama"));
         Assert.True(store.Current.McpServers.ContainsKey("Github"));
     }
+
+    [Fact]
+    public void UpdateProvider_InitializesProviderTypeFromKeyForApiKeyAuth()
+    {
+        var store = new LLMRuntimeOptionsStore(
+            Options.Create(new LLMOptions()),
+            NullLogger<LLMRuntimeOptionsStore>.Instance);
+
+        store.UpdateProvider(
+            providerKey: "claude",
+            url: "https://api.anthropic.com/v1",
+            model: "claude-sonnet-4-20250514",
+            apiKey: "sk-ant-secret",
+            authType: "api_key");
+
+        Assert.True(store.Current.Models.TryGetValue("claude", out var provider));
+        Assert.NotNull(provider);
+        Assert.Equal("claude", provider.Type);
+        Assert.Equal("claude", provider.ResolvedType);
+    }
 }
 
 

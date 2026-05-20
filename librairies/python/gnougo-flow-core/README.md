@@ -22,6 +22,8 @@ This Python package mirrors its public surface as closely as Python idioms allow
 | Runtime engine + step registry | Yes |
 | Step types: `set`, `emit`, `sequence`, `parallel`, `loop.sequential`, `loop.parallel`, `switch`, `template.render`, `llm.call`, `mcp.list`, `mcp.call`, `human.input`, `workflow.call`, `workflow.plan`, `workflow.execute` | Yes |
 | MCP integrations (`InMemoryMcpClientFactory`, `ConfiguredMcpClientFactory`, cache helper) | Yes |
+| MCP `progressEvents` -> thinking telemetry + stdio JSONL real-time progress | Yes |
+| MCP server-level `DiscoveryTimeoutSeconds` / `CallTimeoutSeconds` metadata | Yes |
 | `LLMRequest.reasoning` field | Yes |
 | Model metadata catalog (pricing, token limits, capabilities, overrides) | Yes |
 | `workflow.plan` defaults `reasoning="high"` | Yes |
@@ -490,6 +492,8 @@ Use a one-item array for a single server, or `servers: ["*"]` to discover all co
 
 Flattened `tools`, `resources`, and `prompts` entries each include a `server` field so downstream steps can keep the server affinity when multiple MCP servers are discovered at once.
 
+`timeout_ms` is treated as the workflow-requested timeout. When the configured MCP server metadata includes `DiscoveryTimeoutSeconds`, the effective timeout is the maximum of `timeout_ms` and the server-level value, matching the .NET behavior that prevents generated workflows from undercutting known-slow MCP servers.
+
 ---
 
 ### `mcp.call` — Call MCP Tools or Prompts
@@ -561,6 +565,32 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 ```
 
 **Output (LLM-assisted):** `{ status: "ok", selection_mode: "llm", text: "...", tool_calls: [...], results: [...], json: {...} }`
+
+#### MCP progress events -> thinking telemetry
+
+The Python runtime mirrors the .NET `GnOuGo.Flow.Core` progress contract. For stdio MCP transports, `ConfiguredMcpClientFactory.capture_stdio_error_line(...)` can receive structured JSONL stderr messages with this shape while the tool is still running:
+
+```json
+{
+  "type": "gnougo.mcp.progress",
+  "server": "GnOuGo.GithubCopilot.Mcp",
+  "method": "code_agent_edit",
+  "kind": "tool",
+  "event": {
+    "kind": "session_create",
+    "level": "thinking",
+    "message": "Creating Copilot agent session.",
+    "timestamp": "2026-05-20T10:00:00Z",
+    "file": "src/Program.cs"
+  }
+}
+```
+
+Matching messages are forwarded immediately as `gnougo-flow.step.thinking` telemetry events. As a fallback/history mechanism, `mcp.call` also scans the final tool response for `progressEvents` (aliases accepted: `progress_events`, `progress`, `events`) and forwards each item the same way. Real-time events are deduplicated against final fallback events.
+
+`progressEvents` is the stable GnOuGo-facing contract. MCP servers may map provider-specific or SDK-specific events into this schema, but the Python Flow runtime does not depend on native SDK event types.
+
+`timeout_ms` is treated as the workflow-requested call timeout. When the configured MCP server metadata includes `CallTimeoutSeconds`, the effective timeout is the maximum of `timeout_ms` and the server-level value.
 
 #### Output access patterns
 
