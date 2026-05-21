@@ -73,13 +73,18 @@
       <BundledCmdToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Cmd.Mcp'))</BundledCmdToolDir>
       <BundledDocumentToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Document.Mcp'))</BundledDocumentToolDir>
       <BundledCodeToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.GithubCopilot.Mcp'))</BundledCodeToolDir>
+      <BundledGitToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Git.Mcp'))</BundledGitToolDir>
       <BundledBrowserToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj'))</BundledBrowserToolProject>
       <BundledCmdToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj'))</BundledCmdToolProject>
       <BundledDocumentToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Document.Mcp\GnOuGo.Document.Mcp.csproj'))</BundledDocumentToolProject>
       <BundledCodeToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj'))</BundledCodeToolProject>
+      <BundledGitToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj'))</BundledGitToolProject>
       <BundledToolInvariantGlobalization>false</BundledToolInvariantGlobalization>
       <BundledCmdToolRidArg Condition="'$(RuntimeIdentifier)' != ''">-r $(RuntimeIdentifier)</BundledCmdToolRidArg>
       <BundledCmdToolSelfContainedArg Condition="'$(RuntimeIdentifier)' != ''">--self-contained true</BundledCmdToolSelfContainedArg>
+      <BundledGitToolPublishAot>false</BundledGitToolPublishAot>
+      <BundledGitToolPublishAot Condition="'$(RuntimeIdentifier)' == 'win-x64'">true</BundledGitToolPublishAot>
+      <BundledGitToolPublishAot Condition="'$(PublishBundledGitToolAot)' != ''">$(PublishBundledGitToolAot)</BundledGitToolPublishAot>
     </PropertyGroup>
 
     <Message Importance="high" Text="Publishing bundled server MCP tools into $(BundledServerToolsRoot)..." />
@@ -88,6 +93,7 @@
     <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
     <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
     <Exec Command="dotnet publish &quot;$(BundledCodeToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledCodeToolDir)&quot; -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
+    <Exec Command="dotnet publish &quot;$(BundledGitToolProject)&quot; -c $(Configuration) $(BundledCmdToolRidArg) $(BundledCmdToolSelfContainedArg) -o &quot;$(BundledGitToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=false -p:PublishAot=$(BundledGitToolPublishAot) -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
   </Target>
 
   <Target Name="RemovePdbFilesFromPublish" AfterTargets="PublishBundledServerTools" Condition="'$(PublishDir)' != ''">

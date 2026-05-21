@@ -47,6 +47,68 @@ import json
 import sys
 from datetime import date
 from pathlib import Path
+
+PROVIDER_MAP = {
+    "openai": "openai",
+    "azure": "openai",
+    "text-completion-openai": "openai",
+    "anthropic": "claude",
+    "claude": "claude",
+    "github_copilot": "copilot",
+    "github": "copilot",
+    "copilot": "copilot",
+    "ollama": "ollama",
+}
+
+def normalize_provider(provider):
+    if provider is None:
+        return None
+    provider = str(provider).strip()
+    if not provider:
+        return None
+    return PROVIDER_MAP.get(provider.lower(), provider.lower())
+
+def split_provider_qualified_key(key):
+    if not key or "/" not in key:
+        return None
+    provider, model_id = key.split("/", 1)
+    provider = normalize_provider(provider)
+    if not provider or not model_id:
+        return None
+    return provider, model_id
+
+def provider_qualified_key(key, model):
+    split = split_provider_qualified_key(key)
+    if split:
+        return f"{split[0]}/{split[1]}"
+    provider = normalize_provider((model or {}).get("providerType"))
+    if not provider:
+        return key
+    model_id = (model or {}).get("id") or key
+    return f"{provider}/{model_id}"
+
+def catalog_key_from_litellm(provider, model_name):
+    provider = normalize_provider(provider)
+    if provider not in {"openai", "claude", "copilot", "ollama"}:
+        return None
+    trimmed = model_name
+    for prefix in {provider, str(provider), "anthropic", "github_copilot", "copilot", "openai", "ollama"}:
+        prefix = f"{prefix}/"
+        if trimmed.lower().startswith(prefix.lower()):
+            trimmed = trimmed[len(prefix):]
+            break
+    return f"{provider}/{trimmed}"
+
+def supported_reasoning_efforts(data):
+    efforts = []
+    if data.get("supports_minimal_reasoning_effort"):
+        efforts.extend(["minimal", "low"])
+    if data.get("supports_reasoning"):
+        efforts.extend(["medium", "high"])
+    if data.get("supports_max_reasoning_effort") or data.get("supports_xhigh_reasoning_effort"):
+        efforts.append("max")
+    return list(dict.fromkeys(efforts))
+
 litellm_path = Path(sys.argv[1])
 metadata_path = Path(sys.argv[2])
 with litellm_path.open("r", encoding="utf-8-sig") as f:
@@ -54,33 +116,89 @@ with litellm_path.open("r", encoding="utf-8-sig") as f:
 with metadata_path.open("r", encoding="utf-8-sig") as f:
     local = json.load(f)
 models = local.setdefault("models", {})
-valid_providers = {"openai", "anthropic", "mistralai", "deepseek", "cohere", "text-completion-openai"}
+aliases = local.setdefault("aliases", {})
+migrated_models = {}
+canonical_key_map = {}
+for key, model in list(models.items()):
+    new_key = provider_qualified_key(key, model)
+    migrated_models[new_key] = model
+    canonical_key_map[key] = new_key
+local["models"] = models = migrated_models
+migrated_aliases = {}
+for alias, canonical in list(aliases.items()):
+    alias_split = split_provider_qualified_key(alias)
+    alias_key = f"{alias_split[0]}/{alias_split[1]}" if alias_split else alias
+    migrated_aliases[alias_key] = canonical_key_map.get(canonical, canonical)
+local["aliases"] = aliases = migrated_aliases
 added = updated = 0
 for model_name, data in litellm.items():
     if not isinstance(data, dict):
         continue
+    catalog_key = catalog_key_from_litellm(data.get("litellm_provider"), model_name)
+    if not catalog_key:
+        continue
+    provider, clean_name = split_provider_qualified_key(catalog_key)
     input_cost = data.get("input_cost_per_token")
     output_cost = data.get("output_cost_per_token")
-    if not input_cost and not output_cost:
-        continue
-    provider = str(data.get("litellm_provider") or "")
-    if not any(vp in provider for vp in valid_providers):
-        continue
-    clean_name = model_name.split("/", 1)[-1]
-    input_per_1m = round((input_cost or 0) * 1_000_000, 4)
-    output_per_1m = round((output_cost or 0) * 1_000_000, 4)
-    model = models.setdefault(clean_name, {"providerType": provider, "ownedBy": provider})
-    if "pricing" not in model:
+    input_per_1m = round(input_cost * 1_000_000, 4) if input_cost is not None else None
+    output_per_1m = round(output_cost * 1_000_000, 4) if output_cost is not None else None
+    model = models.setdefault(catalog_key, {"id": clean_name, "providerType": provider})
+    if provider == "claude":
+        model.setdefault("ownedBy", "anthropic")
+    elif provider in {"openai", "ollama"}:
+        model.setdefault("ownedBy", provider)
+    if "id" not in model:
+        model["id"] = clean_name
+    if model.get("providerType") != provider:
+        model["providerType"] = provider
+    if catalog_key not in migrated_models:
         added += 1
-    pricing = model.setdefault("pricing", {})
-    if pricing.get("inputPer1MTokens") != input_per_1m or pricing.get("outputPer1MTokens") != output_per_1m:
-        updated += 1
-    pricing["currency"] = "USD"
-    pricing["inputPer1MTokens"] = input_per_1m
-    pricing["outputPer1MTokens"] = output_per_1m
     context = data.get("max_input_tokens") or data.get("max_tokens")
-    if context and not model.get("contextWindowTokens"):
+    if context is not None:
         model["contextWindowTokens"] = int(context)
+        model["maxInputTokens"] = int(context)
+    max_output = data.get("max_output_tokens") or data.get("max_tokens")
+    if max_output is not None:
+        model["maxOutputTokens"] = int(max_output)
+    if input_per_1m is not None or output_per_1m is not None or provider == "ollama":
+        pricing = model.setdefault("pricing", {})
+        if pricing.get("inputPer1MTokens") != input_per_1m or pricing.get("outputPer1MTokens") != output_per_1m:
+            updated += 1
+        pricing["currency"] = "USD"
+        if input_per_1m is not None:
+            pricing["inputPer1MTokens"] = input_per_1m
+        elif provider == "ollama":
+            pricing.setdefault("inputPer1MTokens", 0)
+        if output_per_1m is not None:
+            pricing["outputPer1MTokens"] = output_per_1m
+        elif provider == "ollama":
+            pricing.setdefault("outputPer1MTokens", 0)
+        if data.get("cache_read_input_token_cost") is not None:
+            pricing["cachedInputPer1MTokens"] = round(data["cache_read_input_token_cost"] * 1_000_000, 4)
+    capabilities = model.setdefault("capabilities", {})
+    if data.get("mode") == "embedding":
+        capabilities.update({
+            "supportsEmbeddings": True,
+            "supportsTemperature": False,
+            "supportsStructuredOutput": False,
+            "supportsTools": False,
+            "supportsJsonMode": False,
+        })
+    if data.get("supports_function_calling") is not None:
+        capabilities["supportsTools"] = bool(data["supports_function_calling"])
+    if data.get("supports_response_schema") is not None:
+        capabilities["supportsStructuredOutput"] = bool(data["supports_response_schema"])
+        capabilities["supportsJsonMode"] = bool(data["supports_response_schema"])
+    if data.get("supports_vision") is not None:
+        capabilities["supportsVision"] = bool(data["supports_vision"])
+    if data.get("supports_audio_input") is not None or data.get("supports_audio_output") is not None:
+        capabilities["supportsAudio"] = bool(data.get("supports_audio_input") or data.get("supports_audio_output"))
+    reasoning_efforts = supported_reasoning_efforts(data)
+    if reasoning_efforts:
+        capabilities["supportsReasoningEffort"] = True
+        capabilities["supportedReasoningEfforts"] = reasoning_efforts
+    elif provider == "claude":
+        capabilities.setdefault("supportsReasoningEffort", False)
 local["_updated"] = str(date.today())
 with metadata_path.open("w", encoding="utf-8") as f:
     json.dump(local, f, indent=2, ensure_ascii=False)
@@ -103,6 +221,24 @@ with json_path.open("r", encoding="utf-8-sig") as f:
     data = json.load(f)
 models = data.get("models", {})
 aliases = data.get("aliases", {})
+PROVIDER_MAP = {
+    "openai": "openai",
+    "azure": "openai",
+    "text-completion-openai": "openai",
+    "anthropic": "claude",
+    "claude": "claude",
+    "github_copilot": "copilot",
+    "github": "copilot",
+    "copilot": "copilot",
+    "ollama": "ollama",
+}
+def normalize_provider(provider):
+    if provider is None:
+        return None
+    provider = str(provider).strip()
+    if not provider:
+        return None
+    return PROVIDER_MAP.get(provider.lower(), provider.lower())
 def cs_string(value):
     if value is None or str(value).strip() == "":
         return "null"
@@ -122,6 +258,14 @@ def cs_string_list(value):
         return "null"
     items = [cs_string(item) for item in value if str(item).strip()]
     return "[" + ", ".join(items) + "]" if items else "null"
+def split_provider_qualified_key(key):
+    if not key or "/" not in key:
+        return None
+    provider, model_id = key.split("/", 1)
+    provider = normalize_provider(provider)
+    if not provider or not model_id:
+        return None
+    return provider, model_id
 def append_if_not_null(lines, name, literal):
     if literal != "null":
         lines.append(f"                {name} = {literal},")
@@ -145,11 +289,15 @@ for name, model in models.items():
         continue
     pricing = model.get("pricing") or None
     cap = model.get("capabilities") or None
+    qualified_key = split_provider_qualified_key(name)
+    model_id = model.get("id") or (qualified_key[1] if qualified_key else name)
+    display_name = model.get("displayName") or model_id
+    provider_type = normalize_provider(model.get("providerType")) or (qualified_key[0] if qualified_key else None)
     lines.append(f"        [{cs_string(name)}] = new LLMModelMetadata")
     lines.append("        {")
-    lines.append(f"            Id = {cs_string(model.get('id') or name)},")
-    lines.append(f"            DisplayName = {cs_string(model.get('displayName') or name)},")
-    append_if_not_null(lines, "ProviderType", cs_string(model.get("providerType")))
+    lines.append(f"            Id = {cs_string(model_id)},")
+    lines.append(f"            DisplayName = {cs_string(display_name)},")
+    append_if_not_null(lines, "ProviderType", cs_string(provider_type))
     append_if_not_null(lines, "OwnedBy", cs_string(model.get("ownedBy")))
     append_if_not_null(lines, "ContextWindowTokens", cs_int(model.get("contextWindowTokens")))
     append_if_not_null(lines, "MaxInputTokens", cs_int(model.get("maxInputTokens")))

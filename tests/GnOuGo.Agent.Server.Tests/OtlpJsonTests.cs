@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using OtlpTenantCollector.Models;
 using OtlpTenantCollector.Services;
@@ -81,25 +82,28 @@ public sealed class OtlpJsonTests
         var dto = OtlpJson.SpanRecordToDto(entity);
 
         Assert.Equal(Convert.ToHexString(entity.SpanId).ToLowerInvariant(), dto.SpanId);
-        Assert.Equal(42L, Assert.IsType<long>(dto.Attributes["answer"]));
+        Assert.Equal(42L, dto.Attributes.GetProperty("answer").GetInt64());
 
-        var flags = Assert.IsType<List<object?>>(dto.Attributes["flags"]);
-        Assert.Equal("one", Assert.IsType<string>(flags[0]));
-        Assert.True(Assert.IsType<bool>(flags[1]));
-        Assert.Null(flags[2]);
+        var flags = dto.Attributes.GetProperty("flags");
+        Assert.Equal(JsonValueKind.Array, flags.ValueKind);
+        Assert.Equal("one", flags[0].GetString());
+        Assert.True(flags[1].GetBoolean());
+        Assert.Equal(JsonValueKind.Null, flags[2].ValueKind);
 
-        var details = Assert.IsType<Dictionary<string, object?>>(dto.Attributes["details"]);
-        Assert.True(Assert.IsType<bool>(details["ok"]));
+        var details = dto.Attributes.GetProperty("details");
+        Assert.Equal(JsonValueKind.Object, details.ValueKind);
+        Assert.True(details.GetProperty("ok").GetBoolean());
 
         var spanEvent = Assert.Single(dto.Events);
         Assert.Equal("checkpoint", spanEvent.Name);
-        Assert.Equal(2L, Assert.IsType<long>(spanEvent.Attributes["attempt"]));
-        var payload = Assert.IsType<Dictionary<string, object?>>(spanEvent.Attributes["payload"]);
-        Assert.Equal("yes", Assert.IsType<string>(payload["nested"]));
+        Assert.Equal(2L, spanEvent.Attributes.GetProperty("attempt").GetInt64());
+        var payload = spanEvent.Attributes.GetProperty("payload");
+        Assert.Equal(JsonValueKind.Object, payload.ValueKind);
+        Assert.Equal("yes", payload.GetProperty("nested").GetString());
 
-        Assert.Equal("svc", Assert.IsType<string>(dto.Resource["service.name"]));
-        Assert.Equal("workflow", Assert.IsType<string>(dto.Scope["name"]));
-        Assert.Equal("1.0.0", Assert.IsType<string>(dto.Scope["version"]));
+        Assert.Equal("svc", dto.Resource.GetProperty("service.name").GetString());
+        Assert.Equal("workflow", dto.Scope.GetProperty("name").GetString());
+        Assert.Equal("1.0.0", dto.Scope.GetProperty("version").GetString());
     }
 }
 

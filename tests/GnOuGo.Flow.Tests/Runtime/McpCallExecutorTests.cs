@@ -17,7 +17,7 @@ public class McpCallExecutorTests
     }
 
     private static async Task<RunResult> RunMain(string yaml, JsonObject? inputs = null,
-        IMcpClientFactory? mcpFactory = null, ILLMClient? llm = null)
+        IMcpClientFactory? mcpFactory = null, ILLMClient? llm = null, IWorkflowTelemetry? telemetry = null)
     {
         var compiled = CompileDoc(yaml);
         var wf = compiled.Workflows[compiled.Entrypoint!];
@@ -25,6 +25,7 @@ public class McpCallExecutorTests
         {
             McpClientFactory = mcpFactory,
             LLMClient = llm,
+            Telemetry = telemetry ?? NullWorkflowTelemetry.Instance
         };
         return await engine.ExecuteAsync(wf, inputs ?? new JsonObject(), CancellationToken.None);
     }
@@ -70,6 +71,174 @@ workflows:
         Assert.Equal("Hello World", result.Outputs["msg"]!.GetValue<string>());
 
         mockSession.Verify(s => s.CallToolAsync("greet", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task McpCall_ToolProgressEvents_AreForwardedAsThinkingTelemetry()
+    {
+        var spanEvents = new List<(string Name, IReadOnlyList<KeyValuePair<string, object?>>? Attributes)>();
+        var workflowSpan = new Mock<IWorkflowSpan>();
+        var stepSpan = new Mock<IStepSpan>();
+        stepSpan
+            .Setup(s => s.AddEvent(It.IsAny<string>(), It.IsAny<IReadOnlyList<KeyValuePair<string, object?>>?>()))
+            .Callback<string, IReadOnlyList<KeyValuePair<string, object?>>?>((name, attributes) => spanEvents.Add((name, attributes)));
+
+        var telemetry = new Mock<IWorkflowTelemetry>();
+        telemetry.Setup(t => t.WorkflowStart(It.IsAny<WorkflowTelemetryInfo>())).Returns(workflowSpan.Object);
+        telemetry.Setup(t => t.StepStart(It.IsAny<ITelemetrySpan>(), It.IsAny<StepTelemetryInfo>())).Returns(stepSpan.Object);
+
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("code");
+        mockSession.Setup(s => s.CallToolAsync("code_agent_edit", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new McpCallResult
+            {
+                IsError = false,
+                Content = new JsonObject
+                {
+                    ["summary"] = "done",
+                    ["progressEvents"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["kind"] = "session_create",
+                            ["level"] = "thinking",
+                            ["message"] = "Creating Copilot agent session.",
+                            ["timestamp"] = "2026-05-19T00:00:00Z"
+                        },
+                        new JsonObject
+                        {
+                            ["kind"] = "file_modified",
+                            ["level"] = "info",
+                            ["message"] = "Modified src/Program.cs.",
+                            ["file"] = "src/Program.cs"
+                        }
+                    }
+                }
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("code", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: edit
+        type: mcp.call
+        input:
+          server: code
+          method: code_agent_edit
+          request:
+            task: Update the program.
+""", mcpFactory: mockFactory.Object, telemetry: telemetry.Object);
+
+        Assert.True(result.Success);
+        var thinkingEvents = spanEvents
+            .Where(e => e.Name == "gnougo-flow.step.thinking")
+            .Select(e => e.Attributes?.ToDictionary(kv => kv.Key, kv => kv.Value))
+            .Where(attrs => attrs != null)
+            .Cast<Dictionary<string, object?>>()
+            .ToArray();
+
+        Assert.Contains(thinkingEvents, attrs =>
+            string.Equals(attrs["gnougo-flow.thinking.message"]?.ToString(), "Creating Copilot agent session.", StringComparison.Ordinal) &&
+            string.Equals(attrs["gnougo-flow.thinking.source"]?.ToString(), "mcp.progress", StringComparison.Ordinal) &&
+            string.Equals(attrs["mcp.server.name"]?.ToString(), "code", StringComparison.Ordinal) &&
+            string.Equals(attrs["mcp.method.name"]?.ToString(), "code_agent_edit", StringComparison.Ordinal));
+        Assert.Contains(thinkingEvents, attrs =>
+            string.Equals(attrs["gnougo-flow.thinking.message"]?.ToString(), "Modified src/Program.cs.", StringComparison.Ordinal) &&
+            string.Equals(attrs["gnougo-flow.thinking.level"]?.ToString(), "info", StringComparison.Ordinal) &&
+            string.Equals(attrs["gnougo-flow.thinking.file"]?.ToString(), "src/Program.cs", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task McpCall_RealtimeProgressEvents_AreForwardedBeforeToolReturns()
+    {
+        var spanEvents = new List<(string Name, IReadOnlyList<KeyValuePair<string, object?>>? Attributes)>();
+        var realtimeEventObservedBeforeReturn = false;
+        var callReturned = false;
+        var workflowSpan = new Mock<IWorkflowSpan>();
+        var stepSpan = new Mock<IStepSpan>();
+        stepSpan
+            .Setup(s => s.AddEvent(It.IsAny<string>(), It.IsAny<IReadOnlyList<KeyValuePair<string, object?>>?>()))
+            .Callback<string, IReadOnlyList<KeyValuePair<string, object?>>?>((name, attributes) =>
+            {
+                spanEvents.Add((name, attributes));
+                var source = attributes?.FirstOrDefault(kv => kv.Key == "gnougo-flow.thinking.source").Value?.ToString();
+                if (name == "gnougo-flow.step.thinking" && source == "mcp.realtime_progress" && !callReturned)
+                    realtimeEventObservedBeforeReturn = true;
+            });
+
+        var telemetry = new Mock<IWorkflowTelemetry>();
+        telemetry.Setup(t => t.WorkflowStart(It.IsAny<WorkflowTelemetryInfo>())).Returns(workflowSpan.Object);
+        telemetry.Setup(t => t.StepStart(It.IsAny<ITelemetrySpan>(), It.IsAny<StepTelemetryInfo>())).Returns(stepSpan.Object);
+
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("code");
+        mockSession.Setup(s => s.CallToolAsync("code_agent_edit", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                ConfiguredMcpClientFactory.PublishProgress(new McpRealtimeProgressEvent
+                {
+                    ServerName = "code",
+                    MethodName = "code_agent_edit",
+                    Kind = "tool",
+                    EventKind = "request_send",
+                    Level = "thinking",
+                    Message = "Sending agent edit request to Copilot."
+                });
+                await Task.Delay(20);
+                callReturned = true;
+                return new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject
+                    {
+                        ["summary"] = "done",
+                        ["progressEvents"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["kind"] = "request_send",
+                                ["level"] = "thinking",
+                                ["message"] = "Sending agent edit request to Copilot."
+                            }
+                        }
+                    }
+                };
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("code", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: edit
+        type: mcp.call
+        input:
+          server: code
+          method: code_agent_edit
+          request:
+            task: Update the program.
+""", mcpFactory: mockFactory.Object, telemetry: telemetry.Object);
+
+        Assert.True(result.Success);
+        Assert.True(realtimeEventObservedBeforeReturn);
+        Assert.Equal(1, spanEvents.Count(e =>
+            e.Name == "gnougo-flow.step.thinking" &&
+            string.Equals(e.Attributes?.FirstOrDefault(kv => kv.Key == "gnougo-flow.thinking.message").Value?.ToString(), "Sending agent edit request to Copilot.", StringComparison.Ordinal)));
+        Assert.Contains(spanEvents, e =>
+            e.Name == "gnougo-flow.step.thinking" &&
+            string.Equals(e.Attributes?.FirstOrDefault(kv => kv.Key == "gnougo-flow.thinking.message").Value?.ToString(), "Sending agent edit request to Copilot.", StringComparison.Ordinal) &&
+            string.Equals(e.Attributes?.FirstOrDefault(kv => kv.Key == "gnougo-flow.thinking.source").Value?.ToString(), "mcp.realtime_progress", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -148,6 +148,23 @@ async def test_configured_mcp_factory_forwards_optional_mcp_meta_to_injected_cli
     assert client.meta == {"traceparent": "00-a-b-01", "gnougo": {"mcpServer": "demo"}}
 
 
+def test_configured_mcp_factory_hydrates_timeout_metadata_aliases():
+    factory = ConfiguredMcpClientFactory(
+        {
+            "demo": {
+                "client": InjectedClient(),
+                "DiscoveryTimeoutSeconds": 120,
+                "callTimeoutSeconds": 1200,
+            }
+        }
+    )
+
+    metadata = factory.server_metadata[0]
+
+    assert metadata.discovery_timeout_seconds == 120
+    assert metadata.call_timeout_seconds == 1200
+
+
 def test_mcp_cache_helper_deep_copies_and_expires():
     cache = McpCacheHelper(ttl_seconds=0.01)
     tools = [McpToolInfo(name="search", input_schema={"properties": {"q": {"type": "string"}}})]

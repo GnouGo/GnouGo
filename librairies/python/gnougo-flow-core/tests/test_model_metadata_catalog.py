@@ -66,6 +66,31 @@ def test_inline_override_disables_reasoning_and_tools() -> None:
     assert sanitized.tools is None
 
 
+def test_provider_qualified_inline_overrides_win_over_generic_model_id() -> None:
+    options = LLMOptions(
+        model_overrides={
+            "shared-model": LLMModelMetadata(id="shared-model", pricing=ModelPricingMetadata(input_per_1m_tokens=1.0, output_per_1m_tokens=2.0)),
+            "openai/shared-model": LLMModelMetadata(id="shared-model", pricing=ModelPricingMetadata(input_per_1m_tokens=3.0, output_per_1m_tokens=4.0)),
+            "copilot/shared-model": LLMModelMetadata(id="shared-model", pricing=ModelPricingMetadata(input_per_1m_tokens=5.0, output_per_1m_tokens=6.0)),
+        }
+    )
+    resolver = LLMModelMetadataResolver(options)
+
+    openai = resolver.resolve("openai", "shared-model")
+    copilot = resolver.resolve("copilot", "shared-model")
+
+    assert openai.id == "shared-model"
+    assert openai.provider_type == "openai"
+    assert openai.pricing is not None
+    assert openai.pricing.input_per_1m_tokens == 3.0
+    assert copilot.id == "shared-model"
+    assert copilot.provider_type == "copilot"
+    assert copilot.pricing is not None
+    assert copilot.pricing.input_per_1m_tokens == 5.0
+    assert estimate_cost("shared-model", input_tokens=1_000_000, output_tokens=1_000_000, options=options, provider_type="openai") == 7.0
+    assert estimate_cost("shared-model", input_tokens=1_000_000, output_tokens=1_000_000, options=options, provider_type="copilot") == 11.0
+
+
 def test_external_metadata_file_and_alias(tmp_path: Path) -> None:
     path = tmp_path / "models.json"
     path.write_text(
@@ -97,8 +122,86 @@ def test_external_metadata_file_and_alias(tmp_path: Path) -> None:
     assert metadata.capabilities.supports_reasoning_effort is False
 
 
+def test_provider_qualified_external_metadata_file(tmp_path: Path) -> None:
+    path = tmp_path / "models.json"
+    path.write_text(
+        json.dumps(
+            {
+                "models": {
+                    "openai/shared-model": {
+                        "contextWindowTokens": 111,
+                        "pricing": {"inputPer1MTokens": 0.5, "outputPer1MTokens": 1.5},
+                    },
+                    "copilot/shared-model": {
+                        "contextWindowTokens": 222,
+                        "pricing": {"inputPer1MTokens": 2.5, "outputPer1MTokens": 3.5},
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    resolver = LLMModelMetadataResolver(LLMOptions(model_metadata_files=[str(path)]))
+
+    openai = resolver.resolve("openai", "shared-model")
+    copilot = resolver.resolve("copilot", "shared-model")
+
+    assert openai.id == "shared-model"
+    assert openai.provider_type == "openai"
+    assert openai.context_window_tokens == 111
+    assert openai.pricing is not None
+    assert openai.pricing.input_per_1m_tokens == 0.5
+    assert copilot.id == "shared-model"
+    assert copilot.provider_type == "copilot"
+    assert copilot.context_window_tokens == 222
+    assert copilot.pricing is not None
+    assert copilot.pricing.input_per_1m_tokens == 2.5
+    openai_configured = [
+        metadata for metadata in resolver.list_configured_metadata("openai") if metadata.id == "shared-model" and metadata.provider_type == "openai"
+    ]
+    copilot_configured = [
+        metadata for metadata in resolver.list_configured_metadata("copilot") if metadata.id == "shared-model" and metadata.provider_type == "copilot"
+    ]
+    assert len(openai_configured) == 1
+    assert len(copilot_configured) == 1
+
+
 def test_estimate_cost_uses_builtin_pricing() -> None:
     assert estimate_cost("gpt-4o-mini", input_tokens=500_000, output_tokens=100_000) == 0.135
+
+
+def test_provider_specific_builtin_metadata_for_duplicate_model_ids() -> None:
+    resolver = LLMModelMetadataResolver()
+
+    openai = resolver.resolve("openai", "gpt-4o")
+    copilot = resolver.resolve("copilot", "gpt-4o")
+
+    assert openai.id == "gpt-4o"
+    assert openai.provider_type == "openai"
+    assert openai.context_window_tokens == 128000
+    assert openai.pricing is not None
+    assert openai.pricing.input_per_1m_tokens == 2.5
+
+    assert copilot.id == "gpt-4o"
+    assert copilot.provider_type == "copilot"
+    assert copilot.context_window_tokens == 64000
+    assert copilot.pricing is None
+
+
+def test_normalizes_provider_aliases_for_builtin_metadata() -> None:
+    metadata = LLMModelMetadataResolver().resolve("anthropic", "claude-sonnet-4-20250514")
+
+    assert metadata.id == "claude-sonnet-4-20250514"
+    assert metadata.provider_type == "claude"
+    assert metadata.pricing is not None
+    assert metadata.pricing.input_per_1m_tokens == 3.0
+
+
+def test_does_not_treat_non_provider_slash_prefix_as_vendor_prefix() -> None:
+    metadata = LLMModelMetadataResolver().resolve("openai", "1024-x-1024/dall-e-2")
+
+    assert metadata.id == "1024-x-1024/dall-e-2"
+    assert metadata.provider_type == "openai"
 
 
 def test_estimate_cost_uses_user_override_pricing() -> None:
@@ -138,7 +241,7 @@ def test_missing_required_metadata_fields_for_unknown_model() -> None:
 
     missing = get_missing_required_metadata_fields(metadata)
 
-    assert metadata.id == "new-model"
+    assert metadata.id == "vendor/new-model"
     assert "contextWindowTokens" in missing
     assert "maxInputTokens" in missing
     assert "maxOutputTokens" in missing

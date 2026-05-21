@@ -75,6 +75,7 @@ jobs:
   publish_winget:
     name: Publish WinGet package (${{ inputs.version_tag }})
     needs: publish_release_main
+    if: inputs.channel_tag == 'release'
     runs-on: windows-latest
     steps:
       - name: Install wingetcreate
@@ -103,6 +104,7 @@ jobs:
   publish_homebrew:
     name: Publish Homebrew cask (${{ inputs.version_tag }})
     needs: publish_release_main
+    if: inputs.channel_tag == 'release'
     runs-on: ubuntu-latest
     steps:
       - name: Download build artifacts

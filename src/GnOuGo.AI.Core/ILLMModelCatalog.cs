@@ -7,7 +7,7 @@
 public interface ILLMModelCatalog
 {
     /// <summary>
-    /// Lists models for a configured provider key (for example: <c>openai</c>, <c>ollama</c>, <c>copilot</c>),
+    /// Lists models for a configured provider key (for example: <c>openai</c>, <c>ollama</c>, <c>copilot</c>, <c>claude</c>),
     /// filtered to the models that can actually be used for chat requests.
     /// </summary>
     Task<IReadOnlyList<LLMModelDescriptor>> ListModelsAsync(string provider, CancellationToken ct = default);

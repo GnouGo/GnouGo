@@ -129,7 +129,7 @@ async def test_llm_call_forwards_reasoning_field() -> None:
           - id: ask
             type: llm.call
             input:
-              model: gpt-4
+              model: o4-mini
               prompt: "hello"
               reasoning: medium
     """

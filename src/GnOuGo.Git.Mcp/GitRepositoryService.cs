@@ -2,14 +2,14 @@
 using LibGit2Sharp.Handlers;
 using Microsoft.Extensions.Options;
 
-namespace GnOuGo.GithubCopilot.Mcp;
+namespace GnOuGo.Git.Mcp;
 
 public sealed class GitRepositoryService
 {
-    private readonly CodePolicy _policy;
-    private readonly CodeServerSettings _settings;
+    private readonly GitPolicy _policy;
+    private readonly GitServerSettings _settings;
 
-    public GitRepositoryService(CodePolicy policy, IOptions<CodeServerSettings> settings)
+    public GitRepositoryService(GitPolicy policy, IOptions<GitServerSettings> settings)
     {
         _policy = policy;
         _settings = settings.Value;
@@ -45,10 +45,10 @@ public sealed class GitRepositoryService
             ? repository.Diff.Compare<Patch>(repository.Head.Tip?.Tree, DiffTargets.Index, paths)
             : repository.Diff.Compare<Patch>(paths);
         var text = patch.Content ?? string.Empty;
-        var max = Math.Max(1, _settings.Git.MaxDiffCharacters);
+        var max = Math.Max(1, _settings.MaxDiffCharacters);
         var truncated = text.Length > max;
         if (truncated)
-            text = text[..max] + "\n...diff truncated by Code:Git:MaxDiffCharacters...";
+            text = text[..max] + "\n...diff truncated by Git:MaxDiffCharacters...";
 
         return new GitDiffResult(repositoryRoot, relativePath, staged, text, truncated);
     }
@@ -56,7 +56,7 @@ public sealed class GitRepositoryService
     public GitLogResult GetLog(string? projectRoot, int maxCount = 20)
     {
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
-        var limit = Math.Clamp(maxCount, 1, Math.Max(1, _settings.Git.MaxLogCount));
+        var limit = Math.Clamp(maxCount, 1, Math.Max(1, _settings.MaxLogCount));
         var commits = repository.Commits
             .Take(limit + 1)
             .Select(static commit => new GitCommitInfo(
@@ -167,8 +167,8 @@ public sealed class GitRepositoryService
             throw new InvalidOperationException("branchName must not be empty.");
 
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
-        if (_settings.Git.RequireCleanWorkingTreeForMerge && repository.RetrieveStatus().IsDirty)
-            throw new InvalidOperationException("Working tree must be clean before merge by policy. Set Code:Git:RequireCleanWorkingTreeForMerge=false to allow dirty merges.");
+        if (_settings.RequireCleanWorkingTreeForMerge && repository.RetrieveStatus().IsDirty)
+            throw new InvalidOperationException("Working tree must be clean before merge by policy. Set Git:RequireCleanWorkingTreeForMerge=false to allow dirty merges.");
 
         var branch = repository.Branches[branchName] ?? throw new InvalidOperationException($"Branch '{branchName}' was not found.");
         var result = repository.Merge(branch, CreateSignature(authorName, authorEmail));
@@ -191,6 +191,8 @@ public sealed class GitRepositoryService
         _policy.EnsureGitMutationsAllowed("resolve_conflict");
         if (string.IsNullOrWhiteSpace(relativePath))
             throw new InvalidOperationException("relativePath must not be empty.");
+        if (string.IsNullOrWhiteSpace(strategy))
+            throw new InvalidOperationException("strategy must not be empty.");
 
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
         var normalizedPath = NormalizeRelativePath(relativePath);
@@ -213,7 +215,7 @@ public sealed class GitRepositoryService
                 Commands.Stage(repository, normalizedPath);
                 break;
             default:
-                throw new InvalidOperationException("strategy must be one of: ours, theirs, stage_existing.");
+                throw new InvalidOperationException("strategy must be one of: ours, theirs, stage_existing, manual.");
         }
 
         return new GitOperationResult(repositoryRoot, "resolve_conflict", $"Resolved '{normalizedPath}' with strategy '{selectedStrategy}'.", true);
@@ -226,7 +228,7 @@ public sealed class GitRepositoryService
         if (string.IsNullOrWhiteSpace(remoteUrl))
             throw new InvalidOperationException("remoteUrl must not be empty.");
 
-        var target = _policy.ResolveGitCloneTargetDirectory(targetDirectory);
+        var target = _policy.ResolveCloneTargetDirectory(targetDirectory);
         var options = new CloneOptions();
         if (!string.IsNullOrWhiteSpace(branch))
             options.BranchName = branch;
@@ -244,7 +246,7 @@ public sealed class GitRepositoryService
         var remote = ResolveRemote(repository, remoteName);
         var options = new FetchOptions();
         ApplyCredentials(options);
-        Commands.Fetch(repository, remote.Name, remote.FetchRefSpecs.Select(static spec => spec.Specification), options, "fetch from Code MCP");
+        Commands.Fetch(repository, remote.Name, remote.FetchRefSpecs.Select(static spec => spec.Specification), options, "fetch from Git MCP");
         return new GitOperationResult(repositoryRoot, "fetch", $"Fetched remote '{remote.Name}'.", true);
     }
 
@@ -253,8 +255,8 @@ public sealed class GitRepositoryService
         _policy.EnsureGitNetworkAllowed("pull");
         _policy.EnsureGitMutationsAllowed("pull");
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
-        if (_settings.Git.RequireCleanWorkingTreeForMerge && repository.RetrieveStatus().IsDirty)
-            throw new InvalidOperationException("Working tree must be clean before pull by policy. Set Code:Git:RequireCleanWorkingTreeForMerge=false to allow dirty pulls.");
+        if (_settings.RequireCleanWorkingTreeForMerge && repository.RetrieveStatus().IsDirty)
+            throw new InvalidOperationException("Working tree must be clean before pull by policy. Set Git:RequireCleanWorkingTreeForMerge=false to allow dirty pulls.");
 
         _ = ResolveRemote(repository, remoteName);
         var options = new PullOptions { FetchOptions = new FetchOptions() };
@@ -297,24 +299,31 @@ public sealed class GitRepositoryService
     {
         var root = _policy.ResolveProjectRoot(projectRoot);
         var discovered = Repository.Discover(root);
-        if (string.IsNullOrWhiteSpace(discovered))
+        if (string.IsNullOrWhiteSpace(discovered) || !Repository.IsValid(discovered))
             throw new InvalidOperationException($"'{root}' is not inside a Git repository.");
 
         repositoryRoot = Path.GetFullPath(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(discovered)) ?? root);
-        return new Repository(discovered);
+        try
+        {
+            return new Repository(discovered);
+        }
+        catch (LibGit2SharpException ex)
+        {
+            throw new InvalidOperationException($"'{root}' is not inside a Git repository or the repository cannot be opened: {ex.Message}", ex);
+        }
     }
 
     private Remote ResolveRemote(Repository repository, string? remoteName)
     {
-        var name = string.IsNullOrWhiteSpace(remoteName) ? _settings.Git.DefaultRemoteName : remoteName.Trim();
+        var name = string.IsNullOrWhiteSpace(remoteName) ? _settings.DefaultRemoteName : remoteName.Trim();
         var remote = repository.Network.Remotes[name];
         return remote ?? throw new InvalidOperationException($"Remote '{name}' was not found.");
     }
 
     private Signature CreateSignature(string? authorName, string? authorEmail)
     {
-        var name = string.IsNullOrWhiteSpace(authorName) ? _settings.Git.DefaultAuthorName : authorName.Trim();
-        var email = string.IsNullOrWhiteSpace(authorEmail) ? _settings.Git.DefaultAuthorEmail : authorEmail.Trim();
+        var name = string.IsNullOrWhiteSpace(authorName) ? _settings.DefaultAuthorName : authorName.Trim();
+        var email = string.IsNullOrWhiteSpace(authorEmail) ? _settings.DefaultAuthorEmail : authorEmail.Trim();
         return new Signature(name, email, DateTimeOffset.Now);
     }
 
@@ -336,7 +345,7 @@ public sealed class GitRepositoryService
 
         return (_, _, _) => new UsernamePasswordCredentials
         {
-            Username = string.IsNullOrWhiteSpace(_settings.Git.Username) ? "x-access-token" : _settings.Git.Username,
+            Username = string.IsNullOrWhiteSpace(_settings.Username) ? "x-access-token" : _settings.Username,
             Password = token
         };
     }
@@ -355,7 +364,7 @@ public sealed class GitRepositoryService
     {
         if (string.IsNullOrWhiteSpace(relativePath))
             throw new InvalidOperationException("Git path must not be empty.");
-        if (Path.IsPathRooted(relativePath) || relativePath.Contains("..", StringComparison.Ordinal) || relativePath.IndexOfAny(['*', '?']) >= 0)
+        if (Path.IsPathRooted(relativePath) || ContainsParentTraversalSegment(relativePath) || relativePath.IndexOfAny(['*', '?']) >= 0)
             throw new InvalidOperationException("Git paths must be relative and must not contain traversal or wildcard characters.");
         return relativePath.Replace('\\', '/').Trim('/');
     }
@@ -365,15 +374,31 @@ public sealed class GitRepositoryService
         if (string.IsNullOrWhiteSpace(branchName))
             throw new InvalidOperationException("branchName must not be empty.");
         if (branchName.Contains("..", StringComparison.Ordinal) || branchName.StartsWith('/') || branchName.EndsWith('/') || branchName.IndexOfAny(['~', '^', ':', '?', '*', '[', '\\']) >= 0)
-            throw new InvalidOperationException("branchName contains characters that are not allowed by the Code MCP policy.");
+            throw new InvalidOperationException("branchName contains characters that are not allowed by the Git MCP policy.");
     }
 
     private static Commit ResolveCommitish(Repository repository, string commitish)
     {
         var commit = repository.Lookup<Commit>(commitish)
             ?? repository.Branches[commitish]?.Tip
-            ?? repository.Branches[$"origin/{commitish}"]?.Tip;
+            ?? repository.Branches[$"origin/{commitish}"]?.Tip
+            ?? ResolveTagTarget(repository, commitish);
         return commit ?? throw new InvalidOperationException($"Commitish '{commitish}' was not found.");
+    }
+
+    private static bool ContainsParentTraversalSegment(string path)
+        => path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).Any(static segment => string.Equals(segment, "..", StringComparison.Ordinal));
+
+    private static Commit? ResolveTagTarget(Repository repository, string tagName)
+    {
+        var tag = repository.Tags[tagName];
+        if (tag?.Target is Commit commit)
+            return commit;
+
+        if (tag?.Target is TagAnnotation annotation && annotation.Target is Commit annotatedCommit)
+            return annotatedCommit;
+
+        return null;
     }
 
     private static IReadOnlyList<GitConflictInfo> ListConflicts(Repository repository)
@@ -387,6 +412,7 @@ public sealed class GitRepositoryService
             .OrderBy(static conflict => conflict.Path, StringComparer.OrdinalIgnoreCase)
             .ToArray() ?? [];
 }
+
 
 
 

@@ -11,6 +11,9 @@ public sealed class GnOuGoAgentWebHostKeyVaultMcpTests
     [Fact]
     public async Task Build_StartsMountedKeyVaultMcpEndpoint_AndListsToolsOverHttp()
     {
+        if (!AgentServerTestEnvironment.RunMountedMcpHttpTests)
+            return;
+
         var contentRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "GnOuGo.Agent.Server"));
         var app = GnOuGoAgentWebHost.Build(TelemetryTestHostArgs.Create(), urls: "http://127.0.0.1:0", contentRoot: contentRoot, enableHttpsRedirection: false);
 

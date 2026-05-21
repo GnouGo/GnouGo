@@ -27,13 +27,14 @@ public sealed class CodeToolsTests : IDisposable
 	{
 		var settings = CreateSettings();
 		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(CreateService(settings), CreateGitService(settings), assistant, NullLogger<CodeTools>.Instance);
+		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
 
 		var result = await tools.SuggestChangeAsync(_root, "Add a greeting method.", "[\"src/Program.cs\"]");
 
 		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
 		Assert.Equal("Add a greeting method.", suggestion.Task);
 		Assert.Equal("fake suggestion", suggestion.Suggestion);
+		Assert.Contains(suggestion.ProgressEvents, e => e.Kind == "completed" && e.Message == "fake suggestion completed");
 		Assert.Equal(_root, assistant.ProjectRoot);
 		Assert.Null(assistant.ProviderName);
 		var file = Assert.Single(assistant.ContextFiles);
@@ -46,7 +47,7 @@ public sealed class CodeToolsTests : IDisposable
 	{
 		var settings = CreateSettings();
 		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(CreateService(settings), CreateGitService(settings), assistant, NullLogger<CodeTools>.Instance);
+		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
 
 		var result = await tools.SuggestChangeAsync(_root, "Use a custom provider.", provider: "CustomCopilot");
 
@@ -61,13 +62,14 @@ public sealed class CodeToolsTests : IDisposable
 		var settings = CreateSettings();
 		settings.AllowWrites = true;
 		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(CreateService(settings), CreateGitService(settings), assistant, NullLogger<CodeTools>.Instance);
+		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
 
 		var result = await tools.AgentEditAsync(_root, "Implement the change.", "[\"src/Program.cs\"]", provider: "CustomCopilot");
 
 		var edit = Assert.IsType<CodeAgentEditResult>(result);
 		Assert.Equal("Implement the change.", edit.Task);
 		Assert.Equal("fake edit summary", edit.Summary);
+		Assert.Contains(edit.ProgressEvents, e => e.Kind == "file_modified" && e.File == "src/Program.cs");
 		Assert.Equal(_root, assistant.ProjectRoot);
 		Assert.Equal("CustomCopilot", assistant.ProviderName);
 		Assert.True(assistant.AgentEditCalled);
@@ -99,9 +101,8 @@ public sealed class CodeToolsTests : IDisposable
 		settings.AllowedWorkingRoots = [];
 		var policy = new CodePolicy(settings, _root, desktop);
 		var projectService = new CodeProjectService(policy, Options.Create(settings));
-		var gitService = new GitRepositoryService(policy, Options.Create(settings));
 		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(projectService, gitService, assistant, NullLogger<CodeTools>.Instance);
+		var tools = new CodeTools(projectService, assistant, NullLogger<CodeTools>.Instance);
 
 		var result = await tools.SuggestChangeAsync("workspace/oidc-client", "Plan this change.", "[\"src/Program.cs\"]");
 
@@ -267,17 +268,62 @@ public sealed class CodeToolsTests : IDisposable
 		}
 	}
 
+	[Fact]
+	public void CopilotSdkProgressMapper_MapsToolProgressToStableGnOuGoProgressEvent()
+	{
+		var mapped = CopilotSdkProgressEventMapper.TryMap(
+			"tool.execution_progress",
+			new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+			{
+				["ProgressMessage"] = "Reading project files.",
+				["McpServerName"] = "filesystem",
+				["McpToolName"] = "read_file"
+			},
+			"2026-05-20T10:15:30Z",
+			out var progressEvent);
+
+		Assert.True(mapped);
+		Assert.Equal("sdk_tool_execution_progress", progressEvent.Kind);
+		Assert.Equal("thinking", progressEvent.Level);
+		Assert.Equal("Reading project files.", progressEvent.Message);
+		Assert.Equal(DateTimeOffset.Parse("2026-05-20T10:15:30Z").ToUniversalTime(), progressEvent.Timestamp);
+		Assert.Null(progressEvent.File);
+	}
+
+	[Fact]
+	public void CopilotSdkProgressMapper_DoesNotExposeReasoningOrStreamingDeltas()
+	{
+		var reasoningDeltaMapped = CopilotSdkProgressEventMapper.TryMap(
+			"assistant.reasoning_delta",
+			new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+			{
+				["DeltaContent"] = "private incremental reasoning"
+			},
+			"2026-05-20T10:15:30Z",
+			out _);
+
+		var reasoningMapped = CopilotSdkProgressEventMapper.TryMap(
+			"assistant.reasoning",
+			new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+			{
+				["Content"] = "private complete reasoning"
+			},
+			"2026-05-20T10:15:30Z",
+			out var progressEvent);
+
+		Assert.False(reasoningDeltaMapped);
+		Assert.True(reasoningMapped);
+		Assert.Equal("sdk_assistant_reasoning", progressEvent.Kind);
+		Assert.Equal("Copilot produced a reasoning milestone.", progressEvent.Message);
+		Assert.DoesNotContain("private", progressEvent.Message, StringComparison.OrdinalIgnoreCase);
+	}
+
 	private CodeProjectService CreateService(CodeServerSettings settings)
 	{
 		var policy = new CodePolicy(settings, _root);
 		return new CodeProjectService(policy, Options.Create(settings));
 	}
 
-	private GitRepositoryService CreateGitService(CodeServerSettings settings)
-	{
-		var policy = new CodePolicy(settings, _root);
-		return new GitRepositoryService(policy, Options.Create(settings));
-	}
 
 	private CodeServerSettings CreateSettings() => new()
 	{
@@ -331,7 +377,13 @@ public sealed class CodeToolsTests : IDisposable
 			ProjectRoot = projectRoot;
 			ProviderName = providerName;
 			ContextFiles = contextFiles;
-			return Task.FromResult(new CodeSuggestionResult(task, contextFiles.Select(static file => file.Path).ToArray(), "fake suggestion", "fake-model", null));
+			return Task.FromResult(new CodeSuggestionResult(
+				task,
+				contextFiles.Select(static file => file.Path).ToArray(),
+				"fake suggestion",
+				"fake-model",
+				null,
+				[new CodeProgressEvent("completed", "info", "fake suggestion completed", DateTimeOffset.UtcNow)]));
 		}
 
 		public Task<CodeAgentEditResult> AgentEditAsync(
@@ -345,7 +397,14 @@ public sealed class CodeToolsTests : IDisposable
 			ProjectRoot = projectRoot;
 			ProviderName = providerName;
 			ContextFiles = contextFiles;
-			return Task.FromResult(new CodeAgentEditResult(task, contextFiles.Select(static file => file.Path).ToArray(), ["src/Program.cs"], "fake edit summary", "fake-model", null));
+			return Task.FromResult(new CodeAgentEditResult(
+				task,
+				contextFiles.Select(static file => file.Path).ToArray(),
+				["src/Program.cs"],
+				"fake edit summary",
+				"fake-model",
+				null,
+				[new CodeProgressEvent("file_modified", "info", "Modified src/Program.cs.", DateTimeOffset.UtcNow, "src/Program.cs")]));
 		}
 	}
 }

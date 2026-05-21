@@ -47,6 +47,9 @@
     <DesktopBundledTool Include="..\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj">
       <ToolName>GnOuGo.GithubCopilot.Mcp</ToolName>
     </DesktopBundledTool>
+    <DesktopBundledTool Include="..\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj">
+      <ToolName>GnOuGo.Git.Mcp</ToolName>
+    </DesktopBundledTool>
   </ItemGroup>
 
   <!-- Ensure the web UI static assets and the Agent.Server appsettings (including mounted MCP endpoint placeholders) are present next to the desktop binary -->
@@ -140,17 +143,23 @@
       <BundledCmdToolDir>$([System.IO.Path]::Combine('$(BundledToolsRoot)', 'GnOuGo.Cmd.Mcp'))</BundledCmdToolDir>
       <BundledDocumentToolDir>$([System.IO.Path]::Combine('$(BundledToolsRoot)', 'GnOuGo.Document.Mcp'))</BundledDocumentToolDir>
       <BundledCodeToolDir>$([System.IO.Path]::Combine('$(BundledToolsRoot)', 'GnOuGo.GithubCopilot.Mcp'))</BundledCodeToolDir>
+      <BundledGitToolDir>$([System.IO.Path]::Combine('$(BundledToolsRoot)', 'GnOuGo.Git.Mcp'))</BundledGitToolDir>
       <BundledBrowserToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj'))</BundledBrowserToolProject>
       <BundledCmdToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj'))</BundledCmdToolProject>
       <BundledDocumentToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Document.Mcp\GnOuGo.Document.Mcp.csproj'))</BundledDocumentToolProject>
       <BundledCodeToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj'))</BundledCodeToolProject>
+      <BundledGitToolProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj'))</BundledGitToolProject>
       <BundledToolInvariantGlobalization>false</BundledToolInvariantGlobalization>
       <BundledDesktopToolRidArg>-r $(RuntimeIdentifier)</BundledDesktopToolRidArg>
       <BundledDesktopToolSelfContainedArg>--self-contained true</BundledDesktopToolSelfContainedArg>
+      <BundledGitToolPublishAot>false</BundledGitToolPublishAot>
+      <BundledGitToolPublishAot Condition="'$(RuntimeIdentifier)' == 'win-x64'">true</BundledGitToolPublishAot>
+      <BundledGitToolPublishAot Condition="'$(PublishBundledGitToolAot)' != ''">$(PublishBundledGitToolAot)</BundledGitToolPublishAot>
       <BundledBrowserToolExecutable>$([System.IO.Path]::Combine('$(BundledBrowserToolDir)', 'GnOuGo.Browser.Mcp$(BundledToolExecutableExtension)'))</BundledBrowserToolExecutable>
       <BundledCmdToolExecutable>$([System.IO.Path]::Combine('$(BundledCmdToolDir)', 'GnOuGo.Cmd.Mcp$(BundledToolExecutableExtension)'))</BundledCmdToolExecutable>
       <BundledDocumentToolExecutable>$([System.IO.Path]::Combine('$(BundledDocumentToolDir)', 'GnOuGo.Document.Mcp$(BundledToolExecutableExtension)'))</BundledDocumentToolExecutable>
       <BundledCodeToolExecutable>$([System.IO.Path]::Combine('$(BundledCodeToolDir)', 'GnOuGo.GithubCopilot.Mcp$(BundledToolExecutableExtension)'))</BundledCodeToolExecutable>
+      <BundledGitToolExecutable>$([System.IO.Path]::Combine('$(BundledGitToolDir)', 'GnOuGo.Git.Mcp$(BundledToolExecutableExtension)'))</BundledGitToolExecutable>
     </PropertyGroup>
 
     <Message Importance="high" Text="Publishing bundled desktop MCP tools into $(BundledToolsRoot) for $(RuntimeIdentifier)..." />
@@ -159,11 +168,13 @@
     <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
     <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
     <Exec Command="dotnet publish &quot;$(BundledCodeToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCodeToolDir)&quot; -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
+    <Exec Command="dotnet publish &quot;$(BundledGitToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledGitToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=false -p:PublishAot=$(BundledGitToolPublishAot) -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
 
     <Error Condition="!Exists('$(BundledBrowserToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Browser.Mcp in $(BundledBrowserToolDir)." />
     <Error Condition="!Exists('$(BundledCmdToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Cmd.Mcp in $(BundledCmdToolDir)." />
     <Error Condition="!Exists('$(BundledDocumentToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Document.Mcp in $(BundledDocumentToolDir)." />
     <Error Condition="!Exists('$(BundledCodeToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.GithubCopilot.Mcp in $(BundledCodeToolDir)." />
+    <Error Condition="!Exists('$(BundledGitToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Git.Mcp in $(BundledGitToolDir)." />
   </Target>
 
   <Target Name="RemovePdbFilesFromPublish" AfterTargets="PublishBundledDesktopTools" Condition="'$(PublishDir)' != ''">

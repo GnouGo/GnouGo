@@ -30,7 +30,7 @@ public sealed class RoutingLLMClient
     }
 
     /// <summary>
-    /// Convenience constructor that creates default providers (OpenAI, Ollama, Copilot)
+    /// Convenience constructor that creates default providers (OpenAI, Ollama, Copilot, Claude)
     /// using the supplied HttpClient. Backward-compatible with existing call sites.
     /// </summary>
     public RoutingLLMClient(HttpClient http, LLMOptions options, ILoggerFactory? loggerFactory = null)
@@ -101,6 +101,14 @@ public sealed class RoutingLLMClient
                 if (string.Equals(kv.Key, prefix, StringComparison.OrdinalIgnoreCase))
                     return kv.Key;
             }
+            if (prefix is "anthropic" or "claude")
+            {
+                foreach (var kv in _options.Models)
+                {
+                    if (string.Equals(kv.Value.ResolvedType, "claude", StringComparison.OrdinalIgnoreCase))
+                        return kv.Key;
+                }
+            }
             // If vendor prefix matches a known Copilot pattern, use Copilot
             if (prefix is "openai" or "anthropic" or "meta" or "mistral" or "google" or "cohere" or "deepseek")
             {
@@ -128,13 +136,14 @@ public sealed class RoutingLLMClient
     }
 
     /// <summary>
-    /// Creates the default set of providers (OpenAI, Ollama, Copilot) using a shared HttpClient.
+    /// Creates the default set of providers (OpenAI, Ollama, Copilot, Claude) using a shared HttpClient.
     /// </summary>
     public static ILLMProvider[] CreateDefaultProviders(HttpClient http, ILoggerFactory? loggerFactory = null) =>
     [
         new OpenAiLLMProvider(http, loggerFactory?.CreateLogger<OpenAiLLMProvider>()),
         new OllamaLLMProvider(http, loggerFactory?.CreateLogger<OllamaLLMProvider>()),
-        new CopilotLLMProvider(http, loggerFactory?.CreateLogger<CopilotLLMProvider>())
+        new CopilotLLMProvider(http, loggerFactory?.CreateLogger<CopilotLLMProvider>()),
+        new ClaudeLLMProvider(http, loggerFactory?.CreateLogger<ClaudeLLMProvider>())
     ];
 }
 
