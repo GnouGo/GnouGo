@@ -1,4 +1,9 @@
+# Changelog
+
 ﻿# Changelog
 
-All notable changes to this project are documented in this file.
+## v0.7.0 - 2026-05-21
 
+- feat(mcp): add claude provider (release) (#33) (d53a468)
+
+All notable changes to this project are documented in this file.
