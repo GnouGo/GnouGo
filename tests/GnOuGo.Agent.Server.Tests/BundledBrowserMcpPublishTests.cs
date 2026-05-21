@@ -128,6 +128,7 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains("release-assets/checksums.txt", yaml);
         Assert.Contains("publish_winget:", yaml);
         Assert.Contains("needs: publish_release_main", yaml);
+        Assert.Contains("if: inputs.channel_tag == 'release'", yaml);
         Assert.Contains("actions: read", yaml);
         Assert.Contains("wingetcreate.exe update GnOuGo.Agent", yaml);
         Assert.Contains("secrets.WINGET_CREATE_GITHUB_TOKEN", yaml);
@@ -183,9 +184,31 @@ public sealed class BundledBrowserMcpPublishTests
         var yaml = File.ReadAllText(workflowFile);
 
         Assert.Contains("uses: ./.github/workflows/publish-github-release.yml", yaml);
+        Assert.Contains("needs.tags.outputs.is_release == 'true'", yaml);
         Assert.Contains("actions: read", yaml);
         Assert.Contains("WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_CREATE_GITHUB_TOKEN }}", yaml);
         Assert.Contains("HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}", yaml);
+    }
+
+    [Fact]
+    public void VersionWorkflow_CreatesReleaseTagAndChangelogOnlyForExplicitReleaseMarker()
+    {
+        var root = GetRepositoryRoot();
+        var workflowFile = Path.Combine(root, ".github", "workflows", "compute-version-tag.yml");
+        var yaml = File.ReadAllText(workflowFile);
+        var changelogScript = File.ReadAllText(Path.Combine(root, "scripts", "generate-changelog.sh"));
+
+        Assert.Contains("*'(release)'*", yaml);
+        Assert.Contains("is_release: ${{ steps.tag.outputs.is_release }}", yaml);
+        Assert.Contains("Generate and commit changelog", yaml);
+        Assert.Contains("bash scripts/generate-changelog.sh", yaml);
+        Assert.Contains("docs: update changelog for ${{ steps.tag.outputs.version_tag }} [skip ci]", yaml);
+        Assert.Contains("Push release tag", yaml);
+        Assert.Contains("git push origin \"refs/tags/$version_tag\"", yaml);
+        Assert.DoesNotContain("id: tag_release", yaml);
+
+        Assert.Contains("Usage: scripts/generate-changelog.sh <version-tag> [output-file]", changelogScript);
+        Assert.Contains("previous_tag = git(\"describe\", \"--tags\", \"--abbrev=0\", \"--match\", \"v[0-9]*\", check=False)", changelogScript);
     }
 
 

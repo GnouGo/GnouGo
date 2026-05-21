@@ -97,7 +97,7 @@ jobs:
   publish_release_main:
     name: Publish Release (${{ needs.tags.outputs.version_tag }})
     needs: [tags, server_linux_x64, desktop_aot, otlp_collector_self_contained, docker_builds, publish_flow_dotnet_nuget, publish_flow_python_pypi]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.tags.outputs.is_release == 'true'
     uses: ./.github/workflows/publish-github-release.yml
     permissions:
       actions: read
