@@ -66,7 +66,12 @@ class OTelWorkflowTelemetry:
     def span_start(self, parent, info: dict[str, Any]):
         parent_span = parent.span if isinstance(parent, _SpanAdapter) else parent
         ctx = trace.set_span_in_context(parent_span)
-        span = _SpanAdapter(self._tracer.start_span(str(info.get("name") or "workflow.phase"), context=ctx))
+        span = _SpanAdapter(
+            self._tracer.start_span(
+                str(info.get("name") or "workflow.phase"),
+                context=ctx,
+            )
+        )
         phase = info.get("phase")
         if phase:
             span.set_attribute("gnougo-flow.plan.phase", _to_attr(phase))

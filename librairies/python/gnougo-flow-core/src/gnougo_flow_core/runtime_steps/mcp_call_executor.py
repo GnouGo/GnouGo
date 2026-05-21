@@ -261,7 +261,16 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                 session = await _maybe_timeout(factory.get_client_async(server), timeout)
 
                 if has_prompt_selection:
-                    return await self._execute_llm_assisted(ctx, session, input_obj, kind, method if isinstance(method, str) else None, methods, timeout, realtime_progress_fingerprints)
+                    return await self._execute_llm_assisted(
+                        ctx,
+                        session,
+                        input_obj,
+                        kind,
+                        method if isinstance(method, str) else None,
+                        methods,
+                        timeout,
+                        realtime_progress_fingerprints,
+                    )
 
                 async def single(call_method: str, req: Any) -> dict[str, Any]:
                     item_correlation = _build_mcp_correlation_context(ctx, server, kind, call_method)
