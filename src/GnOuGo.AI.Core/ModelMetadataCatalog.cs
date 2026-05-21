@@ -28,14 +28,16 @@ public sealed class LLMModelMetadataResolver
     /// </summary>
     public LLMModelMetadata Resolve(string? providerType, string model)
     {
+        providerType = ModelMetadataCatalog.NormalizeProviderType(providerType);
         var cleanModel = ModelMetadataCatalog.StripVendorPrefix(model);
-        var canonicalModel = ResolveFileAlias(model) ?? ResolveFileAlias(cleanModel);
-        var metadata = CandidateKeys(model, cleanModel, canonicalModel)
-            .Select(key => ModelMetadataCatalog.TryGetBuiltin(key, out var candidate) ? candidate : null)
+        var canonicalModel = ResolveAlias(providerType, model) ?? ResolveAlias(providerType, cleanModel);
+        var candidateKeys = CandidateKeys(providerType, model, cleanModel, canonicalModel);
+        var metadata = candidateKeys
+            .Select(key => ModelMetadataCatalog.TryGetBuiltinCore(key, out var candidate) ? candidate : null)
             .FirstOrDefault(candidate => candidate != null)
             ?? new LLMModelMetadata { Id = canonicalModel ?? cleanModel, DisplayName = canonicalModel ?? cleanModel };
 
-        foreach (var key in CandidateKeys(model, cleanModel, canonicalModel))
+        foreach (var key in candidateKeys.Reverse())
         {
             MergeIfFound(metadata, _fileModels, key);
             MergeIfFound(metadata, _inlineOverrides, key);
@@ -52,20 +54,58 @@ public sealed class LLMModelMetadataResolver
         return metadata;
     }
 
-    private string? ResolveFileAlias(string key)
-        => _fileAliases.TryGetValue(key, out var canonical) ? canonical : null;
-
-    private static IEnumerable<string> CandidateKeys(string model, string cleanModel, string? canonicalModel)
+    private string? ResolveAlias(string? providerType, string key)
     {
-        yield return model;
+        foreach (var candidate in KeyVariants(providerType, key))
+        {
+            if (_fileAliases.TryGetValue(candidate, out var canonical))
+                return canonical;
+            if (ModelMetadataCatalog.TryResolveBuiltinAlias(candidate, out canonical))
+                return canonical;
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<string> CandidateKeys(string? providerType, string model, string cleanModel, string? canonicalModel)
+    {
+        var keys = new List<string>();
+        AddKeyVariants(keys, providerType, model);
         if (!string.Equals(cleanModel, model, StringComparison.OrdinalIgnoreCase))
-            yield return cleanModel;
+            AddKeyVariants(keys, providerType, cleanModel);
         if (!string.IsNullOrWhiteSpace(canonicalModel))
         {
-            yield return canonicalModel!;
-            var cleanCanonical = ModelMetadataCatalog.StripVendorPrefix(canonicalModel!);
+            AddKeyVariants(keys, providerType, canonicalModel);
+            var cleanCanonical = ModelMetadataCatalog.StripVendorPrefix(canonicalModel);
             if (!string.Equals(cleanCanonical, canonicalModel, StringComparison.OrdinalIgnoreCase))
-                yield return cleanCanonical;
+                AddKeyVariants(keys, providerType, cleanCanonical);
+        }
+
+        return keys;
+    }
+
+    private static IEnumerable<string> KeyVariants(string? providerType, string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            yield break;
+
+        if (ModelMetadataCatalog.TrySplitProviderQualifiedKey(key, out _, out _))
+        {
+            yield return key;
+            yield break;
+        }
+
+        if (!string.IsNullOrWhiteSpace(providerType))
+            yield return $"{providerType}/{key}";
+        yield return key;
+    }
+
+    private static void AddKeyVariants(List<string> keys, string? providerType, string key)
+    {
+        foreach (var candidate in KeyVariants(providerType, key))
+        {
+            if (!keys.Contains(candidate, StringComparer.OrdinalIgnoreCase))
+                keys.Add(candidate);
         }
     }
 
@@ -73,7 +113,7 @@ public sealed class LLMModelMetadataResolver
     {
         var all = new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in _fileModels)
-            AddIfMatches(all, kv.Value, providerType);
+            AddIfMatches(all, kv.Value, providerType, kv.Key);
         foreach (var kv in _inlineOverrides)
             AddIfMatches(all, kv.Value, providerType, kv.Key);
         return all.Values.OrderBy(m => m.DisplayName ?? m.Id, StringComparer.OrdinalIgnoreCase).ToArray();
@@ -87,16 +127,32 @@ public sealed class LLMModelMetadataResolver
 
     private static void AddIfMatches(Dictionary<string, LLMModelMetadata> target, LLMModelMetadata metadata, string? providerType, string? fallbackId = null)
     {
+        providerType = ModelMetadataCatalog.NormalizeProviderType(providerType);
         var clone = ModelMetadataCatalog.Clone(metadata);
-        if (string.IsNullOrWhiteSpace(clone.Id) && !string.IsNullOrWhiteSpace(fallbackId))
-            clone.Id = fallbackId;
+        string? providerFromKey = null;
+        string? idFromKey = fallbackId;
+        if (!string.IsNullOrWhiteSpace(fallbackId)
+            && ModelMetadataCatalog.TrySplitProviderQualifiedKey(fallbackId, out var splitProvider, out var splitModel))
+        {
+            providerFromKey = splitProvider;
+            idFromKey = splitModel;
+        }
+
+        if (string.IsNullOrWhiteSpace(clone.Id) && !string.IsNullOrWhiteSpace(idFromKey))
+            clone.Id = idFromKey;
         if (string.IsNullOrWhiteSpace(clone.Id))
             return;
+
+        clone.ProviderType = ModelMetadataCatalog.NormalizeProviderType(clone.ProviderType) ?? ModelMetadataCatalog.NormalizeProviderType(providerFromKey);
         if (!string.IsNullOrWhiteSpace(providerType)
             && !string.IsNullOrWhiteSpace(clone.ProviderType)
             && !string.Equals(clone.ProviderType, providerType, StringComparison.OrdinalIgnoreCase))
             return;
-        target[clone.Id] = clone;
+
+        var targetKey = !string.IsNullOrWhiteSpace(providerType) || string.IsNullOrWhiteSpace(clone.ProviderType)
+            ? clone.Id
+            : $"{clone.ProviderType}/{clone.Id}";
+        target[targetKey] = clone;
     }
 }
 
@@ -106,20 +162,38 @@ public sealed class LLMModelMetadataResolver
 public static partial class ModelMetadataCatalog
 {
     private static readonly ILogger Logger = NullLogger.Instance;
+    private static readonly string[] BareModelLookupProviderPreference = ["openai", "claude", "copilot", "ollama"];
+    private static readonly IReadOnlyDictionary<string, string> KnownProviderPrefixes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["openai"] = "openai",
+        ["azure"] = "openai",
+        ["text-completion-openai"] = "openai",
+        ["claude"] = "claude",
+        ["anthropic"] = "claude",
+        ["copilot"] = "copilot",
+        ["github_copilot"] = "copilot",
+        ["github"] = "copilot",
+        ["ollama"] = "ollama"
+    };
 
     public static bool TryGetBuiltin(string modelName, out LLMModelMetadata metadata)
-    {
-        if (TryGetBuiltinCore(modelName, out metadata))
-            return true;
+        => TryGetBuiltin(null, modelName, out metadata);
 
-        var clean = StripVendorPrefix(modelName);
-        if (!string.Equals(clean, modelName, StringComparison.OrdinalIgnoreCase)
-            && TryGetBuiltinCore(clean, out metadata))
-            return true;
+    public static bool TryGetBuiltin(string? providerType, string modelName, out LLMModelMetadata metadata)
+    {
+        providerType = NormalizeProviderType(providerType);
+        foreach (var key in ProviderAwareLookupKeys(providerType, modelName))
+        {
+            if (TryGetBuiltinCore(key, out metadata))
+                return true;
+        }
 
         metadata = default!;
         return false;
     }
+
+    internal static bool TryResolveBuiltinAlias(string key, out string canonical)
+        => BuiltinAliases.TryGetValue(key, out canonical!);
 
     public static bool TryGetBuiltinPricing(string modelName, out ModelPricingMetadata pricing)
     {
@@ -228,13 +302,34 @@ public static partial class ModelMetadataCatalog
 
     internal static bool TryGetBuiltinCore(string modelName, out LLMModelMetadata metadata)
     {
-        if (BuiltinModels.TryGetValue(modelName, out var value))
+        if (TryGetBuiltinModel(modelName, out metadata))
+            return true;
+
+        if (BuiltinAliases.TryGetValue(modelName, out var canonical) && BuiltinModels.TryGetValue(canonical, out var value))
         {
             metadata = Clone(value);
             return true;
         }
 
-        if (BuiltinAliases.TryGetValue(modelName, out var canonical) && BuiltinModels.TryGetValue(canonical, out value))
+        if (!TrySplitProviderQualifiedKey(modelName, out _, out _))
+        {
+            foreach (var provider in BareModelLookupProviderPreference)
+            {
+                if (BuiltinModels.TryGetValue($"{provider}/{modelName}", out value))
+                {
+                    metadata = Clone(value);
+                    return true;
+                }
+            }
+        }
+
+        metadata = default!;
+        return false;
+    }
+
+    internal static bool TryGetBuiltinModel(string modelName, out LLMModelMetadata metadata)
+    {
+        if (BuiltinModels.TryGetValue(modelName, out var value))
         {
             metadata = Clone(value);
             return true;
@@ -242,6 +337,32 @@ public static partial class ModelMetadataCatalog
 
         metadata = default!;
         return false;
+    }
+
+    private static IEnumerable<string> ProviderAwareLookupKeys(string? providerType, string modelName)
+    {
+        providerType = NormalizeProviderType(providerType);
+        if (string.IsNullOrWhiteSpace(modelName))
+            yield break;
+
+        if (TrySplitProviderQualifiedKey(modelName, out _, out _))
+        {
+            yield return modelName;
+        }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(providerType))
+                yield return $"{providerType}/{modelName}";
+            yield return modelName;
+        }
+
+        var clean = StripVendorPrefix(modelName);
+        if (!string.Equals(clean, modelName, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!string.IsNullOrWhiteSpace(providerType))
+                yield return $"{providerType}/{clean}";
+            yield return clean;
+        }
     }
 
     internal static (IReadOnlyDictionary<string, LLMModelMetadata> Models, IReadOnlyDictionary<string, string> Aliases) LoadFiles(IEnumerable<string>? paths)
@@ -307,7 +428,7 @@ public static partial class ModelMetadataCatalog
     internal static void ApplyHeuristicDefaults(LLMModelMetadata metadata, string? providerType, string model)
     {
         var capabilities = metadata.Capabilities ??= new ModelCapabilityMetadata();
-        var provider = (metadata.ProviderType ?? providerType ?? string.Empty).ToLowerInvariant();
+        var provider = NormalizeProviderType(metadata.ProviderType ?? providerType) ?? string.Empty;
         var m = model.ToLowerInvariant();
         var isOpenAiCompatible = provider is "openai" or "copilot";
         var isReasoningModel = m.StartsWith("o1", StringComparison.OrdinalIgnoreCase)
@@ -351,7 +472,7 @@ public static partial class ModelMetadataCatalog
     {
         if (!string.IsNullOrWhiteSpace(source.Id)) target.Id = source.Id;
         else if (string.IsNullOrWhiteSpace(target.Id) && !string.IsNullOrWhiteSpace(fallbackId)) target.Id = fallbackId;
-        if (!string.IsNullOrWhiteSpace(source.ProviderType)) target.ProviderType = source.ProviderType;
+        if (!string.IsNullOrWhiteSpace(source.ProviderType)) target.ProviderType = NormalizeProviderType(source.ProviderType) ?? source.ProviderType;
         if (!string.IsNullOrWhiteSpace(source.DisplayName)) target.DisplayName = source.DisplayName;
         if (!string.IsNullOrWhiteSpace(source.OwnedBy)) target.OwnedBy = source.OwnedBy;
         target.ContextWindowTokens = source.ContextWindowTokens ?? target.ContextWindowTokens;
@@ -435,20 +556,57 @@ public static partial class ModelMetadataCatalog
     {
         if (string.IsNullOrWhiteSpace(model))
             return model;
-        var slashIdx = model.IndexOf('/');
-        if (slashIdx > 0 && slashIdx < model.Length - 1)
-        {
-            var prefix = model[..slashIdx];
-            if (prefix.Length <= 30 && !prefix.Contains('.'))
-                return model[(slashIdx + 1)..];
-        }
-        return model;
+        return TrySplitProviderQualifiedKey(model, out _, out var splitModel)
+            ? splitModel
+            : model;
+    }
+
+    internal static bool TrySplitProviderQualifiedKey(string key, out string providerType, out string model)
+    {
+        providerType = string.Empty;
+        model = key;
+        if (string.IsNullOrWhiteSpace(key))
+            return false;
+
+        var slashIdx = key.IndexOf('/');
+        if (slashIdx <= 0 || slashIdx >= key.Length - 1)
+            return false;
+
+        var prefix = key[..slashIdx];
+        var normalizedProvider = NormalizeKnownProviderType(prefix);
+        if (string.IsNullOrWhiteSpace(normalizedProvider))
+            return false;
+
+        providerType = normalizedProvider;
+        model = key[(slashIdx + 1)..];
+        return true;
+    }
+
+    private static string? NormalizeKnownProviderType(string? providerType)
+    {
+        if (string.IsNullOrWhiteSpace(providerType))
+            return null;
+
+        var trimmed = providerType.Trim();
+        return KnownProviderPrefixes.TryGetValue(trimmed, out var normalized)
+            ? normalized
+            : null;
+    }
+
+    internal static string? NormalizeProviderType(string? providerType)
+    {
+        if (string.IsNullOrWhiteSpace(providerType))
+            return null;
+
+        var trimmed = providerType.Trim();
+        return NormalizeKnownProviderType(trimmed) ?? trimmed.ToLowerInvariant();
     }
 
     private static LLMModelMetadata ParseMetadata(string id, JsonObject obj)
     {
-        var metadata = new LLMModelMetadata { Id = GetString(obj, "id") ?? id };
-        metadata.ProviderType = GetString(obj, "providerType");
+        var idFromKey = TrySplitProviderQualifiedKey(id, out var providerFromKey, out var splitModel) ? splitModel : id;
+        var metadata = new LLMModelMetadata { Id = GetString(obj, "id") ?? idFromKey };
+        metadata.ProviderType = NormalizeProviderType(GetString(obj, "providerType")) ?? (string.IsNullOrWhiteSpace(providerFromKey) ? null : providerFromKey);
         metadata.DisplayName = GetString(obj, "displayName");
         metadata.OwnedBy = GetString(obj, "ownedBy");
         metadata.ContextWindowTokens = GetInt(obj, "contextWindowTokens");

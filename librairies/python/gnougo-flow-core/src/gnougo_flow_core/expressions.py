@@ -7,6 +7,7 @@ third-party deps). Mirrors the behavioural surface of the .NET
 from __future__ import annotations
 
 import base64
+import copy
 import json
 import re
 from datetime import datetime, timezone
@@ -116,6 +117,8 @@ class BuiltInFunctions:
             "toNumber": BuiltInFunctions.to_number,
             "json": lambda v: json.dumps(v, default=_json_default),
             "toJson": lambda v: json.dumps(v, default=_json_default),
+            "pick": BuiltInFunctions.pick,
+            "omit": BuiltInFunctions.omit,
             "fromJson": BuiltInFunctions.from_json,
             "now": lambda: datetime.now(timezone.utc).isoformat(),
             "formatDate": BuiltInFunctions.format_date,
@@ -149,6 +152,41 @@ class BuiltInFunctions:
             return s[st:]
         ln = max(0, int(float(length)))
         return s[st : st + ln]
+
+    @staticmethod
+    def pick(value: Any, *keys: Any) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        selected = BuiltInFunctions._key_set(keys)
+        return {k: copy.deepcopy(v) for k, v in value.items() if k in selected}
+
+    @staticmethod
+    def omit(value: Any, *keys: Any) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        omitted = BuiltInFunctions._key_set(keys)
+        return {k: copy.deepcopy(v) for k, v in value.items() if k not in omitted}
+
+    @staticmethod
+    def _key_set(values: tuple[Any, ...]) -> set[str]:
+        out: set[str] = set()
+        for value in values:
+            BuiltInFunctions._collect_keys(value, out)
+        return out
+
+    @staticmethod
+    def _collect_keys(value: Any, out: set[str]) -> None:
+        if value is None:
+            return
+        if isinstance(value, (list, tuple, set)):
+            for item in value:
+                BuiltInFunctions._collect_keys(item, out)
+            return
+        if isinstance(value, dict):
+            return
+        key = ExpressionEvaluator.get_string(value)
+        if key:
+            out.add(key)
 
     @staticmethod
     def from_json(value: Any) -> Any:

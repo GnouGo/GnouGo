@@ -42,6 +42,41 @@ public sealed class ModelMetadataCatalogTests
     }
 
     [Fact]
+    public void Resolve_UsesProviderQualifiedInlineOverridesBeforeGenericModelId()
+    {
+        var options = new LLMOptions();
+        options.ModelOverrides["shared-model"] = new LLMModelMetadata
+        {
+            Id = "shared-model",
+            Pricing = new ModelPricingMetadata { InputPer1MTokens = 1m, OutputPer1MTokens = 2m }
+        };
+        options.ModelOverrides["openai/shared-model"] = new LLMModelMetadata
+        {
+            Id = "shared-model",
+            Pricing = new ModelPricingMetadata { InputPer1MTokens = 3m, OutputPer1MTokens = 4m }
+        };
+        options.ModelOverrides["copilot/shared-model"] = new LLMModelMetadata
+        {
+            Id = "shared-model",
+            Pricing = new ModelPricingMetadata { InputPer1MTokens = 5m, OutputPer1MTokens = 6m }
+        };
+
+        var resolver = new LLMModelMetadataResolver(options);
+
+        var openAi = resolver.Resolve("openai", "shared-model");
+        var copilot = resolver.Resolve("copilot", "shared-model");
+
+        Assert.Equal("shared-model", openAi.Id);
+        Assert.Equal("openai", openAi.ProviderType);
+        Assert.Equal(3m, openAi.Pricing!.InputPer1MTokens);
+        Assert.Equal("shared-model", copilot.Id);
+        Assert.Equal("copilot", copilot.ProviderType);
+        Assert.Equal(5m, copilot.Pricing!.InputPer1MTokens);
+        Assert.Equal(7m, ModelMetadataCatalog.EstimateCost("shared-model", 1_000_000, 1_000_000, options, "openai"));
+        Assert.Equal(11m, ModelMetadataCatalog.EstimateCost("shared-model", 1_000_000, 1_000_000, options, "copilot"));
+    }
+
+    [Fact]
     public void Resolve_LoadsExternalMetadataFile()
     {
         var path = Path.Combine(Path.GetTempPath(), $"gnougo-model-metadata-{Guid.NewGuid():N}.json");
@@ -80,6 +115,49 @@ public sealed class ModelMetadataCatalogTests
     }
 
     [Fact]
+    public void Resolve_LoadsProviderQualifiedExternalMetadataFile()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gnougo-model-metadata-{Guid.NewGuid():N}.json");
+        File.WriteAllText(path, """
+        {
+          "models": {
+            "openai/shared-model": {
+              "contextWindowTokens": 111,
+              "pricing": { "inputPer1MTokens": 0.5, "outputPer1MTokens": 1.5 }
+            },
+            "copilot/shared-model": {
+              "contextWindowTokens": 222,
+              "pricing": { "inputPer1MTokens": 2.5, "outputPer1MTokens": 3.5 }
+            }
+          }
+        }
+        """);
+
+        try
+        {
+            var resolver = new LLMModelMetadataResolver(new LLMOptions { ModelMetadataFiles = [path] });
+
+            var openAi = resolver.Resolve("openai", "shared-model");
+            var copilot = resolver.Resolve("copilot", "shared-model");
+
+            Assert.Equal("shared-model", openAi.Id);
+            Assert.Equal("openai", openAi.ProviderType);
+            Assert.Equal(111, openAi.ContextWindowTokens);
+            Assert.Equal(0.5m, openAi.Pricing!.InputPer1MTokens);
+            Assert.Equal("shared-model", copilot.Id);
+            Assert.Equal("copilot", copilot.ProviderType);
+            Assert.Equal(222, copilot.ContextWindowTokens);
+            Assert.Equal(2.5m, copilot.Pricing!.InputPer1MTokens);
+            Assert.Single(resolver.ListConfiguredMetadata("openai"), metadata => metadata.Id == "shared-model" && metadata.ProviderType == "openai");
+            Assert.Single(resolver.ListConfiguredMetadata("copilot"), metadata => metadata.Id == "shared-model" && metadata.ProviderType == "copilot");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void EstimateCost_UsesBuiltinPricing()
     {
         var cost = ModelMetadataCatalog.EstimateCost("gpt-4o-mini", inputTokens: 500_000, outputTokens: 100_000);
@@ -95,10 +173,10 @@ public sealed class ModelMetadataCatalogTests
         var metadata = resolver.Resolve("openai", "gpt-5.5");
 
         Assert.Equal("gpt-5.5", metadata.Id);
-        Assert.Equal(400000, metadata.ContextWindowTokens);
+        Assert.Equal(1050000, metadata.ContextWindowTokens);
         Assert.Equal(128000, metadata.MaxOutputTokens);
-        Assert.Equal(75.0m, metadata.Pricing!.InputPer1MTokens);
-        Assert.Equal(150.0m, metadata.Pricing.OutputPer1MTokens);
+        Assert.Equal(5.0m, metadata.Pricing!.InputPer1MTokens);
+        Assert.Equal(30.0m, metadata.Pricing.OutputPer1MTokens);
         Assert.False(metadata.Capabilities.SupportsTemperature);
         Assert.True(metadata.Capabilities.SupportsReasoningEffort);
         Assert.Contains("temperature", metadata.Capabilities.UnsupportedRequestParameters!);
@@ -122,6 +200,48 @@ public sealed class ModelMetadataCatalogTests
         Assert.False(metadata.Capabilities.SupportsTemperature);
         Assert.True(metadata.Capabilities.SupportsReasoningEffort);
         Assert.Contains("temperature", metadata.Capabilities.UnsupportedRequestParameters!);
+    }
+
+    [Fact]
+    public void Resolve_ReturnsProviderSpecificBuiltinMetadataForDuplicateModelIds()
+    {
+        var resolver = new LLMModelMetadataResolver(new LLMOptions());
+
+        var openAi = resolver.Resolve("openai", "gpt-4o");
+        var copilot = resolver.Resolve("copilot", "gpt-4o");
+
+        Assert.Equal("gpt-4o", openAi.Id);
+        Assert.Equal("openai", openAi.ProviderType);
+        Assert.Equal(128000, openAi.ContextWindowTokens);
+        Assert.Equal(2.5m, openAi.Pricing!.InputPer1MTokens);
+
+        Assert.Equal("gpt-4o", copilot.Id);
+        Assert.Equal("copilot", copilot.ProviderType);
+        Assert.Equal(64000, copilot.ContextWindowTokens);
+        Assert.Null(copilot.Pricing);
+    }
+
+    [Fact]
+    public void Resolve_NormalizesProviderAliasesForBuiltinMetadata()
+    {
+        var resolver = new LLMModelMetadataResolver(new LLMOptions());
+
+        var metadata = resolver.Resolve("anthropic", "claude-sonnet-4-20250514");
+
+        Assert.Equal("claude-sonnet-4-20250514", metadata.Id);
+        Assert.Equal("claude", metadata.ProviderType);
+        Assert.Equal(3.0m, metadata.Pricing!.InputPer1MTokens);
+    }
+
+    [Fact]
+    public void Resolve_DoesNotTreatNonProviderSlashPrefixAsVendorPrefix()
+    {
+        var resolver = new LLMModelMetadataResolver(new LLMOptions());
+
+        var metadata = resolver.Resolve("openai", "1024-x-1024/dall-e-2");
+
+        Assert.Equal("1024-x-1024/dall-e-2", metadata.Id);
+        Assert.Equal("openai", metadata.ProviderType);
     }
 
     [Fact]
@@ -175,7 +295,7 @@ public sealed class ModelMetadataCatalogTests
             "vendor/new-model",
             out var metadata);
 
-        Assert.Equal("new-model", metadata.Id);
+        Assert.Equal("vendor/new-model", metadata.Id);
         Assert.Contains("contextWindowTokens", missing);
         Assert.Contains("maxInputTokens", missing);
         Assert.Contains("maxOutputTokens", missing);

@@ -1119,6 +1119,8 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript-s
 | `substring(s, start, len)` | `len` characters starting at `start` |
 | `toNumber(val)` | Converts to number |
 | `json(val)` | Serializes value to JSON string |
+| `pick(obj, ...keys)` | Returns a new object containing only the requested keys; keys may be separate arguments or an array |
+| `omit(obj, ...keys)` | Returns a new object with the requested keys removed; keys may be separate arguments or an array |
 | `fromJson(s)` | Parses a JSON string into a node |
 | `now()` | Returns the current local date/time as an ISO-8601 string |
 | `base64(val)` | Encodes the UTF-8 string value as Base64 |
@@ -1259,6 +1261,8 @@ The Python runtime includes a model metadata catalog aligned with the .NET imple
 - capabilities: temperature, reasoning effort, structured output, tools, JSON mode, vision, embeddings
 - aliases and user-provided extensions
 
+When the package is used inside the GnOuGo mono-repo, the Python runtime automatically reads the shared builtin catalog from `src/GnOuGo.AI.Core/Telemetry/model-metadata.json`. This keeps the Python and .NET providers aligned on provider-specific limits, pricing, and capabilities.
+
 `WorkflowEngine.sanitize_llm_request()` removes unsupported optional request fields before calling the configured LLM client. This prevents provider crashes such as sending `temperature` to reasoning models that reject it.
 
 Pricing uses the same metadata resolver. `try_get_pricing()` and `estimate_cost()` read builtin pricing by default and can also use `LLMOptions.model_metadata_files` / `LLMOptions.model_overrides` when passed explicitly.
@@ -1285,12 +1289,12 @@ engine.llm_options = LLMOptions(
 )
 ```
 
-External metadata files can also use .NET-style camelCase field names:
+External metadata files can also use .NET-style camelCase field names and provider-qualified keys such as `openai/gpt-4o` or `copilot/gpt-4o` when the same model id exists on multiple providers:
 
 ```jsonc
 {
   "models": {
-    "model-id": {
+    "openai/model-id": {
       "providerType": "openai",
       "contextWindowTokens": 128000,
       "maxOutputTokens": 16384,
@@ -1303,7 +1307,7 @@ External metadata files can also use .NET-style camelCase field names:
       }
     }
   },
-  "aliases": { "short-name": "model-id" }
+  "aliases": { "short-name": "openai/model-id" }
 }
 ```
 

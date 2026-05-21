@@ -1045,6 +1045,8 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 | `substring(s, start, len)` | `len` characters starting at `start` |
 | `toNumber(val)` | Converts to number |
 | `json(val)` | Serializes value to JSON string |
+| `pick(obj, ...keys)` | Returns a new object containing only the requested keys; keys may be separate arguments or an array |
+| `omit(obj, ...keys)` | Returns a new object with the requested keys removed; keys may be separate arguments or an array |
 | `fromJson(s)` | Parses a JSON string into a node |
 | `now()` | Returns the current local date/time as an ISO-8601 string |
 | `base64(val)` | Encodes the UTF-8 string value as Base64 |

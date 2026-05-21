@@ -31,7 +31,9 @@ public sealed class LLMOptions
     public List<string> ModelMetadataFiles { get; set; } = new();
 
     /// <summary>
-    /// Inline model metadata overrides. Key = model id or alias. These have the highest precedence.
+    /// Inline model metadata overrides. Key = model id/alias, or provider-qualified model id/alias
+    /// (for example: "openai/gpt-4o" and "copilot/gpt-4o") when pricing or limits differ by provider.
+    /// These have the highest precedence.
     /// </summary>
     public Dictionary<string, LLMModelMetadata> ModelOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 

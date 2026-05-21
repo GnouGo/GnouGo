@@ -34,3 +34,37 @@ def test_expression_to_json_alias_is_supported() -> None:
     assert actual == expected
 
 
+def test_expression_pick_and_omit_object_keys() -> None:
+    evaluator = ExpressionEvaluator()
+    data = {
+        "inputs": {
+            "obj": {
+                "name": "demo",
+                "secret": "redacted",
+                "nested": {"ok": True},
+            }
+        },
+        "steps": {},
+        "env": {},
+    }
+
+    assert evaluator.evaluate("pick(data.inputs.obj, 'name', 'nested', 'missing')", data) == {
+        "name": "demo",
+        "nested": {"ok": True},
+    }
+    assert evaluator.evaluate("omit(data.inputs.obj, 'secret')", data) == {
+        "name": "demo",
+        "nested": {"ok": True},
+    }
+
+
+def test_expression_pick_and_omit_accept_array_keys_and_non_objects() -> None:
+    evaluator = ExpressionEvaluator()
+    data = {"inputs": {"obj": {"a": 1, "b": 2, "c": 3}}, "steps": {}, "env": {}}
+
+    assert evaluator.evaluate("pick(data.inputs.obj, ['b', 'c'])", data) == {"b": 2, "c": 3}
+    assert evaluator.evaluate("omit(data.inputs.obj, ['a', 'c'])", data) == {"b": 2}
+    assert evaluator.evaluate("pick(null, 'a')", data) == {}
+    assert evaluator.evaluate("omit([1, 2], 'a')", data) == {}
+
+

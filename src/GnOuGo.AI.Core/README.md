@@ -22,7 +22,8 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 - User metadata files and inline overrides can add new models or override builtin values without recompilation.
 - `RoutingLLMClient` removes unsupported optional fields (for example `temperature` on reasoning models) before calling the provider.
 - Builtin metadata is authored in `Telemetry/model-metadata.json`; pricing is stored under each model's `pricing` object.
-- Regenerate `ModelMetadataCatalog.Generated.cs` with `scripts/update-model-metadata.ps1` or `scripts/update-model-metadata.sh`.
+- Builtin and external metadata can use provider-qualified keys such as `openai/gpt-4o`, `copilot/gpt-4o`, `claude/claude-sonnet-4-20250514`, or `ollama/llama3.1` when the same model id exists on multiple providers with different limits or pricing.
+- `scripts/update-model-metadata.ps1 -DownloadLatest` and `scripts/update-model-metadata.sh --download-latest` synchronize the builtin catalog from LiteLLM for the supported providers (`openai`, `claude`/`anthropic`, `copilot`/GitHub Models, and `ollama`) and regenerate `ModelMetadataCatalog.Generated.cs`.
 
 Metadata precedence is:
 
@@ -107,7 +108,7 @@ External metadata files use this shape:
 ```jsonc
 {
   "models": {
-    "model-id": {
+      "openai/model-id": {
       "providerType": "openai",
       "displayName": "Model name",
       "contextWindowTokens": 128000,
@@ -128,10 +129,13 @@ External metadata files use this shape:
     }
   },
   "aliases": {
-    "short-name": "model-id"
+    "short-name": "openai/model-id",
+    "copilot/short-name": "copilot/model-id"
   }
 }
 ```
+
+Provider-qualified keys are preferred whenever the same model id can appear under different providers with different costs.
 
 ### Copilot / GitHub Models
 
