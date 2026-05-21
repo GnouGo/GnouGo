@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Moq;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
@@ -10,6 +11,13 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public class WorkflowTelemetryTests
 {
+    private static double ExpectedCost(string model, long inputTokens, long outputTokens, string? providerType = null)
+    {
+        var cost = ModelMetadataCatalog.EstimateCost(model, inputTokens, outputTokens, providerType: providerType);
+        Assert.True(cost.HasValue, $"Expected pricing metadata for model '{model}' provider '{providerType ?? "<default>"}'.");
+        return (double)cost.Value;
+    }
+
     private static CompiledWorkflow CompileMain(string yaml)
     {
         var doc = WorkflowParser.Parse(yaml);
@@ -249,7 +257,7 @@ workflows:
         Assert.Equal(10L, llmSpan.Attributes["gen_ai.usage.input_tokens"]);
         Assert.Equal(20L, llmSpan.Attributes["gen_ai.usage.output_tokens"]);
         Assert.Equal(30, llmSpan.Attributes["gen_ai.usage.total_tokens"]);
-        Assert.Equal(0.00375d, Assert.IsType<double>(llmSpan.Attributes["gen_ai.usage.cost"]), precision: 8);
+        Assert.Equal(ExpectedCost("gpt-5.5", 10, 20, "openai"), Assert.IsType<double>(llmSpan.Attributes["gen_ai.usage.cost"]), precision: 8);
     }
 
     [Fact]
@@ -366,7 +374,7 @@ workflows:
         Assert.Contains(planSpan.SpanEvents, e => e.Name == "gnougo-flow.plan.prefilter.servers.usage"
             && e.Attributes != null
             && e.Attributes.Any(kv => kv.Key == "gen_ai.usage.total_tokens" && (long)kv.Value! == 5L)
-            && e.Attributes.Any(kv => kv.Key == "gen_ai.usage.cost" && Math.Abs((double)kv.Value! - 0.000525d) < 0.00000001d));
+            && e.Attributes.Any(kv => kv.Key == "gen_ai.usage.cost" && Math.Abs((double)kv.Value! - ExpectedCost("gpt-5.5", 3, 2, "openai")) < 0.00000001d));
         Assert.Contains(planSpan.SpanEvents, e => e.Name == "gen_ai.content.prompt"
             && e.Attributes != null
             && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.phase" && (string?)kv.Value == "mcp_server_prefilter"));
@@ -382,10 +390,10 @@ workflows:
         Assert.Equal("plan", childSpans["workflow.plan.validate"].ParentName);
         Assert.Equal("chat", childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.operation.name"]);
         Assert.Equal(5L, childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.usage.total_tokens"]);
-        Assert.Equal(0.000525d, Assert.IsType<double>(childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.usage.cost"]), precision: 8);
+        Assert.Equal(ExpectedCost("gpt-5.5", 3, 2, "openai"), Assert.IsType<double>(childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.usage.cost"]), precision: 8);
         Assert.Equal(1, childSpans["workflow.plan.mcp_server_prefilter"].Attributes["mcp.servers_selected"]);
-        Assert.Equal(0.00375d, Assert.IsType<double>(childSpans["workflow.plan.generate"].Attributes["gen_ai.usage.cost"]), precision: 8);
-        Assert.Equal(0.00375d, Assert.IsType<double>(planSpan.Attributes["gen_ai.usage.cost"]), precision: 8);
+        Assert.Equal(ExpectedCost("gpt-5.5", 10, 20, "openai"), Assert.IsType<double>(childSpans["workflow.plan.generate"].Attributes["gen_ai.usage.cost"]), precision: 8);
+        Assert.Equal(ExpectedCost("gpt-5.5", 10, 20, "openai"), Assert.IsType<double>(planSpan.Attributes["gen_ai.usage.cost"]), precision: 8);
     }
 
     [Fact]
@@ -449,7 +457,7 @@ workflows:
         Assert.Equal(5L, mcpSpan.Attributes["gen_ai.usage.input_tokens"]);
         Assert.Equal(15L, mcpSpan.Attributes["gen_ai.usage.output_tokens"]);
         Assert.Equal(20L, mcpSpan.Attributes["gen_ai.usage.total_tokens"]);
-        Assert.Equal(0.002625d, Assert.IsType<double>(mcpSpan.Attributes["gen_ai.usage.cost"]), precision: 8);
+        Assert.Equal(ExpectedCost("gpt-5.5", 5, 15), Assert.IsType<double>(mcpSpan.Attributes["gen_ai.usage.cost"]), precision: 8);
     }
 
     [Fact]
@@ -512,7 +520,7 @@ workflows:
         Assert.Equal(8L, span.Attributes["gen_ai.usage.input_tokens"]);
         Assert.Equal(12L, span.Attributes["gen_ai.usage.output_tokens"]);
         Assert.Equal(20L, span.Attributes["gen_ai.usage.total_tokens"]);
-        Assert.Equal(0.0024d, Assert.IsType<double>(span.Attributes["gen_ai.usage.cost"]), precision: 8);
+        Assert.Equal(ExpectedCost("gpt-5.5", 8, 12), Assert.IsType<double>(span.Attributes["gen_ai.usage.cost"]), precision: 8);
     }
 
     [Fact]
@@ -619,7 +627,7 @@ workflows:
         Assert.Equal(30L, span.Attributes["gen_ai.usage.input_tokens"]);
         Assert.Equal(13L, span.Attributes["gen_ai.usage.output_tokens"]);
         Assert.Equal(43L, span.Attributes["gen_ai.usage.total_tokens"]);
-        Assert.Equal(0.0042d, Assert.IsType<double>(span.Attributes["gen_ai.usage.cost"]), precision: 8);
+        Assert.Equal(ExpectedCost("gpt-5.5", 30, 13, "openai"), Assert.IsType<double>(span.Attributes["gen_ai.usage.cost"]), precision: 8);
     }
 
     [Fact]
