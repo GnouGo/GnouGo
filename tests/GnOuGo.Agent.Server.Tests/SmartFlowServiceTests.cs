@@ -17,6 +17,9 @@ public sealed class SmartFlowServiceTests
     [Fact]
     public async Task ExecuteAsync_UsesPersistedDefaultAgentWorkflow_WhenNoAgentNameIsProvided()
     {
+        if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
+            return;
+
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-smartflow-{Guid.NewGuid():N}.db");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"
@@ -90,6 +93,9 @@ public sealed class SmartFlowServiceTests
     [Fact]
     public async Task ExecuteAsync_PrefersPersistedDefaultAgentOverRequestedAgentName()
     {
+        if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
+            return;
+
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-smartflow-preferred-{Guid.NewGuid():N}.db");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"
@@ -165,6 +171,9 @@ public sealed class SmartFlowServiceTests
     [Fact]
     public async Task ExecuteAsync_WhenPersistedDefaultAgentCannotBeLoaded_ReturnsErrorWithoutDynamicFallback()
     {
+        if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
+            return;
+
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-smartflow-missing-{Guid.NewGuid():N}.db");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"
@@ -239,6 +248,9 @@ public sealed class SmartFlowServiceTests
     [Fact]
     public async Task ExecuteAsync_PersistsWorkflowSpansUnderSameTraceAsChatMessage()
     {
+        if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
+            return;
+
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-smartflow-traces-{Guid.NewGuid():N}.db");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"

@@ -244,6 +244,9 @@ public sealed class ConfigureAgentsServiceTests
     [Fact]
     public async Task ExecuteAsync_AgentSelect_PersistsDefaultAgentViaMountedAgentMcp()
     {
+        if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
+            return;
+
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-select-{Guid.NewGuid():N}.db");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"

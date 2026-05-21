@@ -189,6 +189,9 @@ public sealed class GnOuGoAgentWebHostTests
     public void Build_WhenDesktopHostedInDevelopment_LoadsDotnetRunStdIoMcpServersFromDevelopmentConfig()
     {
         var contentRoot = GetServerContentRoot();
+        if (!AgentServerTestEnvironment.HasDevelopmentSettings(contentRoot))
+            return;
+
         var tempContentRoot = Path.Combine(
             Path.GetTempPath(),
             "gnougo-agent-server-desktop-dev-config-tests",

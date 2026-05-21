@@ -71,7 +71,7 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
     [Fact]
     public async Task Build_StartsMountedAgentMcpEndpoint_AndListsToolsOverHttp_WhenOptInEnabled()
     {
-        if (Environment.GetEnvironmentVariable("RUN_MOUNTED_AGENT_MCP_TESTS") != "1")
+        if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
             return;
 
         var contentRoot = GetServerContentRoot();

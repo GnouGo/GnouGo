@@ -70,10 +70,13 @@ public sealed class BundledBrowserMcpPublishTests
             Path.Combine(root, "src", "GnOuGo.Agent.Server", "GnOuGo.Agent.Server.csproj"),
             Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.json"),
             Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.Desktop.json"),
-            Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.Development.json"),
             Path.Combine(root, ".github", "workflows", "build-agent-desktop-trimmed.yml"),
             Path.Combine(root, ".github", "workflows", "build-agent-server-linux-x64.yml")
-        };
+        }.ToList();
+
+        var developmentSettings = Path.Combine(root, "src", "GnOuGo.Agent.Server", "appsettings.Development.json");
+        if (File.Exists(developmentSettings))
+            files.Add(developmentSettings);
 
         foreach (var file in files)
         {

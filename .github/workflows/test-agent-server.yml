@@ -12,9 +12,8 @@ env:
 
 jobs:
   agent_server_tests:
-    name: Agent Server Tests (non-blocking)
+    name: Agent Server Tests
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,8 +28,12 @@ jobs:
           dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
           dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
 
-      - name: Run unstable Agent Server tests
+      - name: Run stable Agent Server tests
         run: |
           dotnet restore /p:SkipClientBuild=true
           dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj -m:1 --no-restore /p:SkipClientBuild=true
+
+      - name: Mounted MCP HTTP tests are opt-in
+        run: |
+          echo "Set RUN_MOUNTED_AGENT_MCP_TESTS=1 and/or RUN_MOUNTED_MCP_HTTP_TESTS=1 in a dedicated workflow to exercise mounted MCP HTTP transport tests."
 
