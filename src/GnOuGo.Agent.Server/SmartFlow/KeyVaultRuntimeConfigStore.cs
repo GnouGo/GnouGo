@@ -1,6 +1,4 @@
 ﻿using System.Text.Json.Nodes;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using GnOuGo.AI.Core;
 using GnOuGo.KeyVault.Core.Services;
 
@@ -127,11 +125,16 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
 
             var transport = ReadConfigString(config, "transport") ?? "http";
             var authType = ReadConfigString(config, "authType", "auth_type") ?? "none";
+            effective.McpServers.TryGetValue(name, out var existingServer);
 
             effective.McpServers[name] = new McpServerOptions
             {
                 Type = transport,
                 Description = ReadConfigString(config, "description"),
+                DiscoveryTimeoutSeconds = ReadConfigInt(config, "discoveryTimeoutSeconds", "DiscoveryTimeoutSeconds", "discovery_timeout_seconds")
+                                          ?? existingServer?.DiscoveryTimeoutSeconds,
+                CallTimeoutSeconds = ReadConfigInt(config, "callTimeoutSeconds", "CallTimeoutSeconds", "call_timeout_seconds")
+                                     ?? existingServer?.CallTimeoutSeconds,
                 Url = ReadConfigString(config, "url") ?? string.Empty,
                 Command = ReadConfigString(config, "command"),
                 Args = ParseArgs(config["args"]),
@@ -172,6 +175,30 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
     private static string? ReadConfigString(JsonObject config, string propertyName, string? legacyPropertyName = null)
         => TryGetString(config, propertyName)
            ?? (legacyPropertyName is null ? null : TryGetString(config, legacyPropertyName));
+
+    private static int? ReadConfigInt(JsonObject config, params string[] propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            var node = config[propertyName];
+            if (node is null)
+                continue;
+
+            if (node is JsonValue value)
+            {
+                if (value.TryGetValue<int>(out var intValue))
+                    return intValue;
+
+                if (value.TryGetValue<string>(out var stringValue)
+                    && int.TryParse(stringValue, out var parsedValue))
+                {
+                    return parsedValue;
+                }
+            }
+        }
+
+        return null;
+    }
 
     private static string? TryGetString(JsonObject config, string propertyName)
         => config[propertyName]?.GetValue<string>();
@@ -235,6 +262,8 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
             {
                 Type = kv.Value.Type,
                 Description = kv.Value.Description,
+                DiscoveryTimeoutSeconds = kv.Value.DiscoveryTimeoutSeconds,
+                CallTimeoutSeconds = kv.Value.CallTimeoutSeconds,
                 Url = kv.Value.Url,
                 ApiKey = kv.Value.ApiKey,
                 Issuer = kv.Value.Issuer,

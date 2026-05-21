@@ -24,6 +24,8 @@ This Python package mirrors its public surface as closely as Python idioms allow
 | Runtime engine + step registry | Yes |
 | Step types: `set`, `emit`, `sequence`, `parallel`, `loop.sequential`, `loop.parallel`, `switch`, `template.render`, `llm.call`, `mcp.list`, `mcp.call`, `human.input`, `workflow.call`, `workflow.plan`, `workflow.execute` | Yes |
 | MCP integrations (`InMemoryMcpClientFactory`, `ConfiguredMcpClientFactory`, cache helper) | Yes |
+| MCP `progressEvents` -> thinking telemetry + stdio JSONL real-time progress | Yes |
+| MCP server-level `DiscoveryTimeoutSeconds` / `CallTimeoutSeconds` metadata | Yes |
 | `LLMRequest.reasoning` field | Yes |
 | Model metadata catalog (pricing, token limits, capabilities, overrides) | Yes |
 | `workflow.plan` defaults `reasoning="high"` | Yes |
@@ -492,6 +494,8 @@ Use a one-item array for a single server, or `servers: ["*"]` to discover all co
 
 Flattened `tools`, `resources`, and `prompts` entries each include a `server` field so downstream steps can keep the server affinity when multiple MCP servers are discovered at once.
 
+`timeout_ms` is treated as the workflow-requested timeout. When the configured MCP server metadata includes `DiscoveryTimeoutSeconds`, the effective timeout is the maximum of `timeout_ms` and the server-level value, matching the .NET behavior that prevents generated workflows from undercutting known-slow MCP servers.
+
 ---
 
 ### `mcp.call` — Call MCP Tools or Prompts
@@ -563,6 +567,32 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 ```
 
 **Output (LLM-assisted):** `{ status: "ok", selection_mode: "llm", text: "...", tool_calls: [...], results: [...], json: {...} }`
+
+#### MCP progress events -> thinking telemetry
+
+The Python runtime mirrors the .NET `GnOuGo.Flow.Core` progress contract. For stdio MCP transports, `ConfiguredMcpClientFactory.capture_stdio_error_line(...)` can receive structured JSONL stderr messages with this shape while the tool is still running:
+
+```json
+{
+  "type": "gnougo.mcp.progress",
+  "server": "GnOuGo.GithubCopilot.Mcp",
+  "method": "code_agent_edit",
+  "kind": "tool",
+  "event": {
+    "kind": "session_create",
+    "level": "thinking",
+    "message": "Creating Copilot agent session.",
+    "timestamp": "2026-05-20T10:00:00Z",
+    "file": "src/Program.cs"
+  }
+}
+```
+
+Matching messages are forwarded immediately as `gnougo-flow.step.thinking` telemetry events. As a fallback/history mechanism, `mcp.call` also scans the final tool response for `progressEvents` (aliases accepted: `progress_events`, `progress`, `events`) and forwards each item the same way. Real-time events are deduplicated against final fallback events.
+
+`progressEvents` is the stable GnOuGo-facing contract. MCP servers may map provider-specific or SDK-specific events into this schema, but the Python Flow runtime does not depend on native SDK event types.
+
+`timeout_ms` is treated as the workflow-requested call timeout. When the configured MCP server metadata includes `CallTimeoutSeconds`, the effective timeout is the maximum of `timeout_ms` and the server-level value.
 
 #### Output access patterns
 
@@ -1091,6 +1121,8 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript-s
 | `substring(s, start, len)` | `len` characters starting at `start` |
 | `toNumber(val)` | Converts to number |
 | `json(val)` | Serializes value to JSON string |
+| `pick(obj, ...keys)` | Returns a new object containing only the requested keys; keys may be separate arguments or an array |
+| `omit(obj, ...keys)` | Returns a new object with the requested keys removed; keys may be separate arguments or an array |
 | `fromJson(s)` | Parses a JSON string into a node |
 | `now()` | Returns the current local date/time as an ISO-8601 string |
 | `base64(val)` | Encodes the UTF-8 string value as Base64 |
@@ -1231,6 +1263,8 @@ The Python runtime includes a model metadata catalog aligned with the .NET imple
 - capabilities: temperature, reasoning effort, structured output, tools, JSON mode, vision, embeddings
 - aliases and user-provided extensions
 
+When the package is used inside the GnOuGo mono-repo, the Python runtime automatically reads the shared builtin catalog from `src/GnOuGo.AI.Core/Telemetry/model-metadata.json`. This keeps the Python and .NET providers aligned on provider-specific limits, pricing, and capabilities.
+
 `WorkflowEngine.sanitize_llm_request()` removes unsupported optional request fields before calling the configured LLM client. This prevents provider crashes such as sending `temperature` to reasoning models that reject it.
 
 Pricing uses the same metadata resolver. `try_get_pricing()` and `estimate_cost()` read builtin pricing by default and can also use `LLMOptions.model_metadata_files` / `LLMOptions.model_overrides` when passed explicitly.
@@ -1257,12 +1291,12 @@ engine.llm_options = LLMOptions(
 )
 ```
 
-External metadata files can also use .NET-style camelCase field names:
+External metadata files can also use .NET-style camelCase field names and provider-qualified keys such as `openai/gpt-4o` or `copilot/gpt-4o` when the same model id exists on multiple providers:
 
 ```jsonc
 {
   "models": {
-    "model-id": {
+    "openai/model-id": {
       "providerType": "openai",
       "contextWindowTokens": 128000,
       "maxOutputTokens": 16384,
@@ -1275,7 +1309,7 @@ External metadata files can also use .NET-style camelCase field names:
       }
     }
   },
-  "aliases": { "short-name": "model-id" }
+  "aliases": { "short-name": "openai/model-id" }
 }
 ```
 

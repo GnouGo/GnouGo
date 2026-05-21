@@ -46,16 +46,7 @@ public sealed class CodePolicy
             CopilotForwardTraceContext: _settings.Copilot.ForwardTraceContext,
             CopilotTelemetryEnabled: _settings.Copilot.Telemetry.Enabled,
             HasConfiguredToken: !string.IsNullOrWhiteSpace(ResolveConfiguredToken()),
-            TokenEnvironmentVariables: _settings.Copilot.TokenEnvironmentVariables,
-            Git: new CodeGitPolicyInfo(
-                AllowMutations: _settings.Git.AllowMutations,
-                AllowNetworkOperations: _settings.Git.AllowNetworkOperations,
-                RequireCleanWorkingTreeForMerge: _settings.Git.RequireCleanWorkingTreeForMerge,
-                MaxDiffCharacters: _settings.Git.MaxDiffCharacters,
-                MaxLogCount: _settings.Git.MaxLogCount,
-                DefaultRemoteName: _settings.Git.DefaultRemoteName,
-                HasConfiguredToken: !string.IsNullOrWhiteSpace(ResolveGitToken()),
-                TokenEnvironmentVariables: _settings.Git.TokenEnvironmentVariables));
+            TokenEnvironmentVariables: _settings.Copilot.TokenEnvironmentVariables);
 
     public string ResolveProjectRoot(string? projectRoot)
     {
@@ -67,19 +58,6 @@ public sealed class CodePolicy
             throw new InvalidOperationException($"Project root '{candidate}' does not exist.");
         EnsureWithinAllowedRoots(candidate);
         return candidate;
-    }
-
-    public string ResolveGitCloneTargetDirectory(string targetDirectory)
-    {
-        if (string.IsNullOrWhiteSpace(targetDirectory))
-            throw new InvalidOperationException("targetDirectory must not be empty.");
-
-        var path = ResolvePath(targetDirectory, mustExist: false, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
-        if (File.Exists(path))
-            throw new InvalidOperationException($"Clone target '{path}' is an existing file.");
-        if (Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any())
-            throw new InvalidOperationException($"Clone target directory '{path}' already exists and is not empty.");
-        return path;
     }
 
     public string ResolveReadableFile(string projectRoot, string relativePath)
@@ -126,32 +104,6 @@ public sealed class CodePolicy
             throw new InvalidOperationException($"{parameterName} exceeds max length {_settings.MaxPromptCharacters} characters.");
     }
 
-    public string? ResolveGitToken()
-    {
-        if (!string.IsNullOrWhiteSpace(_settings.Git.Token))
-            return _settings.Git.Token;
-
-        foreach (var variable in _settings.Git.TokenEnvironmentVariables.Where(static v => !string.IsNullOrWhiteSpace(v)))
-        {
-            var value = Environment.GetEnvironmentVariable(variable);
-            if (!string.IsNullOrWhiteSpace(value))
-                return value;
-        }
-
-        return ResolveConfiguredToken();
-    }
-
-    public void EnsureGitMutationsAllowed(string operation)
-    {
-        if (!_settings.Git.AllowMutations)
-            throw new InvalidOperationException($"Git mutation '{operation}' is disabled by policy. Set Code:Git:AllowMutations=true to enable it.");
-    }
-
-    public void EnsureGitNetworkAllowed(string operation)
-    {
-        if (!_settings.Git.AllowNetworkOperations)
-            throw new InvalidOperationException($"Git network operation '{operation}' is disabled by policy. Set Code:Git:AllowNetworkOperations=true to enable it.");
-    }
 
     internal IReadOnlyList<string> ResolveAllowedWorkingRoots()
     {

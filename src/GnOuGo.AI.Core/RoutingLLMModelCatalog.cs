@@ -94,7 +94,8 @@ public sealed class RoutingLLMModelCatalog : ILLMModelCatalog
     [
         new OpenAiLLMProvider(http, loggerFactory?.CreateLogger<OpenAiLLMProvider>()),
         new OllamaLLMProvider(http, loggerFactory?.CreateLogger<OllamaLLMProvider>()),
-        new CopilotLLMProvider(http, loggerFactory?.CreateLogger<CopilotLLMProvider>())
+        new CopilotLLMProvider(http, loggerFactory?.CreateLogger<CopilotLLMProvider>()),
+        new ClaudeLLMProvider(http, loggerFactory?.CreateLogger<ClaudeLLMProvider>())
     ];
 }
 

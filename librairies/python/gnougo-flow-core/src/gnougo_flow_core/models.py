@@ -298,8 +298,12 @@ class FetchPolicy(BaseModel):
 
 
 class McpServerMetadata(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     name: str
     description: str | None = None
+    discovery_timeout_seconds: int | None = Field(default=None, alias="DiscoveryTimeoutSeconds")
+    call_timeout_seconds: int | None = Field(default=None, alias="CallTimeoutSeconds")
 
 
 class McpToolInfo(BaseModel):

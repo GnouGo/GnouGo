@@ -143,6 +143,79 @@ public class BuiltInFunctionsTests
         Assert.Equal("null", result!.GetValue<string>());
     }
 
+    // ── pick / omit ─────────────────────────────────────────────────
+
+    [Fact]
+    public void Pick_ReturnsOnlyRequestedKeys()
+    {
+        var ctx = new JsonObject
+        {
+            ["inputs"] = new JsonObject
+            {
+                ["obj"] = new JsonObject
+                {
+                    ["name"] = "demo",
+                    ["secret"] = "redacted",
+                    ["nested"] = new JsonObject { ["ok"] = true }
+                }
+            }
+        };
+
+        var result = Eval("pick(data.inputs.obj, 'name', 'nested', 'missing')", ctx) as JsonObject;
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal("demo", result["name"]!.GetValue<string>());
+        Assert.True(result["nested"]!["ok"]!.GetValue<bool>());
+        Assert.False(result.ContainsKey("secret"));
+    }
+
+    [Fact]
+    public void Pick_AcceptsArrayOfKeys()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["obj"] = new JsonObject { ["a"] = 1, ["b"] = 2, ["c"] = 3 } } };
+
+        var result = Eval("pick(data.inputs.obj, ['b', 'c'])", ctx) as JsonObject;
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(2, result["b"]!.GetValue<int>());
+        Assert.Equal(3, result["c"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public void Omit_RemovesRequestedKeys()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["obj"] = new JsonObject { ["a"] = 1, ["b"] = 2, ["c"] = 3 } } };
+
+        var result = Eval("omit(data.inputs.obj, 'b', 'missing')", ctx) as JsonObject;
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(1, result["a"]!.GetValue<int>());
+        Assert.Equal(3, result["c"]!.GetValue<int>());
+        Assert.False(result.ContainsKey("b"));
+    }
+
+    [Fact]
+    public void Omit_AcceptsArrayOfKeys()
+    {
+        var ctx = new JsonObject { ["inputs"] = new JsonObject { ["obj"] = new JsonObject { ["a"] = 1, ["b"] = 2, ["c"] = 3 } } };
+
+        var result = Eval("omit(data.inputs.obj, ['a', 'c'])", ctx) as JsonObject;
+
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.Equal(2, result["b"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public void PickAndOmit_NonObjectInput_ReturnEmptyObject()
+    {
+        Assert.Empty((JsonObject)Eval("pick(null, 'a')")!);
+        Assert.Empty((JsonObject)Eval("omit([1, 2], 'a')")!);
+    }
+
     [Fact]
     public void Now_ReturnsIsoTimestamp()
     {

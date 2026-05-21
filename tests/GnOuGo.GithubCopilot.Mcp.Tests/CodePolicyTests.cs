@@ -94,20 +94,6 @@ public sealed class CodePolicyTests : IDisposable
     }
 
     [Fact]
-    public void ResolveGitCloneTargetDirectory_ResolvesRelativeTargetsUnderDefaultWorkingDirectory()
-    {
-        var desktop = Path.Combine(_root, "Desktop");
-        var settings = CreateSettings();
-        settings.DefaultWorkingDirectory = "GnOuGo";
-        settings.AllowedWorkingRoots = [];
-        var policy = new CodePolicy(settings, _root, desktop);
-
-        var target = policy.ResolveGitCloneTargetDirectory("sample-repository");
-
-        Assert.Equal(Path.GetFullPath(Path.Combine(desktop, "GnOuGo", "sample-repository")), target);
-    }
-
-    [Fact]
     public void ResolveProjectRoot_ResolvesRelativePathUnderDefaultWorkingDirectory()
     {
         var desktop = Path.Combine(_root, "Desktop");
@@ -123,19 +109,6 @@ public sealed class CodePolicyTests : IDisposable
         Assert.Equal(expectedProjectRoot, projectRoot);
     }
 
-    [Fact]
-    public void ResolveGitCloneTargetDirectory_RejectsTraversalOutsideDefaultWorkingDirectory()
-    {
-        var desktop = Path.Combine(_root, "Desktop");
-        var settings = CreateSettings();
-        settings.DefaultWorkingDirectory = "GnOuGo";
-        settings.AllowedWorkingRoots = [];
-        var policy = new CodePolicy(settings, _root, desktop);
-
-        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveGitCloneTargetDirectory("..\\outside"));
-
-        Assert.Contains("parent traversal", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
 
     private CodePolicy CreatePolicy() => new(CreateSettings(), _root);
 

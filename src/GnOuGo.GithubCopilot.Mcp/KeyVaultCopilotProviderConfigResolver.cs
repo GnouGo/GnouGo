@@ -67,21 +67,25 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : ICopilotProviderCo
 		if (string.IsNullOrWhiteSpace(url))
 			throw new McpException($"Copilot provider '{normalizedProviderName}' exists in KeyVault but does not define a url.");
 
-		var providerType = NormalizeSdkProviderType(ReadConfigString(config, "type"), url);
+		var providerType = NormalizeSdkProviderType(
+			ReadConfigString(config, "type") ?? ReadConfigString(config, "provider"),
+			url);
 		var wireModel = ReadConfigString(config, "wireModel", "wire_model") ?? model;
 		var authType = ReadConfigString(config, "authType", "auth_type") ?? "none";
 		var apiKey = ReadConfigString(config, "apiKey", "api_key");
 		var bearerToken = await ResolveBearerTokenAsync(config, authType, apiKey, fallbackBearerToken, ct);
+		var wireApi = ReadConfigString(config, "wireApi", "wire_api") ?? GetDefaultWireApi(providerType);
 
 		var provider = new ProviderConfig
 		{
 			Type = providerType,
-			WireApi = ReadConfigString(config, "wireApi", "wire_api") ?? "chat-completions",
+			WireApi = wireApi,
 			BaseUrl = url,
 			ModelId = model,
 			WireModel = wireModel,
 			ApiKey = ShouldUseApiKey(providerType, url, authType) ? apiKey : null,
-			BearerToken = bearerToken
+			BearerToken = bearerToken,
+			Headers = BuildProviderHeaders(providerType)
 		};
 
 		_logger.LogInformation(
@@ -191,13 +195,30 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : ICopilotProviderCo
 		return normalized switch
 		{
 			"azure" or "azure-openai" => "azure",
+			"anthropic" or "claude" => "anthropic",
 			"openai" or "copilot" or "github" or "github-models" or "ollama" => "openai",
 			_ => normalized
 		};
 	}
 
 	private static string InferProviderType(string url)
-		=> url.Contains("azure", StringComparison.OrdinalIgnoreCase) ? "azure" : "openai";
+		=> url.Contains("azure", StringComparison.OrdinalIgnoreCase) ? "azure"
+			: url.Contains("anthropic", StringComparison.OrdinalIgnoreCase)
+			  || url.Contains("claude", StringComparison.OrdinalIgnoreCase) ? "anthropic"
+			: "openai";
+
+	private static string GetDefaultWireApi(string providerType)
+		=> string.Equals(providerType, "anthropic", StringComparison.OrdinalIgnoreCase)
+			? "messages"
+			: "chat-completions";
+
+	private static IDictionary<string, string>? BuildProviderHeaders(string providerType)
+		=> string.Equals(providerType, "anthropic", StringComparison.OrdinalIgnoreCase)
+			? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+			{
+				["anthropic-version"] = "2023-06-01"
+			}
+			: null;
 
 	private static bool ShouldUseApiKey(string providerType, string url, string authType)
 		=> !ShouldTreatApiKeyAsBearer(providerType, url, authType);

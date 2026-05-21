@@ -78,6 +78,11 @@ public sealed class GnOuGoAgentWebHostTests
             "tools",
             "GnOuGo.GithubCopilot.Mcp",
             "GnOuGo.GithubCopilot.Mcp"));
+        var bundledGitToolPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "tools",
+            "GnOuGo.Git.Mcp",
+            "GnOuGo.Git.Mcp"));
 
         Directory.CreateDirectory(tempContentRoot);
         File.Copy(
@@ -87,6 +92,8 @@ public sealed class GnOuGoAgentWebHostTests
         EnsureBundledToolExists(bundledCmdToolPath);
         EnsureBundledToolExists(bundledDocumentToolPath);
         EnsureBundledToolExists(bundledCodeToolPath);
+        EnsureBundledToolExists(bundledGitToolPath);
+        EnsureBundledToolExists(bundledGitToolPath);
 
         try
         {
@@ -103,6 +110,8 @@ public sealed class GnOuGoAgentWebHostTests
             AssertBundledToolServer(llmOptions, "GnOuGo.Cmd.Mcp", bundledCmdToolPath);
             AssertBundledToolServer(llmOptions, "GnOuGo.Document.Mcp", bundledDocumentToolPath);
             AssertBundledToolServer(llmOptions, "GnOuGo.GithubCopilot.Mcp", bundledCodeToolPath);
+            AssertBundledToolServer(llmOptions, "GnOuGo.Git.Mcp", bundledGitToolPath);
+            AssertBundledToolServer(llmOptions, "GnOuGo.Git.Mcp", bundledGitToolPath);
         }
         finally
         {
@@ -180,6 +189,9 @@ public sealed class GnOuGoAgentWebHostTests
     public void Build_WhenDesktopHostedInDevelopment_LoadsDotnetRunStdIoMcpServersFromDevelopmentConfig()
     {
         var contentRoot = GetServerContentRoot();
+        if (!AgentServerTestEnvironment.HasDevelopmentSettings(contentRoot))
+            return;
+
         var tempContentRoot = Path.Combine(
             Path.GetTempPath(),
             "gnougo-agent-server-desktop-dev-config-tests",
@@ -216,6 +228,13 @@ public sealed class GnOuGoAgentWebHostTests
             AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Cmd.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Cmd.Mcp", "GnOuGo.Cmd.Mcp.csproj")));
             AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Document.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Document.Mcp", "GnOuGo.Document.Mcp.csproj")));
             AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.GithubCopilot.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.GithubCopilot.Mcp", "GnOuGo.GithubCopilot.Mcp.csproj")));
+            AssertDevelopmentDotnetMcpServer(llmOptions, "GnOuGo.Git.Mcp", Path.GetFullPath(Path.Combine(contentRoot, "..", "GnOuGo.Git.Mcp", "GnOuGo.Git.Mcp.csproj")));
+
+            var runtimeOptions = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current;
+            Assert.True(runtimeOptions.McpServers.TryGetValue("GnOuGo.Git.Mcp", out var runtimeGitServer));
+            Assert.NotNull(runtimeGitServer);
+            Assert.Equal(120, runtimeGitServer.DiscoveryTimeoutSeconds);
+            Assert.Equal(1200, runtimeGitServer.CallTimeoutSeconds);
         }
         finally
         {

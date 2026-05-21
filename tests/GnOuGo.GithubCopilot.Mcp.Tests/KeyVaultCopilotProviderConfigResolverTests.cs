@@ -82,6 +82,38 @@ public sealed class KeyVaultCopilotProviderConfigResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task ResolveAsync_MapsClaudeProviderToAnthropicMessagesWireApi()
+    {
+        using var services = CreateServices();
+        await SaveSecretAsync(services, "LLM--Models--claude", """
+        {
+          "provider": "claude",
+          "type": "claude",
+          "url": "https://api.anthropic.com/v1",
+          "model": "claude-sonnet-4-20250514",
+          "authType": "api_key",
+          "apiKey": "sk-ant-secret"
+        }
+        """);
+        var resolver = CreateResolver(services);
+
+        var result = await resolver.ResolveAsync("claude", "fallback-model", null, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("claude", result.ProviderName);
+        Assert.Equal("claude-sonnet-4-20250514", result.Model);
+        Assert.Equal("anthropic", result.Provider.Type);
+        Assert.Equal("messages", result.Provider.WireApi);
+        Assert.Equal("https://api.anthropic.com/v1", result.Provider.BaseUrl);
+        Assert.Equal("claude-sonnet-4-20250514", result.Provider.ModelId);
+        Assert.Equal("claude-sonnet-4-20250514", result.Provider.WireModel);
+        Assert.Equal("sk-ant-secret", result.Provider.ApiKey);
+        Assert.Null(result.Provider.BearerToken);
+            Assert.NotNull(result.Provider.Headers);
+            Assert.Equal("2023-06-01", result.Provider.Headers!["anthropic-version"]);
+    }
+
+    [Fact]
     public async Task ResolveAsync_ThrowsMcpExceptionWhenProviderDoesNotExist()
     {
         using var services = CreateServices();

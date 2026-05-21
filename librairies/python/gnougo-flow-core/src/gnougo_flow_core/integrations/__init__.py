@@ -1,6 +1,7 @@
 from .mcp import (
     ConfiguredMcpClientFactory,
     InMemoryMcpClientFactory,
+    McpRealtimeProgressEvent,
     McpServerOptions,
     McpSessionAdapter,
     MockMcpServerConfig,
@@ -12,6 +13,7 @@ from .routing_llm import RoutingLLMClientAdapter
 __all__ = [
     "ConfiguredMcpClientFactory",
     "InMemoryMcpClientFactory",
+    "McpRealtimeProgressEvent",
     "McpServerOptions",
     "McpSessionAdapter",
     "MockMcpServerConfig",

@@ -380,7 +380,7 @@ public sealed class ConfigureProvidersService
         yield return new SmartFlowEvent("thinking:thinking", "🤖 Starting LLM provider configuration…");
         JsonNode? response = null;
 
-        var providerRequest = CreateChoiceRequest(runId, "llm_add.provider", "Select the LLM provider to configure:", ["openai", "ollama", "copilot"]);
+        var providerRequest = CreateChoiceRequest(runId, "llm_add.provider", "Select the LLM provider to configure:", ["openai", "ollama", "copilot", "claude"]);
         await foreach (var evt in EmitHumanInputRequestAsync(providerRequest, r => response = r, ct))
             yield return evt;
 
@@ -1921,6 +1921,7 @@ public sealed class ConfigureProvidersService
         {
             "ollama" => new ProviderDefaults("http://localhost:11434", "llama3", ["none"]),
             "copilot" => new ProviderDefaults("https://models.github.ai/inference", "gpt-4o", ["api_key", "copilot_env", "oidc"]),
+            "claude" or "anthropic" => new ProviderDefaults("https://api.anthropic.com/v1", "claude-sonnet-4-20250514", ["api_key", "oidc"]),
             _ => new ProviderDefaults("https://api.openai.com/v1", "gpt-4o", ["api_key", "oidc"])
         };
 
@@ -1946,6 +1947,7 @@ public sealed class ConfigureProvidersService
         var payload = new JsonObject
         {
             ["provider"] = provider,
+            ["type"] = NormalizeProviderTypeForConfig(provider),
             ["url"] = url,
             ["model"] = model,
             ["authType"] = auth.AuthType,
@@ -2063,6 +2065,13 @@ public sealed class ConfigureProvidersService
         sb.Append($"Configuration will be saved as key: `{KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider)}`");
         return sb.ToString();
     }
+
+    private static string NormalizeProviderTypeForConfig(string provider)
+        => provider.Trim().ToLowerInvariant() switch
+        {
+            "anthropic" => "claude",
+            var normalized => normalized
+        };
 
     private async IAsyncEnumerable<SmartFlowEvent> CollectHttpMcpConfigAsync(
         string runId,
@@ -2520,6 +2529,8 @@ public sealed class ConfigureProvidersService
         sb.AppendLine("- **API Key** — static secret");
         sb.AppendLine("- **OpenID Connect** — OAuth2 client_credentials flow");
         sb.AppendLine("- **Copilot / Env** — resolved from environment variables");
+        sb.AppendLine();
+        sb.AppendLine("**Providers:** `openai`, `ollama`, `copilot`, `claude`.");
         sb.AppendLine();
         sb.Append($"All configurations are stored encrypted in KeyVault using the .NET convention `{KeyVaultConfigNaming.GetDisplayConvention(KeyVaultConfigSecretKind.LlmProvider)}`.");
         return sb.ToString().TrimEnd();

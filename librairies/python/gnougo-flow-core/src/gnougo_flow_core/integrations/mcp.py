@@ -1,10 +1,12 @@
 ﻿from __future__ import annotations
 
 import asyncio
+import contextlib
+import contextvars
 import inspect
 import json
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Iterator
 
 from ..errors import ErrorCodes, WorkflowRuntimeException
 from ..models import (
@@ -38,7 +40,12 @@ class InMemoryMcpClientFactory:
     @property
     def server_metadata(self) -> list[McpServerMetadata]:
         return [
-            McpServerMetadata(name=name, description=config.description)
+            McpServerMetadata(
+                name=name,
+                description=config.description,
+                discovery_timeout_seconds=None,
+                call_timeout_seconds=None,
+            )
             for name, config in self._servers.items()
         ]
 
@@ -122,7 +129,37 @@ class McpServerOptions:
     args: list[str] | None = None
     api_key: str | None = None
     description: str | None = None
+    discovery_timeout_seconds: int | None = None
+    call_timeout_seconds: int | None = None
     client: Any = None
+
+
+@dataclass(frozen=True, slots=True)
+class McpRealtimeProgressEvent:
+    message: str | None = None
+    level: str | None = None
+    event_kind: str | None = None
+    file: str | None = None
+    timestamp: str | None = None
+    correlation_id: str | None = None
+    run_id: str | None = None
+    step_id: str | None = None
+    step_type: str | None = None
+    server_name: str | None = None
+    method_name: str | None = None
+    kind: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _ProgressSubscription:
+    correlation: Any
+    handler: Callable[[McpRealtimeProgressEvent], None]
+
+
+_progress_handlers: contextvars.ContextVar[tuple[_ProgressSubscription, ...]] = contextvars.ContextVar(
+    "gnougo_mcp_progress_handlers",
+    default=(),
+)
 
 
 class ConfiguredMcpClientFactory:
@@ -136,7 +173,7 @@ class ConfiguredMcpClientFactory:
 
     def __init__(self, server_configs: dict[str, McpServerOptions | dict[str, Any]]) -> None:
         self._server_configs = {
-            name: (cfg if isinstance(cfg, McpServerOptions) else McpServerOptions(**cfg))
+            name: (cfg if isinstance(cfg, McpServerOptions) else _coerce_server_options(cfg))
             for name, cfg in server_configs.items()
         }
         self._clients: dict[str, Any] = {}
@@ -144,7 +181,12 @@ class ConfiguredMcpClientFactory:
     @property
     def server_metadata(self) -> list[McpServerMetadata]:
         return [
-            McpServerMetadata(name=name, description=config.description)
+            McpServerMetadata(
+                name=name,
+                description=config.description,
+                discovery_timeout_seconds=config.discovery_timeout_seconds,
+                call_timeout_seconds=config.call_timeout_seconds,
+            )
             for name, config in self._server_configs.items()
         ]
 
@@ -183,6 +225,59 @@ class ConfiguredMcpClientFactory:
     @staticmethod
     def is_unexpected_server_exit(exc: BaseException) -> bool:
         return is_unexpected_server_exit(exc)
+
+    @staticmethod
+    @contextlib.contextmanager
+    def push_progress_handler(correlation: Any, handler: Callable[[McpRealtimeProgressEvent], None]) -> Iterator[None]:
+        current = _progress_handlers.get()
+        token = _progress_handlers.set((*current, _ProgressSubscription(correlation, handler)))
+        try:
+            yield
+        finally:
+            _progress_handlers.reset(token)
+
+    @staticmethod
+    def capture_stdio_error_line(server_name: str | None, line: str) -> bool:
+        try:
+            payload = json.loads(line)
+        except Exception:
+            return False
+
+        if not isinstance(payload, dict) or payload.get("type") != "gnougo.mcp.progress":
+            return False
+
+        event_payload = payload.get("event")
+        if not isinstance(event_payload, dict):
+            return False
+
+        progress_event = McpRealtimeProgressEvent(
+            message=_string_or_none(event_payload.get("message") or event_payload.get("Message")),
+            level=_string_or_none(event_payload.get("level") or event_payload.get("Level")),
+            event_kind=_string_or_none(event_payload.get("kind") or event_payload.get("Kind")),
+            file=_string_or_none(event_payload.get("file") or event_payload.get("File")),
+            timestamp=_string_or_none(event_payload.get("timestamp") or event_payload.get("Timestamp")),
+            correlation_id=_string_or_none(payload.get("correlationId") or payload.get("correlation_id") or payload.get("CorrelationId")),
+            run_id=_string_or_none(payload.get("runId") or payload.get("run_id") or payload.get("RunId")),
+            step_id=_string_or_none(payload.get("stepId") or payload.get("step_id") or payload.get("StepId")),
+            step_type=_string_or_none(payload.get("stepType") or payload.get("step_type") or payload.get("StepType")),
+            server_name=_string_or_none(payload.get("server") or payload.get("Server") or server_name),
+            method_name=_string_or_none(payload.get("method") or payload.get("Method")),
+            kind=_string_or_none(payload.get("kind") or payload.get("Kind")),
+        )
+        return ConfiguredMcpClientFactory.publish_progress(progress_event)
+
+    @staticmethod
+    def publish_progress(progress_event: McpRealtimeProgressEvent) -> bool:
+        delivered = False
+        for subscription in _progress_handlers.get():
+            if not _progress_matches(subscription.correlation, progress_event):
+                continue
+            try:
+                subscription.handler(progress_event)
+                delivered = True
+            except Exception:
+                pass
+        return delivered
 
 
 class McpSessionAdapter:
@@ -230,6 +325,63 @@ class McpSessionAdapter:
     @staticmethod
     def convert_arguments(arguments: Any) -> dict[str, Any] | None:
         return convert_arguments(arguments)
+
+
+def _coerce_server_options(values: dict[str, Any]) -> McpServerOptions:
+    normalized = dict(values)
+    for target, aliases in {
+        "discovery_timeout_seconds": ("DiscoveryTimeoutSeconds", "discoveryTimeoutSeconds", "discovery_timeout_seconds"),
+        "call_timeout_seconds": ("CallTimeoutSeconds", "callTimeoutSeconds", "call_timeout_seconds"),
+        "api_key": ("ApiKey", "apiKey", "api_key"),
+    }.items():
+        if target in normalized:
+            continue
+        for alias in aliases:
+            if alias in normalized:
+                normalized[target] = normalized[alias]
+                break
+    allowed = set(McpServerOptions.__dataclass_fields__.keys())
+    return McpServerOptions(**{key: value for key, value in normalized.items() if key in allowed})
+
+
+def _string_or_none(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _progress_matches(correlation: Any, progress_event: McpRealtimeProgressEvent) -> bool:
+    for progress_value, correlation_names in (
+        (progress_event.run_id, ("run_id", "RunId")),
+        (progress_event.step_id, ("step_id", "StepId")),
+        (progress_event.step_type, ("step_type", "StepType")),
+        (progress_event.server_name, ("mcp_server", "server_name", "ServerName")),
+        (progress_event.kind, ("mcp_kind", "kind", "Kind")),
+    ):
+        if progress_value is None:
+            continue
+        expected = _first_attr(correlation, correlation_names)
+        if expected is not None and str(expected).lower() != progress_value.lower():
+            return False
+
+    if progress_event.method_name:
+        expected_method = _first_attr(correlation, ("mcp_method", "method_name", "MethodName"))
+        if expected_method and progress_event.method_name not in {part.strip() for part in str(expected_method).split(",") if part.strip()}:
+            return False
+
+    return True
+
+
+def _first_attr(value: Any, names: tuple[str, ...]) -> Any:
+    for name in names:
+        if isinstance(value, dict):
+            current = value.get(name)
+        else:
+            current = getattr(value, name, None)
+        if current is not None and str(current).strip():
+            return current
+    return None
 
 
 def convert_arguments(arguments: Any) -> dict[str, Any] | None:

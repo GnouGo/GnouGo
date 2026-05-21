@@ -100,7 +100,8 @@ jobs:
             "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp$toolExtension",
             "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp$toolExtension",
             "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp$toolExtension",
-            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp$toolExtension"
+            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp$toolExtension",
+            "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp$toolExtension"
           )
 
           foreach ($path in $requiredTools) {

@@ -15,6 +15,30 @@ from .models import (
 )
 
 _REASONING_EFFORTS = ["minimal", "low", "medium", "high"]
+_BARE_MODEL_LOOKUP_PROVIDER_PREFERENCE = ["openai", "claude", "copilot", "ollama"]
+_KNOWN_PROVIDER_PREFIXES = {
+    "openai": "openai",
+    "azure": "openai",
+    "text-completion-openai": "openai",
+    "claude": "claude",
+    "anthropic": "claude",
+    "copilot": "copilot",
+    "github_copilot": "copilot",
+    "github": "copilot",
+    "ollama": "ollama",
+}
+
+
+def _normalize_known_provider_type(provider_type: str | None) -> str | None:
+    if not provider_type:
+        return None
+    return _KNOWN_PROVIDER_PREFIXES.get(provider_type.strip().lower())
+
+
+def _normalize_provider_type(provider_type: str | None) -> str | None:
+    if not provider_type:
+        return None
+    return _normalize_known_provider_type(provider_type) or provider_type.strip().lower()
 
 
 def _metadata(
@@ -422,25 +446,161 @@ BUILTIN_ALIASES: dict[str, str] = {
     "anthropic/claude-haiku-4": "claude-haiku-4-20250514",
 }
 
+_STATIC_BUILTIN_MODELS = BUILTIN_MODELS
+_STATIC_BUILTIN_ALIASES = BUILTIN_ALIASES
+
+
+def _repo_root() -> Path | None:
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "src" / "GnOuGo.AI.Core" / "Telemetry" / "model-metadata.json").is_file():
+            return parent
+    return None
+
+
+def _shared_catalog_path() -> Path | None:
+    root = _repo_root()
+    if root is None:
+        return None
+    candidate = root / "src" / "GnOuGo.AI.Core" / "Telemetry" / "model-metadata.json"
+    return candidate if candidate.is_file() else None
+
+
+def _load_shared_builtin_catalog() -> tuple[dict[str, LLMModelMetadata], dict[str, str]] | None:
+    path = _shared_catalog_path()
+    if path is None:
+        return None
+    try:
+        root = json.loads(path.read_text(encoding="utf-8-sig"))
+    except Exception:
+        return None
+    if not isinstance(root, dict):
+        return None
+    models: dict[str, LLMModelMetadata] = {}
+    aliases: dict[str, str] = {}
+    raw_models = root.get("models") or {}
+    raw_aliases = root.get("aliases") or {}
+    if not isinstance(raw_models, dict) or not isinstance(raw_aliases, dict):
+        return None
+    for model_id, payload in raw_models.items():
+        if not isinstance(model_id, str) or not isinstance(payload, dict):
+            continue
+        data = dict(payload)
+        split = _split_provider_qualified_key(model_id)
+        if split is not None:
+            data.setdefault("id", split[1])
+            data.setdefault("providerType", split[0])
+        else:
+            data.setdefault("id", model_id)
+        provider_type = _normalize_provider_type(data.get("providerType"))
+        if provider_type is not None:
+            data["providerType"] = provider_type
+        try:
+            models[model_id] = LLMModelMetadata.model_validate(data)
+        except Exception:
+            continue
+    for alias, canonical in raw_aliases.items():
+        if isinstance(alias, str) and isinstance(canonical, str):
+            aliases[alias] = canonical
+    return models, aliases
+
 
 def strip_vendor_prefix(model: str) -> str:
     if not model:
         return model
-    if "/" in model:
-        prefix, rest = model.split("/", 1)
-        if prefix and rest and len(prefix) <= 30 and "." not in prefix:
-            return rest
-    return model
+    split = _split_provider_qualified_key(model)
+    return split[1] if split is not None else model
+
+
+def _split_provider_qualified_key(key: str) -> tuple[str, str] | None:
+    if not key or "/" not in key:
+        return None
+    provider, model = key.split("/", 1)
+    normalized_provider = _normalize_known_provider_type(provider)
+    if not normalized_provider or not model:
+        return None
+    return normalized_provider, model
+
+
+_shared_catalog = _load_shared_builtin_catalog()
+if _shared_catalog is not None:
+    BUILTIN_MODELS, BUILTIN_ALIASES = _shared_catalog
+else:
+    BUILTIN_MODELS, BUILTIN_ALIASES = _STATIC_BUILTIN_MODELS, _STATIC_BUILTIN_ALIASES
+
+
+def _key_variants(provider_type: str | None, key: str) -> list[str]:
+    if not key:
+        return []
+    provider_type = _normalize_provider_type(provider_type)
+    if _split_provider_qualified_key(key) is not None:
+        return [key]
+    variants: list[str] = []
+    if provider_type:
+        variants.append(f"{provider_type}/{key}")
+    variants.append(key)
+    return variants
+
+
+def _candidate_keys(provider_type: str | None, model: str, clean_model: str, canonical: str | None) -> list[str]:
+    keys: list[str] = []
+    seen: set[str] = set()
+    for key in [model, clean_model, canonical, strip_vendor_prefix(canonical or "")]:
+        if not key:
+            continue
+        for candidate in _key_variants(provider_type, key):
+            lowered = candidate.lower()
+            if lowered not in seen:
+                keys.append(candidate)
+                seen.add(lowered)
+    return keys
 
 
 def clone_metadata(metadata: LLMModelMetadata) -> LLMModelMetadata:
     return metadata.model_copy(deep=True)
 
 
-def try_get_builtin(model_name: str) -> LLMModelMetadata | None:
-    for key in (model_name, strip_vendor_prefix(model_name), BUILTIN_ALIASES.get(model_name, "")):
-        if key and key in BUILTIN_MODELS:
-            return clone_metadata(BUILTIN_MODELS[key])
+def _try_get_builtin_model(model_name: str) -> LLMModelMetadata | None:
+    if model_name in BUILTIN_MODELS:
+        return clone_metadata(BUILTIN_MODELS[model_name])
+    return None
+
+
+def _try_get_builtin_core(model_name: str) -> LLMModelMetadata | None:
+    metadata = _try_get_builtin_model(model_name)
+    if metadata is not None:
+        return metadata
+    alias = BUILTIN_ALIASES.get(model_name)
+    if alias and alias in BUILTIN_MODELS:
+        return clone_metadata(BUILTIN_MODELS[alias])
+    if _split_provider_qualified_key(model_name) is None:
+        for provider in _BARE_MODEL_LOOKUP_PROVIDER_PREFERENCE:
+            metadata = _try_get_builtin_model(f"{provider}/{model_name}")
+            if metadata is not None:
+                return metadata
+    return None
+
+
+def try_get_builtin(model_name: str, provider_type: str | None = None) -> LLMModelMetadata | None:
+    keys: list[str] = []
+    seen: set[str] = set()
+    provider_type = _normalize_provider_type(provider_type)
+    for key in _key_variants(provider_type, model_name) + _key_variants(provider_type, strip_vendor_prefix(model_name)):
+        lowered = key.lower()
+        if key and lowered not in seen:
+            keys.append(key)
+            seen.add(lowered)
+    for key in list(keys):
+        alias = BUILTIN_ALIASES.get(key)
+        if alias:
+            for candidate in _key_variants(provider_type, alias):
+                lowered = candidate.lower()
+                if lowered not in seen:
+                    keys.append(candidate)
+                    seen.add(lowered)
+    for key in keys:
+        if key and (metadata := _try_get_builtin_core(key)) is not None:
+            return metadata
     return None
 
 
@@ -568,7 +728,15 @@ def _load_metadata_files(paths: Iterable[str]) -> tuple[dict[str, LLMModelMetada
                 if not isinstance(payload, dict):
                     continue
                 data = dict(payload)
-                data.setdefault("id", model_id)
+                split = _split_provider_qualified_key(model_id)
+                if split is not None:
+                    data.setdefault("id", split[1])
+                    data.setdefault("providerType", split[0])
+                else:
+                    data.setdefault("id", model_id)
+                provider_type = _normalize_provider_type(data.get("providerType"))
+                if provider_type is not None:
+                    data["providerType"] = provider_type
                 try:
                     metadata = LLMModelMetadata.model_validate(data)
                 except Exception:
@@ -591,15 +759,16 @@ class LLMModelMetadataResolver:
         self._inline_overrides = self.options.model_overrides
 
     def resolve(self, provider_type: str | None, model: str) -> LLMModelMetadata:
+        provider_type = _normalize_provider_type(provider_type)
         clean_model = strip_vendor_prefix(model)
-        canonical = self._file_aliases.get(model) or self._file_aliases.get(clean_model) or BUILTIN_ALIASES.get(model) or BUILTIN_ALIASES.get(clean_model)
-        candidates = list(dict.fromkeys(k for k in [model, clean_model, canonical, strip_vendor_prefix(canonical or "")] if k))
+        canonical = self._resolve_alias(provider_type, model) or self._resolve_alias(provider_type, clean_model)
+        candidates = _candidate_keys(provider_type, model, clean_model, canonical)
 
-        metadata = next((try_get_builtin(key) for key in candidates if try_get_builtin(key) is not None), None)
+        metadata = next((candidate for key in candidates if (candidate := _try_get_builtin_core(key)) is not None), None)
         if metadata is None:
             metadata = LLMModelMetadata(id=canonical or clean_model, display_name=canonical or clean_model)
 
-        for key in candidates:
+        for key in reversed(candidates):
             if key in self._file_models:
                 _merge_into(metadata, self._file_models[key], key)
             if key in self._inline_overrides:
@@ -614,16 +783,31 @@ class LLMModelMetadataResolver:
         _apply_heuristic_defaults(metadata, provider_type, clean_model)
         return metadata
 
+    def _resolve_alias(self, provider_type: str | None, key: str) -> str | None:
+        provider_type = _normalize_provider_type(provider_type)
+        for candidate in _key_variants(provider_type, key):
+            if candidate in self._file_aliases:
+                return self._file_aliases[candidate]
+            if candidate in BUILTIN_ALIASES:
+                return BUILTIN_ALIASES[candidate]
+        return None
+
     def list_configured_metadata(self, provider_type: str | None = None) -> list[LLMModelMetadata]:
+        provider_type = _normalize_provider_type(provider_type)
         merged: dict[str, LLMModelMetadata] = {}
         for mapping in (self._file_models, self._inline_overrides):
             for key, value in mapping.items():
                 metadata = clone_metadata(value)
+                split = _split_provider_qualified_key(key)
                 if not metadata.id:
-                    metadata.id = key
+                    metadata.id = split[1] if split is not None else key
+                if metadata.provider_type is None and split is not None:
+                    metadata.provider_type = split[0]
+                metadata.provider_type = _normalize_provider_type(metadata.provider_type)
                 if provider_type and metadata.provider_type and metadata.provider_type.lower() != provider_type.lower():
                     continue
-                merged[metadata.id] = metadata
+                merged_key = metadata.id if provider_type or not metadata.provider_type else f"{metadata.provider_type}/{metadata.id}"
+                merged[merged_key] = metadata
         return sorted(merged.values(), key=lambda m: (m.display_name or m.id).lower())
 
 
@@ -691,7 +875,7 @@ def sanitize_llm_request(request: LLMRequest, metadata: LLMModelMetadata) -> LLM
 
 
 def try_get_pricing(model_name: str, options: LLMOptions | None = None, provider_type: str | None = None) -> ModelPricingMetadata | None:
-    metadata = LLMModelMetadataResolver(options).resolve(provider_type, model_name) if options is not None else try_get_builtin(model_name)
+    metadata = LLMModelMetadataResolver(options).resolve(provider_type, model_name) if options is not None or provider_type else try_get_builtin(model_name)
     return copy.deepcopy(metadata.pricing) if metadata and metadata.pricing else None
 
 

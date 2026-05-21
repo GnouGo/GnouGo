@@ -95,6 +95,7 @@ Supporting libraries such as **GnOuGo.AI.Core**, **GnOuGo.Auth.Core**, and **GnO
 | **GnOuGo.Browser.Mcp** | stdio | Web navigation via Playwright: open pages, click, fill forms, screenshot, and more. |
 | **GnOuGo.Cmd.Mcp** | stdio | Safe shell command execution through a strict allowlist (deny-by-default, cross-platform). |
 | **GnOuGo.GithubCopilot.Mcp** | stdio | Local code operations: read files, search text, summarize a project, and suggest changes via GitHub Copilot. |
+| **GnOuGo.Git.Mcp** | stdio | Git repository workflows: status, diff, branches, commits, clone, fetch, pull, push, merge, and conflicts. |
 | **GnOuGo.Document.Mcp** | stdio | Read and write office/text documents (PDF, DOCX, XLSX, PPTX, Markdown, CSV, JSON…). |
 | **GnOuGo.DocIngestor.Mcp** | HTTP | Document ingestion pipeline: download, chunk, embed into a vector store, and semantic search. |
 

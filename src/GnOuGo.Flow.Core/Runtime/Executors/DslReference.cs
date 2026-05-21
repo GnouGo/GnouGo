@@ -139,6 +139,8 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 - `substring(s, start, length)` → returns length characters starting at position start
 - `toNumber(val)` → converts value to number
 - `json(val)` → serializes value to JSON string
+- `pick(obj, ...keys)` → returns a new object containing only the requested keys; keys may be separate arguments or an array
+- `omit(obj, ...keys)` → returns a new object with the requested keys removed; keys may be separate arguments or an array
 - `fromJson(s)` → parses a JSON string into a node (object, array, or value)
 - `now()` → returns the current local date/time as an ISO-8601 string
 - `base64(val)` → encodes the UTF-8 string value as Base64

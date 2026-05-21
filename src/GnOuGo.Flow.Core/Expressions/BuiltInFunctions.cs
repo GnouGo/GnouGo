@@ -25,6 +25,8 @@ public static class BuiltInFunctions
         ["substring"] = Substring,
         ["toNumber"] = ToNumber,
         ["json"] = Json,
+        ["pick"] = Pick,
+        ["omit"] = Omit,
         ["fromJson"] = FromJson,
         ["now"] = Now,
         ["formatDate"] = FormatDate,
@@ -138,6 +140,60 @@ public static class BuiltInFunctions
     {
         if (args.Length < 1 || args[0] == null) return JsonValue.Create("null");
         return JsonValue.Create(args[0]!.ToJsonString());
+    }
+
+    /// <summary>
+    /// pick(obj, ...keys) — returns a new object containing only the requested keys.
+    /// Keys can be passed as separate arguments or as arrays, e.g. pick(obj, "a", "b") or pick(obj, ["a", "b"]).
+    /// </summary>
+    private static JsonNode? Pick(JsonNode?[] args)
+    {
+        if (args.Length < 1 || args[0] is not JsonObject source) return new JsonObject();
+
+        var result = new JsonObject();
+        foreach (var key in EnumerateKeys(args.Skip(1)))
+        {
+            if (source.TryGetPropertyValue(key, out var value))
+                result[key] = value?.DeepClone();
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// omit(obj, ...keys) — returns a new object with the requested keys removed.
+    /// Keys can be passed as separate arguments or as arrays, e.g. omit(obj, "secret") or omit(obj, ["secret", "token"]).
+    /// </summary>
+    private static JsonNode? Omit(JsonNode?[] args)
+    {
+        if (args.Length < 1 || args[0] is not JsonObject source) return new JsonObject();
+
+        var keysToOmit = EnumerateKeys(args.Skip(1)).ToHashSet(StringComparer.Ordinal);
+        var result = new JsonObject();
+        foreach (var kv in source)
+        {
+            if (!keysToOmit.Contains(kv.Key))
+                result[kv.Key] = kv.Value?.DeepClone();
+        }
+        return result;
+    }
+
+    private static IEnumerable<string> EnumerateKeys(IEnumerable<JsonNode?> args)
+    {
+        foreach (var arg in args)
+        {
+            if (arg is null) continue;
+            if (arg is JsonArray arr)
+            {
+                foreach (var nestedKey in EnumerateKeys(arr))
+                    yield return nestedKey;
+                continue;
+            }
+            if (arg is JsonObject) continue;
+
+            var scalarKey = ExpressionEvaluator.GetString(arg);
+            if (!string.IsNullOrEmpty(scalarKey))
+                yield return scalarKey;
+        }
     }
 
     /// <summary>
