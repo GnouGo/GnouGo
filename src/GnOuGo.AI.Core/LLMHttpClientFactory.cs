@@ -20,6 +20,8 @@ public static class LLMHttpClientFactory
         TimeSpan? timeout = null,
         ILogger? logger = null)
     {
+        var effectiveLogger = logger ?? NullLogger.Instance;
+
         var handler = new SocketsHttpHandler
         {
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
@@ -38,10 +40,7 @@ public static class LLMHttpClientFactory
                                 message += $" | ChainStatus: {status.Status} - {status.StatusInformation}";
                         }
 
-                        if (logger != null)
-                            logger.LogWarning(message);
-                        else
-                            Console.Error.WriteLine($"[LLM-SSL] {message}");
+                        effectiveLogger.LogWarning(message);
 
                         return dangerousAcceptAnyCert;
                     }
