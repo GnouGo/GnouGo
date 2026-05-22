@@ -3032,7 +3032,7 @@ public sealed class ConfigureProvidersService
                 : ex.Message;
 
             validationError = fullMessage.Contains("401") || fullMessage.Contains("Unauthorized")
-                ? "The API key appears to be invalid or revoked."
+                ? "The provided credentials appear to be invalid, revoked, or unauthorized."
                 : fullMessage.Contains("404") || fullMessage.Contains("model")
                     ? $"Authentication succeeded but model '{model}' was not found. You can change the model with `/llm`."
                     : $"{fullMessage} (URL: {providerUrl})";
