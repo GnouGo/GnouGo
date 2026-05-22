@@ -62,7 +62,10 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             HttpRequestHelper.SetBearerAuth(req, bearerToken);
 
         _logger.LogInformation("OpenAI request headers: {Headers}",
-            string.Join("; ", req.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}")));
+            string.Join("; ", req.Headers.Select(h =>
+                string.Equals(h.Key, "Authorization", StringComparison.OrdinalIgnoreCase)
+                    ? $"{h.Key}=<redacted>"
+                    : $"{h.Key}={string.Join(",", h.Value)}")));
 
         HttpResponseMessage resp;
         try
