@@ -25,6 +25,12 @@ public sealed class LLMOptions
     public Dictionary<string, McpServerOptions> McpServers { get; set; } = new();
 
     /// <summary>
+    /// When true, TLS certificate errors are ignored for outgoing LLM HTTP calls.
+    /// USE ONLY for corporate proxies with self-signed or internal CA certificates.
+    /// </summary>
+    public bool DangerousAcceptAnyServerCertificate { get; set; }
+
+    /// <summary>
     /// Optional JSON files that define or override model metadata (limits, pricing, capabilities, aliases).
     /// Later files win over earlier files. Paths can be absolute or relative to the process/base directory.
     /// </summary>
@@ -80,6 +86,12 @@ public sealed class ModelProviderOptions
 
     /// <summary>OAuth2 scopes (space-separated).</summary>
     public string? Scopes { get; set; }
+
+    /// <summary>
+    /// Optional API version query parameter appended to all requests (Azure OpenAI-style endpoints).
+    /// Example: "2025-01-01-preview".
+    /// </summary>
+    public string? ApiVersion { get; set; }
 
     /// <summary>
     /// Returns the effective provider type: explicit <see cref="Type"/>, or inferred from URL.

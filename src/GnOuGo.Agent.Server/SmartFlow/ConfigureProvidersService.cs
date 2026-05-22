@@ -610,7 +610,8 @@ public sealed class ConfigureProvidersService
             oidcIssuer: selectedConfig.Config.OidcIssuer,
             oidcClientId: selectedConfig.Config.OidcClientId,
             oidcScopes: selectedConfig.Config.OidcScopes,
-            oidcClientSecret: selectedConfig.Config.OidcClientSecret);
+            oidcClientSecret: selectedConfig.Config.OidcClientSecret,
+            apiVersion: selectedConfig.Config.ApiVersion);
 
         if (!_optionsStore.SetDefaultProvider(selectedConfig.Provider, model))
         {
@@ -1715,7 +1716,8 @@ public sealed class ConfigureProvidersService
                     new HumanInputFieldDef { Name = "issuer", Type = "string", Required = true, Description = "OIDC Issuer URL", Default = existing?.OidcIssuer ?? "" },
                     new HumanInputFieldDef { Name = "client_id", Type = "string", Required = true, Description = "OAuth2 Client ID", Default = existing?.OidcClientId ?? "" },
                     new HumanInputFieldDef { Name = "scopes", Type = "string", Required = true, Description = "Space-separated scopes", Default = existing?.OidcScopes ?? "" },
-                    new HumanInputFieldDef { Name = "client_secret", Type = "string", Required = false, Description = "Client secret" }
+                    new HumanInputFieldDef { Name = "client_secret", Type = "string", Required = false, Description = "Client secret" },
+                    new HumanInputFieldDef { Name = "api_version", Type = "string", Required = false, Description = "API version query param (e.g. 2025-01-01-preview)", Default = existing?.ApiVersion ?? "" }
                 ]);
             await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
                 yield return evt;
@@ -1728,12 +1730,13 @@ public sealed class ConfigureProvidersService
                 fields.GetValueOrDefault("issuer") ?? "",
                 fields.GetValueOrDefault("client_id") ?? "",
                 fields.GetValueOrDefault("scopes") ?? "",
-                fields.GetValueOrDefault("client_secret") ?? ""));
+                fields.GetValueOrDefault("client_secret") ?? "",
+                fields.GetValueOrDefault("api_version") ?? ""));
             span.SetStatus(ActivityStatusCode.Ok);
             yield break;
         }
 
-        setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", authType, "", "", "", "", ""));
+        setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", authType, "", "", "", "", "", existing?.ApiVersion ?? ""));
         span.SetStatus(ActivityStatusCode.Ok);
     }
 
@@ -1874,7 +1877,9 @@ public sealed class ConfigureProvidersService
             span.SetTag("gnougo.agent.model.discovery.source", "temporary_catalog");
         }
 
-        using var http = new HttpClient();
+        using var http = LLMHttpClientFactory.Create(
+            _optionsStore.Current.DangerousAcceptAnyServerCertificate,
+            logger: _logger);
         var options = new LLMOptions
         {
             DefaultProvider = provider,
@@ -1900,7 +1905,7 @@ public sealed class ConfigureProvidersService
         if (!RequiresExplicitAuth(providerOptions))
             return true;
 
-        return HasUsableAuth(runtimeProvider);
+        return HasMatchingAuth(runtimeProvider, providerOptions);
     }
 
     private static bool RequiresExplicitAuth(ModelProviderOptions providerOptions)
@@ -1912,6 +1917,42 @@ public sealed class ConfigureProvidersService
            || (!string.IsNullOrWhiteSpace(providerOptions.Issuer)
                && !string.IsNullOrWhiteSpace(providerOptions.ClientId)
                && !string.IsNullOrWhiteSpace(providerOptions.Scopes));
+
+    private static bool HasMatchingAuth(ModelProviderOptions runtimeProvider, ModelProviderOptions requestedProvider)
+    {
+        var runtimeAuthMode = ResolveAuthMode(runtimeProvider);
+        var requestedAuthMode = ResolveAuthMode(requestedProvider);
+        if (!string.Equals(runtimeAuthMode, requestedAuthMode, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return requestedAuthMode switch
+        {
+            "api_key" => !string.IsNullOrWhiteSpace(runtimeProvider.ApiKey),
+            "oidc" => !string.IsNullOrWhiteSpace(runtimeProvider.Issuer)
+                      && !string.IsNullOrWhiteSpace(runtimeProvider.ClientId)
+                      && !string.IsNullOrWhiteSpace(runtimeProvider.Scopes),
+            _ => true
+        };
+    }
+
+    private static string ResolveAuthMode(ModelProviderOptions providerOptions)
+    {
+        if (!string.IsNullOrWhiteSpace(providerOptions.ApiKey))
+            return "api_key";
+
+        if (!string.IsNullOrWhiteSpace(providerOptions.Issuer)
+            || !string.IsNullOrWhiteSpace(providerOptions.ClientId)
+            || !string.IsNullOrWhiteSpace(providerOptions.Scopes))
+        {
+            return !string.IsNullOrWhiteSpace(providerOptions.Issuer)
+                   && !string.IsNullOrWhiteSpace(providerOptions.ClientId)
+                   && !string.IsNullOrWhiteSpace(providerOptions.Scopes)
+                ? "oidc"
+                : "incomplete_oidc";
+        }
+
+        return "none";
+    }
 
     private static string NormalizeUrl(string? url)
         => string.IsNullOrWhiteSpace(url) ? string.Empty : url.Trim().TrimEnd('/');
@@ -1934,7 +1975,8 @@ public sealed class ConfigureProvidersService
             Issuer = auth.OidcIssuer,
             ClientId = auth.OidcClientId,
             Scopes = auth.OidcScopes,
-            ClientSecret = auth.OidcClientSecret
+            ClientSecret = auth.OidcClientSecret,
+            ApiVersion = auth.ApiVersion
         };
 
     private async Task SaveLlmProviderConfigAsync(string provider, string url, string model, LlmProviderConfig auth, CancellationToken ct)
@@ -1955,7 +1997,8 @@ public sealed class ConfigureProvidersService
             ["oidcIssuer"] = auth.OidcIssuer,
             ["oidcClientId"] = auth.OidcClientId,
             ["oidcScopes"] = auth.OidcScopes,
-            ["oidcClientSecret"] = auth.OidcClientSecret
+            ["oidcClientSecret"] = auth.OidcClientSecret,
+            ["apiVersion"] = auth.ApiVersion
         };
 
         var preferredSecretKey = KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider);
@@ -2009,7 +2052,8 @@ public sealed class ConfigureProvidersService
                 OidcIssuer: ReadConfigString(config, "oidcIssuer", "oidc_issuer") ?? "",
                 OidcClientId: ReadConfigString(config, "oidcClientId", "oidc_client_id") ?? "",
                 OidcScopes: ReadConfigString(config, "oidcScopes", "oidc_scopes") ?? "",
-                OidcClientSecret: ReadConfigString(config, "oidcClientSecret", "oidc_client_secret") ?? "");
+                OidcClientSecret: ReadConfigString(config, "oidcClientSecret", "oidc_client_secret") ?? "",
+                ApiVersion: ReadConfigString(config, "apiVersion", "api_version") ?? "");
             span.SetTag("gnougo.agent.configure.found_existing", true);
             span.SetTag("gnougo.agent.llm.auth_type", result.AuthType);
             span.SetTag("gen_ai.request.model", result.Model);
@@ -2038,7 +2082,8 @@ public sealed class ConfigureProvidersService
             ["llm_oidc_issuer"] = auth.OidcIssuer,
             ["llm_oidc_client_id"] = auth.OidcClientId,
             ["llm_oidc_scopes"] = auth.OidcScopes,
-            ["llm_oidc_client_secret"] = auth.OidcClientSecret
+            ["llm_oidc_client_secret"] = auth.OidcClientSecret,
+            ["llm_api_version"] = auth.ApiVersion
         };
 
     private static string RenderLlmConfigSummary(string provider, string url, string model, LlmProviderConfig auth)
@@ -2393,7 +2438,7 @@ public sealed class ConfigureProvidersService
     }
 
     private sealed record ProviderDefaults(string Url, string Model, IReadOnlyList<string> AuthModes);
-    private sealed record LlmProviderConfig(string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret);
+    private sealed record LlmProviderConfig(string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret, string ApiVersion = "");
     private sealed record McpServerConfig(string Name, string Transport, string Description, string Url, string Command, IReadOnlyList<string> Args, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret);
     private sealed record EmbeddingProviderConfig(string Name, string Provider, string? Model, string? EndpointUrl, string? BaseUrl, string? ApiKey, string? ApiKeySecretKey, int Dimensions);
     private sealed record ConfiguredLlmProvider(string Provider, KeyVaultSecretSummary Secret, LlmProviderConfig Config);
@@ -2577,7 +2622,7 @@ public sealed class ConfigureProvidersService
         sb.AppendLine("|---|---|");
         sb.AppendLine("| `/embedding list` | List all configured embedding models |");
         sb.AppendLine("| `/embedding add` | Configure a new embedding model |");
-        sb.AppendLine("| `/embedding default [name]` | Set the default embedding model used by document ingestion/search |");
+        sb.AppendLine("| `/embedding default [name]` | Set or change the default embedding model |");
         sb.AppendLine("| `/embedding edit <name>` | Edit an embedding model configuration |");
         sb.AppendLine("| `/embedding remove <name>` | Remove an embedding model configuration |");
         sb.AppendLine();
@@ -2685,7 +2730,8 @@ public sealed class ConfigureProvidersService
                 OidcIssuer: ReadConfigString(configJson, "oidcIssuer", "oidc_issuer") ?? string.Empty,
                 OidcClientId: ReadConfigString(configJson, "oidcClientId", "oidc_client_id") ?? string.Empty,
                 OidcScopes: ReadConfigString(configJson, "oidcScopes", "oidc_scopes") ?? string.Empty,
-                OidcClientSecret: ReadConfigString(configJson, "oidcClientSecret", "oidc_client_secret") ?? string.Empty);
+                OidcClientSecret: ReadConfigString(configJson, "oidcClientSecret", "oidc_client_secret") ?? string.Empty,
+                ApiVersion: ReadConfigString(configJson, "apiVersion", "api_version") ?? string.Empty);
 
             providers.Add(new ConfiguredLlmProvider(provider, secret, config));
             secretSpan.SetTag("gnougo.agent.llm.provider", provider);
@@ -2905,6 +2951,7 @@ public sealed class ConfigureProvidersService
             var oidcClientId = outputs["llm_oidc_client_id"]?.GetValue<string>();
             var oidcScopes = outputs["llm_oidc_scopes"]?.GetValue<string>();
             var oidcClientSecret = outputs["llm_oidc_client_secret"]?.GetValue<string>();
+            var apiVersion = outputs["llm_api_version"]?.GetValue<string>();
 
             if (string.IsNullOrWhiteSpace(provider) || string.IsNullOrWhiteSpace(url))
             {
@@ -2924,7 +2971,8 @@ public sealed class ConfigureProvidersService
                 oidcIssuer: oidcIssuer,
                 oidcClientId: oidcClientId,
                 oidcScopes: oidcScopes,
-                oidcClientSecret: oidcClientSecret);
+                oidcClientSecret: oidcClientSecret,
+                apiVersion: apiVersion);
 
             _logger.LogInformation(
                 "LLM provider '{Provider}' applied to runtime options (no restart required).", provider);
@@ -2966,6 +3014,8 @@ public sealed class ConfigureProvidersService
 
         // Run the test call outside try/catch so we can yield the result safely
         string? validationError = null;
+        var providerUrl = _optionsStore.Current.ResolveProvider(provider)?.Url ?? "(unknown)";
+        span.SetTag("http.url", providerUrl);
         try
         {
             await _llm.CallAsync(new GnOuGo.Flow.Core.Runtime.LLMRequest
@@ -2977,15 +3027,19 @@ public sealed class ConfigureProvidersService
         }
         catch (Exception ex)
         {
-            validationError = ex.Message.Contains("401") || ex.Message.Contains("Unauthorized")
-                ? "The API key appears to be invalid or revoked."
-                : ex.Message.Contains("404") || ex.Message.Contains("model")
-                    ? $"Authentication succeeded but model '{model}' was not found. You can change the model with `/llm`."
-                    : ex.Message;
+            var fullMessage = ex.InnerException is not null
+                ? $"{ex.Message} → {ex.InnerException.Message}"
+                : ex.Message;
 
-            _logger.LogWarning("LLM provider '{Provider}' validation failed: {Error}", provider, ex.Message);
+            validationError = fullMessage.Contains("401") || fullMessage.Contains("Unauthorized")
+                ? "The API key appears to be invalid or revoked."
+                : fullMessage.Contains("404") || fullMessage.Contains("model")
+                    ? $"Authentication succeeded but model '{model}' was not found. You can change the model with `/llm`."
+                    : $"{fullMessage} (URL: {providerUrl})";
+
+            _logger.LogWarning(ex, "LLM provider '{Provider}' validation failed (url={Url}): {Error}", provider, providerUrl, fullMessage);
             span.SetTag("error.type", ex.GetType().FullName);
-            span.SetTag("error.message", ex.Message);
+            span.SetTag("error.message", fullMessage);
         }
 
         if (validationError is null)

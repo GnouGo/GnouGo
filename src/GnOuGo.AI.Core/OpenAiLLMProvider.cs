@@ -40,7 +40,9 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     private async Task<LLMClientResponse> CallChatCompletionsAsync(
         string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
     {
-        var url = OpenAiEndpoints.ChatCompletions(provider.Url);
+        var url = OpenAiEndpoints.ChatCompletions(provider.Url, provider.ApiVersion);
+        _logger.LogInformation("OpenAI ChatCompletions call: url={Url}, model={Model}, providerType={ProviderType}, httpVersion={HttpVersion}",
+            url, model, provider.ResolvedType, _http.DefaultRequestVersion);
         var tools = MapTools(request.Tools);
         var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
 
@@ -49,52 +51,72 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             request.StructuredOutputSchema, request.StructuredOutputStrict,
             request.Reasoning);
 
+        _logger.LogInformation("OpenAI request body ({ByteCount} bytes): {Body}",
+            payload.Length, System.Text.Encoding.UTF8.GetString(payload));
+        _logger.LogInformation("OpenAI bearer token present: {HasToken}, token length: {TokenLength}",
+            !string.IsNullOrWhiteSpace(bearerToken), bearerToken?.Length ?? 0);
+
         using var req = HttpRequestHelper.CreateJsonPost(url, payload);
 
         if (!string.IsNullOrWhiteSpace(bearerToken))
             HttpRequestHelper.SetBearerAuth(req, bearerToken);
 
-        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        _logger.LogInformation("OpenAI request headers: {Headers}",
+            string.Join("; ", req.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}")));
 
-        if (!resp.IsSuccessStatusCode)
+        HttpResponseMessage resp;
+        try
         {
-            var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
+            resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        }
+        catch (HttpRequestException ex)
+        {
             throw new HttpRequestException(
-                $"OpenAI chat call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+                $"OpenAI chat call to '{url}' failed: {ex.Message}", ex.InnerException, ex.StatusCode);
         }
 
-        await using var stream = await resp.Content.ReadAsStreamAsync(ct);
-        using var json = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-        var root = json.RootElement;
-
-        var content = ChatResponseParser.ExtractOpenAiContent(root);
-        var toolCalls = ChatResponseParser.ParseOpenAiToolCalls(root);
-        var usage = ChatResponseParser.ExtractUsage(root);
-
-        JsonNode? jsonOutput = null;
-        if (request.StructuredOutputSchema != null && !string.IsNullOrWhiteSpace(content))
+        using (resp)
         {
-            try { jsonOutput = JsonNode.Parse(content); }
-            catch (JsonException ex)
+            if (!resp.IsSuccessStatusCode)
             {
-                _logger.LogDebug(ex, "OpenAI chat completion structured output was not valid JSON for model '{Model}'.", model);
+                var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
+                throw new HttpRequestException(
+                    $"OpenAI chat call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
             }
-        }
 
-        return new LLMClientResponse
-        {
-            Text = content,
-            Json = jsonOutput,
-            Usage = usage,
-            Raw = JsonNode.Parse(root.GetRawText()),
-            ToolCalls = toolCalls
-        };
+            await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+            using var json = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            var root = json.RootElement;
+
+            var content = ChatResponseParser.ExtractOpenAiContent(root);
+            var toolCalls = ChatResponseParser.ParseOpenAiToolCalls(root);
+            var usage = ChatResponseParser.ExtractUsage(root);
+
+            JsonNode? jsonOutput = null;
+            if (request.StructuredOutputSchema != null && !string.IsNullOrWhiteSpace(content))
+            {
+                try { jsonOutput = JsonNode.Parse(content); }
+                catch (JsonException ex)
+                {
+                    _logger.LogDebug(ex, "OpenAI chat completion structured output was not valid JSON for model '{Model}'.", model);
+                }
+            }
+
+            return new LLMClientResponse
+            {
+                Text = content,
+                Json = jsonOutput,
+                Usage = usage,
+                Raw = JsonNode.Parse(root.GetRawText()),
+                ToolCalls = toolCalls
+            };
+        }
     }
 
     private async Task<LLMClientResponse> CallResponsesBackgroundAsync(
         string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
     {
-        var url = OpenAiEndpoints.Responses(provider.Url);
+        var url = OpenAiEndpoints.Responses(provider.Url, provider.ApiVersion);
         var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
 
         byte[] payload = ChatRequestBuilder.OpenAiResponsesBackground(
@@ -210,7 +232,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     /// <inheritdoc />
     public async Task<IReadOnlyList<LLMModelDescriptor>> ListModelsAsync(ModelProviderOptions provider, CancellationToken ct)
     {
-        var url = OpenAiEndpoints.Models(provider.Url);
+        var url = OpenAiEndpoints.Models(provider.Url, provider.ApiVersion);
         using var req = HttpRequestHelper.CreateGet(url);
         var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
 
@@ -253,4 +275,3 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         return Environment.GetEnvironmentVariable("OPENAI_API_KEY");
     }
 }
-

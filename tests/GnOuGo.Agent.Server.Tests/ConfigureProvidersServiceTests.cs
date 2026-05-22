@@ -117,10 +117,48 @@ public sealed class ConfigureProvidersServiceTests
             {
                 Url = "https://api.openai.com/v1",
                 Type = "openai",
-                ApiKey = "wizard-secret"
+                ApiKey = "runtime-secret"
             });
 
         Assert.True(useInjected);
+    }
+
+    [Fact]
+    public void ShouldUseInjectedModelCatalog_ReturnsFalse_WhenRuntimeUsesApiKeyButWizardUsesOidc()
+    {
+        var llm = new RecordingLlmClient();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = "openai",
+            DefaultModel = "gpt-4o-mini",
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "runtime-secret" }
+            }
+        });
+
+        var service = new ConfigureProvidersService(
+            llm,
+            new AgentHumanInputProvider(),
+            new FakeModelCatalog(),
+            new FakeKeyVaultRuntimeConfigStore(),
+            runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<ConfigureProvidersService>.Instance);
+
+        var useInjected = ConfigureProvidersServiceTestHelpers.InvokeShouldUseInjectedModelCatalog(
+            service,
+            "openai",
+            new ModelProviderOptions
+            {
+                Url = "https://api.openai.com/v1",
+                Type = "openai",
+                Issuer = "https://issuer.example.com",
+                ClientId = "client-id",
+                Scopes = "scope.default"
+            });
+
+        Assert.False(useInjected);
     }
 
     [Fact]
@@ -332,6 +370,84 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal(0m, metadata.Pricing!.InputPer1MTokens);
         Assert.Null(metadata.Pricing.CachedInputPer1MTokens);
         Assert.True(metadata.Capabilities.SupportsTools);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LlmAdd_OverwritingDefaultOpenAiApiKeyWithOidcUpdatesRuntimeAndSecret()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret("LLM--Models--openai", "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4o-mini\",\"authType\":\"api_key\",\"apiKey\":\"old-secret\"}");
+        var humanInput = new AgentHumanInputProvider();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = "openai",
+            DefaultModel = "gpt-4o-mini",
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "old-secret" }
+            }
+        });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "llm_add.provider" => new JsonObject { ["response"] = "openai" },
+                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1" },
+                    "llm_add.auth_mode" => new JsonObject { ["response"] = "oidc" },
+                    "llm.auth.oidc" => new JsonObject
+                    {
+                        ["issuer"] = "https://issuer.example.com",
+                        ["client_id"] = "openai-client",
+                        ["scopes"] = "api://openai/.default",
+                        ["client_secret"] = "oidc-secret",
+                        ["api_version"] = "2025-01-01-preview"
+                    },
+                    "llm_model.manual.openai" => new JsonObject { ["model"] = "gpt-4o" },
+                    "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                if (request.StepId == "llm_add.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = new ConfigureProvidersService(
+            llm,
+            humanInput,
+            new FakeModelCatalog(),
+            keyVaultStore,
+            runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<ConfigureProvidersService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
+        await responder;
+
+        Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("LLM provider 'openai' saved", StringComparison.Ordinal) == true);
+        var runtimeOpenAi = runtimeStore.Current.ResolveProvider("openai");
+        Assert.NotNull(runtimeOpenAi);
+        Assert.Null(runtimeOpenAi.ApiKey);
+        Assert.Equal("https://issuer.example.com", runtimeOpenAi.Issuer);
+        Assert.Equal("openai-client", runtimeOpenAi.ClientId);
+        Assert.Equal("api://openai/.default", runtimeOpenAi.Scopes);
+        Assert.Equal("oidc-secret", runtimeOpenAi.ClientSecret);
+        Assert.Equal("2025-01-01-preview", runtimeOpenAi.ApiVersion);
+        Assert.Equal("openai", runtimeStore.Current.DefaultProvider);
+        Assert.Equal("gpt-4o", runtimeStore.Current.DefaultModel);
+
+        var savedJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--openai", CancellationToken.None);
+        var saved = JsonNode.Parse(savedJson!)!.AsObject();
+        Assert.Equal("oidc", saved["authType"]?.GetValue<string>());
+        Assert.Equal("", saved["apiKey"]?.GetValue<string>());
+        Assert.Equal("https://issuer.example.com", saved["oidcIssuer"]?.GetValue<string>());
     }
 
     [Fact]

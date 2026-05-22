@@ -101,7 +101,8 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 Issuer = ReadConfigString(config, "oidcIssuer", "oidc_issuer"),
                 ClientId = ReadConfigString(config, "oidcClientId", "oidc_client_id"),
                 Scopes = ReadConfigString(config, "oidcScopes", "oidc_scopes"),
-                ClientSecret = ReadConfigString(config, "oidcClientSecret", "oidc_client_secret")
+                ClientSecret = ReadConfigString(config, "oidcClientSecret", "oidc_client_secret"),
+                ApiVersion = ReadConfigString(config, "apiVersion", "api_version")
             };
 
             if (string.Equals(effective.DefaultProvider, provider, StringComparison.OrdinalIgnoreCase)
