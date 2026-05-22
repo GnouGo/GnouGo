@@ -11,7 +11,9 @@ public static class OpenAiEndpoints
     {
         var b = endpointUrl.TrimEnd('/');
         string path;
-        if (b.Contains("/deployments/", StringComparison.OrdinalIgnoreCase))
+        if (b.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+            path = b;
+        else if (b.Contains("/deployments/", StringComparison.OrdinalIgnoreCase))
             path = b + "/chat/completions";
         else if (b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
             path = b + "/chat/completions";
@@ -61,7 +63,8 @@ public static class OpenAiEndpoints
         if (string.IsNullOrWhiteSpace(apiVersion))
             return url;
         var separator = url.Contains('?') ? '&' : '?';
-        return $"{url}{separator}api-version={apiVersion}";
+        var encodedApiVersion = global::System.Uri.EscapeDataString(apiVersion);
+        return $"{url}{separator}api-version={encodedApiVersion}";
     }
 }
 

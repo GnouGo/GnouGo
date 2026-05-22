@@ -51,10 +51,10 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             request.StructuredOutputSchema, request.StructuredOutputStrict,
             request.Reasoning);
 
-        _logger.LogInformation("OpenAI request body ({ByteCount} bytes): {Body}",
-            payload.Length, System.Text.Encoding.UTF8.GetString(payload));
-        _logger.LogInformation("OpenAI bearer token present: {HasToken}, token length: {TokenLength}",
-            !string.IsNullOrWhiteSpace(bearerToken), bearerToken?.Length ?? 0);
+        _logger.LogDebug("OpenAI request body prepared ({ByteCount} bytes).",
+            payload.Length);
+        _logger.LogDebug("OpenAI bearer token present: {HasToken}",
+            !string.IsNullOrWhiteSpace(bearerToken));
 
         using var req = HttpRequestHelper.CreateJsonPost(url, payload);
 
@@ -72,7 +72,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         catch (HttpRequestException ex)
         {
             throw new HttpRequestException(
-                $"OpenAI chat call to '{url}' failed: {ex.Message}", ex.InnerException, ex.StatusCode);
+                $"OpenAI chat call to '{url}' failed: {ex.Message}", ex, ex.StatusCode);
         }
 
         using (resp)
