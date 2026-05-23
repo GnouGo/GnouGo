@@ -25,6 +25,26 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         _logger = logger;
     }
 
+    public async Task RunSelfTestAsync(CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            var page = await EnsurePageAsync();
+            await page.SetContentAsync(
+                "<!doctype html><html><head><title>GnOuGo Browser MCP self-test</title></head><body>ok</body></html>",
+                new PageSetContentOptions { Timeout = Math.Min(_settings.DefaultTimeoutMs, 30_000) });
+
+            var title = await page.TitleAsync();
+            if (!string.Equals(title, "GnOuGo Browser MCP self-test", StringComparison.Ordinal))
+                throw new InvalidOperationException($"Browser self-test returned an unexpected page title: '{title}'.");
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public Task<BrowserContentResult> GetContentAsync(
         string? selector,
         string format,
@@ -576,8 +596,12 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         }
         catch (PlaywrightException ex) when (ex.Message.Contains("Executable doesn't exist", StringComparison.OrdinalIgnoreCase))
         {
+            var headedReleaseHint = _settings.Headless
+                ? ""
+                : " Published GnOuGo releases bundle only the Chromium headless shell by default; publish with PublishedPlaywrightChromiumInstallArgs=chromium if Browser:Headless=false is required.";
+
             throw new InvalidOperationException(
-                "Playwright browser binaries are missing. Build the project, then run the generated playwright install script (for example: playwright.ps1 install chromium).",
+                "Playwright browser binaries are missing. Build the project, then run the generated playwright install script (for example: playwright.ps1 install chromium)." + headedReleaseHint,
                 ex);
         }
     }

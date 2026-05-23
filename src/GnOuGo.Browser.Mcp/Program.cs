@@ -14,7 +14,12 @@ AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         Console.Error.WriteLine($"[GnOuGo.Browser.Mcp] Unhandled exception object: {args.ExceptionObject}");
 };
 
-var builder = BrowserHostBootstrap.CreateBuilder(args);
+var runSelfTest = args.Any(arg => string.Equals(arg, "--self-test", StringComparison.OrdinalIgnoreCase));
+var hostArgs = args
+    .Where(arg => !string.Equals(arg, "--self-test", StringComparison.OrdinalIgnoreCase))
+    .ToArray();
+
+var builder = BrowserHostBootstrap.CreateBuilder(hostArgs);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole(options =>
@@ -61,6 +66,14 @@ startupLogger.LogInformation(
 
 try
 {
+    if (runSelfTest)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        await browserHost.RunSelfTestAsync(timeout.Token);
+        startupLogger.LogInformation("Browser self-test completed successfully.");
+        return;
+    }
+
     await host.RunAsync();
 }
 catch (Exception ex)

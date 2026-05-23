@@ -178,11 +178,75 @@ jobs:
             throw "Missing bundled Playwright Chromium executable under: $playwrightRoot"
           }
 
+          $fullChromiumDirs = Get-ChildItem $playwrightRoot -Directory -ErrorAction SilentlyContinue | Where-Object {
+            $_.Name -match '^chromium-[0-9]+$'
+          }
+
+          if ($fullChromiumDirs) {
+            $fullChromiumDirs | Select-Object FullName | Format-Table -AutoSize | Out-String | Write-Host
+            throw "Desktop Browser MCP bundle contains full headed Chromium. Release artifacts must use the Chromium headless shell only to keep ZIP size under control."
+          }
+
           Write-Host "Found bundled Playwright Chromium executable(s):"
           $browserExecutables | Select-Object -First 20 FullName | Format-Table -AutoSize | Out-String | Write-Host
           $browserAppBundles | Select-Object -First 20 FullName | Format-Table -AutoSize | Out-String | Write-Host
           Write-Host "Found bundled Playwright Node driver(s):"
           $playwrightDriverNodes | Select-Object -First 20 FullName | Format-Table -AutoSize | Out-String | Write-Host
+
+          Write-Host "Running bundled Browser MCP Playwright self-test..."
+          $browserToolExecutablePath = $requiredTools[0]
+          & $browserToolExecutablePath --self-test
+          if ($LASTEXITCODE -ne 0) {
+            throw "Bundled Browser MCP Playwright self-test failed with exit code $LASTEXITCODE."
+          }
+
+          function Test-BundledStdioToolStarts {
+            param(
+              [Parameter(Mandatory = $true)]
+              [string] $Path
+            )
+
+            $resolvedPath = (Resolve-Path $Path).Path
+            $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+            $startInfo.FileName = $resolvedPath
+            $startInfo.WorkingDirectory = Split-Path $resolvedPath -Parent
+            $startInfo.UseShellExecute = $false
+            $startInfo.RedirectStandardInput = $true
+            $startInfo.RedirectStandardOutput = $true
+            $startInfo.RedirectStandardError = $true
+            $startInfo.CreateNoWindow = $true
+
+            $process = [System.Diagnostics.Process]::Start($startInfo)
+            if ($null -eq $process) {
+              throw "Failed to start bundled tool: $resolvedPath"
+            }
+
+            try {
+              Start-Sleep -Seconds 3
+              if ($process.HasExited) {
+                $stdout = $process.StandardOutput.ReadToEnd()
+                $stderr = $process.StandardError.ReadToEnd()
+                throw "Bundled tool exited during startup validation: $resolvedPath; exitCode=$($process.ExitCode); stdout=$stdout; stderr=$stderr"
+              }
+
+              $process.Kill($true)
+              $process.WaitForExit()
+              Write-Host "Bundled stdio tool started successfully: $resolvedPath"
+            }
+            finally {
+              if (-not $process.HasExited) {
+                $process.Kill($true)
+                $process.WaitForExit()
+              }
+
+              $process.Dispose()
+            }
+          }
+
+          foreach ($path in $requiredTools | Select-Object -Skip 1) {
+            Write-Host "Validating bundled stdio tool startup: $path"
+            Test-BundledStdioToolStarts -Path $path
+          }
 
           $requiredUiAssets = @(
             "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js",

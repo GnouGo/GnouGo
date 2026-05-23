@@ -97,6 +97,28 @@ powershell -ExecutionPolicy Bypass -File .\src\GnOuGo.Browser.Mcp\bin\Debug\net1
 dotnet run --project .\src\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj
 ```
 
+## Publish and release-size notes
+
+Published desktop/server bundles install Playwright browsers beside the executable under `ms-playwright/`.
+To keep GitHub release archives small, the publish target installs only the Chromium headless shell by default:
+
+```powershell
+dotnet publish .\src\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj -c Release -r win-x64 --self-contained true
+```
+
+This matches the default MCP configuration (`Browser:Headless=true`) and avoids shipping the full headed Chromium bundle.
+If a package explicitly needs headed Chromium, opt back in at publish time:
+
+```powershell
+dotnet publish .\src\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj -c Release -r win-x64 --self-contained true -p:PublishedPlaywrightChromiumInstallArgs=chromium
+```
+
+Use the executable self-test to verify that the bundled Playwright driver and Chromium headless shell still launch correctly:
+
+```powershell
+.\bin\Release\net10.0\win-x64\publish\GnOuGo.Browser.Mcp.exe --self-test
+```
+
 ## Visual Debug Mode
 
 To actually see the browser during execution, the simplest approach is:
