@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.0 - 2026-05-23
+
+- feat(agent): add private_key and rename claude to antropic (#38) (release) (7a1fdad)
+- fix: changelog include more history (08160d1)
+
 ## v0.7.2 - 2026-05-23
 
 - fix(agent): oidc (#37) (release) (119d62e)
