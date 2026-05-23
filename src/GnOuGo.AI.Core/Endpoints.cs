@@ -5,24 +5,37 @@ namespace GnOuGo.AI.Core;
 /// </summary>
 public static class OpenAiEndpoints
 {
-    /// <summary>Builds the chat completions URL (appends /v1/chat/completions if needed).</summary>
-    public static string ChatCompletions(string endpointUrl)
+    /// <summary>Builds the chat completions URL (appends /v1/chat/completions if needed).
+    /// For Azure OpenAI-style deployment URLs (containing /deployments/), appends /chat/completions without /v1.</summary>
+    public static string ChatCompletions(string endpointUrl, string? apiVersion = null)
     {
         var b = endpointUrl.TrimEnd('/');
-        return b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
-            ? b + "/chat/completions"
-            : b + "/v1/chat/completions";
+        string path;
+        if (b.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+            path = b;
+        else if (b.Contains("/deployments/", StringComparison.OrdinalIgnoreCase))
+            path = b + "/chat/completions";
+        else if (b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+            path = b + "/chat/completions";
+        else
+            path = b + "/v1/chat/completions";
+        return AppendApiVersion(path, apiVersion);
     }
-
-    /// <summary>Builds the Responses API URL (appends /v1/responses if needed).</summary>
-    public static string Responses(string endpointUrl)
+    /// <summary>Builds the Responses API URL (appends /v1/responses if needed).
+    /// For Azure OpenAI-style deployment URLs (containing /deployments/), appends /responses without /v1.</summary>
+    public static string Responses(string endpointUrl, string? apiVersion = null)
     {
         var b = endpointUrl.TrimEnd('/');
+        string path;
         if (b.EndsWith("/responses", StringComparison.OrdinalIgnoreCase))
-            return b;
-        return b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
-            ? b + "/responses"
-            : b + "/v1/responses";
+            path = b;
+        else if (b.Contains("/deployments/", StringComparison.OrdinalIgnoreCase))
+            path = b + "/responses";
+        else
+            path = b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
+                ? b + "/responses"
+                : b + "/v1/responses";
+        return AppendApiVersion(path, apiVersion);
     }
 
     /// <summary>Builds the embeddings URL (appends /v1/embeddings if needed).</summary>
@@ -35,12 +48,23 @@ public static class OpenAiEndpoints
     }
 
     /// <summary>Builds the models URL (appends /v1/models if needed).</summary>
-    public static string Models(string endpointUrl)
+    public static string Models(string endpointUrl, string? apiVersion = null)
     {
         var b = endpointUrl.TrimEnd('/');
-        return b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
+        var path = b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
             ? b + "/models"
             : b + "/v1/models";
+        return AppendApiVersion(path, apiVersion);
+    }
+
+    /// <summary>Appends ?api-version=... to a URL if apiVersion is specified.</summary>
+    internal static string AppendApiVersion(string url, string? apiVersion)
+    {
+        if (string.IsNullOrWhiteSpace(apiVersion))
+            return url;
+        var separator = url.Contains('?') ? '&' : '?';
+        var encodedApiVersion = global::System.Uri.EscapeDataString(apiVersion);
+        return $"{url}{separator}api-version={encodedApiVersion}";
     }
 }
 

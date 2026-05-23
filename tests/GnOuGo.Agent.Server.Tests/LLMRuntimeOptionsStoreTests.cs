@@ -130,6 +130,88 @@ public sealed class LlmRuntimeOptionsStoreTests
         Assert.Equal("claude", provider.Type);
         Assert.Equal("claude", provider.ResolvedType);
     }
+
+    [Fact]
+    public void UpdateProvider_SwitchingOpenAiFromApiKeyToOidcClearsApiKey()
+    {
+        var store = new LLMRuntimeOptionsStore(
+            Options.Create(new LLMOptions
+            {
+                DefaultProvider = "openai",
+                DefaultModel = "gpt-4o-mini",
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "old-secret" }
+                }
+            }),
+            NullLogger<LLMRuntimeOptionsStore>.Instance);
+
+        store.UpdateProvider(
+            providerKey: "openai",
+            url: "https://api.openai.com/v1",
+            model: "gpt-4o",
+            apiKey: "",
+            authType: "oidc",
+            oidcIssuer: "https://issuer.example.com",
+            oidcClientId: "openai-client",
+            oidcScopes: "api://openai/.default",
+            oidcClientSecret: "oidc-secret",
+            apiVersion: "2025-01-01-preview");
+
+        var provider = store.Current.ResolveProvider("openai");
+        Assert.NotNull(provider);
+        Assert.Equal("openai", provider.Type);
+        Assert.Null(provider.ApiKey);
+        Assert.Equal("https://issuer.example.com", provider.Issuer);
+        Assert.Equal("openai-client", provider.ClientId);
+        Assert.Equal("api://openai/.default", provider.Scopes);
+        Assert.Equal("oidc-secret", provider.ClientSecret);
+        Assert.Equal("2025-01-01-preview", provider.ApiVersion);
+        Assert.Equal("gpt-4o", store.Current.DefaultModel);
+    }
+
+    [Fact]
+    public void UpdateProvider_SwitchingOpenAiFromOidcToApiKeyClearsOidcFields()
+    {
+        var store = new LLMRuntimeOptionsStore(
+            Options.Create(new LLMOptions
+            {
+                DefaultProvider = "openai",
+                DefaultModel = "gpt-4o",
+                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["openai"] = new()
+                    {
+                        Url = "https://api.openai.com/v1",
+                        Type = "openai",
+                        Issuer = "https://issuer.example.com",
+                        ClientId = "openai-client",
+                        Scopes = "api://openai/.default",
+                        ClientSecret = "oidc-secret",
+                        ApiVersion = "2025-01-01-preview"
+                    }
+                }
+            }),
+            NullLogger<LLMRuntimeOptionsStore>.Instance);
+
+        store.UpdateProvider(
+            providerKey: "openai",
+            url: "https://api.openai.com/v1",
+            model: "gpt-4o-mini",
+            apiKey: "new-secret",
+            authType: "api_key");
+
+        var provider = store.Current.ResolveProvider("openai");
+        Assert.NotNull(provider);
+        Assert.Equal("openai", provider.Type);
+        Assert.Equal("new-secret", provider.ApiKey);
+        Assert.Null(provider.Issuer);
+        Assert.Null(provider.ClientId);
+        Assert.Null(provider.Scopes);
+        Assert.Null(provider.ClientSecret);
+        Assert.Null(provider.ApiVersion);
+        Assert.Equal("gpt-4o-mini", store.Current.DefaultModel);
+    }
 }
 
 

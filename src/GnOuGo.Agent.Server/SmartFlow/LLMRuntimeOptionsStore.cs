@@ -61,7 +61,8 @@ public sealed class LLMRuntimeOptionsStore
         string? oidcIssuer = null,
         string? oidcClientId = null,
         string? oidcScopes = null,
-        string? oidcClientSecret = null)
+        string? oidcClientSecret = null,
+        string? apiVersion = null)
     {
         lock (_lock)
         {
@@ -84,16 +85,64 @@ public sealed class LLMRuntimeOptionsStore
                 existing = new ModelProviderOptions();
 
             existing.Url = url;
-            if (!string.IsNullOrWhiteSpace(apiKey))
-                existing.ApiKey = apiKey;
-            if (!string.IsNullOrWhiteSpace(authType))
-                existing.Type = authType == "api_key" || authType == "none" || authType == "copilot_env"
-                    ? existing.Type ?? NormalizeProviderType(providerKey)  // keep existing Type (openai/ollama/copilot/claude) or initialize from key
+            var normalizedAuthType = authType?.Trim().ToLowerInvariant();
+            if (!string.IsNullOrWhiteSpace(normalizedAuthType))
+            {
+                existing.Type = IsAuthenticationMode(normalizedAuthType)
+                    ? IsAuthenticationMode(existing.Type) || string.IsNullOrWhiteSpace(existing.Type)
+                        ? NormalizeProviderType(providerKey)
+                        : existing.Type
                     : authType;
-            if (!string.IsNullOrWhiteSpace(oidcIssuer)) existing.Issuer = oidcIssuer;
-            if (!string.IsNullOrWhiteSpace(oidcClientId)) existing.ClientId = oidcClientId;
-            if (!string.IsNullOrWhiteSpace(oidcScopes)) existing.Scopes = oidcScopes;
-            if (!string.IsNullOrWhiteSpace(oidcClientSecret)) existing.ClientSecret = oidcClientSecret;
+
+                switch (normalizedAuthType)
+                {
+                    case "oidc":
+                        existing.ApiKey = null;
+                        existing.Issuer = NullIfWhiteSpace(oidcIssuer);
+                        existing.ClientId = NullIfWhiteSpace(oidcClientId);
+                        existing.Scopes = NullIfWhiteSpace(oidcScopes);
+                        existing.ClientSecret = NullIfWhiteSpace(oidcClientSecret);
+                        existing.ApiVersion = NullIfWhiteSpace(apiVersion);
+                        break;
+
+                    case "api_key":
+                        existing.ApiKey = NullIfWhiteSpace(apiKey);
+                        existing.Issuer = null;
+                        existing.ClientId = null;
+                        existing.Scopes = null;
+                        existing.ClientSecret = null;
+                        existing.ApiVersion = NullIfWhiteSpace(apiVersion);
+                        break;
+
+                    case "none":
+                    case "copilot_env":
+                        existing.ApiKey = null;
+                        existing.Issuer = null;
+                        existing.ClientId = null;
+                        existing.Scopes = null;
+                        existing.ClientSecret = null;
+                        existing.ApiVersion = NullIfWhiteSpace(apiVersion);
+                        break;
+
+                    default:
+                        if (!string.IsNullOrWhiteSpace(apiKey)) existing.ApiKey = apiKey;
+                        if (!string.IsNullOrWhiteSpace(oidcIssuer)) existing.Issuer = oidcIssuer;
+                        if (!string.IsNullOrWhiteSpace(oidcClientId)) existing.ClientId = oidcClientId;
+                        if (!string.IsNullOrWhiteSpace(oidcScopes)) existing.Scopes = oidcScopes;
+                        if (!string.IsNullOrWhiteSpace(oidcClientSecret)) existing.ClientSecret = oidcClientSecret;
+                        if (!string.IsNullOrWhiteSpace(apiVersion)) existing.ApiVersion = apiVersion;
+                        break;
+                }
+            }
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(apiKey)) existing.ApiKey = apiKey;
+                if (!string.IsNullOrWhiteSpace(oidcIssuer)) existing.Issuer = oidcIssuer;
+                if (!string.IsNullOrWhiteSpace(oidcClientId)) existing.ClientId = oidcClientId;
+                if (!string.IsNullOrWhiteSpace(oidcScopes)) existing.Scopes = oidcScopes;
+                if (!string.IsNullOrWhiteSpace(oidcClientSecret)) existing.ClientSecret = oidcClientSecret;
+                if (!string.IsNullOrWhiteSpace(apiVersion)) existing.ApiVersion = apiVersion;
+            }
 
             // Use the existing key casing if found, otherwise use the provided key
             var finalKey = existingKey ?? providerKey;
@@ -245,6 +294,7 @@ public sealed class LLMRuntimeOptionsStore
                 ClientId = kv.Value.ClientId,
                 ClientSecret = kv.Value.ClientSecret,
                 Scopes = kv.Value.Scopes,
+                ApiVersion = kv.Value.ApiVersion,
             };
         }
         foreach (var kv in src.McpServers)
@@ -260,6 +310,16 @@ public sealed class LLMRuntimeOptionsStore
             "anthropic" => "claude",
             var normalized => normalized
         };
+
+    private static bool IsAuthenticationMode(string? value)
+        => value is not null
+           && (string.Equals(value, "api_key", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "none", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "copilot_env", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "oidc", StringComparison.OrdinalIgnoreCase));
+
+    private static string? NullIfWhiteSpace(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value;
 
     private static McpServerOptions CloneMcpServerOptions(McpServerOptions source)
         => new()
@@ -278,4 +338,3 @@ public sealed class LLMRuntimeOptionsStore
             Args = source.Args is null ? null : [.. source.Args]
         };
 }
-

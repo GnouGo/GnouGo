@@ -24,7 +24,8 @@ public sealed class SecureWorkflowRuntimeFactory
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
     {
         var options = await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, ct);
-        var http = new HttpClient { Timeout = LLMHttpClientDefaults.MinimumTimeout };
+        var sslLogger = _loggerFactory.CreateLogger("GnOuGo.AI.Core.SSL");
+        var http = LLMHttpClientFactory.Create(options.DangerousAcceptAnyServerCertificate, LLMHttpClientDefaults.MinimumTimeout, sslLogger);
         IMcpClientFactory mcpFactory = options.McpServers.Count > 0
             ? new ConfiguredMcpClientFactory(options.McpServers)
             : new InMemoryMcpClientFactory();
