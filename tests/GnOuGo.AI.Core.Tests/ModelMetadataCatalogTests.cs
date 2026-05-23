@@ -229,7 +229,7 @@ public sealed class ModelMetadataCatalogTests
         var metadata = resolver.Resolve("anthropic", "claude-sonnet-4-20250514");
 
         Assert.Equal("claude-sonnet-4-20250514", metadata.Id);
-        Assert.Equal("claude", metadata.ProviderType);
+        Assert.Equal("anthropic", metadata.ProviderType);
         Assert.Equal(3.0m, metadata.Pricing!.InputPer1MTokens);
     }
 

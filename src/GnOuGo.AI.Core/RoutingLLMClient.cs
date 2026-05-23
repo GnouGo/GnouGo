@@ -105,7 +105,7 @@ public sealed class RoutingLLMClient
             {
                 foreach (var kv in _options.Models)
                 {
-                    if (string.Equals(kv.Value.ResolvedType, "claude", StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(kv.Value.ResolvedType, "anthropic", StringComparison.OrdinalIgnoreCase))
                         return kv.Key;
                 }
             }
@@ -143,7 +143,7 @@ public sealed class RoutingLLMClient
         new OpenAiLLMProvider(http, loggerFactory?.CreateLogger<OpenAiLLMProvider>()),
         new OllamaLLMProvider(http, loggerFactory?.CreateLogger<OllamaLLMProvider>()),
         new CopilotLLMProvider(http, loggerFactory?.CreateLogger<CopilotLLMProvider>()),
-        new ClaudeLLMProvider(http, loggerFactory?.CreateLogger<ClaudeLLMProvider>())
+        new AnthropicLLMProvider(http, loggerFactory?.CreateLogger<AnthropicLLMProvider>())
     ];
 }
 

@@ -9,27 +9,31 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace GnOuGo.AI.Core;
 
 /// <summary>
-/// LLM provider for Claude models through the Anthropic Messages API.
+/// LLM provider for Anthropic models through the Anthropic Messages API.
 /// </summary>
-public sealed class ClaudeLLMProvider : ILLMProvider, ILLMModelCatalogProvider
+public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 {
 	public const string DefaultEndpoint = "https://api.anthropic.com/v1";
 	private const string AnthropicVersion = "2023-06-01";
 
 	private readonly HttpClient _http;
-	private readonly ILogger<ClaudeLLMProvider> _logger;
+	private readonly ILogger<AnthropicLLMProvider> _logger;
 
-	public ClaudeLLMProvider(HttpClient http, ILogger<ClaudeLLMProvider>? logger = null)
+	public AnthropicLLMProvider(HttpClient http, ILogger<AnthropicLLMProvider>? logger = null)
 	{
 		_http = http;
-		_logger = logger ?? NullLogger<ClaudeLLMProvider>.Instance;
+		_logger = logger ?? NullLogger<AnthropicLLMProvider>.Instance;
 		LLMHttpClientDefaults.EnsureMinimumTimeout(_http);
 	}
 
-	/// <inheritdoc />
-	public string ProviderType => "claude";
+	/// <summary>
+	/// Canonical provider type handled by this provider implementation.
+	/// </summary>
+	public string ProviderType => "anthropic";
 
-	/// <inheritdoc />
+	/// <summary>
+	/// Sends a chat request to the Anthropic Messages API.
+	/// </summary>
 	public async Task<LLMClientResponse> CallAsync(
 		string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
 	{
@@ -46,7 +50,7 @@ public sealed class ClaudeLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 		{
 			var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
 			throw new HttpRequestException(
-				$"Claude chat call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+				$"Anthropic chat call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
 		}
 
 		await using var stream = await resp.Content.ReadAsStreamAsync(ct);
@@ -63,7 +67,7 @@ public sealed class ClaudeLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 			try { jsonOutput = JsonNode.Parse(content); }
 			catch (JsonException ex)
 			{
-				_logger.LogDebug(ex, "Claude structured output was not valid JSON for model '{Model}'.", model);
+				_logger.LogDebug(ex, "Anthropic structured output was not valid JSON for model '{Model}'.", model);
 			}
 		}
 
@@ -77,7 +81,9 @@ public sealed class ClaudeLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 		};
 	}
 
-	/// <inheritdoc />
+	/// <summary>
+	/// Lists the models exposed by the configured Anthropic-compatible endpoint.
+	/// </summary>
 	public async Task<IReadOnlyList<LLMModelDescriptor>> ListModelsAsync(ModelProviderOptions provider, CancellationToken ct)
 	{
 		var url = BuildModelsUrl(provider.Url);
@@ -91,7 +97,7 @@ public sealed class ClaudeLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 		{
 			var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
 			throw new HttpRequestException(
-				$"Claude model list call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+				$"Anthropic model list call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
 		}
 
 		await using var stream = await resp.Content.ReadAsStreamAsync(ct);
@@ -261,7 +267,7 @@ public sealed class ClaudeLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 				continue;
 
 			var displayName = TryGetString(item, "display_name") ?? TryGetString(item, "name") ?? id;
-			results.Add(new LLMModelDescriptor(id, displayName, "claude", "anthropic"));
+			results.Add(new LLMModelDescriptor(id, displayName, "anthropic", "anthropic"));
 		}
 
 		return results
@@ -279,11 +285,11 @@ public sealed class ClaudeLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 			   ?? Environment.GetEnvironmentVariable("CLAUDE_API_KEY");
 	}
 
-	private async Task<ClaudeAuth> ResolveAuthAsync(ModelProviderOptions provider, CancellationToken ct)
+	private async Task<AnthropicAuth> ResolveAuthAsync(ModelProviderOptions provider, CancellationToken ct)
 	{
 		var apiKey = ResolveApiKey(provider);
 		if (!string.IsNullOrWhiteSpace(apiKey))
-			return new ClaudeAuth(apiKey, null);
+			return new AnthropicAuth(apiKey, null);
 
 		if (HasOidcConfiguration(provider))
 		{
@@ -296,13 +302,13 @@ public sealed class ClaudeLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 					provider.Scopes!,
 					provider.ClientSecret,
 					provider.PrivateKeyPem));
-			return new ClaudeAuth(null, await tokenProvider.GetApiKeyAsync(ct));
+			return new AnthropicAuth(null, await tokenProvider.GetApiKeyAsync(ct));
 		}
 
-		return new ClaudeAuth(null, null);
+		return new AnthropicAuth(null, null);
 	}
 
-	private static void ApplyHeaders(HttpRequestMessage req, ClaudeAuth auth)
+	private static void ApplyHeaders(HttpRequestMessage req, AnthropicAuth auth)
 	{
 		req.Headers.TryAddWithoutValidation("anthropic-version", AnthropicVersion);
 		if (!string.IsNullOrWhiteSpace(auth.ApiKey))
@@ -352,6 +358,8 @@ Schema:
 			? property.GetString()
 			: null;
 
-	private sealed record ClaudeAuth(string? ApiKey, string? BearerToken);
+	private sealed record AnthropicAuth(string? ApiKey, string? BearerToken);
 }
+
+
 

@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 
 namespace GnOuGo.AI.Core.Tests;
 
-public sealed class ClaudeLlmProviderTests
+public sealed class AnthropicLlmProviderTests
 {
     [Fact]
     public async Task CallAsync_SendsAnthropicMessagesRequestAndParsesResponse()
@@ -32,11 +32,11 @@ public sealed class ClaudeLlmProviderTests
         });
 
         using var http = new HttpClient(handler);
-        var provider = new ClaudeLLMProvider(http);
+        var provider = new AnthropicLLMProvider(http);
 
         var response = await provider.CallAsync(
             "claude-sonnet-4-20250514",
-            new ModelProviderOptions { Url = "https://api.anthropic.test/v1", ApiKey = "sk-ant", Type = "claude" },
+            new ModelProviderOptions { Url = "https://api.anthropic.test/v1", ApiKey = "sk-ant", Type = "anthropic" },
             new LLMClientRequest
             {
                 Prompt = "Hello",
@@ -107,7 +107,7 @@ public sealed class ClaudeLlmProviderTests
         });
 
         using var http = new HttpClient(handler);
-        var provider = new ClaudeLLMProvider(http);
+        var provider = new AnthropicLLMProvider(http);
 
         var models = await provider.ListModelsAsync(
             new ModelProviderOptions { Url = "https://api.anthropic.test/v1", ApiKey = "sk-ant", Type = "anthropic" },
@@ -119,7 +119,7 @@ public sealed class ClaudeLlmProviderTests
             {
                 Assert.Equal("claude-sonnet-4-20250514", model.Id);
                 Assert.Equal("Claude Sonnet 4", model.DisplayName);
-                Assert.Equal("claude", model.ProviderType);
+                Assert.Equal("anthropic", model.ProviderType);
                 Assert.Equal("anthropic", model.OwnedBy);
             },
             model => Assert.Equal("claude-3-5-haiku-20241022", model.Id));
@@ -130,7 +130,7 @@ public sealed class ClaudeLlmProviderTests
     [InlineData("https://api.anthropic.com/v1", "https://api.anthropic.com/v1/messages")]
     [InlineData("https://proxy.example/v1/messages", "https://proxy.example/v1/messages")]
     public void BuildMessagesUrl_NormalizesEndpoint(string input, string expected)
-        => Assert.Equal(expected, ClaudeLLMProvider.BuildMessagesUrl(input));
+        => Assert.Equal(expected, AnthropicLLMProvider.BuildMessagesUrl(input));
 
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
     {
@@ -150,5 +150,6 @@ public sealed class ClaudeLlmProviderTests
             => _handler(request);
     }
 }
+
 
 

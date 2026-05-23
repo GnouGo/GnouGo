@@ -128,7 +128,7 @@ public sealed class LlmRuntimeOptionsStoreTests
         Assert.True(store.Current.Models.TryGetValue("anthropic", out var provider));
         Assert.NotNull(provider);
         Assert.Equal("anthropic", provider.Type);
-        Assert.Equal("claude", provider.ResolvedType);
+        Assert.Equal("anthropic", provider.ResolvedType);
     }
 
     [Fact]

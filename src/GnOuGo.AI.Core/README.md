@@ -27,7 +27,7 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 - `RoutingLLMClient` removes unsupported optional fields (for example `temperature` on reasoning models) before calling the provider.
 - Builtin metadata is authored in `Telemetry/model-metadata.json`; pricing is stored under each model's `pricing` object.
 - Builtin and external metadata can use provider-qualified keys such as `openai/gpt-4o`, `copilot/gpt-4o`, `claude/claude-sonnet-4-20250514`, or `ollama/llama3.1` when the same model id exists on multiple providers with different limits or pricing.
-- `scripts/update-model-metadata.ps1 -DownloadLatest` and `scripts/update-model-metadata.sh --download-latest` synchronize the builtin catalog from LiteLLM for the supported providers (`openai`, `claude`/`anthropic`, `copilot`/GitHub Models, and `ollama`) and regenerate `ModelMetadataCatalog.Generated.cs`.
+- `scripts/update-model-metadata.ps1 -DownloadLatest` and `scripts/update-model-metadata.sh --download-latest` synchronize the builtin catalog from LiteLLM for the supported providers (`openai`, `anthropic`/`claude`, `copilot`/GitHub Models, and `ollama`) and regenerate `ModelMetadataCatalog.Generated.cs`.
 
 Metadata precedence is:
 
@@ -173,7 +173,7 @@ Anthropic supports text responses, tool use (`tool_use` blocks), live model disc
 
 Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `null`).
 
-| Value           | OpenAI / Copilot (GitHub Models)        | Ollama                | Claude / Anthropic         |
+| Value           | OpenAI / Copilot (GitHub Models)        | Ollama                | Anthropic / Claude         |
 |-----------------|-----------------------------------------|-----------------------|----------------------------|
 | `null` / `auto` | field omitted (provider default)        | field omitted         | field omitted              |
 | `minimal`       | `reasoning_effort: "minimal"`           | `think: true`         | `thinking.budget_tokens=1024` |
@@ -183,7 +183,7 @@ Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `n
 | `none` / `off`  | (treated as `auto`)                     | `think: false`        | field omitted              |
 
 Models that don't support thinking have the field removed by `LLMRequestSanitizer` before the provider call.
-Provider-specific mapping lives in `ChatRequestBuilder.NormalizeOpenAiReasoning`, `NormalizeOllamaThink`, and `ClaudeLLMProvider.NormalizeThinkingBudget`.
+Provider-specific mapping lives in `ChatRequestBuilder.NormalizeOpenAiReasoning`, `NormalizeOllamaThink`, and `AnthropicLLMProvider.NormalizeThinkingBudget`.
 
 ## Build
 

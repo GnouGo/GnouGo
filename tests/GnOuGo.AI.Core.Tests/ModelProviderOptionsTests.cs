@@ -11,8 +11,8 @@ public class ModelProviderOptionsTests
     [InlineData("openai", "openai")]
     [InlineData("ollama", "ollama")]
     [InlineData("copilot", "copilot")]
-    [InlineData("claude", "claude")]
-    [InlineData("anthropic", "claude")]
+    [InlineData("claude", "anthropic")]
+    [InlineData("anthropic", "anthropic")]
     [InlineData("Copilot", "copilot")]
     [InlineData("OPENAI", "openai")]
     public void ResolvedType_UsesExplicitType(string type, string expected)
@@ -25,8 +25,8 @@ public class ModelProviderOptionsTests
     [InlineData("http://localhost:11434", "ollama")]
     [InlineData("http://my-ollama-server:11434", "ollama")]
     [InlineData("https://api.openai.com/v1", "openai")]
-    [InlineData("https://api.anthropic.com/v1", "claude")]
-    [InlineData("https://claude-proxy.example.com/v1", "claude")]
+    [InlineData("https://api.anthropic.com/v1", "anthropic")]
+    [InlineData("https://claude-proxy.example.com/v1", "anthropic")]
     [InlineData("https://models.github.ai/inference", "copilot")]
     [InlineData("https://copilot-proxy.example.com/v1", "copilot")]
     public void ResolvedType_InfersFromUrl(string url, string expected)

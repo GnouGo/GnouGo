@@ -1042,7 +1042,7 @@ public sealed class ConfigureProvidersServiceTests
         Assert.True(runtimeStore.Current.Models.TryGetValue("anthropic", out var runtimeProvider));
         Assert.NotNull(runtimeProvider);
         Assert.Equal("anthropic", runtimeProvider.Type);
-        Assert.Equal("claude", runtimeProvider.ResolvedType);
+        Assert.Equal("anthropic", runtimeProvider.ResolvedType);
         Assert.Equal("anthropic", runtimeStore.Current.DefaultProvider);
         Assert.Equal("claude-sonnet-4-20250514", runtimeStore.Current.DefaultModel);
 
