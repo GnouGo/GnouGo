@@ -293,7 +293,7 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("llama3:8b", runtimeStore.Current.DefaultModel);
 
         var configJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--ollama", CancellationToken.None);
-        var config = JsonNode.Parse(configJson!)?.AsObject();
+        var config = JsonNode.Parse(configJson)?.AsObject();
         Assert.NotNull(config);
         Assert.Equal("llama3:8b", config["model"]?.GetValue<string>());
         Assert.Equal(0, llm.CallCount);
@@ -884,6 +884,95 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("openai", runtimeStore.Current.DefaultProvider);
         Assert.Equal("gpt-4o-mini", runtimeStore.Current.DefaultModel);
         Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "⭐ Provider 'openai' was set as the default LLM with model 'gpt-4o-mini'.");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LlmAdd_CanConfigureOidcWithPrivateKeyPem()
+    {
+        const string privateKeyPem = "-----BEGIN PRIVATE KEY-----\nMIIBVwIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEArandomtestkey\n-----END PRIVATE KEY-----";
+
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
+        var modelCatalog = new FakeModelCatalog()
+            .Add("openai",
+                new LLMModelDescriptor("gpt-4o-mini", "gpt-4o-mini", "openai", "openai"));
+
+        var humanInput = new AgentHumanInputProvider();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = string.Empty,
+            DefaultModel = string.Empty,
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+        });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "llm_add.provider" => new JsonObject { ["response"] = "openai" },
+                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1" },
+                    "llm_add.auth_mode" => new JsonObject { ["response"] = "oidc" },
+                    "llm.auth.oidc" => new JsonObject
+                    {
+                        ["issuer"] = "https://issuer.example",
+                        ["client_id"] = "client-id",
+                        ["scopes"] = "models.read",
+                        ["client_secret"] = string.Empty,
+                        ["private_key_pem"] = privateKeyPem,
+                        ["api_version"] = "2025-01-01-preview"
+                    },
+                    "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-4o-mini" },
+                    "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId == "llm_add.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = new ConfigureProvidersService(
+            llm,
+            humanInput,
+            modelCatalog,
+            keyVaultStore,
+            runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<ConfigureProvidersService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
+        await responder;
+
+        var configJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--openai", CancellationToken.None);
+        Assert.NotNull(configJson);
+
+        var config = JsonNode.Parse(configJson!)?.AsObject();
+        Assert.NotNull(config);
+        Assert.Equal("oidc", config["authType"]?.GetValue<string>());
+        Assert.Equal("https://issuer.example", config["oidcIssuer"]?.GetValue<string>());
+        Assert.Equal("client-id", config["oidcClientId"]?.GetValue<string>());
+        Assert.Equal("models.read", config["oidcScopes"]?.GetValue<string>());
+        Assert.Equal(privateKeyPem, config["oidcPrivateKeyPem"]?.GetValue<string>());
+        Assert.Equal("", config["oidcClientSecret"]?.GetValue<string>());
+
+        Assert.True(runtimeStore.Current.Models.TryGetValue("openai", out var runtimeProvider));
+        Assert.NotNull(runtimeProvider);
+        Assert.Equal("https://issuer.example", runtimeProvider.Issuer);
+        Assert.Equal("client-id", runtimeProvider.ClientId);
+        Assert.Equal("models.read", runtimeProvider.Scopes);
+        Assert.Equal(privateKeyPem, runtimeProvider.PrivateKeyPem);
+        Assert.Null(runtimeProvider.ClientSecret);
+        Assert.Equal("2025-01-01-preview", runtimeProvider.ApiVersion);
+        Assert.Equal("openai", runtimeStore.Current.DefaultProvider);
+        Assert.Equal("gpt-4o-mini", runtimeStore.Current.DefaultModel);
+
+        Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'openai' is ready.");
     }
 
     [Fact]

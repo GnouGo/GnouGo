@@ -294,7 +294,8 @@ public sealed class ClaudeLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 					provider.Issuer!,
 					provider.ClientId!,
 					provider.Scopes!,
-					provider.ClientSecret));
+					provider.ClientSecret,
+					provider.PrivateKeyPem));
 			return new ClaudeAuth(null, await tokenProvider.GetApiKeyAsync(ct));
 		}
 
@@ -328,7 +329,8 @@ Schema:
 		=> !string.IsNullOrWhiteSpace(provider.Issuer)
 		   || !string.IsNullOrWhiteSpace(provider.ClientId)
 		   || !string.IsNullOrWhiteSpace(provider.Scopes)
-		   || !string.IsNullOrWhiteSpace(provider.ClientSecret);
+		   || !string.IsNullOrWhiteSpace(provider.ClientSecret)
+		   || !string.IsNullOrWhiteSpace(provider.PrivateKeyPem);
 
 	private static void ValidateOidcConfiguration(ModelProviderOptions provider)
 	{
@@ -338,6 +340,11 @@ Schema:
 			throw new InvalidOperationException("OIDC client_id is required when OIDC authentication is configured.");
 		if (string.IsNullOrWhiteSpace(provider.Scopes))
 			throw new InvalidOperationException("OIDC scopes are required when OIDC authentication is configured.");
+		if (string.IsNullOrWhiteSpace(provider.ClientSecret)
+			&& string.IsNullOrWhiteSpace(provider.PrivateKeyPem))
+		{
+			throw new InvalidOperationException("OIDC client_secret or private_key_pem is required when OIDC authentication is configured.");
+		}
 	}
 
 	private static string? TryGetString(JsonElement element, string name)

@@ -1,8 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Json;
-using GnOuGo.AI.Core;
 
 namespace GnOuGo.AI.Core.Tests;
 
@@ -320,7 +318,7 @@ public sealed class ModelCatalogProviderTests
     [Fact]
     public async Task CopilotProvider_ListModelsAsync_ThrowsOnUnauthorizedDiscovery()
     {
-        var handler = new StubHttpMessageHandler(req =>
+        var handler = new StubHttpMessageHandler(_ =>
         {
             return new HttpResponseMessage(HttpStatusCode.Unauthorized)
             {

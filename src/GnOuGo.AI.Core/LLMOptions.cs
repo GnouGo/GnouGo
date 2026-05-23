@@ -84,6 +84,9 @@ public sealed class ModelProviderOptions
     /// <summary>OAuth2 client secret.</summary>
     public string? ClientSecret { get; set; }
 
+    /// <summary>OAuth2 private key PEM used for client assertion authentication.</summary>
+    public string? PrivateKeyPem { get; set; }
+
     /// <summary>OAuth2 scopes (space-separated).</summary>
     public string? Scopes { get; set; }
 

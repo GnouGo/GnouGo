@@ -611,6 +611,7 @@ public sealed class ConfigureProvidersService
             oidcClientId: selectedConfig.Config.OidcClientId,
             oidcScopes: selectedConfig.Config.OidcScopes,
             oidcClientSecret: selectedConfig.Config.OidcClientSecret,
+            oidcPrivateKeyPem: selectedConfig.Config.OidcPrivateKeyPem,
             apiVersion: selectedConfig.Config.ApiVersion);
 
         if (!_optionsStore.SetDefaultProvider(selectedConfig.Provider, model))
@@ -1677,7 +1678,7 @@ public sealed class ConfigureProvidersService
         if (string.Equals(authType, "none", StringComparison.OrdinalIgnoreCase)
             || string.Equals(authType, "copilot_env", StringComparison.OrdinalIgnoreCase))
         {
-            setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", authType, "", "", "", "", ""));
+            setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", authType, "", "", "", "", "", ""));
             span.SetStatus(ActivityStatusCode.Ok);
             yield break;
         }
@@ -1701,7 +1702,7 @@ public sealed class ConfigureProvidersService
             await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
                 yield return evt;
             var apiKey = ReadFieldResponse(response, request.Fields!).GetValueOrDefault("api_key") ?? "";
-            setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", "api_key", apiKey, "", "", "", ""));
+            setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", "api_key", apiKey, "", "", "", "", ""));
             span.SetStatus(ActivityStatusCode.Ok);
             yield break;
         }
@@ -1716,7 +1717,8 @@ public sealed class ConfigureProvidersService
                     new HumanInputFieldDef { Name = "issuer", Type = "string", Required = true, Description = "OIDC Issuer URL", Default = existing?.OidcIssuer ?? "" },
                     new HumanInputFieldDef { Name = "client_id", Type = "string", Required = true, Description = "OAuth2 Client ID", Default = existing?.OidcClientId ?? "" },
                     new HumanInputFieldDef { Name = "scopes", Type = "string", Required = true, Description = "Space-separated scopes", Default = existing?.OidcScopes ?? "" },
-                    new HumanInputFieldDef { Name = "client_secret", Type = "string", Required = false, Description = "Client secret" },
+                    new HumanInputFieldDef { Name = "client_secret", Type = "string", Required = false, Description = "Client secret (optional when using private_key_pem)" },
+                    new HumanInputFieldDef { Name = "private_key_pem", Type = "string", Required = false, Description = "RSA private key PEM (optional when using client_secret)" },
                     new HumanInputFieldDef { Name = "api_version", Type = "string", Required = false, Description = "API version query param (e.g. 2025-01-01-preview)", Default = existing?.ApiVersion ?? "" }
                 ]);
             await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
@@ -1731,12 +1733,13 @@ public sealed class ConfigureProvidersService
                 fields.GetValueOrDefault("client_id") ?? "",
                 fields.GetValueOrDefault("scopes") ?? "",
                 fields.GetValueOrDefault("client_secret") ?? "",
+                fields.GetValueOrDefault("private_key_pem") ?? "",
                 fields.GetValueOrDefault("api_version") ?? ""));
             span.SetStatus(ActivityStatusCode.Ok);
             yield break;
         }
 
-        setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", authType, "", "", "", "", "", existing?.ApiVersion ?? ""));
+        setConfig(new LlmProviderConfig(existing?.Url ?? "", existing?.Model ?? "", authType, "", "", "", "", "", "", existing?.ApiVersion ?? ""));
         span.SetStatus(ActivityStatusCode.Ok);
     }
 
@@ -1976,6 +1979,7 @@ public sealed class ConfigureProvidersService
             ClientId = auth.OidcClientId,
             Scopes = auth.OidcScopes,
             ClientSecret = auth.OidcClientSecret,
+            PrivateKeyPem = auth.OidcPrivateKeyPem,
             ApiVersion = auth.ApiVersion
         };
 
@@ -1998,6 +2002,7 @@ public sealed class ConfigureProvidersService
             ["oidcClientId"] = auth.OidcClientId,
             ["oidcScopes"] = auth.OidcScopes,
             ["oidcClientSecret"] = auth.OidcClientSecret,
+            ["oidcPrivateKeyPem"] = auth.OidcPrivateKeyPem,
             ["apiVersion"] = auth.ApiVersion
         };
 
@@ -2053,6 +2058,7 @@ public sealed class ConfigureProvidersService
                 OidcClientId: ReadConfigString(config, "oidcClientId", "oidc_client_id") ?? "",
                 OidcScopes: ReadConfigString(config, "oidcScopes", "oidc_scopes") ?? "",
                 OidcClientSecret: ReadConfigString(config, "oidcClientSecret", "oidc_client_secret") ?? "",
+                OidcPrivateKeyPem: ReadConfigString(config, "oidcPrivateKeyPem", "oidc_private_key_pem") ?? "",
                 ApiVersion: ReadConfigString(config, "apiVersion", "api_version") ?? "");
             span.SetTag("gnougo.agent.configure.found_existing", true);
             span.SetTag("gnougo.agent.llm.auth_type", result.AuthType);
@@ -2083,6 +2089,7 @@ public sealed class ConfigureProvidersService
             ["llm_oidc_client_id"] = auth.OidcClientId,
             ["llm_oidc_scopes"] = auth.OidcScopes,
             ["llm_oidc_client_secret"] = auth.OidcClientSecret,
+            ["llm_oidc_private_key_pem"] = auth.OidcPrivateKeyPem,
             ["llm_api_version"] = auth.ApiVersion
         };
 
@@ -2104,7 +2111,7 @@ public sealed class ConfigureProvidersService
             sb.AppendLine($"| OIDC Issuer | {EscapeMarkdownCell(auth.OidcIssuer)} |");
             sb.AppendLine($"| OIDC Client ID | {EscapeMarkdownCell(auth.OidcClientId)} |");
             sb.AppendLine($"| OIDC Scopes | {EscapeMarkdownCell(auth.OidcScopes)} |");
-            sb.AppendLine($"| OIDC Secret | {(string.IsNullOrWhiteSpace(auth.OidcClientSecret) ? "(none)" : "••••••••")} |");
+            sb.AppendLine($"| OIDC Credential | {DescribeOidcCredential(auth)} |");
         }
         sb.AppendLine();
         sb.Append($"Configuration will be saved as key: `{KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider)}`");
@@ -2117,6 +2124,13 @@ public sealed class ConfigureProvidersService
             "anthropic" => "claude",
             var normalized => normalized
         };
+
+    private static string DescribeOidcCredential(LlmProviderConfig auth)
+        => !string.IsNullOrWhiteSpace(auth.OidcClientSecret)
+            ? "••••••••"
+            : !string.IsNullOrWhiteSpace(auth.OidcPrivateKeyPem)
+                ? "(private key)"
+                : "(none)";
 
     private async IAsyncEnumerable<SmartFlowEvent> CollectHttpMcpConfigAsync(
         string runId,
@@ -2438,7 +2452,7 @@ public sealed class ConfigureProvidersService
     }
 
     private sealed record ProviderDefaults(string Url, string Model, IReadOnlyList<string> AuthModes);
-    private sealed record LlmProviderConfig(string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret, string ApiVersion = "");
+    private sealed record LlmProviderConfig(string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret, string OidcPrivateKeyPem, string ApiVersion = "");
     private sealed record McpServerConfig(string Name, string Transport, string Description, string Url, string Command, IReadOnlyList<string> Args, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret);
     private sealed record EmbeddingProviderConfig(string Name, string Provider, string? Model, string? EndpointUrl, string? BaseUrl, string? ApiKey, string? ApiKeySecretKey, int Dimensions);
     private sealed record ConfiguredLlmProvider(string Provider, KeyVaultSecretSummary Secret, LlmProviderConfig Config);
@@ -2731,6 +2745,7 @@ public sealed class ConfigureProvidersService
                 OidcClientId: ReadConfigString(configJson, "oidcClientId", "oidc_client_id") ?? string.Empty,
                 OidcScopes: ReadConfigString(configJson, "oidcScopes", "oidc_scopes") ?? string.Empty,
                 OidcClientSecret: ReadConfigString(configJson, "oidcClientSecret", "oidc_client_secret") ?? string.Empty,
+                OidcPrivateKeyPem: ReadConfigString(configJson, "oidcPrivateKeyPem", "oidc_private_key_pem") ?? string.Empty,
                 ApiVersion: ReadConfigString(configJson, "apiVersion", "api_version") ?? string.Empty);
 
             providers.Add(new ConfiguredLlmProvider(provider, secret, config));
@@ -2951,6 +2966,7 @@ public sealed class ConfigureProvidersService
             var oidcClientId = outputs["llm_oidc_client_id"]?.GetValue<string>();
             var oidcScopes = outputs["llm_oidc_scopes"]?.GetValue<string>();
             var oidcClientSecret = outputs["llm_oidc_client_secret"]?.GetValue<string>();
+            var oidcPrivateKeyPem = outputs["llm_oidc_private_key_pem"]?.GetValue<string>();
             var apiVersion = outputs["llm_api_version"]?.GetValue<string>();
 
             if (string.IsNullOrWhiteSpace(provider) || string.IsNullOrWhiteSpace(url))
@@ -2972,6 +2988,7 @@ public sealed class ConfigureProvidersService
                 oidcClientId: oidcClientId,
                 oidcScopes: oidcScopes,
                 oidcClientSecret: oidcClientSecret,
+                oidcPrivateKeyPem: oidcPrivateKeyPem,
                 apiVersion: apiVersion);
 
             _logger.LogInformation(
