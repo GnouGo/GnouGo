@@ -47,6 +47,7 @@ public sealed class LLMModelMetadataResolver
             metadata.Id = cleanModel;
         if (string.IsNullOrWhiteSpace(metadata.DisplayName))
             metadata.DisplayName = metadata.Id;
+        metadata.ProviderType = ModelMetadataCatalog.NormalizeProviderType(metadata.ProviderType) ?? metadata.ProviderType;
         if (string.IsNullOrWhiteSpace(metadata.ProviderType) && !string.IsNullOrWhiteSpace(providerType))
             metadata.ProviderType = providerType;
 
@@ -95,8 +96,8 @@ public sealed class LLMModelMetadataResolver
             yield break;
         }
 
-        if (!string.IsNullOrWhiteSpace(providerType))
-            yield return $"{providerType}/{key}";
+        foreach (var candidateProviderType in EnumerateProviderKeyVariants(providerType))
+            yield return $"{candidateProviderType}/{key}";
         yield return key;
     }
 
@@ -107,6 +108,18 @@ public sealed class LLMModelMetadataResolver
             if (!keys.Contains(candidate, StringComparer.OrdinalIgnoreCase))
                 keys.Add(candidate);
         }
+    }
+
+    private static IEnumerable<string> EnumerateProviderKeyVariants(string? providerType)
+    {
+        providerType = ModelMetadataCatalog.NormalizeProviderType(providerType);
+        if (string.IsNullOrWhiteSpace(providerType))
+            yield break;
+
+        yield return providerType;
+
+        if (string.Equals(providerType, "anthropic", StringComparison.OrdinalIgnoreCase))
+            yield return "claude";
     }
 
     public IReadOnlyList<LLMModelMetadata> ListConfiguredMetadata(string? providerType)
@@ -162,14 +175,14 @@ public sealed class LLMModelMetadataResolver
 public static partial class ModelMetadataCatalog
 {
     private static readonly ILogger Logger = NullLogger.Instance;
-    private static readonly string[] BareModelLookupProviderPreference = ["openai", "claude", "copilot", "ollama"];
+    private static readonly string[] BareModelLookupProviderPreference = ["openai", "anthropic", "claude", "copilot", "ollama"];
     private static readonly IReadOnlyDictionary<string, string> KnownProviderPrefixes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["openai"] = "openai",
         ["azure"] = "openai",
         ["text-completion-openai"] = "openai",
-        ["claude"] = "claude",
-        ["anthropic"] = "claude",
+        ["claude"] = "anthropic",
+        ["anthropic"] = "anthropic",
         ["copilot"] = "copilot",
         ["github_copilot"] = "copilot",
         ["github"] = "copilot",
@@ -351,18 +364,31 @@ public static partial class ModelMetadataCatalog
         }
         else
         {
-            if (!string.IsNullOrWhiteSpace(providerType))
-                yield return $"{providerType}/{modelName}";
+            foreach (var candidateProviderType in EnumerateProviderKeyVariants(providerType))
+                yield return $"{candidateProviderType}/{modelName}";
             yield return modelName;
         }
 
         var clean = StripVendorPrefix(modelName);
         if (!string.Equals(clean, modelName, StringComparison.OrdinalIgnoreCase))
         {
-            if (!string.IsNullOrWhiteSpace(providerType))
-                yield return $"{providerType}/{clean}";
+            foreach (var candidateProviderType in EnumerateProviderKeyVariants(providerType))
+                yield return $"{candidateProviderType}/{clean}";
             yield return clean;
         }
+    }
+
+    private static IEnumerable<string> EnumerateProviderKeyVariants(string? providerType)
+    {
+        if (string.IsNullOrWhiteSpace(providerType))
+            yield break;
+
+        yield return providerType;
+
+        if (string.Equals(providerType, "anthropic", StringComparison.OrdinalIgnoreCase))
+            yield return "claude";
+        else if (string.Equals(providerType, "claude", StringComparison.OrdinalIgnoreCase))
+            yield return "anthropic";
     }
 
     internal static (IReadOnlyDictionary<string, LLMModelMetadata> Models, IReadOnlyDictionary<string, string> Aliases) LoadFiles(IEnumerable<string>? paths)

@@ -62,6 +62,7 @@ public sealed class LLMRuntimeOptionsStore
         string? oidcClientId = null,
         string? oidcScopes = null,
         string? oidcClientSecret = null,
+        string? oidcPrivateKeyPem = null,
         string? apiVersion = null)
     {
         lock (_lock)
@@ -102,6 +103,7 @@ public sealed class LLMRuntimeOptionsStore
                         existing.ClientId = NullIfWhiteSpace(oidcClientId);
                         existing.Scopes = NullIfWhiteSpace(oidcScopes);
                         existing.ClientSecret = NullIfWhiteSpace(oidcClientSecret);
+                        existing.PrivateKeyPem = NullIfWhiteSpace(oidcPrivateKeyPem);
                         existing.ApiVersion = NullIfWhiteSpace(apiVersion);
                         break;
 
@@ -111,6 +113,7 @@ public sealed class LLMRuntimeOptionsStore
                         existing.ClientId = null;
                         existing.Scopes = null;
                         existing.ClientSecret = null;
+                        existing.PrivateKeyPem = null;
                         existing.ApiVersion = NullIfWhiteSpace(apiVersion);
                         break;
 
@@ -121,6 +124,7 @@ public sealed class LLMRuntimeOptionsStore
                         existing.ClientId = null;
                         existing.Scopes = null;
                         existing.ClientSecret = null;
+                        existing.PrivateKeyPem = null;
                         existing.ApiVersion = NullIfWhiteSpace(apiVersion);
                         break;
 
@@ -130,6 +134,7 @@ public sealed class LLMRuntimeOptionsStore
                         if (!string.IsNullOrWhiteSpace(oidcClientId)) existing.ClientId = oidcClientId;
                         if (!string.IsNullOrWhiteSpace(oidcScopes)) existing.Scopes = oidcScopes;
                         if (!string.IsNullOrWhiteSpace(oidcClientSecret)) existing.ClientSecret = oidcClientSecret;
+                        if (!string.IsNullOrWhiteSpace(oidcPrivateKeyPem)) existing.PrivateKeyPem = oidcPrivateKeyPem;
                         if (!string.IsNullOrWhiteSpace(apiVersion)) existing.ApiVersion = apiVersion;
                         break;
                 }
@@ -141,6 +146,7 @@ public sealed class LLMRuntimeOptionsStore
                 if (!string.IsNullOrWhiteSpace(oidcClientId)) existing.ClientId = oidcClientId;
                 if (!string.IsNullOrWhiteSpace(oidcScopes)) existing.Scopes = oidcScopes;
                 if (!string.IsNullOrWhiteSpace(oidcClientSecret)) existing.ClientSecret = oidcClientSecret;
+                if (!string.IsNullOrWhiteSpace(oidcPrivateKeyPem)) existing.PrivateKeyPem = oidcPrivateKeyPem;
                 if (!string.IsNullOrWhiteSpace(apiVersion)) existing.ApiVersion = apiVersion;
             }
 
@@ -293,6 +299,7 @@ public sealed class LLMRuntimeOptionsStore
                 Issuer = kv.Value.Issuer,
                 ClientId = kv.Value.ClientId,
                 ClientSecret = kv.Value.ClientSecret,
+                PrivateKeyPem = kv.Value.PrivateKeyPem,
                 Scopes = kv.Value.Scopes,
                 ApiVersion = kv.Value.ApiVersion,
             };
@@ -307,7 +314,7 @@ public sealed class LLMRuntimeOptionsStore
     private static string NormalizeProviderType(string providerKey)
         => providerKey.Trim().ToLowerInvariant() switch
         {
-            "anthropic" => "claude",
+            "anthropic" or "claude" => "anthropic",
             var normalized => normalized
         };
 

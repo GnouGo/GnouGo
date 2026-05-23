@@ -42,7 +42,7 @@ Supported KeyVault secret names follow the Agent Server conventions:
 
 The secret value must be a JSON object containing at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`.
 
-Claude providers saved by Agent Server `/llm add` are supported as custom SDK providers. A KeyVault secret with `provider`/`type` set to `claude` is mapped to SDK provider type `anthropic` and defaults `wireApi` to `messages`; API-key auth is passed through as `ApiKey` for the Anthropic Messages API.
+Anthropic providers saved by Agent Server `/llm add` are supported as custom SDK providers. A KeyVault secret with `provider`/`type` set to `anthropic` is mapped to SDK provider type `anthropic` and defaults `wireApi` to `messages`; API-key auth is passed through as `ApiKey` for the Anthropic Messages API. The legacy `claude` provider/type values are still accepted as compatibility aliases.
 If the requested provider does not exist, the tool returns a standard MCP tool error.
 
 ## Agent edit mode

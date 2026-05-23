@@ -21,7 +21,7 @@ public class RoutingLLMClientTests
                 ["OpenAi"] = new() { Url = "https://api.openai.com/v1", Type = "openai" },
                 ["Ollama"] = new() { Url = "http://localhost:11434", Type = "ollama" },
                 ["Copilot"] = new() { Url = "https://models.github.ai/inference", Type = "copilot" },
-                ["Claude"] = new() { Url = "https://api.anthropic.com/v1", Type = "claude" },
+                ["Anthropic"] = new() { Url = "https://api.anthropic.com/v1", Type = "anthropic" },
             }
         };
     }
@@ -35,7 +35,7 @@ public class RoutingLLMClientTests
         Assert.Contains("openai", client.RegisteredProviderTypes);
         Assert.Contains("ollama", client.RegisteredProviderTypes);
         Assert.Contains("copilot", client.RegisteredProviderTypes);
-        Assert.Contains("claude", client.RegisteredProviderTypes);
+        Assert.Contains("anthropic", client.RegisteredProviderTypes);
     }
 
     [Fact]
@@ -106,11 +106,11 @@ public class RoutingLLMClientTests
     }
 
     [Fact]
-    public async Task CallAsync_RoutesAnthropicPrefixToConfiguredClaudeProvider()
+    public async Task CallAsync_RoutesAnthropicPrefixToConfiguredAnthropicProvider()
     {
-        var claude = new FakeProvider("claude");
+        var anthropic = new FakeProvider("anthropic");
         var copilot = new FakeProvider("copilot");
-        var client = new RoutingLLMClient(CreateOptions(defaultProvider: "OpenAi"), [claude, copilot]);
+        var client = new RoutingLLMClient(CreateOptions(defaultProvider: "OpenAi"), [anthropic, copilot]);
 
         await client.CallAsync(new LLMClientRequest
         {
@@ -118,9 +118,9 @@ public class RoutingLLMClientTests
             Prompt = "Hello"
         });
 
-        Assert.Equal(1, claude.CallCount);
+        Assert.Equal(1, anthropic.CallCount);
         Assert.Equal(0, copilot.CallCount);
-        Assert.Equal("claude-sonnet-4-20250514", claude.LastModel);
+        Assert.Equal("claude-sonnet-4-20250514", anthropic.LastModel);
     }
 
     [Fact]

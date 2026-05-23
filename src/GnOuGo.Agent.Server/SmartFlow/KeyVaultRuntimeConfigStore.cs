@@ -102,6 +102,7 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 ClientId = ReadConfigString(config, "oidcClientId", "oidc_client_id"),
                 Scopes = ReadConfigString(config, "oidcScopes", "oidc_scopes"),
                 ClientSecret = ReadConfigString(config, "oidcClientSecret", "oidc_client_secret"),
+                PrivateKeyPem = ReadConfigString(config, "oidcPrivateKeyPem", "oidc_private_key_pem"),
                 ApiVersion = ReadConfigString(config, "apiVersion", "api_version")
             };
 
@@ -253,6 +254,7 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 Issuer = kv.Value.Issuer,
                 ClientId = kv.Value.ClientId,
                 ClientSecret = kv.Value.ClientSecret,
+                PrivateKeyPem = kv.Value.PrivateKeyPem,
                 Scopes = kv.Value.Scopes
             };
         }

@@ -27,7 +27,7 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 - `RoutingLLMClient` removes unsupported optional fields (for example `temperature` on reasoning models) before calling the provider.
 - Builtin metadata is authored in `Telemetry/model-metadata.json`; pricing is stored under each model's `pricing` object.
 - Builtin and external metadata can use provider-qualified keys such as `openai/gpt-4o`, `copilot/gpt-4o`, `claude/claude-sonnet-4-20250514`, or `ollama/llama3.1` when the same model id exists on multiple providers with different limits or pricing.
-- `scripts/update-model-metadata.ps1 -DownloadLatest` and `scripts/update-model-metadata.sh --download-latest` synchronize the builtin catalog from LiteLLM for the supported providers (`openai`, `claude`/`anthropic`, `copilot`/GitHub Models, and `ollama`) and regenerate `ModelMetadataCatalog.Generated.cs`.
+- `scripts/update-model-metadata.ps1 -DownloadLatest` and `scripts/update-model-metadata.sh --download-latest` synchronize the builtin catalog from LiteLLM for the supported providers (`openai`, `anthropic`/`claude`, `copilot`/GitHub Models, and `ollama`) and regenerate `ModelMetadataCatalog.Generated.cs`.
 
 Metadata precedence is:
 
@@ -150,21 +150,21 @@ The Copilot provider connects to the [GitHub Models](https://github.com/marketpl
 2. `GITHUB_TOKEN` environment variable
 3. `COPILOT_API_KEY` environment variable
 
-If `Issuer`, `ClientId`, `Scopes`, and `ClientSecret` are configured, GnOuGo first obtains an OIDC access token and uses it for both chat inference and model discovery.
+If `Issuer`, `ClientId`, and `Scopes` are configured, GnOuGo first obtains an OIDC access token and uses it for both chat inference and model discovery. You can authenticate with either `ClientSecret` or `PrivateKeyPem` (`private_key_pem` in KeyVault-backed JSON configuration).
 
 **Model names** can use the vendor prefix format (`openai/gpt-4.1`, `anthropic/claude-sonnet-4`) — the prefix is automatically stripped before sending to the API. Plain names like `gpt-4.1` or `o4-mini` also work.
 
-### Claude / Anthropic
+### Anthropic / Claude
 
-The Claude provider connects to the Anthropic Messages API. Configure it with provider type `claude` (the alias `anthropic` is also accepted) and endpoint `https://api.anthropic.com/v1`.
+The Anthropic provider connects to the Anthropic Messages API. Configure it with provider type `anthropic` and endpoint `https://api.anthropic.com/v1`. The legacy provider type `claude` is still accepted as an alias.
 
 **Authentication** (in priority order):
 1. `ApiKey` in the provider configuration, sent as `x-api-key`
 2. `ANTHROPIC_API_KEY` environment variable
 3. `CLAUDE_API_KEY` environment variable
-4. OIDC client credentials, sent as a bearer token when `Issuer`, `ClientId`, and `Scopes` are configured
+4. OIDC client credentials, sent as a bearer token when `Issuer`, `ClientId`, and `Scopes` are configured with either `ClientSecret` or `PrivateKeyPem`
 
-Claude supports text responses, tool use (`tool_use` blocks), live model discovery via `/v1/models`, and best-effort structured JSON output by appending a strict JSON instruction to the prompt.
+Anthropic supports text responses, tool use (`tool_use` blocks), live model discovery via `/v1/models`, and best-effort structured JSON output by appending a strict JSON instruction to the prompt.
 
 ## Reasoning / Thinking effort
 
@@ -173,7 +173,7 @@ Claude supports text responses, tool use (`tool_use` blocks), live model discove
 
 Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `null`).
 
-| Value           | OpenAI / Copilot (GitHub Models)        | Ollama                | Claude / Anthropic         |
+| Value           | OpenAI / Copilot (GitHub Models)        | Ollama                | Anthropic / Claude         |
 |-----------------|-----------------------------------------|-----------------------|----------------------------|
 | `null` / `auto` | field omitted (provider default)        | field omitted         | field omitted              |
 | `minimal`       | `reasoning_effort: "minimal"`           | `think: true`         | `thinking.budget_tokens=1024` |
@@ -183,7 +183,7 @@ Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `n
 | `none` / `off`  | (treated as `auto`)                     | `think: false`        | field omitted              |
 
 Models that don't support thinking have the field removed by `LLMRequestSanitizer` before the provider call.
-Provider-specific mapping lives in `ChatRequestBuilder.NormalizeOpenAiReasoning`, `NormalizeOllamaThink`, and `ClaudeLLMProvider.NormalizeThinkingBudget`.
+Provider-specific mapping lives in `ChatRequestBuilder.NormalizeOpenAiReasoning`, `NormalizeOllamaThink`, and `AnthropicLLMProvider.NormalizeThinkingBudget`.
 
 ## Build
 

@@ -57,8 +57,27 @@ public sealed class LLMOptions
             if (string.Equals(kv.Key, key, StringComparison.OrdinalIgnoreCase))
                 return kv.Value;
         }
+
+        var alias = GetProviderAlias(key);
+        if (!string.IsNullOrWhiteSpace(alias))
+        {
+            foreach (var kv in Models)
+            {
+                if (string.Equals(kv.Key, alias, StringComparison.OrdinalIgnoreCase))
+                    return kv.Value;
+            }
+        }
+
         return null;
     }
+
+    private static string? GetProviderAlias(string? provider)
+        => provider?.Trim().ToLowerInvariant() switch
+        {
+            "anthropic" => "claude",
+            "claude" => "anthropic",
+            _ => null
+        };
 }
 
 /// <summary>
@@ -72,7 +91,7 @@ public sealed class ModelProviderOptions
     /// <summary>API key (optional for local providers like Ollama). Also checked via {KEY}_API_KEY env var.</summary>
     public string? ApiKey { get; set; }
 
-    /// <summary>Provider type hint: "openai", "ollama", "copilot", "claude", or "anthropic". Inferred from URL if not set.</summary>
+    /// <summary>Provider type hint: "openai", "ollama", "copilot", or "anthropic". The legacy alias "claude" is also accepted. Inferred from URL if not set.</summary>
     public string? Type { get; set; }
 
     /// <summary>OAuth2 issuer URL for token-based auth.</summary>
@@ -83,6 +102,9 @@ public sealed class ModelProviderOptions
 
     /// <summary>OAuth2 client secret.</summary>
     public string? ClientSecret { get; set; }
+
+    /// <summary>OAuth2 private key PEM used for client assertion authentication.</summary>
+    public string? PrivateKeyPem { get; set; }
 
     /// <summary>OAuth2 scopes (space-separated).</summary>
     public string? Scopes { get; set; }
@@ -95,13 +117,13 @@ public sealed class ModelProviderOptions
 
     /// <summary>
     /// Returns the effective provider type: explicit <see cref="Type"/>, or inferred from URL.
-    /// Supported values: "openai", "ollama", "copilot", "claude". "anthropic" is accepted as an alias for "claude".
+    /// Supported values: "openai", "ollama", "copilot", "anthropic". The legacy alias "claude" is accepted.
     /// </summary>
     public string ResolvedType =>
         !string.IsNullOrWhiteSpace(Type) ? NormalizeType(Type!)
         : Url.Contains("11434") || Url.Contains("ollama", StringComparison.OrdinalIgnoreCase) ? "ollama"
         : Url.Contains("anthropic", StringComparison.OrdinalIgnoreCase)
-          || Url.Contains("claude", StringComparison.OrdinalIgnoreCase) ? "claude"
+          || Url.Contains("claude", StringComparison.OrdinalIgnoreCase) ? "anthropic"
         : Url.Contains("models.github.ai", StringComparison.OrdinalIgnoreCase)
           || Url.Contains("copilot", StringComparison.OrdinalIgnoreCase) ? "copilot"
         : "openai";
@@ -109,7 +131,7 @@ public sealed class ModelProviderOptions
     private static string NormalizeType(string type)
         => type.Trim().ToLowerInvariant() switch
         {
-            "anthropic" => "claude",
+            "claude" => "anthropic",
             var normalized => normalized
         };
 }

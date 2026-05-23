@@ -164,8 +164,21 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : ICopilotProviderCo
 
 	private static IEnumerable<string> GetCandidateSecretKeys(string providerName)
 	{
-		yield return LlmProviderPrefix + providerName;
-		yield return LegacyLlmProviderPrefix + providerName;
+		var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+		{
+			providerName
+		};
+
+		if (string.Equals(providerName, "anthropic", StringComparison.OrdinalIgnoreCase))
+			candidates.Add("claude");
+		else if (string.Equals(providerName, "claude", StringComparison.OrdinalIgnoreCase))
+			candidates.Add("anthropic");
+
+		foreach (var candidate in candidates)
+		{
+			yield return LlmProviderPrefix + candidate;
+			yield return LegacyLlmProviderPrefix + candidate;
+		}
 	}
 
 	private static bool HasOidcConfiguration(JsonObject config)

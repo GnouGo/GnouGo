@@ -30,7 +30,7 @@ public sealed class RoutingLLMClient
     }
 
     /// <summary>
-    /// Convenience constructor that creates default providers (OpenAI, Ollama, Copilot, Claude)
+    /// Convenience constructor that creates default providers (OpenAI, Ollama, Copilot, Anthropic)
     /// using the supplied HttpClient. Backward-compatible with existing call sites.
     /// </summary>
     public RoutingLLMClient(HttpClient http, LLMOptions options, ILoggerFactory? loggerFactory = null)
@@ -105,7 +105,7 @@ public sealed class RoutingLLMClient
             {
                 foreach (var kv in _options.Models)
                 {
-                    if (string.Equals(kv.Value.ResolvedType, "claude", StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(kv.Value.ResolvedType, "anthropic", StringComparison.OrdinalIgnoreCase))
                         return kv.Key;
                 }
             }
@@ -136,14 +136,14 @@ public sealed class RoutingLLMClient
     }
 
     /// <summary>
-    /// Creates the default set of providers (OpenAI, Ollama, Copilot, Claude) using a shared HttpClient.
+    /// Creates the default set of providers (OpenAI, Ollama, Copilot, Anthropic) using a shared HttpClient.
     /// </summary>
     public static ILLMProvider[] CreateDefaultProviders(HttpClient http, ILoggerFactory? loggerFactory = null) =>
     [
         new OpenAiLLMProvider(http, loggerFactory?.CreateLogger<OpenAiLLMProvider>()),
         new OllamaLLMProvider(http, loggerFactory?.CreateLogger<OllamaLLMProvider>()),
         new CopilotLLMProvider(http, loggerFactory?.CreateLogger<CopilotLLMProvider>()),
-        new ClaudeLLMProvider(http, loggerFactory?.CreateLogger<ClaudeLLMProvider>())
+        new AnthropicLLMProvider(http, loggerFactory?.CreateLogger<AnthropicLLMProvider>())
     ];
 }
 

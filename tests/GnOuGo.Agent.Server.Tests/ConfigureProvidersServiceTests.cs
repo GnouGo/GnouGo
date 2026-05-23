@@ -293,7 +293,7 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("llama3:8b", runtimeStore.Current.DefaultModel);
 
         var configJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--ollama", CancellationToken.None);
-        var config = JsonNode.Parse(configJson!)?.AsObject();
+        var config = JsonNode.Parse(configJson)?.AsObject();
         Assert.NotNull(config);
         Assert.Equal("llama3:8b", config["model"]?.GetValue<string>());
         Assert.Equal(0, llm.CallCount);
@@ -887,13 +887,15 @@ public sealed class ConfigureProvidersServiceTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_LlmAdd_CanConfigureClaudeProvider()
+    public async Task ExecuteAsync_LlmAdd_CanConfigureOidcWithPrivateKeyPem()
     {
+        const string privateKeyPem = "-----BEGIN PRIVATE KEY-----\nMIIBVwIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEArandomtestkey\n-----END PRIVATE KEY-----";
+
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
         var modelCatalog = new FakeModelCatalog()
-            .Add("claude",
-                new LLMModelDescriptor("claude-sonnet-4-20250514", "Claude Sonnet 4", "claude", "anthropic"));
+            .Add("openai",
+                new LLMModelDescriptor("gpt-4o-mini", "gpt-4o-mini", "openai", "openai"));
 
         var humanInput = new AgentHumanInputProvider();
         var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
@@ -911,11 +913,19 @@ public sealed class ConfigureProvidersServiceTests
             {
                 JsonNode response = request.StepId switch
                 {
-                    "llm_add.provider" => new JsonObject { ["response"] = "claude" },
-                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.anthropic.com/v1" },
-                    "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
-                    "llm.auth.api_key" => new JsonObject { ["api_key"] = "sk-ant-secret" },
-                    "llm_model.select.claude" => new JsonObject { ["model"] = "claude-sonnet-4-20250514" },
+                    "llm_add.provider" => new JsonObject { ["response"] = "openai" },
+                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1" },
+                    "llm_add.auth_mode" => new JsonObject { ["response"] = "oidc" },
+                    "llm.auth.oidc" => new JsonObject
+                    {
+                        ["issuer"] = "https://issuer.example",
+                        ["client_id"] = "client-id",
+                        ["scopes"] = "models.read",
+                        ["client_secret"] = string.Empty,
+                        ["private_key_pem"] = privateKeyPem,
+                        ["api_version"] = "2025-01-01-preview"
+                    },
+                    "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-4o-mini" },
                     "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -939,29 +949,108 @@ public sealed class ConfigureProvidersServiceTests
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
         await responder;
 
-        var configJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--claude", CancellationToken.None);
+        var configJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--openai", CancellationToken.None);
         Assert.NotNull(configJson);
+
         var config = JsonNode.Parse(configJson!)?.AsObject();
         Assert.NotNull(config);
-        Assert.Equal("claude", config["provider"]?.GetValue<string>());
-        Assert.Equal("claude", config["type"]?.GetValue<string>());
+        Assert.Equal("oidc", config["authType"]?.GetValue<string>());
+        Assert.Equal("https://issuer.example", config["oidcIssuer"]?.GetValue<string>());
+        Assert.Equal("client-id", config["oidcClientId"]?.GetValue<string>());
+        Assert.Equal("models.read", config["oidcScopes"]?.GetValue<string>());
+        Assert.Equal(privateKeyPem, config["oidcPrivateKeyPem"]?.GetValue<string>());
+        Assert.Equal("", config["oidcClientSecret"]?.GetValue<string>());
+
+        Assert.True(runtimeStore.Current.Models.TryGetValue("openai", out var runtimeProvider));
+        Assert.NotNull(runtimeProvider);
+        Assert.Equal("https://issuer.example", runtimeProvider.Issuer);
+        Assert.Equal("client-id", runtimeProvider.ClientId);
+        Assert.Equal("models.read", runtimeProvider.Scopes);
+        Assert.Equal(privateKeyPem, runtimeProvider.PrivateKeyPem);
+        Assert.Null(runtimeProvider.ClientSecret);
+        Assert.Equal("2025-01-01-preview", runtimeProvider.ApiVersion);
+        Assert.Equal("openai", runtimeStore.Current.DefaultProvider);
+        Assert.Equal("gpt-4o-mini", runtimeStore.Current.DefaultModel);
+
+        Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'openai' is ready.");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LlmAdd_CanConfigureClaudeProvider()
+    {
+        var llm = new RecordingLlmClient();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
+        var modelCatalog = new FakeModelCatalog()
+            .Add("anthropic",
+                new LLMModelDescriptor("claude-sonnet-4-20250514", "Claude Sonnet 4", "anthropic", "anthropic"));
+
+        var humanInput = new AgentHumanInputProvider();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = string.Empty,
+            DefaultModel = string.Empty,
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+        });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "llm_add.provider" => new JsonObject { ["response"] = "anthropic" },
+                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.anthropic.com/v1" },
+                    "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
+                    "llm.auth.api_key" => new JsonObject { ["api_key"] = "sk-ant-secret" },
+                    "llm_model.select.anthropic" => new JsonObject { ["model"] = "claude-sonnet-4-20250514" },
+                    "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId == "llm_add.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = new ConfigureProvidersService(
+            llm,
+            humanInput,
+            modelCatalog,
+            keyVaultStore,
+            runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<ConfigureProvidersService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
+        await responder;
+
+        var configJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--anthropic", CancellationToken.None);
+        Assert.NotNull(configJson);
+        var config = JsonNode.Parse(configJson)?.AsObject();
+        Assert.NotNull(config);
+        Assert.Equal("anthropic", config["provider"]?.GetValue<string>());
+        Assert.Equal("anthropic", config["type"]?.GetValue<string>());
         Assert.Equal("https://api.anthropic.com/v1", config["url"]?.GetValue<string>());
         Assert.Equal("claude-sonnet-4-20250514", config["model"]?.GetValue<string>());
         Assert.Equal("api_key", config["authType"]?.GetValue<string>());
         Assert.Equal("sk-ant-secret", config["apiKey"]?.GetValue<string>());
 
-        Assert.True(runtimeStore.Current.Models.TryGetValue("claude", out var runtimeProvider));
+        Assert.True(runtimeStore.Current.Models.TryGetValue("anthropic", out var runtimeProvider));
         Assert.NotNull(runtimeProvider);
-        Assert.Equal("claude", runtimeProvider.Type);
-        Assert.Equal("claude", runtimeProvider.ResolvedType);
-        Assert.Equal("claude", runtimeStore.Current.DefaultProvider);
+        Assert.Equal("anthropic", runtimeProvider.Type);
+        Assert.Equal("anthropic", runtimeProvider.ResolvedType);
+        Assert.Equal("anthropic", runtimeStore.Current.DefaultProvider);
         Assert.Equal("claude-sonnet-4-20250514", runtimeStore.Current.DefaultModel);
 
         Assert.Equal(1, llm.CallCount);
         Assert.NotNull(llm.LastRequest);
-        Assert.Equal("claude", llm.LastRequest!.Provider);
+        Assert.Equal("anthropic", llm.LastRequest!.Provider);
         Assert.Equal("claude-sonnet-4-20250514", llm.LastRequest.Model);
-        Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'claude' is ready.");
+        Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'anthropic' is ready.");
     }
 
     [Fact]
