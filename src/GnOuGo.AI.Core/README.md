@@ -154,9 +154,9 @@ If `Issuer`, `ClientId`, and `Scopes` are configured, GnOuGo first obtains an OI
 
 **Model names** can use the vendor prefix format (`openai/gpt-4.1`, `anthropic/claude-sonnet-4`) — the prefix is automatically stripped before sending to the API. Plain names like `gpt-4.1` or `o4-mini` also work.
 
-### Claude / Anthropic
+### Anthropic / Claude
 
-The Claude provider connects to the Anthropic Messages API. Configure it with provider type `claude` (the alias `anthropic` is also accepted) and endpoint `https://api.anthropic.com/v1`.
+The Anthropic provider connects to the Anthropic Messages API. Configure it with provider type `anthropic` and endpoint `https://api.anthropic.com/v1`. The legacy provider type `claude` is still accepted as an alias.
 
 **Authentication** (in priority order):
 1. `ApiKey` in the provider configuration, sent as `x-api-key`
@@ -164,7 +164,7 @@ The Claude provider connects to the Anthropic Messages API. Configure it with pr
 3. `CLAUDE_API_KEY` environment variable
 4. OIDC client credentials, sent as a bearer token when `Issuer`, `ClientId`, and `Scopes` are configured with either `ClientSecret` or `PrivateKeyPem`
 
-Claude supports text responses, tool use (`tool_use` blocks), live model discovery via `/v1/models`, and best-effort structured JSON output by appending a strict JSON instruction to the prompt.
+Anthropic supports text responses, tool use (`tool_use` blocks), live model discovery via `/v1/models`, and best-effort structured JSON output by appending a strict JSON instruction to the prompt.
 
 ## Reasoning / Thinking effort
 

@@ -380,7 +380,7 @@ public sealed class ConfigureProvidersService
         yield return new SmartFlowEvent("thinking:thinking", "🤖 Starting LLM provider configuration…");
         JsonNode? response = null;
 
-        var providerRequest = CreateChoiceRequest(runId, "llm_add.provider", "Select the LLM provider to configure:", ["openai", "ollama", "copilot", "claude"]);
+        var providerRequest = CreateChoiceRequest(runId, "llm_add.provider", "Select the LLM provider to configure:", ["openai", "ollama", "copilot", "anthropic"]);
         await foreach (var evt in EmitHumanInputRequestAsync(providerRequest, r => response = r, ct))
             yield return evt;
 
@@ -1965,7 +1965,7 @@ public sealed class ConfigureProvidersService
         {
             "ollama" => new ProviderDefaults("http://localhost:11434", "llama3", ["none"]),
             "copilot" => new ProviderDefaults("https://models.github.ai/inference", "gpt-4o", ["api_key", "copilot_env", "oidc"]),
-            "claude" or "anthropic" => new ProviderDefaults("https://api.anthropic.com/v1", "claude-sonnet-4-20250514", ["api_key", "oidc"]),
+            "anthropic" or "claude" => new ProviderDefaults("https://api.anthropic.com/v1", "claude-sonnet-4-20250514", ["api_key", "oidc"]),
             _ => new ProviderDefaults("https://api.openai.com/v1", "gpt-4o", ["api_key", "oidc"])
         };
 
@@ -2121,7 +2121,7 @@ public sealed class ConfigureProvidersService
     private static string NormalizeProviderTypeForConfig(string provider)
         => provider.Trim().ToLowerInvariant() switch
         {
-            "anthropic" => "claude",
+            "anthropic" or "claude" => "anthropic",
             var normalized => normalized
         };
 
@@ -2478,8 +2478,22 @@ public sealed class ConfigureProvidersService
                    ?? null;
         }
 
-        return configuredProviders.FirstOrDefault(k =>
+        var exact = configuredProviders.FirstOrDefault(k =>
             string.Equals(k, requestedProvider, StringComparison.OrdinalIgnoreCase));
+
+        if (exact is not null)
+            return exact;
+
+        var alias = requestedProvider.Trim().ToLowerInvariant() switch
+        {
+            "anthropic" => "claude",
+            "claude" => "anthropic",
+            _ => null
+        };
+
+        return alias is null
+            ? null
+            : configuredProviders.FirstOrDefault(k => string.Equals(k, alias, StringComparison.OrdinalIgnoreCase));
     }
 
     private string RenderModelsUsage(string requestedProvider)
@@ -2589,7 +2603,7 @@ public sealed class ConfigureProvidersService
         sb.AppendLine("- **OpenID Connect** — OAuth2 client_credentials flow");
         sb.AppendLine("- **Copilot / Env** — resolved from environment variables");
         sb.AppendLine();
-        sb.AppendLine("**Providers:** `openai`, `ollama`, `copilot`, `claude`.");
+        sb.AppendLine("**Providers:** `openai`, `ollama`, `copilot`, `anthropic`.");
         sb.AppendLine();
         sb.Append($"All configurations are stored encrypted in KeyVault using the .NET convention `{KeyVaultConfigNaming.GetDisplayConvention(KeyVaultConfigSecretKind.LlmProvider)}`.");
         return sb.ToString().TrimEnd();

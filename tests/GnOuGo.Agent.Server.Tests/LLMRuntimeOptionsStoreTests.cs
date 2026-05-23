@@ -119,15 +119,15 @@ public sealed class LlmRuntimeOptionsStoreTests
             NullLogger<LLMRuntimeOptionsStore>.Instance);
 
         store.UpdateProvider(
-            providerKey: "claude",
+            providerKey: "anthropic",
             url: "https://api.anthropic.com/v1",
             model: "claude-sonnet-4-20250514",
             apiKey: "sk-ant-secret",
             authType: "api_key");
 
-        Assert.True(store.Current.Models.TryGetValue("claude", out var provider));
+        Assert.True(store.Current.Models.TryGetValue("anthropic", out var provider));
         Assert.NotNull(provider);
-        Assert.Equal("claude", provider.Type);
+        Assert.Equal("anthropic", provider.Type);
         Assert.Equal("claude", provider.ResolvedType);
     }
 

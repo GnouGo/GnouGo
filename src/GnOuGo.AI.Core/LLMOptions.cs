@@ -57,8 +57,27 @@ public sealed class LLMOptions
             if (string.Equals(kv.Key, key, StringComparison.OrdinalIgnoreCase))
                 return kv.Value;
         }
+
+        var alias = GetProviderAlias(key);
+        if (!string.IsNullOrWhiteSpace(alias))
+        {
+            foreach (var kv in Models)
+            {
+                if (string.Equals(kv.Key, alias, StringComparison.OrdinalIgnoreCase))
+                    return kv.Value;
+            }
+        }
+
         return null;
     }
+
+    private static string? GetProviderAlias(string? provider)
+        => provider?.Trim().ToLowerInvariant() switch
+        {
+            "anthropic" => "claude",
+            "claude" => "anthropic",
+            _ => null
+        };
 }
 
 /// <summary>

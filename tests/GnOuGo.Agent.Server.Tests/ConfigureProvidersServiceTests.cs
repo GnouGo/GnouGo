@@ -981,8 +981,8 @@ public sealed class ConfigureProvidersServiceTests
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
         var modelCatalog = new FakeModelCatalog()
-            .Add("claude",
-                new LLMModelDescriptor("claude-sonnet-4-20250514", "Claude Sonnet 4", "claude", "anthropic"));
+            .Add("anthropic",
+                new LLMModelDescriptor("claude-sonnet-4-20250514", "Claude Sonnet 4", "anthropic", "anthropic"));
 
         var humanInput = new AgentHumanInputProvider();
         var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
@@ -1000,11 +1000,11 @@ public sealed class ConfigureProvidersServiceTests
             {
                 JsonNode response = request.StepId switch
                 {
-                    "llm_add.provider" => new JsonObject { ["response"] = "claude" },
+                    "llm_add.provider" => new JsonObject { ["response"] = "anthropic" },
                     "llm_add.connection" => new JsonObject { ["url"] = "https://api.anthropic.com/v1" },
                     "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
                     "llm.auth.api_key" => new JsonObject { ["api_key"] = "sk-ant-secret" },
-                    "llm_model.select.claude" => new JsonObject { ["model"] = "claude-sonnet-4-20250514" },
+                    "llm_model.select.anthropic" => new JsonObject { ["model"] = "claude-sonnet-4-20250514" },
                     "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -1028,29 +1028,29 @@ public sealed class ConfigureProvidersServiceTests
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
         await responder;
 
-        var configJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--claude", CancellationToken.None);
+        var configJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--anthropic", CancellationToken.None);
         Assert.NotNull(configJson);
-        var config = JsonNode.Parse(configJson!)?.AsObject();
+        var config = JsonNode.Parse(configJson)?.AsObject();
         Assert.NotNull(config);
-        Assert.Equal("claude", config["provider"]?.GetValue<string>());
-        Assert.Equal("claude", config["type"]?.GetValue<string>());
+        Assert.Equal("anthropic", config["provider"]?.GetValue<string>());
+        Assert.Equal("anthropic", config["type"]?.GetValue<string>());
         Assert.Equal("https://api.anthropic.com/v1", config["url"]?.GetValue<string>());
         Assert.Equal("claude-sonnet-4-20250514", config["model"]?.GetValue<string>());
         Assert.Equal("api_key", config["authType"]?.GetValue<string>());
         Assert.Equal("sk-ant-secret", config["apiKey"]?.GetValue<string>());
 
-        Assert.True(runtimeStore.Current.Models.TryGetValue("claude", out var runtimeProvider));
+        Assert.True(runtimeStore.Current.Models.TryGetValue("anthropic", out var runtimeProvider));
         Assert.NotNull(runtimeProvider);
-        Assert.Equal("claude", runtimeProvider.Type);
+        Assert.Equal("anthropic", runtimeProvider.Type);
         Assert.Equal("claude", runtimeProvider.ResolvedType);
-        Assert.Equal("claude", runtimeStore.Current.DefaultProvider);
+        Assert.Equal("anthropic", runtimeStore.Current.DefaultProvider);
         Assert.Equal("claude-sonnet-4-20250514", runtimeStore.Current.DefaultModel);
 
         Assert.Equal(1, llm.CallCount);
         Assert.NotNull(llm.LastRequest);
-        Assert.Equal("claude", llm.LastRequest!.Provider);
+        Assert.Equal("anthropic", llm.LastRequest!.Provider);
         Assert.Equal("claude-sonnet-4-20250514", llm.LastRequest.Model);
-        Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'claude' is ready.");
+        Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'anthropic' is ready.");
     }
 
     [Fact]

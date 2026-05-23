@@ -314,7 +314,7 @@ public sealed class LLMRuntimeOptionsStore
     private static string NormalizeProviderType(string providerKey)
         => providerKey.Trim().ToLowerInvariant() switch
         {
-            "anthropic" => "claude",
+            "anthropic" or "claude" => "anthropic",
             var normalized => normalized
         };
 
