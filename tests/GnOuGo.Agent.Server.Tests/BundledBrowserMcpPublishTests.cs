@@ -214,7 +214,9 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.DoesNotContain("id: tag_release", yaml);
 
         Assert.Contains("Usage: scripts/generate-changelog.sh <version-tag> [output-file]", changelogScript);
-        Assert.Contains("previous_tag = git(\"describe\", \"--tags\", \"--abbrev=0\", \"--match\", \"v[0-9]*\", check=False)", changelogScript);
+        Assert.Contains("CHANGELOG_MAX_TAGS", changelogScript);
+        Assert.Contains("git(\"tag\", \"--list\", \"--sort=-creatordate\", check=False)", changelogScript);
+        Assert.Contains("--is-shallow-repository", changelogScript);
     }
 
 
