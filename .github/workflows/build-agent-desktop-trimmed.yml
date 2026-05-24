@@ -72,6 +72,20 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "pnpm-lock.yaml"
 
+      - name: Validate Git MCP Native AOT publish
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: |
+          dotnet publish src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -o artifacts/publish/git-mcp-aot/win-x64 `
+            -p:PublishAot=true `
+            -p:PublishTrimmed=true `
+            -p:InvariantGlobalization=false `
+            -p:SkipModelMetadataGeneration=true
+
       - name: Build UI (Vite)
         working-directory: src/GnOuGo.Agent.Server/ClientApp
         run: |
