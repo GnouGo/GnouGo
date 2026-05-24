@@ -1,6 +1,11 @@
 {
   "name": "gnougo-workspace",
   "private": true,
-  "packageManager": "pnpm@11.2.2"
+  "packageManager": "pnpm@10.14.0",
+  "pnpm": {
+    "overrides": {
+      "tinyexec": "1.1.2"
+    }
+  }
 }
 
