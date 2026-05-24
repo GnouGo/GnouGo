@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.1 - 2026-05-24
+
+- chore: update libs (#40) (release) (1b93be5)
+- fix (e587769)
+
 ## v0.8.0 - 2026-05-23
 
 - feat(agent): add private_key and rename claude to antropic (#38) (release) (7a1fdad)
