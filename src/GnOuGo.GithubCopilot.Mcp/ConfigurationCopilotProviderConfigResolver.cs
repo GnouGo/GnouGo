@@ -2,9 +2,7 @@
 using System.Text.Json.Nodes;
 using GitHub.Copilot;
 using GnOuGo.Auth.Core;
-using GnOuGo.KeyVault.Core.Data;
-using GnOuGo.KeyVault.Core.Services;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 
@@ -24,22 +22,22 @@ internal sealed record CopilotProviderOverride(
 	string Model,
 	ProviderConfig Provider);
 
-internal sealed class KeyVaultCopilotProviderConfigResolver : ICopilotProviderConfigResolver
+internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProviderConfigResolver
 {
+	private const string ProvidersSectionPath = $"{CodeServerSettings.SectionName}:Copilot:Providers";
 	private const string LlmProviderPrefix = "LLM--Models--";
 	private const string LegacyLlmProviderPrefix = "gnougo_llm_";
-	private const string DefaultAuthor = "GnOuGo.GithubCopilot.Mcp";
 
-	private readonly IServiceScopeFactory _scopeFactory;
+	private readonly IConfiguration _configuration;
 	private readonly IHttpClientFactory _httpClientFactory;
-	private readonly ILogger<KeyVaultCopilotProviderConfigResolver> _logger;
+	private readonly ILogger<ConfigurationCopilotProviderConfigResolver> _logger;
 
-	public KeyVaultCopilotProviderConfigResolver(
-		IServiceScopeFactory scopeFactory,
+	public ConfigurationCopilotProviderConfigResolver(
+		IConfiguration configuration,
 		IHttpClientFactory httpClientFactory,
-		ILogger<KeyVaultCopilotProviderConfigResolver> logger)
+		ILogger<ConfigurationCopilotProviderConfigResolver> logger)
 	{
-		_scopeFactory = scopeFactory;
+		_configuration = configuration;
 		_httpClientFactory = httpClientFactory;
 		_logger = logger;
 	}
@@ -54,18 +52,17 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : ICopilotProviderCo
 			return null;
 
 		var normalizedProviderName = providerName.Trim();
-		var rawConfig = await LoadProviderSecretAsync(normalizedProviderName, ct);
-		if (rawConfig is null)
-			throw new McpException($"Copilot provider '{normalizedProviderName}' was not found in KeyVault. Expected one of: '{LlmProviderPrefix}{normalizedProviderName}' or '{LegacyLlmProviderPrefix}{normalizedProviderName}'.");
+		var config = LoadProviderConfig(normalizedProviderName);
+		if (config is null)
+			throw new McpException($"Copilot provider '{normalizedProviderName}' was not found in configuration. Expected section '{ProvidersSectionPath}:{normalizedProviderName}'.");
 
-		var config = ParseConfig(rawConfig, normalizedProviderName);
 		var model = ReadConfigString(config, "model") ?? fallbackModel;
 		if (string.IsNullOrWhiteSpace(model))
 			throw new McpException($"Copilot provider '{normalizedProviderName}' does not define a model and no fallback model is configured.");
 
 		var url = ReadConfigString(config, "url");
 		if (string.IsNullOrWhiteSpace(url))
-			throw new McpException($"Copilot provider '{normalizedProviderName}' exists in KeyVault but does not define a url.");
+			throw new McpException($"Copilot provider '{normalizedProviderName}' exists in configuration but does not define a url.");
 
 		var providerType = NormalizeSdkProviderType(
 			ReadConfigString(config, "type") ?? ReadConfigString(config, "provider"),
@@ -89,7 +86,7 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : ICopilotProviderCo
 		};
 
 		_logger.LogInformation(
-			"Resolved Copilot custom provider '{ProviderName}' from KeyVault using SDK provider type '{ProviderType}' and model '{Model}'.",
+			"Resolved Copilot custom provider '{ProviderName}' from configuration using SDK provider type '{ProviderType}' and model '{Model}'.",
 			normalizedProviderName,
 			providerType,
 			model);
@@ -97,23 +94,33 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : ICopilotProviderCo
 		return new CopilotProviderOverride(normalizedProviderName, model, provider);
 	}
 
-	private async Task<string?> LoadProviderSecretAsync(string providerName, CancellationToken ct)
+	private JsonObject? LoadProviderConfig(string providerName)
 	{
-		await using var scope = _scopeFactory.CreateAsyncScope();
-		var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-		await KeyVaultDatabaseBootstrap.EnsureCreatedAsync(db, ct);
-
-		var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-		await keyVault.EnsureDefaultKeyPairAsync(ct);
-
-		foreach (var key in GetCandidateSecretKeys(providerName))
+		foreach (var key in GetCandidateProviderKeys(providerName))
 		{
-			var secret = await keyVault.GetSecretAsync(key, null, DefaultAuthor, ct);
-			if (secret is not null)
-				return secret.Value;
+			var section = _configuration.GetSection($"{ProvidersSectionPath}:{key}");
+			if (!section.Exists())
+				continue;
+
+			if (!string.IsNullOrWhiteSpace(section.Value))
+				return ParseConfig(section.Value, providerName);
+
+			return BuildConfigObject(section);
 		}
 
 		return null;
+	}
+
+	private static JsonObject BuildConfigObject(IConfigurationSection section)
+	{
+		var config = new JsonObject();
+		foreach (var child in section.GetChildren())
+		{
+			if (child.Value is not null)
+				config[child.Key] = child.Value;
+		}
+
+		return config;
 	}
 
 	private async Task<string?> ResolveBearerTokenAsync(
@@ -126,7 +133,7 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : ICopilotProviderCo
 		if (HasOidcConfiguration(config))
 		{
 			var tokenProvider = new OidcJwtApiKeyProvider(
-				_httpClientFactory.CreateClient(nameof(KeyVaultCopilotProviderConfigResolver)),
+				_httpClientFactory.CreateClient(nameof(ConfigurationCopilotProviderConfigResolver)),
 				new OidcClientCredentialsConfig(
 					ReadRequiredConfigString(config, "oidcIssuer", "oidc_issuer"),
 					ReadRequiredConfigString(config, "oidcClientId", "oidc_client_id"),
@@ -154,31 +161,38 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : ICopilotProviderCo
 		try
 		{
 			return JsonNode.Parse(rawConfig) as JsonObject
-				   ?? throw new McpException($"Copilot provider '{providerName}' KeyVault secret must contain a JSON object.");
+				   ?? throw new McpException($"Copilot provider '{providerName}' configuration must contain a JSON object.");
 		}
 		catch (JsonException ex)
 		{
-			throw new McpException($"Copilot provider '{providerName}' KeyVault secret is not valid JSON.", ex);
+			throw new McpException($"Copilot provider '{providerName}' configuration is not valid JSON.", ex);
 		}
 	}
 
-	private static IEnumerable<string> GetCandidateSecretKeys(string providerName)
+	private static IEnumerable<string> GetCandidateProviderKeys(string providerName)
 	{
 		var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 		{
-			providerName
+			providerName,
+			LlmProviderPrefix + providerName,
+			LegacyLlmProviderPrefix + providerName
 		};
 
 		if (string.Equals(providerName, "anthropic", StringComparison.OrdinalIgnoreCase))
+		{
 			candidates.Add("claude");
+			candidates.Add(LlmProviderPrefix + "claude");
+			candidates.Add(LegacyLlmProviderPrefix + "claude");
+		}
 		else if (string.Equals(providerName, "claude", StringComparison.OrdinalIgnoreCase))
+		{
 			candidates.Add("anthropic");
+			candidates.Add(LlmProviderPrefix + "anthropic");
+			candidates.Add(LegacyLlmProviderPrefix + "anthropic");
+		}
 
 		foreach (var candidate in candidates)
-		{
-			yield return LlmProviderPrefix + candidate;
-			yield return LegacyLlmProviderPrefix + candidate;
-		}
+			yield return candidate;
 	}
 
 	private static bool HasOidcConfiguration(JsonObject config)
@@ -249,4 +263,5 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : ICopilotProviderCo
 		   || url.Contains("models.github.ai", StringComparison.OrdinalIgnoreCase)
 		   || string.Equals(providerType, "copilot", StringComparison.OrdinalIgnoreCase);
 }
+
 

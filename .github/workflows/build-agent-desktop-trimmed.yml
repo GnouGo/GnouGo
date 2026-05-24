@@ -86,6 +86,20 @@ jobs:
             -p:InvariantGlobalization=false `
             -p:SkipModelMetadataGeneration=true
 
+      - name: Validate GitHub Copilot MCP Native AOT publish
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: |
+          dotnet publish src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -o artifacts/publish/github-copilot-mcp-aot/win-x64 `
+            -p:PublishAot=true `
+            -p:PublishTrimmed=true `
+            -p:InvariantGlobalization=false `
+            -p:SkipModelMetadataGeneration=true
+
       - name: Build UI (Vite)
         working-directory: src/GnOuGo.Agent.Server/ClientApp
         run: |

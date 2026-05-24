@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using GnOuGo.KeyVault.Core.Models;
 
@@ -10,6 +11,14 @@ public sealed class KeyVaultDbContext : DbContext
     public DbSet<SecretVersion> SecretVersions => Set<SecretVersion>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
+    [UnconditionalSuppressMessage(
+        "AOT",
+        "IL2026",
+        Justification = "KeyVault SQLite access is a shared optional service. The final Native AOT executable is published and smoke-tested to validate this EF Core usage.")]
+    [UnconditionalSuppressMessage(
+        "AOT",
+        "IL3050",
+        Justification = "KeyVault SQLite access is a shared optional service. The final Native AOT executable is published and smoke-tested to validate this EF Core usage.")]
     public KeyVaultDbContext(DbContextOptions<KeyVaultDbContext> options) : base(options) { }
 
     protected override void OnModelCreating(ModelBuilder m)

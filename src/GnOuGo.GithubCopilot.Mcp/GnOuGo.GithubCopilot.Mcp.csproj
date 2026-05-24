@@ -7,6 +7,11 @@
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <PublishAot>true</PublishAot>
+    <PublishTrimmed>true</PublishTrimmed>
+    <IsAotCompatible>true</IsAotCompatible>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL3050;IL3053;IL3055</WarningsAsErrors>
     <!-- Workaround for GitHub.Copilot.SDK beta packages that omit GitHub.Copilot.SDK.props -->
     <CopilotCliVersion>1.0.52</CopilotCliVersion>
   </PropertyGroup>
@@ -28,7 +33,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.Auth.Core\GnOuGo.Auth.Core.csproj" />
-    <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Observability.Core\GnOuGo.Observability.Core.csproj" />
   </ItemGroup>
 

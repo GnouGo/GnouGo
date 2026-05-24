@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Reflection;
 using GitHub.Copilot;
 
 namespace GnOuGo.GithubCopilot.Mcp;
@@ -13,9 +12,9 @@ internal sealed class CopilotSdkProgressEventMapper
         try
         {
             return TryMap(
-                GetStringProperty(sdkEvent, nameof(SessionEvent.Type)),
-                ExtractDataProperties(sdkEvent),
-                GetStringProperty(sdkEvent, nameof(SessionEvent.Timestamp)),
+                sdkEvent.Type,
+                EmptyData.Properties,
+                sdkEvent.Timestamp.ToString("O", CultureInfo.InvariantCulture),
                 out progressEvent);
         }
         catch
@@ -112,43 +111,6 @@ internal sealed class CopilotSdkProgressEventMapper
         return true;
     }
 
-    private static IReadOnlyDictionary<string, string?> ExtractDataProperties(SessionEvent sdkEvent)
-    {
-        var data = sdkEvent.GetType().GetProperty("Data", BindingFlags.Public | BindingFlags.Instance)?.GetValue(sdkEvent);
-        if (data is null)
-            return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-
-        var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var property in data.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
-        {
-            if (property.GetIndexParameters().Length != 0)
-                continue;
-
-            values[property.Name] = CoerceString(property.GetValue(data));
-        }
-
-        return values;
-    }
-
-    private static string? GetStringProperty(object instance, string name)
-        => CoerceString(instance.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance)?.GetValue(instance));
-
-    private static string? CoerceString(object? value)
-    {
-        if (value is null)
-            return null;
-        if (value is string text)
-            return text;
-        if (value is DateTimeOffset dateTimeOffset)
-            return dateTimeOffset.ToString("O", CultureInfo.InvariantCulture);
-        if (value is DateTime dateTime)
-            return dateTime.ToString("O", CultureInfo.InvariantCulture);
-        if (value is bool or byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal or Enum)
-            return Convert.ToString(value, CultureInfo.InvariantCulture);
-
-        return null;
-    }
-
     private static string? FirstNonEmpty(IReadOnlyDictionary<string, string?> data, params string[] names)
     {
         foreach (var name in names)
@@ -221,6 +183,12 @@ internal sealed class CopilotSdkProgressEventMapper
     {
         var trimmed = value.Trim();
         return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength] + "...";
+    }
+
+    private static class EmptyData
+    {
+        public static readonly IReadOnlyDictionary<string, string?> Properties =
+            new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
     }
 }
 

@@ -34,15 +34,16 @@ Relevant Copilot settings:
 - `Code:Copilot:RequestTimeoutSeconds`: wait timeout for a Copilot response, default `120`.
 
 `code_suggest_change` also accepts an optional `provider` parameter. When omitted, the default GitHub Copilot SDK behavior above is unchanged.
-When provided, the MCP reads the matching Agent Server LLM provider secret from the shared KeyVault database and passes it as a custom Copilot SDK provider for that call.
-Supported KeyVault secret names follow the Agent Server conventions:
+When provided, the MCP reads the matching provider from configuration and passes it as a custom Copilot SDK provider for that call. The MCP intentionally uses configuration instead of EF Core/KeyVault in-process so the stdio executable remains Native AOT-friendly.
+Supported provider section names are:
 
-- `LLM--Models--<provider>`
-- legacy fallback: `gnougo_llm_<provider>`
+- `Code:Copilot:Providers:<provider>`
+- compatibility fallback: `Code:Copilot:Providers:LLM--Models--<provider>`
+- legacy fallback: `Code:Copilot:Providers:gnougo_llm_<provider>`
 
-The secret value must be a JSON object containing at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`.
+The section must contain at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`. Keep secret values in environment variables or another secure configuration provider; do not commit real tokens to `appsettings.json`.
 
-Anthropic providers saved by Agent Server `/llm add` are supported as custom SDK providers. A KeyVault secret with `provider`/`type` set to `anthropic` is mapped to SDK provider type `anthropic` and defaults `wireApi` to `messages`; API-key auth is passed through as `ApiKey` for the Anthropic Messages API. The legacy `claude` provider/type values are still accepted as compatibility aliases.
+Anthropic providers with `provider`/`type` set to `anthropic` are supported as custom SDK providers. They map to SDK provider type `anthropic` and default `wireApi` to `messages`; API-key auth is passed through as `ApiKey` for the Anthropic Messages API. The legacy `claude` provider/type values are still accepted as compatibility aliases.
 If the requested provider does not exist, the tool returns a standard MCP tool error.
 
 ## Agent edit mode
@@ -90,5 +91,15 @@ dotnet build "C:\github\GnouGo\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot
 ```powershell
 dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Mcp.Tests\GnOuGo.GithubCopilot.Mcp.Tests.csproj" -p:SkipModelMetadataGeneration=true
 ```
+
+## Native AOT publish
+
+The project is configured for Native AOT and trimming analysis. `IL2026`, `IL3050`, `IL3053`, and `IL3055` are treated as build errors. Publish a self-contained native binary for a runtime identifier with:
+
+```powershell
+dotnet publish "C:\github\GnouGo\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj" -c Release -r win-x64 --self-contained true -p:PublishAot=true -p:PublishTrimmed=true -p:InvariantGlobalization=false -p:SkipModelMetadataGeneration=true
+```
+
+CI validates a dedicated `win-x64` Native AOT publish for `GnOuGo.GithubCopilot.Mcp` in `.github/workflows/build-agent-desktop-trimmed.yml`.
 
 
