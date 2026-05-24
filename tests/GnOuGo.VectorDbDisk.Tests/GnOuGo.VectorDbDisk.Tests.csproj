@@ -25,7 +25,7 @@
     </PackageReference>
 
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.26.0" />
-    <PackageReference Include="Tokenizers.HuggingFace" Version="2.21.4" />
+    <PackageReference Include="Tokenizers.HuggingFace" Version="3.23.1" />
   </ItemGroup>
   
   
