@@ -85,8 +85,8 @@ public sealed class CodeToolsTests : IDisposable
 		var options = GitHubCopilotCodeClient.BuildClientOptions(settings, _root, "ghp_test-token", enableSessionFs: true);
 
 		Assert.NotNull(options.SessionFs);
-		Assert.Equal(_root, options.SessionFs.InitialCwd);
-		Assert.Equal(".gnougo/copilot-session-state", options.SessionFs.SessionStatePath);
+		Assert.Equal<string?>(_root, options.SessionFs!.InitialWorkingDirectory);
+		Assert.Equal<string?>(".gnougo/copilot-session-state", options.SessionFs.SessionStatePath);
 	}
 
 	[Fact]
@@ -124,13 +124,13 @@ public sealed class CodeToolsTests : IDisposable
 
 		var options = GitHubCopilotCodeClient.BuildClientOptions(settings, _root, "ghp_test-token");
 
-		Assert.Equal(_root, options.Cwd);
-		Assert.Equal("ghp_test-token", options.GitHubToken);
-		Assert.False(options.UseLoggedInUser);
-		Assert.Equal("debug", options.LogLevel);
-		Assert.Equal("agent", GitHubCopilotCodeClient.NormalizeMessageMode(settings.Copilot.Mode));
+		Assert.Equal<string?>(_root, options.WorkingDirectory);
+		Assert.Equal<string?>("ghp_test-token", options.GitHubToken);
+		Assert.Equal<bool?>(false, options.UseLoggedInUser);
+		Assert.Equal<string?>("debug", options.LogLevel?.ToString());
+		Assert.Equal<string?>("agent", GitHubCopilotCodeClient.NormalizeMessageMode(settings.Copilot.Mode));
 		Assert.NotNull(options.Telemetry);
-		Assert.Equal("http://127.0.0.1:4317", options.Telemetry.OtlpEndpoint);
+		Assert.Equal<string?>("http://127.0.0.1:4317", options.Telemetry.OtlpEndpoint);
 	}
 
 	[Theory]
@@ -164,8 +164,8 @@ public sealed class CodeToolsTests : IDisposable
 
 		var options = GitHubCopilotCodeClient.BuildClientOptions(settings, _root, token: null);
 
-		Assert.Equal(_root, options.Cwd);
-		Assert.True(options.UseLoggedInUser);
+		Assert.Equal<string?>(_root, options.WorkingDirectory);
+		Assert.Equal<bool?>(true, options.UseLoggedInUser);
 		Assert.True(string.IsNullOrWhiteSpace(options.GitHubToken));
 	}
 
@@ -188,10 +188,10 @@ public sealed class CodeToolsTests : IDisposable
 	[InlineData("WARNING", "warning")]
 	[InlineData("trace", "all")]
 	[InlineData("debug", "debug")]
-	[InlineData("default", "default")]
-	public void NormalizeLogLevel_MapsConfiguredValueToCopilotCliValue(string? configured, string expected)
+	[InlineData("default", null)]
+	public void NormalizeLogLevel_MapsConfiguredValueToCopilotCliValue(string? configured, string? expected)
 	{
-		Assert.Equal(expected, GitHubCopilotCodeClient.NormalizeLogLevel(configured));
+		Assert.Equal<string?>(expected, GitHubCopilotCodeClient.NormalizeLogLevel(configured)?.ToString());
 	}
 
 	[Fact]
