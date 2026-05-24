@@ -7,6 +7,8 @@
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- Workaround for GitHub.Copilot.SDK beta packages that omit GitHub.Copilot.SDK.props -->
+    <CopilotCliVersion>1.0.52</CopilotCliVersion>
   </PropertyGroup>
 
   <ItemGroup>
