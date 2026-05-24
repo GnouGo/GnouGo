@@ -147,6 +147,8 @@ public sealed record OriginalDownloadDto(
     string Sha256,
     string Base64Content);
 
+public sealed record DeleteFileResult(bool Deleted, string DocumentId);
+
 public sealed record EmbeddingConfig(
     string Provider,
     string? Name,
@@ -158,6 +160,25 @@ public sealed record EmbeddingConfig(
     int? Dimensions);
 
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
+[JsonSerializable(typeof(DocsIngestorResult))]
+[JsonSerializable(typeof(DownloadedDocument))]
+[JsonSerializable(typeof(StoredDocumentRecord))]
+[JsonSerializable(typeof(FileVectorizationRequest))]
+[JsonSerializable(typeof(FileIngestionRequest))]
+[JsonSerializable(typeof(VectorizedFileResult))]
+[JsonSerializable(typeof(IngestedFileResult))]
+[JsonSerializable(typeof(ChunkDto))]
+[JsonSerializable(typeof(SearchHitDto))]
+[JsonSerializable(typeof(OriginalDownloadDto))]
+[JsonSerializable(typeof(DeleteFileResult))]
 [JsonSerializable(typeof(EmbeddingConfig))]
+[JsonSerializable(typeof(string[]))]
+[JsonSerializable(typeof(IReadOnlyList<string>))]
+[JsonSerializable(typeof(IReadOnlyDictionary<string, string>))]
+[JsonSerializable(typeof(IReadOnlyList<ChunkDto>))]
+[JsonSerializable(typeof(IReadOnlyList<VectorizedFileResult>))]
+[JsonSerializable(typeof(IReadOnlyList<IngestedFileResult>))]
+[JsonSerializable(typeof(IReadOnlyList<StoredDocumentRecord>))]
+[JsonSerializable(typeof(IReadOnlyList<SearchHitDto>))]
 internal partial class DocsIngestorJsonContext : JsonSerializerContext;
 

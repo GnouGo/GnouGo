@@ -129,7 +129,7 @@ public sealed class CodeTools
     {
         if (string.IsNullOrWhiteSpace(contextFilesJson))
             return [];
-        var values = JsonSerializer.Deserialize<List<string>>(contextFilesJson, CodeMcpJson.SerializerOptions);
+        var values = JsonSerializer.Deserialize(contextFilesJson, CodeMcpJsonContext.Default.ListString);
         if (values is null)
             return [];
 
@@ -171,6 +171,7 @@ internal static class CodeMcpJson
 [JsonSerializable(typeof(CodeAgentEditResult))]
 [JsonSerializable(typeof(CodeWriteResult))]
 [JsonSerializable(typeof(CodeErrorResult))]
+[JsonSerializable(typeof(CodeUsageInfo))]
 internal sealed partial class CodeMcpJsonContext : JsonSerializerContext;
 
 

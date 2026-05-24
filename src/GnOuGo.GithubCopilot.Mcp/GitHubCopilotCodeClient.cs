@@ -404,12 +404,8 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         if (data.OutputTokens is null && string.IsNullOrWhiteSpace(data.RequestId) && string.IsNullOrWhiteSpace(data.InteractionId))
             return null;
 
-        return JsonSerializer.Serialize(new
-        {
-            data.OutputTokens,
-            data.RequestId,
-            data.InteractionId
-        });
+        var usage = new CodeUsageInfo(data.OutputTokens, data.RequestId, data.InteractionId);
+        return JsonSerializer.Serialize(usage, CodeMcpJsonContext.Default.CodeUsageInfo);
     }
 
     private static string? NormalizeNullable(string? value)

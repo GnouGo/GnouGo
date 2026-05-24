@@ -85,7 +85,7 @@ public static class DocsIngestorMcpHostingExtensions
                 };
             })
             .WithHttpTransport()
-            .WithTools<DocsIngestorTools>();
+            .WithTools<DocsIngestorTools>(Models.DocsIngestorJsonContext.Default.Options);
 
         return services;
     }

@@ -28,7 +28,7 @@ public static class AgentMcpWebHost
         var app = builder.Build();
         app.Services.InitializeAgentMcpAsync().GetAwaiter().GetResult();
 
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+        app.MapGet("/health", (RequestDelegate)WriteHealthAsync);
         app.MapAgentMcp(routePrefix);
 
         var logger = app.Services.GetRequiredService<ILoggerFactory>()
@@ -40,6 +40,12 @@ public static class AgentMcpWebHost
             routePrefix);
 
         return app;
+    }
+
+    private static Task WriteHealthAsync(HttpContext context)
+    {
+        context.Response.ContentType = "application/json";
+        return context.Response.WriteAsync("{\"status\":\"ok\"}");
     }
 }
 

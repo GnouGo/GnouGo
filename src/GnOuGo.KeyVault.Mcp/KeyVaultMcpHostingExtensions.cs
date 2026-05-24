@@ -42,7 +42,7 @@ public static class KeyVaultMcpHostingExtensions
                 };
             })
             .WithHttpTransport()
-            .WithTools<KeyVaultTools>();
+            .WithTools<KeyVaultTools>(KeyVaultMcpJson.SerializerOptions);
 
         return services;
     }

@@ -42,7 +42,7 @@ builder.Services
         };
     })
     .WithStdioServerTransport()
-    .WithTools<BrowserTools>();
+    .WithTools<BrowserTools>(BrowserMcpJson.SerializerOptions);
 
 var host = builder.Build();
 var browserHost = host.Services.GetRequiredService<PlaywrightBrowserHost>();

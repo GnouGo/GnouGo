@@ -30,7 +30,7 @@ builder.Services
         };
     })
     .WithStdioServerTransport()
-    .WithTools<CmdTools>();
+    .WithTools<CmdTools>(CmdMcpJson.SerializerOptions);
 
 var host = builder.Build();
 var startupLogger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Cmd.Mcp.Startup");

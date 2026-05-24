@@ -38,7 +38,7 @@ public static class DocsIngestorMcpWebHost
         var app = builder.Build();
         app.Services.InitializeDocsIngestorMcpAsync().GetAwaiter().GetResult();
 
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+        app.MapGet("/health", (RequestDelegate)WriteHealthAsync);
         app.MapDocsIngestorMcp(routePrefix);
 
         var logger = app.Services.GetRequiredService<ILoggerFactory>()
@@ -53,6 +53,12 @@ public static class DocsIngestorMcpWebHost
             routePrefix);
 
         return app;
+    }
+
+    private static Task WriteHealthAsync(HttpContext context)
+    {
+        context.Response.ContentType = "application/json";
+        return context.Response.WriteAsync("{\"status\":\"ok\"}");
     }
 }
 

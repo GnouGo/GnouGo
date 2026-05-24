@@ -164,7 +164,7 @@ public sealed class DocsIngestorTools
         try
         {
             var deleted = await _service.DeleteFileAsync(documentId, ct);
-            return deleted ? DocsIngestorResult.Ok(new { deleted = true, documentId }) : DocsIngestorResult.Fail("Document was not found.");
+            return deleted ? DocsIngestorResult.Ok(new DeleteFileResult(true, documentId)) : DocsIngestorResult.Fail("Document was not found.");
         }
         catch (Exception ex)
         {

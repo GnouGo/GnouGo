@@ -72,8 +72,8 @@ public static class AgentMcpHostingExtensions
                 };
             })
             .WithHttpTransport()
-            .WithTools<DataTools>()
-            .WithTools<AgentTools>();
+            .WithTools<DataTools>(AgentMcpJson.SerializerOptions)
+            .WithTools<AgentTools>(AgentMcpJson.SerializerOptions);
 
         return services;
     }

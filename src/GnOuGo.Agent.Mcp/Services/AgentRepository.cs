@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 using GnOuGo.Agent.Mcp.Data;
 using GnOuGo.Agent.Mcp.Models;
 using GnOuGo.Diff.Core.Models;
@@ -16,10 +15,6 @@ public sealed class AgentRepository : IAgentRepository
 
     private const string DiffEntityType = "AgentDefinition";
     private const string DiffAuthor = "GnOuGo.Agent.Mcp";
-
-    private static readonly ISerializer YamlSerializer = new SerializerBuilder()
-        .WithNamingConvention(CamelCaseNamingConvention.Instance)
-        .Build();
 
     public AgentRepository(AgentDbContext db, DiffService diff)
     {
@@ -166,7 +161,7 @@ public sealed class AgentRepository : IAgentRepository
             UpdatedAt = agent.UpdatedAt.ToString("o")
         };
 
-        return YamlSerializer.Serialize(snapshot);
+        return AgentSnapshotYamlSerializer.Serialize(snapshot);
     }
 
     /// <summary>Flat DTO used only for YAML serialization of an agent snapshot.</summary>
@@ -180,5 +175,87 @@ public sealed class AgentRepository : IAgentRepository
         public List<Schedule> Schedules { get; set; } = [];
         public string CreatedAt { get; set; } = "";
         public string UpdatedAt { get; set; } = "";
+    }
+
+    private static class AgentSnapshotYamlSerializer
+    {
+        public static string Serialize(AgentSnapshot snapshot)
+        {
+            var builder = new StringBuilder();
+            AppendScalar(builder, "id", snapshot.Id);
+            AppendScalar(builder, "name", snapshot.Name);
+            AppendScalar(builder, "workflow", snapshot.Workflow);
+            AppendScalar(builder, "originalPrompt", snapshot.OriginalPrompt);
+            AppendScalar(builder, "scheduleDescription", snapshot.ScheduleDescription);
+            builder.AppendLine("schedules:");
+            if (snapshot.Schedules.Count == 0)
+            {
+                builder.AppendLine("  []");
+            }
+            else
+            {
+                foreach (var schedule in snapshot.Schedules)
+                {
+                    AppendListItemScalar(builder, "id", schedule.Id);
+                    AppendIndentedScalar(builder, "name", schedule.Name, 2);
+                    AppendIndentedScalar(builder, "cron", schedule.Cron, 2);
+                }
+            }
+
+            AppendScalar(builder, "createdAt", snapshot.CreatedAt);
+            AppendScalar(builder, "updatedAt", snapshot.UpdatedAt);
+            return builder.ToString();
+        }
+
+        private static void AppendListItemScalar(StringBuilder builder, string name, string? value)
+        {
+            builder.Append("  - ");
+            AppendScalarContent(builder, name, value, 4);
+        }
+
+        private static void AppendScalar(StringBuilder builder, string name, string? value)
+            => AppendIndentedScalar(builder, name, value, 0);
+
+        private static void AppendIndentedScalar(StringBuilder builder, string name, string? value, int indent)
+        {
+            builder.Append(' ', indent);
+            AppendScalarContent(builder, name, value, indent + 2);
+        }
+
+        private static void AppendScalarContent(StringBuilder builder, string name, string? value, int blockIndent)
+        {
+            var normalized = value ?? string.Empty;
+            if (normalized.Contains('\n', StringComparison.Ordinal) || normalized.Contains('\r', StringComparison.Ordinal))
+            {
+                builder.Append(name).AppendLine(": |-");
+                using var reader = new StringReader(normalized.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n'));
+                string? line;
+                while ((line = reader.ReadLine()) is not null)
+                {
+                    builder.Append(' ', blockIndent).AppendLine(line);
+                }
+
+                return;
+            }
+
+            builder.Append(name).Append(": ").AppendLine(QuoteIfNeeded(normalized));
+        }
+
+        private static string QuoteIfNeeded(string value)
+        {
+            if (value.Length == 0)
+                return "\"\"";
+
+            var needsQuoting = value.StartsWith(" ", StringComparison.Ordinal)
+                || value.EndsWith(" ", StringComparison.Ordinal)
+                || value.Contains(':', StringComparison.Ordinal)
+                || value.Contains('#', StringComparison.Ordinal)
+                || value.Contains('"', StringComparison.Ordinal)
+                || value is "true" or "false" or "null";
+
+            return needsQuoting
+                ? "\"" + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\""
+                : value;
+        }
     }
 }

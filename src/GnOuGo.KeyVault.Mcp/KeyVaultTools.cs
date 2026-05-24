@@ -73,14 +73,12 @@ public sealed class KeyVaultTools
             await using var scope = _scopeFactory.CreateAsyncScope();
             var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
             var result = await svc.SetSecretAsync(key, value, tenantId, author, ct);
-            return KeyVaultResult.Ok(new
-            {
+            return KeyVaultResult.Ok(new KeyVaultSecretMetadataDto(
                 result.Id,
                 result.Key,
                 result.Version,
                 result.TenantId,
-                result.CreatedAt
-            });
+                result.CreatedAt));
         }
         catch (Exception ex)
         {
@@ -123,15 +121,7 @@ public sealed class KeyVaultTools
             if (result is null)
                 return KeyVaultResult.NotFound($"Secret '{key}' not found.");
 
-            return KeyVaultResult.Ok(new
-            {
-                result.Id,
-                result.Key,
-                result.Value,
-                result.Version,
-                result.TenantId,
-                result.CreatedAt
-            });
+            return KeyVaultResult.Ok(result);
         }
         catch (Exception ex)
         {
@@ -169,4 +159,11 @@ public sealed record KeyVaultResult(bool Success, object? Data, string? Error = 
     public static KeyVaultResult Ok(object? data) => new(true, data);
     public static KeyVaultResult NotFound(string message) => new(false, null, message);
 }
+
+public sealed record KeyVaultSecretMetadataDto(
+    Guid Id,
+    string Key,
+    int Version,
+    Guid? TenantId,
+    DateTimeOffset CreatedAt);
 

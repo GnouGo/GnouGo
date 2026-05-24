@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
-using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using GitHub.Copilot.SDK;
 
 namespace GnOuGo.GithubCopilot.Mcp;
@@ -13,9 +14,9 @@ internal sealed class CopilotSdkProgressEventMapper
         try
         {
             return TryMap(
-                GetStringProperty(sdkEvent, nameof(SessionEvent.Type)),
+                sdkEvent.Type,
                 ExtractDataProperties(sdkEvent),
-                GetStringProperty(sdkEvent, nameof(SessionEvent.Timestamp)),
+                sdkEvent.Timestamp.ToString("O", CultureInfo.InvariantCulture),
                 out progressEvent);
         }
         catch
@@ -114,37 +115,52 @@ internal sealed class CopilotSdkProgressEventMapper
 
     private static IReadOnlyDictionary<string, string?> ExtractDataProperties(SessionEvent sdkEvent)
     {
-        var data = sdkEvent.GetType().GetProperty("Data", BindingFlags.Public | BindingFlags.Instance)?.GetValue(sdkEvent);
-        if (data is null)
+        var root = JsonNode.Parse(sdkEvent.ToJson()) as JsonObject;
+        if (root is null || !TryGetProperty(root, "data", out var dataNode) || dataNode is not JsonObject data)
             return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
         var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var property in data.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        foreach (var property in data)
         {
-            if (property.GetIndexParameters().Length != 0)
-                continue;
-
-            values[property.Name] = CoerceString(property.GetValue(data));
+            values[property.Key] = CoerceJsonString(property.Value);
         }
 
         return values;
     }
 
-    private static string? GetStringProperty(object instance, string name)
-        => CoerceString(instance.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance)?.GetValue(instance));
+    private static bool TryGetProperty(JsonObject json, string name, out JsonNode? value)
+    {
+        foreach (var property in json)
+        {
+            if (string.Equals(property.Key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                return true;
+            }
+        }
 
-    private static string? CoerceString(object? value)
+        value = null;
+        return false;
+    }
+
+    private static string? CoerceJsonString(JsonNode? value)
     {
         if (value is null)
             return null;
-        if (value is string text)
-            return text;
-        if (value is DateTimeOffset dateTimeOffset)
-            return dateTimeOffset.ToString("O", CultureInfo.InvariantCulture);
-        if (value is DateTime dateTime)
-            return dateTime.ToString("O", CultureInfo.InvariantCulture);
-        if (value is bool or byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal or Enum)
-            return Convert.ToString(value, CultureInfo.InvariantCulture);
+
+        if (value is JsonValue jsonValue)
+        {
+            if (jsonValue.TryGetValue<string>(out var text))
+                return text;
+            if (jsonValue.TryGetValue<DateTimeOffset>(out var dateTimeOffset))
+                return dateTimeOffset.ToString("O", CultureInfo.InvariantCulture);
+            if (jsonValue.TryGetValue<DateTime>(out var dateTime))
+                return dateTime.ToString("O", CultureInfo.InvariantCulture);
+            if (jsonValue.TryGetValue<bool>(out var boolean))
+                return boolean.ToString(CultureInfo.InvariantCulture);
+            if (jsonValue.TryGetValue<decimal>(out var decimalValue))
+                return decimalValue.ToString(CultureInfo.InvariantCulture);
+        }
 
         return null;
     }

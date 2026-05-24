@@ -132,7 +132,7 @@ public sealed class AgentTools
 
             var arr = new JsonArray();
             foreach (var a in agents)
-                arr.Add(SerializeAgent(a));
+                arr.Add((JsonNode)SerializeAgent(a));
 
             return new JsonObject
             {
