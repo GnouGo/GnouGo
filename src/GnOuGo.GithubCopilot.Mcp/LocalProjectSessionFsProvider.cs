@@ -1,6 +1,6 @@
 ﻿using System.Text;
-using GitHub.Copilot.SDK;
-using GitHub.Copilot.SDK.Rpc;
+using GitHub.Copilot;
+using GitHub.Copilot.Rpc;
 using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.GithubCopilot.Mcp;
@@ -115,7 +115,7 @@ internal sealed class LocalProjectSessionFsProvider : SessionFsProvider
         throw new FileNotFoundException($"SessionFs path '{path}' was not found.", path);
     }
 
-    protected override Task MkdirAsync(string path, bool recursive, int? mode, CancellationToken cancellationToken)
+    protected override Task MakeDirectoryAsync(string path, bool recursive, int? mode, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         EnsureWritesAllowed();
@@ -130,7 +130,7 @@ internal sealed class LocalProjectSessionFsProvider : SessionFsProvider
         return Task.CompletedTask;
     }
 
-    protected override Task<IList<string>> ReaddirAsync(string path, CancellationToken cancellationToken)
+    protected override Task<IList<string>> ReadDirectoryAsync(string path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var resolvedPath = ResolveExistingOrPotentialPath(path, allowEmpty: true);
@@ -147,7 +147,7 @@ internal sealed class LocalProjectSessionFsProvider : SessionFsProvider
         return Task.FromResult(entries);
     }
 
-    protected override Task<IList<SessionFsReaddirWithTypesEntry>> ReaddirWithTypesAsync(string path, CancellationToken cancellationToken)
+    protected override Task<IList<SessionFsReaddirWithTypesEntry>> ReadDirectoryWithTypesAsync(string path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var resolvedPath = ResolveExistingOrPotentialPath(path, allowEmpty: true);
@@ -170,7 +170,7 @@ internal sealed class LocalProjectSessionFsProvider : SessionFsProvider
         return Task.FromResult(entries);
     }
 
-    protected override Task RmAsync(string path, bool recursive, bool force, CancellationToken cancellationToken)
+    protected override Task RemoveAsync(string path, bool recursive, bool force, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         EnsureWritesAllowed();

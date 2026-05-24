@@ -1,8 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
-using GitHub.Copilot.SDK;
-using GitHub.Copilot.SDK.Rpc;
+using GitHub.Copilot;
+using GitHub.Copilot.Rpc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -81,7 +81,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             Streaming = false,
             OnPermissionRequest = PermissionHandler.ApproveAll
         }, cancellationToken);
-        using var sdkProgressSubscription = session.On(progress.AddSdkEvent);
+        using var sdkProgressSubscription = session.On<SessionEvent>(progress.AddSdkEvent);
 
         var timeout = TimeSpan.FromSeconds(Math.Max(1, _settings.Copilot.RequestTimeoutSeconds));
         progress.Add("request_send", "thinking", "Sending code suggestion request to Copilot.");
@@ -162,13 +162,13 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             WorkingDirectory = projectRoot,
             Streaming = false,
             OnPermissionRequest = PermissionHandler.ApproveAll,
-            CreateSessionFsHandler = _ =>
+            CreateSessionFsProvider = _ =>
             {
                 sessionFsProvider = new LocalProjectSessionFsProvider(_policy, _settings, projectRoot, _logger);
                 return sessionFsProvider;
             }
         }, cancellationToken);
-        using var sdkProgressSubscription = session.On(progress.AddSdkEvent);
+        using var sdkProgressSubscription = session.On<SessionEvent>(progress.AddSdkEvent);
 
         var timeout = TimeSpan.FromSeconds(Math.Max(1, _settings.Copilot.RequestTimeoutSeconds));
         progress.Add("request_send", "thinking", "Sending agent edit request to Copilot.");
@@ -226,7 +226,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
 
         var options = new CopilotClientOptions
         {
-            Cwd = projectRoot,
+            WorkingDirectory = projectRoot,
             GitHubToken = string.IsNullOrWhiteSpace(token) ? null : token,
             UseLoggedInUser = settings.Copilot.UseLoggedInUser,
             LogLevel = NormalizeLogLevel(settings.Copilot.LogLevel),
@@ -239,7 +239,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         {
             options.SessionFs = new SessionFsConfig
             {
-                InitialCwd = projectRoot,
+                InitialWorkingDirectory = projectRoot,
                 SessionStatePath = ".gnougo/copilot-session-state",
                 Conventions = OperatingSystem.IsWindows()
                     ? SessionFsSetProviderConventions.Windows
@@ -264,16 +264,22 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         };
     }
 
-    internal static string NormalizeLogLevel(string? logLevel)
+    internal static CopilotLogLevel? NormalizeLogLevel(string? logLevel)
     {
         if (string.IsNullOrWhiteSpace(logLevel))
-            return "warning";
+            return CopilotLogLevel.Warning;
 
         return logLevel.Trim().ToLowerInvariant() switch
         {
-            "warn" => "warning",
-            "trace" => "all",
-            "none" or "error" or "warning" or "info" or "debug" or "all" or "default" => logLevel.Trim().ToLowerInvariant(),
+            "warn" => CopilotLogLevel.Warning,
+            "trace" => CopilotLogLevel.All,
+            "none" => CopilotLogLevel.None,
+            "error" => CopilotLogLevel.Error,
+            "warning" => CopilotLogLevel.Warning,
+            "info" => CopilotLogLevel.Info,
+            "debug" => CopilotLogLevel.Debug,
+            "all" => CopilotLogLevel.All,
+            "default" => null,
             _ => throw new InvalidOperationException(
                 $"Unsupported Copilot log level '{logLevel}'. Supported levels: none, error, warning, info, debug, all, default.")
         };

@@ -7,6 +7,8 @@
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- Workaround for GitHub.Copilot.SDK beta packages that omit GitHub.Copilot.SDK.props -->
+    <CopilotCliVersion>1.0.52</CopilotCliVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.0-beta.4" />
+    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.0-beta.6" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.7" />
     <PackageReference Include="ModelContextProtocol" Version="1.3.0" />

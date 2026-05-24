@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
-using GitHub.Copilot.SDK;
+using GitHub.Copilot;
 using GnOuGo.Auth.Core;
 using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Core.Services;

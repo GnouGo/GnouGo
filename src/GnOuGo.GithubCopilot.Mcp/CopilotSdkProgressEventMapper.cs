@@ -1,6 +1,6 @@
 ﻿using System.Globalization;
 using System.Reflection;
-using GitHub.Copilot.SDK;
+using GitHub.Copilot;
 
 namespace GnOuGo.GithubCopilot.Mcp;
 
