@@ -19,20 +19,20 @@
 
   <ItemGroup>
     <!-- DOCX / PPTX / XLSX extraction -->
-    <PackageReference Include="DocumentFormat.OpenXml" Version="3.*" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
 
     <!-- PDF text extraction -->
-    <PackageReference Include="PdfPig" Version="0.*" />
+    <PackageReference Include="PdfPig" Version="0.1.14" />
 
     <!-- Token counting (optional but helpful for chunking policies) -->
-    <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.*" />
-    <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.*" />
-    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.7" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
+    <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.0.0" />
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
       <!-- SQLite store (MIT) -->
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.8" />
     <PackageReference Include="PdfPig.Rendering.Skia" Version="0.1.14.2" />
-    <PackageReference Include="SkiaSharp" Version="3.*" />
+    <PackageReference Include="SkiaSharp" Version="3.119.2" />
 
     <!-- OpenTelemetry for GenAI instrumentation -->
     <PackageReference Include="OpenTelemetry.Api" Version="1.15.3" />

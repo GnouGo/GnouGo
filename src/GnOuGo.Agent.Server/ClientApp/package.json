@@ -1,1 +1,1 @@
-{"name":"gnougo-agent-ui","private":true,"version":"0.0.0","type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview"},"dependencies":{"github-markdown-css":"5.9.0","mermaid":"11.14.0"},"devDependencies":{"sass":"1.99.0","typescript":"6.0.3","vite":"8.0.11"}}
+{"name":"gnougo-agent-ui","private":true,"version":"0.0.0","type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview"},"dependencies":{"github-markdown-css":"5.9.0","mermaid":"11.15.0"},"devDependencies":{"sass":"1.100.0","typescript":"6.0.3","vite":"8.0.14"}}
