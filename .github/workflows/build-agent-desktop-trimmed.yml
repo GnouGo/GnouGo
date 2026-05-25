@@ -72,7 +72,7 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "pnpm-lock.yaml"
 
-      - name: Validate Browser MCP Native AOT publish
+      - name: Validate Browser MCP self-contained publish
         shell: pwsh
         run: |
           dotnet publish src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj `
@@ -80,8 +80,8 @@ jobs:
             -r ${{ matrix.rid }} `
             --self-contained true `
             -o artifacts/publish/browser-mcp-aot/${{ matrix.rid }} `
-            -p:PublishAot=true `
-            -p:PublishTrimmed=true `
+            -p:PublishAot=false `
+            -p:PublishTrimmed=false `
             -p:PublishSingleFile=false `
             -p:InvariantGlobalization=false `
             -p:SkipModelMetadataGeneration=true
@@ -190,7 +190,26 @@ jobs:
             }
           }
 
-          foreach ($path in $requiredTools) {
+          $browserToolRoot = "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp"
+          $browserRuntimeConfigPath = Join-Path $browserToolRoot "GnOuGo.Browser.Mcp.runtimeconfig.json"
+          $browserDepsJsonPath = Join-Path $browserToolRoot "GnOuGo.Browser.Mcp.deps.json"
+
+          if (-not (Test-Path $browserRuntimeConfigPath)) {
+            throw "Bundled Browser tool is expected to remain non-AOT until Microsoft.Playwright is Native AOT compatible: $browserRuntimeConfigPath"
+          }
+
+          if (-not (Test-Path $browserDepsJsonPath)) {
+            throw "Bundled Browser tool is expected to retain a .deps.json manifest: $browserDepsJsonPath"
+          }
+
+          $browserRuntimeConfig = Get-Content $browserRuntimeConfigPath -Raw | ConvertFrom-Json
+          $browserInvariantGlobalization = $browserRuntimeConfig.runtimeOptions.configProperties.'System.Globalization.Invariant'
+          if ($browserInvariantGlobalization -ne $false) {
+            throw "Bundled Browser tool must not use invariant globalization: $browserRuntimeConfigPath"
+          }
+
+          $nativeAotTools = $requiredTools | Where-Object { $_ -notlike '*GnOuGo.Browser.Mcp*' }
+          foreach ($path in $nativeAotTools) {
             $toolRoot = Split-Path -Parent $path
             $toolName = Split-Path -Leaf $toolRoot
             $runtimeConfigPath = Join-Path $toolRoot "$toolName.runtimeconfig.json"
@@ -205,9 +224,8 @@ jobs:
             }
           }
 
-          Write-Host "Validated bundled desktop tools are Native AOT executables (no runtimeconfig/deps manifests)."
+          Write-Host "Validated bundled desktop tools: Browser stays self-contained non-AOT, all other bundled tools are Native AOT executables."
 
-          $browserToolRoot = "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp"
           $playwrightRoot = Join-Path $browserToolRoot "ms-playwright"
           if (-not (Test-Path $playwrightRoot)) {
             throw "Missing bundled Playwright browsers directory: $playwrightRoot"
