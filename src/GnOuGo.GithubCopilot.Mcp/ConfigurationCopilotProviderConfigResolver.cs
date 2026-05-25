@@ -30,15 +30,18 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
 
 	private readonly IConfiguration _configuration;
 	private readonly IHttpClientFactory _httpClientFactory;
+	private readonly IKeyVaultCopilotProviderConfigResolver _keyVaultProviderConfigResolver;
 	private readonly ILogger<ConfigurationCopilotProviderConfigResolver> _logger;
 
 	public ConfigurationCopilotProviderConfigResolver(
 		IConfiguration configuration,
 		IHttpClientFactory httpClientFactory,
+		IKeyVaultCopilotProviderConfigResolver keyVaultProviderConfigResolver,
 		ILogger<ConfigurationCopilotProviderConfigResolver> logger)
 	{
 		_configuration = configuration;
 		_httpClientFactory = httpClientFactory;
+		_keyVaultProviderConfigResolver = keyVaultProviderConfigResolver;
 		_logger = logger;
 	}
 
@@ -52,9 +55,9 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
 			return null;
 
 		var normalizedProviderName = providerName.Trim();
-		var config = LoadProviderConfig(normalizedProviderName);
+		var config = await LoadProviderConfigAsync(normalizedProviderName, ct);
 		if (config is null)
-			throw new McpException($"Copilot provider '{normalizedProviderName}' was not found in configuration. Expected section '{ProvidersSectionPath}:{normalizedProviderName}'.");
+			throw new McpException($"Copilot provider '{normalizedProviderName}' was not found in configuration or KeyVault. Expected configuration section '{ProvidersSectionPath}:{normalizedProviderName}' or KeyVault secret 'LLM--Models--{normalizedProviderName}'.");
 
 		var model = ReadConfigString(config, "model") ?? fallbackModel;
 		if (string.IsNullOrWhiteSpace(model))
@@ -94,9 +97,20 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
 		return new CopilotProviderOverride(normalizedProviderName, model, provider);
 	}
 
-	private JsonObject? LoadProviderConfig(string providerName)
+	private async Task<JsonObject?> LoadProviderConfigAsync(string providerName, CancellationToken ct)
 	{
-		foreach (var key in GetCandidateProviderKeys(providerName))
+		var candidateKeys = GetCandidateProviderKeys(providerName).ToArray();
+		var configurationConfig = LoadProviderConfigFromConfiguration(candidateKeys, providerName);
+		var keyVaultConfig = await _keyVaultProviderConfigResolver.ResolveAsync(candidateKeys, providerName, ct);
+
+		return configurationConfig is null
+			? keyVaultConfig
+			: MergeProviderConfig(configurationConfig, keyVaultConfig);
+	}
+
+	private JsonObject? LoadProviderConfigFromConfiguration(IEnumerable<string> candidateKeys, string providerName)
+	{
+		foreach (var key in candidateKeys)
 		{
 			var section = _configuration.GetSection($"{ProvidersSectionPath}:{key}");
 			if (!section.Exists())
@@ -109,6 +123,42 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
 		}
 
 		return null;
+	}
+
+	private static JsonObject MergeProviderConfig(JsonObject configurationConfig, JsonObject? keyVaultConfig)
+	{
+		if (keyVaultConfig is null)
+			return configurationConfig;
+
+		var merged = CloneConfigObject(keyVaultConfig);
+		foreach (var item in configurationConfig)
+		{
+			if (item.Value is null)
+				continue;
+
+			if (item.Value is JsonValue value
+				&& value.TryGetValue<string>(out var stringValue)
+				&& string.IsNullOrWhiteSpace(stringValue))
+			{
+				continue;
+			}
+
+			merged[item.Key] = item.Value.DeepClone();
+		}
+
+		return merged;
+	}
+
+	private static JsonObject CloneConfigObject(JsonObject source)
+	{
+		var clone = new JsonObject();
+		foreach (var item in source)
+		{
+			if (item.Value is not null)
+				clone[item.Key] = item.Value.DeepClone();
+		}
+
+		return clone;
 	}
 
 	private static JsonObject BuildConfigObject(IConfigurationSection section)

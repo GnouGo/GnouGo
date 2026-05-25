@@ -33,8 +33,8 @@ Relevant Copilot settings:
 - `Code:Copilot:UseLoggedInUser`: whether the SDK may use an already logged-in user when no explicit token is provided, default `false` in code defaults and `true` in the local appsettings template.
 - `Code:Copilot:RequestTimeoutSeconds`: wait timeout for a Copilot response, default `120`.
 
-`code_suggest_change` also accepts an optional `provider` parameter. When omitted, the default GitHub Copilot SDK behavior above is unchanged.
-When provided, the MCP reads the matching provider from configuration and passes it as a custom Copilot SDK provider for that call. The MCP intentionally uses configuration instead of EF Core/KeyVault in-process so the stdio executable remains Native AOT-friendly.
+`code_suggest_change` and `code_agent_edit` also accept an optional `provider` parameter. When omitted, the default GitHub Copilot SDK behavior above is unchanged.
+When provided, the MCP reads the matching provider from configuration and/or the shared GnOuGo KeyVault database, then passes it as a custom Copilot SDK provider for that call. KeyVault reads use a small SQLite/decryption helper from `GnOuGo.KeyVault.Core` instead of constructing the EF Core model inside the Native AOT stdio executable.
 Supported provider section names are:
 
 - `Code:Copilot:Providers:<provider>`
@@ -42,6 +42,8 @@ Supported provider section names are:
 - legacy fallback: `Code:Copilot:Providers:gnougo_llm_<provider>`
 
 The section must contain at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`. Keep secret values in environment variables or another secure configuration provider; do not commit real tokens to `appsettings.json`.
+
+For local Agent/Desktop usage, LLM provider secrets saved by `/llm add` are stored in KeyVault with keys such as `LLM--Models--OpenAi` and legacy `gnougo_llm_OpenAi`. This MCP resolves those same default-tenant KeyVault secrets from `KeyVault:DatabasePath` (default `data/gnougo-keyvault.db`, mapped by `KeyVaultDatabasePathResolver` to the shared Desktop GnOuGo data folder). If both configuration and KeyVault define a provider, non-empty configuration values override KeyVault values, while empty configuration values such as `apiKey = ""` allow the KeyVault secret to supply the key.
 
 Anthropic providers with `provider`/`type` set to `anthropic` are supported as custom SDK providers. They map to SDK provider type `anthropic` and default `wireApi` to `messages`; API-key auth is passed through as `ApiKey` for the Anthropic Messages API. The legacy `claude` provider/type values are still accepted as compatibility aliases.
 If the requested provider does not exist, the tool returns a standard MCP tool error.

@@ -1,7 +1,11 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.Json.Nodes;
 using ModelContextProtocol;
+using GnOuGo.KeyVault.Core.Data;
+using GnOuGo.KeyVault.Core.Services;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace GnOuGo.GithubCopilot.Mcp.Tests;
@@ -146,6 +150,91 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
     }
 
     [Fact]
+    public async Task ResolveAsync_LoadsProviderConfigFromKeyVault()
+    {
+        var databasePath = CreateTempDatabasePath();
+        try
+        {
+            await SeedKeyVaultSecretAsync(
+                databasePath,
+                "LLM--Models--OpenAi",
+                """
+                {
+                  "provider": "OpenAi",
+                  "url": "https://api.openai.com/v1",
+                  "type": "openai",
+                  "model": "gpt-4o-mini",
+                  "authType": "api_key",
+                  "apiKey": "sk-keyvault"
+                }
+                """);
+
+            using var services = CreateServices(new Dictionary<string, string?>
+            {
+                ["KeyVault:DatabasePath"] = databasePath
+            });
+            var resolver = CreateResolver(services, CreateKeyVaultResolver(services));
+
+            var result = await resolver.ResolveAsync("OpenAi", "fallback-model", null, CancellationToken.None);
+
+            Assert.NotNull(result);
+            Assert.Equal("OpenAi", result.ProviderName);
+            Assert.Equal("gpt-4o-mini", result.Model);
+            Assert.Equal("https://api.openai.com/v1", result.Provider.BaseUrl);
+            Assert.Equal("sk-keyvault", result.Provider.ApiKey);
+            Assert.Null(result.Provider.BearerToken);
+        }
+        finally
+        {
+            TryDeleteDatabase(databasePath);
+        }
+    }
+
+    [Fact]
+    public async Task ResolveAsync_MergesConfiguredProviderWithKeyVaultSecretApiKey()
+    {
+        var databasePath = CreateTempDatabasePath();
+        try
+        {
+            await SeedKeyVaultSecretAsync(
+                databasePath,
+                "LLM--Models--OpenAi",
+                """
+                {
+                  "provider": "OpenAi",
+                  "url": "https://api.openai.com/v1",
+                  "type": "openai",
+                  "model": "gpt-4o-mini",
+                  "authType": "api_key",
+                  "apiKey": "sk-keyvault"
+                }
+                """);
+
+            using var services = CreateServices(new Dictionary<string, string?>
+            {
+                ["KeyVault:DatabasePath"] = databasePath,
+                ["Code:Copilot:Providers:OpenAi:url"] = "https://api.openai.com/v1",
+                ["Code:Copilot:Providers:OpenAi:type"] = "openai",
+                ["Code:Copilot:Providers:OpenAi:model"] = "gpt-4.1-mini",
+                ["Code:Copilot:Providers:OpenAi:authType"] = "api_key",
+                ["Code:Copilot:Providers:OpenAi:apiKey"] = ""
+            });
+            var resolver = CreateResolver(services, CreateKeyVaultResolver(services));
+
+            var result = await resolver.ResolveAsync("OpenAi", "fallback-model", null, CancellationToken.None);
+
+            Assert.NotNull(result);
+            Assert.Equal("gpt-4.1-mini", result.Model);
+            Assert.Equal("gpt-4.1-mini", result.Provider.ModelId);
+            Assert.Equal("sk-keyvault", result.Provider.ApiKey);
+        }
+        finally
+        {
+            TryDeleteDatabase(databasePath);
+        }
+    }
+
+    [Fact]
     public async Task ResolveAsync_ThrowsMcpExceptionWhenProviderDoesNotExist()
     {
         using var services = CreateServices();
@@ -170,10 +259,68 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
     }
 
     private static ConfigurationCopilotProviderConfigResolver CreateResolver(ServiceProvider services)
+        => CreateResolver(services, NullKeyVaultCopilotProviderConfigResolver.Instance);
+
+    private static ConfigurationCopilotProviderConfigResolver CreateResolver(
+        ServiceProvider services,
+        IKeyVaultCopilotProviderConfigResolver keyVaultResolver)
         => new(
             services.GetRequiredService<IConfiguration>(),
             services.GetRequiredService<IHttpClientFactory>(),
+            keyVaultResolver,
             NullLogger<ConfigurationCopilotProviderConfigResolver>.Instance);
+
+    private static KeyVaultCopilotProviderConfigResolver CreateKeyVaultResolver(ServiceProvider services)
+        => new(
+            services.GetRequiredService<IConfiguration>(),
+            NullLogger<KeyVaultCopilotProviderConfigResolver>.Instance);
+
+    private static string CreateTempDatabasePath()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "gnougo-githubcopilot-keyvault-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        return Path.Combine(directory, "gnougo-keyvault.db");
+    }
+
+    private static async Task SeedKeyVaultSecretAsync(string databasePath, string key, string value)
+    {
+        var services = new ServiceCollection();
+        services.AddDbContext<KeyVaultDbContext>(options => options.UseSqlite($"Data Source={databasePath}"));
+        services.AddScoped<KeyVaultService>();
+
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
+        await KeyVaultDatabaseBootstrap.EnsureCreatedAsync(db);
+        var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+        await keyVault.EnsureDefaultKeyPairAsync();
+        await keyVault.SetSecretAsync(key, value, null, "test", CancellationToken.None);
+    }
+
+    private static void TryDeleteDatabase(string databasePath)
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(databasePath);
+            if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+        catch
+        {
+            // Best effort cleanup for temp test files.
+        }
+    }
+
+    private sealed class NullKeyVaultCopilotProviderConfigResolver : IKeyVaultCopilotProviderConfigResolver
+    {
+        public static NullKeyVaultCopilotProviderConfigResolver Instance { get; } = new();
+
+        public Task<JsonObject?> ResolveAsync(
+            IReadOnlyList<string> candidateSecretKeys,
+            string providerName,
+            CancellationToken ct)
+            => Task.FromResult<JsonObject?>(null);
+    }
 }
 
 
