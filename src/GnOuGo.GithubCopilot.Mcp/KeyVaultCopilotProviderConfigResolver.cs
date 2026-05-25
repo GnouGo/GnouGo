@@ -76,7 +76,7 @@ internal sealed class KeyVaultCopilotProviderConfigResolver : IKeyVaultCopilotPr
 
     private string ResolveDatabasePath()
     {
-        var configuredPath = _configuration.GetValue<string>("KeyVault:DatabasePath")
+        var configuredPath = _configuration["KeyVault:DatabasePath"]
             ?? KeyVaultDatabasePathResolver.DefaultRelativePath;
         return KeyVaultDatabasePathResolver.Resolve(configuredPath, AppContext.BaseDirectory);
     }
