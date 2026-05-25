@@ -28,7 +28,7 @@ public sealed class BundledBrowserMcpPublishTests
     {
         var projectFile = Path.Combine(GetRepositoryRoot(), folder, project, fileName);
         var xml = File.ReadAllText(projectFile);
-*        
+        
         // Browser, Cmd, and Document tools must always have trim and single-file disabled
         // because they use reflection-based configuration binding or other dynamic features.
         var reflectionBasedTools = new[]
