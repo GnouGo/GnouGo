@@ -124,6 +124,23 @@ public sealed class BundledBrowserMcpPublishTests
     }
 
     [Fact]
+    public void DesktopTrimmedWorkflow_ConfiguresLinuxArm64NativeAotObjCopy()
+    {
+        var root = GetRepositoryRoot();
+        var workflowFile = Path.Combine(root, ".github", "workflows", "build-agent-desktop-trimmed.yml");
+        var desktopProjectFile = Path.Combine(root, "src", "GnOuGo.Agent.Desktop", "GnOuGo.Agent.Desktop.csproj");
+
+        var yaml = File.ReadAllText(workflowFile);
+        var desktopProject = File.ReadAllText(desktopProjectFile);
+
+        Assert.Contains("binutils-aarch64-linux-gnu", yaml);
+        Assert.Contains("gcc-aarch64-linux-gnu", yaml);
+        Assert.Contains("-p:ObjCopyName=aarch64-linux-gnu-objcopy", yaml);
+        Assert.Contains("BundledNativeAotObjCopyArg", desktopProject);
+        Assert.Contains("-p:ObjCopyName=aarch64-linux-gnu-objcopy", desktopProject);
+    }
+
+    [Fact]
     public void BuildAndRuntimeConfig_UseGithubCopilotMcpAfterRename()
     {
         var root = GetRepositoryRoot();

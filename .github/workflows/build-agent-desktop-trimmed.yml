@@ -97,6 +97,7 @@ jobs:
       - name: Validate Git MCP Native AOT publish
         shell: pwsh
         run: |
+          $nativeAotExtraArgs = if ('${{ matrix.rid }}' -eq 'linux-arm64') { @('-p:ObjCopyName=aarch64-linux-gnu-objcopy') } else { @() }
           dotnet publish src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj `
             -c Release `
             -r ${{ matrix.rid }} `
@@ -105,11 +106,13 @@ jobs:
             -p:PublishAot=true `
             -p:PublishTrimmed=true `
             -p:InvariantGlobalization=false `
-            -p:SkipModelMetadataGeneration=true
+            -p:SkipModelMetadataGeneration=true `
+            @nativeAotExtraArgs
 
       - name: Validate GitHub Copilot MCP Native AOT publish
         shell: pwsh
         run: |
+          $nativeAotExtraArgs = if ('${{ matrix.rid }}' -eq 'linux-arm64') { @('-p:ObjCopyName=aarch64-linux-gnu-objcopy') } else { @() }
           dotnet publish src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj `
             -c Release `
             -r ${{ matrix.rid }} `
@@ -118,11 +121,13 @@ jobs:
             -p:PublishAot=true `
             -p:PublishTrimmed=true `
             -p:InvariantGlobalization=false `
-            -p:SkipModelMetadataGeneration=true
+            -p:SkipModelMetadataGeneration=true `
+            @nativeAotExtraArgs
 
       - name: Validate Cmd MCP Native AOT publish
         shell: pwsh
         run: |
+          $nativeAotExtraArgs = if ('${{ matrix.rid }}' -eq 'linux-arm64') { @('-p:ObjCopyName=aarch64-linux-gnu-objcopy') } else { @() }
           dotnet publish src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj `
             -c Release `
             -r ${{ matrix.rid }} `
@@ -131,11 +136,13 @@ jobs:
             -p:PublishAot=true `
             -p:PublishTrimmed=true `
             -p:InvariantGlobalization=false `
-            -p:SkipModelMetadataGeneration=true
+            -p:SkipModelMetadataGeneration=true `
+            @nativeAotExtraArgs
 
       - name: Validate Document MCP Native AOT publish
         shell: pwsh
         run: |
+          $nativeAotExtraArgs = if ('${{ matrix.rid }}' -eq 'linux-arm64') { @('-p:ObjCopyName=aarch64-linux-gnu-objcopy') } else { @() }
           dotnet publish src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj `
             -c Release `
             -r ${{ matrix.rid }} `
@@ -144,12 +151,14 @@ jobs:
             -p:PublishAot=true `
             -p:PublishTrimmed=true `
             -p:InvariantGlobalization=false `
-            -p:SkipModelMetadataGeneration=true
+            -p:SkipModelMetadataGeneration=true `
+            @nativeAotExtraArgs
 
 
       - name: Validate DocIngestor MCP Native AOT publish
         shell: pwsh
         run: |
+          $nativeAotExtraArgs = if ('${{ matrix.rid }}' -eq 'linux-arm64') { @('-p:ObjCopyName=aarch64-linux-gnu-objcopy') } else { @() }
           dotnet publish src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj `
             -c Release `
             -r ${{ matrix.rid }} `
@@ -158,7 +167,8 @@ jobs:
             -p:PublishAot=true `
             -p:PublishTrimmed=true `
             -p:InvariantGlobalization=false `
-            -p:SkipModelMetadataGeneration=true
+            -p:SkipModelMetadataGeneration=true `
+            @nativeAotExtraArgs
 
       - name: Build UI (Vite)
         working-directory: src/GnOuGo.Agent.Server/ClientApp
