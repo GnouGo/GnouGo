@@ -47,7 +47,7 @@ public sealed class CodeTools
         [Description("Project root path or null for default.")] string? projectRoot,
         [Description("Coding task to perform.")] string task,
         [Description("Optional JSON array of relative file paths to include as context, for example [\"src/App.cs\"].")] string? contextFilesJson = null,
-        [Description("Optional KeyVault LLM provider name. When provided, the matching Agent Server LLM provider secret configures a custom Copilot provider for this call.")] string? provider = null,
+        [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
         CancellationToken cancellationToken = default)
         => await ExecuteAsync(async () =>
         {
@@ -63,7 +63,7 @@ public sealed class CodeTools
         [Description("Project root path or null for default.")] string? projectRoot,
         [Description("Coding task to implement by editing files.")] string task,
         [Description("Optional JSON array of relative file paths to include as initial context, for example [\"src/App.cs\"].")] string? contextFilesJson = null,
-        [Description("Optional KeyVault LLM provider name. When provided, the matching Agent Server LLM provider secret configures a custom Copilot provider for this call.")] string? provider = null,
+        [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
         CancellationToken cancellationToken = default)
         => await ExecuteAsync(async () =>
         {
@@ -129,7 +129,7 @@ public sealed class CodeTools
     {
         if (string.IsNullOrWhiteSpace(contextFilesJson))
             return [];
-        var values = JsonSerializer.Deserialize<List<string>>(contextFilesJson, CodeMcpJson.SerializerOptions);
+        var values = JsonSerializer.Deserialize(contextFilesJson, CodeMcpJsonContext.Default.ListString);
         if (values is null)
             return [];
 
@@ -171,6 +171,10 @@ internal static class CodeMcpJson
 [JsonSerializable(typeof(CodeAgentEditResult))]
 [JsonSerializable(typeof(CodeWriteResult))]
 [JsonSerializable(typeof(CodeErrorResult))]
+[JsonSerializable(typeof(CodeUsageInfo))]
+[JsonSerializable(typeof(CodeServerSettings))]
+[JsonSerializable(typeof(CodeCopilotSettings))]
+[JsonSerializable(typeof(CodeCopilotTelemetrySettings))]
 internal sealed partial class CodeMcpJsonContext : JsonSerializerContext;
 
 

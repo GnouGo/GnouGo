@@ -41,9 +41,11 @@ dotnet test "C:\github\GnouGo\tests\GnOuGo.Git.Mcp.Tests\GnOuGo.Git.Mcp.Tests.cs
 
 ## Native AOT publish
 
-The project is marked as AOT-compatible. Publish a self-contained native binary for a runtime identifier with:
+The project is configured for Native AOT and trimming analysis. `IL2026`, `IL3050`, `IL3053`, and `IL3055` are treated as build errors. Publish a self-contained native binary for a runtime identifier with:
 
 ```powershell
 dotnet publish "C:\github\GnouGo\src\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj" -c Release -r win-x64 --self-contained true -p:PublishAot=true -p:InvariantGlobalization=false -p:SkipModelMetadataGeneration=true
 ```
+
+CI also validates a dedicated `win-x64` Native AOT publish for `GnOuGo.Git.Mcp` in `.github/workflows/build-agent-desktop-trimmed.yml`.
 

@@ -38,7 +38,7 @@ public sealed class DocsIngestorTools
         try
         {
             var request = CreateVectorizationRequest(fileUrls, tenantId, chunkingMode, minTokens, targetTokens, maxTokens, overlapTokens);
-            return DocsIngestorResult.Ok(await _service.VectorizeAsync(request, ct));
+            return DocsIngestorResult.Ok(await _service.VectorizeAsync(request, ct), DocsIngestorJsonContext.Default.IReadOnlyListVectorizedFileResult);
         }
         catch (Exception ex)
         {
@@ -82,7 +82,7 @@ public sealed class DocsIngestorTools
                 vectorization.OcrDpi,
                 string.IsNullOrWhiteSpace(author) ? _options.DefaultAuthor : author!);
 
-            return DocsIngestorResult.Ok(await _service.IngestAsync(request, keyVaultTenantId, ct));
+            return DocsIngestorResult.Ok(await _service.IngestAsync(request, keyVaultTenantId, ct), DocsIngestorJsonContext.Default.IReadOnlyListIngestedFileResult);
         }
         catch (Exception ex)
         {
@@ -99,7 +99,7 @@ public sealed class DocsIngestorTools
     {
         try
         {
-            return DocsIngestorResult.Ok(await _service.ListFilesAsync(tenantId, collection, ct));
+            return DocsIngestorResult.Ok(await _service.ListFilesAsync(tenantId, collection, ct), DocsIngestorJsonContext.Default.IReadOnlyListStoredDocumentRecord);
         }
         catch (Exception ex)
         {
@@ -128,7 +128,7 @@ public sealed class DocsIngestorTools
                 string.IsNullOrWhiteSpace(author) ? _options.DefaultAuthor : author!,
                 topK,
                 ct);
-            return DocsIngestorResult.Ok(hits);
+            return DocsIngestorResult.Ok(hits, DocsIngestorJsonContext.Default.IReadOnlyListSearchHitDto);
         }
         catch (Exception ex)
         {
@@ -147,7 +147,7 @@ public sealed class DocsIngestorTools
             var result = await _service.DownloadOriginalAsync(documentId, ct);
             return result is null
                 ? DocsIngestorResult.Fail("Original document was not found.")
-                : DocsIngestorResult.Ok(result);
+                : DocsIngestorResult.Ok(result, DocsIngestorJsonContext.Default.OriginalDownloadDto);
         }
         catch (Exception ex)
         {
@@ -164,7 +164,9 @@ public sealed class DocsIngestorTools
         try
         {
             var deleted = await _service.DeleteFileAsync(documentId, ct);
-            return deleted ? DocsIngestorResult.Ok(new { deleted = true, documentId }) : DocsIngestorResult.Fail("Document was not found.");
+            return deleted
+                ? DocsIngestorResult.Ok(new DeletedDocumentDto(true, documentId), DocsIngestorJsonContext.Default.DeletedDocumentDto)
+                : DocsIngestorResult.Fail("Document was not found.");
         }
         catch (Exception ex)
         {
@@ -197,4 +199,3 @@ public sealed class DocsIngestorTools
             _options.Images.OcrDpi);
     }
 }
-

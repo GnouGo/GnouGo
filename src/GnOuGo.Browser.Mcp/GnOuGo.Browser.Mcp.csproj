@@ -6,6 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <PublishSingleFile>false</PublishSingleFile>
+    <!-- Microsoft.Playwright currently uses file-based assembly discovery that is not Native AOT friendly. -->
   </PropertyGroup>
 
   <ItemGroup>

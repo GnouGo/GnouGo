@@ -15,8 +15,7 @@ builder.Logging.AddConsole(options =>
 });
 builder.AddGnOuGoOpenTelemetry("GnOuGo.Document.Mcp");
 
-builder.Services.Configure<DocumentServerSettings>(
-    builder.Configuration.GetSection(DocumentServerSettings.SectionName));
+builder.Services.AddSingleton<IConfigureOptions<DocumentServerSettings>, DocumentServerSettingsOptionsConfigurator>();
 builder.Services.AddSingleton<DocumentPolicy>();
 builder.Services.AddSingleton<DocumentOperationHost>();
 builder.Services.AddTransient<DocumentTools>();
@@ -30,11 +29,10 @@ builder.Services
         };
     })
     .WithStdioServerTransport()
-    .WithTools<DocumentTools>();
+    .WithTools<DocumentTools>(DocumentMcpJson.SerializerOptions);
 
 var host = builder.Build();
 var startupLogger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Document.Mcp.Startup");
-var settings = host.Services.GetRequiredService<IOptions<DocumentServerSettings>>().Value;
 var policy = host.Services.GetRequiredService<DocumentPolicy>();
 var policyInfo = policy.DescribePolicy();
 

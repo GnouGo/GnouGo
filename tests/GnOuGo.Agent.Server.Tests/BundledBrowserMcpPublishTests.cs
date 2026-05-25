@@ -22,30 +22,56 @@ public sealed class BundledBrowserMcpPublishTests
     }
 
     [Theory]
-    [InlineData("src", "GnOuGo.Agent.Desktop", "GnOuGo.Agent.Desktop.csproj")]
-    [InlineData("src", "GnOuGo.Agent.Server", "GnOuGo.Agent.Server.csproj")]
-    public void BundledStdioMcpTools_DisableTrimAndSingleFile_ForReflectionBasedSchemas(string folder, string project, string fileName)
+    [InlineData("src", "GnOuGo.Agent.Desktop", "GnOuGo.Agent.Desktop.csproj", true)]
+    [InlineData("src", "GnOuGo.Agent.Server", "GnOuGo.Agent.Server.csproj", false)]
+    public void BundledStdioMcpTools_UseExpectedPublishMode(string folder, string project, string fileName, bool desktopUsesAotForSafeTools)
     {
         var projectFile = Path.Combine(GetRepositoryRoot(), folder, project, fileName);
         var xml = File.ReadAllText(projectFile);
-        var bundledToolProjectProperties = new[]
-        {
-            "BundledBrowserToolProject",
-            "BundledCmdToolProject",
-            "BundledDocumentToolProject",
-            "BundledCodeToolProject"
-        };
 
-        foreach (var toolProjectProperty in bundledToolProjectProperties)
+        var browserCommand = GetToolPublishCommand(xml, "BundledBrowserToolProject");
+        Assert.NotNull(browserCommand);
+        Assert.Contains("-p:PublishTrimmed=false", browserCommand);
+        Assert.Contains("-p:PublishSingleFile=false", browserCommand);
+        Assert.Contains("-p:PublishAot=false", browserCommand);
+        Assert.DoesNotContain("-p:PublishTrimmed=true", browserCommand);
+        Assert.DoesNotContain("-p:PublishSingleFile=true", browserCommand);
+
+        foreach (var toolProjectProperty in new[] { "BundledCmdToolProject", "BundledDocumentToolProject" })
         {
             var publishCommand = GetToolPublishCommand(xml, toolProjectProperty);
 
             Assert.NotNull(publishCommand);
-            Assert.Contains("-p:PublishTrimmed=false", publishCommand);
             Assert.Contains("-p:PublishSingleFile=false", publishCommand);
-            Assert.Contains("-p:PublishAot=false", publishCommand);
-            Assert.DoesNotContain("-p:PublishTrimmed=true", publishCommand);
             Assert.DoesNotContain("-p:PublishSingleFile=true", publishCommand);
+
+            if (desktopUsesAotForSafeTools)
+            {
+                Assert.Contains("-p:PublishTrimmed=", publishCommand);
+                Assert.Contains("-p:PublishAot=", publishCommand);
+            }
+            else
+            {
+                Assert.Contains("-p:PublishTrimmed=false", publishCommand);
+                Assert.Contains("-p:PublishAot=false", publishCommand);
+                Assert.DoesNotContain("-p:PublishTrimmed=true", publishCommand);
+            }
+        }
+
+        var codeToolCommand = GetToolPublishCommand(xml, "BundledCodeToolProject");
+        Assert.NotNull(codeToolCommand);
+        Assert.Contains("-p:PublishSingleFile=false", codeToolCommand);
+        Assert.DoesNotContain("-p:PublishSingleFile=true", codeToolCommand);
+
+        if (desktopUsesAotForSafeTools)
+        {
+            Assert.Contains("-p:PublishTrimmed=", codeToolCommand);
+            Assert.Contains("-p:PublishAot=", codeToolCommand);
+        }
+        else
+        {
+            Assert.Contains("-p:PublishTrimmed=false", codeToolCommand);
+            Assert.Contains("-p:PublishAot=false", codeToolCommand);
         }
     }
 
@@ -58,6 +84,60 @@ public sealed class BundledBrowserMcpPublishTests
         Assert.Contains(".playwright", yaml);
         Assert.Contains("Missing bundled Playwright Node driver", yaml);
         Assert.Contains("node.exe", yaml);
+    }
+
+    [Fact]
+    public void DesktopTrimmedWorkflow_ValidatesCmdMcpNativeAotPublish()
+    {
+        var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "build-agent-desktop-trimmed.yml");
+        var yaml = File.ReadAllText(workflowFile);
+
+        Assert.Contains("Validate Cmd MCP Native AOT publish", yaml);
+        Assert.Contains("src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj", yaml);
+        Assert.Contains("-p:PublishAot=true", yaml);
+        Assert.Contains("-p:PublishTrimmed=true", yaml);
+    }
+
+    [Fact]
+    public void DesktopTrimmedWorkflow_ValidatesDocumentMcpNativeAotPublish()
+    {
+        var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "build-agent-desktop-trimmed.yml");
+        var yaml = File.ReadAllText(workflowFile);
+
+        Assert.Contains("Validate Document MCP Native AOT publish", yaml);
+        Assert.Contains("src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj", yaml);
+        Assert.Contains("-p:PublishAot=true", yaml);
+        Assert.Contains("-p:PublishTrimmed=true", yaml);
+    }
+
+    [Fact]
+    public void DesktopTrimmedWorkflow_ValidatesDocIngestorMcpNativeAotPublishForMatrixRid()
+    {
+        var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "build-agent-desktop-trimmed.yml");
+        var yaml = File.ReadAllText(workflowFile);
+
+        Assert.Contains("Validate DocIngestor MCP Native AOT publish", yaml);
+        Assert.Contains("src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj", yaml);
+        Assert.Contains("-r ${{ matrix.rid }}", yaml);
+        Assert.Contains("artifacts/publish/doc-ingestor-mcp-aot/${{ matrix.rid }}", yaml);
+        Assert.DoesNotContain("if: matrix.rid == 'win-x64'\r\n        shell: pwsh\r\n        run: |\r\n          dotnet publish src/GnOuGo.DocIngestor.Mcp", yaml);
+    }
+
+    [Fact]
+    public void DesktopTrimmedWorkflow_ConfiguresLinuxArm64NativeAotObjCopy()
+    {
+        var root = GetRepositoryRoot();
+        var workflowFile = Path.Combine(root, ".github", "workflows", "build-agent-desktop-trimmed.yml");
+        var desktopProjectFile = Path.Combine(root, "src", "GnOuGo.Agent.Desktop", "GnOuGo.Agent.Desktop.csproj");
+
+        var yaml = File.ReadAllText(workflowFile);
+        var desktopProject = File.ReadAllText(desktopProjectFile);
+
+        Assert.Contains("binutils-aarch64-linux-gnu", yaml);
+        Assert.Contains("gcc-aarch64-linux-gnu", yaml);
+        Assert.Contains("-p:ObjCopyName=aarch64-linux-gnu-objcopy", yaml);
+        Assert.Contains("BundledNativeAotObjCopyArg", desktopProject);
+        Assert.Contains("-p:ObjCopyName=aarch64-linux-gnu-objcopy", desktopProject);
     }
 
     [Fact]

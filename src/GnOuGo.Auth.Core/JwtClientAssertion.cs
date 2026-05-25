@@ -19,22 +19,20 @@ internal static class JwtClientAssertion
         var exp = now.Add(lifetime.Value).ToUnixTimeSeconds();
         var jti = Guid.NewGuid().ToString("N");
 
-        // header
-        var headerBytes = JsonUtf8(new Dictionary<string, object>
+        var headerBytes = JsonUtf8(writer =>
         {
-            ["alg"] = "RS256",
-            ["typ"] = "JWT"
+            writer.WriteString("alg", "RS256");
+            writer.WriteString("typ", "JWT");
         });
 
-        // payload
-        var payloadBytes = JsonUtf8(new Dictionary<string, object>
+        var payloadBytes = JsonUtf8(writer =>
         {
-            ["iss"] = clientId,
-            ["sub"] = clientId,
-            ["aud"] = tokenEndpoint,
-            ["iat"] = iat,
-            ["exp"] = exp,
-            ["jti"] = jti
+            writer.WriteString("iss", clientId);
+            writer.WriteString("sub", clientId);
+            writer.WriteString("aud", tokenEndpoint);
+            writer.WriteNumber("iat", iat);
+            writer.WriteNumber("exp", exp);
+            writer.WriteString("jti", jti);
         });
 
         var signingInput = $"{B64Url(headerBytes)}.{B64Url(payloadBytes)}";
@@ -47,8 +45,18 @@ internal static class JwtClientAssertion
         return $"{signingInput}.{B64Url(sig)}";
     }
 
-    private static byte[] JsonUtf8(Dictionary<string, object> obj)
-        => JsonSerializer.SerializeToUtf8Bytes(obj);
+    private static byte[] JsonUtf8(Action<Utf8JsonWriter> writeProperties)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            writeProperties(writer);
+            writer.WriteEndObject();
+        }
+
+        return stream.ToArray();
+    }
 
     private static string B64Url(byte[] bytes)
         => Convert.ToBase64String(bytes)

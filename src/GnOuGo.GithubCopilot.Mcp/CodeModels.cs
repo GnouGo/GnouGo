@@ -80,5 +80,7 @@ public sealed record CodeWriteResult(string Path, string FullPath, long BytesWri
 
 public sealed record CodeErrorResult(string Code, string Message);
 
+internal sealed record CodeUsageInfo(long? OutputTokens, string? RequestId, string? InteractionId);
+
 
 

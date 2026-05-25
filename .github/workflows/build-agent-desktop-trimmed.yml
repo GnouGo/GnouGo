@@ -72,6 +72,124 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "pnpm-lock.yaml"
 
+      - name: Install Linux ARM64 Native AOT toolchain
+        if: matrix.os == 'ubuntu-latest' && matrix.rid == 'linux-arm64'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y clang binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
+
+      - name: Validate Browser MCP self-contained publish
+        shell: pwsh
+        run: |
+          dotnet publish src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj `
+            -c Release `
+            -r ${{ matrix.rid }} `
+            --self-contained true `
+            -o artifacts/publish/browser-mcp-aot/${{ matrix.rid }} `
+            -p:PublishAot=false `
+            -p:PublishTrimmed=false `
+            -p:PublishSingleFile=false `
+            -p:InvariantGlobalization=false `
+            -p:SkipModelMetadataGeneration=true
+
+      - name: Validate Git MCP Native AOT publish
+        shell: pwsh
+        run: |
+          $publishArgs = @(
+            'publish', 'src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj',
+            '-c', 'Release',
+            '-r', '${{ matrix.rid }}',
+            '--self-contained', 'true',
+            '-o', 'artifacts/publish/git-mcp-aot/${{ matrix.rid }}',
+            '-p:PublishAot=true',
+            '-p:PublishTrimmed=true',
+            '-p:InvariantGlobalization=false',
+            '-p:SkipModelMetadataGeneration=true'
+          )
+          if ('${{ matrix.rid }}' -eq 'linux-arm64') {
+            $publishArgs += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
+          }
+          dotnet @publishArgs
+
+      - name: Validate GitHub Copilot MCP Native AOT publish
+        shell: pwsh
+        run: |
+          $publishArgs = @(
+            'publish', 'src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj',
+            '-c', 'Release',
+            '-r', '${{ matrix.rid }}',
+            '--self-contained', 'true',
+            '-o', 'artifacts/publish/github-copilot-mcp-aot/${{ matrix.rid }}',
+            '-p:PublishAot=true',
+            '-p:PublishTrimmed=true',
+            '-p:InvariantGlobalization=false',
+            '-p:SkipModelMetadataGeneration=true'
+          )
+          if ('${{ matrix.rid }}' -eq 'linux-arm64') {
+            $publishArgs += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
+          }
+          dotnet @publishArgs
+
+      - name: Validate Cmd MCP Native AOT publish
+        shell: pwsh
+        run: |
+          $publishArgs = @(
+            'publish', 'src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj',
+            '-c', 'Release',
+            '-r', '${{ matrix.rid }}',
+            '--self-contained', 'true',
+            '-o', 'artifacts/publish/cmd-mcp-aot/${{ matrix.rid }}',
+            '-p:PublishAot=true',
+            '-p:PublishTrimmed=true',
+            '-p:InvariantGlobalization=false',
+            '-p:SkipModelMetadataGeneration=true'
+          )
+          if ('${{ matrix.rid }}' -eq 'linux-arm64') {
+            $publishArgs += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
+          }
+          dotnet @publishArgs
+
+      - name: Validate Document MCP Native AOT publish
+        shell: pwsh
+        run: |
+          $publishArgs = @(
+            'publish', 'src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj',
+            '-c', 'Release',
+            '-r', '${{ matrix.rid }}',
+            '--self-contained', 'true',
+            '-o', 'artifacts/publish/document-mcp-aot/${{ matrix.rid }}',
+            '-p:PublishAot=true',
+            '-p:PublishTrimmed=true',
+            '-p:InvariantGlobalization=false',
+            '-p:SkipModelMetadataGeneration=true'
+          )
+          if ('${{ matrix.rid }}' -eq 'linux-arm64') {
+            $publishArgs += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
+          }
+          dotnet @publishArgs
+
+
+      - name: Validate DocIngestor MCP Native AOT publish
+        shell: pwsh
+        run: |
+          $publishArgs = @(
+            'publish', 'src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj',
+            '-c', 'Release',
+            '-r', '${{ matrix.rid }}',
+            '--self-contained', 'true',
+            '-o', 'artifacts/publish/doc-ingestor-mcp-aot/${{ matrix.rid }}',
+            '-p:PublishAot=true',
+            '-p:PublishTrimmed=true',
+            '-p:InvariantGlobalization=false',
+            '-p:SkipModelMetadataGeneration=true'
+          )
+          if ('${{ matrix.rid }}' -eq 'linux-arm64') {
+            $publishArgs += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
+          }
+          dotnet @publishArgs
+
       - name: Build UI (Vite)
         working-directory: src/GnOuGo.Agent.Server/ClientApp
         run: |
@@ -110,22 +228,42 @@ jobs:
             }
           }
 
-          $toolRuntimeConfigs = Get-ChildItem "artifacts/publish/desktop/${{ matrix.rid }}/tools" -Recurse -File -Filter "*.runtimeconfig.json"
-          if (-not $toolRuntimeConfigs) {
-            throw "No bundled desktop tool runtimeconfig files were found. Expected at least GnOuGo.Browser.Mcp.runtimeconfig.json."
+          $browserToolRoot = "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp"
+          $browserRuntimeConfigPath = Join-Path $browserToolRoot "GnOuGo.Browser.Mcp.runtimeconfig.json"
+          $browserDepsJsonPath = Join-Path $browserToolRoot "GnOuGo.Browser.Mcp.deps.json"
+
+          if (-not (Test-Path $browserRuntimeConfigPath)) {
+            throw "Bundled Browser tool is expected to remain non-AOT until Microsoft.Playwright is Native AOT compatible: $browserRuntimeConfigPath"
           }
 
-          foreach ($runtimeConfigFile in $toolRuntimeConfigs) {
-            $runtimeConfig = Get-Content $runtimeConfigFile.FullName -Raw | ConvertFrom-Json
-            $invariantGlobalization = $runtimeConfig.runtimeOptions.configProperties.'System.Globalization.Invariant'
-            if ($invariantGlobalization -ne $false) {
-              throw "Bundled desktop tool must not use invariant globalization: $($runtimeConfigFile.FullName)"
+          if (-not (Test-Path $browserDepsJsonPath)) {
+            throw "Bundled Browser tool is expected to retain a .deps.json manifest: $browserDepsJsonPath"
+          }
+
+          $browserRuntimeConfig = Get-Content $browserRuntimeConfigPath -Raw | ConvertFrom-Json
+          $browserInvariantGlobalization = $browserRuntimeConfig.runtimeOptions.configProperties.'System.Globalization.Invariant'
+          if ($browserInvariantGlobalization -ne $false) {
+            throw "Bundled Browser tool must not use invariant globalization: $browserRuntimeConfigPath"
+          }
+
+          $nativeAotTools = $requiredTools | Where-Object { $_ -notlike '*GnOuGo.Browser.Mcp*' }
+          foreach ($path in $nativeAotTools) {
+            $toolRoot = Split-Path -Parent $path
+            $toolName = Split-Path -Leaf $toolRoot
+            $runtimeConfigPath = Join-Path $toolRoot "$toolName.runtimeconfig.json"
+            $depsJsonPath = Join-Path $toolRoot "$toolName.deps.json"
+
+            if (Test-Path $runtimeConfigPath) {
+              throw "Bundled desktop tool must be Native AOT and should not emit a runtimeconfig.json file: $runtimeConfigPath"
+            }
+
+            if (Test-Path $depsJsonPath) {
+              throw "Bundled desktop tool must be Native AOT and should not emit a .deps.json file: $depsJsonPath"
             }
           }
 
-          Write-Host "Validated $($toolRuntimeConfigs.Count) bundled desktop tool runtimeconfig file(s). Single-file tools embed their runtimeconfig."
+          Write-Host "Validated bundled desktop tools: Browser stays self-contained non-AOT, all other bundled tools are Native AOT executables."
 
-          $browserToolRoot = "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp"
           $playwrightRoot = Join-Path $browserToolRoot "ms-playwright"
           if (-not (Test-Path $playwrightRoot)) {
             throw "Missing bundled Playwright browsers directory: $playwrightRoot"

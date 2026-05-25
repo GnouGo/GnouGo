@@ -15,8 +15,7 @@ builder.Logging.AddConsole(options =>
 });
 builder.AddGnOuGoOpenTelemetry("GnOuGo.Cmd.Mcp");
 
-builder.Services.Configure<CmdServerSettings>(
-    builder.Configuration.GetSection(CmdServerSettings.SectionName));
+builder.Services.AddSingleton<IConfigureOptions<CmdServerSettings>, CmdServerSettingsOptionsConfigurator>();
 builder.Services.AddSingleton<CommandPolicy>();
 builder.Services.AddSingleton<CommandExecutionHost>();
 builder.Services.AddTransient<CmdTools>();

@@ -152,8 +152,17 @@
       <BundledToolInvariantGlobalization>false</BundledToolInvariantGlobalization>
       <BundledDesktopToolRidArg>-r $(RuntimeIdentifier)</BundledDesktopToolRidArg>
       <BundledDesktopToolSelfContainedArg>--self-contained true</BundledDesktopToolSelfContainedArg>
-      <BundledGitToolPublishAot>false</BundledGitToolPublishAot>
-      <BundledGitToolPublishAot Condition="'$(RuntimeIdentifier)' == 'win-x64'">true</BundledGitToolPublishAot>
+      <BundledNativeAotObjCopyArg Condition="'$(RuntimeIdentifier)' == 'linux-arm64'">-p:ObjCopyName=aarch64-linux-gnu-objcopy</BundledNativeAotObjCopyArg>
+
+      <BundledBrowserToolPublishAot>false</BundledBrowserToolPublishAot>
+      <BundledBrowserToolPublishAot Condition="'$(PublishBundledBrowserToolAot)' != ''">$(PublishBundledBrowserToolAot)</BundledBrowserToolPublishAot>
+      <BundledCmdToolPublishAot>true</BundledCmdToolPublishAot>
+      <BundledCmdToolPublishAot Condition="'$(PublishBundledCmdToolAot)' != ''">$(PublishBundledCmdToolAot)</BundledCmdToolPublishAot>
+      <BundledDocumentToolPublishAot>true</BundledDocumentToolPublishAot>
+      <BundledDocumentToolPublishAot Condition="'$(PublishBundledDocumentToolAot)' != ''">$(PublishBundledDocumentToolAot)</BundledDocumentToolPublishAot>
+      <BundledCodeToolPublishAot>true</BundledCodeToolPublishAot>
+      <BundledCodeToolPublishAot Condition="'$(PublishBundledCodeToolAot)' != ''">$(PublishBundledCodeToolAot)</BundledCodeToolPublishAot>
+      <BundledGitToolPublishAot>true</BundledGitToolPublishAot>
       <BundledGitToolPublishAot Condition="'$(PublishBundledGitToolAot)' != ''">$(PublishBundledGitToolAot)</BundledGitToolPublishAot>
       <BundledBrowserToolExecutable>$([System.IO.Path]::Combine('$(BundledBrowserToolDir)', 'GnOuGo.Browser.Mcp$(BundledToolExecutableExtension)'))</BundledBrowserToolExecutable>
       <BundledCmdToolExecutable>$([System.IO.Path]::Combine('$(BundledCmdToolDir)', 'GnOuGo.Cmd.Mcp$(BundledToolExecutableExtension)'))</BundledCmdToolExecutable>
@@ -165,10 +174,10 @@
     <Message Importance="high" Text="Publishing bundled desktop MCP tools into $(BundledToolsRoot) for $(RuntimeIdentifier)..." />
 
     <Exec Command="dotnet publish &quot;$(BundledBrowserToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledBrowserToolDir)&quot; -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
-    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
-    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
-    <Exec Command="dotnet publish &quot;$(BundledCodeToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCodeToolDir)&quot; -p:PublishTrimmed=false -p:PublishSingleFile=false -p:PublishAot=false -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
-    <Exec Command="dotnet publish &quot;$(BundledGitToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledGitToolDir)&quot; -p:PublishTrimmed=true -p:PublishSingleFile=false -p:PublishAot=$(BundledGitToolPublishAot) -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false" />
+    <Exec Command="dotnet publish &quot;$(BundledCmdToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCmdToolDir)&quot; -p:PublishTrimmed=$(BundledCmdToolPublishAot) -p:PublishSingleFile=false -p:PublishAot=$(BundledCmdToolPublishAot) -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false $(BundledNativeAotObjCopyArg)" />
+    <Exec Command="dotnet publish &quot;$(BundledDocumentToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledDocumentToolDir)&quot; -p:PublishTrimmed=$(BundledDocumentToolPublishAot) -p:PublishSingleFile=false -p:PublishAot=$(BundledDocumentToolPublishAot) -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false $(BundledNativeAotObjCopyArg)" />
+    <Exec Command="dotnet publish &quot;$(BundledCodeToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledCodeToolDir)&quot; -p:PublishTrimmed=$(BundledCodeToolPublishAot) -p:PublishSingleFile=false -p:PublishAot=$(BundledCodeToolPublishAot) -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false $(BundledNativeAotObjCopyArg)" />
+    <Exec Command="dotnet publish &quot;$(BundledGitToolProject)&quot; -c $(Configuration) $(BundledDesktopToolRidArg) $(BundledDesktopToolSelfContainedArg) -o &quot;$(BundledGitToolDir)&quot; -p:PublishTrimmed=$(BundledGitToolPublishAot) -p:PublishSingleFile=false -p:PublishAot=$(BundledGitToolPublishAot) -p:InvariantGlobalization=$(BundledToolInvariantGlobalization) -p:UseAppHost=true -p:DebugType=None -p:DebugSymbols=false $(BundledNativeAotObjCopyArg)" />
 
     <Error Condition="!Exists('$(BundledBrowserToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Browser.Mcp in $(BundledBrowserToolDir)." />
     <Error Condition="!Exists('$(BundledCmdToolExecutable)')" Text="Bundled desktop publish is missing GnOuGo.Cmd.Mcp in $(BundledCmdToolDir)." />

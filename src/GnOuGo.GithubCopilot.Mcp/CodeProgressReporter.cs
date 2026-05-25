@@ -58,7 +58,7 @@ internal sealed class CodeProgressReporter
                 Kind: context?.McpKind ?? fallbackMcpKind,
                 Event: progressEvent);
 
-            Console.Error.WriteLine(JsonSerializer.Serialize(envelope, CodeMcpJson.SerializerOptions));
+            Console.Error.WriteLine(JsonSerializer.Serialize(envelope, CodeMcpJsonContext.Default.CodeMcpProgressEnvelope));
         }
         catch
         {
