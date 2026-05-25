@@ -28,15 +28,17 @@ public sealed class BundledBrowserMcpPublishTests
     {
         var projectFile = Path.Combine(GetRepositoryRoot(), folder, project, fileName);
         var xml = File.ReadAllText(projectFile);
-        var bundledToolProjectProperties = new[]
+*        
+        // Browser, Cmd, and Document tools must always have trim and single-file disabled
+        // because they use reflection-based configuration binding or other dynamic features.
+        var reflectionBasedTools = new[]
         {
             "BundledBrowserToolProject",
             "BundledCmdToolProject",
-            "BundledDocumentToolProject",
-            "BundledCodeToolProject"
+            "BundledDocumentToolProject"
         };
 
-        foreach (var toolProjectProperty in bundledToolProjectProperties)
+        foreach (var toolProjectProperty in reflectionBasedTools)
         {
             var publishCommand = GetToolPublishCommand(xml, toolProjectProperty);
 
@@ -47,6 +49,16 @@ public sealed class BundledBrowserMcpPublishTests
             Assert.DoesNotContain("-p:PublishTrimmed=true", publishCommand);
             Assert.DoesNotContain("-p:PublishSingleFile=true", publishCommand);
         }
+
+        // Code tool uses conditional AOT based on RID (win-x64 uses PublishAot=true, others use PublishAot=false)
+        // It may use a variable for PublishTrimmed instead of a fixed value.
+        var codeToolCommand = GetToolPublishCommand(xml, "BundledCodeToolProject");
+        Assert.NotNull(codeToolCommand);
+        Assert.Contains("-p:PublishSingleFile=false", codeToolCommand);
+        // Code tool publish trimmed is linked to PublishAot (uses $(BundledCodeToolPublishAot) variable)
+        Assert.Contains("-p:PublishTrimmed=", codeToolCommand);
+        Assert.Contains("-p:PublishAot=", codeToolCommand);
+        Assert.DoesNotContain("-p:PublishSingleFile=true", codeToolCommand);
     }
 
     [Fact]
