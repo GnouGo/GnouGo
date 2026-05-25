@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.2 - 2026-05-25
+
+- chore: mcp aot (#41) (release) (9949bf7)
+
 ## v0.8.1 - 2026-05-24
 
 - chore: update libs (#40) (release) (1b93be5)
