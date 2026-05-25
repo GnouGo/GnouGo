@@ -72,6 +72,14 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "pnpm-lock.yaml"
 
+      - name: Install Linux ARM64 Native AOT toolchain
+        if: matrix.os == 'ubuntu-latest' && matrix.rid == 'linux-arm64'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y clang binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
+
       - name: Validate Browser MCP self-contained publish
         shell: pwsh
         run: |
