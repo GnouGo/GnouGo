@@ -1,9 +1,7 @@
 using System.Text.Json;
 using DocIngestor.Core.Abstractions;
 using DocIngestor.Core.Embeddings;
-using GnOuGo.Auth.Core;
 using GnOuGo.DocIngestor.Mcp.Models;
-using GnOuGo.KeyVault.Core.Services;
 
 namespace GnOuGo.DocIngestor.Mcp.Services;
 
@@ -13,10 +11,10 @@ public sealed class KeyVaultEmbeddingConfigProvider
     private const string EmbeddingDefaultKey = "LLM--EmbeddingDefaults--default";
     private const string LegacyEmbeddingPrefix = "gnougo_embedding_";
 
-    private readonly KeyVaultService _keyVault;
+    private readonly KeyVaultSecretStore _keyVault;
     private readonly IHttpClientFactory _httpClientFactory;
 
-    public KeyVaultEmbeddingConfigProvider(KeyVaultService keyVault, IHttpClientFactory httpClientFactory)
+    public KeyVaultEmbeddingConfigProvider(KeyVaultSecretStore keyVault, IHttpClientFactory httpClientFactory)
     {
         _keyVault = keyVault;
         _httpClientFactory = httpClientFactory;
@@ -34,7 +32,7 @@ public sealed class KeyVaultEmbeddingConfigProvider
         var config = JsonSerializer.Deserialize(secretValue, DocsIngestorJsonContext.Default.EmbeddingConfig)
             ?? throw new InvalidOperationException($"Embedding configuration secret '{secretKey}' is empty or invalid JSON.");
 
-        var provider = (config.Provider ?? string.Empty).Trim().ToLowerInvariant();
+        var provider = config.Provider.Trim().ToLowerInvariant();
         var name = string.IsNullOrWhiteSpace(config.Name) ? embeddingConfigName : config.Name!;
         var dims = config.Dimensions.GetValueOrDefault(provider == "ollama" ? 768 : 3072);
         var http = _httpClientFactory.CreateClient(nameof(KeyVaultEmbeddingConfigProvider));
@@ -67,10 +65,10 @@ public sealed class KeyVaultEmbeddingConfigProvider
         if (!string.IsNullOrWhiteSpace(embeddingConfigName))
             return embeddingConfigName.Trim();
 
-        var defaultSecret = await _keyVault.GetSecretAsync(EmbeddingDefaultKey, keyVaultTenantId, author, ct);
-        if (defaultSecret is not null && !string.IsNullOrWhiteSpace(defaultSecret.Value))
+        var defaultSecret = await _keyVault.GetSecretValueAsync(EmbeddingDefaultKey, keyVaultTenantId, author, ct);
+        if (!string.IsNullOrWhiteSpace(defaultSecret))
         {
-            using var defaultJson = JsonDocument.Parse(defaultSecret.Value);
+            using var defaultJson = JsonDocument.Parse(defaultSecret);
             if (defaultJson.RootElement.TryGetProperty("defaultEmbeddingConfig", out var defaultName)
                 && defaultName.ValueKind == JsonValueKind.String
                 && !string.IsNullOrWhiteSpace(defaultName.GetString()))
@@ -88,9 +86,9 @@ public sealed class KeyVaultEmbeddingConfigProvider
     {
         foreach (var key in GetCandidateSecretKeys(embeddingConfigName))
         {
-            var secret = await _keyVault.GetSecretAsync(key, keyVaultTenantId, author, ct);
+            var secret = await _keyVault.GetSecretValueAsync(key, keyVaultTenantId, author, ct);
             if (secret is not null)
-                return (key, secret.Value);
+                return (key, secret);
         }
 
         throw new KeyNotFoundException(
@@ -122,14 +120,14 @@ public sealed class KeyVaultEmbeddingConfigProvider
         return false;
     }
 
-    private sealed class KeyVaultBackedApiKeyProvider : IApiKeyProvider
+    private sealed class KeyVaultBackedApiKeyProvider : GnOuGo.Auth.Core.IApiKeyProvider
     {
         private readonly EmbeddingConfig _config;
-        private readonly KeyVaultService _keyVault;
+        private readonly KeyVaultSecretStore _keyVault;
         private readonly Guid? _tenantId;
         private readonly string _author;
 
-        public KeyVaultBackedApiKeyProvider(EmbeddingConfig config, KeyVaultService keyVault, Guid? tenantId, string author)
+        public KeyVaultBackedApiKeyProvider(EmbeddingConfig config, KeyVaultSecretStore keyVault, Guid? tenantId, string author)
         {
             _config = config;
             _keyVault = keyVault;
@@ -145,10 +143,10 @@ public sealed class KeyVaultEmbeddingConfigProvider
             if (string.IsNullOrWhiteSpace(_config.ApiKeySecretKey))
                 throw new InvalidOperationException("OpenAI-compatible embedding config requires apiKey or apiKeySecretKey.");
 
-            var secret = await _keyVault.GetSecretAsync(_config.ApiKeySecretKey!, _tenantId, _author, ct)
+            var secret = await _keyVault.GetSecretValueAsync(_config.ApiKeySecretKey!, _tenantId, _author, ct)
                 ?? throw new KeyNotFoundException($"API key secret '{_config.ApiKeySecretKey}' was not found in KeyVault.");
 
-            return secret.Value;
+            return secret;
         }
     }
 }

@@ -15,18 +15,11 @@ public sealed class JsonlVectorStore : IVectorStore
     public string Name => "jsonl";
 
     private readonly string _directory;
-    private readonly JsonSerializerOptions _json;
 
     public JsonlVectorStore(string directory)
     {
         _directory = directory;
         Directory.CreateDirectory(_directory);
-
-        _json = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = false
-        };
     }
 
     public async ValueTask UpsertAsync(string collection, IReadOnlyList<EmbeddedChunk> chunks, CancellationToken ct = default)
@@ -43,22 +36,20 @@ public sealed class JsonlVectorStore : IVectorStore
         {
             ct.ThrowIfCancellationRequested();
 
-            var dto = new
-            {
+            var dto = new JsonlChunkRecord(
                 collection,
-                chunkId = c.Chunk.ChunkId,
-                documentId = c.Chunk.DocumentId,
-                sectionId = c.Chunk.SectionId,
-                chunkIndex = c.Chunk.Index,
-                text = c.Chunk.Text,
-                metadata = c.Chunk.Metadata,
-                embeddingModel = c.EmbeddingModelName,
-                dims = c.Vector.Length,
-                vectorB64 = Convert.ToBase64String(EncodeVector(c.Vector)),
-                ingestedUtc = DateTime.UtcNow.ToString("O")
-            };
+                c.Chunk.ChunkId,
+                c.Chunk.DocumentId,
+                c.Chunk.SectionId,
+                c.Chunk.Index,
+                c.Chunk.Text,
+                c.Chunk.Metadata,
+                c.EmbeddingModelName,
+                c.Vector.Length,
+                Convert.ToBase64String(EncodeVector(c.Vector)),
+                DateTime.UtcNow.ToString("O"));
 
-            var json = JsonSerializer.Serialize(dto, _json);
+            var json = JsonSerializer.Serialize(dto, DocIngestorCoreJsonContext.Default.JsonlChunkRecord);
             await sw.WriteLineAsync(json);
         }
     }

@@ -6,12 +6,10 @@ using DocIngestor.Core.Pipeline;
 using DocIngestor.Core.Stores;
 using DocIngestor.Core.Tokenization;
 using GnOuGo.DocIngestor.Mcp.Data;
+using GnOuGo.DocIngestor.Mcp.Models;
 using GnOuGo.DocIngestor.Mcp.Services;
-using GnOuGo.KeyVault.Core.Data;
-using GnOuGo.KeyVault.Core.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol;
 using ModelContextProtocol.AspNetCore;
@@ -37,8 +35,7 @@ public static class DocsIngestorMcpHostingExtensions
         services.AddHttpClient();
         services.AddOptions<DocsIngestorMcpOptions>();
 
-        services.AddDbContext<KeyVaultDbContext>(options => options.UseSqlite($"Data Source={keyVaultDatabasePath}"));
-        services.AddScoped<KeyVaultService>();
+        services.AddSingleton(new KeyVaultSecretStore(keyVaultDatabasePath));
         services.AddScoped<KeyVaultEmbeddingConfigProvider>();
 
         services.AddSingleton(new StoredDocumentRepository(metadataDatabasePath));
@@ -85,7 +82,7 @@ public static class DocsIngestorMcpHostingExtensions
                 };
             })
             .WithHttpTransport()
-            .WithTools<DocsIngestorTools>();
+            .WithTools<DocsIngestorTools>(DocsIngestorMcpJson.SerializerOptions);
 
         return services;
     }
@@ -98,10 +95,8 @@ public static class DocsIngestorMcpHostingExtensions
         var repository = scope.ServiceProvider.GetRequiredService<StoredDocumentRepository>();
         await repository.InitializeAsync(ct);
 
-        var keyVaultDb = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-        await GnOuGo.KeyVault.Core.Data.KeyVaultDatabaseBootstrap.EnsureCreatedAsync(keyVaultDb, ct);
-        var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-        await keyVault.EnsureDefaultKeyPairAsync(ct);
+        var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultSecretStore>();
+        await keyVault.InitializeAsync(ct);
     }
 
     public static IEndpointConventionBuilder MapDocsIngestorMcp(this IEndpointRouteBuilder endpoints, string pattern = DefaultRoutePrefix)

@@ -1,15 +1,23 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using DocIngestor.Core.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace GnOuGo.DocIngestor.Mcp.Models;
 
-public sealed record DocsIngestorResult(bool Success, object? Data = null, string? Error = null)
+public sealed record DocsIngestorResult(bool Success, JsonElement? Data = null, string? Error = null)
 {
-    public static DocsIngestorResult Ok(object? data) => new(true, data);
+    public static DocsIngestorResult Ok<T>(T data, JsonTypeInfo<T> typeInfo) =>
+        new(true, JsonSerializer.SerializeToElement(data, typeInfo));
+
     public static DocsIngestorResult Fail(string error) => new(false, null, error);
 }
+
+public sealed record DeletedDocumentDto(bool Deleted, string DocumentId);
+
+public sealed record HealthCheckResponse(string Status);
 
 public sealed record DownloadedDocument(
     string SourceUrl,
@@ -157,7 +165,43 @@ public sealed record EmbeddingConfig(
     string? ApiKeySecretKey,
     int? Dimensions);
 
+internal static class DocsIngestorMcpJson
+{
+    public static JsonSerializerOptions SerializerOptions { get; } = CreateSerializerOptions();
+
+    private static JsonSerializerOptions CreateSerializerOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.TypeInfoResolverChain.Insert(0, DocsIngestorJsonContext.Default);
+        return options;
+    }
+}
+
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
+[JsonSerializable(typeof(string[]))]
+[JsonSerializable(typeof(int?))]
+[JsonSerializable(typeof(Guid?))]
 [JsonSerializable(typeof(EmbeddingConfig))]
+[JsonSerializable(typeof(DocsIngestorResult))]
+[JsonSerializable(typeof(HealthCheckResponse))]
+[JsonSerializable(typeof(DocsIngestorMcpOptions))]
+[JsonSerializable(typeof(ChunkingOptions))]
+[JsonSerializable(typeof(ImagesOptions))]
+[JsonSerializable(typeof(DeletedDocumentDto))]
+[JsonSerializable(typeof(FileVectorizationRequest))]
+[JsonSerializable(typeof(FileIngestionRequest))]
+[JsonSerializable(typeof(VectorizedFileResult))]
+[JsonSerializable(typeof(IngestedFileResult))]
+[JsonSerializable(typeof(StoredDocumentRecord))]
+[JsonSerializable(typeof(SearchHitDto))]
+[JsonSerializable(typeof(OriginalDownloadDto))]
+[JsonSerializable(typeof(ChunkDto))]
+[JsonSerializable(typeof(IReadOnlyList<string>))]
+[JsonSerializable(typeof(IReadOnlyList<VectorizedFileResult>))]
+[JsonSerializable(typeof(IReadOnlyList<IngestedFileResult>))]
+[JsonSerializable(typeof(IReadOnlyList<StoredDocumentRecord>))]
+[JsonSerializable(typeof(IReadOnlyList<SearchHitDto>))]
+[JsonSerializable(typeof(IReadOnlyList<ChunkDto>))]
+[JsonSerializable(typeof(IReadOnlyDictionary<string, string>))]
 internal partial class DocsIngestorJsonContext : JsonSerializerContext;
 

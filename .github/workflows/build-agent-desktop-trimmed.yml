@@ -128,6 +128,20 @@ jobs:
             -p:InvariantGlobalization=false `
             -p:SkipModelMetadataGeneration=true
 
+
+      - name: Validate DocIngestor MCP Native AOT publish
+        shell: pwsh
+        run: |
+          dotnet publish src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj `
+            -c Release `
+            -r ${{ matrix.rid }} `
+            --self-contained true `
+            -o artifacts/publish/doc-ingestor-mcp-aot/${{ matrix.rid }} `
+            -p:PublishAot=true `
+            -p:PublishTrimmed=true `
+            -p:InvariantGlobalization=false `
+            -p:SkipModelMetadataGeneration=true
+
       - name: Build UI (Vite)
         working-directory: src/GnOuGo.Agent.Server/ClientApp
         run: |

@@ -8,6 +8,21 @@ HTTP MCP server for document ingestion. It downloads internal file URLs, extract
 dotnet build src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj
 ```
 
+## Native AOT publish
+
+The MCP executable is configured for Native AOT and trimming. It avoids EF Core in the AOT process by reading the shared KeyVault SQLite schema through explicit `Microsoft.Data.Sqlite` commands and uses source-generated `System.Text.Json` metadata for MCP tool schemas/results.
+
+```powershell
+dotnet publish src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained true `
+  -o artifacts/publish/doc-ingestor-mcp-aot/win-x64 `
+  -p:PublishAot=true `
+  -p:PublishTrimmed=true `
+  -p:InvariantGlobalization=false
+```
+
 ## Test
 
 ```powershell
@@ -86,4 +101,5 @@ Ollama example:
 ```
 
 Secrets remain encrypted at rest by `GnOuGo.KeyVault.Core`.
+`GnOuGo.DocIngestor.Mcp` reads those encrypted secrets directly from the shared KeyVault SQLite database during Native AOT execution; secret values are still decrypted only in memory when needed for embedding configuration/API-key resolution.
 

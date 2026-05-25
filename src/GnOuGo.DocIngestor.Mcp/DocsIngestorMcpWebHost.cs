@@ -1,4 +1,4 @@
-using GnOuGo.KeyVault.Core;
+using GnOuGo.DocIngestor.Mcp.Models;
 using GnOuGo.Observability.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -18,14 +18,21 @@ public static class DocsIngestorMcpWebHost
         builder.Logging.AddConsole();
         builder.AddGnOuGoOpenTelemetry("GnOuGo.DocIngestor.Mcp");
 
-        builder.Services.Configure<DocsIngestorMcpOptions>(builder.Configuration.GetSection("DocsIngestorMcp"));
-        var options = builder.Configuration.GetSection("DocsIngestorMcp").Get<DocsIngestorMcpOptions>() ?? new();
+        builder.Services.Configure<DocsIngestorMcpOptions>(options => BindOptions(builder.Configuration, options));
 
-        var metadataDbPath = DocsIngestorMcpPathResolver.Resolve(options.DatabasePath, AppContext.BaseDirectory, "data/gnougo-docs-ingestor-mcp.db");
-        var vectorDbPath = DocsIngestorMcpPathResolver.Resolve(options.VectorDatabasePath, AppContext.BaseDirectory, "data/gnougo-docs-ingestor-vectors.sqlite");
-        var originalsDirectory = DocsIngestorMcpPathResolver.Resolve(options.OriginalsDirectory, AppContext.BaseDirectory, "data/docs-ingestor/originals");
-        var keyVaultDbRelativePath = builder.Configuration.GetValue<string>("KeyVault:DatabasePath") ?? KeyVaultDatabasePathResolver.DefaultRelativePath;
-        var keyVaultDbPath = KeyVaultDatabasePathResolver.Resolve(keyVaultDbRelativePath, AppContext.BaseDirectory);
+        // Read individual config values to avoid reflection-based Get<T>() at startup.
+        var metadataDbPath = DocsIngestorMcpPathResolver.Resolve(
+            builder.Configuration["DocsIngestorMcp:DatabasePath"],
+            AppContext.BaseDirectory, "data/gnougo-docs-ingestor-mcp.db");
+        var vectorDbPath = DocsIngestorMcpPathResolver.Resolve(
+            builder.Configuration["DocsIngestorMcp:VectorDatabasePath"],
+            AppContext.BaseDirectory, "data/gnougo-docs-ingestor-vectors.sqlite");
+        var originalsDirectory = DocsIngestorMcpPathResolver.Resolve(
+            builder.Configuration["DocsIngestorMcp:OriginalsDirectory"],
+            AppContext.BaseDirectory, "data/docs-ingestor/originals");
+        var keyVaultDbPath = DocsIngestorMcpPathResolver.Resolve(
+            builder.Configuration["KeyVault:DatabasePath"],
+            AppContext.BaseDirectory, "data/gnougo-keyvault.db");
 
         Directory.CreateDirectory(Path.GetDirectoryName(metadataDbPath)!);
         Directory.CreateDirectory(Path.GetDirectoryName(vectorDbPath)!);
@@ -35,16 +42,20 @@ public static class DocsIngestorMcpWebHost
         builder.Services.AddDocsIngestorCoreServices(metadataDbPath, vectorDbPath, originalsDirectory, keyVaultDbPath);
         builder.Services.AddDocsIngestorMcpHttpServer();
 
+        // Register source-generated JSON context for AOT-safe minimal-API serialization.
+        builder.Services.ConfigureHttpJsonOptions(o =>
+            o.SerializerOptions.TypeInfoResolverChain.Insert(0, DocsIngestorJsonContext.Default));
+
         var app = builder.Build();
         app.Services.InitializeDocsIngestorMcpAsync().GetAwaiter().GetResult();
 
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+        app.MapGet("/health", static () => TypedResults.Ok(new HealthCheckResponse("ok")));
         app.MapDocsIngestorMcp(routePrefix);
 
         var logger = app.Services.GetRequiredService<ILoggerFactory>()
             .CreateLogger("GnOuGo.DocIngestor.Mcp.Startup");
         logger.LogInformation(
-            "GnOuGo.DocIngestor.Mcp HTTP server configured � baseDirectory={BaseDirectory}, metadataDb={MetadataDbPath}, vectorDb={VectorDbPath}, originals={OriginalsDirectory}, keyVaultDb={KeyVaultDbPath}, routePrefix={RoutePrefix}.",
+            "GnOuGo.DocIngestor.Mcp HTTP server configured - baseDirectory={BaseDirectory}, metadataDb={MetadataDbPath}, vectorDb={VectorDbPath}, originals={OriginalsDirectory}, keyVaultDb={KeyVaultDbPath}, routePrefix={RoutePrefix}.",
             AppContext.BaseDirectory,
             metadataDbPath,
             vectorDbPath,
@@ -54,5 +65,44 @@ public static class DocsIngestorMcpWebHost
 
         return app;
     }
-}
 
+    private static void BindOptions(IConfiguration configuration, DocsIngestorMcpOptions options)
+    {
+        var section = configuration.GetSection("DocsIngestorMcp");
+        options.DatabasePath = ReadString(section, "DatabasePath", options.DatabasePath);
+        options.VectorDatabasePath = ReadString(section, "VectorDatabasePath", options.VectorDatabasePath);
+        options.OriginalsDirectory = ReadString(section, "OriginalsDirectory", options.OriginalsDirectory);
+        options.DefaultCollection = ReadString(section, "DefaultCollection", options.DefaultCollection);
+        options.DefaultEmbeddingConfigName = ReadString(section, "DefaultEmbeddingConfigName", options.DefaultEmbeddingConfigName);
+        options.DefaultTenantId = ReadString(section, "DefaultTenantId", options.DefaultTenantId);
+        options.DefaultAuthor = ReadString(section, "DefaultAuthor", options.DefaultAuthor);
+        options.DownloadTimeoutSeconds = ReadInt(section, "DownloadTimeoutSeconds", options.DownloadTimeoutSeconds);
+        options.MaxDownloadBytes = ReadLong(section, "MaxDownloadBytes", options.MaxDownloadBytes);
+
+        var chunking = section.GetSection("Chunking");
+        options.Chunking.Mode = ReadString(chunking, "Mode", options.Chunking.Mode);
+        options.Chunking.MinTokens = ReadInt(chunking, "MinTokens", options.Chunking.MinTokens);
+        options.Chunking.TargetTokens = ReadInt(chunking, "TargetTokens", options.Chunking.TargetTokens);
+        options.Chunking.MaxTokens = ReadInt(chunking, "MaxTokens", options.Chunking.MaxTokens);
+        options.Chunking.OverlapTokens = ReadInt(chunking, "OverlapTokens", options.Chunking.OverlapTokens);
+
+        var images = section.GetSection("Images");
+        options.Images.EnableImageDiscovery = ReadBool(images, "EnableImageDiscovery", options.Images.EnableImageDiscovery);
+        options.Images.LoadImageBytes = ReadBool(images, "LoadImageBytes", options.Images.LoadImageBytes);
+        options.Images.EnableOcr = ReadBool(images, "EnableOcr", options.Images.EnableOcr);
+        options.Images.OcrLanguage = ReadString(images, "OcrLanguage", options.Images.OcrLanguage);
+        options.Images.OcrDpi = ReadInt(images, "OcrDpi", options.Images.OcrDpi);
+    }
+
+    private static string ReadString(IConfiguration section, string name, string defaultValue)
+        => string.IsNullOrWhiteSpace(section[name]) ? defaultValue : section[name]!;
+
+    private static int ReadInt(IConfiguration section, string name, int defaultValue)
+        => int.TryParse(section[name], out var value) ? value : defaultValue;
+
+    private static long ReadLong(IConfiguration section, string name, long defaultValue)
+        => long.TryParse(section[name], out var value) ? value : defaultValue;
+
+    private static bool ReadBool(IConfiguration section, string name, bool defaultValue)
+        => bool.TryParse(section[name], out var value) ? value : defaultValue;
+}

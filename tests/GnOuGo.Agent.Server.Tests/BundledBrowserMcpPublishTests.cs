@@ -97,6 +97,19 @@ public sealed class BundledBrowserMcpPublishTests
     }
 
     [Fact]
+    public void DesktopTrimmedWorkflow_ValidatesDocIngestorMcpNativeAotPublishForMatrixRid()
+    {
+        var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "build-agent-desktop-trimmed.yml");
+        var yaml = File.ReadAllText(workflowFile);
+
+        Assert.Contains("Validate DocIngestor MCP Native AOT publish", yaml);
+        Assert.Contains("src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj", yaml);
+        Assert.Contains("-r ${{ matrix.rid }}", yaml);
+        Assert.Contains("artifacts/publish/doc-ingestor-mcp-aot/${{ matrix.rid }}", yaml);
+        Assert.DoesNotContain("if: matrix.rid == 'win-x64'\r\n        shell: pwsh\r\n        run: |\r\n          dotnet publish src/GnOuGo.DocIngestor.Mcp", yaml);
+    }
+
+    [Fact]
     public void BuildAndRuntimeConfig_UseGithubCopilotMcpAfterRename()
     {
         var root = GetRepositoryRoot();

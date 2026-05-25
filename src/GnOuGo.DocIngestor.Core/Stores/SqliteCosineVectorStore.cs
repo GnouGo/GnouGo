@@ -15,19 +15,11 @@ public sealed class SqliteCosineVectorStore : IVectorSearchStore, IVectorStoreAd
     public string Name => "sqlite";
 
     private readonly string _dbPath;
-    private readonly JsonSerializerOptions _json;
 
     public SqliteCosineVectorStore(string dbPath)
     {
         _dbPath = dbPath;
         Directory.CreateDirectory(Path.GetDirectoryName(_dbPath)!);
-
-        _json = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = false
-        };
-
         Initialize();
     }
 
@@ -74,7 +66,7 @@ public sealed class SqliteCosineVectorStore : IVectorSearchStore, IVectorStoreAd
             cmd.Parameters.AddWithValue("$section_id", c.Chunk.SectionId);
             cmd.Parameters.AddWithValue("$chunk_index", c.Chunk.Index);
             cmd.Parameters.AddWithValue("$text", c.Chunk.Text);
-            cmd.Parameters.AddWithValue("$metadata_json", JsonSerializer.Serialize(c.Chunk.Metadata, _json));
+            cmd.Parameters.AddWithValue("$metadata_json", JsonSerializer.Serialize(c.Chunk.Metadata, DocIngestorCoreJsonContext.Default.IReadOnlyDictionaryStringString));
             cmd.Parameters.AddWithValue("$embedding_model", c.EmbeddingModelName);
             cmd.Parameters.AddWithValue("$vector_dims", vec.Length);
             cmd.Parameters.AddWithValue("$vector_norm", norm);
@@ -139,10 +131,10 @@ public sealed class SqliteCosineVectorStore : IVectorSearchStore, IVectorStoreAd
         return best;
     }
 
-    private Dictionary<string, string> DeserializeMeta(string json)
+    private static Dictionary<string, string> DeserializeMeta(string json)
         => string.IsNullOrWhiteSpace(json)
             ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            : (JsonSerializer.Deserialize<Dictionary<string, string>>(json, _json)
+            : (JsonSerializer.Deserialize(json, DocIngestorCoreJsonContext.Default.DictionaryStringString)
                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
 
     // ---- IVectorStoreAdmin ----
