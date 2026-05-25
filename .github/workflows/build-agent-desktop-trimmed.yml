@@ -114,6 +114,20 @@ jobs:
             -p:InvariantGlobalization=false `
             -p:SkipModelMetadataGeneration=true
 
+      - name: Validate Document MCP Native AOT publish
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: |
+          dotnet publish src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -o artifacts/publish/document-mcp-aot/win-x64 `
+            -p:PublishAot=true `
+            -p:PublishTrimmed=true `
+            -p:InvariantGlobalization=false `
+            -p:SkipModelMetadataGeneration=true
+
       - name: Build UI (Vite)
         working-directory: src/GnOuGo.Agent.Server/ClientApp
         run: |

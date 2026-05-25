@@ -39,6 +39,12 @@ dotnet test tests/GnOuGo.Document.Mcp.Tests/
 dotnet run --project src/GnOuGo.Document.Mcp/
 ```
 
+## Native AOT Publish (win-x64)
+
+```bash
+dotnet publish src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj -c Release -r win-x64 --self-contained true -p:PublishAot=true -p:PublishTrimmed=true
+```
+
 ## Bundled Agent publishes
 
 `GnOuGo.Document.Mcp` is also bundled by:
