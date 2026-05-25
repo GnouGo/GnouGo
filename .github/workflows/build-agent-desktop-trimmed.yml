@@ -100,6 +100,20 @@ jobs:
             -p:InvariantGlobalization=false `
             -p:SkipModelMetadataGeneration=true
 
+      - name: Validate Cmd MCP Native AOT publish
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: |
+          dotnet publish src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -o artifacts/publish/cmd-mcp-aot/win-x64 `
+            -p:PublishAot=true `
+            -p:PublishTrimmed=true `
+            -p:InvariantGlobalization=false `
+            -p:SkipModelMetadataGeneration=true
+
       - name: Build UI (Vite)
         working-directory: src/GnOuGo.Agent.Server/ClientApp
         run: |

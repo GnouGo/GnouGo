@@ -73,6 +73,18 @@ public sealed class BundledBrowserMcpPublishTests
     }
 
     [Fact]
+    public void DesktopTrimmedWorkflow_ValidatesCmdMcpNativeAotPublish()
+    {
+        var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "build-agent-desktop-trimmed.yml");
+        var yaml = File.ReadAllText(workflowFile);
+
+        Assert.Contains("Validate Cmd MCP Native AOT publish", yaml);
+        Assert.Contains("src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj", yaml);
+        Assert.Contains("-p:PublishAot=true", yaml);
+        Assert.Contains("-p:PublishTrimmed=true", yaml);
+    }
+
+    [Fact]
     public void BuildAndRuntimeConfig_UseGithubCopilotMcpAfterRename()
     {
         var root = GetRepositoryRoot();

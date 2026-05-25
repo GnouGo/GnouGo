@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -63,11 +64,9 @@ public static class GnOuGoObservabilityExtensions
         bool includeAspNetCoreDefault,
         Action<OpenTelemetrySettings>? configure)
     {
-        services.Configure<OpenTelemetrySettings>(configuration.GetSection(OpenTelemetrySettings.SectionName));
+        services.AddSingleton<IConfigureOptions<OpenTelemetrySettings>, OpenTelemetrySettingsOptionsConfigurator>();
 
-        var settings = configuration
-            .GetSection(OpenTelemetrySettings.SectionName)
-            .Get<OpenTelemetrySettings>() ?? new OpenTelemetrySettings();
+        var settings = OpenTelemetrySettingsOptionsConfigurator.Read(configuration);
 
         if (string.IsNullOrWhiteSpace(settings.ServiceName))
             settings.ServiceName = defaultServiceName;

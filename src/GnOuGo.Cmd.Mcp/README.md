@@ -168,6 +168,12 @@ dotnet build .\src\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj
 dotnet run --project .\src\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj
 ```
 
+## Native AOT Publish (win-x64)
+
+```powershell
+dotnet publish .\src\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj -c Release -r win-x64 --self-contained true -p:PublishAot=true -p:PublishTrimmed=true
+```
+
 ## Writable Workspace Examples
 
 The sample `appsettings.json` includes allowlisted commands for writable operations inside the default workspace:
