@@ -18,8 +18,7 @@ builder.AddGnOuGoOpenTelemetry("GnOuGo.GithubCopilot.Mcp", settings =>
     settings.ActivitySources = [.. settings.ActivitySources, "GnOuGo.GithubCopilot.Mcp.Copilot"];
 });
 
-builder.Services.Configure<CodeServerSettings>(
-    builder.Configuration.GetSection(CodeServerSettings.SectionName));
+builder.Services.AddSingleton<IConfigureOptions<CodeServerSettings>, CodeServerSettingsOptionsConfigurator>();
 builder.Services.AddHttpClient(nameof(ConfigurationCopilotProviderConfigResolver));
 builder.Services.AddSingleton<ICopilotProviderConfigResolver, ConfigurationCopilotProviderConfigResolver>();
 builder.Services.AddSingleton<CodePolicy>();
