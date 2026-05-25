@@ -97,78 +97,98 @@ jobs:
       - name: Validate Git MCP Native AOT publish
         shell: pwsh
         run: |
-          $nativeAotExtraArgs = if ('${{ matrix.rid }}' -eq 'linux-arm64') { @('-p:ObjCopyName=aarch64-linux-gnu-objcopy') } else { @() }
-          dotnet publish src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj `
-            -c Release `
-            -r ${{ matrix.rid }} `
-            --self-contained true `
-            -o artifacts/publish/git-mcp-aot/${{ matrix.rid }} `
-            -p:PublishAot=true `
-            -p:PublishTrimmed=true `
-            -p:InvariantGlobalization=false `
-            -p:SkipModelMetadataGeneration=true `
-            @nativeAotExtraArgs
+          $publishArgs = @(
+            'publish', 'src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj',
+            '-c', 'Release',
+            '-r', '${{ matrix.rid }}',
+            '--self-contained', 'true',
+            '-o', 'artifacts/publish/git-mcp-aot/${{ matrix.rid }}',
+            '-p:PublishAot=true',
+            '-p:PublishTrimmed=true',
+            '-p:InvariantGlobalization=false',
+            '-p:SkipModelMetadataGeneration=true'
+          )
+          if ('${{ matrix.rid }}' -eq 'linux-arm64') {
+            $publishArgs += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
+          }
+          dotnet @publishArgs
 
       - name: Validate GitHub Copilot MCP Native AOT publish
         shell: pwsh
         run: |
-          $nativeAotExtraArgs = if ('${{ matrix.rid }}' -eq 'linux-arm64') { @('-p:ObjCopyName=aarch64-linux-gnu-objcopy') } else { @() }
-          dotnet publish src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj `
-            -c Release `
-            -r ${{ matrix.rid }} `
-            --self-contained true `
-            -o artifacts/publish/github-copilot-mcp-aot/${{ matrix.rid }} `
-            -p:PublishAot=true `
-            -p:PublishTrimmed=true `
-            -p:InvariantGlobalization=false `
-            -p:SkipModelMetadataGeneration=true `
-            @nativeAotExtraArgs
+          $publishArgs = @(
+            'publish', 'src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj',
+            '-c', 'Release',
+            '-r', '${{ matrix.rid }}',
+            '--self-contained', 'true',
+            '-o', 'artifacts/publish/github-copilot-mcp-aot/${{ matrix.rid }}',
+            '-p:PublishAot=true',
+            '-p:PublishTrimmed=true',
+            '-p:InvariantGlobalization=false',
+            '-p:SkipModelMetadataGeneration=true'
+          )
+          if ('${{ matrix.rid }}' -eq 'linux-arm64') {
+            $publishArgs += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
+          }
+          dotnet @publishArgs
 
       - name: Validate Cmd MCP Native AOT publish
         shell: pwsh
         run: |
-          $nativeAotExtraArgs = if ('${{ matrix.rid }}' -eq 'linux-arm64') { @('-p:ObjCopyName=aarch64-linux-gnu-objcopy') } else { @() }
-          dotnet publish src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj `
-            -c Release `
-            -r ${{ matrix.rid }} `
-            --self-contained true `
-            -o artifacts/publish/cmd-mcp-aot/${{ matrix.rid }} `
-            -p:PublishAot=true `
-            -p:PublishTrimmed=true `
-            -p:InvariantGlobalization=false `
-            -p:SkipModelMetadataGeneration=true `
-            @nativeAotExtraArgs
+          $publishArgs = @(
+            'publish', 'src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj',
+            '-c', 'Release',
+            '-r', '${{ matrix.rid }}',
+            '--self-contained', 'true',
+            '-o', 'artifacts/publish/cmd-mcp-aot/${{ matrix.rid }}',
+            '-p:PublishAot=true',
+            '-p:PublishTrimmed=true',
+            '-p:InvariantGlobalization=false',
+            '-p:SkipModelMetadataGeneration=true'
+          )
+          if ('${{ matrix.rid }}' -eq 'linux-arm64') {
+            $publishArgs += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
+          }
+          dotnet @publishArgs
 
       - name: Validate Document MCP Native AOT publish
         shell: pwsh
         run: |
-          $nativeAotExtraArgs = if ('${{ matrix.rid }}' -eq 'linux-arm64') { @('-p:ObjCopyName=aarch64-linux-gnu-objcopy') } else { @() }
-          dotnet publish src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj `
-            -c Release `
-            -r ${{ matrix.rid }} `
-            --self-contained true `
-            -o artifacts/publish/document-mcp-aot/${{ matrix.rid }} `
-            -p:PublishAot=true `
-            -p:PublishTrimmed=true `
-            -p:InvariantGlobalization=false `
-            -p:SkipModelMetadataGeneration=true `
-            @nativeAotExtraArgs
+          $publishArgs = @(
+            'publish', 'src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj',
+            '-c', 'Release',
+            '-r', '${{ matrix.rid }}',
+            '--self-contained', 'true',
+            '-o', 'artifacts/publish/document-mcp-aot/${{ matrix.rid }}',
+            '-p:PublishAot=true',
+            '-p:PublishTrimmed=true',
+            '-p:InvariantGlobalization=false',
+            '-p:SkipModelMetadataGeneration=true'
+          )
+          if ('${{ matrix.rid }}' -eq 'linux-arm64') {
+            $publishArgs += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
+          }
+          dotnet @publishArgs
 
 
       - name: Validate DocIngestor MCP Native AOT publish
         shell: pwsh
         run: |
-          $nativeAotExtraArgs = if ('${{ matrix.rid }}' -eq 'linux-arm64') { @('-p:ObjCopyName=aarch64-linux-gnu-objcopy') } else { @() }
-          dotnet publish src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj `
-            -c Release `
-            -r ${{ matrix.rid }} `
-            --self-contained true `
-            -o artifacts/publish/doc-ingestor-mcp-aot/${{ matrix.rid }} `
-            -p:PublishAot=true `
-            -p:PublishTrimmed=true `
-            -p:InvariantGlobalization=false `
-            -p:SkipModelMetadataGeneration=true `
-            @nativeAotExtraArgs
+          $publishArgs = @(
+            'publish', 'src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj',
+            '-c', 'Release',
+            '-r', '${{ matrix.rid }}',
+            '--self-contained', 'true',
+            '-o', 'artifacts/publish/doc-ingestor-mcp-aot/${{ matrix.rid }}',
+            '-p:PublishAot=true',
+            '-p:PublishTrimmed=true',
+            '-p:InvariantGlobalization=false',
+            '-p:SkipModelMetadataGeneration=true'
+          )
+          if ('${{ matrix.rid }}' -eq 'linux-arm64') {
+            $publishArgs += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
+          }
+          dotnet @publishArgs
 
       - name: Build UI (Vite)
         working-directory: src/GnOuGo.Agent.Server/ClientApp
