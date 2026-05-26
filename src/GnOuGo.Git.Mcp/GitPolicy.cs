@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Options;
+﻿using GnOuGo.Workspace;
+using Microsoft.Extensions.Options;
 
 namespace GnOuGo.Git.Mcp;
 
@@ -24,7 +25,7 @@ public sealed class GitPolicy
     {
         _settings = settings;
         _contentRootPath = Path.GetFullPath(contentRootPath);
-        _workspaceRootPath = DiscoverWorkspaceRoot(_contentRootPath);
+        _workspaceRootPath = GnOuGoWorkspace.DiscoverWorkspaceRoot(_contentRootPath);
         _desktopDirectoryPath = string.IsNullOrWhiteSpace(desktopDirectoryPath) ? null : Path.GetFullPath(desktopDirectoryPath);
         _defaultWorkingDirectory = ResolveDefaultWorkingDirectory();
     }
@@ -107,36 +108,23 @@ public sealed class GitPolicy
     }
 
     internal static string? DiscoverWorkspaceRoot(string contentRootPath)
-    {
-        var current = new DirectoryInfo(Path.GetFullPath(contentRootPath));
-        while (current is not null)
-        {
-            if (current.GetFiles("*.sln").Any() || Directory.Exists(Path.Combine(current.FullName, ".git")))
-                return current.FullName;
-            current = current.Parent;
-        }
-        return null;
-    }
+        => GnOuGoWorkspace.DiscoverWorkspaceRoot(contentRootPath);
 
     internal static bool IsPathWithinRoot(string path, string root)
-    {
-        var normalizedPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        return normalizedPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
-    }
+        => GnOuGoWorkspace.IsPathWithinRoot(path, root);
 
     private string ResolveDefaultWorkingDirectory()
     {
         var configuredPath = string.IsNullOrWhiteSpace(_settings.DefaultWorkingDirectory)
             ? "GnOuGo"
             : _settings.DefaultWorkingDirectory.Trim();
-        var desktopPath = _desktopDirectoryPath ?? ResolveDesktopDirectory();
+        var desktopPath = _desktopDirectoryPath ?? GnOuGoWorkspace.ResolveDesktopDirectory();
 
         var resolvedPath = Path.IsPathRooted(configuredPath)
             ? Path.GetFullPath(configuredPath)
             : Path.GetFullPath(Path.Combine(desktopPath, configuredPath));
 
-        if (!Path.IsPathRooted(configuredPath) && !IsPathWithinRoot(resolvedPath, desktopPath))
+        if (!Path.IsPathRooted(configuredPath) && !GnOuGoWorkspace.IsPathWithinRoot(resolvedPath, desktopPath))
         {
             throw new InvalidOperationException(
                 $"Default working directory '{configuredPath}' must stay within the current user's Desktop directory '{desktopPath}'.");
@@ -172,22 +160,4 @@ public sealed class GitPolicy
 
     private static bool ContainsParentTraversalSegment(string path)
         => path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).Any(static segment => string.Equals(segment, "..", StringComparison.Ordinal));
-
-    private static string ResolveDesktopDirectory()
-    {
-        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-        if (!string.IsNullOrWhiteSpace(desktopPath))
-            return Path.GetFullPath(desktopPath);
-
-        var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (!string.IsNullOrWhiteSpace(userProfilePath))
-            return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
-
-        var homePath = Environment.GetEnvironmentVariable("HOME");
-        if (!string.IsNullOrWhiteSpace(homePath))
-            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
-
-        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
-    }
 }
-
