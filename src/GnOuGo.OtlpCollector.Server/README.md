@@ -129,6 +129,8 @@ Avoid storing production secrets in `appsettings.json`; use environment-specific
 dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish/otlp-collector/win-x64 /p:SkipClientBuild=true /p:SkipModelMetadataGeneration=true
 ```
 
+The Windows publish output must contain `GnOuGo.OtlpCollector.Server.exe`; Unix-like RIDs publish `GnOuGo.OtlpCollector.Server`.
+
 Example macOS arm64 publish:
 
 ```powershell

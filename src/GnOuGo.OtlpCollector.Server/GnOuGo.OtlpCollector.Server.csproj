@@ -4,6 +4,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>preview</LangVersion>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>GnOuGo.OtlpCollector.Server</AssemblyName>
+    <TargetName>GnOuGo.OtlpCollector.Server</TargetName>
+    <UseAppHost>true</UseAppHost>
 
     <!-- NativeAOT/trimming-friendly defaults. Release publish enables NativeAOT below. -->
     <IsAotCompatible>true</IsAotCompatible>
