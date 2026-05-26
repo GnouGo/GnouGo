@@ -87,6 +87,12 @@ jobs:
     permissions:
       contents: read
 
+  keyvault_mcp_aot:
+    name: KeyVault MCP Native AOT
+    uses: ./.github/workflows/build-keyvault-mcp-aot.yml
+    permissions:
+      contents: read
+
   otlp_collector_self_contained:
     name: OTLP Collector
     needs: stable_unit_tests

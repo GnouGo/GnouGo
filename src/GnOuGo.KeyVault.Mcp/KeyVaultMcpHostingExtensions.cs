@@ -1,12 +1,9 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Protocol;
-using GnOuGo.KeyVault.Core.Data;
-using GnOuGo.KeyVault.Core.Services;
 
 namespace GnOuGo.KeyVault.Mcp;
 
@@ -21,9 +18,7 @@ public static class KeyVaultMcpHostingExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
 
-        services.AddDbContext<KeyVaultDbContext>(options =>
-            options.UseSqlite($"Data Source={databasePath}"));
-        services.AddScoped<KeyVaultService>();
+        services.AddSingleton(new KeyVaultSqliteStore(databasePath));
         return services;
     }
 
@@ -42,7 +37,7 @@ public static class KeyVaultMcpHostingExtensions
                 };
             })
             .WithHttpTransport()
-            .WithTools<KeyVaultTools>();
+            .WithTools<KeyVaultTools>(KeyVaultMcpJson.SerializerOptions);
 
         return services;
     }
@@ -51,12 +46,8 @@ public static class KeyVaultMcpHostingExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        await using var scope = services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-        await KeyVaultDatabaseBootstrap.EnsureCreatedAsync(db, ct);
-
-        var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-        await keyVault.EnsureDefaultKeyPairAsync();
+        var keyVault = services.GetRequiredService<KeyVaultSqliteStore>();
+        await keyVault.InitializeAsync(ct);
     }
 
     public static IEndpointConventionBuilder MapKeyVaultMcp(this IEndpointRouteBuilder endpoints, string pattern = DefaultRoutePrefix)

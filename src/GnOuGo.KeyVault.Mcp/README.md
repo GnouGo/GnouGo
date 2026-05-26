@@ -6,6 +6,9 @@ HTTP-based MCP server for encrypted KeyVault secret management.
 
 This component is independently publishable, testable, and deployable per `AGENTS.md` rules.
 It can run as a standalone HTTP MCP host or be mounted inside `GnOuGo.Agent.Server`.
+The MCP executable is NativeAOT/trimming-compatible: it uses explicit MCP tool registration,
+source-generated JSON contracts, and direct `Microsoft.Data.Sqlite` persistence instead of EF Core
+runtime model building.
 
 ## Hosted tools
 
@@ -86,5 +89,14 @@ dotnet run
 ```powershell
 dotnet test "C:\github\GnouGo\tests\GnOuGo.KeyVault.Mcp.Tests\GnOuGo.KeyVault.Mcp.Tests.csproj"
 ```
+
+## Native AOT publish
+
+```powershell
+dotnet publish "C:\github\GnouGo\src\GnOuGo.KeyVault.Mcp\GnOuGo.KeyVault.Mcp.csproj" -c Release -r win-x64
+```
+
+The project treats `IL2026`, `IL3050`, `IL3053`, and `IL3055` as errors so AOT/trimming regressions
+fail during publish.
 
 

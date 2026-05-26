@@ -1,8 +1,7 @@
 ﻿using System.ComponentModel;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
-using GnOuGo.KeyVault.Core.Services;
+using GnOuGo.KeyVault.Core.Models;
 
 namespace GnOuGo.KeyVault.Mcp;
 
@@ -14,24 +13,22 @@ namespace GnOuGo.KeyVault.Mcp;
 [McpServerToolType]
 public sealed class KeyVaultTools
 {
-    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly KeyVaultSqliteStore _store;
     private readonly ILogger<KeyVaultTools> _logger;
 
-    public KeyVaultTools(IServiceScopeFactory scopeFactory, ILogger<KeyVaultTools> logger)
+    public KeyVaultTools(KeyVaultSqliteStore store, ILogger<KeyVaultTools> logger)
     {
-        _scopeFactory = scopeFactory;
+        _store = store;
         _logger = logger;
     }
 
     [McpServerTool(Name = "keyvault_list_tenants"), Description("Lists all active tenants in the key vault.")]
-    public async Task<KeyVaultResult> ListTenantsAsync(CancellationToken ct = default)
+    public async Task<KeyVaultResult<List<TenantDto>>> ListTenantsAsync(CancellationToken ct = default)
     {
         try
         {
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-            var tenants = await svc.ListTenantsAsync(ct);
-            return KeyVaultResult.Ok(tenants);
+            var tenants = await _store.ListTenantsAsync(ct);
+            return KeyVaultResult<List<TenantDto>>.Ok(tenants);
         }
         catch (Exception ex)
         {
@@ -41,17 +38,15 @@ public sealed class KeyVaultTools
     }
 
     [McpServerTool(Name = "keyvault_create_tenant"), Description("Creates a new tenant with a dedicated RSA key pair for secret encryption.")]
-    public async Task<KeyVaultResult> CreateTenantAsync(
+    public async Task<KeyVaultResult<TenantDto>> CreateTenantAsync(
         [Description("Human-readable name for the tenant.")] string name,
         [Description("Author or user creating the tenant.")] string author,
         CancellationToken ct = default)
     {
         try
         {
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-            var tenant = await svc.CreateTenantAsync(name, author, ct);
-            return KeyVaultResult.Ok(tenant);
+            var tenant = await _store.CreateTenantAsync(name, author, ct);
+            return KeyVaultResult<TenantDto>.Ok(tenant);
         }
         catch (Exception ex)
         {
@@ -61,7 +56,7 @@ public sealed class KeyVaultTools
     }
 
     [McpServerTool(Name = "keyvault_set_secret"), Description("Creates or updates a secret. The value is encrypted at rest using RSA+AES-GCM. Returns metadata only.")]
-    public async Task<KeyVaultResult> SetSecretAsync(
+    public async Task<KeyVaultResult<KeyVaultSecretMetadataResult>> SetSecretAsync(
         [Description("Secret key (unique name within the tenant scope).")] string key,
         [Description("Plain-text value to encrypt and store.")] string value,
         [Description("Author or user setting the secret.")] string author,
@@ -70,17 +65,8 @@ public sealed class KeyVaultTools
     {
         try
         {
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-            var result = await svc.SetSecretAsync(key, value, tenantId, author, ct);
-            return KeyVaultResult.Ok(new
-            {
-                result.Id,
-                result.Key,
-                result.Version,
-                result.TenantId,
-                result.CreatedAt
-            });
+            var result = await _store.SetSecretAsync(key, value, tenantId, author, ct);
+            return KeyVaultResult<KeyVaultSecretMetadataResult>.Ok(result);
         }
         catch (Exception ex)
         {
@@ -90,16 +76,14 @@ public sealed class KeyVaultTools
     }
 
     [McpServerTool(Name = "keyvault_list_secrets"), Description("Lists secret metadata without revealing values.")]
-    public async Task<KeyVaultResult> ListSecretsAsync(
+    public async Task<KeyVaultResult<List<SecretDto>>> ListSecretsAsync(
         [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
         CancellationToken ct = default)
     {
         try
         {
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-            var secrets = await svc.ListSecretsAsync(tenantId, ct);
-            return KeyVaultResult.Ok(secrets);
+            var secrets = await _store.ListSecretsAsync(tenantId, ct);
+            return KeyVaultResult<List<SecretDto>>.Ok(secrets);
         }
         catch (Exception ex)
         {
@@ -109,7 +93,7 @@ public sealed class KeyVaultTools
     }
 
     [McpServerTool(Name = "keyvault_get_secret"), Description("Reads the latest version of a secret by its key and returns the decrypted value with metadata.")]
-    public async Task<KeyVaultResult> GetSecretAsync(
+    public async Task<KeyVaultResult<KeyVaultSecretValueResult>> GetSecretAsync(
         [Description("Secret key to read.")] string key,
         [Description("Author or user reading the secret.")] string author,
         [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
@@ -117,21 +101,11 @@ public sealed class KeyVaultTools
     {
         try
         {
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-            var result = await svc.GetSecretAsync(key, tenantId, author, ct);
+            var result = await _store.GetSecretAsync(key, tenantId, author, ct);
             if (result is null)
-                return KeyVaultResult.NotFound($"Secret '{key}' not found.");
+                return KeyVaultResult<KeyVaultSecretValueResult>.NotFound($"Secret '{key}' not found.");
 
-            return KeyVaultResult.Ok(new
-            {
-                result.Id,
-                result.Key,
-                result.Value,
-                result.Version,
-                result.TenantId,
-                result.CreatedAt
-            });
+            return KeyVaultResult<KeyVaultSecretValueResult>.Ok(result);
         }
         catch (Exception ex)
         {
@@ -141,7 +115,7 @@ public sealed class KeyVaultTools
     }
 
     [McpServerTool(Name = "keyvault_delete_secret"), Description("Soft-deletes a secret by its key.")]
-    public async Task<KeyVaultResult> DeleteSecretAsync(
+    public async Task<KeyVaultResult<KeyVaultMessage>> DeleteSecretAsync(
         [Description("Secret key to delete.")] string key,
         [Description("Author or user performing the deletion.")] string author,
         [Description("Optional tenant identifier. Omit for the default tenant.")] Guid? tenantId = null,
@@ -149,12 +123,10 @@ public sealed class KeyVaultTools
     {
         try
         {
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-            var deleted = await svc.DeleteSecretAsync(key, tenantId, author, ct);
+            var deleted = await _store.DeleteSecretAsync(key, tenantId, author, ct);
             return deleted
-                ? KeyVaultResult.Ok("Secret deleted.")
-                : KeyVaultResult.NotFound("Secret not found.");
+                ? KeyVaultResult<KeyVaultMessage>.Ok(new KeyVaultMessage("Secret deleted."))
+                : KeyVaultResult<KeyVaultMessage>.NotFound("Secret not found.");
         }
         catch (Exception ex)
         {
@@ -164,9 +136,4 @@ public sealed class KeyVaultTools
     }
 }
 
-public sealed record KeyVaultResult(bool Success, object? Data, string? Error = null)
-{
-    public static KeyVaultResult Ok(object? data) => new(true, data);
-    public static KeyVaultResult NotFound(string message) => new(false, null, message);
-}
 
