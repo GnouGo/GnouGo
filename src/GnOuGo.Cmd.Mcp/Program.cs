@@ -6,51 +6,68 @@ using ModelContextProtocol.Protocol;
 using GnOuGo.Cmd.Mcp;
 using GnOuGo.Observability.Core;
 
-var builder = CmdHostBootstrap.CreateBuilder(args);
-
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole(options =>
+try
 {
-    options.LogToStandardErrorThreshold = LogLevel.Trace;
-});
-builder.AddGnOuGoOpenTelemetry("GnOuGo.Cmd.Mcp");
+    var builder = CmdHostBootstrap.CreateBuilder(args);
 
-builder.Services.AddSingleton<IConfigureOptions<CmdServerSettings>, CmdServerSettingsOptionsConfigurator>();
-builder.Services.AddSingleton<CommandPolicy>();
-builder.Services.AddSingleton<CommandExecutionHost>();
-builder.Services.AddTransient<CmdTools>();
-builder.Services
-    .AddMcpServer(options =>
+    builder.Logging.ClearProviders();
+    builder.Logging.AddConsole(options =>
     {
-        options.ServerInfo = new Implementation
+        options.LogToStandardErrorThreshold = LogLevel.Trace;
+    });
+
+    try
+    {
+        builder.AddGnOuGoOpenTelemetry("GnOuGo.Cmd.Mcp");
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"[GnOuGo.Cmd.Mcp] WARNING: OpenTelemetry initialization failed (non-fatal): {ex.Message}");
+    }
+
+    builder.Services.AddSingleton<IConfigureOptions<CmdServerSettings>, CmdServerSettingsOptionsConfigurator>();
+    builder.Services.AddSingleton<CommandPolicy>();
+    builder.Services.AddSingleton<CommandExecutionHost>();
+    builder.Services.AddTransient<CmdTools>();
+    builder.Services
+        .AddMcpServer(options =>
         {
-            Name = "GnOuGo.Cmd.Mcp",
-            Version = "1.0.0"
-        };
-    })
-    .WithStdioServerTransport()
-    .WithTools<CmdTools>();
+            options.ServerInfo = new Implementation
+            {
+                Name = "GnOuGo.Cmd.Mcp",
+                Version = "1.0.0"
+            };
+        })
+        .WithStdioServerTransport()
+        .WithTools<CmdTools>(CmdMcpJson.SerializerOptions);
 
-var host = builder.Build();
-var startupLogger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Cmd.Mcp.Startup");
-var settings = host.Services.GetRequiredService<IOptions<CmdServerSettings>>().Value;
-var policy = host.Services.GetRequiredService<CommandPolicy>();
-var defaultWorkingDirectory = policy.ResolveWorkingDirectory(null);
-var allowedWorkingRoots = policy.DescribePolicy().AllowedWorkingRoots;
+    var host = builder.Build();
+    var startupLogger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Cmd.Mcp.Startup");
+    var settings = host.Services.GetRequiredService<IOptions<CmdServerSettings>>().Value;
+    var policy = host.Services.GetRequiredService<CommandPolicy>();
+    var defaultWorkingDirectory = policy.ResolveWorkingDirectory(null);
+    var allowedWorkingRoots = policy.DescribePolicy().AllowedWorkingRoots;
 
-startupLogger.LogInformation(
-    "Cmd server configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, configuredDefaultWorkingDirectory={ConfiguredDefaultWorkingDirectory}, resolvedDefaultWorkingDirectory={ResolvedDefaultWorkingDirectory}, allowedShells={AllowedShells}, allowedRoots={AllowedRoots}, commandCount={CommandCount}, defaultTimeoutMs={DefaultTimeoutMs}, maxTimeoutMs={MaxTimeoutMs}, maxOutputCharacters={MaxOutputCharacters}",
-    builder.Environment.ContentRootPath,
-    Environment.CurrentDirectory,
-    AppContext.BaseDirectory,
-    settings.DefaultWorkingDirectory,
-    defaultWorkingDirectory,
-    string.Join(", ", settings.AllowedShells),
-    string.Join(", ", allowedWorkingRoots),
-    settings.AllowedCommands.Count,
-    settings.DefaultTimeoutMs,
-    settings.MaxTimeoutMs,
-    settings.MaxOutputCharacters);
+    startupLogger.LogInformation(
+        "Cmd server configuration: contentRoot={ContentRootPath}, currentDirectory={CurrentDirectory}, baseDirectory={BaseDirectory}, configuredDefaultWorkingDirectory={ConfiguredDefaultWorkingDirectory}, resolvedDefaultWorkingDirectory={ResolvedDefaultWorkingDirectory}, allowedShells={AllowedShells}, allowedRoots={AllowedRoots}, commandCount={CommandCount}, defaultTimeoutMs={DefaultTimeoutMs}, maxTimeoutMs={MaxTimeoutMs}, maxOutputCharacters={MaxOutputCharacters}",
+        builder.Environment.ContentRootPath,
+        Environment.CurrentDirectory,
+        AppContext.BaseDirectory,
+        settings.DefaultWorkingDirectory,
+        defaultWorkingDirectory,
+        string.Join(", ", settings.AllowedShells),
+        string.Join(", ", allowedWorkingRoots),
+        settings.AllowedCommands.Count,
+        settings.DefaultTimeoutMs,
+        settings.MaxTimeoutMs,
+        settings.MaxOutputCharacters);
 
-await host.RunAsync();
+    await host.RunAsync();
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine($"[GnOuGo.Cmd.Mcp] FATAL: Unhandled exception during startup or execution:");
+    Console.Error.WriteLine(ex.ToString());
+    Environment.Exit(1);
+}
 

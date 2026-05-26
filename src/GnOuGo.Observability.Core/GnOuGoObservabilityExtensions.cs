@@ -19,20 +19,31 @@ public static class GnOuGoObservabilityExtensions
 {
     /// <summary>
     /// Adds config-driven OpenTelemetry to a generic host. Safe for stdio MCP servers because it does not add stdout logging providers.
+    /// Failures are non-fatal: telemetry is disabled gracefully on error.
     /// </summary>
     public static IHostApplicationBuilder AddGnOuGoOpenTelemetry(
         this IHostApplicationBuilder builder,
         string defaultServiceName,
         Action<OpenTelemetrySettings>? configure = null)
     {
-        AddGnOuGoOpenTelemetryCore(
-            builder.Services,
-            builder.Logging,
-            builder.Configuration,
-            builder.Environment.EnvironmentName,
-            defaultServiceName,
-            includeAspNetCoreDefault: false,
-            configure);
+        try
+        {
+            AddGnOuGoOpenTelemetryCore(
+                builder.Services,
+                builder.Logging,
+                builder.Configuration,
+                builder.Environment.EnvironmentName,
+                defaultServiceName,
+                includeAspNetCoreDefault: false,
+                configure);
+        }
+        catch (Exception ex)
+        {
+            // OpenTelemetry initialization must never crash a stdio MCP server in Native AOT.
+            System.Console.Error.WriteLine(
+                $"[{defaultServiceName}] WARNING: OpenTelemetry setup failed (telemetry disabled): {ex.Message}");
+        }
+
         return builder;
     }
 
