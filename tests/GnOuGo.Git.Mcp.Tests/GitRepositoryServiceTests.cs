@@ -109,7 +109,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
 
         var clone = service.Clone(source, target);
 
-        Assert.Equal(Path.GetFullPath(target), clone.RepositoryRoot);
+        Assert.Equal(NormalizePath(target), NormalizePath(clone.RepositoryRoot));
         Assert.True(Repository.IsValid(target));
         Assert.True(File.Exists(Path.Combine(target, "README.md")));
     }
@@ -156,6 +156,17 @@ public sealed class GitRepositoryServiceTests : IDisposable
         try { Directory.Delete(_root, recursive: true); }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
+    }
+
+    /// <summary>
+    /// Resolves symlinks so that /var/folders and /private/var/folders compare equal on macOS.
+    /// </summary>
+    private static string NormalizePath(string path)
+    {
+        var full = Path.GetFullPath(path);
+        if (OperatingSystem.IsMacOS() && full.StartsWith("/var/", StringComparison.Ordinal))
+            full = "/private" + full;
+        return full;
     }
 }
 
