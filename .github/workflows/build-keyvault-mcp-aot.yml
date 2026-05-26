@@ -1,0 +1,30 @@
+﻿name: KeyVault MCP Native AOT
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  keyvault_mcp_aot:
+    name: KeyVault MCP Native AOT (win-x64)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Publish GnOuGo.KeyVault.Mcp Native AOT
+        shell: pwsh
+        run: |
+          dotnet publish "src/GnOuGo.KeyVault.Mcp/GnOuGo.KeyVault.Mcp.csproj" -c Release -r win-x64
+
