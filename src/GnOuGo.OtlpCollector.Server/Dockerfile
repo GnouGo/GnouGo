@@ -2,8 +2,8 @@
 # GnOuGo.OtlpCollector.Server — Multi-stage Dockerfile
 #
 #   Stage 1 (node)   : Build ClientApp (React + Vite → wwwroot)
-#   Stage 2 (sdk)    : Restore + publish .NET app
-#   Stage 3 (runtime): Final GnOuGo image
+#   Stage 2 (sdk)    : Restore + Native AOT publish .NET app
+#   Stage 3 (runtime): Final minimal GnOuGo image
 #
 # Ports exposed:
 #   4317 — gRPC  (OTLP/gRPC, HTTP/2)
@@ -39,13 +39,15 @@ RUN test -f src/GnOuGo.OtlpCollector.Server/wwwroot/index.html
 # Stage 2: Build & publish the .NET application
 # ──────────────────────────────────────────────
 # Use --platform=$BUILDPLATFORM to run the SDK natively on the build host.
-# The publish output is framework-dependent (pure IL) — no RID needed.
+# The publish output is Native AOT and targets the container runtime RID.
 # This avoids QEMU emulation for protoc/grpc_csharp_plugin which segfault under QEMU.
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
-# Install system protoc (runs natively — no QEMU)
+ARG TARGETARCH
+
+# Install system protoc and Native AOT toolchain bits (runs natively — no QEMU)
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
-    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 protobuf-compiler \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 clang zlib1g-dev protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -75,20 +77,26 @@ COPY src/GnOuGo.Auth.Core/ src/GnOuGo.Auth.Core/
 COPY --from=clientapp /workspace/src/GnOuGo.OtlpCollector.Server/wwwroot src/GnOuGo.OtlpCollector.Server/wwwroot/
 RUN test -f src/GnOuGo.OtlpCollector.Server/wwwroot/index.html
 
-# Publish (skip ClientApp build — already done in stage 1).
+# Publish Native AOT (skip ClientApp build — already done in stage 1).
 # NOTE: we intentionally omit --no-restore so that Grpc.Tools can properly
 # discover proto files downloaded by the EnsureOtlpProtos target during build.
-RUN dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj \
-    -c Release \
-    -o /app/publish \
-    -p:SkipClientBuild=true \
-    -p:SkipModelMetadataGeneration=true \
-    -p:Protobuf_ProtocPath=/usr/bin/protoc
+RUN export DOTNET_RID="linux-x64" \
+    && if [ "$TARGETARCH" = "arm64" ]; then export DOTNET_RID="linux-arm64"; fi \
+    && dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj \
+        -c Release \
+        -r "$DOTNET_RID" \
+        --self-contained true \
+        -o /app/publish \
+        -p:PublishAot=true \
+        -p:PublishTrimmed=true \
+        -p:SkipClientBuild=true \
+        -p:SkipModelMetadataGeneration=true \
+        -p:Protobuf_ProtocPath=/usr/bin/protoc
 
 # ──────────────────────────────────────────────
 # Stage 3: Final runtime image
 # ──────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0 AS runtime
 
 # Install curl for healthcheck + ICU runtime for globalization (non-invariant)
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
@@ -121,4 +129,4 @@ VOLUME ["/app/data"]
 ENV ASPNETCORE_ENVIRONMENT=Production \
     DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false 
 
-ENTRYPOINT ["dotnet", "GnOuGo.OtlpCollector.Server.dll"]
+ENTRYPOINT ["./GnOuGo.OtlpCollector.Server"]

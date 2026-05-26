@@ -12,6 +12,7 @@ This service receives OpenTelemetry data (traces, metrics, logs) over OTLP/gRPC 
 - Optional routing to external OTLP/HTTP collectors using typed `TelemetryRouting` settings
 - Development mode support when tenant id is missing
 - Static UI served from `wwwroot`
+- NativeAOT publish in `Release`; runtime persistence uses `Microsoft.Data.Sqlite` directly to avoid EF Core dynamic-code paths
 
 ## Prerequisites
 
@@ -122,12 +123,22 @@ Avoid storing production secrets in `appsettings.json`; use environment-specific
 
 ## Publish
 
-Example self-contained publish:
+`Release` publishes are NativeAOT by default. Example Windows x64 publish:
 
-```bash
-cd <repo-root>
-dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -r osx-arm64 /p:SkipClientBuild=true
-dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r osx-arm64 --self-contained true -o artifacts/publish/otlp-collector/osx-arm64 --no-restore /p:SkipClientBuild=true
+```powershell
+dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish/otlp-collector/win-x64 /p:SkipClientBuild=true /p:SkipModelMetadataGeneration=true
+```
+
+Example macOS arm64 publish:
+
+```powershell
+dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r osx-arm64 --self-contained true -o artifacts/publish/otlp-collector/osx-arm64 /p:SkipClientBuild=true /p:SkipModelMetadataGeneration=true
+```
+
+To explicitly disable NativeAOT for diagnostics:
+
+```powershell
+dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish/otlp-collector/win-x64-il /p:PublishAot=false /p:PublishTrimmed=false /p:SkipClientBuild=true
 ```
 
 ## CI artifacts

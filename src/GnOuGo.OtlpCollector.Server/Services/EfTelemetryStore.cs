@@ -1,21 +1,22 @@
-using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Text.Json;
+using Microsoft.Data.Sqlite;
 using OtlpTenantCollector.Data;
 using OtlpTenantCollector.Models;
 
 namespace OtlpTenantCollector.Services;
 
 /// <summary>
-/// Repository pour gérer les données de télémétrie avec Entity Framework Core
+/// Repository pour gérer les données de télémétrie avec SQLite sans réflexion runtime.
 /// </summary>
-public class EfTelemetryStore
+public sealed class EfTelemetryStore
 {
-    private readonly TelemetryDbContext _context;
+    private readonly AppOptions _options;
     private readonly ILogger<EfTelemetryStore> _logger;
 
-    public EfTelemetryStore(TelemetryDbContext context, ILogger<EfTelemetryStore> logger)
+    public EfTelemetryStore(AppOptions options, ILogger<EfTelemetryStore> logger)
     {
-        _context = context;
+        _options = options;
         _logger = logger;
     }
 
@@ -30,7 +31,7 @@ public class EfTelemetryStore
             if (devMode)
                 _logger.LogWarning("[DevMode] Database dropped and will be recreated with current schema.");
 
-            await TelemetryDatabaseBootstrap.EnsureInitializedAsync(_context, resetSchema: devMode);
+            await TelemetryDatabaseBootstrap.EnsureInitializedAsync(_options.DbPath, resetSchema: devMode);
             _logger.LogInformation("Database initialized successfully");
         }
         catch (Exception ex)
@@ -44,7 +45,18 @@ public class EfTelemetryStore
 
     public async Task<TenantEntity?> GetTenantAsync(Guid tenantId)
     {
-        return await _context.Tenants.FindAsync(tenantId);
+        await using var connection = await OpenConnectionAsync(CancellationToken.None);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT id, name, retention_minutes, created_utc
+            FROM tenants
+            WHERE id = $id
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$id", FormatGuid(tenantId));
+
+        await using var reader = await command.ExecuteReaderAsync();
+        return await reader.ReadAsync() ? ReadTenant(reader) : null;
     }
 
     public async Task<TenantEntity> CreateTenantAsync(Guid tenantId, string name, int retentionMinutes)
@@ -57,8 +69,17 @@ public class EfTelemetryStore
             CreatedUtc = DateTimeOffset.UtcNow
         };
 
-        _context.Tenants.Add(tenant);
-        await _context.SaveChangesAsync();
+        await using var connection = await OpenConnectionAsync(CancellationToken.None);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO tenants (id, name, retention_minutes, created_utc)
+            VALUES ($id, $name, $retention_minutes, $created_utc);
+            """;
+        command.Parameters.AddWithValue("$id", FormatGuid(tenant.Id));
+        command.Parameters.AddWithValue("$name", tenant.Name);
+        command.Parameters.AddWithValue("$retention_minutes", tenant.RetentionMinutes);
+        command.Parameters.AddWithValue("$created_utc", FormatUtc(tenant.CreatedUtc));
+        await command.ExecuteNonQueryAsync();
 
         _logger.LogInformation("Created tenant {TenantId} with name {Name}", tenantId, name);
         return tenant;
@@ -66,23 +87,41 @@ public class EfTelemetryStore
 
     public async Task<List<TenantEntity>> GetAllTenantsAsync()
     {
-        return await _context.Tenants.ToListAsync();
+        await using var connection = await OpenConnectionAsync(CancellationToken.None);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT id, name, retention_minutes, created_utc
+            FROM tenants
+            ORDER BY created_utc DESC;
+            """;
+
+        var tenants = new List<TenantEntity>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+            tenants.Add(ReadTenant(reader));
+
+        return tenants;
     }
 
     public async Task DeleteTenantAsync(Guid tenantId)
     {
-        // Supprimer toutes les données du tenant
-        await _context.Spans.Where(s => s.TenantId == tenantId).ExecuteDeleteAsync();
-        await _context.Logs.Where(l => l.TenantId == tenantId).ExecuteDeleteAsync();
-        await _context.Tenants.Where(t => t.Id == tenantId).ExecuteDeleteAsync();
+        await using var connection = await OpenConnectionAsync(CancellationToken.None);
+        await using var transaction = await connection.BeginTransactionAsync();
+        await ExecuteTenantDeleteAsync(connection, transaction, "DELETE FROM span_records WHERE tenant_id = $tenant_id;", tenantId, CancellationToken.None);
+        await ExecuteTenantDeleteAsync(connection, transaction, "DELETE FROM log_records WHERE tenant_id = $tenant_id;", tenantId, CancellationToken.None);
+        await ExecuteTenantDeleteAsync(connection, transaction, "DELETE FROM tenants WHERE id = $tenant_id;", tenantId, CancellationToken.None);
+        await transaction.CommitAsync();
         
         _logger.LogInformation("Deleted tenant {TenantId} and all associated data", tenantId);
     }
 
     public async Task<int> PurgeTenantDataAsync(Guid? tenantId)
     {
-        var spans = await _context.Spans.Where(s => tenantId == null ? s.TenantId == null : s.TenantId == tenantId).ExecuteDeleteAsync();
-        var logs = await _context.Logs.Where(l => tenantId == null ? l.TenantId == null : l.TenantId == tenantId).ExecuteDeleteAsync();
+        await using var connection = await OpenConnectionAsync(CancellationToken.None);
+        await using var transaction = await connection.BeginTransactionAsync();
+        var spans = await ExecuteNullableTenantDeleteAsync(connection, transaction, "span_records", tenantId, null, CancellationToken.None);
+        var logs = await ExecuteNullableTenantDeleteAsync(connection, transaction, "log_records", tenantId, null, CancellationToken.None);
+        await transaction.CommitAsync();
         var total = spans + logs;
         
         _logger.LogInformation("Purged {Total} records ({Spans} spans, {Logs} logs) for tenant {TenantId}", total, spans, logs, tenantId);
@@ -95,8 +134,28 @@ public class EfTelemetryStore
 
     public async Task AddSpansAsync(IEnumerable<SpanRecordEntity> spans)
     {
-        await _context.Spans.AddRangeAsync(spans);
-        await _context.SaveChangesAsync();
+        await using var connection = await OpenConnectionAsync(CancellationToken.None);
+        await using var transaction = await connection.BeginTransactionAsync();
+
+        foreach (var span in spans)
+        {
+            await using var command = connection.CreateCommand();
+            command.Transaction = (SqliteTransaction)transaction;
+            command.CommandText = """
+                INSERT INTO span_records (
+                    id, tenant_id, received_utc, trace_id, span_id, parent_span_id, name, kind,
+                    start_unix_ns, end_unix_ns, status_code, status_message, attributes_json,
+                    events_json, resource_json, scope_json, service_name)
+                VALUES (
+                    $id, $tenant_id, $received_utc, $trace_id, $span_id, $parent_span_id, $name, $kind,
+                    $start_unix_ns, $end_unix_ns, $status_code, $status_message, $attributes_json,
+                    $events_json, $resource_json, $scope_json, $service_name);
+                """;
+            AddSpanParameters(command, span);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        await transaction.CommitAsync();
     }
 
     public async Task<List<TraceSummaryDto>> GetRecentTracesAsync(
@@ -108,12 +167,7 @@ public class EfTelemetryStore
         string? traceIdFilter = null,
         string? attributeContains = null)
     {
-        // Récupérer les spans du tenant avec requête précompilée
-        var spanGroups = new List<SpanRecordEntity>();
-        await foreach (var span in CompiledQueries.GetSpansByTenantAsync(_context, tenantId))
-        {
-            spanGroups.Add(span);
-        }
+        var spanGroups = await GetSpansByTenantAsync(tenantId, CancellationToken.None);
 
         // Appliquer les filtres sur les spans avant le groupement
         var filteredSpans = spanGroups.AsEnumerable();
@@ -181,11 +235,7 @@ public class EfTelemetryStore
 
     public async Task<List<SpanRecordEntity>> GetTraceSpansAsync(Guid? tenantId, byte[] traceId)
     {
-        var spans = new List<SpanRecordEntity>();
-        await foreach (var span in CompiledQueries.GetTraceSpansAsync(_context, tenantId, traceId))
-        {
-            spans.Add(span);
-        }
+        var spans = await GetSpansByTenantAsync(tenantId, CancellationToken.None, traceId);
         
         // Trier en mémoire car SQLite ne supporte pas bien les ORDER BY complexes
         return spans.OrderBy(s => s.StartUnixNs).ToList();
@@ -193,12 +243,7 @@ public class EfTelemetryStore
 
     public async Task<List<SpanRecordEntity>> GetSpansByAttributeAsync(Guid? tenantId, string attributeKey, string attributeValue, int limit)
     {
-        // Récupérer tous les spans du tenant avec requête précompilée
-        var allSpans = new List<SpanRecordEntity>();
-        await foreach (var span in CompiledQueries.GetSpansByTenantAsync(_context, tenantId))
-        {
-            allSpans.Add(span);
-        }
+        var allSpans = await GetSpansByTenantAsync(tenantId, CancellationToken.None);
 
         // Filtrer en mémoire par attribut (SQLite ne supporte pas JSON query)
         var matchingSpans = allSpans
@@ -240,8 +285,26 @@ public class EfTelemetryStore
 
     public async Task AddLogsAsync(IEnumerable<LogRecordEntity> logs)
     {
-        await _context.Logs.AddRangeAsync(logs);
-        await _context.SaveChangesAsync();
+        await using var connection = await OpenConnectionAsync(CancellationToken.None);
+        await using var transaction = await connection.BeginTransactionAsync();
+
+        foreach (var log in logs)
+        {
+            await using var command = connection.CreateCommand();
+            command.Transaction = (SqliteTransaction)transaction;
+            command.CommandText = """
+                INSERT INTO log_records (
+                    id, tenant_id, received_utc, trace_id, span_id, severity_number, severity_text,
+                    body, attributes_json, resource_json, scope_json, service_name)
+                VALUES (
+                    $id, $tenant_id, $received_utc, $trace_id, $span_id, $severity_number, $severity_text,
+                    $body, $attributes_json, $resource_json, $scope_json, $service_name);
+                """;
+            AddLogParameters(command, log);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        await transaction.CommitAsync();
     }
 
     public async Task<List<LogRecordEntity>> GetRecentLogsAsync(
@@ -254,13 +317,7 @@ public class EfTelemetryStore
         string? traceIdFilter = null,
         string? attributeContains = null)
     {
-        // SQLite ne supporte pas DateTimeOffset dans ORDER BY
-        // On doit charger avec requête précompilée puis filtrer et trier en mémoire
-        var logs = new List<LogRecordEntity>();
-        await foreach (var log in CompiledQueries.GetLogsByTenantAsync(_context, tenantId))
-        {
-            logs.Add(log);
-        }
+        var logs = await GetLogsByTenantAsync(tenantId, CancellationToken.None);
 
         // Appliquer les filtres
         var filtered = logs.AsEnumerable();
@@ -310,13 +367,7 @@ public class EfTelemetryStore
 
     public async Task<List<LogRecordEntity>> GetLogsForTraceAsync(Guid? tenantId, byte[] traceId)
     {
-        // SQLite ne supporte pas DateTimeOffset dans ORDER BY
-        // Utiliser requête précompilée puis trier en mémoire
-        var logs = new List<LogRecordEntity>();
-        await foreach (var log in CompiledQueries.GetLogsForTraceAsync(_context, tenantId, traceId))
-        {
-            logs.Add(log);
-        }
+        var logs = await GetLogsByTenantAsync(tenantId, CancellationToken.None, traceId);
 
         return logs
             .OrderBy(l => l.ReceivedUtc)
@@ -329,47 +380,213 @@ public class EfTelemetryStore
 
     public async Task<int> DeleteOldSpansAsync(Guid? tenantId, DateTimeOffset cutoffTime)
     {
-        // SQLite ne supporte pas ExecuteDeleteAsync avec DateTimeOffset
-        // On doit charger les entités avec requête précompilée puis les supprimer
-        var oldSpans = new List<SpanRecordEntity>();
-        await foreach (var span in CompiledQueries.GetSpansForDeletionAsync(_context, tenantId))
-        {
-            oldSpans.Add(span);
-        }
-
-        // Filtrer en mémoire (LINQ to Objects)
-        var spansToDelete = oldSpans.Where(s => s.ReceivedUtc < cutoffTime).ToList();
-
-        if (spansToDelete.Count > 0)
-        {
-            _context.Spans.RemoveRange(spansToDelete);
-            await _context.SaveChangesAsync();
-        }
-
-        return spansToDelete.Count;
+        await using var connection = await OpenConnectionAsync(CancellationToken.None);
+        return await ExecuteNullableTenantDeleteAsync(connection, null, "span_records", tenantId, cutoffTime, CancellationToken.None);
     }
 
     public async Task<int> DeleteOldLogsAsync(Guid? tenantId, DateTimeOffset cutoffTime)
     {
-        // SQLite ne supporte pas ExecuteDeleteAsync avec DateTimeOffset
-        // On doit charger les entités avec requête précompilée puis les supprimer
-        var oldLogs = new List<LogRecordEntity>();
-        await foreach (var log in CompiledQueries.GetLogsForDeletionAsync(_context, tenantId))
-        {
-            oldLogs.Add(log);
-        }
-
-        // Filtrer en mémoire (LINQ to Objects)
-        var logsToDelete = oldLogs.Where(l => l.ReceivedUtc < cutoffTime).ToList();
-
-        if (logsToDelete.Count > 0)
-        {
-            _context.Logs.RemoveRange(logsToDelete);
-            await _context.SaveChangesAsync();
-        }
-
-        return logsToDelete.Count;
+        await using var connection = await OpenConnectionAsync(CancellationToken.None);
+        return await ExecuteNullableTenantDeleteAsync(connection, null, "log_records", tenantId, cutoffTime, CancellationToken.None);
     }
 
     #endregion
+
+    private async Task<SqliteConnection> OpenConnectionAsync(CancellationToken cancellationToken)
+    {
+        var directory = Path.GetDirectoryName(_options.DbPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+            Directory.CreateDirectory(directory);
+
+        var connection = new SqliteConnection($"Data Source={_options.DbPath};Pooling=False");
+        await connection.OpenAsync(cancellationToken);
+        return connection;
+    }
+
+    private async Task<List<SpanRecordEntity>> GetSpansByTenantAsync(Guid? tenantId, CancellationToken ct, byte[]? traceId = null)
+    {
+        await using var connection = await OpenConnectionAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = traceId is null
+            ? """
+                SELECT id, tenant_id, received_utc, trace_id, span_id, parent_span_id, name, kind,
+                       start_unix_ns, end_unix_ns, status_code, status_message, attributes_json,
+                       events_json, resource_json, scope_json, service_name
+                FROM span_records
+                WHERE (($tenant_id IS NULL AND tenant_id IS NULL) OR tenant_id = $tenant_id);
+                """
+            : """
+                SELECT id, tenant_id, received_utc, trace_id, span_id, parent_span_id, name, kind,
+                       start_unix_ns, end_unix_ns, status_code, status_message, attributes_json,
+                       events_json, resource_json, scope_json, service_name
+                FROM span_records
+                WHERE (($tenant_id IS NULL AND tenant_id IS NULL) OR tenant_id = $tenant_id)
+                  AND trace_id = $trace_id;
+                """;
+        AddNullableGuidParameter(command, "$tenant_id", tenantId);
+        if (traceId is not null)
+            command.Parameters.AddWithValue("$trace_id", traceId);
+
+        var spans = new List<SpanRecordEntity>();
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            spans.Add(ReadSpan(reader));
+
+        return spans;
+    }
+
+    private async Task<List<LogRecordEntity>> GetLogsByTenantAsync(Guid? tenantId, CancellationToken ct, byte[]? traceId = null)
+    {
+        await using var connection = await OpenConnectionAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = traceId is null
+            ? """
+                SELECT id, tenant_id, received_utc, trace_id, span_id, severity_number, severity_text,
+                       body, attributes_json, resource_json, scope_json, service_name
+                FROM log_records
+                WHERE (($tenant_id IS NULL AND tenant_id IS NULL) OR tenant_id = $tenant_id);
+                """
+            : """
+                SELECT id, tenant_id, received_utc, trace_id, span_id, severity_number, severity_text,
+                       body, attributes_json, resource_json, scope_json, service_name
+                FROM log_records
+                WHERE (($tenant_id IS NULL AND tenant_id IS NULL) OR tenant_id = $tenant_id)
+                  AND trace_id = $trace_id;
+                """;
+        AddNullableGuidParameter(command, "$tenant_id", tenantId);
+        if (traceId is not null)
+            command.Parameters.AddWithValue("$trace_id", traceId);
+
+        var logs = new List<LogRecordEntity>();
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            logs.Add(ReadLog(reader));
+
+        return logs;
+    }
+
+    private static async Task ExecuteTenantDeleteAsync(SqliteConnection connection, System.Data.Common.DbTransaction transaction, string sql, Guid tenantId, CancellationToken ct)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = (SqliteTransaction)transaction;
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("$tenant_id", FormatGuid(tenantId));
+        await command.ExecuteNonQueryAsync(ct);
+    }
+
+    private static async Task<int> ExecuteNullableTenantDeleteAsync(SqliteConnection connection, System.Data.Common.DbTransaction? transaction, string tableName, Guid? tenantId, DateTimeOffset? cutoffTime, CancellationToken ct)
+    {
+        await using var command = connection.CreateCommand();
+        if (transaction is not null)
+            command.Transaction = (SqliteTransaction)transaction;
+        command.CommandText = $"DELETE FROM {tableName} WHERE (($tenant_id IS NULL AND tenant_id IS NULL) OR tenant_id = $tenant_id)" +
+                              (cutoffTime.HasValue ? " AND received_utc < $cutoff_utc" : string.Empty) +
+                              ";";
+        AddNullableGuidParameter(command, "$tenant_id", tenantId);
+        if (cutoffTime.HasValue)
+            command.Parameters.AddWithValue("$cutoff_utc", FormatUtc(cutoffTime.Value));
+        return await command.ExecuteNonQueryAsync(ct);
+    }
+
+    private static void AddSpanParameters(SqliteCommand command, SpanRecordEntity span)
+    {
+        command.Parameters.AddWithValue("$id", FormatGuid(span.Id));
+        AddNullableGuidParameter(command, "$tenant_id", span.TenantId);
+        command.Parameters.AddWithValue("$received_utc", FormatUtc(span.ReceivedUtc));
+        command.Parameters.AddWithValue("$trace_id", span.TraceId);
+        command.Parameters.AddWithValue("$span_id", span.SpanId);
+        command.Parameters.AddWithValue("$parent_span_id", DbValue(span.ParentSpanId));
+        command.Parameters.AddWithValue("$name", span.Name);
+        command.Parameters.AddWithValue("$kind", span.Kind);
+        command.Parameters.AddWithValue("$start_unix_ns", span.StartUnixNs);
+        command.Parameters.AddWithValue("$end_unix_ns", span.EndUnixNs);
+        command.Parameters.AddWithValue("$status_code", span.StatusCode);
+        command.Parameters.AddWithValue("$status_message", DbValue(span.StatusMessage));
+        command.Parameters.AddWithValue("$attributes_json", DbValue(span.AttributesJson));
+        command.Parameters.AddWithValue("$events_json", DbValue(span.EventsJson));
+        command.Parameters.AddWithValue("$resource_json", DbValue(span.ResourceJson));
+        command.Parameters.AddWithValue("$scope_json", DbValue(span.ScopeJson));
+        command.Parameters.AddWithValue("$service_name", DbValue(span.ServiceName));
+    }
+
+    private static void AddLogParameters(SqliteCommand command, LogRecordEntity log)
+    {
+        command.Parameters.AddWithValue("$id", FormatGuid(log.Id));
+        AddNullableGuidParameter(command, "$tenant_id", log.TenantId);
+        command.Parameters.AddWithValue("$received_utc", FormatUtc(log.ReceivedUtc));
+        command.Parameters.AddWithValue("$trace_id", DbValue(log.TraceId));
+        command.Parameters.AddWithValue("$span_id", DbValue(log.SpanId));
+        command.Parameters.AddWithValue("$severity_number", log.SeverityNumber);
+        command.Parameters.AddWithValue("$severity_text", DbValue(log.SeverityText));
+        command.Parameters.AddWithValue("$body", DbValue(log.Body));
+        command.Parameters.AddWithValue("$attributes_json", DbValue(log.AttributesJson));
+        command.Parameters.AddWithValue("$resource_json", DbValue(log.ResourceJson));
+        command.Parameters.AddWithValue("$scope_json", DbValue(log.ScopeJson));
+        command.Parameters.AddWithValue("$service_name", DbValue(log.ServiceName));
+    }
+
+    private static void AddNullableGuidParameter(SqliteCommand command, string name, Guid? value)
+        => command.Parameters.AddWithValue(name, value.HasValue ? FormatGuid(value.Value) : DBNull.Value);
+
+    private static TenantEntity ReadTenant(SqliteDataReader reader) => new()
+    {
+        Id = Guid.Parse(reader.GetString(0)),
+        Name = reader.GetString(1),
+        RetentionMinutes = reader.GetInt32(2),
+        CreatedUtc = ParseUtc(reader.GetString(3))
+    };
+
+    private static SpanRecordEntity ReadSpan(SqliteDataReader reader) => new()
+    {
+        Id = Guid.Parse(reader.GetString(0)),
+        TenantId = ReadNullableGuid(reader, 1),
+        ReceivedUtc = ParseUtc(reader.GetString(2)),
+        TraceId = (byte[])reader[3],
+        SpanId = (byte[])reader[4],
+        ParentSpanId = reader.IsDBNull(5) ? null : (byte[])reader[5],
+        Name = reader.GetString(6),
+        Kind = reader.GetInt32(7),
+        StartUnixNs = reader.GetInt64(8),
+        EndUnixNs = reader.GetInt64(9),
+        StatusCode = reader.GetInt32(10),
+        StatusMessage = ReadNullableString(reader, 11),
+        AttributesJson = ReadNullableString(reader, 12),
+        EventsJson = ReadNullableString(reader, 13),
+        ResourceJson = ReadNullableString(reader, 14),
+        ScopeJson = ReadNullableString(reader, 15),
+        ServiceName = ReadNullableString(reader, 16)
+    };
+
+    private static LogRecordEntity ReadLog(SqliteDataReader reader) => new()
+    {
+        Id = Guid.Parse(reader.GetString(0)),
+        TenantId = ReadNullableGuid(reader, 1),
+        ReceivedUtc = ParseUtc(reader.GetString(2)),
+        TraceId = reader.IsDBNull(3) ? null : (byte[])reader[3],
+        SpanId = reader.IsDBNull(4) ? null : (byte[])reader[4],
+        SeverityNumber = reader.GetInt32(5),
+        SeverityText = ReadNullableString(reader, 6),
+        Body = ReadNullableString(reader, 7),
+        AttributesJson = ReadNullableString(reader, 8),
+        ResourceJson = ReadNullableString(reader, 9),
+        ScopeJson = ReadNullableString(reader, 10),
+        ServiceName = ReadNullableString(reader, 11)
+    };
+
+    private static string FormatGuid(Guid value) => value.ToString("D", CultureInfo.InvariantCulture);
+
+    private static string FormatUtc(DateTimeOffset value) => value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+
+    private static DateTimeOffset ParseUtc(string value) =>
+        DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+
+    private static Guid? ReadNullableGuid(SqliteDataReader reader, int ordinal) =>
+        reader.IsDBNull(ordinal) ? null : Guid.Parse(reader.GetString(ordinal));
+
+    private static string? ReadNullableString(SqliteDataReader reader, int ordinal) =>
+        reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+
+    private static object DbValue(string? value) => value is null ? DBNull.Value : value;
+
+    private static object DbValue(byte[]? value) => value is null ? DBNull.Value : value;
 }
