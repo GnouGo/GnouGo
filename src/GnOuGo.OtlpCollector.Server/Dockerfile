@@ -41,7 +41,7 @@ RUN test -f src/GnOuGo.OtlpCollector.Server/wwwroot/index.html
 # Use --platform=$BUILDPLATFORM to run the SDK natively on the build host.
 # The publish output is Native AOT and targets the container runtime RID.
 # This avoids QEMU emulation for protoc/grpc_csharp_plugin which segfault under QEMU.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 
 ARG TARGETARCH
 
@@ -96,7 +96,7 @@ RUN export DOTNET_RID="linux-x64" \
 # ──────────────────────────────────────────────
 # Stage 3: Final runtime image
 # ──────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble AS runtime
 
 # Install curl for healthcheck + ICU runtime for globalization (non-invariant)
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
@@ -127,6 +127,11 @@ VOLUME ["/app/data"]
 # Environment defaults. Keep the container self-contained even when appsettings*.json
 # are intentionally omitted from publish output.
 ENV ASPNETCORE_ENVIRONMENT=Production \
-    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false 
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    Database__Path=/app/data/telemetry.db \
+    Kestrel__Endpoints__Grpc__Url=http://0.0.0.0:4317 \
+    Kestrel__Endpoints__Grpc__Protocols=Http2 \
+    Kestrel__Endpoints__Http__Url=http://0.0.0.0:4318 \
+    Kestrel__Endpoints__Http__Protocols=Http1AndHttp2
 
 ENTRYPOINT ["./GnOuGo.OtlpCollector.Server"]
