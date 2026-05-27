@@ -18,7 +18,8 @@ public sealed class LlmCallExecutor : IStepExecutor
         new(ErrorCodes.InputValidation, false, "The input object is malformed or the required `prompt` field is missing, and no runtime default `model` is available."),
         new(ErrorCodes.LlmTimeout, true, "The LLM request timed out. This is retryable and is a good candidate for `retry`."),
         new(ErrorCodes.LlmNetwork, true, "A transient network failure occurred while calling the LLM provider."),
-        new(ErrorCodes.LlmNetwork, false, "The LLM client is not configured or the provider failed in a non-transient way.")
+        new(ErrorCodes.LlmNetwork, false, "The LLM client is not configured or the provider failed in a non-transient way."),
+        new(ErrorCodes.LlmSchema, false, "structured_output was requested but the LLM returned a response that could not be parsed as valid JSON.")
     };
 
     public string DslSnippet => """
@@ -210,7 +211,20 @@ public sealed class LlmCallExecutor : IStepExecutor
                 ["meta"] = new JsonObject { ["model"] = model }
             };
 
-            if (response.Json != null)
+            // Structured output: fallback parse response.Text as JSON (parity with Python)
+            JsonNode? structuredJson = response.Json;
+            if (structuredOutput != null && structuredJson == null && !string.IsNullOrWhiteSpace(response.Text))
+            {
+                try { structuredJson = JsonNode.Parse(response.Text); }
+                catch { structuredJson = null; }
+            }
+            if (structuredOutput != null && structuredJson == null)
+                throw new WorkflowRuntimeException(ErrorCodes.LlmSchema,
+                    "llm.call structured_output expected valid JSON but the LLM returned an incompatible response", retryable: false);
+
+            if (structuredJson != null)
+                result["json"] = structuredJson.DeepClone();
+            else if (response.Json != null)
                 result["json"] = response.Json.DeepClone();
             if (response.Usage != null)
                 result["usage"] = response.Usage.DeepClone();

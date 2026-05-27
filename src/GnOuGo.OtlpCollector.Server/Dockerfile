@@ -61,6 +61,7 @@ COPY src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj \
      src/GnOuGo.OtlpCollector.Server/
 COPY src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj   src/GnOuGo.AI.Core/
 COPY src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj src/GnOuGo.Auth.Core/
+COPY src/GnOuGo.Workspace/GnOuGo.Workspace.csproj src/GnOuGo.Workspace/
 
 # Restore NuGet packages (proto files not present yet — that's fine,
 # they are downloaded by the EnsureOtlpProtos target during build)
@@ -70,6 +71,7 @@ RUN dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.c
 COPY src/GnOuGo.OtlpCollector.Server/ src/GnOuGo.OtlpCollector.Server/
 COPY src/GnOuGo.AI.Core/   src/GnOuGo.AI.Core/
 COPY src/GnOuGo.Auth.Core/ src/GnOuGo.Auth.Core/
+COPY src/GnOuGo.Workspace/ src/GnOuGo.Workspace/
 
 # Copy pre-built wwwroot from the Node stage
 COPY --from=clientapp /workspace/src/GnOuGo.OtlpCollector.Server/wwwroot src/GnOuGo.OtlpCollector.Server/wwwroot/

@@ -22,113 +22,113 @@ public sealed class GitTools
         _logger = logger;
     }
 
-    [McpServerTool(Name = "git_get_policy"), Description("Returns the active Git MCP policy: allowed roots, mutation/network flags, limits, and auth source status.")]
+    [McpServerTool(Name = "git_get_policy"), Description("Returns the active Git MCP policy: allowed roots, mutation/network flags, limits, and auth source status. Call this first to discover the default workspace.")]
     public GitPolicyInfo GetPolicy() => _policy.DescribePolicy();
 
-    [McpServerTool(Name = "git_repository_info"), Description("Returns basic information about the Git repository containing the project root.")]
-    public object GitRepositoryInfo([Description("Project root path or null for default.")] string? projectRoot = null)
+    [McpServerTool(Name = "git_repository_info"), Description("Returns basic information about the Git repository containing the project root. Omit projectRoot to use the default workspace (recommended — only the default workspace is authorized).")]
+    public object GitRepositoryInfo([Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot = null)
         => Execute(() => _gitRepositoryService.GetRepositoryInfo(projectRoot));
 
-    [McpServerTool(Name = "git_status"), Description("Returns Git working tree and index status for the repository containing the project root.")]
-    public object GitStatus([Description("Project root path or null for default.")] string? projectRoot = null)
+    [McpServerTool(Name = "git_status"), Description("Returns Git working tree and index status for the repository containing the project root. Omit projectRoot to use the default workspace.")]
+    public object GitStatus([Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot = null)
         => Execute(() => _gitRepositoryService.GetStatus(projectRoot));
 
-    [McpServerTool(Name = "git_diff"), Description("Returns a truncated Git patch for unstaged or staged changes, optionally limited to one relative path.")]
+    [McpServerTool(Name = "git_diff"), Description("Returns a truncated Git patch for unstaged or staged changes, optionally limited to one relative path. Omit projectRoot to use the default workspace.")]
     public object GitDiff(
-        [Description("Project root path or null for default.")] string? projectRoot = null,
-        [Description("Optional relative path to diff.")] string? relativePath = null,
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot = null,
+        [Description("Optional relative path to diff (relative to workspace root).")] string? relativePath = null,
         [Description("When true, returns staged/index changes instead of unstaged working tree changes.")] bool staged = false)
         => Execute(() => _gitRepositoryService.GetDiff(projectRoot, relativePath, staged));
 
-    [McpServerTool(Name = "git_log"), Description("Returns recent commits for the current repository.")]
+    [McpServerTool(Name = "git_log"), Description("Returns recent commits for the current repository. Omit projectRoot to use the default workspace.")]
     public object GitLog(
-        [Description("Project root path or null for default.")] string? projectRoot = null,
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot = null,
         [Description("Maximum number of commits to return.")] int maxCount = 20)
         => Execute(() => _gitRepositoryService.GetLog(projectRoot, maxCount));
 
-    [McpServerTool(Name = "git_branches"), Description("Lists local and remote Git branches and marks the current HEAD branch.")]
-    public object GitBranches([Description("Project root path or null for default.")] string? projectRoot = null)
+    [McpServerTool(Name = "git_branches"), Description("Lists local and remote Git branches and marks the current HEAD branch. Omit projectRoot to use the default workspace.")]
+    public object GitBranches([Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot = null)
         => Execute(() => _gitRepositoryService.ListBranches(projectRoot));
 
-    [McpServerTool(Name = "git_create_branch"), Description("Creates a local Git branch, optionally from a start point and optionally checks it out. Requires Git:AllowMutations=true.")]
+    [McpServerTool(Name = "git_create_branch"), Description("Creates a local Git branch, optionally from a start point and optionally checks it out. Requires Git:AllowMutations=true. Omit projectRoot to use the default workspace.")]
     public object GitCreateBranch(
-        [Description("Project root path or null for default.")] string? projectRoot,
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
         [Description("Name of the branch to create.")] string branchName,
         [Description("Optional start point commit, branch, or tag.")] string? startPoint = null,
         [Description("Whether to checkout the new branch immediately.")] bool checkout = false)
         => Execute(() => _gitRepositoryService.CreateBranch(projectRoot, branchName, startPoint, checkout));
 
-    [McpServerTool(Name = "git_checkout"), Description("Checks out an existing branch/commit, or creates a branch from a start point. Requires Git:AllowMutations=true.")]
+    [McpServerTool(Name = "git_checkout"), Description("Checks out an existing branch/commit, or creates a branch from a start point. Requires Git:AllowMutations=true. Omit projectRoot to use the default workspace.")]
     public object GitCheckout(
-        [Description("Project root path or null for default.")] string? projectRoot,
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
         [Description("Branch name, tag, or commit SHA to checkout.")] string branchOrCommit,
         [Description("Create a new branch from branchOrCommit instead of checking it out directly.")] bool createBranch = false,
         [Description("New branch name when createBranch=true. If omitted, branchOrCommit is used.")] string? newBranchName = null)
         => Execute(() => _gitRepositoryService.Checkout(projectRoot, branchOrCommit, createBranch, newBranchName));
 
-    [McpServerTool(Name = "git_stage"), Description("Stages pathspecs for commit. pathsJson is a JSON array of relative paths; empty/null stages all changes. Requires Git:AllowMutations=true.")]
+    [McpServerTool(Name = "git_stage"), Description("Stages pathspecs for commit. pathsJson is a JSON array of relative paths; empty/null stages all changes. Requires Git:AllowMutations=true. Use relative paths from the workspace root.")]
     public object GitStage(
-        [Description("Project root path or null for default.")] string? projectRoot,
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
         [Description("Optional JSON array of relative paths, for example [\"src/App.cs\"]. Empty/null means all changes.")] string? pathsJson = null)
         => Execute(() => _gitRepositoryService.Stage(projectRoot, ParseGitPaths(pathsJson)));
 
-    [McpServerTool(Name = "git_unstage"), Description("Unstages pathspecs. pathsJson is a JSON array of relative paths; empty/null unstages all changes. Requires Git:AllowMutations=true.")]
+    [McpServerTool(Name = "git_unstage"), Description("Unstages pathspecs. pathsJson is a JSON array of relative paths; empty/null unstages all changes. Requires Git:AllowMutations=true. Use relative paths from the workspace root.")]
     public object GitUnstage(
-        [Description("Project root path or null for default.")] string? projectRoot,
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
         [Description("Optional JSON array of relative paths. Empty/null means all changes.")] string? pathsJson = null)
         => Execute(() => _gitRepositoryService.Unstage(projectRoot, ParseGitPaths(pathsJson)));
 
-    [McpServerTool(Name = "git_commit"), Description("Creates a Git commit from staged changes. Requires Git:AllowMutations=true.")]
+    [McpServerTool(Name = "git_commit"), Description("Creates a Git commit from staged changes. Requires Git:AllowMutations=true. Omit projectRoot to use the default workspace.")]
     public object GitCommit(
-        [Description("Project root path or null for default.")] string? projectRoot,
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
         [Description("Commit message.")] string message,
         [Description("Optional author name.")] string? authorName = null,
         [Description("Optional author email.")] string? authorEmail = null)
         => Execute(() => _gitRepositoryService.Commit(projectRoot, message, authorName, authorEmail));
 
-    [McpServerTool(Name = "git_merge"), Description("Merges another branch into the current branch and reports conflicts. Requires Git:AllowMutations=true.")]
+    [McpServerTool(Name = "git_merge"), Description("Merges another branch into the current branch and reports conflicts. Requires Git:AllowMutations=true. Omit projectRoot to use the default workspace.")]
     public object GitMerge(
-        [Description("Project root path or null for default.")] string? projectRoot,
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
         [Description("Branch to merge into the current branch.")] string branchName,
         [Description("Optional merge author name.")] string? authorName = null,
         [Description("Optional merge author email.")] string? authorEmail = null)
         => Execute(() => _gitRepositoryService.Merge(projectRoot, branchName, authorName, authorEmail));
 
-    [McpServerTool(Name = "git_conflicts"), Description("Lists current Git merge conflicts, if any.")]
-    public object GitConflicts([Description("Project root path or null for default.")] string? projectRoot = null)
+    [McpServerTool(Name = "git_conflicts"), Description("Lists current Git merge conflicts, if any. Omit projectRoot to use the default workspace.")]
+    public object GitConflicts([Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot = null)
         => Execute(() => _gitRepositoryService.GetConflicts(projectRoot));
 
-    [McpServerTool(Name = "git_resolve_conflict"), Description("Marks a conflict as resolved using 'ours', 'theirs', or 'stage_existing' after manual editing. Requires Git:AllowMutations=true.")]
+    [McpServerTool(Name = "git_resolve_conflict"), Description("Marks a conflict as resolved using 'ours', 'theirs', or 'stage_existing' after manual editing. Requires Git:AllowMutations=true. Use a relative path for the conflicted file.")]
     public object GitResolveConflict(
-        [Description("Project root path or null for default.")] string? projectRoot,
-        [Description("Relative path of the conflicted file.")] string relativePath,
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
+        [Description("Relative path of the conflicted file (relative to workspace root).")] string relativePath,
         [Description("Resolution strategy: ours, theirs, or stage_existing.")] string strategy)
         => Execute(() => _gitRepositoryService.ResolveConflict(projectRoot, relativePath, strategy));
 
-    [McpServerTool(Name = "git_clone"), Description("Clones a Git repository into an allowed target directory. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true.")]
+    [McpServerTool(Name = "git_clone"), Description("Clones a Git repository into an allowed target directory. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true. The target must be inside the allowed workspace roots.")]
     public object GitClone(
         [Description("Remote Git URL to clone.")] string remoteUrl,
-        [Description("Target directory path. It must be inside the allowed roots and empty/non-existing.")] string targetDirectory,
+        [Description("Target directory path (relative to workspace root or absolute if within allowed roots). Must be empty or non-existing.")] string targetDirectory,
         [Description("Optional branch to checkout during clone.")] string? branch = null)
         => Execute(() => _gitRepositoryService.Clone(remoteUrl, targetDirectory, branch));
 
-    [McpServerTool(Name = "git_fetch"), Description("Fetches from a remote. Requires Git:AllowNetworkOperations=true.")]
+    [McpServerTool(Name = "git_fetch"), Description("Fetches from a remote. Requires Git:AllowNetworkOperations=true. Omit projectRoot to use the default workspace.")]
     public object GitFetch(
-        [Description("Project root path or null for default.")] string? projectRoot,
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
         [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName = null)
         => Execute(() => _gitRepositoryService.Fetch(projectRoot, remoteName));
 
-    [McpServerTool(Name = "git_pull"), Description("Pulls the current branch from its configured remote. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true.")]
+    [McpServerTool(Name = "git_pull"), Description("Pulls the current branch from its configured remote. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true. Omit projectRoot to use the default workspace.")]
     public object GitPull(
-        [Description("Project root path or null for default.")] string? projectRoot,
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
         [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName = null,
         [Description("Optional merge author name.")] string? authorName = null,
         [Description("Optional merge author email.")] string? authorEmail = null)
         => Execute(() => _gitRepositoryService.Pull(projectRoot, remoteName, authorName, authorEmail));
 
-    [McpServerTool(Name = "git_push"), Description("Pushes a local branch and optionally sets upstream. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true.")]
+    [McpServerTool(Name = "git_push"), Description("Pushes a local branch and optionally sets upstream. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true. Omit projectRoot to use the default workspace.")]
     public object GitPush(
-        [Description("Project root path or null for default.")] string? projectRoot,
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
         [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName = null,
         [Description("Branch name. Defaults to the current branch.")] string? branchName = null,
         [Description("Whether to configure upstream after push.")] bool setUpstream = true)

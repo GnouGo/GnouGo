@@ -17,14 +17,15 @@ public sealed class DocumentTools
     }
 
     [McpServerTool(Name = "document_get_policy"), Description(
-        "Returns the active document server policy: allowed file extensions, working roots, max file size.")]
+        "Returns the active document server policy: allowed file extensions, working roots, max file size. Call this first to discover the default workspace.")]
     public DocumentPolicyInfo GetPolicy() => _host.GetPolicy();
 
     [McpServerTool(Name = "document_list"), Description(
         "Lists files with allowed extensions in a directory inside the workspace. " +
-        "Returns relative paths, sizes, and last-modified timestamps.")]
+        "Returns relative paths, sizes, and last-modified timestamps. " +
+        "Use relative paths only; omit directoryPath to use the default workspace (recommended — only the default workspace is authorized).")]
     public DocumentListResult ListFiles(
-        [Description("Relative or absolute directory path. Omit to use default working directory.")] string? directoryPath = null,
+        [Description("Relative directory path inside the workspace, or omit/null to use the default working directory (recommended).")] string? directoryPath = null,
         [Description("Whether to search subdirectories recursively (default false).")] bool recursive = false)
     {
         try
@@ -46,9 +47,10 @@ public sealed class DocumentTools
     [McpServerTool(Name = "document_read"), Description(
         "Reads a document (PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, XML, YAML) " +
         "and returns its text content. For Office/PDF formats, extracts text and optionally " +
-        "formats it as markdown. Returns structured sections (pages, sheets, slides).")]
+        "formats it as markdown. Returns structured sections (pages, sheets, slides). " +
+        "Use a relative path from the workspace root.")]
     public DocumentReadResult Read(
-        [Description("Relative or absolute file path to read.")] string filePath,
+        [Description("Relative file path inside the workspace root, for example 'docs/report.pdf'.")] string filePath,
         [Description("Output format: 'markdown' (default) or 'plain'.")] string? format = null)
     {
         try
@@ -70,9 +72,10 @@ public sealed class DocumentTools
     [McpServerTool(Name = "document_write"), Description(
         "Writes text content to a file. For .docx, generates a simple Word document. " +
         "For .xlsx, generates a spreadsheet from tab/comma-separated text. " +
-        "For other allowed extensions, writes plain text.")]
+        "For other allowed extensions, writes plain text. " +
+        "Use a relative path from the workspace root.")]
     public DocumentWriteResult Write(
-        [Description("Relative or absolute file path to write.")] string filePath,
+        [Description("Relative file path inside the workspace root, for example 'output/result.md'.")] string filePath,
         [Description("Text content to write. For .xlsx, use tab or comma separated values.")] string content,
         [Description("Text encoding: 'utf-8' (default), 'utf-8-bom', 'ascii', 'latin1'.")] string? encoding = null)
     {
@@ -92,4 +95,3 @@ public sealed class DocumentTools
         }
     }
 }
-

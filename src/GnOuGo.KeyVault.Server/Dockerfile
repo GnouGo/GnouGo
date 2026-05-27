@@ -43,15 +43,17 @@ WORKDIR /src
 # Copy global.json for SDK version pinning
 COPY global.json ./
 
-# Copy csproj files for layer caching (server + core dependency)
+# Copy csproj files for layer caching (server + core dependency + workspace)
 COPY src/GnOuGo.KeyVault.Server/GnOuGo.KeyVault.Server.csproj src/GnOuGo.KeyVault.Server/
 COPY src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj     src/GnOuGo.KeyVault.Core/
+COPY src/GnOuGo.Workspace/GnOuGo.Workspace.csproj             src/GnOuGo.Workspace/
 
 RUN dotnet restore src/GnOuGo.KeyVault.Server/GnOuGo.KeyVault.Server.csproj
 
 # Copy source code
 COPY src/GnOuGo.KeyVault.Server/ src/GnOuGo.KeyVault.Server/
 COPY src/GnOuGo.KeyVault.Core/   src/GnOuGo.KeyVault.Core/
+COPY src/GnOuGo.Workspace/       src/GnOuGo.Workspace/
 
 # Copy pre-built wwwroot from the Node stage
 COPY --from=clientapp /workspace/src/GnOuGo.KeyVault.Server/wwwroot src/GnOuGo.KeyVault.Server/wwwroot/
