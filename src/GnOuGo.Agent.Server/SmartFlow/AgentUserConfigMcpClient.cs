@@ -1,5 +1,4 @@
 ﻿using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Mcp;
@@ -20,11 +19,6 @@ public sealed record AgentUserConfigSnapshot(
 /// </summary>
 public sealed class AgentUserConfigMcpClient
 {
-    private static readonly JsonSerializerOptions ModelMetadataJsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     private readonly LLMRuntimeOptionsStore _optionsStore;
     private readonly ILogger<AgentUserConfigMcpClient> _logger;
 
@@ -63,7 +57,7 @@ public sealed class AgentUserConfigMcpClient
         if (defaultAgent is not null)
             arguments["defaultAgent"] = defaultAgent;
         if (modelOverrides is not null)
-            arguments["modelOverridesJson"] = JsonSerializer.Serialize(modelOverrides, ModelMetadataJsonOptions);
+            arguments["modelOverridesJson"] = JsonSerializer.Serialize(ToModelOverridesDictionary(modelOverrides), ModelMetadataJsonContext.Default.DictionaryStringLLMModelMetadata);
         if (clearDefaultLlm)
             arguments["clearDefaultLlm"] = true;
         if (clearDefaultEmbedding)
@@ -162,7 +156,7 @@ public sealed class AgentUserConfigMcpClient
 
         try
         {
-            return JsonSerializer.Deserialize<Dictionary<string, LLMModelMetadata>>(node.ToJsonString(), ModelMetadataJsonOptions)
+            return JsonSerializer.Deserialize(node.ToJsonString(), ModelMetadataJsonContext.Default.DictionaryStringLLMModelMetadata)
                    ?? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
         }
         catch (JsonException)
@@ -185,6 +179,11 @@ public sealed class AgentUserConfigMcpClient
             Command = source.Command,
             Args = source.Args is null ? null : [.. source.Args]
         };
+
+    private static Dictionary<string, LLMModelMetadata> ToModelOverridesDictionary(IReadOnlyDictionary<string, LLMModelMetadata> modelOverrides)
+        => modelOverrides is Dictionary<string, LLMModelMetadata> dictionary
+            ? dictionary
+            : new Dictionary<string, LLMModelMetadata>(modelOverrides, StringComparer.OrdinalIgnoreCase);
 
     private static string NormalizeClientUrl(string url)
     {

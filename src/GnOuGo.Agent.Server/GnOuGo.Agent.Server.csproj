@@ -45,9 +45,12 @@
 
   <PropertyGroup>
     <SkipClientBuild>false</SkipClientBuild>
+    <SkipBundledServerTools>false</SkipBundledServerTools>
+    <DisableRazorComponentsForNativeAot>false</DisableRazorComponentsForNativeAot>
     <ClientAppDir>ClientApp</ClientAppDir>
     <PnpmCommand Condition="'$(OS)' == 'Windows_NT'">corepack.cmd pnpm</PnpmCommand>
     <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>
+    <DefineConstants Condition="'$(DisableRazorComponentsForNativeAot)' == 'true'">$(DefineConstants);GNOU_GO_AGENT_SERVER_NO_RAZOR_COMPONENTS</DefineConstants>
   </PropertyGroup>
 
   <Target Name="ViteBuild" BeforeTargets="PrepareForPublish" Condition="'$(SkipClientBuild)' != 'true'">
@@ -66,7 +69,7 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="PublishBundledServerTools" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+  <Target Name="PublishBundledServerTools" AfterTargets="Publish" Condition="'$(PublishDir)' != '' and '$(SkipBundledServerTools)' != 'true'">
     <PropertyGroup>
       <BundledServerToolsRoot>$([System.IO.Path]::GetFullPath('$(PublishDir)tools'))</BundledServerToolsRoot>
       <BundledBrowserToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Browser.Mcp'))</BundledBrowserToolDir>
@@ -107,6 +110,12 @@
   <ItemGroup>
     <EmbeddedResource Include="SmartFlow\dynamic-workflow-agent.yaml" />
     <EmbeddedResource Include="SmartFlow\configure-agents-agent.yaml" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(DisableRazorComponentsForNativeAot)' == 'true'">
+    <Compile Remove="Components\**\*.cs" />
+    <RazorComponent Remove="Components\**\*.razor" />
+    <Content Remove="Components\**\*.razor" />
   </ItemGroup>
 
   <ItemGroup>

@@ -6,11 +6,11 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Services;
+#if !GNOU_GO_AGENT_SERVER_NO_RAZOR_COMPONENTS
 using GnOuGo.Agent.Server.Components;
+#endif
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
@@ -387,8 +387,10 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<SmartFlowService>();
         builder.Services.AddSingleton<TraceDebugService>();
 
+#if !GNOU_GO_AGENT_SERVER_NO_RAZOR_COMPONENTS
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
+#endif
 
         builder.Services.AddSingleton<WordChunker>();
         var capturedArgs = args;
@@ -400,14 +402,7 @@ public static class GnOuGoAgentWebHost
         app.Services.InitializeAgentMcpAsync().GetAwaiter().GetResult();
         app.Services.InitializeGnOuGoFilesServerAsync().GetAwaiter().GetResult();
 
-        using (var scope = app.Services.CreateScope())
-        {
-            var keyVaultDb = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-            KeyVaultDatabaseBootstrap.EnsureCreatedAsync(keyVaultDb).GetAwaiter().GetResult();
-
-            var keyVaultService = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-            keyVaultService.EnsureDefaultKeyPairAsync().GetAwaiter().GetResult();
-        }
+        app.Services.InitializeKeyVaultMcpAsync().GetAwaiter().GetResult();
 
         HydrateRuntimeOptionsFromKeyVaultAsync(app.Services).GetAwaiter().GetResult();
 
@@ -478,7 +473,9 @@ public static class GnOuGoAgentWebHost
             Log($"Static web assets manifest not found at '{staticAssetsManifest}', skipping MapStaticAssets().");
         }
 
+#if !GNOU_GO_AGENT_SERVER_NO_RAZOR_COMPONENTS
         app.UseAntiforgery();
+#endif
 
         // --- API ---
         app.MapPost("/api/chat", ChatEndpoints.CompleteAsync);
@@ -500,7 +497,11 @@ public static class GnOuGoAgentWebHost
         }
 
         MapMountedMcpEndpoints(app, mountedMcpHostsHolder);
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+        app.MapGet("/health", () => Results.Text("{\"status\":\"ok\"}", "application/json"));
+#if GNOU_GO_AGENT_SERVER_NO_RAZOR_COMPONENTS
+        app.MapGet("/", () => Results.Redirect("/ui/"));
+        app.MapGet("/Error", () => Results.Text("An unhandled server error occurred.", "text/plain", statusCode: StatusCodes.Status500InternalServerError));
+#endif
         app.MapGet("/desktop/boot-log/{token}", (string token, string? step, string? detail) =>
         {
             if (!string.IsNullOrWhiteSpace(token))
@@ -523,6 +524,7 @@ public static class GnOuGoAgentWebHost
             return Results.NoContent();
         });
 
+#if !GNOU_GO_AGENT_SERVER_NO_RAZOR_COMPONENTS
         // --- UI ---
         // Always register interactive server render mode.
         // In published Desktop/NativeAOT builds the static web assets manifest
@@ -530,6 +532,7 @@ public static class GnOuGoAgentWebHost
         // but interactive SSR is always available.
         app.MapRazorComponents<App>()
             .AddInteractiveServerRenderMode();
+#endif
 
         return app;
     }
@@ -775,7 +778,7 @@ public static class GnOuGoAgentWebHost
                 .CreateLogger("GnOuGo.Agent.Server.UserConfigBootstrap");
 
             var snapshot = await userConfigs.GetAsync(ct: CancellationToken.None);
-            foreach (var kv in ParseModelOverrides(snapshot.ModelOverrides))
+            foreach (var kv in NormalizeModelOverrides(snapshot.ModelOverrides))
                 runtimeOptions.UpsertModelOverride(kv.Key, kv.Value);
 
             if (!string.IsNullOrWhiteSpace(snapshot.DefaultLlmProvider))
@@ -817,21 +820,11 @@ public static class GnOuGoAgentWebHost
         }
     }
 
-    private static IReadOnlyDictionary<string, LLMModelMetadata> ParseModelOverrides(JsonObject? modelOverrides)
-    {
-        if (modelOverrides is null)
-            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
-
-        try
-        {
-            return JsonSerializer.Deserialize<Dictionary<string, LLMModelMetadata>>(modelOverrides.ToJsonString(), new JsonSerializerOptions(JsonSerializerDefaults.Web))
-                   ?? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
-        }
-        catch (JsonException)
-        {
-            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
-        }
-    }
+    private static IReadOnlyDictionary<string, LLMModelMetadata> NormalizeModelOverrides(
+        IReadOnlyDictionary<string, LLMModelMetadata>? modelOverrides)
+        => modelOverrides is null
+            ? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, LLMModelMetadata>(modelOverrides, StringComparer.OrdinalIgnoreCase);
 
     private static void MapMountedMcpEndpoints(WebApplication app, MountedMcpHostsHolder holder)
     {

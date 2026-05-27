@@ -2,8 +2,8 @@
 # GnOuGo.Agent.Server - Multi-stage Dockerfile
 #
 #   Stage 1 (node)   : Build ClientApp (Vite + TS -> wwwroot/ui)
-#   Stage 2 (sdk)    : Restore + publish .NET app
-#   Stage 3 (runtime): Final GnOuGo image
+#   Stage 2 (sdk)    : Restore + publish .NET app as Native AOT
+#   Stage 3 (runtime): Final GnOuGo image (runtime-deps + native executable)
 #
 # Build (from repo root):
 #   docker build -t gnougo-agent -f src/GnOuGo.Agent.Server/Dockerfile .
@@ -28,14 +28,14 @@ RUN pnpm --dir src/GnOuGo.Agent.Server/ClientApp build
 # ----------------------------------------------
 # Stage 2: Build & publish the .NET application
 # ----------------------------------------------
-# Use --platform=$BUILDPLATFORM to run the SDK natively on the build host.
-# The publish output is framework-dependent (pure IL) — no RID needed.
-# This avoids QEMU emulation which can crash during dotnet build.
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG TARGETARCH
+ARG TARGETOS
 
 # Node.js is needed when publishing the bundled GnOuGo.Browser.Mcp Playwright tool.
+# clang and zlib headers are required by Native AOT on Linux.
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
-    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 nodejs \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 clang zlib1g-dev nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -63,35 +63,49 @@ COPY src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj src/GnOuGo.KeyVault.Co
 COPY src/GnOuGo.KeyVault.Mcp/GnOuGo.KeyVault.Mcp.csproj src/GnOuGo.KeyVault.Mcp/
 COPY src/GnOuGo.Observability.Core/GnOuGo.Observability.Core.csproj src/GnOuGo.Observability.Core/
 COPY src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj src/GnOuGo.OtlpCollector.Server/
-RUN dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj
+RUN case "${TARGETOS:-linux}-${TARGETARCH:-amd64}" in \
+        linux-amd64) export TARGET_RID=linux-x64 ;; \
+        *) echo "Native AOT container publish currently supports linux-amd64 only. TARGETOS=${TARGETOS:-linux} TARGETARCH=${TARGETARCH:-amd64}" >&2; exit 1 ;; \
+    esac \
+    && dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -r "$TARGET_RID" /p:SkipClientBuild=true
 # Copy full source
 COPY src/ src/
 # Overlay pre-built ClientApp output (wwwroot/ui) from stage 1.
 # Other static assets (favicon.svg, assets/, js/) come from source.
 COPY --from=clientapp /workspace/src/GnOuGo.Agent.Server/wwwroot/ui src/GnOuGo.Agent.Server/wwwroot/ui/
-# Publish in Release (without AOT - container uses the managed runtime).
+# Publish in Release with Native AOT.
 # SkipClientBuild=true avoids re-running pnpm inside dotnet publish.
-# PublishAot=false overrides the csproj Release default for container builds.
 # Do not use --no-restore here: the embedded OTLP collector downloads proto files
 # during build, and Grpc.Tools must be allowed to refresh generated inputs in a
 # clean Docker layer. The earlier restore is still useful for cache warming.
-RUN dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj \
-    -c Release \
-    -o /app/publish \
-    -p:SkipClientBuild=true \
-    -p:PublishAot=false \
-    -p:PublishTrimmed=false \
-    -p:SkipModelMetadataGeneration=true
+RUN case "${TARGETOS:-linux}-${TARGETARCH:-amd64}" in \
+        linux-amd64) export TARGET_RID=linux-x64 ;; \
+        *) echo "Native AOT container publish currently supports linux-amd64 only. TARGETOS=${TARGETOS:-linux} TARGETARCH=${TARGETARCH:-amd64}" >&2; exit 1 ;; \
+    esac \
+    && dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj \
+        -c Release \
+        -r "$TARGET_RID" \
+        --self-contained true \
+        -o /app/publish \
+        -p:SkipClientBuild=true \
+        -p:PublishAot=true \
+        -p:PublishTrimmed=true \
+        -p:DisableRazorComponentsForNativeAot=true \
+        -p:JsonSerializerIsReflectionEnabledByDefault=false \
+        -p:SkipModelMetadataGeneration=true
 # ----------------------------------------------
 # Stage 3: Final runtime image
 # ----------------------------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0 AS runtime
 WORKDIR /app
+RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
 # Copy published output
 COPY --from=build /app/publish ./
 EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD ["dotnet", "--list-runtimes", "||", "exit", "1"]
+    CMD ["curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:5000/health"]
 ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_URLS=http://+:5000
-ENTRYPOINT ["dotnet", "GnOuGo.Agent.Server.dll"]
+ENTRYPOINT ["./GnOuGo.Agent.Server"]

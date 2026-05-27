@@ -131,7 +131,7 @@ public sealed class HumanInputExecutor : IStepExecutor
                 if (f.Description != null) fObj["description"] = f.Description;
                 if (f.Options != null) fObj["options"] = new JsonArray(f.Options.Select(o => (JsonNode)JsonValue.Create(o)!).ToArray());
                 if (f.Default != null) fObj["default"] = f.Default;
-                fArr.Add(fObj);
+                fArr.Add((JsonNode)fObj);
             }
             requestPayload["fields"] = fArr;
         }

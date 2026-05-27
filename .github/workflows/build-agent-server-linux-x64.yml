@@ -23,6 +23,11 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Install Native AOT toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+
       - name: Ensure OTLP proto files
         run: |
           dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
@@ -50,11 +55,21 @@ jobs:
       - name: Publish Server
         run: |
           dotnet restore -r linux-x64 /p:SkipClientBuild=true
-          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64 --no-restore /p:SkipClientBuild=true
+          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64 --no-restore /p:SkipClientBuild=true /p:PublishAot=true /p:PublishTrimmed=true /p:DisableRazorComponentsForNativeAot=true /p:JsonSerializerIsReflectionEnabledByDefault=false /p:SkipModelMetadataGeneration=true
 
       - name: Validate bundled server tools
         shell: pwsh
         run: |
+          $serverExecutable = "artifacts/publish/server/linux-x64/GnOuGo.Agent.Server"
+          if (-not (Test-Path $serverExecutable)) {
+            throw "Missing Native AOT server executable: $serverExecutable"
+          }
+
+          $serverManagedDll = "artifacts/publish/server/linux-x64/GnOuGo.Agent.Server.dll"
+          if (Test-Path $serverManagedDll) {
+            throw "Native AOT publish should not produce a managed server entry assembly: $serverManagedDll"
+          }
+
           $requiredTools = @(
             "artifacts/publish/server/linux-x64/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp",
             "artifacts/publish/server/linux-x64/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp",

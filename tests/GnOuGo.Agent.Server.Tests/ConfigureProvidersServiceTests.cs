@@ -2,13 +2,11 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
-using Microsoft.EntityFrameworkCore;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Endpoints;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Shared;
 using GnOuGo.Agent.Mcp;
-using GnOuGo.Agent.Mcp.Data;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -293,6 +291,7 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("llama3:8b", runtimeStore.Current.DefaultModel);
 
         var configJson = await keyVaultStore.GetSecretValueAsync("LLM--Models--ollama", CancellationToken.None);
+        Assert.NotNull(configJson);
         var config = JsonNode.Parse(configJson)?.AsObject();
         Assert.NotNull(config);
         Assert.Equal("llama3:8b", config["model"]?.GetValue<string>());
@@ -530,11 +529,7 @@ public sealed class ConfigureProvidersServiceTests
 
             Assert.Contains(events, evt => evt.Type == "answer" && evt.Text == "✅ Default LLM provider set to 'ollama' with model 'llama3:8b'.");
 
-            await using var db = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
-                .UseSqlite($"Data Source={dbPath}")
-                .Options);
-
-            var config = await db.UserConfigs.SingleAsync(token);
+            var config = await AgentMcpTestPersistence.GetUserConfigAsync(dbPath, token);
             Assert.Equal("ollama", config.DefaultLlmProvider);
             Assert.Equal("llama3:8b", config.DefaultLlmModel);
             Assert.Null(config.DefaultAgent);

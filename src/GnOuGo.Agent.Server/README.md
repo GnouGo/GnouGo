@@ -1,7 +1,7 @@
 # GnOuGo.Agent (Blazor + Minimal API, Native AOT-ready)
 
 This solution contains:
-- **GnOuGo.Agent.Server**: Blazor (server interactive) UI + Minimal API streaming endpoint
+- **GnOuGo.Agent.Server**: Blazor (server interactive) UI + Minimal API streaming endpoint; the container/CI publish path emits a linux-x64 Native AOT executable and serves the Vite UI from `/ui/` when Razor components are excluded for AOT.
 - **GnOuGo.Agent.Shared**: shared DTOs
 
 ## Architecture
@@ -102,7 +102,7 @@ Standalone MCP hosts still expose `/mcp` directly in their own projects:
 
 ## Bundled stdio MCP tools
 
-The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, `GnOuGo.Document.Mcp`, and `GnOuGo.GithubCopilot.Mcp` for non-development runs using bundled executable paths:
+The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, `GnOuGo.Document.Mcp`, `GnOuGo.GithubCopilot.Mcp`, and `GnOuGo.Git.Mcp` for non-development runs using bundled executable paths:
 
 ```json
 {
@@ -127,6 +127,11 @@ The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, 
 		"Type": "stdio",
 		"Command": "tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp",
 		"Args": []
+	  },
+	  "GnOuGo.Git.Mcp": {
+		"Type": "stdio",
+		"Command": "tools/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp",
+		"Args": []
 	  }
 	}
   }
@@ -137,11 +142,30 @@ During local source-based development, `appsettings.Development.json` still over
 
 Published outputs now bundle the MCP stdio tools under `tools/`:
 
-- `GnOuGo.Agent.Server` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, `tools/GnOuGo.Document.Mcp/`, and `tools/GnOuGo.GithubCopilot.Mcp/`
-- `GnOuGo.Agent.Desktop` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, `tools/GnOuGo.Document.Mcp/`, and `tools/GnOuGo.GithubCopilot.Mcp/`
+- `GnOuGo.Agent.Server` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, `tools/GnOuGo.Document.Mcp/`, `tools/GnOuGo.GithubCopilot.Mcp/`, and `tools/GnOuGo.Git.Mcp/`
+- `GnOuGo.Agent.Desktop` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, `tools/GnOuGo.Document.Mcp/`, `tools/GnOuGo.GithubCopilot.Mcp/`, and `tools/GnOuGo.Git.Mcp/`
 
-This keeps the browser, command, document, and code MCP servers available in packaged server, desktop, and container runs without requiring the repository source tree.
+This keeps the browser, command, document, code, and Git MCP servers available in packaged server, desktop, and container runs without requiring the repository source tree.
 Final publish outputs also strip all `.pdb` files from both the main application and bundled MCP tools before packaging.
+
+## Native AOT server/container publish
+
+The linux-x64 CI and Docker paths publish `GnOuGo.Agent.Server` as a self-contained Native AOT executable. That path intentionally passes:
+
+- `/p:PublishAot=true`
+- `/p:PublishTrimmed=true`
+- `/p:DisableRazorComponentsForNativeAot=true`
+- `/p:JsonSerializerIsReflectionEnabledByDefault=false`
+
+When `DisableRazorComponentsForNativeAot=true`, the server excludes `Components/**/*.razor` and `Components/**/*.cs`, skips Razor component endpoint registration, redirects `/` to the Vite app under `/ui/`, and returns a source-generated/reflection-free health response. Minimal API DTOs are covered by `ChatJsonContext`, and model metadata serialization is covered by `ModelMetadataJsonContext`.
+
+The Docker image is built from `mcr.microsoft.com/dotnet/runtime-deps:10.0` and starts the native executable directly:
+
+```powershell
+Set-Location "C:\github\GnouGo"
+docker build -t gnougo-agent -f src/GnOuGo.Agent.Server/Dockerfile .
+docker run --rm -p 5000:5000 gnougo-agent
+```
 
 ## Default SQLite locations
 

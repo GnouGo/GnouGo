@@ -1,9 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
-using GnOuGo.KeyVault.Core.Data;
-using GnOuGo.KeyVault.Core.Services;
+using GnOuGo.KeyVault.Mcp;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -16,8 +14,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
 
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddDbContext<KeyVaultDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
-        services.AddScoped<KeyVaultService>();
+        services.AddKeyVaultMcpPersistence(dbPath);
         services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
 
         await using var provider = services.BuildServiceProvider();
@@ -26,11 +23,8 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         {
             await using (var scope = provider.CreateAsyncScope())
             {
-                var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-                await db.Database.EnsureCreatedAsync();
-
-                var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-                await keyVault.EnsureDefaultKeyPairAsync();
+                await provider.InitializeKeyVaultMcpAsync();
+                var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultSqliteStore>();
                 await keyVault.SetSecretAsync(
                     "LLM--Models--openai",
                     "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4.1\",\"authType\":\"api_key\",\"apiKey\":\"top-secret\"}",
@@ -112,8 +106,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
 
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddDbContext<KeyVaultDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
-        services.AddScoped<KeyVaultService>();
+        services.AddKeyVaultMcpPersistence(dbPath);
         services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
 
         await using var provider = services.BuildServiceProvider();
@@ -122,11 +115,8 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         {
             await using (var scope = provider.CreateAsyncScope())
             {
-                var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-                await db.Database.EnsureCreatedAsync();
-
-                var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-                await keyVault.EnsureDefaultKeyPairAsync();
+                await provider.InitializeKeyVaultMcpAsync();
+                var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultSqliteStore>();
                 await keyVault.SetSecretAsync(
                     "gnougo_llm_openai",
                     "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4.1\",\"auth_type\":\"api_key\",\"api_key\":\"legacy-secret\"}",

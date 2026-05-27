@@ -1,11 +1,9 @@
 ﻿using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using GnOuGo.Agent.Mcp;
-using GnOuGo.Agent.Mcp.Data;
-using GnOuGo.Agent.Mcp.Models;
+using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.AI.Core;
 using OtlpTenantCollector.Models;
@@ -399,65 +397,18 @@ public sealed class SmartFlowServiceTests
 
     private static async Task SeedAgentAndUserConfigWithWorkflowAsync(string dbPath, string agentName, string workflow)
     {
-        await using var db = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
-            .UseSqlite($"Data Source={dbPath}")
-            .Options);
-
-        db.Agents.Add(new AgentDefinition
-        {
-            Id = Guid.NewGuid(),
-            Name = agentName,
-            Workflow = workflow,
-            SchedulesJson = "[]",
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        });
-
-        db.UserConfigs.Add(new UserConfigRecord
-        {
-            Id = Guid.NewGuid(),
-            TenantScopeKey = "global",
-            DefaultAgent = agentName,
-            UpdatedAt = DateTimeOffset.UtcNow
-        });
-
-        await db.SaveChangesAsync();
+        await AgentMcpTestPersistence.SeedAgentAsync(dbPath, agentName, workflow);
+        await AgentMcpTestPersistence.SeedUserConfigAsync(dbPath, new UserConfigUpdate(null, null, agentName));
     }
 
     private static async Task SeedAgentAsync(string dbPath, string agentName, string answerPrefix)
     {
-        await using var db = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
-            .UseSqlite($"Data Source={dbPath}")
-            .Options);
-
-        db.Agents.Add(new AgentDefinition
-        {
-            Id = Guid.NewGuid(),
-            Name = agentName,
-            Workflow = BuildEchoAgentWorkflow(agentName, answerPrefix),
-            SchedulesJson = "[]",
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        });
-
-        await db.SaveChangesAsync();
+        await AgentMcpTestPersistence.SeedAgentAsync(dbPath, agentName, BuildEchoAgentWorkflow(agentName, answerPrefix));
     }
 
     private static async Task SeedUserConfigAsync(string dbPath, string defaultAgent)
     {
-        await using var db = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
-            .UseSqlite($"Data Source={dbPath}")
-            .Options);
-
-        db.UserConfigs.Add(new UserConfigRecord
-        {
-            Id = Guid.NewGuid(),
-            TenantScopeKey = "global",
-            DefaultAgent = defaultAgent,
-            UpdatedAt = DateTimeOffset.UtcNow
-        });
-
-        await db.SaveChangesAsync();
+        await AgentMcpTestPersistence.SeedUserConfigAsync(dbPath, new UserConfigUpdate(null, null, defaultAgent));
     }
 
     private static string BuildEchoAgentWorkflow(string agentName, string answerPrefix)
