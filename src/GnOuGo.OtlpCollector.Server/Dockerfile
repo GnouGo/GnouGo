@@ -45,9 +45,20 @@ FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 
 ARG TARGETARCH
 
-# Install system protoc and Native AOT toolchain bits (runs natively — no QEMU)
+# Install system protoc and Native AOT toolchain bits (runs natively — no QEMU).
+# buildx builds linux/arm64 from an amd64 SDK stage, so NativeAOT also needs
+# the aarch64 cross-linker, C runtime development files and objcopy.
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
-    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 clang zlib1g-dev protobuf-compiler \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
+        clang \
+        protobuf-compiler \
+        zlib1g-dev \
+    && if [ "$TARGETARCH" = "arm64" ]; then \
+        apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
+            binutils-aarch64-linux-gnu \
+            gcc-aarch64-linux-gnu \
+            libc6-dev-arm64-cross; \
+    fi \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -81,7 +92,8 @@ RUN test -f src/GnOuGo.OtlpCollector.Server/wwwroot/index.html
 # NOTE: we intentionally omit --no-restore so that Grpc.Tools can properly
 # discover proto files downloaded by the EnsureOtlpProtos target during build.
 RUN export DOTNET_RID="linux-x64" \
-    && if [ "$TARGETARCH" = "arm64" ]; then export DOTNET_RID="linux-arm64"; fi \
+    && export DOTNET_OBJCOPY_ARG="" \
+    && if [ "$TARGETARCH" = "arm64" ]; then export DOTNET_RID="linux-arm64"; export DOTNET_OBJCOPY_ARG="-p:ObjCopyName=aarch64-linux-gnu-objcopy"; fi \
     && dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj \
         -c Release \
         -r "$DOTNET_RID" \
@@ -89,9 +101,12 @@ RUN export DOTNET_RID="linux-x64" \
         -o /app/publish \
         -p:PublishAot=true \
         -p:PublishTrimmed=true \
+        -p:DebugSymbols=false \
+        -p:DebugType=None \
         -p:SkipClientBuild=true \
         -p:SkipModelMetadataGeneration=true \
-        -p:Protobuf_ProtocPath=/usr/bin/protoc
+        -p:Protobuf_ProtocPath=/usr/bin/protoc \
+        $DOTNET_OBJCOPY_ARG
 
 # ──────────────────────────────────────────────
 # Stage 3: Final runtime image

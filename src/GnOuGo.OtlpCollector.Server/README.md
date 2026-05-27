@@ -143,6 +143,16 @@ To explicitly disable NativeAOT for diagnostics:
 dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish/otlp-collector/win-x64-il /p:PublishAot=false /p:PublishTrimmed=false /p:SkipClientBuild=true
 ```
 
+## Docker
+
+The Dockerfile builds `linux/amd64` and `linux/arm64` NativeAOT images through Docker Buildx. The SDK stage runs on the build host platform and cross-publishes for the target RID; for `linux/arm64`, it installs the `aarch64-linux-gnu` linker/toolchain so NativeAOT can link the ARM64 executable without QEMU-running the .NET SDK stage.
+
+Local validation example:
+
+```powershell
+docker buildx build --progress=plain --platform linux/arm64 --target build -f src/GnOuGo.OtlpCollector.Server/Dockerfile .
+```
+
 ## CI artifacts
 
 GitHub Actions publishes downloadable zip artifacts for:
