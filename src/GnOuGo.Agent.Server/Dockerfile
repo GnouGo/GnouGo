@@ -34,8 +34,9 @@ ARG TARGETOS
 
 # Node.js is needed when publishing the bundled GnOuGo.Browser.Mcp Playwright tool.
 # clang and zlib headers are required by Native AOT on Linux.
+# The aarch64 toolchain is required when buildx publishes linux/arm64 from an amd64 builder.
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
-    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 clang zlib1g-dev nodejs \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 clang zlib1g-dev nodejs binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -65,9 +66,10 @@ COPY src/GnOuGo.Observability.Core/GnOuGo.Observability.Core.csproj src/GnOuGo.O
 COPY src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj src/GnOuGo.OtlpCollector.Server/
 RUN case "${TARGETOS:-linux}-${TARGETARCH:-amd64}" in \
         linux-amd64) export TARGET_RID=linux-x64 ;; \
-        *) echo "Native AOT container publish currently supports linux-amd64 only. TARGETOS=${TARGETOS:-linux} TARGETARCH=${TARGETARCH:-amd64}" >&2; exit 1 ;; \
+        linux-arm64) export TARGET_RID=linux-arm64 ;; \
+        *) echo "Native AOT container publish currently supports linux-amd64 and linux-arm64 only. TARGETOS=${TARGETOS:-linux} TARGETARCH=${TARGETARCH:-amd64}" >&2; exit 1 ;; \
     esac \
-    && dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -r "$TARGET_RID" /p:SkipClientBuild=true
+    && dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -r "$TARGET_RID" /p:SkipClientBuild=true /p:PublishAot=true /p:PublishTrimmed=true /p:DisableRazorComponentsForNativeAot=true /p:JsonSerializerIsReflectionEnabledByDefault=false /p:SkipModelMetadataGeneration=true
 # Copy full source
 COPY src/ src/
 # Overlay pre-built ClientApp output (wwwroot/ui) from stage 1.
@@ -79,8 +81,9 @@ COPY --from=clientapp /workspace/src/GnOuGo.Agent.Server/wwwroot/ui src/GnOuGo.A
 # during build, and Grpc.Tools must be allowed to refresh generated inputs in a
 # clean Docker layer. The earlier restore is still useful for cache warming.
 RUN case "${TARGETOS:-linux}-${TARGETARCH:-amd64}" in \
-        linux-amd64) export TARGET_RID=linux-x64 ;; \
-        *) echo "Native AOT container publish currently supports linux-amd64 only. TARGETOS=${TARGETOS:-linux} TARGETARCH=${TARGETARCH:-amd64}" >&2; exit 1 ;; \
+        linux-amd64) export TARGET_RID=linux-x64; export NATIVE_AOT_ARGS="" ;; \
+        linux-arm64) export TARGET_RID=linux-arm64; export NATIVE_AOT_ARGS="-p:ObjCopyName=aarch64-linux-gnu-objcopy" ;; \
+        *) echo "Native AOT container publish currently supports linux-amd64 and linux-arm64 only. TARGETOS=${TARGETOS:-linux} TARGETARCH=${TARGETARCH:-amd64}" >&2; exit 1 ;; \
     esac \
     && dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj \
         -c Release \
@@ -90,9 +93,14 @@ RUN case "${TARGETOS:-linux}-${TARGETARCH:-amd64}" in \
         -p:SkipClientBuild=true \
         -p:PublishAot=true \
         -p:PublishTrimmed=true \
+        -p:PublishSingleFile=false \
         -p:DisableRazorComponentsForNativeAot=true \
         -p:JsonSerializerIsReflectionEnabledByDefault=false \
-        -p:SkipModelMetadataGeneration=true
+        -p:SkipModelMetadataGeneration=true \
+        -p:UseAppHost=true \
+        -p:DebugType=None \
+        -p:DebugSymbols=false \
+        $NATIVE_AOT_ARGS
 # ----------------------------------------------
 # Stage 3: Final runtime image
 # ----------------------------------------------

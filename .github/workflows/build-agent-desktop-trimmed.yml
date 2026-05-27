@@ -8,6 +8,11 @@ on:
         required: false
         type: string
         default: ""
+      publish_aot:
+        description: Publish the desktop application itself with Native AOT. Bundled MCP tools keep their existing per-tool AOT settings.
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -72,13 +77,16 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "pnpm-lock.yaml"
 
-      - name: Install Linux ARM64 Native AOT toolchain
-        if: matrix.os == 'ubuntu-latest' && matrix.rid == 'linux-arm64'
+      - name: Install Linux Native AOT toolchain
+        if: matrix.os == 'ubuntu-latest' && (inputs.publish_aot || matrix.rid == 'linux-arm64')
         shell: bash
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y clang binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+          if [ "${{ matrix.rid }}" = "linux-arm64" ]; then
+            sudo apt-get install -y --no-install-recommends binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
+          fi
 
       - name: Validate Browser MCP self-contained publish
         shell: pwsh
@@ -199,21 +207,59 @@ jobs:
       - name: Publish Desktop (self-contained trimmed)
         shell: pwsh
         run: |
-          dotnet restore -r ${{ matrix.rid }} /p:SkipClientBuild=true
-          dotnet publish src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj `
-            -c Release `
-            -r ${{ matrix.rid }} `
-            --self-contained true `
-            -o artifacts/publish/desktop/${{ matrix.rid }} `
-            --no-restore `
-            /p:SkipClientBuild=true `
-            /p:PublishTrimmed=true `
-            /p:InvariantGlobalization=true
+          $publishAot = '${{ inputs.publish_aot }}' -eq 'true'
+          $rid = '${{ matrix.rid }}'
+          $publishDir = "artifacts/publish/desktop/$rid"
+
+          $commonProperties = @(
+            '-p:SkipClientBuild=true',
+            '-p:PublishTrimmed=true',
+            '-p:InvariantGlobalization=true',
+            '-p:SkipModelMetadataGeneration=true'
+          )
+
+          if ($publishAot) {
+            $commonProperties += @(
+              '-p:PublishAot=true',
+              '-p:PublishSingleFile=false',
+              '-p:DisableRazorComponentsForNativeAot=true',
+              '-p:JsonSerializerIsReflectionEnabledByDefault=false',
+              '-p:DebugType=None',
+              '-p:DebugSymbols=false'
+            )
+            if ($rid -eq 'linux-arm64') {
+              $commonProperties += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
+            }
+          }
+
+          dotnet restore src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj -r $rid @commonProperties
+
+          $publishArgs = @(
+            'publish', 'src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj',
+            '-c', 'Release',
+            '-r', $rid,
+            '--self-contained', 'true',
+            '-o', $publishDir,
+            '--no-restore'
+          ) + $commonProperties
+
+          dotnet @publishArgs
 
       - name: Validate bundled desktop tools
         shell: pwsh
         run: |
+          $publishAot = '${{ inputs.publish_aot }}' -eq 'true'
           $toolExtension = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
+          $desktopExecutable = "artifacts/publish/desktop/${{ matrix.rid }}/GnOuGo.Agent$toolExtension"
+          if (-not (Test-Path $desktopExecutable)) {
+            throw "Missing desktop executable: $desktopExecutable"
+          }
+
+          $desktopManagedDll = "artifacts/publish/desktop/${{ matrix.rid }}/GnOuGo.Agent.dll"
+          if ($publishAot -and (Test-Path $desktopManagedDll)) {
+            throw "Native AOT desktop publish should not produce a managed entry assembly: $desktopManagedDll"
+          }
+
           $requiredTools = @(
             "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp$toolExtension",
             "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp$toolExtension",

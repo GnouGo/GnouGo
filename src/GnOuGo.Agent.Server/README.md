@@ -167,6 +167,12 @@ docker build -t gnougo-agent -f src/GnOuGo.Agent.Server/Dockerfile .
 docker run --rm -p 5000:5000 gnougo-agent
 ```
 
+The shared Docker CI matrix currently builds `GnOuGo.Agent.Server` for `linux/amd64`; this avoids failing the multi-image workflow while Native AOT `linux/arm64` container publishing remains under validation.
+
+## Desktop Native AOT publish
+
+The desktop workflow defaults to the maximum-trim self-contained publish because the app hosts Photino plus the embedded server. A Native AOT desktop publish can be tested manually from the main workflow by enabling the `desktop_publish_aot` dispatch input. That path passes `PublishAot=true`, disables Razor components for AOT, and keeps the Vite UI served from `/ui/`.
+
 ## Default SQLite locations
 
 By default, the local agent SQLite files are created under the current user's Desktop in `Desktop/GnOuGo/data/`:
