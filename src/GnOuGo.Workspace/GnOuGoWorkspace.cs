@@ -25,7 +25,7 @@ public static class GnOuGoWorkspace
         try
         {
             var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-            if (!string.IsNullOrWhiteSpace(desktopPath) && Directory.Exists(desktopPath))
+            if (!string.IsNullOrWhiteSpace(desktopPath))
                 return Path.GetFullPath(desktopPath);
         }
         catch
@@ -38,11 +38,7 @@ public static class GnOuGoWorkspace
         {
             var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             if (!string.IsNullOrWhiteSpace(userProfilePath))
-            {
-                var candidate = Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
-                if (Directory.Exists(candidate))
-                    return candidate;
-            }
+                return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
         }
         catch
         {
@@ -52,13 +48,7 @@ public static class GnOuGoWorkspace
         // Strategy 3: HOME environment variable
         var homePath = Environment.GetEnvironmentVariable("HOME");
         if (!string.IsNullOrWhiteSpace(homePath))
-        {
-            var candidate = Path.GetFullPath(Path.Combine(homePath, "Desktop"));
-            if (Directory.Exists(candidate))
-                return candidate;
-            // Desktop might not exist on headless systems; use HOME directly.
-            return Path.GetFullPath(homePath);
-        }
+            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
 
         throw new InvalidOperationException(
             "Unable to resolve the current user's Desktop directory. " +
