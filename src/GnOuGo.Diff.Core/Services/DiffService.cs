@@ -23,18 +23,20 @@ public class DiffService
     /// <summary>
     /// Crée une nouvelle révision pour une entité
     /// </summary>
-    public async Task<RevisionDto> CreateRevisionAsync(CreateRevisionRequest request)
+    public async Task<RevisionDto> CreateRevisionAsync(CreateRevisionRequest request, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         var valueHash = ComputeHash(request.CurrentValue);
         
         // Récupérer la dernière révision pour cette entité
         var lastRevision = await _context.DiffEntries
             .Where(e => e.EntityType == request.EntityType && e.EntityId == request.EntityId)
             .OrderByDescending(e => e.TimestampTicks)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(ct);
 
         // Vérifier si la valeur a changé
-        if (lastRevision != null && lastRevision.ValueHash == valueHash)
+        if (!request.ForceCreate && lastRevision != null && lastRevision.ValueHash == valueHash)
         {
             // Aucun changement, retourner la dernière révision
             return MapToDto(lastRevision);
@@ -61,7 +63,7 @@ public class DiffService
         };
 
         _context.DiffEntries.Add(entry);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(ct);
 
         return MapToDto(entry);
     }

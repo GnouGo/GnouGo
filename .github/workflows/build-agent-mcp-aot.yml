@@ -1,0 +1,38 @@
+﻿name: Build Agent MCP NativeAOT
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'src/GnOuGo.Agent.Mcp/**'
+      - 'src/GnOuGo.AI.Core/**'
+      - 'src/GnOuGo.Observability.Core/**'
+      - '.github/workflows/build-agent-mcp-aot.yml'
+      - 'global.json'
+  pull_request:
+    paths:
+      - 'src/GnOuGo.Agent.Mcp/**'
+      - 'src/GnOuGo.AI.Core/**'
+      - 'src/GnOuGo.Observability.Core/**'
+      - '.github/workflows/build-agent-mcp-aot.yml'
+      - 'global.json'
+  workflow_dispatch:
+
+jobs:
+  publish-win-x64-aot:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore Agent MCP
+        run: dotnet restore src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj -r win-x64
+
+      - name: Publish Agent MCP NativeAOT win-x64
+        run: dotnet publish src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj -c Release -r win-x64 --no-restore -o artifacts/agent-mcp-aot-win-x64
+

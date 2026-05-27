@@ -1,64 +1,60 @@
 ﻿using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
-using GnOuGo.Agent.Mcp.Data;
-using GnOuGo.Diff.Core.Data;
+using GnOuGo.Agent.Mcp.Services;
 using Xunit;
 
 namespace GnOuGo.Agent.Mcp.Tests;
 
 public sealed class AgentMcpDatabaseBootstrapTests : IAsyncDisposable
 {
-    private readonly SqliteConnection _agentConnection;
-    private readonly AgentDbContext _agentDb;
-    private readonly DiffDbContext _diffDb;
+    private readonly string _directory;
+    private readonly AgentSqliteStore _store;
 
     public AgentMcpDatabaseBootstrapTests()
     {
-        _agentConnection = new SqliteConnection("Data Source=:memory:");
-        _agentConnection.Open();
-
-        _agentDb = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
-            .UseSqlite(_agentConnection)
-            .Options);
-        _diffDb = new DiffDbContext(new DbContextOptionsBuilder<DiffDbContext>()
-            .UseSqlite(_agentConnection)
-            .Options);
+        _directory = Path.Combine(Path.GetTempPath(), "gnougo-agent-mcp-bootstrap-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_directory);
+        _store = new AgentSqliteStore(Path.Combine(_directory, "agent.db"));
     }
 
     [Fact]
     public async Task EnsureCreatedAsync_CreatesDiffEntries_WhenAgentSchemaAlreadyExists()
     {
-        await _agentDb.Database.EnsureCreatedAsync();
+        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(_store);
 
-        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(
-            _agentDb,
-            _diffDb);
+        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(_store);
 
-        Assert.True(await TableExistsAsync(_agentConnection, "Agents"));
-        Assert.True(await TableExistsAsync(_agentConnection, "UserConfigs"));
-        Assert.True(await TableExistsAsync(_agentConnection, "DiffEntries"));
+        await using var connection = _store.OpenConnection();
+        Assert.True(await TableExistsAsync(connection, "Agents"));
+        Assert.True(await TableExistsAsync(connection, "UserConfigs"));
+        Assert.True(await TableExistsAsync(connection, "DiffEntries"));
     }
 
     [Fact]
     public async Task EnsureCreatedAsync_IsIdempotent_WhenCalledTwice()
     {
-        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(
-            _agentDb,
-            _diffDb);
-        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(
-            _agentDb,
-            _diffDb);
+        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(_store);
+        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(_store);
 
-        Assert.True(await TableExistsAsync(_agentConnection, "Agents"));
-        Assert.True(await TableExistsAsync(_agentConnection, "UserConfigs"));
-        Assert.True(await TableExistsAsync(_agentConnection, "DiffEntries"));
+        await using var connection = _store.OpenConnection();
+        Assert.True(await TableExistsAsync(connection, "Agents"));
+        Assert.True(await TableExistsAsync(connection, "UserConfigs"));
+        Assert.True(await TableExistsAsync(connection, "DiffEntries"));
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        await _agentDb.DisposeAsync();
-        await _diffDb.DisposeAsync();
-        await _agentConnection.DisposeAsync();
+        try
+        {
+            Directory.Delete(_directory, recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return ValueTask.CompletedTask;
     }
 
     private static async Task<bool> TableExistsAsync(SqliteConnection connection, string tableName)

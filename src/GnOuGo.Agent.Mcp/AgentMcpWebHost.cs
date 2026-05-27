@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using GnOuGo.Observability.Core;
+﻿using GnOuGo.Observability.Core;
 
 namespace GnOuGo.Agent.Mcp;
 
@@ -17,7 +15,7 @@ public static class AgentMcpWebHost
         builder.Logging.AddConsole();
         builder.AddGnOuGoOpenTelemetry("GnOuGo.Agent.Mcp");
 
-        var dbRelativePath = builder.Configuration.GetValue<string>("Agent:DatabasePath")
+        var dbRelativePath = builder.Configuration["Agent:DatabasePath"]
             ?? AgentMcpHostingExtensions.DefaultDatabasePath;
         var dbPath = AgentMcpHostingExtensions.ResolveDatabasePath(dbRelativePath, AppContext.BaseDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
@@ -28,7 +26,7 @@ public static class AgentMcpWebHost
         var app = builder.Build();
         app.Services.InitializeAgentMcpAsync().GetAwaiter().GetResult();
 
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+        app.MapGet("/health", () => Results.Json(new HealthResponse("ok"), AgentMcpJsonContext.Default.HealthResponse));
         app.MapAgentMcp(routePrefix);
 
         var logger = app.Services.GetRequiredService<ILoggerFactory>()

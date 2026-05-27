@@ -1,54 +1,21 @@
-﻿using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.Extensions.Logging.Abstractions;
-using GnOuGo.Agent.Mcp.Data;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using GnOuGo.Agent.Mcp.Models;
-using GnOuGo.Agent.Mcp.Services;
-using GnOuGo.Diff.Core.Data;
-using GnOuGo.Diff.Core.Services;
-using Xunit;
 
 namespace GnOuGo.Agent.Mcp.Tests;
 
 public class AgentToolsTests : IDisposable
 {
-    private readonly SqliteConnection _connection;
-    private readonly AgentDbContext _db;
-    private readonly DiffDbContext _diffDb;
+    private readonly AgentMcpTestDatabase _database;
     private readonly AgentTools _tools;
 
     public AgentToolsTests()
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
-
-        var agentOptions = new DbContextOptionsBuilder<AgentDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-        _db = new AgentDbContext(agentOptions);
-        _db.Database.EnsureCreated();
-
-        var diffOptions = new DbContextOptionsBuilder<DiffDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-        _diffDb = new DiffDbContext(diffOptions);
-        _diffDb.GetService<IRelationalDatabaseCreator>().CreateTables();
-
-        var diffService = new DiffService(_diffDb);
-        var repo = new AgentRepository(_db, diffService);
+        _database = new AgentMcpTestDatabase();
+        var repo = _database.CreateAgentRepository();
         _tools = new AgentTools(repo, NullLogger<AgentTools>.Instance);
     }
 
-    public void Dispose()
-    {
-        _diffDb.Dispose();
-        _db.Dispose();
-        _connection.Dispose();
-    }
-
-    // ── agent_add ────────────────────────────────────────────────────
+    public void Dispose() => _database.Dispose();
 
     [Fact]
     public async Task AgentAdd_CreatesAgent_WithSchedules()
@@ -57,11 +24,11 @@ public class AgentToolsTests : IDisposable
 
         var result = await _tools.AgentAdd("MyAgent", "do something", schedules);
 
-        Assert.True(result["success"]!.GetValue<bool>());
-        var agent = result["agent"]!.AsObject();
-        Assert.Equal("MyAgent", agent["name"]!.GetValue<string>());
-        Assert.Equal("do something", agent["workflow"]!.GetValue<string>());
-        Assert.Single(agent["schedules"]!.AsArray());
+        Assert.True(result.Success);
+        Assert.NotNull(result.Agent);
+        Assert.Equal("MyAgent", result.Agent.Name);
+        Assert.Equal("do something", result.Agent.Workflow);
+        Assert.Single(result.Agent.Schedules);
     }
 
     [Fact]
@@ -69,9 +36,9 @@ public class AgentToolsTests : IDisposable
     {
         var result = await _tools.AgentAdd("NoSched", "wf");
 
-        Assert.True(result["success"]!.GetValue<bool>());
-        var agent = result["agent"]!.AsObject();
-        Assert.Empty(agent["schedules"]!.AsArray());
+        Assert.True(result.Success);
+        Assert.NotNull(result.Agent);
+        Assert.Empty(result.Agent.Schedules);
     }
 
     [Fact]
@@ -79,8 +46,8 @@ public class AgentToolsTests : IDisposable
     {
         var result = await _tools.AgentAdd("", "wf");
 
-        Assert.False(result["success"]!.GetValue<bool>());
-        Assert.Equal("INVALID_INPUT", result["error_code"]!.GetValue<string>());
+        Assert.False(result.Success);
+        Assert.Equal("INVALID_INPUT", result.ErrorCode);
     }
 
     [Fact]
@@ -90,19 +57,18 @@ public class AgentToolsTests : IDisposable
 
         var result = await _tools.AgentAdd(" dailyreporter ", "wf2");
 
-        Assert.False(result["success"]!.GetValue<bool>());
-        Assert.Equal("ALREADY_EXISTS", result["error_code"]!.GetValue<string>());
+        Assert.False(result.Success);
+        Assert.Equal("ALREADY_EXISTS", result.ErrorCode);
     }
-
-    // ── agent_list ───────────────────────────────────────────────────
 
     [Fact]
     public async Task AgentList_ReturnsEmptyArray_WhenNoAgents()
     {
         var result = await _tools.AgentList();
 
-        Assert.True(result["success"]!.GetValue<bool>());
-        Assert.Empty(result["agents"]!.AsArray());
+        Assert.True(result.Success);
+        Assert.NotNull(result.Agents);
+        Assert.Empty(result.Agents);
     }
 
     [Fact]
@@ -113,26 +79,25 @@ public class AgentToolsTests : IDisposable
 
         var result = await _tools.AgentList();
 
-        Assert.True(result["success"]!.GetValue<bool>());
-        Assert.Equal(2, result["agents"]!.AsArray().Count);
+        Assert.True(result.Success);
+        Assert.NotNull(result.Agents);
+        Assert.Equal(2, result.Agents.Count);
     }
-
-    // ── agent_update ─────────────────────────────────────────────────
 
     [Fact]
     public async Task AgentUpdate_ModifiesAgent()
     {
         var addResult = await _tools.AgentAdd("Original", "wf1");
-        var id = addResult["agent"]!.AsObject()["id"]!.GetValue<string>();
+        var id = addResult.Agent!.Id;
 
         var newSchedules = new[] { new Schedule { Name = "nightly", Cron = "0 2 * * *" } };
         var updateResult = await _tools.AgentUpdate(id, "Updated", "wf2", newSchedules);
 
-        Assert.True(updateResult["success"]!.GetValue<bool>());
-        var agent = updateResult["agent"]!.AsObject();
-        Assert.Equal("Updated", agent["name"]!.GetValue<string>());
-        Assert.Equal("wf2", agent["workflow"]!.GetValue<string>());
-        Assert.Single(agent["schedules"]!.AsArray());
+        Assert.True(updateResult.Success);
+        Assert.NotNull(updateResult.Agent);
+        Assert.Equal("Updated", updateResult.Agent.Name);
+        Assert.Equal("wf2", updateResult.Agent.Workflow);
+        Assert.Single(updateResult.Agent.Schedules);
     }
 
     [Fact]
@@ -140,8 +105,8 @@ public class AgentToolsTests : IDisposable
     {
         var result = await _tools.AgentUpdate(Guid.NewGuid().ToString(), "name", "wf");
 
-        Assert.False(result["success"]!.GetValue<bool>());
-        Assert.Equal("NOT_FOUND", result["error_code"]!.GetValue<string>());
+        Assert.False(result.Success);
+        Assert.Equal("NOT_FOUND", result.ErrorCode);
     }
 
     [Fact]
@@ -149,8 +114,8 @@ public class AgentToolsTests : IDisposable
     {
         var result = await _tools.AgentUpdate("not-a-guid", "name", "wf");
 
-        Assert.False(result["success"]!.GetValue<bool>());
-        Assert.Equal("INVALID_INPUT", result["error_code"]!.GetValue<string>());
+        Assert.False(result.Success);
+        Assert.Equal("INVALID_INPUT", result.ErrorCode);
     }
 
     [Fact]
@@ -158,29 +123,28 @@ public class AgentToolsTests : IDisposable
     {
         await _tools.AgentAdd("Alpha", "wf1");
         var second = await _tools.AgentAdd("Bravo", "wf2");
-        var secondId = second["agent"]!.AsObject()["id"]!.GetValue<string>();
+        var secondId = second.Agent!.Id;
 
         var result = await _tools.AgentUpdate(secondId, " alpha ", "wf3");
 
-        Assert.False(result["success"]!.GetValue<bool>());
-        Assert.Equal("ALREADY_EXISTS", result["error_code"]!.GetValue<string>());
+        Assert.False(result.Success);
+        Assert.Equal("ALREADY_EXISTS", result.ErrorCode);
     }
-
-    // ── agent_delete ─────────────────────────────────────────────────
 
     [Fact]
     public async Task AgentDelete_RemovesAgent()
     {
         var addResult = await _tools.AgentAdd("ToDelete", "wf");
-        var id = addResult["agent"]!.AsObject()["id"]!.GetValue<string>();
+        var id = addResult.Agent!.Id;
 
         var deleteResult = await _tools.AgentDelete(id);
 
-        Assert.True(deleteResult["success"]!.GetValue<bool>());
-        Assert.Equal(id, deleteResult["deleted_id"]!.GetValue<string>());
+        Assert.True(deleteResult.Success);
+        Assert.Equal(id, deleteResult.DeletedId);
 
         var listResult = await _tools.AgentList();
-        Assert.Empty(listResult["agents"]!.AsArray());
+        Assert.NotNull(listResult.Agents);
+        Assert.Empty(listResult.Agents);
     }
 
     [Fact]
@@ -188,8 +152,8 @@ public class AgentToolsTests : IDisposable
     {
         var result = await _tools.AgentDelete(Guid.NewGuid().ToString());
 
-        Assert.False(result["success"]!.GetValue<bool>());
-        Assert.Equal("NOT_FOUND", result["error_code"]!.GetValue<string>());
+        Assert.False(result.Success);
+        Assert.Equal("NOT_FOUND", result.ErrorCode);
     }
 
     [Fact]
@@ -197,35 +161,30 @@ public class AgentToolsTests : IDisposable
     {
         var result = await _tools.AgentDelete("bad-id");
 
-        Assert.False(result["success"]!.GetValue<bool>());
-        Assert.Equal("INVALID_INPUT", result["error_code"]!.GetValue<string>());
+        Assert.False(result.Success);
+        Assert.Equal("INVALID_INPUT", result.ErrorCode);
     }
-
-    // ── Round-trip ───────────────────────────────────────────────────
 
     [Fact]
     public async Task RoundTrip_AddListUpdateDelete()
     {
-        // Add
         var add = await _tools.AgentAdd("RT", "step1", [new Schedule { Name = "s", Cron = "0 0 * * *" }]);
-        Assert.True(add["success"]!.GetValue<bool>());
-        var id = add["agent"]!.AsObject()["id"]!.GetValue<string>();
+        Assert.True(add.Success);
+        var id = add.Agent!.Id;
 
-        // List
         var list = await _tools.AgentList();
-        Assert.Single(list["agents"]!.AsArray());
+        Assert.NotNull(list.Agents);
+        Assert.Single(list.Agents);
 
-        // Update
         var upd = await _tools.AgentUpdate(id, "RT-v2", "step2", []);
-        Assert.True(upd["success"]!.GetValue<bool>());
-        Assert.Equal("RT-v2", upd["agent"]!.AsObject()["name"]!.GetValue<string>());
+        Assert.True(upd.Success);
+        Assert.Equal("RT-v2", upd.Agent!.Name);
 
-        // Delete
         var del = await _tools.AgentDelete(id);
-        Assert.True(del["success"]!.GetValue<bool>());
+        Assert.True(del.Success);
 
-        // Verify empty
         var final = await _tools.AgentList();
-        Assert.Empty(final["agents"]!.AsArray());
+        Assert.NotNull(final.Agents);
+        Assert.Empty(final.Agents);
     }
 }

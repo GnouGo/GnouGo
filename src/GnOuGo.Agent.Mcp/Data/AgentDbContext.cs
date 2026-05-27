@@ -1,44 +1,69 @@
-﻿using Microsoft.EntityFrameworkCore;
-using GnOuGo.Agent.Mcp.Models;
+﻿namespace GnOuGo.Agent.Mcp.Data;
 
-namespace GnOuGo.Agent.Mcp.Data;
-
-public sealed class AgentDbContext : DbContext
+internal static class AgentSqliteSchema
 {
-    public DbSet<AgentDefinition> Agents => Set<AgentDefinition>();
-    public DbSet<UserConfigRecord> UserConfigs => Set<UserConfigRecord>();
+    public const string CreateAgentsTable =
+        """
+        CREATE TABLE IF NOT EXISTS "Agents" (
+            "Id" TEXT NOT NULL CONSTRAINT "PK_Agents" PRIMARY KEY,
+            "TenantId" TEXT NULL,
+            "Name" TEXT NOT NULL,
+            "Workflow" TEXT NOT NULL,
+            "OriginalPrompt" TEXT NULL,
+            "ScheduleDescription" TEXT NULL,
+            "SchedulesJson" TEXT NOT NULL DEFAULT '[]',
+            "CreatedAtTicks" INTEGER NOT NULL,
+            "UpdatedAtTicks" INTEGER NOT NULL
+        );
+        """;
 
-    public AgentDbContext(DbContextOptions<AgentDbContext> options) : base(options) { }
+    public const string CreateAgentsTenantIndex =
+        "CREATE INDEX IF NOT EXISTS \"IX_Agents_TenantId\" ON \"Agents\" (\"TenantId\");";
 
-    protected override void OnModelCreating(ModelBuilder m)
-    {
-        m.Entity<AgentDefinition>(e =>
-        {
-            e.HasKey(a => a.Id);
-            e.Property(a => a.Name).HasMaxLength(256).IsRequired();
-            e.Property(a => a.Workflow).IsRequired();
-            e.Property(a => a.SchedulesJson).HasColumnName("SchedulesJson").HasDefaultValue("[]");
-            e.Property(a => a.TenantId);
-            e.Ignore(a => a.CreatedAt);
-            e.Ignore(a => a.UpdatedAt);
-            e.HasIndex(a => a.TenantId);
-            e.HasIndex(a => new { a.Name, a.TenantId }).IsUnique();
-        });
+    public const string CreateAgentsNameTenantIndex =
+        "CREATE UNIQUE INDEX IF NOT EXISTS \"IX_Agents_Name_TenantId\" ON \"Agents\" (\"Name\", \"TenantId\");";
 
-        m.Entity<UserConfigRecord>(e =>
-        {
-            e.HasKey(config => config.Id);
-            e.Property(config => config.TenantId);
-            e.Property(config => config.TenantScopeKey).HasMaxLength(64).IsRequired();
-            e.Property(config => config.DefaultLlmProvider).HasMaxLength(256);
-            e.Property(config => config.DefaultLlmModel).HasMaxLength(256);
-            e.Property(config => config.DefaultEmbeddingConfig).HasMaxLength(256);
-            e.Property(config => config.DefaultAgent).HasMaxLength(256);
-            e.Property(config => config.ModelOverridesJson);
-            e.Ignore(config => config.UpdatedAt);
-            e.HasIndex(config => config.TenantId);
-            e.HasIndex(config => config.TenantScopeKey).IsUnique();
-        });
-    }
+    public const string CreateUserConfigsTable =
+        """
+        CREATE TABLE IF NOT EXISTS "UserConfigs" (
+            "Id" TEXT NOT NULL CONSTRAINT "PK_UserConfigs" PRIMARY KEY,
+            "TenantId" TEXT NULL,
+            "TenantScopeKey" TEXT NOT NULL,
+            "DefaultLlmProvider" TEXT NULL,
+            "DefaultLlmModel" TEXT NULL,
+            "DefaultEmbeddingConfig" TEXT NULL,
+            "DefaultAgent" TEXT NULL,
+            "ModelOverridesJson" TEXT NULL,
+            "UpdatedAtTicks" INTEGER NOT NULL
+        );
+        """;
+
+    public const string CreateUserConfigsTenantScopeIndex =
+        "CREATE UNIQUE INDEX IF NOT EXISTS \"IX_UserConfigs_TenantScopeKey\" ON \"UserConfigs\" (\"TenantScopeKey\");";
+
+    public const string CreateUserConfigsTenantIndex =
+        "CREATE INDEX IF NOT EXISTS \"IX_UserConfigs_TenantId\" ON \"UserConfigs\" (\"TenantId\");";
+
+    public const string CreateDiffEntriesTable =
+        """
+        CREATE TABLE IF NOT EXISTS "DiffEntries" (
+            "Id" TEXT NOT NULL CONSTRAINT "PK_DiffEntries" PRIMARY KEY,
+            "EntityType" TEXT NOT NULL,
+            "EntityId" TEXT NOT NULL,
+            "TimestampTicks" INTEGER NOT NULL,
+            "Author" TEXT NOT NULL,
+            "CurrentValue" TEXT NOT NULL,
+            "DiffFromPrevious" TEXT NULL,
+            "ValueHash" TEXT NOT NULL
+        );
+        """;
+
+    public const string CreateDiffEntriesEntityTimestampIndex =
+        "CREATE INDEX IF NOT EXISTS \"IX_DiffEntries_EntityType_EntityId_TimestampTicks\" ON \"DiffEntries\" (\"EntityType\", \"EntityId\", \"TimestampTicks\");";
+
+    public const string CreateDiffEntriesEntityIndex =
+        "CREATE INDEX IF NOT EXISTS \"IX_DiffEntries_EntityType_EntityId\" ON \"DiffEntries\" (\"EntityType\", \"EntityId\");";
+
+    public const string CreateDiffEntriesTimestampIndex =
+        "CREATE INDEX IF NOT EXISTS \"IX_DiffEntries_TimestampTicks\" ON \"DiffEntries\" (\"TimestampTicks\");";
 }
-

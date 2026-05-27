@@ -1,76 +1,46 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
-using GnOuGo.Agent.Mcp.Data;
-using GnOuGo.Diff.Core.Data;
+﻿using GnOuGo.Agent.Mcp.Data;
+using GnOuGo.Agent.Mcp.Services;
+using Microsoft.Data.Sqlite;
 
 namespace GnOuGo.Agent.Mcp;
 
 internal static class AgentMcpDatabaseBootstrap
 {
-    public static async Task EnsureCreatedAsync(
-        AgentDbContext agentDb,
-        DiffDbContext diffDb,
-        CancellationToken ct = default)
+    public static async Task EnsureCreatedAsync(AgentSqliteStore store, CancellationToken ct = default)
     {
-        if (!await TableExistsAsync(agentDb, "Agents", ct))
-        {
-            var agentCreator = agentDb.GetService<IRelationalDatabaseCreator>();
-            await agentCreator.CreateTablesAsync(ct);
-        }
+        ArgumentNullException.ThrowIfNull(store);
 
-        await EnsureUserConfigsTableAsync(agentDb, ct);
+        await using var connection = store.OpenConnection();
 
-        if (!await TableExistsAsync(diffDb, "DiffEntries", ct))
-        {
-            var creator = diffDb.GetService<IRelationalDatabaseCreator>();
-            await creator.CreateTablesAsync(ct);
-        }
+        await ExecuteAsync(connection, AgentSqliteSchema.CreateAgentsTable, ct);
+        await ExecuteAsync(connection, AgentSqliteSchema.CreateAgentsTenantIndex, ct);
+        await ExecuteAsync(connection, AgentSqliteSchema.CreateAgentsNameTenantIndex, ct);
+
+        await ExecuteAsync(connection, AgentSqliteSchema.CreateUserConfigsTable, ct);
+        await ExecuteAsync(connection, AgentSqliteSchema.CreateUserConfigsTenantScopeIndex, ct);
+        await ExecuteAsync(connection, AgentSqliteSchema.CreateUserConfigsTenantIndex, ct);
+        await EnsureColumnAsync(connection, "UserConfigs", "DefaultEmbeddingConfig", "TEXT NULL", ct);
+        await EnsureColumnAsync(connection, "UserConfigs", "ModelOverridesJson", "TEXT NULL", ct);
+
+        await ExecuteAsync(connection, AgentSqliteSchema.CreateDiffEntriesTable, ct);
+        await ExecuteAsync(connection, AgentSqliteSchema.CreateDiffEntriesEntityTimestampIndex, ct);
+        await ExecuteAsync(connection, AgentSqliteSchema.CreateDiffEntriesEntityIndex, ct);
+        await ExecuteAsync(connection, AgentSqliteSchema.CreateDiffEntriesTimestampIndex, ct);
     }
 
-    private static async Task EnsureUserConfigsTableAsync(AgentDbContext agentDb, CancellationToken ct)
+    private static async Task ExecuteAsync(SqliteConnection connection, string sql, CancellationToken ct)
     {
-        if (await TableExistsAsync(agentDb, "UserConfigs", ct))
-        {
-            await EnsureColumnAsync(agentDb, "UserConfigs", "DefaultEmbeddingConfig", "TEXT NULL", ct);
-            await EnsureColumnAsync(agentDb, "UserConfigs", "ModelOverridesJson", "TEXT NULL", ct);
-            return;
-        }
-
-        await agentDb.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE IF NOT EXISTS "UserConfigs" (
-                "Id" TEXT NOT NULL CONSTRAINT "PK_UserConfigs" PRIMARY KEY,
-                "TenantId" TEXT NULL,
-                "TenantScopeKey" TEXT NOT NULL,
-                "DefaultLlmProvider" TEXT NULL,
-                "DefaultLlmModel" TEXT NULL,
-                "DefaultEmbeddingConfig" TEXT NULL,
-                "DefaultAgent" TEXT NULL,
-                "ModelOverridesJson" TEXT NULL,
-                "UpdatedAtTicks" INTEGER NOT NULL
-            );
-            """,
-            ct);
-
-        await agentDb.Database.ExecuteSqlRawAsync(
-            "CREATE UNIQUE INDEX IF NOT EXISTS \"IX_UserConfigs_TenantScopeKey\" ON \"UserConfigs\" (\"TenantScopeKey\");",
-            ct);
-
-        await agentDb.Database.ExecuteSqlRawAsync(
-            "CREATE INDEX IF NOT EXISTS \"IX_UserConfigs_TenantId\" ON \"UserConfigs\" (\"TenantId\");",
-            ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync(ct);
     }
 
-    private static async Task EnsureColumnAsync(DbContext dbContext, string tableName, string columnName, string columnDefinition, CancellationToken ct)
+    private static async Task EnsureColumnAsync(SqliteConnection connection, string tableName, string columnName, string columnDefinition, CancellationToken ct)
     {
-        await using var command = dbContext.Database.GetDbConnection().CreateCommand();
-        if (command.Connection?.State != System.Data.ConnectionState.Open)
-            await command.Connection!.OpenAsync(ct);
-
-        command.CommandText = $"PRAGMA table_info(\"{tableName}\");";
-        await using (var reader = await command.ExecuteReaderAsync(ct))
+        await using (var command = connection.CreateCommand())
         {
+            command.CommandText = $"PRAGMA table_info(\"{tableName}\");";
+            await using var reader = await command.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
                 if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
@@ -78,26 +48,6 @@ internal static class AgentMcpDatabaseBootstrap
             }
         }
 
-        var sql = $"ALTER TABLE \"{tableName}\" ADD COLUMN \"{columnName}\" {columnDefinition};";
-        await dbContext.Database.ExecuteSqlRawAsync(sql, ct);
-    }
-
-    private static async Task<bool> TableExistsAsync(DbContext dbContext, string tableName, CancellationToken ct)
-    {
-        await using var command = dbContext.Database.GetDbConnection().CreateCommand();
-        if (command.Connection?.State != System.Data.ConnectionState.Open)
-            await command.Connection!.OpenAsync(ct);
-
-        command.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $name LIMIT 1;";
-
-        var parameter = command.CreateParameter();
-        parameter.ParameterName = "$name";
-        parameter.Value = tableName;
-        command.Parameters.Add(parameter);
-
-        var result = await command.ExecuteScalarAsync(ct);
-        return result is not null && result != DBNull.Value;
+        await ExecuteAsync(connection, $"ALTER TABLE \"{tableName}\" ADD COLUMN \"{columnName}\" {columnDefinition};", ct);
     }
 }
-
-

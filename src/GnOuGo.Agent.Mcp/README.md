@@ -39,6 +39,8 @@ The same SQLite database now stores:
 - diff revisions,
 - persisted user defaults (`default_llm_provider`, `default_llm_model`, `default_agent`).
 
+Persistence is implemented with `Microsoft.Data.Sqlite` direct SQL in this project so the standalone MCP executable can be published with Native AOT without EF Core runtime model building.
+
 When `Agent:DatabasePath` keeps its default logical value (`data/gnougo-agent.db`), the actual SQLite file is created under the current user's Desktop in `Desktop/GnOuGo/data/gnougo-agent.db`.
 Explicit absolute paths are still honored.
 
@@ -94,5 +96,14 @@ dotnet run
 
 ```powershell
 dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Mcp.Tests\GnOuGo.Agent.Mcp.Tests.csproj"
+```
+
+## Native AOT publish
+
+`GnOuGo.Agent.Mcp` enables Native AOT/trimming analyzers and treats IL2026/IL3050/IL3053/IL3055 as errors. The CI workflow `.github/workflows/build-agent-mcp-aot.yml` publishes the executable for `win-x64`.
+
+```powershell
+Set-Location "C:\github\GnouGo"
+dotnet publish "src\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" -c Release -r win-x64 -o "artifacts\agent-mcp-aot-win-x64"
 ```
 

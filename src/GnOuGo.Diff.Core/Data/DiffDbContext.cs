@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using GnOuGo.Diff.Core.Models;
+using System.Diagnostics.CodeAnalysis;
 
 namespace GnOuGo.Diff.Core.Data;
 
 public class DiffDbContext : DbContext
 {
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "DiffDbContext is configured with the generated compiled model DiffDbContextModel for NativeAOT consumers.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "DiffDbContext is configured with the generated compiled model DiffDbContextModel for trimmed consumers.")]
     public DiffDbContext(DbContextOptions<DiffDbContext> options) : base(options)
     {
     }

@@ -1,11 +1,4 @@
-﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using ModelContextProtocol;
-using ModelContextProtocol.AspNetCore;
-using ModelContextProtocol.Protocol;
-using GnOuGo.Agent.Mcp.Data;
+﻿using ModelContextProtocol.Protocol;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Diff.Core.Data;
 using GnOuGo.Diff.Core.Services;
@@ -45,10 +38,8 @@ public static class AgentMcpHostingExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
 
-        services.AddDbContext<AgentDbContext>(options =>
-            options.UseSqlite($"Data Source={databasePath}"));
-        services.AddDbContext<DiffDbContext>(options =>
-            options.UseSqlite($"Data Source={databasePath}"));
+        services.AddSingleton(new AgentSqliteStore(databasePath));
+        services.AddDbContext<DiffDbContext>(options => options.UseDiffCoreSqlite($"Data Source={databasePath}"));
         services.AddScoped<DiffService>();
         services.AddScoped<IAgentRepository, AgentRepository>();
         services.AddScoped<IUserConfigRepository, UserConfigRepository>();
@@ -72,8 +63,8 @@ public static class AgentMcpHostingExtensions
                 };
             })
             .WithHttpTransport()
-            .WithTools<DataTools>()
-            .WithTools<AgentTools>();
+            .WithTools<DataTools>(AgentMcpJson.SerializerOptions)
+            .WithTools<AgentTools>(AgentMcpJson.SerializerOptions);
 
         return services;
     }
@@ -83,10 +74,9 @@ public static class AgentMcpHostingExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         await using var scope = services.CreateAsyncScope();
-        var agentDb = scope.ServiceProvider.GetRequiredService<AgentDbContext>();
-        var diffDb = scope.ServiceProvider.GetRequiredService<DiffDbContext>();
+        var store = scope.ServiceProvider.GetRequiredService<AgentSqliteStore>();
 
-        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(agentDb, diffDb, ct);
+        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(store, ct);
     }
 
     public static IEndpointConventionBuilder MapAgentMcp(this IEndpointRouteBuilder endpoints, string pattern = DefaultRoutePrefix)

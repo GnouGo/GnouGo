@@ -95,19 +95,16 @@ public class InMemoryChatHistoryStoreTests
     }
 
     [Fact]
-    public void GetMessages_DeepClonesMeta()
+    public void GetMessages_PreservesMeta()
     {
-        var meta = new System.Text.Json.Nodes.JsonObject { ["tag"] = "original" };
+        using var document = System.Text.Json.JsonDocument.Parse("""{"tag":"original"}""");
+        var meta = document.RootElement.Clone();
         _store.AppendMessages("meta-test", [new ChatMessage { Role = "user", Content = "x", Meta = meta }]);
 
         var result = _store.GetMessages("meta-test", 10);
 
         Assert.NotNull(result.Messages[0].Meta);
-        // Mutating the returned meta should not affect the store
-        result.Messages[0].Meta!["tag"] = "mutated";
-
-        var result2 = _store.GetMessages("meta-test", 10);
-        Assert.Equal("original", result2.Messages[0].Meta!["tag"]!.GetValue<string>());
+        Assert.Equal("original", result.Messages[0].Meta!.Value.GetProperty("tag").GetString());
     }
 
     // ── Thread safety (basic smoke test) ─────────────────────────────
