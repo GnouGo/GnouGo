@@ -544,7 +544,8 @@ public sealed class McpCallExecutor : IStepExecutor
             var structuredJson = structuredResponse.Json;
             if (structuredJson == null && !string.IsNullOrWhiteSpace(structuredResponse.Text))
             {
-                try { structuredJson = JsonNode.Parse(structuredResponse.Text); }
+                var textToParse = LlmCallExecutor.StripMarkdownCodeFences(structuredResponse.Text);
+                try { structuredJson = JsonNode.Parse(textToParse); }
                 catch (JsonException ex)
                 {
                     ctx.Engine.Logger.LogDebug(ex, "mcp.call structured post-process response was not valid JSON for model '{Model}'.", model);
@@ -553,7 +554,7 @@ public sealed class McpCallExecutor : IStepExecutor
 
             if (structuredJson == null)
                 throw new WorkflowRuntimeException(ErrorCodes.LlmSchema,
-                    "mcp.call structured_output expected valid JSON but the LLM returned an incompatible response", retryable: false);
+                    "mcp.call structured_output expected valid JSON but the LLM returned an incompatible response", retryable: true);
 
             response["selection_text"] = llmResponse.Text;
             response["json"] = structuredJson.DeepClone();

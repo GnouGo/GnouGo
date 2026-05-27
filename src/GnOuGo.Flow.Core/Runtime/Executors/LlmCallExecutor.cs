@@ -215,12 +215,13 @@ public sealed class LlmCallExecutor : IStepExecutor
             JsonNode? structuredJson = response.Json;
             if (structuredOutput != null && structuredJson == null && !string.IsNullOrWhiteSpace(response.Text))
             {
-                try { structuredJson = JsonNode.Parse(response.Text); }
+                var textToParse = StripMarkdownCodeFences(response.Text);
+                try { structuredJson = JsonNode.Parse(textToParse); }
                 catch { structuredJson = null; }
             }
             if (structuredOutput != null && structuredJson == null)
                 throw new WorkflowRuntimeException(ErrorCodes.LlmSchema,
-                    "llm.call structured_output expected valid JSON but the LLM returned an incompatible response", retryable: false);
+                    "llm.call structured_output expected valid JSON but the LLM returned an incompatible response", retryable: true);
 
             if (structuredJson != null)
                 result["json"] = structuredJson.DeepClone();
@@ -252,5 +253,30 @@ public sealed class LlmCallExecutor : IStepExecutor
             ctx.Engine.Logger.LogError(ex, "llm.call failed for model '{Model}'", model);
             throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork, $"LLM call failed: {ex.Message}", retryable: false);
         }
+    }
+
+    /// <summary>
+    /// Strips markdown code fences (```json ... ``` or ``` ... ```) that LLMs
+    /// sometimes wrap around structured JSON responses.
+    /// </summary>
+    internal static string StripMarkdownCodeFences(string text)
+    {
+        var trimmed = text.Trim();
+        if (!trimmed.StartsWith("```"))
+            return trimmed;
+
+        // Remove opening fence (```json, ```JSON, ``` etc.)
+        var firstNewline = trimmed.IndexOf('\n');
+        if (firstNewline < 0)
+            return trimmed;
+
+        var body = trimmed[(firstNewline + 1)..];
+
+        // Remove closing fence
+        var lastFence = body.LastIndexOf("```", StringComparison.Ordinal);
+        if (lastFence >= 0)
+            body = body[..lastFence];
+
+        return body.Trim();
     }
 }
