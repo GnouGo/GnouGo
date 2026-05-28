@@ -209,6 +209,19 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
 
+      - name: Publish Server (for static assets)
+        shell: pwsh
+        run: |
+          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj `
+            -c Release `
+            -r ${{ matrix.rid }} `
+            --self-contained false `
+            -o artifacts/tmp-server-assets-only `
+            -p:SkipClientBuild=true `
+            -p:PublishTrimmed=false `
+            -p:DebugType=None `
+            -p:DebugSymbols=false
+
       - name: Publish Desktop (Trimmed or Native AOT)
         shell: pwsh
         run: |
