@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.5 - 2026-05-28
+
+- fix: python workspace (release) (5d3f2e1)
+
 ## v0.8.4 - 2026-05-28
 
 - refactor: centralize workspace project (release) (#42) (a19b1dc)
