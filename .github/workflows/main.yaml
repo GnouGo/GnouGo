@@ -88,12 +88,12 @@ jobs:
       contents: read
 
   desktop_aot:
-    name: Desktop Trimmed
+    name: Desktop (Native AOT)
     uses: ./.github/workflows/build-agent-desktop-trimmed.yml
     permissions:
       contents: read
     with:
-      publish_aot: ${{ github.event_name == 'workflow_dispatch' && inputs.desktop_publish_aot }}
+      publish_aot: true
 
   keyvault_mcp_aot:
     name: KeyVault MCP Native AOT
