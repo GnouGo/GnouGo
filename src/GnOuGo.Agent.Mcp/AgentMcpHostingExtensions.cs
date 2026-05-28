@@ -2,6 +2,7 @@
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Diff.Core.Data;
 using GnOuGo.Diff.Core.Services;
+using GnOuGo.Workspace;
 
 namespace GnOuGo.Agent.Mcp;
 
@@ -13,25 +14,7 @@ public static class AgentMcpHostingExtensions
     public const string DefaultDatabasePath = "data/gnougo-agent.db";
 
     public static string ResolveDatabasePath(string? configuredPath, string baseDirectory)
-    {
-        if (!string.IsNullOrWhiteSpace(configuredPath) && Path.IsPathRooted(configuredPath))
-            return configuredPath;
-
-        var normalized = string.IsNullOrWhiteSpace(configuredPath)
-            ? DefaultDatabasePath
-            : configuredPath.Replace('\\', '/').Trim();
-
-        if (string.Equals(normalized, DefaultDatabasePath, StringComparison.OrdinalIgnoreCase))
-        {
-            return Path.Combine(
-                ResolveDesktopDirectory(),
-                "GnOuGo",
-                "data",
-                "gnougo-agent.db");
-        }
-
-        return Path.Combine(baseDirectory, configuredPath!);
-    }
+        => GnOuGoWorkspace.ResolveDatabasePath(configuredPath, baseDirectory, DefaultDatabasePath);
 
     public static IServiceCollection AddAgentMcpPersistence(this IServiceCollection services, string databasePath)
     {
@@ -86,23 +69,6 @@ public static class AgentMcpHostingExtensions
 
         return endpoints.MapMcp(pattern)
             .DisableAntiforgery();
-    }
-
-    private static string ResolveDesktopDirectory()
-    {
-        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-        if (!string.IsNullOrWhiteSpace(desktopPath))
-            return Path.GetFullPath(desktopPath);
-
-        var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (!string.IsNullOrWhiteSpace(userProfilePath))
-            return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
-
-        var homePath = Environment.GetEnvironmentVariable("HOME");
-        if (!string.IsNullOrWhiteSpace(homePath))
-            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
-
-        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
     }
 }
 

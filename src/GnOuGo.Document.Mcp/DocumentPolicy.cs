@@ -1,3 +1,4 @@
+using GnOuGo.Workspace;
 using Microsoft.Extensions.Options;
 
 namespace GnOuGo.Document.Mcp;
@@ -21,7 +22,7 @@ public sealed class DocumentPolicy
     {
         _settings = settings;
         _contentRootPath = Path.GetFullPath(contentRootPath);
-        _workspaceRootPath = DiscoverWorkspaceRoot(_contentRootPath);
+        _workspaceRootPath = GnOuGoWorkspace.DiscoverWorkspaceRoot(_contentRootPath);
         _defaultWorkingDirectory = ResolveDefaultWorkingDirectory();
     }
 
@@ -39,7 +40,7 @@ public sealed class DocumentPolicy
             : Path.GetFullPath(Path.Combine(_defaultWorkingDirectory, normalized));
 
         var allowedRoots = ResolveAllowedRoots();
-        if (!allowedRoots.Any(root => IsPathWithinRoot(fullPath, root)))
+        if (!allowedRoots.Any(root => GnOuGoWorkspace.IsPathWithinRoot(fullPath, root)))
             throw new InvalidOperationException(
                 $"Path '{fullPath}' is outside allowed roots: {string.Join(", ", allowedRoots)}.");
 
@@ -79,58 +80,13 @@ public sealed class DocumentPolicy
     }
 
     private string ResolveDefaultWorkingDirectory()
-    {
-        var configured = string.IsNullOrWhiteSpace(_settings.DefaultWorkingDirectory)
-            ? "GnOuGo"
-            : _settings.DefaultWorkingDirectory.Trim();
-
-        var desktopPath = ResolveDesktopDirectory();
-        var resolved = Path.IsPathRooted(configured)
-            ? Path.GetFullPath(configured)
-            : Path.GetFullPath(Path.Combine(desktopPath, configured));
-
-        if (!Path.IsPathRooted(configured) && !IsPathWithinRoot(resolved, desktopPath))
-            throw new InvalidOperationException(
-                $"Default working directory '{configured}' must stay within '{desktopPath}'.");
-
-        Directory.CreateDirectory(resolved);
-        return resolved;
-    }
+        => GnOuGoWorkspace.ResolveDefaultWorkingDirectory(_settings.DefaultWorkingDirectory);
 
     internal static string? DiscoverWorkspaceRoot(string contentRootPath)
-    {
-        var current = new DirectoryInfo(Path.GetFullPath(contentRootPath));
-        while (current is not null)
-        {
-            if (current.GetFiles("*.sln").Length != 0 || Directory.Exists(Path.Combine(current.FullName, ".git")))
-                return current.FullName;
-            current = current.Parent;
-        }
-        return null;
-    }
+        => GnOuGoWorkspace.DiscoverWorkspaceRoot(contentRootPath);
 
     internal static bool IsPathWithinRoot(string path, string root)
-    {
-        var np = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                 + Path.DirectorySeparatorChar;
-        var nr = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                 + Path.DirectorySeparatorChar;
-        return np.StartsWith(nr, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string ResolveDesktopDirectory()
-    {
-        var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-        if (!string.IsNullOrWhiteSpace(desktop)) return Path.GetFullPath(desktop);
-
-        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (!string.IsNullOrWhiteSpace(profile)) return Path.GetFullPath(Path.Combine(profile, "Desktop"));
-
-        var home = Environment.GetEnvironmentVariable("HOME");
-        if (!string.IsNullOrWhiteSpace(home)) return Path.GetFullPath(Path.Combine(home, "Desktop"));
-
-        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
-    }
+        => GnOuGoWorkspace.IsPathWithinRoot(path, root);
 
     private static string NormalizeRequired(string? value, string param)
     {
@@ -146,4 +102,3 @@ public sealed record DocumentPolicyInfo(
     IReadOnlyList<string> AllowedRoots,
     IReadOnlyList<string> AllowedExtensions,
     long MaxFileSizeBytes);
-

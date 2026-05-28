@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.4 - 2026-05-28
+
+- refactor: centralize workspace project (release) (#42) (a19b1dc)
+
 ## v0.8.3 - 2026-05-26
 
 - fix: cmd mcp AOT compilation (release) (5f39dbd)

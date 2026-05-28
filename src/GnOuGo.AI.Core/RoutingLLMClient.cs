@@ -194,6 +194,12 @@ public sealed class LLMClientRequest
     /// </summary>
     public bool UseBackgroundMode { get; set; }
     public IReadOnlyList<LLMToolDef>? Tools { get; set; }
+    /// <summary>
+    /// Maximum number of output tokens the model may produce.
+    /// Populated automatically from model metadata when available.
+    /// Providers use this instead of hard-coded defaults.
+    /// </summary>
+    public int? MaxOutputTokens { get; set; }
 }
 
 /// <summary>

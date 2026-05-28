@@ -28,6 +28,7 @@ public sealed class RoutingLLMClientAdapter : ILLMClient
             StructuredOutputStrict = request.StructuredOutputStrict,
             Reasoning = request.Reasoning,
             UseBackgroundMode = request.UseBackgroundMode,
+            MaxOutputTokens = request.MaxTokens,
         };
 
         // Map tools from GnOuGo.Flow format to GnOuGo.AI.Core format

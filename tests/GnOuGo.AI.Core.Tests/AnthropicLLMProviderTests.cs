@@ -72,7 +72,7 @@ public sealed class AnthropicLlmProviderTests
         using var posted = JsonDocument.Parse(capturedBody!);
         var root = posted.RootElement;
         Assert.Equal("claude-sonnet-4-20250514", root.GetProperty("model").GetString());
-        Assert.Equal(5120, root.GetProperty("max_tokens").GetInt32());
+        Assert.Equal(16384, root.GetProperty("max_tokens").GetInt32());
         Assert.False(root.TryGetProperty("temperature", out _));
         Assert.Equal("enabled", root.GetProperty("thinking").GetProperty("type").GetString());
         Assert.Equal(4096, root.GetProperty("thinking").GetProperty("budget_tokens").GetInt32());

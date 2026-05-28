@@ -52,8 +52,8 @@ PROVIDER_MAP = {
     "openai": "openai",
     "azure": "openai",
     "text-completion-openai": "openai",
-    "anthropic": "claude",
-    "claude": "claude",
+    "anthropic": "anthropic",
+    "claude": "anthropic",
     "github_copilot": "copilot",
     "github": "copilot",
     "copilot": "copilot",
@@ -89,10 +89,10 @@ def provider_qualified_key(key, model):
 
 def catalog_key_from_litellm(provider, model_name):
     provider = normalize_provider(provider)
-    if provider not in {"openai", "claude", "copilot", "ollama"}:
+    if provider not in {"openai", "anthropic", "copilot", "ollama"}:
         return None
     trimmed = model_name
-    for prefix in {provider, str(provider), "anthropic", "github_copilot", "copilot", "openai", "ollama"}:
+    for prefix in {provider, str(provider), "anthropic", "claude", "github_copilot", "copilot", "openai", "ollama"}:
         prefix = f"{prefix}/"
         if trimmed.lower().startswith(prefix.lower()):
             trimmed = trimmed[len(prefix):]
@@ -143,7 +143,7 @@ for model_name, data in litellm.items():
     input_per_1m = round(input_cost * 1_000_000, 4) if input_cost is not None else None
     output_per_1m = round(output_cost * 1_000_000, 4) if output_cost is not None else None
     model = models.setdefault(catalog_key, {"id": clean_name, "providerType": provider})
-    if provider == "claude":
+    if provider == "anthropic":
         model.setdefault("ownedBy", "anthropic")
     elif provider in {"openai", "ollama"}:
         model.setdefault("ownedBy", provider)
@@ -197,7 +197,7 @@ for model_name, data in litellm.items():
     if reasoning_efforts:
         capabilities["supportsReasoningEffort"] = True
         capabilities["supportedReasoningEfforts"] = reasoning_efforts
-    elif provider == "claude":
+    elif provider == "anthropic":
         capabilities.setdefault("supportsReasoningEffort", False)
 local["_updated"] = str(date.today())
 with metadata_path.open("w", encoding="utf-8") as f:
@@ -225,8 +225,8 @@ PROVIDER_MAP = {
     "openai": "openai",
     "azure": "openai",
     "text-completion-openai": "openai",
-    "anthropic": "claude",
-    "claude": "claude",
+    "anthropic": "anthropic",
+    "claude": "anthropic",
     "github_copilot": "copilot",
     "github": "copilot",
     "copilot": "copilot",

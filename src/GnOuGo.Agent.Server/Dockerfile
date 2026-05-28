@@ -64,12 +64,15 @@ COPY src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj src/GnOuGo.KeyVault.Co
 COPY src/GnOuGo.KeyVault.Mcp/GnOuGo.KeyVault.Mcp.csproj src/GnOuGo.KeyVault.Mcp/
 COPY src/GnOuGo.Observability.Core/GnOuGo.Observability.Core.csproj src/GnOuGo.Observability.Core/
 COPY src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj src/GnOuGo.OtlpCollector.Server/
+COPY src/GnOuGo.Workspace/GnOuGo.Workspace.csproj src/GnOuGo.Workspace/
+
 RUN case "${TARGETOS:-linux}-${TARGETARCH:-amd64}" in \
         linux-amd64) export TARGET_RID=linux-x64 ;; \
         linux-arm64) export TARGET_RID=linux-arm64 ;; \
         *) echo "Native AOT container publish currently supports linux-amd64 and linux-arm64 only. TARGETOS=${TARGETOS:-linux} TARGETARCH=${TARGETARCH:-amd64}" >&2; exit 1 ;; \
     esac \
     && dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -r "$TARGET_RID" /p:SkipClientBuild=true /p:PublishAot=true /p:PublishTrimmed=true /p:DisableRazorComponentsForNativeAot=true /p:JsonSerializerIsReflectionEnabledByDefault=false /p:SkipModelMetadataGeneration=true
+
 # Copy full source
 COPY src/ src/
 # Overlay pre-built ClientApp output (wwwroot/ui) from stage 1.

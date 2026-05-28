@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using GnOuGo.Workspace;
 using Microsoft.Extensions.Options;
 
 namespace GnOuGo.Cmd.Mcp;
@@ -22,7 +23,7 @@ public sealed class CommandPolicy
     {
         _settings = settings;
         _contentRootPath = Path.GetFullPath(contentRootPath);
-        _workspaceRootPath = DiscoverWorkspaceRoot(_contentRootPath);
+        _workspaceRootPath = GnOuGoWorkspace.DiscoverWorkspaceRoot(_contentRootPath);
         _defaultWorkingDirectory = ResolveDefaultWorkingDirectorySafe();
     }
 
@@ -300,30 +301,10 @@ public sealed class CommandPolicy
     }
 
     internal static string? DiscoverWorkspaceRoot(string contentRootPath)
-    {
-        var current = new DirectoryInfo(Path.GetFullPath(contentRootPath));
-        while (current is not null)
-        {
-            if (current.GetFiles("*.sln").Any() || Directory.Exists(Path.Combine(current.FullName, ".git")))
-                return current.FullName;
-
-            current = current.Parent;
-        }
-
-        return null;
-    }
+        => GnOuGoWorkspace.DiscoverWorkspaceRoot(contentRootPath);
 
     internal static bool IsPathWithinRoot(string path, string root)
-    {
-        var normalizedPath = Path.GetFullPath(path)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-        var normalizedRoot = Path.GetFullPath(root)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-
-        return normalizedPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
-    }
+        => GnOuGoWorkspace.IsPathWithinRoot(path, root);
 
     private string ResolveWorkspacePathParameter(
         string parameterName,
@@ -413,9 +394,9 @@ public sealed class CommandPolicy
         }
         catch (Exception ex)
         {
-            // Fallback: use a safe writable directory when the Desktop path
-            // cannot be resolved (e.g., sandboxed Native AOT bundle on macOS).
-            var fallback = ResolveDefaultWorkingDirectoryFallback();
+            var fallback = GnOuGoWorkspace.ResolveDefaultWorkingDirectorySafe(
+                configuredPath: null,
+                contentRootPath: _contentRootPath);
             Console.Error.WriteLine(
                 $"[GnOuGo.Cmd.Mcp] WARNING: Could not resolve default Desktop working directory: {ex.Message}. " +
                 $"Falling back to: {fallback}");
@@ -423,53 +404,18 @@ public sealed class CommandPolicy
         }
     }
 
-    private string ResolveDefaultWorkingDirectoryFallback()
-    {
-        // Try HOME/GnOuGo, then TMPDIR/GnOuGo, then BaseDirectory/workspace as last resort.
-        var candidates = new[]
-        {
-            Environment.GetEnvironmentVariable("HOME") is { Length: > 0 } home
-                ? Path.Combine(home, "GnOuGo")
-                : null,
-            Environment.GetEnvironmentVariable("TMPDIR") is { Length: > 0 } tmp
-                ? Path.Combine(tmp, "GnOuGo")
-                : null,
-            Path.Combine(Path.GetTempPath(), "GnOuGo"),
-            Path.Combine(_contentRootPath, "workspace")
-        };
-
-        foreach (var candidate in candidates)
-        {
-            if (string.IsNullOrWhiteSpace(candidate))
-                continue;
-
-            try
-            {
-                Directory.CreateDirectory(candidate);
-                return Path.GetFullPath(candidate);
-            }
-            catch
-            {
-                // Try next candidate.
-            }
-        }
-
-        // Absolute last resort — should never happen.
-        return _contentRootPath;
-    }
-
     private string ResolveDefaultWorkingDirectory()
     {
         var configuredPath = string.IsNullOrWhiteSpace(_settings.DefaultWorkingDirectory)
             ? "GnOuGo"
             : _settings.DefaultWorkingDirectory.Trim();
-        var desktopPath = ResolveDesktopDirectory();
+        var desktopPath = GnOuGoWorkspace.ResolveDesktopDirectory();
 
         var resolvedPath = Path.IsPathRooted(configuredPath)
             ? Path.GetFullPath(configuredPath)
             : Path.GetFullPath(Path.Combine(desktopPath, configuredPath));
 
-        if (!Path.IsPathRooted(configuredPath) && !IsPathWithinRoot(resolvedPath, desktopPath))
+        if (!Path.IsPathRooted(configuredPath) && !GnOuGoWorkspace.IsPathWithinRoot(resolvedPath, desktopPath))
         {
             throw new InvalidOperationException(
                 $"Default working directory '{configuredPath}' must stay within the current user's Desktop directory '{desktopPath}'.");
@@ -477,49 +423,6 @@ public sealed class CommandPolicy
 
         Directory.CreateDirectory(resolvedPath);
         return resolvedPath;
-    }
-
-    private static string ResolveDesktopDirectory()
-    {
-        try
-        {
-            var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-            if (!string.IsNullOrWhiteSpace(desktopPath) && Directory.Exists(desktopPath))
-                return Path.GetFullPath(desktopPath);
-        }
-        catch
-        {
-            // GetFolderPath can throw on some Native AOT / sandboxed configurations.
-        }
-
-        try
-        {
-            var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            if (!string.IsNullOrWhiteSpace(userProfilePath))
-            {
-                var candidate = Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
-                if (Directory.Exists(candidate))
-                    return candidate;
-            }
-        }
-        catch
-        {
-            // Fallthrough to HOME-based resolution.
-        }
-
-        var homePath = Environment.GetEnvironmentVariable("HOME");
-        if (!string.IsNullOrWhiteSpace(homePath))
-        {
-            var candidate = Path.GetFullPath(Path.Combine(homePath, "Desktop"));
-            if (Directory.Exists(candidate))
-                return candidate;
-            // Desktop might not exist on headless systems; use HOME directly.
-            return Path.GetFullPath(homePath);
-        }
-
-        throw new InvalidOperationException(
-            "Unable to resolve the current user's Desktop directory. " +
-            "Set the HOME environment variable or configure Cmd:DefaultWorkingDirectory as an absolute path.");
     }
 
     private static ShellLaunchInfo ResolveKnownShell(string logicalName, IEnumerable<string> candidates)
@@ -620,6 +523,4 @@ public sealed record ShellLaunchInfo(
     string LogicalName,
     string ExecutablePath,
     Func<string, string> BuildArguments);
-
-
 
