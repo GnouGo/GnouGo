@@ -4,6 +4,22 @@ import gnougo_flow_core.runtime as _runtime
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
 
+def _strip_markdown_code_fences(text: str) -> str:
+    """Strip markdown code fences (```json...``` or ```...```) that LLMs sometimes
+    wrap around structured JSON responses."""
+    trimmed = text.strip()
+    if not trimmed.startswith("```"):
+        return trimmed
+    first_newline = trimmed.find("\n")
+    if first_newline < 0:
+        return trimmed
+    body = trimmed[first_newline + 1:]
+    last_fence = body.rfind("```")
+    if last_fence >= 0:
+        body = body[:last_fence]
+    return body.strip()
+
+
 def _matches_json_schema(value: Any, schema: Any) -> bool:
     if not isinstance(schema, dict):
         return True
@@ -182,13 +198,14 @@ Output: `{ text, json?, usage?, raw? }`.
         schema = request.structured_output_schema
         if schema is not None and structured_json is None and response.text:
             try:
-                structured_json = json.loads(response.text)
+                structured_json = json.loads(_strip_markdown_code_fences(response.text))
             except Exception:
                 structured_json = None
         if schema is not None and (structured_json is None or not _matches_json_schema(structured_json, schema)):
             raise WorkflowRuntimeException(
                 ErrorCodes.LLM_SCHEMA,
                 "llm.call structured_output expected valid JSON but the LLM returned an incompatible response",
+                retryable=True,
             )
 
         out = {"text": response.text, "meta": {"model": model}}

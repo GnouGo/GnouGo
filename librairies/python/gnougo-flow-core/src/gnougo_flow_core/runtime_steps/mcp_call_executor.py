@@ -357,7 +357,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
         _emit_mcp_progress_events_as_thinking(ctx, result.content, correlation, realtime_progress_fingerprints)
         output: dict[str, Any] = {
             "status": "error" if result.is_error else "ok",
-            "response": copy.deepcopy(result.content),
+            "response": _strip_progress_events(copy.deepcopy(result.content)),
             "correlation_id": correlation.correlation_id,
             "trace_id": correlation.trace_id,
         }
@@ -611,7 +611,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
             structured_json = finalize_response.json_payload
             if structured_json is None and finalize_response.text:
                 try:
-                    structured_json = json.loads(finalize_response.text)
+                    structured_json = json.loads(_strip_markdown_code_fences(finalize_response.text))
                 except Exception:
                     structured_json = None
 
@@ -620,6 +620,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                     ErrorCodes.LLM_SCHEMA,
                     "mcp.call structured_output expected valid JSON but the LLM "
                     "returned an incompatible response",
+                    retryable=True,
                 )
 
             response["selection_text"] = llm_response.text
@@ -628,6 +629,37 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                 response["text"] = finalize_response.text
 
         return response
+
+
+def _strip_markdown_code_fences(text: str) -> str:
+    """Strip markdown code fences (```json...``` or ```...```) that LLMs sometimes
+    wrap around structured JSON responses."""
+    trimmed = text.strip()
+    if not trimmed.startswith("```"):
+        return trimmed
+    first_newline = trimmed.find("\n")
+    if first_newline < 0:
+        return trimmed
+    body = trimmed[first_newline + 1:]
+    last_fence = body.rfind("```")
+    if last_fence >= 0:
+        body = body[:last_fence]
+    return body.strip()
+
+
+_PROGRESS_EVENT_KEYS = {"progressevents", "progress_events", "progress", "events"}
+
+
+def _strip_progress_events(content: Any) -> Any:
+    """Remove verbose progressEvents arrays from MCP tool call output (they are
+    already emitted as telemetry thinking events and would bloat the step output)."""
+    if not isinstance(content, dict):
+        return content
+    result = dict(content)
+    for key in list(result.keys()):
+        if key.lower() in _PROGRESS_EVENT_KEYS and isinstance(result[key], list):
+            del result[key]
+    return result
 
 
 def _emit_mcp_progress_events_as_thinking(

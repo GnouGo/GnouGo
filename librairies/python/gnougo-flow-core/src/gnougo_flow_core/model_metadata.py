@@ -496,7 +496,11 @@ def _load_shared_builtin_catalog() -> tuple[dict[str, LLMModelMetadata], dict[st
         if provider_type is not None:
             data["providerType"] = provider_type
         try:
-            models[model_id] = LLMModelMetadata.model_validate(data)
+            entry = LLMModelMetadata.model_validate(data)
+            # Store under the *normalized* provider-qualified key so resolver lookups
+            # (which always use normalized providers like "claude" not "anthropic") match.
+            storage_key = f"{split[0]}/{split[1]}" if split is not None else model_id
+            models[storage_key] = entry
         except Exception:
             continue
     for alias, canonical in raw_aliases.items():
