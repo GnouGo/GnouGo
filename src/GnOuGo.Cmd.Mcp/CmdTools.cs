@@ -16,16 +16,16 @@ public sealed class CmdTools
         _logger = logger;
     }
 
-    [McpServerTool(Name = "cmd_list_allowed_commands"), Description("Lists the allowlisted commands that this secure command MCP server is allowed to execute. Each entry includes its name, description, target shell, working directory, and accepted parameters.")]
+    [McpServerTool(Name = "cmd_list_allowed_commands"), Description("Lists the allowlisted commands that this secure command MCP server is allowed to execute. Each entry includes its name, description, target shell, working directory, and accepted parameters. Commands run within the default workspace.")]
     public CmdAllowedCommandsResult ListAllowedCommands()
         => new(_host.ListAllowedCommands());
 
-    [McpServerTool(Name = "cmd_get_policy"), Description("Returns the active command execution policy: configured shells, allowed working roots, execution limits, and the current OS/architecture/available shells environment info.")]
+    [McpServerTool(Name = "cmd_get_policy"), Description("Returns the active command execution policy: configured shells, allowed working roots, execution limits, and the current OS/architecture/available shells environment info. Call this first to discover the default workspace — only the default workspace is authorized.")]
     public CmdPolicyInfo GetPolicy()
         => _host.GetPolicy();
 
 
-    [McpServerTool(Name = "cmd_run"), Description("Runs one allowlisted command by name. Raw shell commands are not accepted; only preconfigured aliases may be executed. Returns a structured result with stdout, stderr, exit code, success flag, and error details if any.")]
+    [McpServerTool(Name = "cmd_run"), Description("Runs one allowlisted command by name. Raw shell commands are not accepted; only preconfigured aliases may be executed. Commands execute within the default workspace. Returns a structured result with stdout, stderr, exit code, success flag, and error details if any.")]
     public async Task<CmdRunResult> RunAsync(
         [Description("Allowlisted command alias to execute.")] string commandName,
         [Description("Optional JSON object string of named parameters, for example {\"path\":\"src\"}.")] string? parametersJson = null,

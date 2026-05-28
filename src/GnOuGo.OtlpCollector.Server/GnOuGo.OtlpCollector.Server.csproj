@@ -115,6 +115,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.Workspace\GnOuGo.Workspace.csproj" />
   </ItemGroup>
 
   <ItemGroup>

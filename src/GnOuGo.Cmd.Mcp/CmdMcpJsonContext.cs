@@ -28,6 +28,8 @@ internal static class CmdMcpJson
 [JsonSerializable(typeof(IReadOnlyList<CmdShellAvailability>))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
 [JsonSerializable(typeof(CmdRunResult))]
+[JsonSerializable(typeof(int?))]
+[JsonSerializable(typeof(string))]
 [JsonSerializable(typeof(DateTimeOffset))]
 [JsonSerializable(typeof(DateTimeOffset?))]
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]

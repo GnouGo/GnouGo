@@ -6,6 +6,7 @@ using OtlpTenantCollector.Services;
 using OtlpTenantCollector.Services.Options;
 using OtlpTenantCollector.Services.Routing;
 using OtlpTenantCollector.Web;
+using GnOuGo.Workspace;
 
 namespace OtlpTenantCollector.Hosting;
 
@@ -26,7 +27,7 @@ public static class OtlpCollectorHostingExtensions
         {
             var fileName = Path.GetFileName(normalized);
             return Path.Combine(
-                ResolveDesktopDirectory(),
+                GnOuGoWorkspace.ResolveDesktopDirectory(),
                 "GnOuGo",
                 "data",
                 fileName);
@@ -117,23 +118,6 @@ public static class OtlpCollectorHostingExtensions
 
         endpoints.MapTenantApi();
         return endpoints;
-    }
-
-    private static string ResolveDesktopDirectory()
-    {
-        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-        if (!string.IsNullOrWhiteSpace(desktopPath))
-            return Path.GetFullPath(desktopPath);
-
-        var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (!string.IsNullOrWhiteSpace(userProfilePath))
-            return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
-
-        var homePath = Environment.GetEnvironmentVariable("HOME");
-        if (!string.IsNullOrWhiteSpace(homePath))
-            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
-
-        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
     }
 }
 

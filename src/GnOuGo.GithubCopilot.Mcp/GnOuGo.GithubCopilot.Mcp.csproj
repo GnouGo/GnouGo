@@ -34,6 +34,7 @@
     <ProjectReference Include="..\GnOuGo.Auth.Core\GnOuGo.Auth.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Observability.Core\GnOuGo.Observability.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.Workspace\GnOuGo.Workspace.csproj" />
   </ItemGroup>
 
 </Project>

@@ -52,6 +52,12 @@ public sealed class LLMRequest
     /// Populated automatically by mcp.call when the LLM needs to select and invoke tools.
     /// </summary>
     public List<LLMTool>? Tools { get; set; }
+
+    /// <summary>
+    /// Optional maximum number of output tokens the model may produce.
+    /// When omitted, the provider uses model metadata or its own default.
+    /// </summary>
+    public int? MaxTokens { get; set; }
 }
 
 /// <summary>

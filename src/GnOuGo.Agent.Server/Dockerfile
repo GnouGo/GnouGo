@@ -63,6 +63,7 @@ COPY src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj src/GnOuGo.KeyVault.Co
 COPY src/GnOuGo.KeyVault.Mcp/GnOuGo.KeyVault.Mcp.csproj src/GnOuGo.KeyVault.Mcp/
 COPY src/GnOuGo.Observability.Core/GnOuGo.Observability.Core.csproj src/GnOuGo.Observability.Core/
 COPY src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj src/GnOuGo.OtlpCollector.Server/
+COPY src/GnOuGo.Workspace/GnOuGo.Workspace.csproj src/GnOuGo.Workspace/
 RUN dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj
 # Copy full source
 COPY src/ src/

@@ -40,7 +40,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		var url = BuildMessagesUrl(provider.Url);
 		var auth = await ResolveAuthAsync(provider, ct);
 		var prompt = BuildPrompt(request.Prompt, request.StructuredOutputSchema);
-		byte[] payload = BuildMessagesPayload(model, prompt, request.Temperature, request.Tools, request.Reasoning);
+		byte[] payload = BuildMessagesPayload(model, prompt, request.Temperature, request.Tools, request.Reasoning, request.MaxOutputTokens);
 
 		using var req = HttpRequestHelper.CreateJsonPost(url, payload);
 		ApplyHeaders(req, auth);
@@ -110,10 +110,13 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		string prompt,
 		double? temperature = null,
 		IReadOnlyList<LLMToolDef>? tools = null,
-		string? reasoning = null)
+		string? reasoning = null,
+		int? maxOutputTokens = null)
 	{
+		const int DefaultMaxTokens = 16384;
 		var thinkingBudget = NormalizeThinkingBudget(reasoning);
-		var maxTokens = thinkingBudget.HasValue ? Math.Max(4096, thinkingBudget.Value + 1024) : 4096;
+		var maxTokens = maxOutputTokens
+			?? (thinkingBudget.HasValue ? Math.Max(DefaultMaxTokens, thinkingBudget.Value + 1024) : DefaultMaxTokens);
 
 		using var ms = new MemoryStream();
 		using (var w = new Utf8JsonWriter(ms))
