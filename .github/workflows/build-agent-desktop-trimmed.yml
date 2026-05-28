@@ -216,6 +216,16 @@ jobs:
           $rid = '${{ matrix.rid }}'
           $publishDir = "artifacts/publish/desktop/$rid"
 
+          # macOS Native AOT linker (Apple ld) crashes with assertion failure on large binaries.
+          # Fall back to maximum-trim managed publish for osx-* until the Apple linker is fixed.
+          # See: https://github.com/dotnet/runtime/issues/112375
+          if ($publishAot -and $rid.StartsWith('osx-')) {
+            Write-Host "::warning::Native AOT skipped for $rid — Apple ld crashes on large binaries. Using trimmed managed publish instead."
+            $publishAot = $false
+          }
+
+          "DESKTOP_EFFECTIVE_AOT=$publishAot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
           $commonProperties = @(
             '-p:SkipClientBuild=true',
             '-p:PublishTrimmed=true',
@@ -253,7 +263,8 @@ jobs:
       - name: Validate Bundled Desktop Tools
         shell: pwsh
         run: |
-          $publishAot = '${{ inputs.publish_aot }}' -eq 'true'
+          # Read the effective AOT flag written by the Publish step (may differ from inputs.publish_aot on osx-*).
+          $publishAot = $env:DESKTOP_EFFECTIVE_AOT -eq 'True'
           $toolExtension = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
           $desktopExecutable = "artifacts/publish/desktop/${{ matrix.rid }}/GnOuGo.Agent$toolExtension"
           if (-not (Test-Path $desktopExecutable)) {
