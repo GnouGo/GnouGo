@@ -18,7 +18,8 @@ public static class LLMRequestSanitizer
             StructuredOutputStrict = request.StructuredOutputStrict,
             Reasoning = request.Reasoning,
             UseBackgroundMode = request.UseBackgroundMode,
-            Tools = request.Tools
+            Tools = request.Tools,
+            MaxOutputTokens = request.MaxOutputTokens ?? metadata.MaxOutputTokens
         };
 
         var capabilities = metadata.Capabilities ?? new ModelCapabilityMetadata();

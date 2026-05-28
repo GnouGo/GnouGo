@@ -137,6 +137,13 @@ public sealed class LlmCallExecutor : IStepExecutor
                 request.StructuredOutputStrict = s.GetValue<bool>();
         }
 
+        // Max output tokens
+        if (input.TryGetPropertyValue("max_tokens", out var maxTokensNode) && maxTokensNode != null)
+        {
+            request.MaxTokens = (int)ExpressionEvaluator.GetNumber(maxTokensNode);
+            ctx.SetTelemetryAttribute("gen_ai.request.max_tokens", request.MaxTokens);
+        }
+
         // ── Thinking: signal that we are calling the LLM ──
         ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
         {

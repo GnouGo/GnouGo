@@ -43,8 +43,8 @@ function Set-ObjectProperty($Object, [string]$Name, $Value) {
 function Normalize-ProviderType([string]$Provider) {
     if ([string]::IsNullOrWhiteSpace($Provider)) { return $null }
     switch ($Provider.Trim().ToLowerInvariant()) {
-        "anthropic" { return "claude" }
-        "claude" { return "claude" }
+        "anthropic" { return "anthropic" }
+        "claude" { return "anthropic" }
         "github_copilot" { return "copilot" }
         "github" { return "copilot" }
         "copilot" { return "copilot" }
@@ -75,7 +75,7 @@ function Get-ProviderQualifiedModelKey([string]$Key, $Model) {
 }
 function Convert-LiteLlmModelToCatalogKey([string]$Provider, [string]$ModelName) {
     $providerType = Normalize-ProviderType $Provider
-    if ($providerType -notin @("openai", "claude", "copilot", "ollama")) { return $null }
+    if ($providerType -notin @("openai", "anthropic", "copilot", "ollama")) { return $null }
     $trimmed = $ModelName
     foreach ($candidatePrefix in @($Provider, $providerType, "anthropic", "github_copilot", "copilot", "openai", "ollama")) {
         if ([string]::IsNullOrWhiteSpace($candidatePrefix)) { continue }
@@ -168,7 +168,7 @@ if ($DownloadLatest) {
                     providerType = $qualified.ProviderType
                 }
                 switch ($qualified.ProviderType) {
-                    "claude" { Set-ObjectProperty $model "ownedBy" "anthropic" }
+                    "anthropic" { Set-ObjectProperty $model "ownedBy" "anthropic" }
                     "ollama" { Set-ObjectProperty $model "ownedBy" "ollama" }
                     "openai" { Set-ObjectProperty $model "ownedBy" "openai" }
                 }
@@ -239,7 +239,7 @@ if ($DownloadLatest) {
                     Set-ObjectProperty $capabilities "supportedReasoningEfforts" $efforts
                 }
             }
-            elseif ($qualified.ProviderType -eq "claude") {
+            elseif ($qualified.ProviderType -eq "anthropic") {
                 Set-ObjectProperty $capabilities "supportsReasoningEffort" $false
             }
         }

@@ -939,10 +939,13 @@ Produce the final answer strictly from the executed MCP results.
             ExtractUsageTelemetry(ctx, callResult.Usage, callResult.Model, provider: null);
             EmitMcpProgressEventsAsThinking(ctx, callResult.Content, correlation, realtimeProgressFingerprints);
 
+            // Strip verbose progress event arrays from the output (already emitted as telemetry)
+            var cleanedContent = StripProgressEvents(callResult.Content);
+
             return new JsonObject
             {
                 ["status"] = callResult.IsError ? "error" : "ok",
-                ["response"] = callResult.Content?.DeepClone(),
+                ["response"] = cleanedContent,
                 ["error"] = callResult.IsError ? BuildMcpErrorObject(callResult.Content, correlation) : null,
                 ["correlation_id"] = correlation.CorrelationId,
                 ["trace_id"] = correlation.TraceId
@@ -1042,6 +1045,34 @@ Produce the final answer strictly from the executed MCP results.
         foreach (var item in events.OfType<JsonObject>())
             yield return item;
     }
+
+    /// <summary>
+    /// Returns a deep clone of the MCP tool content with progress event arrays removed.
+    /// Progress events are already emitted as telemetry thinking events; keeping them in
+    /// the step output makes it unnecessarily verbose for downstream expression access.
+    /// </summary>
+    private static JsonNode? StripProgressEvents(JsonNode? content)
+    {
+        if (content is not JsonObject obj)
+            return content?.DeepClone();
+
+        var clone = obj.DeepClone() as JsonObject;
+        if (clone == null)
+            return content.DeepClone();
+
+        foreach (var key in ProgressEventPropertyNames)
+        {
+            // Case-insensitive removal
+            var toRemove = clone.FirstOrDefault(p => string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase));
+            if (toRemove.Value is JsonArray)
+                clone.Remove(toRemove.Key);
+        }
+
+        return clone;
+    }
+
+    private static readonly string[] ProgressEventPropertyNames =
+        ["progressEvents", "progress_events", "progress", "events"];
 
     private static JsonArray? GetArrayProperty(JsonObject obj, string name)
     {
