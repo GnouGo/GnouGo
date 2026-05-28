@@ -118,11 +118,19 @@
     <ItemGroup>
       <_BlazorFrameworkAssets Include="$(NuGetPackageRoot)microsoft.aspnetcore.app.internal.assets/*/_framework/blazor.web.js" />
       <_BlazorFrameworkAssets Include="$(NuGetPackageRoot)microsoft.aspnetcore.app.internal.assets/*/_framework/blazor.server.js" />
+      <_BlazorFrameworkAssets Include="$(PublishDir)_framework/blazor.web.js" />
+      <_BlazorFrameworkAssets Include="$(PublishDir)_framework/blazor.server.js" />
+      <_BlazorFrameworkAssets Include="$(PublishDir)wwwroot/_framework/blazor.web.js" />
+      <_BlazorFrameworkAssets Include="$(PublishDir)wwwroot/_framework/blazor.server.js" />
     </ItemGroup>
 
-    <Error Condition="'@(_BlazorFrameworkAssets)' == ''" Text="Unable to locate Blazor framework assets under $(NuGetPackageRoot)microsoft.aspnetcore.app.internal.assets." />
+    <ItemGroup>
+      <_BlazorFrameworkAssets Remove="@(_BlazorFrameworkAssets)" Condition="!Exists('%(Identity)')" />
+    </ItemGroup>
+
+    <Warning Condition="'@(_BlazorFrameworkAssets)' == ''" Text="Unable to locate Blazor framework assets from known sources (NuGet internal assets or publish _framework folders)." />
     <MakeDir Directories="$(PublishDir)wwwroot\_framework" />
-    <Copy SourceFiles="@(_BlazorFrameworkAssets)" DestinationFolder="$(PublishDir)wwwroot\_framework" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_BlazorFrameworkAssets)" DestinationFolder="$(PublishDir)wwwroot\_framework" SkipUnchangedFiles="true" Condition="'@(_BlazorFrameworkAssets)' != ''" />
     <Message Importance="high" Text="Copied @(_BlazorFrameworkAssets->Count()) Blazor framework asset(s) into $(PublishDir)wwwroot\_framework." />
   </Target>
 
