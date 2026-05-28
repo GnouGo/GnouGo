@@ -1,4 +1,4 @@
-﻿name: Build Agent Desktop Trimmed
+﻿name: Build Agent Desktop (Trimmed + Native AOT)
 
 on:
   workflow_call:
@@ -12,7 +12,7 @@ on:
         description: Publish the desktop application itself with Native AOT. Bundled MCP tools keep their existing per-tool AOT settings.
         required: false
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
@@ -23,7 +23,7 @@ env:
 
 jobs:
   desktop_aot:
-    name: Desktop Trimmed (${{ matrix.rid }})
+    name: Desktop Build (${{ matrix.rid }})
     strategy:
       fail-fast: false
       matrix:
@@ -77,7 +77,7 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "pnpm-lock.yaml"
 
-      - name: Install Linux Native AOT toolchain
+      - name: Install Linux Native Toolchains
         if: matrix.os == 'ubuntu-latest' && (inputs.publish_aot || matrix.rid == 'linux-arm64')
         shell: bash
         run: |
@@ -93,7 +93,7 @@ jobs:
               linux-libc-dev-arm64-cross
           fi
 
-      - name: Validate Browser MCP self-contained publish
+      - name: Validate Browser MCP (self-contained, non-AOT)
         shell: pwsh
         run: |
           dotnet publish src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj `
@@ -107,7 +107,7 @@ jobs:
             -p:InvariantGlobalization=false `
             -p:SkipModelMetadataGeneration=true
 
-      - name: Validate Git MCP Native AOT publish
+      - name: Validate Git MCP (Native AOT)
         shell: pwsh
         run: |
           $publishArgs = @(
@@ -126,7 +126,7 @@ jobs:
           }
           dotnet @publishArgs
 
-      - name: Validate GitHub Copilot MCP Native AOT publish
+      - name: Validate GitHub Copilot MCP (Native AOT)
         shell: pwsh
         run: |
           $publishArgs = @(
@@ -145,7 +145,7 @@ jobs:
           }
           dotnet @publishArgs
 
-      - name: Validate Cmd MCP Native AOT publish
+      - name: Validate Cmd MCP (Native AOT)
         shell: pwsh
         run: |
           $publishArgs = @(
@@ -164,7 +164,7 @@ jobs:
           }
           dotnet @publishArgs
 
-      - name: Validate Document MCP Native AOT publish
+      - name: Validate Document MCP (Native AOT)
         shell: pwsh
         run: |
           $publishArgs = @(
@@ -184,7 +184,7 @@ jobs:
           dotnet @publishArgs
 
 
-      - name: Validate DocIngestor MCP Native AOT publish
+      - name: Validate DocIngestor MCP (Native AOT)
         shell: pwsh
         run: |
           $publishArgs = @(
@@ -209,7 +209,7 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
 
-      - name: Publish Desktop (self-contained trimmed)
+      - name: Publish Desktop (Trimmed or Native AOT)
         shell: pwsh
         run: |
           $publishAot = '${{ inputs.publish_aot }}' -eq 'true'
@@ -250,7 +250,7 @@ jobs:
 
           dotnet @publishArgs
 
-      - name: Validate bundled desktop tools
+      - name: Validate Bundled Desktop Tools
         shell: pwsh
         run: |
           $publishAot = '${{ inputs.publish_aot }}' -eq 'true'
@@ -385,7 +385,7 @@ jobs:
             }
           }
 
-      - name: Package Desktop output
+      - name: Package Desktop Artifact
         shell: pwsh
         run: |
           Get-ChildItem "artifacts/publish/desktop/${{ matrix.rid }}" -Recurse -Filter *.pdb | Remove-Item -Force
@@ -435,7 +435,7 @@ jobs:
             Compress-Archive -Path "artifacts/publish/desktop/${{ matrix.rid }}/*" -DestinationPath $archive
           }
 
-      - name: Upload Desktop artifact
+      - name: Upload Desktop Artifact
         uses: actions/upload-artifact@v4
         with:
           name: gnougo-${{ matrix.rid }}
