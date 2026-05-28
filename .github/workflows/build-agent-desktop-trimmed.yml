@@ -85,7 +85,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends clang zlib1g-dev
           if [ "${{ matrix.rid }}" = "linux-arm64" ]; then
-            sudo apt-get install -y --no-install-recommends binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
+            sudo apt-get install -y --no-install-recommends \
+              binutils-aarch64-linux-gnu \
+              gcc-aarch64-linux-gnu \
+              g++-aarch64-linux-gnu \
+              libc6-dev-arm64-cross \
+              linux-libc-dev-arm64-cross
           fi
 
       - name: Validate Browser MCP self-contained publish

@@ -57,7 +57,9 @@ RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
         apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
             binutils-aarch64-linux-gnu \
             gcc-aarch64-linux-gnu \
-            libc6-dev-arm64-cross; \
+            g++-aarch64-linux-gnu \
+            libc6-dev-arm64-cross \
+            linux-libc-dev-arm64-cross; \
     fi \
     && rm -rf /var/lib/apt/lists/*
 

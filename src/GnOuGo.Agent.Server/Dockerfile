@@ -34,9 +34,9 @@ ARG TARGETOS
 
 # Node.js is needed when publishing the bundled GnOuGo.Browser.Mcp Playwright tool.
 # clang and zlib headers are required by Native AOT on Linux.
-# The aarch64 toolchain is required when buildx publishes linux/arm64 from an amd64 builder.
+# The aarch64 toolchain and sysroot are required when buildx publishes linux/arm64 from an amd64 builder.
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
-    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 clang zlib1g-dev nodejs binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 clang zlib1g-dev nodejs binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross linux-libc-dev-arm64-cross \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
