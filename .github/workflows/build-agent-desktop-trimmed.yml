@@ -209,19 +209,6 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
 
-      - name: Publish Server (for static assets)
-        shell: pwsh
-        run: |
-          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj `
-            -c Release `
-            -r ${{ matrix.rid }} `
-            --self-contained false `
-            -o artifacts/tmp-server-assets-only `
-            -p:SkipClientBuild=true `
-            -p:PublishTrimmed=false `
-            -p:DebugType=None `
-            -p:DebugSymbols=false
-
       - name: Publish Desktop (Trimmed or Native AOT)
         shell: pwsh
         run: |
@@ -387,10 +374,13 @@ jobs:
           $playwrightDriverNodes | Select-Object -First 20 FullName | Format-Table -AutoSize | Out-String | Write-Host
 
           $requiredUiAssets = @(
-            "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js",
             "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/ui/app.js",
             "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/ui/app.css"
           )
+
+          if (-not $publishAot) {
+            $requiredUiAssets += "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js"
+          }
 
           foreach ($path in $requiredUiAssets) {
             if (-not (Test-Path $path)) {
