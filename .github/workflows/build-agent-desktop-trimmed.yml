@@ -237,7 +237,6 @@ jobs:
             $commonProperties += @(
               '-p:PublishAot=true',
               '-p:PublishSingleFile=false',
-              '-p:DisableRazorComponentsForNativeAot=true',
               '-p:JsonSerializerIsReflectionEnabledByDefault=true',
               '-p:DebugType=None',
               '-p:DebugSymbols=false'
@@ -389,9 +388,7 @@ jobs:
             "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/ui/app.css"
           )
 
-          if (-not $publishAot) {
-            $requiredUiAssets += "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js"
-          }
+          $requiredUiAssets += "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js"
 
           foreach ($path in $requiredUiAssets) {
             if (-not (Test-Path $path)) {
