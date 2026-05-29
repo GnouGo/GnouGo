@@ -63,7 +63,19 @@ namespace GnOuGo.Diff.Core.Data.CompiledModels
                 shadowIndex: -1,
                 relationshipIndex: 0,
                 storeGenerationIndex: 0);
-            id.TypeMapping = SqliteGuidTypeMapping.Default;
+            id.TypeMapping = SqliteGuidTypeMapping.Default.Clone(
+                comparer: new ValueComparer<Guid>(
+                    bool (Guid v1, Guid v2) => v1 == v2,
+                    int (Guid v) => v.GetHashCode(),
+                    Guid (Guid v) => v),
+                keyComparer: new ValueComparer<Guid>(
+                    bool (Guid v1, Guid v2) => v1 == v2,
+                    int (Guid v) => v.GetHashCode(),
+                    Guid (Guid v) => v),
+                providerValueComparer: new ValueComparer<Guid>(
+                    bool (Guid v1, Guid v2) => v1 == v2,
+                    int (Guid v) => v.GetHashCode(),
+                    Guid (Guid v) => v));
             id.SetCurrentValueComparer(new EntryCurrentValueComparer<Guid>(id));
 
             var author = runtimeEntityType.AddProperty(

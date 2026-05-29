@@ -236,7 +236,7 @@ jobs:
           if ($publishAot) {
             $commonProperties += @(
               '-p:PublishAot=true',
-              '-p:PublishSingleFile=true',
+              '-p:PublishSingleFile=false',
               '-p:DisableRazorComponentsForNativeAot=true',
               '-p:JsonSerializerIsReflectionEnabledByDefault=true',
               '-p:DebugType=None',
