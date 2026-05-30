@@ -2,8 +2,8 @@
 # GnOuGo.Agent.Server - Multi-stage Dockerfile
 #
 #   Stage 1 (node)   : Build ClientApp (Vite + TS -> wwwroot/ui)
-#   Stage 2 (sdk)    : Restore + publish .NET app as Native AOT
-#   Stage 3 (runtime): Final GnOuGo image (runtime-deps + native executable)
+#   Stage 2 (sdk)    : Restore + publish .NET app (trimmed, self-contained)
+#   Stage 3 (runtime): Final GnOuGo image (aspnet runtime + single-file executable)
 #
 # Build (from repo root):
 #   docker build -t gnougo-agent -f src/GnOuGo.Agent.Server/Dockerfile .
@@ -78,6 +78,7 @@ COPY src/ src/
 COPY --from=clientapp /workspace/src/GnOuGo.Agent.Server/wwwroot/ui src/GnOuGo.Agent.Server/wwwroot/ui/
 # Publish in Release as trimmed self-contained.
 # SkipClientBuild=true avoids re-running pnpm inside dotnet publish.
+# Grpc.Tools must be allowed to refresh generated inputs during publish (no --no-restore).
 RUN case "${TARGETOS:-linux}-${TARGETARCH:-amd64}" in \
         linux-amd64) export TARGET_RID=linux-x64 ;; \
         linux-arm64) export TARGET_RID=linux-arm64 ;; \

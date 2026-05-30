@@ -61,6 +61,8 @@ public static class AgentMcpHostingExtensions
         return services;
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL3050",
+        Justification = "EnsureCreatedAsync is used at startup to bootstrap the SQLite schema.")]
     public static async Task InitializeAgentMcpAsync(this IServiceProvider services, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -68,6 +70,26 @@ public static class AgentMcpHostingExtensions
         await using var scope = services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AgentMcpDbContext>();
         await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(db, ct);
+
+        var diffDb = scope.ServiceProvider.GetRequiredService<DiffDbContext>();
+        await diffDb.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "DiffEntries" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_DiffEntries" PRIMARY KEY,
+                "EntityType" TEXT NOT NULL,
+                "EntityId" TEXT NOT NULL,
+                "Author" TEXT NOT NULL,
+                "ValueHash" TEXT NOT NULL,
+                "CurrentValue" TEXT NOT NULL,
+                "DiffFromPrevious" TEXT,
+                "TimestampTicks" INTEGER NOT NULL
+            )
+            """, ct);
+        await diffDb.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX IF NOT EXISTS "IX_DiffEntries_EntityType_EntityId_TimestampTicks" ON "DiffEntries" ("EntityType", "EntityId", "TimestampTicks")""", ct);
+        await diffDb.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX IF NOT EXISTS "IX_DiffEntries_EntityType_EntityId" ON "DiffEntries" ("EntityType", "EntityId")""", ct);
+        await diffDb.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX IF NOT EXISTS "IX_DiffEntries_TimestampTicks" ON "DiffEntries" ("TimestampTicks")""", ct);
     }
 
     public static IEndpointConventionBuilder MapAgentMcp(this IEndpointRouteBuilder endpoints, string pattern = DefaultRoutePrefix)

@@ -1,11 +1,13 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Telemetry;
+using OtlpTenantCollector.Data;
 using OtlpTenantCollector.Models;
 using OtlpTenantCollector.Services;
 
@@ -467,6 +469,13 @@ public sealed class TraceDebugServiceTests
                 ChannelCapacity: 100,
                 RetentionSweepSeconds: 60,
                 DevModeEnabled: false));
+            services.AddDbContext<TelemetryDbContext>(options =>
+            {
+                var dir = Path.GetDirectoryName(dbPath);
+                if (!string.IsNullOrWhiteSpace(dir))
+                    Directory.CreateDirectory(dir);
+                options.UseSqlite($"Data Source={dbPath}");
+            });
             services.AddScoped<EfTelemetryStore>();
 
             var provider = services.BuildServiceProvider();
