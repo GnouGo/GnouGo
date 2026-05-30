@@ -9,7 +9,7 @@ on:
         type: string
         default: ""
       publish_aot:
-        description: Publish the desktop application itself with Native AOT. Bundled MCP tools keep their existing per-tool AOT settings.
+        description: "(Deprecated — desktop always uses trimmed managed due to Blazor Server AOT incompatibility.) Bundled MCP tools always use Native AOT regardless of this flag."
         required: false
         type: boolean
         default: true
@@ -78,7 +78,7 @@ jobs:
           cache-dependency-path: "pnpm-lock.yaml"
 
       - name: Install Linux Native Toolchains
-        if: matrix.os == 'ubuntu-latest' && (inputs.publish_aot || matrix.rid == 'linux-arm64')
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           set -euxo pipefail
@@ -209,42 +209,29 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
 
-      - name: Publish Desktop (Trimmed or Native AOT)
+      - name: Publish Desktop (Trimmed Managed)
         shell: pwsh
         run: |
-          $publishAot = '${{ inputs.publish_aot }}' -eq 'true'
           $rid = '${{ matrix.rid }}'
           $publishDir = "artifacts/publish/desktop/$rid"
 
-          # macOS Native AOT linker (Apple ld) crashes with assertion failure on large binaries.
-          # Fall back to maximum-trim managed publish for osx-* until the Apple linker is fixed.
-          # See: https://github.com/dotnet/runtime/issues/112375
-          if ($publishAot -and $rid.StartsWith('osx-')) {
-            Write-Host "::warning::Native AOT skipped for $rid — Apple ld crashes on large binaries. Using trimmed managed publish instead."
-            $publishAot = $false
-          }
-
+          # Blazor Interactive Server does NOT support Native AOT (ServerComponent JSON
+          # serialization requires generic instantiations that cannot be generated ahead-of-time).
+          # See: https://aka.ms/aspnet/nativeaot
+          # The desktop app uses trimmed managed self-contained publish instead.
+          # Bundled MCP tools (Git, Cmd, Document, etc.) remain Native AOT.
+          $publishAot = $false
           "DESKTOP_EFFECTIVE_AOT=$publishAot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
           $commonProperties = @(
             '-p:SkipClientBuild=true',
             '-p:PublishTrimmed=true',
+            '-p:PublishAot=false',
             '-p:InvariantGlobalization=true',
-            '-p:SkipModelMetadataGeneration=true'
+            '-p:SkipModelMetadataGeneration=true',
+            '-p:DebugType=None',
+            '-p:DebugSymbols=false'
           )
-
-          if ($publishAot) {
-            $commonProperties += @(
-              '-p:PublishAot=true',
-              '-p:PublishSingleFile=false',
-              '-p:JsonSerializerIsReflectionEnabledByDefault=true',
-              '-p:DebugType=None',
-              '-p:DebugSymbols=false'
-            )
-            if ($rid -eq 'linux-arm64') {
-              $commonProperties += '-p:ObjCopyName=aarch64-linux-gnu-objcopy'
-            }
-          }
 
           dotnet restore src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj -r $rid @commonProperties
 
@@ -262,18 +249,12 @@ jobs:
       - name: Validate Bundled Desktop Tools
         shell: pwsh
         run: |
-          # Read the effective AOT flag written by the Publish step (may differ from inputs.publish_aot on osx-*).
-          $publishAot = $env:DESKTOP_EFFECTIVE_AOT -eq 'True'
           $toolExtension = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
           $desktopExecutable = "artifacts/publish/desktop/${{ matrix.rid }}/GnOuGo.Agent$toolExtension"
           if (-not (Test-Path $desktopExecutable)) {
             throw "Missing desktop executable: $desktopExecutable"
           }
 
-          $desktopManagedDll = "artifacts/publish/desktop/${{ matrix.rid }}/GnOuGo.Agent.dll"
-          if ($publishAot -and (Test-Path $desktopManagedDll)) {
-            throw "Native AOT desktop publish should not produce a managed entry assembly: $desktopManagedDll"
-          }
 
           $requiredTools = @(
             "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp$toolExtension",

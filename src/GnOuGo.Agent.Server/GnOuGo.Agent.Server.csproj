@@ -50,7 +50,6 @@
     <ClientAppDir>ClientApp</ClientAppDir>
     <PnpmCommand Condition="'$(OS)' == 'Windows_NT'">corepack.cmd pnpm</PnpmCommand>
     <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>
-    <DefineConstants Condition="'$(DisableRazorComponentsForNativeAot)' == 'true'">$(DefineConstants);GNOU_GO_AGENT_SERVER_NO_RAZOR_COMPONENTS</DefineConstants>
   </PropertyGroup>
 
   <Target Name="ViteBuild" BeforeTargets="PrepareForPublish" Condition="'$(SkipClientBuild)' != 'true'">

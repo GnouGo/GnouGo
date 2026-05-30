@@ -26,11 +26,6 @@
   <ApplicationIcon>Assets/icon.ico</ApplicationIcon>
 </PropertyGroup>
 
-  <!-- Runtime directives for Native AOT: ensure generic type instantiations used by Blazor
-       Interactive Server (ServerComponent JSON serialization) have native code generated. -->
-  <ItemGroup>
-    <RdXmlFile Include="rd.xml" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Photino.NET" Version="4.0.16" />

@@ -8,9 +8,7 @@ using Microsoft.Extensions.Options;
 using System.Net;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Services;
-#if !GNOU_GO_AGENT_SERVER_NO_RAZOR_COMPONENTS
 using GnOuGo.Agent.Server.Components;
-#endif
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
@@ -387,10 +385,8 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<SmartFlowService>();
         builder.Services.AddSingleton<TraceDebugService>();
 
-#if !GNOU_GO_AGENT_SERVER_NO_RAZOR_COMPONENTS
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
-#endif
 
         builder.Services.AddSingleton<WordChunker>();
         var capturedArgs = args;
@@ -500,9 +496,7 @@ public static class GnOuGoAgentWebHost
             Log($"Static web assets manifest not found at '{staticAssetsManifest}', skipping MapStaticAssets().");
         }
 
-#if !GNOU_GO_AGENT_SERVER_NO_RAZOR_COMPONENTS
         app.UseAntiforgery();
-#endif
 
         // --- API ---
         app.MapPost("/api/chat", ChatEndpoints.CompleteAsync);
@@ -525,41 +519,6 @@ public static class GnOuGoAgentWebHost
 
         MapMountedMcpEndpoints(app, mountedMcpHostsHolder);
         app.MapGet("/health", () => Results.Text("{\"status\":\"ok\"}", "application/json"));
-#if GNOU_GO_AGENT_SERVER_NO_RAZOR_COMPONENTS
-        // In Native AOT mode Razor components are disabled; serve a static SPA shell
-        // that loads the Vite-built UI assets (same content as App.razor without Blazor SSR).
-        const string spaShellHtml = """
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="utf-8" />
-                <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                <base href="/" />
-                <title>GnOuGo.Agent</title>
-                <meta name="description" content="GnOuGo.Agent — a lightweight chat UI with local history, Markdown rendering, and diagram support." />
-                <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-                <link rel="stylesheet" href="ui/app.css" />
-            </head>
-            <body>
-                <script>
-                    (function () {
-                        try {
-                            var current = new URL(window.location.href);
-                            var token = current.searchParams.get('desktopToken');
-                            if (!token) return;
-                            navigator.sendBeacon('/desktop/page-loaded/' + encodeURIComponent(token));
-                        } catch {}
-                    })();
-                </script>
-                <script type="module" src="ui/app.js"></script>
-            </body>
-            </html>
-            """;
-        app.MapGet("/", () => Results.Content(spaShellHtml, "text/html"));
-        app.MapGet("/ui/", () => Results.Content(spaShellHtml, "text/html"));
-        app.MapGet("/ui", () => Results.Content(spaShellHtml, "text/html"));
-        app.MapGet("/Error", () => Results.Text("An unhandled server error occurred.", "text/plain", statusCode: StatusCodes.Status500InternalServerError));
-#endif
         app.MapGet("/desktop/boot-log/{token}", (string token, string? step, string? detail) =>
         {
             if (!string.IsNullOrWhiteSpace(token))
@@ -582,15 +541,13 @@ public static class GnOuGoAgentWebHost
             return Results.NoContent();
         });
 
-#if !GNOU_GO_AGENT_SERVER_NO_RAZOR_COMPONENTS
         // --- UI ---
         // Always register interactive server render mode.
-        // In published Desktop/NativeAOT builds the static web assets manifest
+        // In published Desktop builds the static web assets manifest
         // may be absent; MapStaticAssets() is only called when the manifest exists,
         // but interactive SSR is always available.
         app.MapRazorComponents<App>()
             .AddInteractiveServerRenderMode();
-#endif
 
         return app;
     }
