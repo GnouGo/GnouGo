@@ -1,4 +1,7 @@
-﻿using ModelContextProtocol.Protocol;
+﻿using System.Diagnostics.CodeAnalysis;
+using Microsoft.EntityFrameworkCore;
+using ModelContextProtocol.Protocol;
+using GnOuGo.Agent.Mcp.Data;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Diff.Core.Data;
 using GnOuGo.Diff.Core.Services;
@@ -16,13 +19,19 @@ public static class AgentMcpHostingExtensions
     public static string ResolveDatabasePath(string? configuredPath, string baseDirectory)
         => GnOuGoWorkspace.ResolveDatabasePath(configuredPath, baseDirectory, DefaultDatabasePath);
 
+    [UnconditionalSuppressMessage("AOT", "IL2026",
+        Justification = "EF Core with SQLite uses TrimMode=partial to preserve required assemblies.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050",
+        Justification = "EF Core with SQLite uses TrimMode=partial to preserve required assemblies.")]
     public static IServiceCollection AddAgentMcpPersistence(this IServiceCollection services, string databasePath)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
 
-        services.AddSingleton(new AgentSqliteStore(databasePath));
-        services.AddDbContext<DiffDbContext>(options => options.UseDiffCoreSqlite($"Data Source={databasePath}"));
+        var connectionString = $"Data Source={databasePath}";
+
+        services.AddDbContext<AgentMcpDbContext>(options => options.UseSqlite(connectionString));
+        services.AddDbContext<DiffDbContext>(options => options.UseDiffCoreSqlite(connectionString));
         services.AddScoped<DiffService>();
         services.AddScoped<IAgentRepository, AgentRepository>();
         services.AddScoped<IUserConfigRepository, UserConfigRepository>();
@@ -57,9 +66,8 @@ public static class AgentMcpHostingExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         await using var scope = services.CreateAsyncScope();
-        var store = scope.ServiceProvider.GetRequiredService<AgentSqliteStore>();
-
-        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(store, ct);
+        var db = scope.ServiceProvider.GetRequiredService<AgentMcpDbContext>();
+        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(db, ct);
     }
 
     public static IEndpointConventionBuilder MapAgentMcp(this IEndpointRouteBuilder endpoints, string pattern = DefaultRoutePrefix)
@@ -71,4 +79,3 @@ public static class AgentMcpHostingExtensions
             .DisableAntiforgery();
     }
 }
-

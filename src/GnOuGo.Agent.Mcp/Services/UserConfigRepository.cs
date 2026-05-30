@@ -1,42 +1,32 @@
 ﻿using System.Text.Json;
 using GnOuGo.AI.Core;
+using GnOuGo.Agent.Mcp.Data;
 using GnOuGo.Agent.Mcp.Models;
 using GnOuGo.Diff.Core.Models;
 using GnOuGo.Diff.Core.Services;
-using Microsoft.Data.Sqlite;
 
 namespace GnOuGo.Agent.Mcp.Services;
 
 public sealed class UserConfigRepository : IUserConfigRepository
 {
-    private readonly AgentSqliteStore _store;
+    private readonly AgentMcpDbContext _db;
     private readonly DiffService _diff;
 
     private const string DiffEntityType = "AgentConfiguration";
     private const string DiffAuthor = "GnOuGo.Agent.Mcp";
 
-    public UserConfigRepository(AgentSqliteStore store, DiffService diff)
+    public UserConfigRepository(AgentMcpDbContext db, DiffService diff)
     {
-        _store = store;
+        _db = db;
         _diff = diff;
     }
 
     public async Task<UserConfigSnapshot> GetAsync(Guid? tenantId = null, CancellationToken ct = default)
     {
-        await using var connection = _store.OpenConnection();
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT "Id", "TenantId", "TenantScopeKey", "DefaultLlmProvider", "DefaultLlmModel",
-                   "DefaultEmbeddingConfig", "DefaultAgent", "ModelOverridesJson", "UpdatedAtTicks"
-            FROM "UserConfigs"
-            WHERE "TenantScopeKey" = $tenantScopeKey
-            LIMIT 1;
-            """;
-        command.Parameters.AddWithValue("$tenantScopeKey", BuildTenantScopeKey(tenantId));
-
-        await using var reader = await command.ExecuteReaderAsync(ct);
-        return await reader.ReadAsync(ct)
-            ? ToSnapshot(ReadRecord(reader))
+        var tenantScopeKey = BuildTenantScopeKey(tenantId);
+        var entity = await AgentMcpQueries.GetUserConfigByScope(_db, tenantScopeKey);
+        return entity is not null
+            ? ToSnapshot(entity)
             : new UserConfigSnapshot(null, null, null, null);
     }
 
@@ -44,14 +34,19 @@ public sealed class UserConfigRepository : IUserConfigRepository
     {
         ArgumentNullException.ThrowIfNull(update);
 
-        await using var connection = _store.OpenConnection();
         var tenantScopeKey = BuildTenantScopeKey(tenantId);
-        var entity = await GetRecordAsync(connection, tenantScopeKey, ct) ?? new UserConfigRecord
+        var entity = await AgentMcpQueries.GetUserConfigByScope(_db, tenantScopeKey);
+
+        if (entity is null)
         {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            TenantScopeKey = tenantScopeKey
-        };
+            entity = new UserConfigRecord
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                TenantScopeKey = tenantScopeKey
+            };
+            _db.UserConfigs.Add(entity);
+        }
 
         if (update.ClearDefaultLlm)
         {
@@ -93,7 +88,7 @@ public sealed class UserConfigRepository : IUserConfigRepository
         }
 
         entity.UpdatedAt = DateTimeOffset.UtcNow;
-        await UpsertAsync(connection, entity, ct);
+        await _db.SaveChangesAsync(ct);
 
         var snapshot = ToSnapshot(entity);
         await SaveConfigurationRevisionAsync(tenantScopeKey, snapshot, ct);
@@ -110,67 +105,6 @@ public sealed class UserConfigRepository : IUserConfigRepository
             DiffAuthor,
             ForceCreate: true), ct);
     }
-
-    private static async Task<UserConfigRecord?> GetRecordAsync(SqliteConnection connection, string tenantScopeKey, CancellationToken ct)
-    {
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT "Id", "TenantId", "TenantScopeKey", "DefaultLlmProvider", "DefaultLlmModel",
-                   "DefaultEmbeddingConfig", "DefaultAgent", "ModelOverridesJson", "UpdatedAtTicks"
-            FROM "UserConfigs"
-            WHERE "TenantScopeKey" = $tenantScopeKey
-            LIMIT 1;
-            """;
-        command.Parameters.AddWithValue("$tenantScopeKey", tenantScopeKey);
-
-        await using var reader = await command.ExecuteReaderAsync(ct);
-        return await reader.ReadAsync(ct) ? ReadRecord(reader) : null;
-    }
-
-    private static async Task UpsertAsync(SqliteConnection connection, UserConfigRecord entity, CancellationToken ct)
-    {
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            INSERT INTO "UserConfigs" (
-                "Id", "TenantId", "TenantScopeKey", "DefaultLlmProvider", "DefaultLlmModel",
-                "DefaultEmbeddingConfig", "DefaultAgent", "ModelOverridesJson", "UpdatedAtTicks")
-            VALUES (
-                $id, $tenantId, $tenantScopeKey, $defaultLlmProvider, $defaultLlmModel,
-                $defaultEmbeddingConfig, $defaultAgent, $modelOverridesJson, $updatedAtTicks)
-            ON CONFLICT("TenantScopeKey") DO UPDATE SET
-                "TenantId" = excluded."TenantId",
-                "DefaultLlmProvider" = excluded."DefaultLlmProvider",
-                "DefaultLlmModel" = excluded."DefaultLlmModel",
-                "DefaultEmbeddingConfig" = excluded."DefaultEmbeddingConfig",
-                "DefaultAgent" = excluded."DefaultAgent",
-                "ModelOverridesJson" = excluded."ModelOverridesJson",
-                "UpdatedAtTicks" = excluded."UpdatedAtTicks";
-            """;
-        command.Parameters.AddWithValue("$id", entity.Id.ToString("D"));
-        command.Parameters.AddWithValue("$tenantId", ToDbValue(entity.TenantId?.ToString("D")));
-        command.Parameters.AddWithValue("$tenantScopeKey", entity.TenantScopeKey);
-        command.Parameters.AddWithValue("$defaultLlmProvider", ToDbValue(entity.DefaultLlmProvider));
-        command.Parameters.AddWithValue("$defaultLlmModel", ToDbValue(entity.DefaultLlmModel));
-        command.Parameters.AddWithValue("$defaultEmbeddingConfig", ToDbValue(entity.DefaultEmbeddingConfig));
-        command.Parameters.AddWithValue("$defaultAgent", ToDbValue(entity.DefaultAgent));
-        command.Parameters.AddWithValue("$modelOverridesJson", ToDbValue(entity.ModelOverridesJson));
-        command.Parameters.AddWithValue("$updatedAtTicks", entity.UpdatedAtTicks);
-        await command.ExecuteNonQueryAsync(ct);
-    }
-
-    private static UserConfigRecord ReadRecord(SqliteDataReader reader)
-        => new()
-        {
-            Id = Guid.Parse(reader.GetString(0)),
-            TenantId = reader.IsDBNull(1) ? null : Guid.Parse(reader.GetString(1)),
-            TenantScopeKey = reader.GetString(2),
-            DefaultLlmProvider = reader.IsDBNull(3) ? null : reader.GetString(3),
-            DefaultLlmModel = reader.IsDBNull(4) ? null : reader.GetString(4),
-            DefaultEmbeddingConfig = reader.IsDBNull(5) ? null : reader.GetString(5),
-            DefaultAgent = reader.IsDBNull(6) ? null : reader.GetString(6),
-            ModelOverridesJson = reader.IsDBNull(7) ? null : reader.GetString(7),
-            UpdatedAtTicks = reader.GetInt64(8)
-        };
 
     private static string BuildTenantScopeKey(Guid? tenantId)
         => tenantId?.ToString("D") ?? "global";
@@ -199,6 +133,4 @@ public sealed class UserConfigRepository : IUserConfigRepository
             return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
         }
     }
-
-    private static object ToDbValue(string? value) => value is null ? DBNull.Value : value;
 }
