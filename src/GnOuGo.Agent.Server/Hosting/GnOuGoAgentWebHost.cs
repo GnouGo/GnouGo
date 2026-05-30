@@ -442,9 +442,36 @@ public static class GnOuGoAgentWebHost
             });
         }
 
+        if (isDesktopHosted)
+        {
+            // In desktop mode, log unhandled exceptions to desktop.log so AOT / trim
+            // failures are always visible — the default exception handler swallows them.
+            app.Use(async (context, next) =>
+            {
+                try
+                {
+                    await next();
+                }
+                catch (Exception ex)
+                {
+                    Log($"UnhandledException on {context.Request.Method} {context.Request.Path}: {ex}");
+                    throw; // re-throw so the normal handler still runs
+                }
+            });
+        }
+
         if (!app.Environment.IsDevelopment())
         {
-            app.UseExceptionHandler("/Error", createScopeForErrors: true);
+            if (isDesktopHosted)
+            {
+                // In desktop mode, show the full developer exception page so AOT/trim
+                // crashes are immediately visible in the embedded WebView.
+                app.UseDeveloperExceptionPage();
+            }
+            else
+            {
+                app.UseExceptionHandler("/Error", createScopeForErrors: true);
+            }
             app.UseHsts();
         }
 
