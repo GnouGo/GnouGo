@@ -1,0 +1,24 @@
+<Directives xmlns="http://schemas.microsoft.com/netfx/2013/01/metadata">
+  <Application>
+    <!--
+      Blazor Interactive Server render mode serializes ServerComponent markers via System.Text.Json.
+      The generic converter ObjectDefaultConverter<ServerComponent> is instantiated at runtime via
+      Activator.CreateInstance, which requires native code in AOT. Root the necessary types so the
+      NativeAOT compiler generates their code.
+    -->
+    <Assembly Name="System.Text.Json">
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[Microsoft.AspNetCore.Components.ServerComponent, Microsoft.AspNetCore.Components.Web]]"
+            Dynamic="Required All" />
+    </Assembly>
+    <Assembly Name="Microsoft.AspNetCore.Components.Web">
+      <Type Name="Microsoft.AspNetCore.Components.ServerComponent"
+            Dynamic="Required All"
+            MarshalStructure="Required All" />
+    </Assembly>
+    <Assembly Name="Microsoft.AspNetCore.Components.Endpoints">
+      <Type Name="Microsoft.AspNetCore.Components.Endpoints.ServerComponentSerializer"
+            Dynamic="Required All" />
+    </Assembly>
+  </Application>
+</Directives>
+
