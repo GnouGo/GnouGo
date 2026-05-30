@@ -53,4 +53,3 @@ public static class KeyVaultMcpWebHost
             context.RequestAborted);
     }
 }
-

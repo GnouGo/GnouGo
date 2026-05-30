@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
-using GnOuGo.KeyVault.Mcp;
+using GnOuGo.KeyVault.Core.Services;
 
 namespace GnOuGo.Agent.Server.SmartFlow;
 
@@ -33,8 +33,8 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
     public async Task<IReadOnlyList<KeyVaultSecretSummary>> ListSecretsAsync(CancellationToken ct)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
-        var store = scope.ServiceProvider.GetRequiredService<KeyVaultSqliteStore>();
-        var secrets = await store.ListSecretsAsync(null, ct);
+        var service = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+        var secrets = await service.ListSecretsAsync(null, ct);
 
         return secrets
             .OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase)
@@ -48,23 +48,23 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
     public async Task<string?> GetSecretValueAsync(string key, CancellationToken ct)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
-        var store = scope.ServiceProvider.GetRequiredService<KeyVaultSqliteStore>();
-        var secret = await store.GetSecretAsync(key, null, DefaultAuthor, ct);
+        var service = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+        var secret = await service.GetSecretAsync(key, null, DefaultAuthor, ct);
         return secret?.Value;
     }
 
     public async Task SaveSecretValueAsync(string key, string value, CancellationToken ct)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
-        var store = scope.ServiceProvider.GetRequiredService<KeyVaultSqliteStore>();
-        await store.SetSecretAsync(key, value, null, DefaultAuthor, ct);
+        var service = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+        await service.SetSecretAsync(key, value, null, DefaultAuthor, ct);
     }
 
     public async Task<bool> DeleteSecretValueAsync(string key, CancellationToken ct)
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
-        var store = scope.ServiceProvider.GetRequiredService<KeyVaultSqliteStore>();
-        return await store.DeleteSecretAsync(key, null, DefaultAuthor, ct);
+        var service = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+        return await service.DeleteSecretAsync(key, null, DefaultAuthor, ct);
     }
 
     public Task<bool> DeleteSecretAsync(string key, CancellationToken ct)

@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 using GnOuGo.KeyVault.Core.Models;
+using GnOuGo.KeyVault.Core.Services;
 
 namespace GnOuGo.KeyVault.Mcp;
 
@@ -13,12 +14,12 @@ namespace GnOuGo.KeyVault.Mcp;
 [McpServerToolType]
 public sealed class KeyVaultTools
 {
-    private readonly KeyVaultSqliteStore _store;
+    private readonly KeyVaultService _service;
     private readonly ILogger<KeyVaultTools> _logger;
 
-    public KeyVaultTools(KeyVaultSqliteStore store, ILogger<KeyVaultTools> logger)
+    public KeyVaultTools(KeyVaultService service, ILogger<KeyVaultTools> logger)
     {
-        _store = store;
+        _service = service;
         _logger = logger;
     }
 
@@ -27,7 +28,7 @@ public sealed class KeyVaultTools
     {
         try
         {
-            var tenants = await _store.ListTenantsAsync(ct);
+            var tenants = await _service.ListTenantsAsync(ct);
             return KeyVaultResult<List<TenantDto>>.Ok(tenants);
         }
         catch (Exception ex)
@@ -45,7 +46,7 @@ public sealed class KeyVaultTools
     {
         try
         {
-            var tenant = await _store.CreateTenantAsync(name, author, ct);
+            var tenant = await _service.CreateTenantAsync(name, author, ct);
             return KeyVaultResult<TenantDto>.Ok(tenant);
         }
         catch (Exception ex)
@@ -65,8 +66,9 @@ public sealed class KeyVaultTools
     {
         try
         {
-            var result = await _store.SetSecretAsync(key, value, tenantId, author, ct);
-            return KeyVaultResult<KeyVaultSecretMetadataResult>.Ok(result);
+            var result = await _service.SetSecretAsync(key, value, tenantId, author, ct);
+            var metadata = new KeyVaultSecretMetadataResult(result.Id, result.Key, result.Version, result.TenantId, result.CreatedAt);
+            return KeyVaultResult<KeyVaultSecretMetadataResult>.Ok(metadata);
         }
         catch (Exception ex)
         {
@@ -82,7 +84,7 @@ public sealed class KeyVaultTools
     {
         try
         {
-            var secrets = await _store.ListSecretsAsync(tenantId, ct);
+            var secrets = await _service.ListSecretsAsync(tenantId, ct);
             return KeyVaultResult<List<SecretDto>>.Ok(secrets);
         }
         catch (Exception ex)
@@ -101,11 +103,12 @@ public sealed class KeyVaultTools
     {
         try
         {
-            var result = await _store.GetSecretAsync(key, tenantId, author, ct);
+            var result = await _service.GetSecretAsync(key, tenantId, author, ct);
             if (result is null)
                 return KeyVaultResult<KeyVaultSecretValueResult>.NotFound($"Secret '{key}' not found.");
 
-            return KeyVaultResult<KeyVaultSecretValueResult>.Ok(result);
+            var mapped = new KeyVaultSecretValueResult(result.Id, result.Key, result.Value, result.Version, result.TenantId, result.CreatedAt);
+            return KeyVaultResult<KeyVaultSecretValueResult>.Ok(mapped);
         }
         catch (Exception ex)
         {
@@ -123,7 +126,7 @@ public sealed class KeyVaultTools
     {
         try
         {
-            var deleted = await _store.DeleteSecretAsync(key, tenantId, author, ct);
+            var deleted = await _service.DeleteSecretAsync(key, tenantId, author, ct);
             return deleted
                 ? KeyVaultResult<KeyVaultMessage>.Ok(new KeyVaultMessage("Secret deleted."))
                 : KeyVaultResult<KeyVaultMessage>.NotFound("Secret not found.");
@@ -135,5 +138,3 @@ public sealed class KeyVaultTools
         }
     }
 }
-
-

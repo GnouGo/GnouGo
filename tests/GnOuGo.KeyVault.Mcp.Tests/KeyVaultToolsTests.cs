@@ -1,26 +1,41 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using GnOuGo.KeyVault.Core.Data;
+using GnOuGo.KeyVault.Core.Services;
 
 namespace GnOuGo.KeyVault.Mcp.Tests;
 
 public sealed class KeyVaultToolsTests : IAsyncDisposable
 {
     private readonly string _dbPath;
+    private readonly ServiceProvider _serviceProvider;
     private readonly KeyVaultTools _tools;
 
     public KeyVaultToolsTests()
     {
         _dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-keyvault-tools-{Guid.NewGuid():N}.db");
-        var store = new KeyVaultSqliteStore(_dbPath);
-        store.InitializeAsync().GetAwaiter().GetResult();
-        _tools = new KeyVaultTools(store, NullLogger<KeyVaultTools>.Instance);
+
+        var services = new ServiceCollection();
+        services.AddDbContext<KeyVaultDbContext>(o => o.UseSqlite($"Data Source={_dbPath}"));
+        services.AddScoped<KeyVaultService>();
+        _serviceProvider = services.BuildServiceProvider();
+
+        var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
+        KeyVaultDatabaseBootstrap.EnsureCreatedAsync(db).GetAwaiter().GetResult();
+        var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+        svc.EnsureDefaultKeyPairAsync().GetAwaiter().GetResult();
+
+        _tools = new KeyVaultTools(svc, NullLogger<KeyVaultTools>.Instance);
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
+        await _serviceProvider.DisposeAsync();
         TryDelete(_dbPath);
         TryDelete(_dbPath + "-shm");
         TryDelete(_dbPath + "-wal");
-        return ValueTask.CompletedTask;
     }
 
     [Fact]
@@ -108,4 +123,3 @@ public sealed class KeyVaultToolsTests : IAsyncDisposable
         }
     }
 }
-

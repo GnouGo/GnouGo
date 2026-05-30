@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.KeyVault.Mcp;
 
 namespace GnOuGo.Agent.Server.Tests;
@@ -24,7 +25,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             await using (var scope = provider.CreateAsyncScope())
             {
                 await provider.InitializeKeyVaultMcpAsync();
-                var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultSqliteStore>();
+                var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
                 await keyVault.SetSecretAsync(
                     "LLM--Models--openai",
                     "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4.1\",\"authType\":\"api_key\",\"apiKey\":\"top-secret\"}",
@@ -116,7 +117,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             await using (var scope = provider.CreateAsyncScope())
             {
                 await provider.InitializeKeyVaultMcpAsync();
-                var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultSqliteStore>();
+                var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
                 await keyVault.SetSecretAsync(
                     "gnougo_llm_openai",
                     "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4.1\",\"auth_type\":\"api_key\",\"api_key\":\"legacy-secret\"}",

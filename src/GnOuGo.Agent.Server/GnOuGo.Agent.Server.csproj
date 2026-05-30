@@ -5,9 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <!-- Keep Debug fast & friendly; enable NativeAOT + trimming in Release/publish only. -->
+  <!-- Keep Debug fast & friendly; enable trimming in Release/publish only. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <PublishAot>true</PublishAot>
     <PublishTrimmed>true</PublishTrimmed>
 
     <!-- PublishTrimmed disables reflection-based System.Text.Json by default.
@@ -16,7 +15,6 @@
 
     <TrimMode>partial</TrimMode>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
   </PropertyGroup>
 
   <ItemGroup>
