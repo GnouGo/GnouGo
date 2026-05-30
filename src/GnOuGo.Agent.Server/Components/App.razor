@@ -23,7 +23,7 @@
     <HeadOutlet />
 </head>
 <body>
-    <Routes @rendermode="RenderMode.InteractiveServer" />
+    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
 
     <script>
         (function () {
