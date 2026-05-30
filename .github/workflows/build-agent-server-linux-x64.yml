@@ -23,11 +23,6 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Install Native AOT toolchain
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
-
       - name: Ensure OTLP proto files
         run: |
           dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
@@ -54,8 +49,8 @@ jobs:
 
       - name: Publish Server
         run: |
-          dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -r linux-x64 /p:SkipClientBuild=true /p:PublishAot=true /p:PublishTrimmed=true /p:DisableRazorComponentsForNativeAot=true /p:JsonSerializerIsReflectionEnabledByDefault=false /p:SkipModelMetadataGeneration=true
-          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64 /p:SkipClientBuild=true /p:PublishAot=true /p:PublishTrimmed=true /p:PublishSingleFile=false /p:DisableRazorComponentsForNativeAot=true /p:JsonSerializerIsReflectionEnabledByDefault=false /p:SkipModelMetadataGeneration=true /p:UseAppHost=true /p:DebugType=None /p:DebugSymbols=false
+          dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -r linux-x64 /p:SkipClientBuild=true /p:PublishAot=false /p:PublishTrimmed=true /p:SkipModelMetadataGeneration=true
+          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64 /p:SkipClientBuild=true /p:PublishAot=false /p:PublishTrimmed=true /p:PublishSingleFile=true /p:SkipModelMetadataGeneration=true /p:UseAppHost=true /p:DebugType=None /p:DebugSymbols=false
 
       - name: Validate bundled server tools
         shell: pwsh
@@ -64,12 +59,7 @@ jobs:
           if (-not (Test-Path $serverExecutable)) {
             Write-Host "Publish output tree:"
             Get-ChildItem "artifacts/publish/server/linux-x64" -Recurse | Select-Object -First 300 FullName, Length | Format-Table -AutoSize | Out-String | Write-Host
-            throw "Missing Native AOT server executable: $serverExecutable"
-          }
-
-          $serverManagedDll = "artifacts/publish/server/linux-x64/GnOuGo.Agent.Server.dll"
-          if (Test-Path $serverManagedDll) {
-            throw "Native AOT publish should not produce a managed server entry assembly: $serverManagedDll"
+            throw "Missing server executable: $serverExecutable"
           }
 
           $requiredTools = @(
