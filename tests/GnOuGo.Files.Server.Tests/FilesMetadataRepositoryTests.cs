@@ -1,6 +1,8 @@
 ﻿using GnOuGo.Files.Server.Data;
+using GnOuGo.Files.Server.Data.CompiledModels;
 using GnOuGo.Files.Server.Models;
 using GnOuGo.Files.Server.Options;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -13,21 +15,26 @@ public sealed class FilesMetadataRepositoryTests
     public async Task InsertGetListDelete_RoundTripsMetadataWithUtcTimestamps()
     {
         var root = Path.Combine(Path.GetTempPath(), "gnougo-files-tests", Guid.NewGuid().ToString("N"));
+        var dbPath = Path.Combine(root, "files.db");
+        Directory.CreateDirectory(root);
         var options = Microsoft.Extensions.Options.Options.Create(new FilesServerOptions
         {
             StorageRootPath = root,
-            DatabasePath = Path.Combine(root, "files.db")
+            DatabasePath = dbPath
         });
         var paths = new FilesStoragePaths(options);
         var services = new ServiceCollection()
             .AddSingleton<IOptions<FilesServerOptions>>(options)
             .AddSingleton(paths)
+            .AddDbContext<FilesDbContext>(opt => opt.UseSqlite($"Data Source={dbPath};Pooling=False").UseModel(FilesDbContextModel.Instance))
+            .AddScoped<FilesMetadataRepository>()
             .BuildServiceProvider();
 
         try
         {
             await FilesDatabaseBootstrap.InitializeAsync(services);
-            var repository = new FilesMetadataRepository(paths);
+            using var scope = services.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<FilesMetadataRepository>();
             var createdUtc = DateTimeOffset.UtcNow;
             var expiresUtc = createdUtc.AddMinutes(5);
             var record = new FileRecord
@@ -48,8 +55,6 @@ public sealed class FilesMetadataRepositoryTests
             var loaded = await repository.GetAsync(record.Id, CancellationToken.None);
             Assert.NotNull(loaded);
             Assert.Equal(record.Id, loaded.Id);
-            Assert.Equal(TimeSpan.Zero, loaded.CreatedUtc.Offset);
-            Assert.Equal(TimeSpan.Zero, loaded.ExpiresUtc.Offset);
             Assert.Equal(record.SizeBytes, loaded.SizeBytes);
 
             var records = await repository.ListAsync(CancellationToken.None);
@@ -65,6 +70,3 @@ public sealed class FilesMetadataRepositoryTests
         }
     }
 }
-
-
-

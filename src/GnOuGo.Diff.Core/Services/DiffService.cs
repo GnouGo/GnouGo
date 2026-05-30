@@ -29,16 +29,12 @@ public class DiffService
 
         var valueHash = ComputeHash(request.CurrentValue);
         
-        // Récupérer la dernière révision pour cette entité
-        var lastRevision = await _context.DiffEntries
-            .Where(e => e.EntityType == request.EntityType && e.EntityId == request.EntityId)
-            .OrderByDescending(e => e.TimestampTicks)
-            .FirstOrDefaultAsync(ct);
+        // Récupérer la dernière révision pour cette entité (using compiled query)
+        var lastRevision = await DiffQueries.GetLatestRevision(_context, request.EntityType, request.EntityId);
 
         // Vérifier si la valeur a changé
         if (!request.ForceCreate && lastRevision != null && lastRevision.ValueHash == valueHash)
         {
-            // Aucun changement, retourner la dernière révision
             return MapToDto(lastRevision);
         }
 
@@ -73,10 +69,9 @@ public class DiffService
     /// </summary>
     public async Task<List<RevisionDto>> GetRevisionsAsync(string entityType, string entityId)
     {
-        var entries = await _context.DiffEntries
-            .Where(e => e.EntityType == entityType && e.EntityId == entityId)
-            .OrderByDescending(e => e.TimestampTicks)
-            .ToListAsync();
+        var entries = new List<DiffEntry>();
+        await foreach (var entry in DiffQueries.GetRevisionsByEntity(_context, entityType, entityId))
+            entries.Add(entry);
 
         return entries.Select(MapToDto).ToList();
     }
@@ -87,11 +82,7 @@ public class DiffService
     public async Task<RevisionDto?> GetRevisionAtTimestampAsync(string entityType, string entityId, DateTimeOffset timestamp)
     {
         var timestampTicks = timestamp.UtcTicks;
-        var entry = await _context.DiffEntries
-            .Where(e => e.EntityType == entityType && e.EntityId == entityId && e.TimestampTicks <= timestampTicks)
-            .OrderByDescending(e => e.TimestampTicks)
-            .FirstOrDefaultAsync();
-
+        var entry = await DiffQueries.GetRevisionAtTimestamp(_context, entityType, entityId, timestampTicks);
         return entry != null ? MapToDto(entry) : null;
     }
 
@@ -100,8 +91,8 @@ public class DiffService
     /// </summary>
     public async Task<ComparisonResult?> CompareRevisionsAsync(Guid fromRevisionId, Guid toRevisionId)
     {
-        var fromRevision = await _context.DiffEntries.FindAsync(fromRevisionId);
-        var toRevision = await _context.DiffEntries.FindAsync(toRevisionId);
+        var fromRevision = await DiffQueries.GetRevisionById(_context, fromRevisionId);
+        var toRevision = await DiffQueries.GetRevisionById(_context, toRevisionId);
 
         if (fromRevision == null || toRevision == null)
             return null;
@@ -127,6 +118,7 @@ public class DiffService
     public async Task<Dictionary<string, int>> GetEntityTypesAsync()
     {
         return await _context.DiffEntries
+            .AsNoTracking()
             .GroupBy(e => e.EntityType)
             .Select(g => new { Type = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Type, x => x.Count);
@@ -137,10 +129,9 @@ public class DiffService
     /// </summary>
     public async Task<List<RevisionDto>> GetLatestRevisionsForTypeAsync(string entityType)
     {
-        // Récupérer toutes les entrées, puis trier côté client
-        var allEntries = await _context.DiffEntries
-            .Where(e => e.EntityType == entityType)
-            .ToListAsync();
+        var allEntries = new List<DiffEntry>();
+        await foreach (var entry in DiffQueries.GetEntriesByType(_context, entityType))
+            allEntries.Add(entry);
 
         var latestRevisions = allEntries
             .GroupBy(e => e.EntityId)
@@ -158,7 +149,6 @@ public class DiffService
 
     private static string SerializeDiff(SideBySideDiffModel diff)
     {
-        // Sérialiser simplement les lignes modifiées
         var lines = new List<string>();
         
         foreach (var line in diff.OldText.Lines)

@@ -77,7 +77,7 @@ public sealed class AgentRepository : IAgentRepository
 
     public async Task<List<AgentDefinition>> ListAgentsAsync(CancellationToken ct = default)
     {
-        return await _db.Agents.OrderBy(a => a.Name).ToListAsync(ct);
+        return await _db.Agents.AsNoTracking().OrderBy(a => a.Name).ToListAsync(ct);
     }
 
     public async Task<AgentDefinition?> GetByNameAsync(string name, CancellationToken ct = default)
