@@ -1,7 +1,7 @@
-# GnOuGo.Agent (Blazor + Minimal API, Native AOT-ready)
+# GnOuGo.Agent (Blazor + Minimal API)
 
 This solution contains:
-- **GnOuGo.Agent.Server**: Blazor (server interactive) UI + Minimal API streaming endpoint; the container/CI publish path emits a linux-x64 Native AOT executable and serves the Vite UI from `/ui/` when Razor components are excluded for AOT.
+- **GnOuGo.Agent.Server**: Blazor (server interactive) UI + Minimal API streaming endpoint; published as a trimmed self-contained single-file executable with bundled MCP tools.
 - **GnOuGo.Agent.Shared**: shared DTOs
 
 ## Architecture
@@ -148,18 +148,17 @@ Published outputs now bundle the MCP stdio tools under `tools/`:
 This keeps the browser, command, document, code, and Git MCP servers available in packaged server, desktop, and container runs without requiring the repository source tree.
 Final publish outputs also strip all `.pdb` files from both the main application and bundled MCP tools before packaging.
 
-## Native AOT server/container publish
+## Server publish (trimmed self-contained)
 
-The linux-x64 CI and Docker paths publish `GnOuGo.Agent.Server` as a self-contained Native AOT executable. That path intentionally passes:
+The linux-x64 CI and Docker paths publish `GnOuGo.Agent.Server` as a trimmed self-contained single-file executable. That path intentionally passes:
 
-- `/p:PublishAot=true`
+- `/p:PublishAot=false`
 - `/p:PublishTrimmed=true`
-- `/p:DisableRazorComponentsForNativeAot=true`
-- `/p:JsonSerializerIsReflectionEnabledByDefault=false`
+- `/p:PublishSingleFile=true`
 
-When `DisableRazorComponentsForNativeAot=true`, the server excludes `Components/**/*.razor` and `Components/**/*.cs`, skips Razor component endpoint registration, redirects `/` to the Vite app under `/ui/`, and returns a source-generated/reflection-free health response. Minimal API DTOs are covered by `ChatJsonContext`, and model metadata serialization is covered by `ModelMetadataJsonContext`.
+The server uses Entity Framework Core for all persistence (Agent, KeyVault, OTLP Collector, Diff, Files). Blazor Interactive Server components are fully included.
 
-The Docker image is built from `mcr.microsoft.com/dotnet/runtime-deps:10.0` and starts the native executable directly:
+The Docker image is built from `mcr.microsoft.com/dotnet/aspnet:10.0` and starts the executable directly:
 
 ```powershell
 Set-Location "C:\github\GnouGo"
@@ -167,11 +166,9 @@ docker build -t gnougo-agent -f src/GnOuGo.Agent.Server/Dockerfile .
 docker run --rm -p 5000:5000 gnougo-agent
 ```
 
-The shared Docker CI matrix currently builds `GnOuGo.Agent.Server` for `linux/amd64`; this avoids failing the multi-image workflow while Native AOT `linux/arm64` container publishing remains under validation.
+## Desktop publish
 
-## Desktop Native AOT publish
-
-The desktop workflow defaults to the maximum-trim self-contained publish because the app hosts Photino plus the embedded server. A Native AOT desktop publish can be tested manually from the main workflow by enabling the `desktop_publish_aot` dispatch input. That path passes `PublishAot=true`, disables Razor components for AOT, and keeps the Vite UI served from `/ui/`.
+The desktop workflow publishes a trimmed self-contained `GnOuGo.Agent.Desktop` (Photino) with bundled stdio MCP tools. The bundled stdio tools (`GnOuGo.Cmd.Mcp`, `GnOuGo.Document.Mcp`, `GnOuGo.Git.Mcp`, `GnOuGo.GithubCopilot.Mcp`, `GnOuGo.DocIngestor.Mcp`) are published as Native AOT executables for maximum startup performance.
 
 ## Default SQLite locations
 

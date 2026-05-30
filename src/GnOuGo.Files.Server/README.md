@@ -5,7 +5,7 @@ Temporary streamed file upload/download API for GnOuGo.
 ## Features
 
 - Streams request bodies directly to disk with a small fixed buffer.
-- Stores metadata in SQLite with an Entity Framework Core model/schema and an AOT-safe `Microsoft.Data.Sqlite` runtime repository.
+- Stores metadata in SQLite via Entity Framework Core (`FilesDbContext`) with `AsNoTracking` for read queries.
 - Uses UTC timestamps for creation and expiration dates.
 - Default TTL is 12 hours and can be configured via typed `Files` options.
 - Per-upload TTL can be provided with the `ttl` query-string parameter.
@@ -28,7 +28,7 @@ The SQLite database defaults to:
 
 Override these paths with `Files:StorageRootPath` and `Files:DatabasePath`.
 
-The table schema is owned by the EF Core `FilesDbContext` model and bootstrapped at startup. Runtime upload/list/download/purge paths use `FilesMetadataRepository` so the published NativeAOT binary avoids EF runtime dynamic-code paths.
+The table schema is owned by the EF Core `FilesDbContext` model and bootstrapped at startup via `EnsureCreatedAsync`. All runtime operations (upload, list, download, purge) go through `FilesMetadataRepository` using `FilesDbContext`.
 
 ## API
 
@@ -79,9 +79,9 @@ Run the unit tests:
 dotnet test tests/GnOuGo.Files.Server.Tests/GnOuGo.Files.Server.Tests.csproj /p:SkipClientBuild=true
 ```
 
-Publish a Windows x64 NativeAOT binary:
+Publish a Windows x64 self-contained trimmed binary:
 
 ```powershell
-dotnet publish src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish/files-server-win-x64
+dotnet publish src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj -c Release -r win-x64 --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=true -o artifacts/publish/files-server-win-x64
 ```
 

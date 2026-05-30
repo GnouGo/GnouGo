@@ -1,4 +1,4 @@
-﻿name: Build Agent Desktop (Trimmed + Native AOT)
+﻿name: Build Agent Desktop (Trimmed + Native AOT tools)
 
 on:
   workflow_call:
@@ -9,7 +9,7 @@ on:
         type: string
         default: ""
       publish_aot:
-        description: "(Deprecated — desktop always uses trimmed managed due to Blazor Server AOT incompatibility.) Bundled MCP tools always use Native AOT regardless of this flag."
+        description: "Bundled stdio MCP tools use Native AOT for fast startup. The desktop host itself uses trimmed managed publish."
         required: false
         type: boolean
         default: true
@@ -22,7 +22,7 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
 
 jobs:
-  desktop_aot:
+  desktop_build:
     name: Desktop Build (${{ matrix.rid }})
     strategy:
       fail-fast: false

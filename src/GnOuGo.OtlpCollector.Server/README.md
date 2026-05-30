@@ -12,7 +12,7 @@ This service receives OpenTelemetry data (traces, metrics, logs) over OTLP/gRPC 
 - Optional routing to external OTLP/HTTP collectors using typed `TelemetryRouting` settings
 - Development mode support when tenant id is missing
 - Static UI served from `wwwroot`
-- NativeAOT publish in `Release`; runtime persistence uses `Microsoft.Data.Sqlite` directly to avoid EF Core dynamic-code paths
+- SQLite persistence via Entity Framework Core (`TelemetryDbContext`) with `AsNoTracking` optimizations and pre-compiled queries
 
 ## Prerequisites
 
@@ -123,10 +123,10 @@ Avoid storing production secrets in `appsettings.json`; use environment-specific
 
 ## Publish
 
-`Release` publishes are NativeAOT by default. Example Windows x64 publish:
+`Release` publishes are trimmed self-contained single-file executables. Example Windows x64 publish:
 
 ```powershell
-dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish/otlp-collector/win-x64 /p:SkipClientBuild=true /p:SkipModelMetadataGeneration=true
+dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish/otlp-collector/win-x64 /p:SkipClientBuild=true /p:PublishTrimmed=true /p:PublishSingleFile=true /p:SkipModelMetadataGeneration=true
 ```
 
 The Windows publish output must contain `GnOuGo.OtlpCollector.Server.exe`; Unix-like RIDs publish `GnOuGo.OtlpCollector.Server`.
@@ -134,18 +134,12 @@ The Windows publish output must contain `GnOuGo.OtlpCollector.Server.exe`; Unix-
 Example macOS arm64 publish:
 
 ```powershell
-dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r osx-arm64 --self-contained true -o artifacts/publish/otlp-collector/osx-arm64 /p:SkipClientBuild=true /p:SkipModelMetadataGeneration=true
-```
-
-To explicitly disable NativeAOT for diagnostics:
-
-```powershell
-dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish/otlp-collector/win-x64-il /p:PublishAot=false /p:PublishTrimmed=false /p:SkipClientBuild=true
+dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r osx-arm64 --self-contained true -o artifacts/publish/otlp-collector/osx-arm64 /p:SkipClientBuild=true /p:PublishTrimmed=true /p:PublishSingleFile=true /p:SkipModelMetadataGeneration=true
 ```
 
 ## Docker
 
-The Dockerfile builds `linux/amd64` and `linux/arm64` NativeAOT images through Docker Buildx. The SDK stage runs on the build host platform and cross-publishes for the target RID; for `linux/arm64`, it installs the `aarch64-linux-gnu` linker/toolchain so NativeAOT can link the ARM64 executable without QEMU-running the .NET SDK stage.
+The Dockerfile builds `linux/amd64` and `linux/arm64` trimmed self-contained images through Docker Buildx using the `mcr.microsoft.com/dotnet/aspnet:10.0` runtime base image.
 
 Local validation example:
 
