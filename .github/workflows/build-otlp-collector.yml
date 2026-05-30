@@ -33,11 +33,11 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Install NativeAOT toolchain (Linux)
+      - name: Install build toolchain (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30
-          sudo apt-get install -y --no-install-recommends -o Acquire::Retries=5 clang zlib1g-dev protobuf-compiler
+          sudo apt-get install -y --no-install-recommends -o Acquire::Retries=5 protobuf-compiler
 
       - name: Ensure OTLP proto files
         shell: pwsh
@@ -75,12 +75,10 @@ jobs:
             -o artifacts/publish/otlp-collector/${{ matrix.rid }} `
             --no-restore `
             /p:SkipClientBuild=true `
-            /p:PublishAot=true `
             /p:PublishTrimmed=true `
+            /p:PublishSingleFile=true `
             /p:UseAppHost=true `
-            /p:SkipModelMetadataGeneration=true `
-            /p:DebugSymbols=false `
-            /p:DebugType=None
+            /p:SkipModelMetadataGeneration=true
 
       - name: Validate OTLP Collector output
         shell: pwsh

@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Options;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using OtlpTenantCollector.Data;
 using OtlpTenantCollector.Services;
 using OtlpTenantCollector.Services.Options;
 using OtlpTenantCollector.Services.Routing;
@@ -52,6 +54,14 @@ public static class OtlpCollectorHostingExtensions
             return AppOptions.FromOptions(db, ingest, retention, devMode, AppContext.BaseDirectory);
         });
 
+        services.AddDbContext<TelemetryDbContext>((sp, options) =>
+        {
+            var appOpt = sp.GetRequiredService<AppOptions>();
+            var dir = Path.GetDirectoryName(appOpt.DbPath);
+            if (!string.IsNullOrWhiteSpace(dir))
+                Directory.CreateDirectory(dir);
+            options.UseSqlite($"Data Source={appOpt.DbPath}");
+        });
 
         services.AddScoped<EfTelemetryStore>();
         services.AddSingleton<TelemetryIngestQueue>();

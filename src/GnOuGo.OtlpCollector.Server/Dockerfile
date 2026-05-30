@@ -45,22 +45,10 @@ FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 
 ARG TARGETARCH
 
-# Install system protoc and Native AOT toolchain bits (runs natively — no QEMU).
-# buildx builds linux/arm64 from an amd64 SDK stage, so NativeAOT also needs
-# the aarch64 cross-linker, C runtime development files and objcopy.
+# Install system protoc (no AOT — EF Core is used for database access).
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
     && apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
-        clang \
         protobuf-compiler \
-        zlib1g-dev \
-    && if [ "$TARGETARCH" = "arm64" ]; then \
-        apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
-            binutils-aarch64-linux-gnu \
-            gcc-aarch64-linux-gnu \
-            g++-aarch64-linux-gnu \
-            libc6-dev-arm64-cross \
-            linux-libc-dev-arm64-cross; \
-    fi \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -92,25 +80,21 @@ COPY src/GnOuGo.Workspace/ src/GnOuGo.Workspace/
 COPY --from=clientapp /workspace/src/GnOuGo.OtlpCollector.Server/wwwroot src/GnOuGo.OtlpCollector.Server/wwwroot/
 RUN test -f src/GnOuGo.OtlpCollector.Server/wwwroot/index.html
 
-# Publish Native AOT (skip ClientApp build — already done in stage 1).
-# NOTE: we intentionally omit --no-restore so that Grpc.Tools can properly
-# discover proto files downloaded by the EnsureOtlpProtos target during build.
+# Publish trimmed self-contained (skip ClientApp build — already done in stage 1).
 RUN export DOTNET_RID="linux-x64" \
-    && export DOTNET_OBJCOPY_ARG="" \
-    && if [ "$TARGETARCH" = "arm64" ]; then export DOTNET_RID="linux-arm64"; export DOTNET_OBJCOPY_ARG="-p:ObjCopyName=aarch64-linux-gnu-objcopy"; fi \
+    && if [ "$TARGETARCH" = "arm64" ]; then export DOTNET_RID="linux-arm64"; fi \
     && dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj \
         -c Release \
         -r "$DOTNET_RID" \
         --self-contained true \
         -o /app/publish \
-        -p:PublishAot=true \
         -p:PublishTrimmed=true \
+        -p:PublishSingleFile=true \
         -p:DebugSymbols=false \
         -p:DebugType=None \
         -p:SkipClientBuild=true \
         -p:SkipModelMetadataGeneration=true \
-        -p:Protobuf_ProtocPath=/usr/bin/protoc \
-        $DOTNET_OBJCOPY_ARG
+        -p:Protobuf_ProtocPath=/usr/bin/protoc
 
 # ──────────────────────────────────────────────
 # Stage 3: Final runtime image

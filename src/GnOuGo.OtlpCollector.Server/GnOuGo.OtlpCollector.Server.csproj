@@ -9,14 +9,13 @@
     <TargetName>GnOuGo.OtlpCollector.Server</TargetName>
     <UseAppHost>true</UseAppHost>
 
-    <!-- NativeAOT/trimming-friendly defaults. Release publish enables NativeAOT below. -->
-    <IsAotCompatible>true</IsAotCompatible>
+    <!-- Trimming-friendly defaults (no AOT — EF Core is not AOT-compatible). -->
+    <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>partial</TrimMode>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
-    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
 
-    <!-- Keep the app small and trimming-friendly -->
     <InvariantGlobalization>false</InvariantGlobalization>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <RootNamespace>GnOuGo.OtlpCollector</RootNamespace>
@@ -32,8 +31,8 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <PublishAot>true</PublishAot>
-    <PublishTrimmed>true</PublishTrimmed>
+    <DebugType>None</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
@@ -118,8 +117,8 @@
     <!-- gRPC server -->
     <PackageReference Include="Grpc.AspNetCore" Version="2.80.0" />
 
-    <!-- SQLite runtime storage (NativeAOT-safe, no EF runtime dynamic code paths) -->
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.8" />
+    <!-- EF Core SQLite storage -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8" />
   </ItemGroup>
 
   <ItemGroup>
