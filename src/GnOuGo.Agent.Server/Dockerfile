@@ -33,10 +33,8 @@ ARG TARGETARCH
 ARG TARGETOS
 
 # Node.js is needed when publishing the bundled GnOuGo.Browser.Mcp Playwright tool.
-# clang and zlib headers are required by Native AOT on Linux.
-# The aarch64 toolchain and sysroot are required when buildx publishes linux/arm64 from an amd64 builder.
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
-    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 clang zlib1g-dev nodejs binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross linux-libc-dev-arm64-cross \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -69,24 +67,21 @@ COPY src/GnOuGo.Workspace/GnOuGo.Workspace.csproj src/GnOuGo.Workspace/
 RUN case "${TARGETOS:-linux}-${TARGETARCH:-amd64}" in \
         linux-amd64) export TARGET_RID=linux-x64 ;; \
         linux-arm64) export TARGET_RID=linux-arm64 ;; \
-        *) echo "Native AOT container publish currently supports linux-amd64 and linux-arm64 only. TARGETOS=${TARGETOS:-linux} TARGETARCH=${TARGETARCH:-amd64}" >&2; exit 1 ;; \
+        *) echo "Container publish supports linux-amd64 and linux-arm64 only. TARGETOS=${TARGETOS:-linux} TARGETARCH=${TARGETARCH:-amd64}" >&2; exit 1 ;; \
     esac \
-    && dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -r "$TARGET_RID" /p:SkipClientBuild=true /p:PublishAot=true /p:PublishTrimmed=true /p:DisableRazorComponentsForNativeAot=true /p:JsonSerializerIsReflectionEnabledByDefault=false /p:SkipModelMetadataGeneration=true
+    && dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -r "$TARGET_RID" /p:SkipClientBuild=true /p:PublishTrimmed=true /p:SkipModelMetadataGeneration=true
 
 # Copy full source
 COPY src/ src/
 # Overlay pre-built ClientApp output (wwwroot/ui) from stage 1.
 # Other static assets (favicon.svg, assets/, js/) come from source.
 COPY --from=clientapp /workspace/src/GnOuGo.Agent.Server/wwwroot/ui src/GnOuGo.Agent.Server/wwwroot/ui/
-# Publish in Release with Native AOT.
+# Publish in Release as trimmed self-contained.
 # SkipClientBuild=true avoids re-running pnpm inside dotnet publish.
-# Do not use --no-restore here: the embedded OTLP collector downloads proto files
-# during build, and Grpc.Tools must be allowed to refresh generated inputs in a
-# clean Docker layer. The earlier restore is still useful for cache warming.
 RUN case "${TARGETOS:-linux}-${TARGETARCH:-amd64}" in \
-        linux-amd64) export TARGET_RID=linux-x64; export NATIVE_AOT_ARGS="" ;; \
-        linux-arm64) export TARGET_RID=linux-arm64; export NATIVE_AOT_ARGS="-p:ObjCopyName=aarch64-linux-gnu-objcopy" ;; \
-        *) echo "Native AOT container publish currently supports linux-amd64 and linux-arm64 only. TARGETOS=${TARGETOS:-linux} TARGETARCH=${TARGETARCH:-amd64}" >&2; exit 1 ;; \
+        linux-amd64) export TARGET_RID=linux-x64 ;; \
+        linux-arm64) export TARGET_RID=linux-arm64 ;; \
+        *) echo "Container publish supports linux-amd64 and linux-arm64 only. TARGETOS=${TARGETOS:-linux} TARGETARCH=${TARGETARCH:-amd64}" >&2; exit 1 ;; \
     esac \
     && dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj \
         -c Release \
@@ -94,20 +89,16 @@ RUN case "${TARGETOS:-linux}-${TARGETARCH:-amd64}" in \
         --self-contained true \
         -o /app/publish \
         -p:SkipClientBuild=true \
-        -p:PublishAot=true \
         -p:PublishTrimmed=true \
-        -p:PublishSingleFile=false \
-        -p:DisableRazorComponentsForNativeAot=true \
-        -p:JsonSerializerIsReflectionEnabledByDefault=false \
+        -p:PublishSingleFile=true \
         -p:SkipModelMetadataGeneration=true \
         -p:UseAppHost=true \
         -p:DebugType=None \
-        -p:DebugSymbols=false \
-        $NATIVE_AOT_ARGS
+        -p:DebugSymbols=false
 # ----------------------------------------------
 # Stage 3: Final runtime image
 # ----------------------------------------------
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
     && apt-get install -y --no-install-recommends -o Acquire::Retries=5 ca-certificates curl \

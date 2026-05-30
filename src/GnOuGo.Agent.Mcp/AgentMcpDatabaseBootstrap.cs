@@ -12,5 +12,8 @@ internal static class AgentMcpDatabaseBootstrap
     {
         ArgumentNullException.ThrowIfNull(db);
         await db.Database.EnsureCreatedAsync(ct);
+
+        // Enable WAL mode for concurrent read/write access across scoped DbContext instances.
+        await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;", ct);
     }
 }

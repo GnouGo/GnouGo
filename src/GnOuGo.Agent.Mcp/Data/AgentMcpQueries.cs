@@ -4,32 +4,25 @@ using Microsoft.EntityFrameworkCore;
 namespace GnOuGo.Agent.Mcp.Data;
 
 /// <summary>
-/// Precompiled EF Core queries for optimal performance and AOT friendliness.
+/// Encapsulated EF Core queries for Agent MCP.
+/// Uses standard LINQ queries which benefit from EF Core's internal query plan caching
+/// without the static model binding issues of EF.CompileAsyncQuery across multiple DbContext registrations.
 /// </summary>
 internal static class AgentMcpQueries
 {
     // ── Agent queries ────────────────────────────────────────────────
 
-    public static readonly Func<AgentMcpDbContext, Guid, Task<AgentDefinition?>> GetAgentById =
-        EF.CompileAsyncQuery(
-            (AgentMcpDbContext db, Guid id) =>
-                db.Agents.FirstOrDefault(a => a.Id == id));
+    public static Task<AgentDefinition?> GetAgentById(AgentMcpDbContext db, Guid id)
+        => db.Agents.FirstOrDefaultAsync(a => a.Id == id);
 
-    public static readonly Func<AgentMcpDbContext, string, Task<AgentDefinition?>> GetAgentByName =
-        EF.CompileAsyncQuery(
-            (AgentMcpDbContext db, string name) =>
-                db.Agents.FirstOrDefault(a => a.Name.ToUpper() == name.ToUpper()));
+    public static Task<AgentDefinition?> GetAgentByName(AgentMcpDbContext db, string name)
+        => db.Agents.FirstOrDefaultAsync(a => a.Name.ToUpper() == name.ToUpper());
 
-    public static readonly Func<AgentMcpDbContext, string, Guid, Task<AgentDefinition?>> GetAgentByNameExcluding =
-        EF.CompileAsyncQuery(
-            (AgentMcpDbContext db, string name, Guid excludedId) =>
-                db.Agents.FirstOrDefault(a => a.Name.ToUpper() == name.ToUpper() && a.Id != excludedId));
+    public static Task<AgentDefinition?> GetAgentByNameExcluding(AgentMcpDbContext db, string name, Guid excludedId)
+        => db.Agents.FirstOrDefaultAsync(a => a.Name.ToUpper() == name.ToUpper() && a.Id != excludedId);
 
     // ── UserConfig queries ───────────────────────────────────────────
 
-    public static readonly Func<AgentMcpDbContext, string, Task<UserConfigRecord?>> GetUserConfigByScope =
-        EF.CompileAsyncQuery(
-            (AgentMcpDbContext db, string tenantScopeKey) =>
-                db.UserConfigs.FirstOrDefault(c => c.TenantScopeKey == tenantScopeKey));
+    public static Task<UserConfigRecord?> GetUserConfigByScope(AgentMcpDbContext db, string tenantScopeKey)
+        => db.UserConfigs.FirstOrDefaultAsync(c => c.TenantScopeKey == tenantScopeKey);
 }
-

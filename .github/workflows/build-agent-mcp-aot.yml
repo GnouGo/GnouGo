@@ -1,4 +1,4 @@
-﻿name: Build Agent MCP NativeAOT
+﻿name: Build Agent MCP
 
 on:
   push:
@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish-win-x64-aot:
+  publish-win-x64:
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -32,48 +32,24 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Restore Agent MCP
-        shell: pwsh
-        run: |
-          dotnet restore src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj `
-            -r win-x64 `
-            -p:PublishAot=true `
-            -p:PublishTrimmed=true `
-            -p:InvariantGlobalization=false `
-            -p:SkipModelMetadataGeneration=true `
-            -p:WarningsAsErrors= `
-            -p:TreatWarningsAsErrors=false `
-            -p:ILLinkTreatWarningsAsErrors=false
-
-      - name: Publish Agent MCP NativeAOT win-x64
+      - name: Publish Agent MCP (self-contained trimmed) win-x64
         shell: pwsh
         run: |
           dotnet publish src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj `
             -c Release `
             -r win-x64 `
             --self-contained true `
-            --no-restore `
-            -o artifacts/agent-mcp-aot-win-x64 `
-            -p:PublishAot=true `
+            -o artifacts/agent-mcp-win-x64 `
             -p:PublishTrimmed=true `
-            -p:PublishSingleFile=false `
+            -p:PublishSingleFile=true `
             -p:InvariantGlobalization=false `
             -p:SkipModelMetadataGeneration=true `
-            -p:WarningsAsErrors= `
-            -p:TreatWarningsAsErrors=false `
-            -p:ILLinkTreatWarningsAsErrors=false `
             -p:DebugType=None `
             -p:DebugSymbols=false
 
-          $exe = "artifacts/agent-mcp-aot-win-x64/GnOuGo.Agent.Mcp.exe"
+          $exe = "artifacts/agent-mcp-win-x64/GnOuGo.Agent.Mcp.exe"
           if (-not (Test-Path $exe)) {
             Write-Host "Publish output tree:"
-            Get-ChildItem "artifacts/agent-mcp-aot-win-x64" -Recurse | Select-Object FullName, Length | Format-Table -AutoSize | Out-String | Write-Host
-            throw "Missing Native AOT Agent MCP executable: $exe"
+            Get-ChildItem "artifacts/agent-mcp-win-x64" -Recurse | Select-Object FullName, Length | Format-Table -AutoSize | Out-String | Write-Host
+            throw "Missing Agent MCP executable: $exe"
           }
-
-          $managedDll = "artifacts/agent-mcp-aot-win-x64/GnOuGo.Agent.Mcp.dll"
-          if (Test-Path $managedDll) {
-            throw "Native AOT publish should not produce a managed entry assembly: $managedDll"
-          }
-
