@@ -1,47 +1,47 @@
 @using System.Globalization
 @using GnOuGo.Agent.Server.Telemetry
-<div class="sa-trace-summary__hero">
-    <div class="sa-trace-summary__hero-title">Live logs for this answer</div>
-    <div class="sa-trace-summary__hero-text">Logs are refreshed with the trace snapshot and filtered by the message trace/correlation metadata.</div>
+<div class="gnougo-trace-summary__hero">
+    <div class="gnougo-trace-summary__hero-title">Live logs for this answer</div>
+    <div class="gnougo-trace-summary__hero-text">Logs are refreshed with the trace snapshot and filtered by the message trace/correlation metadata.</div>
     @if (IsLoading)
     {
-        <div class="sa-trace-panel__spinner-row">
-            <span class="sa-trace-panel__spinner"></span>
+        <div class="gnougo-trace-panel__spinner-row">
+            <span class="gnougo-trace-panel__spinner"></span>
             <span>Refreshing correlated logs...</span>
         </div>
     }
 </div>
 @if (_logs.Count == 0)
 {
-    <div class="sa-trace-panel__state">
-        <div class="sa-trace-panel__state-title">No logs yet</div>
-        <div class="sa-trace-panel__state-text">Waiting for OpenTelemetry logs attached to this trace or correlation identifier.</div>
+    <div class="gnougo-trace-panel__state">
+        <div class="gnougo-trace-panel__state-title">No logs yet</div>
+        <div class="gnougo-trace-panel__state-text">Waiting for OpenTelemetry logs attached to this trace or correlation identifier.</div>
     </div>
 }
 else
 {
-    <div class="sa-trace-logs" aria-live="polite">
+    <div class="gnougo-trace-logs" aria-live="polite">
         @foreach (var log in _logs)
         {
-            <details class="sa-trace-log sa-trace-log--@TraceDebugUiHelpers.GetSeverityClass(log)" open="@(_logs.Count <= 5)">
-                <summary class="sa-trace-log__summary">
-                    <span class="sa-trace-log__chevron" aria-hidden="true">v</span>
-                    <span class="sa-trace-log__time">@log.ReceivedUtc.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)</span>
-                    <span class="sa-trace-log__severity">@TraceDebugUiHelpers.GetSeverityLabel(log)</span>
-                    <span class="sa-trace-log__service">@(log.ServiceName ?? "service n/a")</span>
-                    <span class="sa-trace-log__body">@(string.IsNullOrWhiteSpace(log.Body) ? "(empty log body)" : log.Body)</span>
+            <details class="gnougo-trace-log gnougo-trace-log--@TraceDebugUiHelpers.GetSeverityClass(log)" open="@(_logs.Count <= 5)">
+                <summary class="gnougo-trace-log__summary">
+                    <span class="gnougo-trace-log__chevron" aria-hidden="true">v</span>
+                    <span class="gnougo-trace-log__time">@log.ReceivedUtc.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)</span>
+                    <span class="gnougo-trace-log__severity">@TraceDebugUiHelpers.GetSeverityLabel(log)</span>
+                    <span class="gnougo-trace-log__service">@(log.ServiceName ?? "service n/a")</span>
+                    <span class="gnougo-trace-log__body">@(string.IsNullOrWhiteSpace(log.Body) ? "(empty log body)" : log.Body)</span>
                 </summary>
-                <div class="sa-trace-log__content">
+                <div class="gnougo-trace-log__content">
                     @if (!string.IsNullOrWhiteSpace(log.Body))
                     {
-                        <div class="sa-trace-detail__section">
+                        <div class="gnougo-trace-detail__section">
                             <h4>Body</h4>
                             @TraceDebugValueRenderer.RenderValue(log.Body, RenderFormatted)
                         </div>
                     }
-                    <div class="sa-trace-detail__section">
+                    <div class="gnougo-trace-detail__section">
                         <h4>Log identifiers</h4>
-                        <table class="sa-trace-detail__table">
+                        <table class="gnougo-trace-detail__table">
                             <tbody>
                                 <tr><td>Received</td><td>@log.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</td></tr>
                                 <tr><td>Severity</td><td>@TraceDebugUiHelpers.GetSeverityLabel(log) (@log.SeverityNumber)</td></tr>

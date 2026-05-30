@@ -8,18 +8,18 @@
         .Where(pair => !pair.Key.StartsWith("gen_ai.", StringComparison.OrdinalIgnoreCase) && !pair.Key.StartsWith("llm.", StringComparison.OrdinalIgnoreCase))
         .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
 }
-<div class="sa-trace-detail">
-    <div class="sa-trace-detail__header">
+<div class="gnougo-trace-detail">
+    <div class="gnougo-trace-detail__header">
         <h3>@Span.Name</h3>
         <span>@TraceDebugUiHelpers.FormatDuration(TraceDebugUiHelpers.GetSpanDurationMs(Span))</span>
     </div>
     @if (!string.IsNullOrWhiteSpace(Span.StatusMessage))
     {
-        <div class="sa-trace-detail__error">@Span.StatusMessage</div>
+        <div class="gnougo-trace-detail__error">@Span.StatusMessage</div>
     }
-    <div class="sa-trace-detail__section">
+    <div class="gnougo-trace-detail__section">
         <h4>Overview</h4>
-        <table class="sa-trace-detail__table">
+        <table class="gnougo-trace-detail__table">
             <tbody>
                 <tr><td>Span Id</td><td><code>@Span.SpanId</code></td></tr>
                 <tr><td>Parent</td><td><code>@(Span.ParentSpanId ?? "root")</code></td></tr>
@@ -32,18 +32,18 @@
     </div>
     <TraceAttributeTable Title="GenAI attributes" Attributes="genAiAttributes" RenderFormatted="RenderFormatted" />
     <TraceAttributeTable Title="Attributes" Attributes="otherAttributes" RenderFormatted="RenderFormatted" />
-    <div class="sa-trace-detail__section">
+    <div class="gnougo-trace-detail__section">
         <h4>Events</h4>
         @if (Span.Events.Count == 0)
         {
-            <div class="sa-trace-detail__empty">No events on this span.</div>
+            <div class="gnougo-trace-detail__empty">No events on this span.</div>
         }
         else
         {
             @foreach (var traceEvent in Span.Events)
             {
-                <div class="sa-trace-detail__event">
-                    <div class="sa-trace-detail__event-head">
+                <div class="gnougo-trace-detail__event">
+                    <div class="gnougo-trace-detail__event-head">
                         <strong>@traceEvent.Name</strong>
                         <span>@traceEvent.TimeUtc.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)</span>
                     </div>
