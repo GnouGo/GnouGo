@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.7 - 2026-05-31
+
+- fix copilot: Update appsettings.json (release) (cbc3445)
+
 ## v0.8.6 - 2026-05-31
 
 - chore: gnougo optimozarion (release) (#43) (be63b3e)
