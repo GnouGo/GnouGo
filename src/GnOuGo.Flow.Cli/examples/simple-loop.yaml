@@ -8,16 +8,33 @@ workflows:
         type: array
         items: { type: string }
         required: true
-        description: List of items to process in parallel
+        description: List of items to process
 
     steps:
       - id: think_start
         type: emit
         input:
-          message: "Starting parallel loop…"
+          message: "Starting sequential loop over items…"
           level: thinking
 
-      - id: process_all
+      - id: process_sequential
+        type: loop.sequential
+        input:
+          items: "${data.inputs.items}"
+        item_var: item
+        index_var: idx
+        steps:
+          - id: render_item
+            type: template.render
+            input:
+              engine: mustache
+              template: "Item {{idx}}: {{val}}"
+              data:
+                val: "${data.item}"
+                idx: "${data.idx}"
+              mode: text
+
+      - id: process_parallel
         type: loop.parallel
         input:
           items: "${data.inputs.items}"
@@ -34,7 +51,15 @@ workflows:
               mode: text
 
     outputs:
-      results:
-        expr: "${data.steps.process_all}"
+      sequential_results:
+        expr: "${data.steps.process_sequential.results}"
         type: any
-        description: All loop results
+        description: Sequential loop results
+      parallel_results:
+        expr: "${data.steps.process_parallel.results}"
+        type: any
+        description: Parallel loop results
+      count:
+        expr: "${data.steps.process_sequential.count}"
+        type: number
+        description: Number of items processed

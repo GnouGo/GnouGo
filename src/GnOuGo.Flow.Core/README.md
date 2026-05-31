@@ -559,7 +559,7 @@ Pushes real-time feedback to the user interface during long-running workflows.
 - id: notify_progress
   type: emit
   input:
-    message: "Processing item ${data.steps.loop.index} of ${data.steps.loop.count}..."
+    message: "Processing item ${data._loop.index} of ${data.steps.loop.count}..."
     level: progress           # "thinking" | "info" | "progress" | "response"
 ```
 
@@ -659,7 +659,7 @@ Executes independent branches concurrently.
 
 ### `loop.sequential` — Iterate Sequentially
 
-Loops with `while` condition or fixed `times` count.
+Loops sequentially with `times`, `while`, or `items`. Supports `item_var` and `index_var` for item iteration (same interface as `loop.parallel`).
 
 ```yaml
 # Fixed count
@@ -670,21 +670,51 @@ Loops with `while` condition or fixed `times` count.
   steps:
     - id: attempt
       type: llm.call
-      input: { model: gpt-4o-mini, prompt: "Attempt ${data.steps.retry_loop.index}" }
+      input: { model: gpt-4o-mini, prompt: "Attempt ${data._loop.index}" }
 
 # While condition
 - id: poll
   type: loop.sequential
   input:
     while: "${data.steps.check.status != 'ready'}"
-    max_iterations: 20
+    max_times: 20
   steps:
     - id: check
       type: mcp.call
       input: { server: my-server, kind: tool, method: check_status, request: {} }
+
+# Iterate over items (same interface as loop.parallel)
+- id: process_each
+  type: loop.sequential
+  input:
+    items: "${data.inputs.urls}"
+  item_var: url
+  index_var: idx
+  steps:
+    - id: fetch
+      type: mcp.call
+      input:
+        server: http-client
+        kind: tool
+        method: fetch_url
+        request: { url: "${data.url}" }
 ```
 
-**Loop context:** `data.steps.<loop_id>.index` (current iteration, 0-based), `data.steps.<loop_id>.count` (total completed).
+| Input field | Type | Description |
+|---|---|---|
+| `times` | number | Fixed iteration count (mutually exclusive with `items`) |
+| `items` | array | Array to iterate over (mutually exclusive with `times`) |
+| `while` | string | Expression evaluated before each iteration; stops when falsy |
+| `max_times` | number | Hard cap on iterations (default: engine limit) |
+
+| Step field | Type | Default | Description |
+|---|---|---|---|
+| `item_var` | string | `"item"` | Variable name for current item in `data.<item_var>` |
+| `index_var` | string | `"i"` | Variable name for current index in `data.<index_var>` |
+
+**Loop context:** `data._loop.index` (0-based iteration index), `data._loop.item` (current item when using `items`).
+
+**Output:** `{ results: [...], count: N }` — each element in `results` contains the step outputs (`data.steps.*`) for that iteration.
 
 ---
 
@@ -698,6 +728,8 @@ Loops over an array of items, executing iterations concurrently.
   input:
     items: "${data.inputs.urls}"
     max_concurrency: 5
+  item_var: url
+  index_var: idx
   steps:
     - id: fetch
       type: mcp.call
@@ -705,10 +737,22 @@ Loops over an array of items, executing iterations concurrently.
         server: http-client
         kind: tool
         method: fetch_url
-        request: { url: "${data.steps.process_all.item}" }
+        request: { url: "${data.url}" }
 ```
 
-**Loop context:** `data.steps.<loop_id>.item` (current item), `data.steps.<loop_id>.index`, `data.steps.<loop_id>.results` (collected results).
+| Input field | Type | Description |
+|---|---|---|
+| `items` | array | **Required** — array to iterate over |
+| `max_concurrency` | number | Optional max parallel branches (0 = unlimited) |
+
+| Step field | Type | Default | Description |
+|---|---|---|---|
+| `item_var` | string | `"item"` | Variable name for current item in `data.<item_var>` |
+| `index_var` | string | `"i"` | Variable name for current index in `data.<index_var>` |
+
+**Loop context:** `data._loop.index`, `data._loop.item`, `data.<item_var>`, `data.<index_var>`.
+
+**Output:** `{ results: [...], count: N }` — each element in `results` contains the step outputs for that iteration.
 
 ---
 

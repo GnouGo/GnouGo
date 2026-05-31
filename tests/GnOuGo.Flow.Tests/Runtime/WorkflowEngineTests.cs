@@ -382,7 +382,7 @@ workflows:
         Assert.Equal(3, result.Outputs!["count"]!.GetValue<int>());
 
         var loopOutput = result.StepResults[0].Output as JsonObject;
-        var iterations = loopOutput?["iterations"] as JsonArray;
+        var iterations = loopOutput?["results"] as JsonArray;
         Assert.NotNull(iterations);
         Assert.Equal("Iteration 0", iterations[0]?["inner"]?["text"]?.GetValue<string>());
     }

@@ -340,7 +340,7 @@ workflows:
         Assert.NotNull(loopOutput);
         Assert.Equal(2, loopOutput["count"]!.GetValue<int>());
 
-        var iterations = loopOutput["iterations"] as JsonArray;
+        var iterations = loopOutput["results"] as JsonArray;
         Assert.NotNull(iterations);
         Assert.Equal("0", iterations[0]?["inner"]?["text"]?.GetValue<string>());
         Assert.Equal("1", iterations[1]?["inner"]?["text"]?.GetValue<string>());
@@ -381,7 +381,7 @@ workflows:
 
         var loopOutput = result.StepResults[0].Output as JsonObject;
         Assert.NotNull(loopOutput);
-        var iterations = loopOutput["iterations"] as JsonArray;
+        var iterations = loopOutput["results"] as JsonArray;
         Assert.NotNull(iterations);
         Assert.Equal(3, iterations.Count);
         Assert.Equal("a-0", iterations[0]?["r"]?["text"]?.GetValue<string>());
@@ -416,7 +416,7 @@ workflows:
         var loopOutput = result.StepResults[0].Output as JsonObject;
         Assert.NotNull(loopOutput);
         Assert.Equal(2, loopOutput["count"]!.GetValue<int>());
-        var iterations = loopOutput["iterations"] as JsonArray;
+        var iterations = loopOutput["results"] as JsonArray;
         Assert.NotNull(iterations);
         Assert.Equal("x", iterations[0]?["r"]?["text"]?.GetValue<string>());
         Assert.Equal("y", iterations[1]?["r"]?["text"]?.GetValue<string>());

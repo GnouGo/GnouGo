@@ -194,7 +194,7 @@ workflows:
             Research rounds performed: ${data.steps.agent_loop.count}
 
             All gathered data:
-            ${json(data.steps.agent_loop.iterations)}
+            ${json(data.steps.agent_loop.results)}
 
             Instructions:
             - Synthesize all the information into a coherent answer

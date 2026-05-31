@@ -61,7 +61,7 @@ workflows:
         type: loop.sequential
         input:
           while: "${!exists(data.steps.review) || data.steps.review.response != 'approve'}"
-          max_iterations: 10
+          max_times: 10
         steps:
           # LLM analysis — first pass or refinement based on feedback
           - id: analyze

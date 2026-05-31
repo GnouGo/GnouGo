@@ -44,7 +44,7 @@ public sealed class LoopSequentialExecutor : IStepExecutor
               input: { engine: mustache, template: "Iteration {{idx}}", data: { idx: "${data._loop.index}" }, mode: text }
         ```
         Context: `data.<item_var>` (current item), `data.<index_var>` (current index), `data._loop.index`, `data._loop.item` (when iterating items).
-        Output: `{ iterations: [...], count: N }`
+        Output: `{ results: [...], count: N }`
         """;
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
@@ -118,7 +118,7 @@ public sealed class LoopSequentialExecutor : IStepExecutor
             ctx.Data.Remove("_loop");
             ctx.Data.Remove("loop");
 
-            return new JsonObject { ["iterations"] = iterations, ["count"] = iterations.Count };
+            return new JsonObject { ["results"] = iterations, ["count"] = iterations.Count };
         }
 
         // ── times / while iteration ────────────────────────────────────
@@ -156,6 +156,6 @@ public sealed class LoopSequentialExecutor : IStepExecutor
             iteration++;
         }
 
-        return new JsonObject { ["iterations"] = whileIterations, ["count"] = iteration };
+        return new JsonObject { ["results"] = whileIterations, ["count"] = iteration };
     }
 }

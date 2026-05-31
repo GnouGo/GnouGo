@@ -232,7 +232,7 @@ workflows:
                 ${json(data.steps.source_catalog.sources)}
 
                 Previous rounds, plans, evaluations, and extracted data:
-                ${json(data.steps.research_agent_loop != null ? data.steps.research_agent_loop.iterations : null)}
+                ${json(data.steps.research_agent_loop != null ? data.steps.research_agent_loop.results : null)}
 
                 Your goal is to maximize useful public information while avoiding repeated low-value visits.
                 Prefer official sources early when they are still unexplored.
@@ -336,10 +336,10 @@ workflows:
                 ${json(data.steps.plan_round.json)}
 
                 Round execution results:
-                ${json(data.steps.execute_round != null ? data.steps.execute_round.iterations : null)}
+                ${json(data.steps.execute_round != null ? data.steps.execute_round.results : null)}
 
                 All previous rounds:
-                ${json(data.steps.research_agent_loop != null ? data.steps.research_agent_loop.iterations : null)}
+                ${json(data.steps.research_agent_loop != null ? data.steps.research_agent_loop.results : null)}
 
                 Decide whether we already have enough information to produce a strong public-company research memo.
                 Be conservative: continue if major gaps remain.
@@ -390,7 +390,7 @@ workflows:
             company_domain: "${data.inputs.company_domain}"
             aliases: "${data.inputs.aliases}"
             research_brief: "${data.steps.research_brief.json}"
-            research_iterations: "${data.steps.research_agent_loop.iterations}"
+            research_iterations: "${data.steps.research_agent_loop.results}"
             final_evaluation: "${data.steps.evaluate_round.json}"
 
       - id: close_browser
@@ -437,7 +437,7 @@ workflows:
         type: string
         description: Narrative markdown summary
       research_trace:
-        expr: "${data.steps.research_agent_loop.iterations}"
+        expr: "${data.steps.research_agent_loop.results}"
         type: array
         description: Full trace of all research iterations
       close_status:
