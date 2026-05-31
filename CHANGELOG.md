@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.8 - 2026-05-31
+
+- fix: copilot more permissive (release) (#46) (16de581)
+
 ## v0.8.7 - 2026-05-31
 
 - fix copilot: Update appsettings.json (release) (cbc3445)
