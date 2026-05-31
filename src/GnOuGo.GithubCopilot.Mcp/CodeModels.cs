@@ -74,7 +74,11 @@ public sealed record CodeAgentEditResult(
     string Summary,
     string? Model,
     string? UsageJson,
-    IReadOnlyList<CodeProgressEvent> ProgressEvents = null!);
+    IReadOnlyList<CodeProgressEvent> ProgressEvents = null!,
+    string? Output = null,
+    string? TraceId = null,
+    string? CorrelationId = null,
+    string? TraceParent = null);
 
 public sealed record CodeWriteResult(string Path, string FullPath, long BytesWritten, bool CreatedDirectory);
 

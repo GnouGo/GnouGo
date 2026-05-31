@@ -18,7 +18,8 @@ public sealed class GitRepositoryService
     public GitRepositoryInfo GetRepositoryInfo(string? projectRoot)
     {
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
-        return new GitRepositoryInfo(repositoryRoot, repository.Info.WorkingDirectory, repository.Info.IsBare);
+        var output = $"Repository: {repositoryRoot}\nWorking directory: {repository.Info.WorkingDirectory}\nBare: {repository.Info.IsBare}";
+        return new GitRepositoryInfo(repositoryRoot, repository.Info.WorkingDirectory, repository.Info.IsBare, output);
     }
 
     public GitStatusResult GetStatus(string? projectRoot)
@@ -29,12 +30,19 @@ public sealed class GitRepositoryService
             .OrderBy(static entry => entry.Path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+        var output = entries.Length == 0
+            ? $"Repository is clean on '{repository.Head.FriendlyName}'."
+            : $"Repository has {entries.Length} changed file(s) on '{repository.Head.FriendlyName}'.\n"
+              + string.Join("\n", entries.Take(50).Select(static entry => $"- {entry.Path}: {entry.State}"))
+              + (entries.Length > 50 ? $"\n- ... {entries.Length - 50} more file(s)" : string.Empty);
+
         return new GitStatusResult(
             repositoryRoot,
             repository.Head.FriendlyName,
             repository.Info.IsHeadDetached,
             entries.Length > 0,
-            entries);
+            entries,
+            output);
     }
 
     public GitDiffResult GetDiff(string? projectRoot, string? relativePath = null, bool staged = false)
@@ -50,7 +58,12 @@ public sealed class GitRepositoryService
         if (truncated)
             text = text[..max] + "\n...diff truncated by Git:MaxDiffCharacters...";
 
-        return new GitDiffResult(repositoryRoot, relativePath, staged, text, truncated);
+        var lineCount = string.IsNullOrEmpty(text) ? 0 : text.Count(static ch => ch == '\n') + 1;
+        var output = string.IsNullOrWhiteSpace(text)
+            ? $"No {(staged ? "staged" : "unstaged")} diff found{(string.IsNullOrWhiteSpace(relativePath) ? string.Empty : $" for '{relativePath}'")}."
+            : $"Returned {(staged ? "staged" : "unstaged")} diff{(string.IsNullOrWhiteSpace(relativePath) ? string.Empty : $" for '{relativePath}'")} ({lineCount} line(s), {text.Length} character(s){(truncated ? ", truncated" : string.Empty)}).";
+
+        return new GitDiffResult(repositoryRoot, relativePath, staged, text, truncated, output);
     }
 
     public GitLogResult GetLog(string? projectRoot, int maxCount = 20)
@@ -68,7 +81,13 @@ public sealed class GitRepositoryService
                 commit.Author.When))
             .ToArray();
 
-        return new GitLogResult(repositoryRoot, commits.Take(limit).ToArray(), commits.Length > limit);
+        var visibleCommits = commits.Take(limit).ToArray();
+        var output = visibleCommits.Length == 0
+            ? "No commits found."
+            : $"Returned {visibleCommits.Length} commit(s){(commits.Length > limit ? " (truncated)" : string.Empty)}.\n"
+              + string.Join("\n", visibleCommits.Take(20).Select(static commit => $"- {commit.ShortSha} {commit.MessageShort}"));
+
+        return new GitLogResult(repositoryRoot, visibleCommits, commits.Length > limit, output);
     }
 
     public GitBranchesResult ListBranches(string? projectRoot)
@@ -86,7 +105,12 @@ public sealed class GitRepositoryService
             .ThenBy(static branch => branch.FriendlyName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        return new GitBranchesResult(repositoryRoot, repository.Head.FriendlyName, branches);
+        var output = branches.Length == 0
+            ? "No branches found."
+            : $"Returned {branches.Length} branch(es). Current: {repository.Head.FriendlyName}.\n"
+              + string.Join("\n", branches.Take(50).Select(static branch => $"- {(branch.IsCurrentRepositoryHead ? "* " : string.Empty)}{branch.FriendlyName}{(branch.IsRemote ? " (remote)" : string.Empty)}"));
+
+        return new GitBranchesResult(repositoryRoot, repository.Head.FriendlyName, branches, output);
     }
 
     public GitOperationResult CreateBranch(string? projectRoot, string branchName, string? startPoint = null, bool checkout = false)
@@ -100,7 +124,8 @@ public sealed class GitRepositoryService
         if (checkout)
             Commands.Checkout(repository, branch);
 
-        return new GitOperationResult(repositoryRoot, "create_branch", $"Branch '{branch.FriendlyName}' created{(checkout ? " and checked out" : string.Empty)}.", true);
+        var message = $"Branch '{branch.FriendlyName}' created{(checkout ? " and checked out" : string.Empty)}.";
+        return new GitOperationResult(repositoryRoot, "create_branch", message, true, BuildOperationOutput("create_branch", message, repositoryRoot));
     }
 
     public GitOperationResult Checkout(string? projectRoot, string branchOrCommit, bool createBranch = false, string? newBranchName = null)
@@ -116,18 +141,21 @@ public sealed class GitRepositoryService
             EnsureSafeBranchName(branchName);
             var branch = repository.CreateBranch(branchName, ResolveCommitish(repository, branchOrCommit));
             Commands.Checkout(repository, branch);
-            return new GitOperationResult(repositoryRoot, "checkout", $"Created and checked out branch '{branch.FriendlyName}'.", true);
+            var message = $"Created and checked out branch '{branch.FriendlyName}'.";
+            return new GitOperationResult(repositoryRoot, "checkout", message, true, BuildOperationOutput("checkout", message, repositoryRoot));
         }
 
         var existingBranch = repository.Branches[branchOrCommit];
         if (existingBranch is not null)
         {
             Commands.Checkout(repository, existingBranch);
-            return new GitOperationResult(repositoryRoot, "checkout", $"Checked out branch '{existingBranch.FriendlyName}'.", true);
+            var message = $"Checked out branch '{existingBranch.FriendlyName}'.";
+            return new GitOperationResult(repositoryRoot, "checkout", message, true, BuildOperationOutput("checkout", message, repositoryRoot));
         }
 
         Commands.Checkout(repository, ResolveCommitish(repository, branchOrCommit));
-        return new GitOperationResult(repositoryRoot, "checkout", $"Checked out commitish '{branchOrCommit}'.", true);
+        var checkoutMessage = $"Checked out commitish '{branchOrCommit}'.";
+        return new GitOperationResult(repositoryRoot, "checkout", checkoutMessage, true, BuildOperationOutput("checkout", checkoutMessage, repositoryRoot));
     }
 
     public GitOperationResult Stage(string? projectRoot, IReadOnlyList<string> paths)
@@ -136,7 +164,8 @@ public sealed class GitRepositoryService
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
         var pathspecs = NormalizePathspecs(paths);
         Commands.Stage(repository, pathspecs);
-        return new GitOperationResult(repositoryRoot, "stage", $"Staged {pathspecs.Count} pathspec(s).", true);
+        var message = $"Staged {pathspecs.Count} pathspec(s): {string.Join(", ", pathspecs)}.";
+        return new GitOperationResult(repositoryRoot, "stage", message, true, BuildOperationOutput("stage", message, repositoryRoot));
     }
 
     public GitOperationResult Unstage(string? projectRoot, IReadOnlyList<string> paths)
@@ -145,7 +174,8 @@ public sealed class GitRepositoryService
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
         var pathspecs = NormalizePathspecs(paths);
         Commands.Unstage(repository, pathspecs);
-        return new GitOperationResult(repositoryRoot, "unstage", $"Unstaged {pathspecs.Count} pathspec(s).", true);
+        var message = $"Unstaged {pathspecs.Count} pathspec(s): {string.Join(", ", pathspecs)}.";
+        return new GitOperationResult(repositoryRoot, "unstage", message, true, BuildOperationOutput("unstage", message, repositoryRoot));
     }
 
     public GitCommitInfo Commit(string? projectRoot, string message, string? authorName = null, string? authorEmail = null)
@@ -154,10 +184,12 @@ public sealed class GitRepositoryService
         if (string.IsNullOrWhiteSpace(message))
             throw new InvalidOperationException("message must not be empty.");
 
-        using var repository = OpenRepository(projectRoot, out _);
+        using var repository = OpenRepository(projectRoot, out var repositoryRoot);
         var signature = CreateSignature(authorName, authorEmail);
         var commit = repository.Commit(message, signature, signature);
-        return new GitCommitInfo(commit.Sha, commit.Sha.Length > 12 ? commit.Sha[..12] : commit.Sha, commit.MessageShort, commit.Author.Name, commit.Author.Email, commit.Author.When);
+        var shortSha = commit.Sha.Length > 12 ? commit.Sha[..12] : commit.Sha;
+        var output = $"Created commit {shortSha}: {commit.MessageShort}\nRepository: {repositoryRoot}\nAuthor: {commit.Author.Name} <{commit.Author.Email}>";
+        return new GitCommitInfo(commit.Sha, shortSha, commit.MessageShort, commit.Author.Name, commit.Author.Email, commit.Author.When, output);
     }
 
     public GitMergeResult Merge(string? projectRoot, string branchName, string? authorName = null, string? authorEmail = null)
@@ -172,12 +204,19 @@ public sealed class GitRepositoryService
 
         var branch = repository.Branches[branchName] ?? throw new InvalidOperationException($"Branch '{branchName}' was not found.");
         var result = repository.Merge(branch, CreateSignature(authorName, authorEmail));
+        var conflicts = ListConflicts(repository);
+        var output = result.Status == MergeStatus.Conflicts
+            ? $"Merge of '{branch.FriendlyName}' ended with {conflicts.Count} conflict(s).\n"
+              + string.Join("\n", conflicts.Take(50).Select(static conflict => $"- {conflict.Path}"))
+            : $"Merged '{branch.FriendlyName}' with status {result.Status}{(result.Commit is null ? string.Empty : $". Commit: {result.Commit.Sha}")}.";
+
         return new GitMergeResult(
             repositoryRoot,
             branch.FriendlyName,
             result.Status.ToString(),
             result.Commit?.Sha,
-            ListConflicts(repository));
+            conflicts,
+            output);
     }
 
     public IReadOnlyList<GitConflictInfo> GetConflicts(string? projectRoot)
@@ -218,7 +257,8 @@ public sealed class GitRepositoryService
                 throw new InvalidOperationException("strategy must be one of: ours, theirs, stage_existing, manual.");
         }
 
-        return new GitOperationResult(repositoryRoot, "resolve_conflict", $"Resolved '{normalizedPath}' with strategy '{selectedStrategy}'.", true);
+        var message = $"Resolved '{normalizedPath}' with strategy '{selectedStrategy}'.";
+        return new GitOperationResult(repositoryRoot, "resolve_conflict", message, true, BuildOperationOutput("resolve_conflict", message, repositoryRoot));
     }
 
     public GitCloneResult Clone(string remoteUrl, string targetDirectory, string? branch = null)
@@ -236,7 +276,8 @@ public sealed class GitRepositoryService
 
         var repositoryPath = Repository.Clone(remoteUrl, target, options);
         var workingDirectory = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(repositoryPath)) ?? target;
-        return new GitCloneResult(workingDirectory, remoteUrl, branch);
+        var output = $"Cloned '{remoteUrl}' into '{workingDirectory}'{(string.IsNullOrWhiteSpace(branch) ? string.Empty : $" on branch '{branch}'")}.";
+        return new GitCloneResult(workingDirectory, remoteUrl, branch, output);
     }
 
     public GitOperationResult Fetch(string? projectRoot, string? remoteName = null)
@@ -247,7 +288,8 @@ public sealed class GitRepositoryService
         var options = new FetchOptions();
         ApplyCredentials(options);
         Commands.Fetch(repository, remote.Name, remote.FetchRefSpecs.Select(static spec => spec.Specification), options, "fetch from Git MCP");
-        return new GitOperationResult(repositoryRoot, "fetch", $"Fetched remote '{remote.Name}'.", true);
+        var message = $"Fetched remote '{remote.Name}'.";
+        return new GitOperationResult(repositoryRoot, "fetch", message, true, BuildOperationOutput("fetch", message, repositoryRoot));
     }
 
     public GitMergeResult Pull(string? projectRoot, string? remoteName = null, string? authorName = null, string? authorEmail = null)
@@ -262,7 +304,12 @@ public sealed class GitRepositoryService
         var options = new PullOptions { FetchOptions = new FetchOptions() };
         ApplyCredentials(options.FetchOptions);
         var result = Commands.Pull(repository, CreateSignature(authorName, authorEmail), options);
-        return new GitMergeResult(repositoryRoot, repository.Head.FriendlyName, result.Status.ToString(), result.Commit?.Sha, ListConflicts(repository));
+        var conflicts = ListConflicts(repository);
+        var output = result.Status == MergeStatus.Conflicts
+            ? $"Pull from '{remoteName ?? _settings.DefaultRemoteName}' ended with {conflicts.Count} conflict(s).\n"
+              + string.Join("\n", conflicts.Take(50).Select(static conflict => $"- {conflict.Path}"))
+            : $"Pulled branch '{repository.Head.FriendlyName}' from '{remoteName ?? _settings.DefaultRemoteName}' with status {result.Status}{(result.Commit is null ? string.Empty : $". Commit: {result.Commit.Sha}")}.";
+        return new GitMergeResult(repositoryRoot, repository.Head.FriendlyName, result.Status.ToString(), result.Commit?.Sha, conflicts, output);
     }
 
     public GitPushResult Push(string? projectRoot, string? remoteName = null, string? branchName = null, bool setUpstream = true)
@@ -292,8 +339,12 @@ public sealed class GitRepositoryService
             });
         }
 
-        return new GitPushResult(repositoryRoot, remote.Name, branch.FriendlyName, setUpstream, $"Pushed '{branch.FriendlyName}' to '{remote.Name}'{(setUpstream ? " and set upstream" : string.Empty)}.");
+        var message = $"Pushed '{branch.FriendlyName}' to '{remote.Name}'{(setUpstream ? " and set upstream" : string.Empty)}.";
+        return new GitPushResult(repositoryRoot, remote.Name, branch.FriendlyName, setUpstream, message, BuildOperationOutput("push", message, repositoryRoot));
     }
+
+    private static string BuildOperationOutput(string operation, string message, string repositoryRoot)
+        => $"Git operation '{operation}' completed successfully.\nRepository: {repositoryRoot}\n{message}";
 
     private Repository OpenRepository(string? projectRoot, out string repositoryRoot)
     {

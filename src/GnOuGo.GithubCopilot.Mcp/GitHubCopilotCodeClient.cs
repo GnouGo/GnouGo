@@ -201,6 +201,10 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             model,
             modifiedFiles.Count);
 
+        var traceContext = CodeMcpTraceContext.Capture(_traceContextAccessor);
+        var progressEvents = progress.ToArray();
+        var output = BuildAgentEditOutput(summary, modifiedFiles, model, traceContext, progressEvents, data);
+
         return new CodeAgentEditResult(
             Task: task,
             ContextFiles: contextFiles.Select(static file => file.Path).ToArray(),
@@ -208,7 +212,11 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
             Summary: summary,
             Model: model,
             UsageJson: data is null ? null : BuildUsageJson(data),
-            ProgressEvents: progress.ToArray());
+            ProgressEvents: progressEvents,
+            Output: output,
+            TraceId: traceContext?.TraceId,
+            CorrelationId: traceContext?.CorrelationId,
+            TraceParent: traceContext?.TraceParent);
     }
 
     internal CopilotClient CreateClient(string projectRoot, string? token, bool enableSessionFs = false)
@@ -478,6 +486,65 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         }
 
         return sb.ToString();
+    }
+
+    private static string BuildAgentEditOutput(
+        string summary,
+        IReadOnlyList<string> modifiedFiles,
+        string? model,
+        CodeMcpTraceContext? traceContext,
+        IReadOnlyList<CodeProgressEvent> progressEvents,
+        AssistantMessageData? data)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Copilot agent completed.");
+        sb.AppendLine();
+
+        if (!string.IsNullOrWhiteSpace(summary))
+        {
+            sb.AppendLine("Summary:");
+            sb.AppendLine(summary.Trim());
+            sb.AppendLine();
+        }
+
+        if (!string.IsNullOrWhiteSpace(model))
+            sb.AppendLine($"Model: {model}");
+
+        if (!string.IsNullOrWhiteSpace(traceContext?.TraceId))
+            sb.AppendLine($"OpenTelemetry trace_id: {traceContext.TraceId}");
+        if (!string.IsNullOrWhiteSpace(traceContext?.CorrelationId))
+            sb.AppendLine($"Correlation ID: {traceContext.CorrelationId}");
+        if (!string.IsNullOrWhiteSpace(data?.RequestId))
+            sb.AppendLine($"Copilot request_id: {data.RequestId}");
+        if (!string.IsNullOrWhiteSpace(data?.InteractionId))
+            sb.AppendLine($"Copilot interaction_id: {data.InteractionId}");
+
+        sb.AppendLine();
+        sb.AppendLine(modifiedFiles.Count == 0
+            ? "Modified files: none reported."
+            : $"Modified files ({modifiedFiles.Count}):");
+        foreach (var file in modifiedFiles.Take(50))
+            sb.AppendLine($"- {file}");
+        if (modifiedFiles.Count > 50)
+            sb.AppendLine($"- ... {modifiedFiles.Count - 50} more file(s)");
+
+        var interestingEvents = progressEvents
+            .Where(static e => e.Level is "warning" or "error" || e.Kind is "completed" or "file_modified" || e.Kind.StartsWith("sdk_", StringComparison.Ordinal))
+            .TakeLast(25)
+            .ToArray();
+
+        if (interestingEvents.Length > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Progress events:");
+            foreach (var e in interestingEvents)
+            {
+                var fileSuffix = string.IsNullOrWhiteSpace(e.File) ? string.Empty : $" ({e.File})";
+                sb.AppendLine($"- [{e.Level}] {e.Message}{fileSuffix}");
+            }
+        }
+
+        return sb.ToString().Trim();
     }
 
     private sealed class CodeProgressRecorder

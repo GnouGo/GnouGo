@@ -69,6 +69,7 @@ public sealed class CodeToolsTests : IDisposable
 		var edit = Assert.IsType<CodeAgentEditResult>(result);
 		Assert.Equal("Implement the change.", edit.Task);
 		Assert.Equal("fake edit summary", edit.Summary);
+		Assert.Contains("fake edit summary", edit.Output);
 		Assert.Contains(edit.ProgressEvents, e => e.Kind == "file_modified" && e.File == "src/Program.cs");
 		Assert.Equal(_root, assistant.ProjectRoot);
 		Assert.Equal("CustomCopilot", assistant.ProviderName);
@@ -404,7 +405,8 @@ public sealed class CodeToolsTests : IDisposable
 				"fake edit summary",
 				"fake-model",
 				null,
-				[new CodeProgressEvent("file_modified", "info", "Modified src/Program.cs.", DateTimeOffset.UtcNow, "src/Program.cs")]));
+				[new CodeProgressEvent("file_modified", "info", "Modified src/Program.cs.", DateTimeOffset.UtcNow, "src/Program.cs")],
+				"fake edit summary\n\nModified files:\n- src/Program.cs"));
 		}
 	}
 }
