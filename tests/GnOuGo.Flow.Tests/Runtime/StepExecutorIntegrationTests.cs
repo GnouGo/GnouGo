@@ -340,7 +340,7 @@ workflows:
         Assert.NotNull(loopOutput);
         Assert.Equal(2, loopOutput["count"]!.GetValue<int>());
 
-        var iterations = loopOutput["iterations"] as JsonArray;
+        var iterations = loopOutput["results"] as JsonArray;
         Assert.NotNull(iterations);
         Assert.Equal("0", iterations[0]?["inner"]?["text"]?.GetValue<string>());
         Assert.Equal("1", iterations[1]?["inner"]?["text"]?.GetValue<string>());

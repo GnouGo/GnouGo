@@ -139,7 +139,7 @@ workflows:
                 ${json(data.steps.safe_source_catalog.sources)}
 
                 Previous rounds:
-                ${json(data.steps.safe_research_loop != null ? data.steps.safe_research_loop.iterations : null)}
+                ${json(data.steps.safe_research_loop != null ? data.steps.safe_research_loop.results : null)}
 
                 Choose the most valuable next public sources.
                 Prefer official pages first, then broad public sources, then community signals.
@@ -214,10 +214,10 @@ workflows:
                 ${json(data.steps.safe_plan_round.json)}
 
                 Current execution results:
-                ${json(data.steps.safe_execute_round != null ? data.steps.safe_execute_round.iterations : null)}
+                ${json(data.steps.safe_execute_round != null ? data.steps.safe_execute_round.results : null)}
 
                 All rounds so far:
-                ${json(data.steps.safe_research_loop != null ? data.steps.safe_research_loop.iterations : null)}
+                ${json(data.steps.safe_research_loop != null ? data.steps.safe_research_loop.results : null)}
 
                 Return JSON only:
                 {
@@ -251,7 +251,7 @@ workflows:
             name: summarize_safe_findings
           args:
             subject: "${data.inputs.subject}"
-            research_iterations: "${data.steps.safe_research_loop.iterations}"
+            research_iterations: "${data.steps.safe_research_loop.results}"
             final_evaluation: "${data.steps.safe_evaluate_round.json}"
 
       - id: close_browser
@@ -286,7 +286,7 @@ workflows:
         type: string
         description: Narrative markdown summary
       research_trace:
-        expr: "${data.steps.safe_research_loop.iterations}"
+        expr: "${data.steps.safe_research_loop.results}"
         type: array
         description: Full trace of all research iterations
 
