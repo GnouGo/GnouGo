@@ -8,6 +8,7 @@ namespace GnOuGo.Agent.Shared;
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(List<ChatMessageDto>))]
 [JsonSerializable(typeof(ChatStreamRequestDto))]
+[JsonSerializable(typeof(ChatCompletionResponseDto))]
 [JsonSerializable(typeof(ChatStoreDto))]
 [JsonSerializable(typeof(ChatSessionDto))]
 [JsonSerializable(typeof(List<ChatSessionDto>))]

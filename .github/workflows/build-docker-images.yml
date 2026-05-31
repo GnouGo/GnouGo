@@ -28,21 +28,27 @@ jobs:
           - name: GnOuGo.Agent.Server
             dockerfile: src/GnOuGo.Agent.Server/Dockerfile
             image_tag: gnougo-agent
+            platforms: linux/amd64
           - name: GnOuGo.Diff.Server
             dockerfile: src/GnOuGo.Diff.Server/Dockerfile
             image_tag: gnougo-diff
+            platforms: linux/amd64,linux/arm64
           - name: GnOuGo.DocIngestor.Server
             dockerfile: src/GnOuGo.DocIngestor.Server/Dockerfile
             image_tag: gnougo-doc-ingestor
+            platforms: linux/amd64,linux/arm64
           - name: GnOuGo.Flow.Server
             dockerfile: src/GnOuGo.Flow.Server/Dockerfile
             image_tag: gnougo-flow
+            platforms: linux/amd64,linux/arm64
           - name: GnOuGo.KeyVault.Server
             dockerfile: src/GnOuGo.KeyVault.Server/Dockerfile
             image_tag: gnougo-keyvault
+            platforms: linux/amd64,linux/arm64
           - name: GnOuGo.OtlpCollector.Server
             dockerfile: src/GnOuGo.OtlpCollector.Server/Dockerfile
             image_tag: gnougo-otlp-collector
+            platforms: linux/amd64,linux/arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -78,5 +84,5 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           tags: ${{ steps.meta.outputs.tags }}
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platforms }}
           push: ${{ inputs.push }}

@@ -1,10 +1,9 @@
 ﻿using System.Net.Http.Json;
+using Microsoft.Data.Sqlite;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.KeyVault.Core;
-using GnOuGo.KeyVault.Core.Data;
 
 namespace GnOuGo.KeyVault.Mcp.Tests;
 
@@ -32,11 +31,12 @@ public sealed class KeyVaultMcpWebHostTests
         {
             await provider.InitializeKeyVaultMcpAsync();
 
-            await using var scope = provider.CreateAsyncScope();
-            var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-            var defaultTenant = await db.Tenants.FirstOrDefaultAsync(t => t.Name == "__default__");
+            await using var connection = new SqliteConnection($"Data Source={dbPath}");
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM Tenants WHERE Name = '__default__' AND IsDeleted = 0;";
 
-            Assert.NotNull(defaultTenant);
+            Assert.Equal(1L, (long)(await command.ExecuteScalarAsync())!);
         }
         finally
         {

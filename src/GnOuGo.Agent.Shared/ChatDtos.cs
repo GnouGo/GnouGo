@@ -12,6 +12,8 @@ public sealed record ChatStreamRequestDto(
     string? AgentName = null,
     IReadOnlyList<string>? FilesIds = null);
 
+public sealed record ChatCompletionResponseDto(string Text);
+
 // Browser-side persisted store (localStorage)
 public sealed record ChatSessionDto(
     string Id,

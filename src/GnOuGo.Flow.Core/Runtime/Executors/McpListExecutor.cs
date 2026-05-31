@@ -352,7 +352,7 @@ public sealed class McpListExecutor : IStepExecutor
                     sb.AppendLine($"Error: {serverResult.Error}");
                 }
 
-                serversArr.Add(serverObj);
+                serversArr.Add((JsonNode)serverObj);
                 continue;
             }
 
@@ -375,7 +375,7 @@ public sealed class McpListExecutor : IStepExecutor
                         serverTool["input_schema"] = t.InputSchema.DeepClone();
 
                     serverTools.Add(serverTool.DeepClone());
-                    toolsArr?.Add(serverTool);
+                    toolsArr?.Add((JsonNode)serverTool);
                     sb.AppendLine($"- **{t.Name}**: {t.Description ?? "(no description)"}");
                 }
 
@@ -402,7 +402,7 @@ public sealed class McpListExecutor : IStepExecutor
                         serverResource["mime_type"] = r.MimeType;
 
                     serverResources.Add(serverResource.DeepClone());
-                    resourcesArr?.Add(serverResource);
+                    resourcesArr?.Add((JsonNode)serverResource);
                     sb.AppendLine($"- **{r.Name}** ({r.Uri}): {r.Description ?? "(no description)"}");
                 }
 
@@ -429,7 +429,7 @@ public sealed class McpListExecutor : IStepExecutor
                         var argsArr = new JsonArray();
                         foreach (var a in p.Arguments)
                         {
-                            argsArr.Add(new JsonObject
+                            argsArr.Add((JsonNode)new JsonObject
                             {
                                 ["name"] = a.Name,
                                 ["description"] = a.Description,
@@ -440,7 +440,7 @@ public sealed class McpListExecutor : IStepExecutor
                     }
 
                     serverPrompts.Add(serverPrompt.DeepClone());
-                    promptsArr?.Add(serverPrompt);
+                    promptsArr?.Add((JsonNode)serverPrompt);
 
                     var argsText = p.Arguments != null && p.Arguments.Count > 0
                         ? $" (args: {string.Join(", ", p.Arguments.Select(a => a.Name))})"
@@ -451,7 +451,7 @@ public sealed class McpListExecutor : IStepExecutor
                 serverObj["prompts"] = serverPrompts;
             }
 
-            serversArr.Add(serverObj);
+            serversArr.Add((JsonNode)serverObj);
         }
 
         result["servers"] = serversArr;

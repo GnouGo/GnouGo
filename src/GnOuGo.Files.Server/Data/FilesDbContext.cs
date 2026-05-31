@@ -1,10 +1,19 @@
 ﻿using GnOuGo.Files.Server.Models;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 
 namespace GnOuGo.Files.Server.Data;
 
 public sealed class FilesDbContext : DbContext
 {
+    [UnconditionalSuppressMessage(
+        "AOT",
+        "IL2026",
+        Justification = "Files SQLite access uses an EF Core compiled model. The final Native AOT executable is published and smoke-tested to validate this EF Core usage.")]
+    [UnconditionalSuppressMessage(
+        "AOT",
+        "IL3050",
+        Justification = "Files SQLite access uses an EF Core compiled model. The final Native AOT executable is published and smoke-tested to validate this EF Core usage.")]
     public FilesDbContext(DbContextOptions<FilesDbContext> options) : base(options)
     {
     }

@@ -462,8 +462,20 @@ public sealed class TraceDebugServiceTests
             var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-trace-debug-{Guid.NewGuid():N}.db");
             var services = new ServiceCollection();
             services.AddLogging();
+            services.AddSingleton(new AppOptions(
+                DbPath: dbPath,
+                BatchSize: 100,
+                FlushSeconds: 1,
+                ChannelCapacity: 100,
+                RetentionSweepSeconds: 60,
+                DevModeEnabled: false));
             services.AddDbContext<TelemetryDbContext>(options =>
-                options.UseSqlite($"Data Source={dbPath};Foreign Keys=False"));
+            {
+                var dir = Path.GetDirectoryName(dbPath);
+                if (!string.IsNullOrWhiteSpace(dir))
+                    Directory.CreateDirectory(dir);
+                options.UseSqlite($"Data Source={dbPath}");
+            });
             services.AddScoped<EfTelemetryStore>();
 
             var provider = services.BuildServiceProvider();

@@ -5,63 +5,43 @@ using OtlpTenantCollector.Models;
 namespace OtlpTenantCollector.Services;
 
 /// <summary>
-/// Requêtes EF Core précompilées pour de meilleures performances
+/// Precompiled EF Core queries for optimal startup performance.
 /// </summary>
-public static class CompiledQueries
+internal static class TelemetryQueries
 {
-    // ============================================================================
-    // Tenant Queries
-    // ============================================================================
+    // ── Tenant ───────────────────────────────────────────────────────
 
-    public static readonly Func<TelemetryDbContext, Guid, Task<TenantEntity?>> GetTenantByIdAsync =
-        EF.CompileAsyncQuery((TelemetryDbContext context, Guid tenantId) =>
-            context.Tenants
-                .AsNoTracking()
-                .FirstOrDefault(t => t.Id == tenantId));
+    public static readonly Func<TelemetryDbContext, Guid, Task<TenantEntity?>> GetTenantById =
+        EF.CompileAsyncQuery(
+            (TelemetryDbContext db, Guid id) =>
+                db.Tenants.FirstOrDefault(t => t.Id == id));
 
-    public static readonly Func<TelemetryDbContext, IAsyncEnumerable<TenantEntity>> GetAllTenantsAsync =
-        EF.CompileAsyncQuery((TelemetryDbContext context) =>
-            context.Tenants.AsNoTracking());
+    public static readonly Func<TelemetryDbContext, IAsyncEnumerable<TenantEntity>> GetAllTenants =
+        EF.CompileAsyncQuery(
+            (TelemetryDbContext db) =>
+                db.Tenants.OrderByDescending(t => t.CreatedUtc).AsQueryable());
 
-    // ============================================================================
-    // Span Queries (TenantId nullable — null means "no tenant filter" in DevMode)
-    // ============================================================================
+    // ── Spans ────────────────────────────────────────────────────────
 
-    public static readonly Func<TelemetryDbContext, Guid?, IAsyncEnumerable<SpanRecordEntity>> GetSpansByTenantAsync =
-        EF.CompileAsyncQuery((TelemetryDbContext context, Guid? tenantId) =>
-            context.Spans
-                .AsNoTracking()
-                .Where(s => tenantId == null ? s.TenantId == null : s.TenantId == tenantId));
+    public static readonly Func<TelemetryDbContext, Guid?, IAsyncEnumerable<SpanRecordEntity>> GetSpansByTenant =
+        EF.CompileAsyncQuery(
+            (TelemetryDbContext db, Guid? tenantId) =>
+                db.SpanRecords.Where(s => s.TenantId == tenantId).AsQueryable());
 
-    public static readonly Func<TelemetryDbContext, Guid?, byte[], IAsyncEnumerable<SpanRecordEntity>> GetTraceSpansAsync =
-        EF.CompileAsyncQuery((TelemetryDbContext context, Guid? tenantId, byte[] traceId) =>
-            context.Spans
-                .AsNoTracking()
-                .Where(s => (tenantId == null ? s.TenantId == null : s.TenantId == tenantId) && s.TraceId == traceId));
+    public static readonly Func<TelemetryDbContext, Guid?, byte[], IAsyncEnumerable<SpanRecordEntity>> GetSpansByTenantAndTrace =
+        EF.CompileAsyncQuery(
+            (TelemetryDbContext db, Guid? tenantId, byte[] traceId) =>
+                db.SpanRecords.Where(s => s.TenantId == tenantId && s.TraceId == traceId).AsQueryable());
 
-    public static readonly Func<TelemetryDbContext, Guid?, IAsyncEnumerable<SpanRecordEntity>> GetSpansForDeletionAsync =
-        EF.CompileAsyncQuery((TelemetryDbContext context, Guid? tenantId) =>
-            context.Spans
-                .Where(s => tenantId == null ? s.TenantId == null : s.TenantId == tenantId));
+    // ── Logs ─────────────────────────────────────────────────────────
 
-    // ============================================================================
-    // Log Queries (TenantId nullable)
-    // ============================================================================
+    public static readonly Func<TelemetryDbContext, Guid?, IAsyncEnumerable<LogRecordEntity>> GetLogsByTenant =
+        EF.CompileAsyncQuery(
+            (TelemetryDbContext db, Guid? tenantId) =>
+                db.LogRecords.Where(l => l.TenantId == tenantId).AsQueryable());
 
-    public static readonly Func<TelemetryDbContext, Guid?, IAsyncEnumerable<LogRecordEntity>> GetLogsByTenantAsync =
-        EF.CompileAsyncQuery((TelemetryDbContext context, Guid? tenantId) =>
-            context.Logs
-                .AsNoTracking()
-                .Where(l => tenantId == null ? l.TenantId == null : l.TenantId == tenantId));
-
-    public static readonly Func<TelemetryDbContext, Guid?, byte[], IAsyncEnumerable<LogRecordEntity>> GetLogsForTraceAsync =
-        EF.CompileAsyncQuery((TelemetryDbContext context, Guid? tenantId, byte[] traceId) =>
-            context.Logs
-                .AsNoTracking()
-                .Where(l => (tenantId == null ? l.TenantId == null : l.TenantId == tenantId) && l.TraceId == traceId));
-
-    public static readonly Func<TelemetryDbContext, Guid?, IAsyncEnumerable<LogRecordEntity>> GetLogsForDeletionAsync =
-        EF.CompileAsyncQuery((TelemetryDbContext context, Guid? tenantId) =>
-            context.Logs
-                .Where(l => tenantId == null ? l.TenantId == null : l.TenantId == tenantId));
+    public static readonly Func<TelemetryDbContext, Guid?, byte[], IAsyncEnumerable<LogRecordEntity>> GetLogsByTenantAndTrace =
+        EF.CompileAsyncQuery(
+            (TelemetryDbContext db, Guid? tenantId, byte[] traceId) =>
+                db.LogRecords.Where(l => l.TenantId == tenantId && l.TraceId == traceId).AsQueryable());
 }

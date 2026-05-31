@@ -8,6 +8,12 @@ on:
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      desktop_publish_aot:
+        description: Publish desktop bundled stdio tools with Native AOT (Browser MCP stays managed).
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -81,9 +87,17 @@ jobs:
     permissions:
       contents: read
 
-  desktop_aot:
-    name: Desktop Trimmed
+  desktop_trimmed:
+    name: Desktop (Trimmed + Native AOT tools)
     uses: ./.github/workflows/build-agent-desktop-trimmed.yml
+    permissions:
+      contents: read
+    with:
+      publish_aot: true
+
+  keyvault_mcp:
+    name: KeyVault MCP
+    uses: ./.github/workflows/build-keyvault-mcp.yml
     permissions:
       contents: read
 
@@ -96,7 +110,7 @@ jobs:
 
   publish_release_main:
     name: Publish Release (${{ needs.tags.outputs.version_tag }})
-    needs: [tags, server_linux_x64, desktop_aot, otlp_collector_self_contained, docker_builds, publish_flow_dotnet_nuget, publish_flow_python_pypi]
+    needs: [tags, server_linux_x64, desktop_trimmed, otlp_collector_self_contained, docker_builds, publish_flow_dotnet_nuget, publish_flow_python_pypi]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.tags.outputs.is_release == 'true'
     uses: ./.github/workflows/publish-github-release.yml
     permissions:

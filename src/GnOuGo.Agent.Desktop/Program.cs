@@ -28,10 +28,23 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        Directory.CreateDirectory(DiagnosticsDir);
+        try
+        {
+            Directory.CreateDirectory(DiagnosticsDir);
+        }
+        catch
+        {
+            // If we can't even create the diagnostics directory, write to stderr and bail.
+            Console.Error.WriteLine($"FATAL: Cannot create diagnostics directory: {DiagnosticsDir}");
+            throw;
+        }
 
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-            Log($"UnhandledException: {e.ExceptionObject}");
+        {
+            var message = $"UnhandledException: {e.ExceptionObject}";
+            Log(message);
+            Console.Error.WriteLine(message);
+        };
 
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {
@@ -39,6 +52,21 @@ internal static class Program
             e.SetObserved();
         };
 
+        try
+        {
+        RunDesktop(args);
+        }
+        catch (Exception ex)
+        {
+            var message = $"FATAL desktop crash: {ex}";
+            Log(message);
+            Console.Error.WriteLine(message);
+            Environment.ExitCode = 1;
+        }
+    }
+
+    private static void RunDesktop(string[] args)
+    {
         Log("Desktop startup begin");
         Log($"BaseDirectory={AppContext.BaseDirectory}");
         Log($"ProcessPath={Environment.ProcessPath ?? "<null>"}");

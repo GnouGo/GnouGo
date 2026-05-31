@@ -1,64 +1,70 @@
-﻿using Microsoft.Data.Sqlite;
+﻿using GnOuGo.Agent.Mcp.Data;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using GnOuGo.Agent.Mcp.Data;
-using GnOuGo.Diff.Core.Data;
 using Xunit;
 
 namespace GnOuGo.Agent.Mcp.Tests;
 
 public sealed class AgentMcpDatabaseBootstrapTests : IAsyncDisposable
 {
-    private readonly SqliteConnection _agentConnection;
-    private readonly AgentDbContext _agentDb;
-    private readonly DiffDbContext _diffDb;
+    private readonly string _directory;
+    private readonly string _databasePath;
 
     public AgentMcpDatabaseBootstrapTests()
     {
-        _agentConnection = new SqliteConnection("Data Source=:memory:");
-        _agentConnection.Open();
+        _directory = Path.Combine(Path.GetTempPath(), "gnougo-agent-mcp-bootstrap-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_directory);
+        _databasePath = Path.Combine(_directory, "agent.db");
+    }
 
-        _agentDb = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
-            .UseSqlite(_agentConnection)
-            .Options);
-        _diffDb = new DiffDbContext(new DbContextOptionsBuilder<DiffDbContext>()
-            .UseSqlite(_agentConnection)
+    private AgentMcpDbContext CreateDbContext()
+    {
+        return new AgentMcpDbContext(new DbContextOptionsBuilder<AgentMcpDbContext>()
+            .UseSqlite($"Data Source={_databasePath}")
             .Options);
     }
 
     [Fact]
-    public async Task EnsureCreatedAsync_CreatesDiffEntries_WhenAgentSchemaAlreadyExists()
+    public async Task EnsureCreatedAsync_CreatesAllTables()
     {
-        await _agentDb.Database.EnsureCreatedAsync();
+        await using var db = CreateDbContext();
+        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(db);
 
-        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(
-            _agentDb,
-            _diffDb);
-
-        Assert.True(await TableExistsAsync(_agentConnection, "Agents"));
-        Assert.True(await TableExistsAsync(_agentConnection, "UserConfigs"));
-        Assert.True(await TableExistsAsync(_agentConnection, "DiffEntries"));
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        Assert.True(await TableExistsAsync(connection, "Agents"));
+        Assert.True(await TableExistsAsync(connection, "UserConfigs"));
     }
 
     [Fact]
     public async Task EnsureCreatedAsync_IsIdempotent_WhenCalledTwice()
     {
-        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(
-            _agentDb,
-            _diffDb);
-        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(
-            _agentDb,
-            _diffDb);
+        await using (var db1 = CreateDbContext())
+            await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(db1);
 
-        Assert.True(await TableExistsAsync(_agentConnection, "Agents"));
-        Assert.True(await TableExistsAsync(_agentConnection, "UserConfigs"));
-        Assert.True(await TableExistsAsync(_agentConnection, "DiffEntries"));
+        await using (var db2 = CreateDbContext())
+            await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(db2);
+
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        Assert.True(await TableExistsAsync(connection, "Agents"));
+        Assert.True(await TableExistsAsync(connection, "UserConfigs"));
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        await _agentDb.DisposeAsync();
-        await _diffDb.DisposeAsync();
-        await _agentConnection.DisposeAsync();
+        try
+        {
+            Directory.Delete(_directory, recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return ValueTask.CompletedTask;
     }
 
     private static async Task<bool> TableExistsAsync(SqliteConnection connection, string tableName)
@@ -70,4 +76,3 @@ public sealed class AgentMcpDatabaseBootstrapTests : IAsyncDisposable
         return result is not null && result != DBNull.Value;
     }
 }
-

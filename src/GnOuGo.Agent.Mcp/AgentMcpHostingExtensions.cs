@@ -1,9 +1,5 @@
-﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
+﻿using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using ModelContextProtocol;
-using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Protocol;
 using GnOuGo.Agent.Mcp.Data;
 using GnOuGo.Agent.Mcp.Services;
@@ -23,15 +19,19 @@ public static class AgentMcpHostingExtensions
     public static string ResolveDatabasePath(string? configuredPath, string baseDirectory)
         => GnOuGoWorkspace.ResolveDatabasePath(configuredPath, baseDirectory, DefaultDatabasePath);
 
+    [UnconditionalSuppressMessage("AOT", "IL2026",
+        Justification = "EF Core with SQLite uses TrimMode=partial to preserve required assemblies.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050",
+        Justification = "EF Core with SQLite uses TrimMode=partial to preserve required assemblies.")]
     public static IServiceCollection AddAgentMcpPersistence(this IServiceCollection services, string databasePath)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
 
-        services.AddDbContext<AgentDbContext>(options =>
-            options.UseSqlite($"Data Source={databasePath}"));
-        services.AddDbContext<DiffDbContext>(options =>
-            options.UseSqlite($"Data Source={databasePath}"));
+        var connectionString = $"Data Source={databasePath}";
+
+        services.AddDbContext<AgentMcpDbContext>(options => options.UseSqlite(connectionString));
+        services.AddDbContext<DiffDbContext>(options => options.UseDiffCoreSqlite(connectionString));
         services.AddScoped<DiffService>();
         services.AddScoped<IAgentRepository, AgentRepository>();
         services.AddScoped<IUserConfigRepository, UserConfigRepository>();
@@ -55,21 +55,41 @@ public static class AgentMcpHostingExtensions
                 };
             })
             .WithHttpTransport()
-            .WithTools<DataTools>()
-            .WithTools<AgentTools>();
+            .WithTools<DataTools>(AgentMcpJson.SerializerOptions)
+            .WithTools<AgentTools>(AgentMcpJson.SerializerOptions);
 
         return services;
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL3050",
+        Justification = "EnsureCreatedAsync is used at startup to bootstrap the SQLite schema.")]
     public static async Task InitializeAgentMcpAsync(this IServiceProvider services, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         await using var scope = services.CreateAsyncScope();
-        var agentDb = scope.ServiceProvider.GetRequiredService<AgentDbContext>();
-        var diffDb = scope.ServiceProvider.GetRequiredService<DiffDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<AgentMcpDbContext>();
+        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(db, ct);
 
-        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(agentDb, diffDb, ct);
+        var diffDb = scope.ServiceProvider.GetRequiredService<DiffDbContext>();
+        await diffDb.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "DiffEntries" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_DiffEntries" PRIMARY KEY,
+                "EntityType" TEXT NOT NULL,
+                "EntityId" TEXT NOT NULL,
+                "Author" TEXT NOT NULL,
+                "ValueHash" TEXT NOT NULL,
+                "CurrentValue" TEXT NOT NULL,
+                "DiffFromPrevious" TEXT,
+                "TimestampTicks" INTEGER NOT NULL
+            )
+            """, ct);
+        await diffDb.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX IF NOT EXISTS "IX_DiffEntries_EntityType_EntityId_TimestampTicks" ON "DiffEntries" ("EntityType", "EntityId", "TimestampTicks")""", ct);
+        await diffDb.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX IF NOT EXISTS "IX_DiffEntries_EntityType_EntityId" ON "DiffEntries" ("EntityType", "EntityId")""", ct);
+        await diffDb.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX IF NOT EXISTS "IX_DiffEntries_TimestampTicks" ON "DiffEntries" ("TimestampTicks")""", ct);
     }
 
     public static IEndpointConventionBuilder MapAgentMcp(this IEndpointRouteBuilder endpoints, string pattern = DefaultRoutePrefix)
@@ -81,4 +101,3 @@ public static class AgentMcpHostingExtensions
             .DisableAntiforgery();
     }
 }
-

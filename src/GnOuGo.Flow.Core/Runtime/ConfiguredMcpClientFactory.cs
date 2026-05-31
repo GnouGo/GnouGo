@@ -811,9 +811,9 @@ internal sealed class McpSessionAdapter : IMcpSession
         var arr = new JsonArray();
         foreach (var block in result.Content)
         {
-            arr.Add(block is TextContentBlock tb
+            arr.Add((JsonNode)(block is TextContentBlock tb
                 ? new JsonObject { ["type"] = "text", ["text"] = tb.Text }
-                : new JsonObject { ["type"] = block.Type });
+                : new JsonObject { ["type"] = block.Type }));
         }
         return arr;
     }

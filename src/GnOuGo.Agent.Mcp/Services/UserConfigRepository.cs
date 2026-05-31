@@ -1,28 +1,33 @@
-﻿using System.Text.Json.Nodes;
-using Microsoft.EntityFrameworkCore;
+﻿using System.Text.Json;
+using GnOuGo.AI.Core;
 using GnOuGo.Agent.Mcp.Data;
 using GnOuGo.Agent.Mcp.Models;
+using GnOuGo.Diff.Core.Models;
+using GnOuGo.Diff.Core.Services;
 
 namespace GnOuGo.Agent.Mcp.Services;
 
 public sealed class UserConfigRepository : IUserConfigRepository
 {
-    private readonly AgentDbContext _db;
+    private readonly AgentMcpDbContext _db;
+    private readonly DiffService _diff;
 
-    public UserConfigRepository(AgentDbContext db)
+    private const string DiffEntityType = "AgentConfiguration";
+    private const string DiffAuthor = "GnOuGo.Agent.Mcp";
+
+    public UserConfigRepository(AgentMcpDbContext db, DiffService diff)
     {
         _db = db;
+        _diff = diff;
     }
 
     public async Task<UserConfigSnapshot> GetAsync(Guid? tenantId = null, CancellationToken ct = default)
     {
-        var entity = await _db.UserConfigs
-            .AsNoTracking()
-            .FirstOrDefaultAsync(config => config.TenantScopeKey == BuildTenantScopeKey(tenantId), ct);
-
-        return entity is null
-            ? new UserConfigSnapshot(null, null, null, null)
-            : ToSnapshot(entity);
+        var tenantScopeKey = BuildTenantScopeKey(tenantId);
+        var entity = await AgentMcpQueries.GetUserConfigByScope(_db, tenantScopeKey);
+        return entity is not null
+            ? ToSnapshot(entity)
+            : new UserConfigSnapshot(null, null, null, null);
     }
 
     public async Task<UserConfigSnapshot> SetAsync(UserConfigUpdate update, Guid? tenantId = null, CancellationToken ct = default)
@@ -30,8 +35,7 @@ public sealed class UserConfigRepository : IUserConfigRepository
         ArgumentNullException.ThrowIfNull(update);
 
         var tenantScopeKey = BuildTenantScopeKey(tenantId);
-        var entity = await _db.UserConfigs
-            .FirstOrDefaultAsync(config => config.TenantScopeKey == tenantScopeKey, ct);
+        var entity = await AgentMcpQueries.GetUserConfigByScope(_db, tenantScopeKey);
 
         if (entity is null)
         {
@@ -80,13 +84,26 @@ public sealed class UserConfigRepository : IUserConfigRepository
         {
             entity.ModelOverridesJson = update.ModelOverrides.Count == 0
                 ? null
-                : update.ModelOverrides.ToJsonString();
+                : JsonSerializer.Serialize(update.ModelOverrides, AgentMcpJsonContext.Default.IReadOnlyDictionaryStringLLMModelMetadata);
         }
 
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        return ToSnapshot(entity);
+        var snapshot = ToSnapshot(entity);
+        await SaveConfigurationRevisionAsync(tenantScopeKey, snapshot, ct);
+        return snapshot;
+    }
+
+    private async Task SaveConfigurationRevisionAsync(string tenantScopeKey, UserConfigSnapshot snapshot, CancellationToken ct)
+    {
+        var currentValue = JsonSerializer.Serialize(snapshot, AgentMcpJsonContext.Default.UserConfigSnapshot);
+        await _diff.CreateRevisionAsync(new CreateRevisionRequest(
+            DiffEntityType,
+            tenantScopeKey,
+            currentValue,
+            DiffAuthor,
+            ForceCreate: true), ct);
     }
 
     private static string BuildTenantScopeKey(Guid? tenantId)
@@ -101,19 +118,19 @@ public sealed class UserConfigRepository : IUserConfigRepository
             DefaultEmbeddingConfig: string.IsNullOrWhiteSpace(entity.DefaultEmbeddingConfig) ? null : entity.DefaultEmbeddingConfig,
             ModelOverrides: DeserializeModelOverrides(entity.ModelOverridesJson));
 
-    private static JsonObject? DeserializeModelOverrides(string? json)
+    private static IReadOnlyDictionary<string, LLMModelMetadata> DeserializeModelOverrides(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
-            return new JsonObject();
+            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
 
         try
         {
-            return JsonNode.Parse(json) as JsonObject ?? new JsonObject();
+            return JsonSerializer.Deserialize(json, AgentMcpJsonContext.Default.DictionaryStringLLMModelMetadata)
+                   ?? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
         }
         catch
         {
-            return new JsonObject();
+            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
         }
     }
 }
-

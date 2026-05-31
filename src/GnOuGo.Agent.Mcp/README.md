@@ -39,6 +39,8 @@ The same SQLite database now stores:
 - diff revisions,
 - persisted user defaults (`default_llm_provider`, `default_llm_model`, `default_agent`).
 
+Persistence is implemented with **Entity Framework Core** (`AgentMcpDbContext` + `DiffDbContext`) and uses `AsNoTracking` for read-only queries for optimal performance.
+
 When `Agent:DatabasePath` keeps its default logical value (`data/gnougo-agent.db`), the actual SQLite file is created under the current user's Desktop in `Desktop/GnOuGo/data/gnougo-agent.db`.
 Explicit absolute paths are still honored.
 
@@ -94,5 +96,14 @@ dotnet run
 
 ```powershell
 dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Mcp.Tests\GnOuGo.Agent.Mcp.Tests.csproj"
+```
+
+## Publish (self-contained trimmed)
+
+`GnOuGo.Agent.Mcp` publishes as a trimmed self-contained single-file executable.
+
+```powershell
+Set-Location "C:\github\GnouGo"
+dotnet publish "src\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=true -o "artifacts\agent-mcp-win-x64"
 ```
 

@@ -24,7 +24,7 @@ public static class FilesServerHostingExtensions
             options.UseSqlite($"Data Source={paths.DatabasePath};Pooling=False")
                 .UseModel(FilesDbContextModel.Instance);
         });
-        services.AddSingleton<FilesMetadataRepository>();
+        services.AddScoped<FilesMetadataRepository>();
         services.AddScoped<FileStorageService>();
         services.AddHostedService<FilePurgeWorker>();
 

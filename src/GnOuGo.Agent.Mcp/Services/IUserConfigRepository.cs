@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+﻿using GnOuGo.AI.Core;
 
 namespace GnOuGo.Agent.Mcp.Services;
 
@@ -8,7 +8,7 @@ public sealed record UserConfigSnapshot(
     string? DefaultAgent,
     DateTimeOffset? UpdatedAt,
     string? DefaultEmbeddingConfig = null,
-    JsonObject? ModelOverrides = null);
+    IReadOnlyDictionary<string, LLMModelMetadata>? ModelOverrides = null);
 
 public sealed record UserConfigUpdate(
     string? DefaultLlmProvider,
@@ -18,7 +18,7 @@ public sealed record UserConfigUpdate(
     bool ClearDefaultAgent = false,
     string? DefaultEmbeddingConfig = null,
     bool ClearDefaultEmbedding = false,
-    JsonObject? ModelOverrides = null);
+    IReadOnlyDictionary<string, LLMModelMetadata>? ModelOverrides = null);
 
 public interface IUserConfigRepository
 {

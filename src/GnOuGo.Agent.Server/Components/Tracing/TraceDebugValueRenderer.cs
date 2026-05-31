@@ -33,7 +33,7 @@ internal static class TraceDebugValueRenderer
                     return;
                 }
                 builder.OpenElement(2, "pre");
-                builder.AddAttribute(3, "class", "sa-trace-detail__code");
+                builder.AddAttribute(3, "class", "gnougo-trace-detail__code");
                 builder.AddContent(4, rawText);
                 builder.CloseElement();
                 return;
@@ -43,24 +43,24 @@ internal static class TraceDebugValueRenderer
             {
                 case TraceValueFormat.Markdown:
                     builder.OpenElement(0, "div");
-                    builder.AddAttribute(1, "class", "sa-trace-detail__markdown markdown-body");
+                    builder.AddAttribute(1, "class", "gnougo-trace-detail__markdown markdown-body");
                     builder.AddContent(2, RenderMarkdown(display.Content));
                     builder.CloseElement();
                     return;
                 case TraceValueFormat.Json:
                     builder.OpenElement(3, "pre");
-                    builder.AddAttribute(4, "class", "sa-trace-detail__code sa-trace-detail__code--json");
+                    builder.AddAttribute(4, "class", "gnougo-trace-detail__code gnougo-trace-detail__code--json");
                     builder.OpenElement(5, "code");
-                    builder.AddAttribute(6, "class", "sa-trace-detail__syntax");
+                    builder.AddAttribute(6, "class", "gnougo-trace-detail__syntax");
                     builder.AddMarkupContent(7, BuildJsonHighlightedHtml(display.Content));
                     builder.CloseElement();
                     builder.CloseElement();
                     return;
                 case TraceValueFormat.Yaml:
                     builder.OpenElement(8, "pre");
-                    builder.AddAttribute(9, "class", "sa-trace-detail__code sa-trace-detail__code--yaml");
+                    builder.AddAttribute(9, "class", "gnougo-trace-detail__code gnougo-trace-detail__code--yaml");
                     builder.OpenElement(10, "code");
-                    builder.AddAttribute(11, "class", "sa-trace-detail__syntax");
+                    builder.AddAttribute(11, "class", "gnougo-trace-detail__syntax");
                     builder.AddMarkupContent(12, BuildYamlHighlightedHtml(display.Content));
                     builder.CloseElement();
                     builder.CloseElement();
@@ -69,7 +69,7 @@ internal static class TraceDebugValueRenderer
                     if (display.Content.Length > 180)
                     {
                         builder.OpenElement(13, "pre");
-                        builder.AddAttribute(14, "class", "sa-trace-detail__code");
+                        builder.AddAttribute(14, "class", "gnougo-trace-detail__code");
                         builder.AddContent(15, display.Content);
                         builder.CloseElement();
                         return;
@@ -83,7 +83,7 @@ internal static class TraceDebugValueRenderer
         catch
         {
             builder.OpenElement(20, "pre");
-            builder.AddAttribute(21, "class", "sa-trace-detail__code");
+            builder.AddAttribute(21, "class", "gnougo-trace-detail__code");
             builder.AddContent(22, TraceDebugUiHelpers.ToDisplayString(value));
             builder.CloseElement();
         }
@@ -244,48 +244,48 @@ internal static class TraceDebugValueRenderer
         switch (node)
         {
             case JsonObject obj:
-                sb.Append("<span class=\"sa-trace-detail__tok-punc\">{</span>");
+                sb.Append("<span class=\"gnougo-trace-detail__tok-punc\">{</span>");
                 if (obj.Count > 0)
                 {
                     var index = 0;
                     foreach (var pair in obj)
                     {
                         sb.Append('\n').Append(new string(' ', (indent + 1) * 2));
-                        sb.Append("<span class=\"sa-trace-detail__tok-key\">\"")
+                        sb.Append("<span class=\"gnougo-trace-detail__tok-key\">\"")
                           .Append(WebUtility.HtmlEncode(pair.Key))
-                          .Append("\"</span><span class=\"sa-trace-detail__tok-punc\">: </span>");
+                          .Append("\"</span><span class=\"gnougo-trace-detail__tok-punc\">: </span>");
                         WriteJsonNode(sb, pair.Value, indent + 1);
                         if (index++ < obj.Count - 1)
-                            sb.Append("<span class=\"sa-trace-detail__tok-punc\">,</span>");
+                            sb.Append("<span class=\"gnougo-trace-detail__tok-punc\">,</span>");
                     }
                     sb.Append('\n').Append(new string(' ', indent * 2));
                 }
-                sb.Append("<span class=\"sa-trace-detail__tok-punc\">}</span>");
+                sb.Append("<span class=\"gnougo-trace-detail__tok-punc\">}</span>");
                 return;
             case JsonArray arr:
-                sb.Append("<span class=\"sa-trace-detail__tok-punc\">[</span>");
+                sb.Append("<span class=\"gnougo-trace-detail__tok-punc\">[</span>");
                 for (var i = 0; i < arr.Count; i++)
                 {
                     sb.Append('\n').Append(new string(' ', (indent + 1) * 2));
                     WriteJsonNode(sb, arr[i], indent + 1);
                     if (i < arr.Count - 1)
-                        sb.Append("<span class=\"sa-trace-detail__tok-punc\">,</span>");
+                        sb.Append("<span class=\"gnougo-trace-detail__tok-punc\">,</span>");
                 }
                 if (arr.Count > 0)
                     sb.Append('\n').Append(new string(' ', indent * 2));
-                sb.Append("<span class=\"sa-trace-detail__tok-punc\">]</span>");
+                sb.Append("<span class=\"gnougo-trace-detail__tok-punc\">]</span>");
                 return;
             case JsonValue val:
                 if (val.TryGetValue<string>(out var s))
                 {
-                    sb.Append("<span class=\"sa-trace-detail__tok-string\">\"")
+                    sb.Append("<span class=\"gnougo-trace-detail__tok-string\">\"")
                       .Append(WebUtility.HtmlEncode(s))
                       .Append("\"</span>");
                     return;
                 }
                 if (val.TryGetValue<bool>(out var b))
                 {
-                    sb.Append("<span class=\"sa-trace-detail__tok-bool\">")
+                    sb.Append("<span class=\"gnougo-trace-detail__tok-bool\">")
                       .Append(b ? "true" : "false")
                       .Append("</span>");
                     return;
@@ -293,15 +293,15 @@ internal static class TraceDebugValueRenderer
                 var raw = val.ToJsonString();
                 if (string.Equals(raw, "null", StringComparison.Ordinal))
                 {
-                    sb.Append("<span class=\"sa-trace-detail__tok-null\">null</span>");
+                    sb.Append("<span class=\"gnougo-trace-detail__tok-null\">null</span>");
                     return;
                 }
-                sb.Append("<span class=\"sa-trace-detail__tok-number\">")
+                sb.Append("<span class=\"gnougo-trace-detail__tok-number\">")
                   .Append(WebUtility.HtmlEncode(raw))
                   .Append("</span>");
                 return;
             default:
-                sb.Append("<span class=\"sa-trace-detail__tok-null\">null</span>");
+                sb.Append("<span class=\"gnougo-trace-detail__tok-null\">null</span>");
                 return;
         }
     }
@@ -315,9 +315,9 @@ internal static class TraceDebugValueRenderer
                 if (hasLines)
                     sb.Append('\n');
                 sb.Append(new string(' ', indent * 2));
-                sb.Append("<span class=\"sa-trace-detail__tok-key\">")
+                sb.Append("<span class=\"gnougo-trace-detail__tok-key\">")
                   .Append(WebUtility.HtmlEncode(Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty))
-                  .Append("</span><span class=\"sa-trace-detail__tok-punc\">:</span>");
+                  .Append("</span><span class=\"gnougo-trace-detail__tok-punc\">:</span>");
                 if (entry.Value is IDictionary or IList)
                 {
                     sb.Append('\n');
@@ -331,7 +331,7 @@ internal static class TraceDebugValueRenderer
                 hasLines = true;
             }
             if (!hasLines && isRoot)
-                sb.Append("<span class=\"sa-trace-detail__tok-null\">null</span>");
+                sb.Append("<span class=\"gnougo-trace-detail__tok-null\">null</span>");
             return;
         }
         if (node is IList list)
@@ -342,7 +342,7 @@ internal static class TraceDebugValueRenderer
                 if (hasItems)
                     sb.Append('\n');
                 sb.Append(new string(' ', indent * 2));
-                sb.Append("<span class=\"sa-trace-detail__tok-punc\">-</span>");
+                sb.Append("<span class=\"gnougo-trace-detail__tok-punc\">-</span>");
                 if (item is IDictionary or IList)
                 {
                     sb.Append('\n');
@@ -356,7 +356,7 @@ internal static class TraceDebugValueRenderer
                 hasItems = true;
             }
             if (!hasItems && isRoot)
-                sb.Append("<span class=\"sa-trace-detail__tok-punc\">[]</span>");
+                sb.Append("<span class=\"gnougo-trace-detail__tok-punc\">[]</span>");
             return;
         }
         AppendYamlScalarToken(sb, node);
@@ -365,24 +365,24 @@ internal static class TraceDebugValueRenderer
     {
         if (value is null)
         {
-            sb.Append("<span class=\"sa-trace-detail__tok-null\">null</span>");
+            sb.Append("<span class=\"gnougo-trace-detail__tok-null\">null</span>");
             return;
         }
         switch (value)
         {
             case bool b:
-                sb.Append("<span class=\"sa-trace-detail__tok-bool\">")
+                sb.Append("<span class=\"gnougo-trace-detail__tok-bool\">")
                   .Append(b ? "true" : "false")
                   .Append("</span>");
                 return;
             case sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal:
-                sb.Append("<span class=\"sa-trace-detail__tok-number\">")
+                sb.Append("<span class=\"gnougo-trace-detail__tok-number\">")
                   .Append(WebUtility.HtmlEncode(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty))
                   .Append("</span>");
                 return;
             default:
                 var text = Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
-                sb.Append("<span class=\"sa-trace-detail__tok-string\">\"")
+                sb.Append("<span class=\"gnougo-trace-detail__tok-string\">\"")
                   .Append(WebUtility.HtmlEncode(text))
                   .Append("\"</span>");
                 return;
@@ -398,7 +398,7 @@ internal static class TraceDebugValueRenderer
         catch
         {
             builder.OpenElement(1, "pre");
-            builder.AddAttribute(2, "class", "sa-trace-detail__code");
+            builder.AddAttribute(2, "class", "gnougo-trace-detail__code");
             builder.AddContent(3, markdown);
             builder.CloseElement();
         }

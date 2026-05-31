@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using System.Text.Json.Nodes;
+using System.Text.Json;
 
 namespace GnOuGo.Agent.Mcp;
 
@@ -26,7 +26,7 @@ public sealed class InMemoryChatHistoryStore
                         Role = m.Role,
                         Content = m.Content,
                         CreatedAt = m.CreatedAt,
-                        Meta = m.Meta?.DeepClone()
+                        Meta = m.Meta?.Clone()
                     })
                     .ToList();
             }
@@ -59,7 +59,7 @@ public sealed class ChatMessage
     public string Role { get; set; } = "";
     public string Content { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
-    public JsonNode? Meta { get; set; }
+    public JsonElement? Meta { get; set; }
 }
 
 public sealed class ChatHistoryGetResult

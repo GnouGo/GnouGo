@@ -1,29 +1,29 @@
 @using System.Globalization
 @using GnOuGo.Agent.Server.Telemetry
-<div class="sa-trace-detail">
-    <div class="sa-trace-detail__header">
+<div class="gnougo-trace-detail">
+    <div class="gnougo-trace-detail__header">
         <h3>Trace Summary</h3>
         <span>@TraceDebugUiHelpers.FormatDuration(Summary.TraceDurationMs) total</span>
     </div>
-    <div class="sa-trace-detail__section">
+    <div class="gnougo-trace-detail__section">
         <h4>Token distribution</h4>
-        <div class="sa-trace-detail__token-bar">
+        <div class="gnougo-trace-detail__token-bar">
             @if (Summary.TotalTokens > 0)
             {
-                <div class="sa-trace-detail__token-segment sa-trace-detail__token-segment--prompt"
+                <div class="gnougo-trace-detail__token-segment gnougo-trace-detail__token-segment--prompt"
                      style="@TraceDebugUiHelpers.BuildWidthStyle(Summary.PromptTokens * 100d / Summary.TotalTokens)"></div>
-                <div class="sa-trace-detail__token-segment sa-trace-detail__token-segment--completion"
+                <div class="gnougo-trace-detail__token-segment gnougo-trace-detail__token-segment--completion"
                      style="@TraceDebugUiHelpers.BuildWidthStyle(Summary.CompletionTokens * 100d / Summary.TotalTokens)"></div>
             }
         </div>
-        <div class="sa-trace-detail__token-legend">
+        <div class="gnougo-trace-detail__token-legend">
             <span>Prompt: @Summary.PromptTokens.ToString("N0", CultureInfo.InvariantCulture)</span>
             <span>Completion: @Summary.CompletionTokens.ToString("N0", CultureInfo.InvariantCulture)</span>
         </div>
     </div>
-    <div class="sa-trace-detail__section">
+    <div class="gnougo-trace-detail__section">
         <h4>Trace identifiers</h4>
-        <table class="sa-trace-detail__table">
+        <table class="gnougo-trace-detail__table">
             <tbody>
                 <tr><td>Correlation</td><td><code>@(CorrelationId ?? "n/a")</code></td></tr>
                 <tr><td>Trace</td><td><code>@Trace.TraceId</code></td></tr>
@@ -36,26 +36,26 @@
             </tbody>
         </table>
     </div>
-    <div class="sa-trace-detail__section">
+    <div class="gnougo-trace-detail__section">
         <h4>LLM calls</h4>
         @if (Summary.LlmCalls == 0)
         {
-            <div class="sa-trace-detail__empty">No GenAI span detected yet.</div>
+            <div class="gnougo-trace-detail__empty">No GenAI span detected yet.</div>
         }
         else
         {
             @foreach (var llmCall in Summary.LlmMetrics)
             {
-                <div class="sa-trace-detail__call">
-                    <div class="sa-trace-detail__call-head">
+                <div class="gnougo-trace-detail__call">
+                    <div class="gnougo-trace-detail__call-head">
                         <strong>@llmCall.OperationName</strong>
                         <span>@TraceDebugUiHelpers.FormatDuration(llmCall.DurationMs)</span>
                     </div>
-                    <div class="sa-trace-detail__call-meta">
+                    <div class="gnougo-trace-detail__call-meta">
                         <span>@llmCall.Provider</span>
                         <code>@llmCall.Model</code>
                     </div>
-                    <div class="sa-trace-detail__call-stats">
+                    <div class="gnougo-trace-detail__call-stats">
                         <span>@llmCall.TotalTokens.ToString("N0", CultureInfo.InvariantCulture) tok</span>
                         <span>$@llmCall.Cost.ToString("0.000000", CultureInfo.InvariantCulture)</span>
                     </div>

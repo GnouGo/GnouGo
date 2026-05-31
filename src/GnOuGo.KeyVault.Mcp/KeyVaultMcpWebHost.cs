@@ -29,7 +29,7 @@ public static class KeyVaultMcpWebHost
         var app = builder.Build();
         app.Services.InitializeKeyVaultMcpAsync().GetAwaiter().GetResult();
 
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+        app.MapMethods("/health", [HttpMethods.Get], (RequestDelegate)WriteHealthAsync);
         app.MapKeyVaultMcp(routePrefix);
 
         var logger = app.Services.GetRequiredService<ILoggerFactory>()
@@ -42,5 +42,14 @@ public static class KeyVaultMcpWebHost
 
         return app;
     }
-}
 
+    private static async Task WriteHealthAsync(HttpContext context)
+    {
+        context.Response.ContentType = "application/json";
+        await System.Text.Json.JsonSerializer.SerializeAsync(
+            context.Response.Body,
+            new KeyVaultHealthResponse("ok"),
+            KeyVaultMcpJsonContext.Default.KeyVaultHealthResponse,
+            context.RequestAborted);
+    }
+}

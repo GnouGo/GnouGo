@@ -5,9 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <!-- Keep Debug fast & friendly; enable NativeAOT + trimming in Release/publish only. -->
+  <!-- Keep Debug fast & friendly; enable trimming in Release/publish only. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <PublishAot>true</PublishAot>
     <PublishTrimmed>true</PublishTrimmed>
 
     <!-- PublishTrimmed disables reflection-based System.Text.Json by default.
@@ -16,7 +15,6 @@
 
     <TrimMode>partial</TrimMode>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
   </PropertyGroup>
 
   <ItemGroup>
@@ -45,6 +43,8 @@
 
   <PropertyGroup>
     <SkipClientBuild>false</SkipClientBuild>
+    <SkipBundledServerTools>false</SkipBundledServerTools>
+    <DisableRazorComponentsForNativeAot>false</DisableRazorComponentsForNativeAot>
     <ClientAppDir>ClientApp</ClientAppDir>
     <PnpmCommand Condition="'$(OS)' == 'Windows_NT'">corepack.cmd pnpm</PnpmCommand>
     <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>
@@ -66,7 +66,7 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="PublishBundledServerTools" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+  <Target Name="PublishBundledServerTools" AfterTargets="Publish" Condition="'$(PublishDir)' != '' and '$(SkipBundledServerTools)' != 'true'">
     <PropertyGroup>
       <BundledServerToolsRoot>$([System.IO.Path]::GetFullPath('$(PublishDir)tools'))</BundledServerToolsRoot>
       <BundledBrowserToolDir>$([System.IO.Path]::Combine('$(BundledServerToolsRoot)', 'GnOuGo.Browser.Mcp'))</BundledBrowserToolDir>
@@ -107,6 +107,12 @@
   <ItemGroup>
     <EmbeddedResource Include="SmartFlow\dynamic-workflow-agent.yaml" />
     <EmbeddedResource Include="SmartFlow\configure-agents-agent.yaml" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(DisableRazorComponentsForNativeAot)' == 'true'">
+    <Compile Remove="Components\**\*.cs" />
+    <RazorComponent Remove="Components\**\*.razor" />
+    <Content Remove="Components\**\*.razor" />
   </ItemGroup>
 
   <ItemGroup>

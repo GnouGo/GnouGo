@@ -49,12 +49,19 @@ jobs:
 
       - name: Publish Server
         run: |
-          dotnet restore -r linux-x64 /p:SkipClientBuild=true
-          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64 --no-restore /p:SkipClientBuild=true
+          dotnet restore src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -r linux-x64 /p:SkipClientBuild=true /p:PublishAot=false /p:PublishTrimmed=true /p:SkipModelMetadataGeneration=true
+          dotnet publish src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/server/linux-x64 /p:SkipClientBuild=true /p:PublishAot=false /p:PublishTrimmed=true /p:PublishSingleFile=true /p:SkipModelMetadataGeneration=true /p:UseAppHost=true /p:DebugType=None /p:DebugSymbols=false
 
       - name: Validate bundled server tools
         shell: pwsh
         run: |
+          $serverExecutable = "artifacts/publish/server/linux-x64/GnOuGo.Agent.Server"
+          if (-not (Test-Path $serverExecutable)) {
+            Write-Host "Publish output tree:"
+            Get-ChildItem "artifacts/publish/server/linux-x64" -Recurse | Select-Object -First 300 FullName, Length | Format-Table -AutoSize | Out-String | Write-Host
+            throw "Missing server executable: $serverExecutable"
+          }
+
           $requiredTools = @(
             "artifacts/publish/server/linux-x64/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp",
             "artifacts/publish/server/linux-x64/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp",

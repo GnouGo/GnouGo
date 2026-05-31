@@ -21,8 +21,7 @@ public static class KeyVaultMcpHostingExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
 
-        services.AddDbContext<KeyVaultDbContext>(options =>
-            options.UseSqlite($"Data Source={databasePath}"));
+        services.AddDbContext<KeyVaultDbContext>(o => o.UseSqlite($"Data Source={databasePath}"));
         services.AddScoped<KeyVaultService>();
         return services;
     }
@@ -31,7 +30,7 @@ public static class KeyVaultMcpHostingExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddTransient<KeyVaultTools>();
+        services.AddScoped<KeyVaultTools>();
         services
             .AddMcpServer(options =>
             {
@@ -42,7 +41,7 @@ public static class KeyVaultMcpHostingExtensions
                 };
             })
             .WithHttpTransport()
-            .WithTools<KeyVaultTools>();
+            .WithTools<KeyVaultTools>(KeyVaultMcpJson.SerializerOptions);
 
         return services;
     }
@@ -51,12 +50,11 @@ public static class KeyVaultMcpHostingExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        await using var scope = services.CreateAsyncScope();
+        using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-        await KeyVaultDatabaseBootstrap.EnsureCreatedAsync(db, ct);
-
-        var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-        await keyVault.EnsureDefaultKeyPairAsync();
+        await KeyVaultDatabaseBootstrap.EnsureCreatedAsync(db);
+        var svc = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+        await svc.EnsureDefaultKeyPairAsync(ct);
     }
 
     public static IEndpointConventionBuilder MapKeyVaultMcp(this IEndpointRouteBuilder endpoints, string pattern = DefaultRoutePrefix)
@@ -68,4 +66,3 @@ public static class KeyVaultMcpHostingExtensions
             .DisableAntiforgery();
     }
 }
-

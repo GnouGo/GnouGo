@@ -5,15 +5,15 @@
     var selectedSpan = GetSelectedSpan();
     var summary = TraceDebugUiHelpers.BuildSummary(Trace);
     var timeline = TraceDebugUiHelpers.BuildTimeline(Trace);
-    <div class="sa-trace-summary__hero">
-        <div class="sa-trace-summary__hero-title">Live trace for this answer</div>
-        <div class="sa-trace-summary__hero-text">Every GnOuGo response carries a client-generated correlation identifier that is propagated through the RAG workflow and exposed here in OpenTelemetry GenAI format.</div>
+    <div class="gnougo-trace-summary__hero">
+        <div class="gnougo-trace-summary__hero-title">Live trace for this answer</div>
+        <div class="gnougo-trace-summary__hero-text">Every GnOuGo response carries a client-generated correlation identifier that is propagated through the RAG workflow and exposed here in OpenTelemetry GenAI format.</div>
         @if (!string.IsNullOrWhiteSpace(SnapshotMessage) && !string.Equals(SnapshotMessage, "Trace loaded.", StringComparison.Ordinal))
         {
-            <div class="sa-trace-summary__hero-text">@SnapshotMessage</div>
+            <div class="gnougo-trace-summary__hero-text">@SnapshotMessage</div>
         }
     </div>
-    <div class="sa-trace-summary__kpis">
+    <div class="gnougo-trace-summary__kpis">
         <TraceKpi Icon="Tok" Value="@summary.TotalTokens.ToString("N0", CultureInfo.InvariantCulture)" Label="Tokens" />
         <TraceKpi Icon="$" Value="@("$" + summary.EstimatedCost.ToString("0.000000", CultureInfo.InvariantCulture))" Label="Estimated cost" />
         <TraceKpi Icon="Time" Value="@TraceDebugUiHelpers.FormatDuration(summary.TraceDurationMs)" Label="Trace duration" />
@@ -21,20 +21,20 @@
     </div>
     @if (summary.Providers.Count > 0 || summary.Models.Count > 0)
     {
-        <div class="sa-trace-summary__tags">
+        <div class="gnougo-trace-summary__tags">
             @foreach (var provider in summary.Providers)
             {
-                <span class="sa-trace-summary__tag sa-trace-summary__tag--provider">@provider</span>
+                <span class="gnougo-trace-summary__tag gnougo-trace-summary__tag--provider">@provider</span>
             }
             @foreach (var model in summary.Models)
             {
-                <span class="sa-trace-summary__tag sa-trace-summary__tag--model">@model</span>
+                <span class="gnougo-trace-summary__tag gnougo-trace-summary__tag--model">@model</span>
             }
         </div>
     }
-    <div class="sa-trace-split">
-        <div class="sa-trace-split__left">
-            <button class="sa-trace-split__summary-button @(selectedSpan is null ? "sa-trace-split__summary-button--active" : string.Empty)"
+    <div class="gnougo-trace-split">
+        <div class="gnougo-trace-split__left">
+            <button class="gnougo-trace-split__summary-button @(selectedSpan is null ? "gnougo-trace-split__summary-button--active" : string.Empty)"
                     type="button"
                     @onclick="() => SelectSpanAsync(null)">
                 <span>Summary</span>
@@ -42,19 +42,19 @@
             </button>
             @if (summary.RagSteps.Count > 0)
             {
-                <div class="sa-trace-rag">
+                <div class="gnougo-trace-rag">
                     @foreach (var step in summary.RagSteps)
                     {
-                        <div class="sa-trace-rag__step">
-                            <div class="sa-trace-rag__head">
+                        <div class="gnougo-trace-rag__step">
+                            <div class="gnougo-trace-rag__head">
                                 <span>@step.Icon</span>
                                 <strong>@step.Name</strong>
-                                <span class="sa-trace-rag__count">@step.SpanCount span(s)</span>
+                                <span class="gnougo-trace-rag__count">@step.SpanCount span(s)</span>
                             </div>
-                            <div class="sa-trace-rag__bar">
-                                <div class="sa-trace-rag__fill" style="@TraceDebugUiHelpers.BuildWidthStyle(step.Percentage)"></div>
+                            <div class="gnougo-trace-rag__bar">
+                                <div class="gnougo-trace-rag__fill" style="@TraceDebugUiHelpers.BuildWidthStyle(step.Percentage)"></div>
                             </div>
-                            <div class="sa-trace-rag__meta">
+                            <div class="gnougo-trace-rag__meta">
                                 <span>@TraceDebugUiHelpers.FormatDuration(step.DurationMs)</span>
                                 <span>@step.Percentage.ToString("0.0", CultureInfo.InvariantCulture)%</span>
                             </div>
@@ -62,25 +62,25 @@
                     }
                 </div>
             }
-            <div class="sa-trace-timeline">
+            <div class="gnougo-trace-timeline">
                 @foreach (var item in timeline)
                 {
-                    <button class="sa-trace-timeline__item @(string.Equals(item.Span.SpanId, _localSelectedSpanId, StringComparison.OrdinalIgnoreCase) ? "sa-trace-timeline__item--active" : string.Empty) @(item.Span.StatusCode == 2 ? "sa-trace-timeline__item--error" : string.Empty)"
+                    <button class="gnougo-trace-timeline__item @(string.Equals(item.Span.SpanId, _localSelectedSpanId, StringComparison.OrdinalIgnoreCase) ? "gnougo-trace-timeline__item--active" : string.Empty) @(item.Span.StatusCode == 2 ? "gnougo-trace-timeline__item--error" : string.Empty)"
                             type="button"
                             @onclick="() => ToggleSpanAsync(item.Span.SpanId)">
-                        <div class="sa-trace-timeline__label" style="@TraceDebugUiHelpers.BuildPaddingLeftStyle(item.Depth)">
-                            <span class="sa-trace-timeline__icon">@TraceDebugUiHelpers.GetSpanIcon(item.Span)</span>
-                            <span class="sa-trace-timeline__name">@item.Span.Name</span>
-                            <span class="sa-trace-timeline__duration">@TraceDebugUiHelpers.FormatDuration(item.DurationMs)</span>
+                        <div class="gnougo-trace-timeline__label" style="@TraceDebugUiHelpers.BuildPaddingLeftStyle(item.Depth)">
+                            <span class="gnougo-trace-timeline__icon">@TraceDebugUiHelpers.GetSpanIcon(item.Span)</span>
+                            <span class="gnougo-trace-timeline__name">@item.Span.Name</span>
+                            <span class="gnougo-trace-timeline__duration">@TraceDebugUiHelpers.FormatDuration(item.DurationMs)</span>
                         </div>
-                        <div class="sa-trace-timeline__track">
-                            <div class="sa-trace-timeline__bar" style="@TraceDebugUiHelpers.BuildTimelineBarStyle(item)"></div>
+                        <div class="gnougo-trace-timeline__track">
+                            <div class="gnougo-trace-timeline__bar" style="@TraceDebugUiHelpers.BuildTimelineBarStyle(item)"></div>
                         </div>
                     </button>
                 }
             </div>
         </div>
-        <div class="sa-trace-split__right">
+        <div class="gnougo-trace-split__right">
             @if (selectedSpan is null)
             {
                 <TraceSummaryDetail Trace="Trace"
