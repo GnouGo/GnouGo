@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using GnOuGo.Agent.Server.Configuration;
 using OtlpTenantCollector.Services;
@@ -17,22 +18,67 @@ public sealed class TraceDebugService
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly LocalTraceDebugStore _localTraceStore;
+    private readonly TelemetryEventBus _telemetryEventBus;
     private readonly IOptionsMonitor<OpenTelemetrySettings> _openTelemetrySettings;
     private readonly ILogger<TraceDebugService> _logger;
 
     public TraceDebugService(
         IServiceScopeFactory scopeFactory,
         LocalTraceDebugStore localTraceStore,
+        TelemetryEventBus telemetryEventBus,
         IOptionsMonitor<OpenTelemetrySettings> openTelemetrySettings,
         ILogger<TraceDebugService> logger)
     {
         _scopeFactory = scopeFactory;
         _localTraceStore = localTraceStore;
+        _telemetryEventBus = telemetryEventBus;
         _openTelemetrySettings = openTelemetrySettings;
         _logger = logger;
     }
 
     public TimeSpan RefreshInterval => DefaultRefreshInterval;
+
+    /// <summary>
+    /// Streams trace debug snapshots. The first snapshot is returned immediately,
+    /// then subsequent snapshots are pushed when the embedded OTLP collector flushes
+    /// new spans/logs. A lightweight heartbeat keeps local in-memory traces fresh
+    /// even before a collector flush occurs.
+    /// </summary>
+    public async IAsyncEnumerable<TraceDebugSnapshot> StreamSnapshotsAsync(
+        string? correlationId,
+        string? traceId,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        yield return await GetSnapshotAsync(correlationId, traceId, ct).ConfigureAwait(false);
+
+        var subscription = _telemetryEventBus.Subscribe();
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var waitForFlushTask = subscription.Reader.WaitToReadAsync(ct).AsTask();
+                var heartbeatTask = Task.Delay(DefaultRefreshInterval, ct);
+                var completedTask = await Task.WhenAny(waitForFlushTask, heartbeatTask).ConfigureAwait(false);
+
+                if (completedTask == waitForFlushTask)
+                {
+                    if (!await waitForFlushTask.ConfigureAwait(false))
+                        yield break;
+
+                    while (subscription.Reader.TryRead(out _))
+                    {
+                        // Drain coalesced flush events; one fresh snapshot is enough.
+                    }
+                }
+
+                yield return await GetSnapshotAsync(correlationId, traceId, ct).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            _telemetryEventBus.Unsubscribe(subscription);
+        }
+    }
 
     public TraceDebugAvailability GetAvailability()
     {
