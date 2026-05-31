@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.6 - 2026-05-31
+
+- chore: gnougo optimozarion (release) (#43) (be63b3e)
+
 ## v0.8.5 - 2026-05-28
 
 - fix: python workspace (release) (5d3f2e1)
