@@ -92,7 +92,7 @@ public sealed class BundledBrowserMcpPublishTests
         var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "build-agent-desktop-trimmed.yml");
         var yaml = File.ReadAllText(workflowFile);
 
-        Assert.Contains("Validate Cmd MCP Native AOT publish", yaml);
+        Assert.Contains("Validate Cmd MCP (Native AOT)", yaml);
         Assert.Contains("src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj", yaml);
         Assert.Contains("-p:PublishAot=true", yaml);
         Assert.Contains("-p:PublishTrimmed=true", yaml);
@@ -104,7 +104,7 @@ public sealed class BundledBrowserMcpPublishTests
         var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "build-agent-desktop-trimmed.yml");
         var yaml = File.ReadAllText(workflowFile);
 
-        Assert.Contains("Validate Document MCP Native AOT publish", yaml);
+        Assert.Contains("Validate Document MCP (Native AOT)", yaml);
         Assert.Contains("src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj", yaml);
         Assert.Contains("-p:PublishAot=true", yaml);
         Assert.Contains("-p:PublishTrimmed=true", yaml);
@@ -116,7 +116,7 @@ public sealed class BundledBrowserMcpPublishTests
         var workflowFile = Path.Combine(GetRepositoryRoot(), ".github", "workflows", "build-agent-desktop-trimmed.yml");
         var yaml = File.ReadAllText(workflowFile);
 
-        Assert.Contains("Validate DocIngestor MCP Native AOT publish", yaml);
+        Assert.Contains("Validate DocIngestor MCP (Native AOT)", yaml);
         Assert.Contains("src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj", yaml);
         Assert.Contains("-r ${{ matrix.rid }}", yaml);
         Assert.Contains("artifacts/publish/doc-ingestor-mcp-aot/${{ matrix.rid }}", yaml);

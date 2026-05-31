@@ -183,25 +183,25 @@ const fileUploads = {
   const dragEnter = (event: DragEvent) => {
     if (!canContainFiles(event)) return;
     event.preventDefault();
-    dropZone.classList.add('sa-composer--drag-over');
+    dropZone.classList.add('gnougo-composer--drag-over');
   };
 
   const dragOver = (event: DragEvent) => {
     if (!canContainFiles(event)) return;
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-    dropZone.classList.add('sa-composer--drag-over');
+    dropZone.classList.add('gnougo-composer--drag-over');
   };
 
   const dragLeave = (event: DragEvent) => {
     if (event.relatedTarget && dropZone.contains(event.relatedTarget as Node)) return;
-    dropZone.classList.remove('sa-composer--drag-over');
+    dropZone.classList.remove('gnougo-composer--drag-over');
   };
 
   const drop = (event: DragEvent) => {
     if (!canContainFiles(event)) return;
     event.preventDefault();
-    dropZone.classList.remove('sa-composer--drag-over');
+    dropZone.classList.remove('gnougo-composer--drag-over');
     uploadFiles(event.dataTransfer?.files, dotNet);
   };
 
@@ -233,7 +233,7 @@ const fileUploads = {
   dropZone.removeEventListener('dragleave', handlers.dragLeave);
   dropZone.removeEventListener('drop', handlers.drop);
   input.removeEventListener('change', handlers.change);
-  dropZone.classList.remove('sa-composer--drag-over');
+  dropZone.classList.remove('gnougo-composer--drag-over');
   uploadRegistrations.delete(dropZoneId);
   },
 

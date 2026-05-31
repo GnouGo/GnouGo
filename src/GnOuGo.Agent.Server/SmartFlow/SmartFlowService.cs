@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
@@ -521,24 +520,14 @@ public sealed class SmartFlowService
             snapshot.DefaultLlmModel,
             snapshot.DefaultEmbeddingConfig,
             snapshot.DefaultAgent,
-            ParseModelOverrides(snapshot.ModelOverrides),
+            NormalizeModelOverrides(snapshot.ModelOverrides),
             snapshot.UpdatedAt);
 
-    private static IReadOnlyDictionary<string, LLMModelMetadata> ParseModelOverrides(JsonObject? modelOverrides)
-    {
-        if (modelOverrides is null)
-            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
-
-        try
-        {
-            return JsonSerializer.Deserialize<Dictionary<string, LLMModelMetadata>>(modelOverrides.ToJsonString(), new JsonSerializerOptions(JsonSerializerDefaults.Web))
-                   ?? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
-        }
-        catch (JsonException)
-        {
-            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
-        }
-    }
+    private static IReadOnlyDictionary<string, LLMModelMetadata> NormalizeModelOverrides(
+        IReadOnlyDictionary<string, LLMModelMetadata>? modelOverrides)
+        => modelOverrides is null
+            ? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, LLMModelMetadata>(modelOverrides, StringComparer.OrdinalIgnoreCase);
 
     private async Task<AgentWorkflowLoadResult> LoadAgentWorkflowAsync(
         SecureWorkflowRuntimeSession runtime,
@@ -652,8 +641,10 @@ public sealed class SmartFlowService
             var snakeCaseIds = new JsonArray();
             foreach (var id in filesIds.Where(static value => !string.IsNullOrWhiteSpace(value)))
             {
-                camelCaseIds.Add(id);
-                snakeCaseIds.Add(id);
+                JsonNode? camelCaseId = JsonValue.Create(id);
+                JsonNode? snakeCaseId = JsonValue.Create(id);
+                camelCaseIds.Add(camelCaseId);
+                snakeCaseIds.Add(snakeCaseId);
             }
 
             if (camelCaseIds.Count > 0)

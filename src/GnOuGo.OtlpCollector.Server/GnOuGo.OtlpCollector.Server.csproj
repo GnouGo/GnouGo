@@ -3,12 +3,19 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>preview</LangVersion>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>GnOuGo.OtlpCollector.Server</AssemblyName>
+    <TargetName>GnOuGo.OtlpCollector.Server</TargetName>
+    <UseAppHost>true</UseAppHost>
 
-    <!-- Trimming-friendly defaults (activated on publish when PublishTrimmed=true) -->
-    <TrimMode>full</TrimMode>
+    <!-- Trimming-friendly defaults (no AOT — EF Core is not AOT-compatible). -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
 
-    <!-- Keep the app small and trimming-friendly -->
     <InvariantGlobalization>false</InvariantGlobalization>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <RootNamespace>GnOuGo.OtlpCollector</RootNamespace>
@@ -21,6 +28,11 @@
     <OtlpProtoDir>$(MSBuildProjectDirectory)/Protos/otlp-proto</OtlpProtoDir>
     <OtlpProtoVersionFile>$(OtlpProtoDir)/VERSION</OtlpProtoVersionFile>
     <OtlpProtoBaseUrl>https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/$(OtlpProtoVersion)</OtlpProtoBaseUrl>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>None</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
@@ -105,12 +117,8 @@
     <!-- gRPC server -->
     <PackageReference Include="Grpc.AspNetCore" Version="2.80.0" />
 
-    <!-- SQLite with Entity Framework Core -->
+    <!-- EF Core SQLite storage -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>

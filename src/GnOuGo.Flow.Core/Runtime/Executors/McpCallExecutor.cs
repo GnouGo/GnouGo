@@ -316,7 +316,7 @@ public sealed class McpCallExecutor : IStepExecutor
                     itemObj["method"] = methodName;
                     if (itemObj["status"]?.GetValue<string>() == "error")
                         hasError = true;
-                    resultsArr.Add(itemObj);
+                    resultsArr.Add((JsonNode)itemObj);
                 }
 
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", hasError ? "error" : "stop");
@@ -497,7 +497,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 itemObj["call_id"] = toolCall.Id;
             if (itemObj["status"]?.GetValue<string>() == "error")
                 hasError = true;
-            resultsArr.Add(itemObj);
+            resultsArr.Add((JsonNode)itemObj);
 
             var callObj = new JsonObject
             {
@@ -507,7 +507,7 @@ public sealed class McpCallExecutor : IStepExecutor
             };
             if (!string.IsNullOrWhiteSpace(toolCall.Id))
                 callObj["id"] = toolCall.Id;
-            toolCallsArr.Add(callObj);
+            toolCallsArr.Add((JsonNode)callObj);
         }
 
         if (llmResponse.ToolCalls.Count == 1)
@@ -878,7 +878,7 @@ Produce the final answer strictly from the executed MCP results.
                 ["description"] = arg.Description
             };
             if (arg.Required)
-                required.Add(arg.Name);
+                required.Add((JsonNode)JsonValue.Create(arg.Name)!);
         }
 
         var schema = new JsonObject
@@ -915,7 +915,7 @@ Produce the final answer strictly from the executed MCP results.
             var textParts = new StringBuilder();
             foreach (var msg in promptResult.Messages)
             {
-                messagesArr.Add(new JsonObject
+                messagesArr.Add((JsonNode)new JsonObject
                 {
                     ["role"] = msg.Role,
                     ["content"] = msg.Content

@@ -1,7 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using GnOuGo.Agent.Mcp.Data;
-using GnOuGo.Agent.Mcp.Models;
+﻿using Microsoft.Extensions.DependencyInjection;
+using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.Hosting;
 using GnOuGo.Agent.Server.SmartFlow;
 
@@ -14,22 +12,9 @@ public sealed class AgentUserConfigHydrationTests
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-config-{Guid.NewGuid():N}.db");
 
-        await using (var seedDb = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
-                         .UseSqlite($"Data Source={dbPath}")
-                         .Options))
-        {
-            await seedDb.Database.EnsureCreatedAsync();
-            seedDb.UserConfigs.Add(new UserConfigRecord
-            {
-                Id = Guid.NewGuid(),
-                TenantScopeKey = "global",
-                DefaultLlmProvider = "ollama",
-                DefaultLlmModel = "llama3:8b",
-                DefaultAgent = "slimfaas",
-                UpdatedAt = DateTimeOffset.UtcNow
-            });
-            await seedDb.SaveChangesAsync();
-        }
+        await AgentMcpTestPersistence.SeedUserConfigAsync(
+            dbPath,
+            new UserConfigUpdate("ollama", "llama3:8b", "slimfaas"));
 
         var contentRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "GnOuGo.Agent.Server"));
         var app = GnOuGoAgentWebHost.Build(

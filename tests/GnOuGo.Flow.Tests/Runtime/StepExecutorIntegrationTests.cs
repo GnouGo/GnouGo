@@ -345,4 +345,130 @@ workflows:
         Assert.Equal("0", iterations[0]?["inner"]?["text"]?.GetValue<string>());
         Assert.Equal("1", iterations[1]?["inner"]?["text"]?.GetValue<string>());
     }
+
+    // === LoopSequential with items ===
+
+    [Fact]
+    public async Task LoopSequential_Items_IteratesOverArray()
+    {
+        var result = await RunMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: loop
+        type: loop.sequential
+        input:
+          items: ""${data.inputs.items}""
+        item_var: item
+        index_var: idx
+        steps:
+          - id: r
+            type: template.render
+            input:
+              engine: mustache
+              template: ""{{val}}-{{i}}""
+              data:
+                val: ""${data.item}""
+                i: ""${data.idx}""
+              mode: text
+    outputs:
+      count:
+        expr: ""${data.steps.loop.count}""
+", new JsonObject { ["items"] = new JsonArray(JsonValue.Create("a"), JsonValue.Create("b"), JsonValue.Create("c")) });
+        Assert.True(result.Success);
+        Assert.Equal(3, result.Outputs!["count"]!.GetValue<int>());
+
+        var loopOutput = result.StepResults[0].Output as JsonObject;
+        Assert.NotNull(loopOutput);
+        var iterations = loopOutput["iterations"] as JsonArray;
+        Assert.NotNull(iterations);
+        Assert.Equal(3, iterations.Count);
+        Assert.Equal("a-0", iterations[0]?["r"]?["text"]?.GetValue<string>());
+        Assert.Equal("b-1", iterations[1]?["r"]?["text"]?.GetValue<string>());
+        Assert.Equal("c-2", iterations[2]?["r"]?["text"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task LoopSequential_Over_IsAliasForItems()
+    {
+        var result = await RunMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: loop
+        type: loop.sequential
+        input:
+          over: ""${data.inputs.items}""
+        item_var: entry
+        steps:
+          - id: r
+            type: template.render
+            input:
+              engine: mustache
+              template: ""{{val}}""
+              data:
+                val: ""${data.entry}""
+              mode: text
+", new JsonObject { ["items"] = new JsonArray(JsonValue.Create("x"), JsonValue.Create("y")) });
+        Assert.True(result.Success);
+        var loopOutput = result.StepResults[0].Output as JsonObject;
+        Assert.NotNull(loopOutput);
+        Assert.Equal(2, loopOutput["count"]!.GetValue<int>());
+        var iterations = loopOutput["iterations"] as JsonArray;
+        Assert.NotNull(iterations);
+        Assert.Equal("x", iterations[0]?["r"]?["text"]?.GetValue<string>());
+        Assert.Equal("y", iterations[1]?["r"]?["text"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task LoopSequential_Items_ExceedsLimit_Fails()
+    {
+        var compiled = CompileDoc(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: loop
+        type: loop.sequential
+        input:
+          items: ""${data.inputs.items}""
+        steps:
+          - id: r
+            type: template.render
+            input:
+              engine: mustache
+              template: x
+              mode: text
+");
+        var wf = compiled.Workflows[compiled.Entrypoint!];
+        var engine = new WorkflowEngine { Limits = new ExecutionLimits { MaxLoopIterations = 2 } };
+        var bigArray = new JsonArray(JsonValue.Create(1), JsonValue.Create(2), JsonValue.Create(3));
+        var result = await engine.ExecuteAsync(wf, new JsonObject { ["items"] = bigArray }, CancellationToken.None);
+        Assert.False(result.Success);
+        Assert.Equal("LOOP_LIMIT", result.Error?.Code);
+    }
+
+    [Fact]
+    public async Task LoopSequential_ItemsAndTimes_MutuallyExclusive_Fails()
+    {
+        var result = await RunMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: loop
+        type: loop.sequential
+        input:
+          items: ""${data.inputs.items}""
+          times: 3
+        steps:
+          - id: r
+            type: set
+            input: { value: ""x"" }
+", new JsonObject { ["items"] = new JsonArray(JsonValue.Create(1)) });
+        Assert.False(result.Success);
+        Assert.Equal("INPUT_VALIDATION", result.Error?.Code);
+    }
 }

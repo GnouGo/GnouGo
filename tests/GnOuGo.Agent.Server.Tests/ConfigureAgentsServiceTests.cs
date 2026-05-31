@@ -3,12 +3,9 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using GnOuGo.Agent.Mcp;
-using GnOuGo.Agent.Mcp.Data;
-using GnOuGo.Agent.Mcp.Models;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Compilation;
@@ -301,11 +298,7 @@ public sealed class ConfigureAgentsServiceTests
 
             Assert.Contains(events, evt => evt.Type == "agent_selected" && evt.Text == "slimfaas");
 
-            await using var db = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
-                .UseSqlite($"Data Source={dbPath}")
-                .Options);
-
-            var config = await db.UserConfigs.SingleAsync();
+            var config = await AgentMcpTestPersistence.GetUserConfigAsync(dbPath);
             Assert.Equal("slimfaas", config.DefaultAgent);
             Assert.Null(config.DefaultLlmProvider);
             Assert.Null(config.DefaultLlmModel);
@@ -330,21 +323,10 @@ public sealed class ConfigureAgentsServiceTests
 
     private static async Task SeedAgentAsync(string dbPath, string name)
     {
-        await using var db = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
-            .UseSqlite($"Data Source={dbPath}")
-            .Options);
-
-        db.Agents.Add(new AgentDefinition
-        {
-            Id = Guid.NewGuid(),
-            Name = name,
-            Workflow = "version: 1\nname: slimfaas\nworkflows:\n  main:\n    outputs: {}",
-            SchedulesJson = "[]",
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow
-        });
-
-        await db.SaveChangesAsync();
+        await AgentMcpTestPersistence.SeedAgentAsync(
+            dbPath,
+            name,
+            "version: 1\nname: slimfaas\nworkflows:\n  main:\n    outputs: {}");
     }
 
     [Fact]

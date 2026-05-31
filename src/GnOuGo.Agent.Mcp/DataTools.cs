@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
-using System.Text.Json.Nodes;
+using GnOuGo.AI.Core;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 using GnOuGo.Agent.Mcp.Services;
@@ -24,7 +24,7 @@ public sealed class DataTools
     [McpServerTool(Name = "user_chat_history_append"), Description(
         "Append messages to a chat conversation. If conversation_id is null or omitted, a new conversation is created. " +
         "Returns { success, conversation_id, count_appended } or { success: false, error_code, error_message }.")]
-    public JsonObject ChatHistoryAppend(
+    public ChatHistoryAppendToolResult ChatHistoryAppend(
         [Description("JSON array of messages, each with 'role' (string) and 'content' (string), and optional 'meta' (object). Example: [{\"role\":\"user\",\"content\":\"Hello\"}]")]
         string messagesJson,
         [Description("Existing conversation id. Omit or pass null to create a new conversation.")]
@@ -37,24 +37,24 @@ public sealed class DataTools
         catch (ArgumentException ex)
         {
             _logger.LogWarning(ex, "user_chat_history_append validation error");
-            return ErrorResult("INVALID_INPUT", ex.Message);
+            return ChatHistoryAppendError("INVALID_INPUT", ex.Message);
         }
         catch (JsonException ex)
         {
             _logger.LogWarning(ex, "user_chat_history_append JSON parse error");
-            return ErrorResult("INVALID_JSON", $"Failed to parse messagesJson: {ex.Message}");
+            return ChatHistoryAppendError("INVALID_JSON", $"Failed to parse messagesJson: {ex.Message}");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "user_chat_history_append unexpected error");
-            return ErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
+            return ChatHistoryAppendError("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 
     [McpServerTool(Name = "user_chat_history_get"), Description(
         "Retrieve chat history messages for a conversation. " +
         "Returns { success, conversation_id, messages: [{ role, content, created_at, meta? }] } or { success: false, error_code, error_message }.")]
-    public JsonObject ChatHistoryGet(
+    public ChatHistoryGetToolResult ChatHistoryGet(
         [Description("The conversation identifier (required).")]
         string conversationId,
         [Description("Maximum number of messages to return (most recent). Default: 50.")]
@@ -67,19 +67,19 @@ public sealed class DataTools
         catch (ArgumentException ex)
         {
             _logger.LogWarning(ex, "user_chat_history_get validation error for conversationId={ConversationId}", conversationId);
-            return ErrorResult("INVALID_INPUT", ex.Message);
+            return ChatHistoryGetError("INVALID_INPUT", ex.Message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "user_chat_history_get unexpected error for conversationId={ConversationId}", conversationId);
-            return ErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
+            return ChatHistoryGetError("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 
     [McpServerTool(Name = "user_config_get"), Description(
         "Retrieve persisted user defaults for the local agent experience. " +
         "Returns { success, config: { default_llm_provider?, default_llm_model?, default_embedding_config?, default_agent?, updated_at? } }.")]
-    public async Task<JsonObject> UserConfigGet()
+    public async Task<UserConfigToolResult> UserConfigGet()
     {
         try
         {
@@ -88,7 +88,7 @@ public sealed class DataTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "user_config_get unexpected error");
-            return ErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
+            return UserConfigError("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 
@@ -98,7 +98,7 @@ public sealed class DataTools
         "Provide model_overrides_json as a JSON object keyed by model id to persist custom model metadata. " +
         "Use clear_default_llm, clear_default_embedding or clear_default_agent to remove persisted defaults. " +
         "Returns { success, config: { default_llm_provider?, default_llm_model?, default_embedding_config?, default_agent?, model_overrides?, updated_at? } }.")]
-    public async Task<JsonObject> UserConfigSet(
+    public async Task<UserConfigToolResult> UserConfigSet(
         [Description("Default LLM provider name to persist.")]
         string? defaultLlmProvider = null,
         [Description("Default LLM model name to persist.")]
@@ -134,66 +134,53 @@ public sealed class DataTools
         catch (ArgumentException ex)
         {
             _logger.LogWarning(ex, "user_config_set validation error");
-            return ErrorResult("INVALID_INPUT", ex.Message);
+            return UserConfigError("INVALID_INPUT", ex.Message);
         }
         catch (JsonException ex)
         {
             _logger.LogWarning(ex, "user_config_set model overrides JSON parse error");
-            return ErrorResult("INVALID_JSON", $"Failed to parse modelOverridesJson: {ex.Message}");
+            return UserConfigError("INVALID_JSON", $"Failed to parse modelOverridesJson: {ex.Message}");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "user_config_set unexpected error");
-            return ErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
+            return UserConfigError("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 
-    // ── Core logic (separated for testability) ──────────────────────────
-
-    internal JsonObject ChatHistoryAppendCore(string messagesJson, string? conversationId)
+    internal ChatHistoryAppendToolResult ChatHistoryAppendCore(string messagesJson, string? conversationId)
     {
-        var messagesNode = JsonNode.Parse(messagesJson);
-        if (messagesNode is not JsonArray messagesArr || messagesArr.Count == 0)
+        var inputs = JsonSerializer.Deserialize(messagesJson, AgentMcpJsonContext.Default.ListChatHistoryMessageInput);
+        if (inputs is null || inputs.Count == 0)
             throw new ArgumentException("'messagesJson' must be a non-empty JSON array of messages.");
 
         var messages = new List<ChatMessage>();
-        for (int i = 0; i < messagesArr.Count; i++)
+        for (var i = 0; i < inputs.Count; i++)
         {
-            if (messagesArr[i] is not JsonObject msgObj)
-                throw new ArgumentException($"messages[{i}] must be a JSON object.");
-
-            var role = msgObj["role"]?.GetValue<string>();
-            var content = msgObj["content"]?.GetValue<string>();
-
-            if (string.IsNullOrEmpty(role))
+            var input = inputs[i];
+            if (string.IsNullOrEmpty(input.Role))
                 throw new ArgumentException($"messages[{i}].role is required.");
-            if (content == null)
+            if (input.Content is null)
                 throw new ArgumentException($"messages[{i}].content is required.");
 
             var msg = new ChatMessage
             {
-                Role = role,
-                Content = content,
+                Role = input.Role,
+                Content = input.Content,
                 CreatedAt = DateTimeOffset.UtcNow,
             };
 
-            if (msgObj.TryGetPropertyValue("meta", out var metaNode) && metaNode != null)
-                msg.Meta = metaNode.DeepClone();
+            if (input.Meta is { ValueKind: not JsonValueKind.Undefined and not JsonValueKind.Null } meta)
+                msg.Meta = meta.Clone();
 
             messages.Add(msg);
         }
 
         var result = _store.AppendMessages(conversationId, messages);
-
-        return new JsonObject
-        {
-            ["success"] = true,
-            ["conversation_id"] = result.ConversationId,
-            ["count_appended"] = result.CountAppended
-        };
+        return new ChatHistoryAppendToolResult(true, result.ConversationId, result.CountAppended);
     }
 
-    internal JsonObject ChatHistoryGetCore(string conversationId, int topK)
+    internal ChatHistoryGetToolResult ChatHistoryGetCore(string conversationId, int topK)
     {
         if (string.IsNullOrEmpty(conversationId))
             throw new ArgumentException("'conversationId' is required.");
@@ -201,61 +188,42 @@ public sealed class DataTools
             throw new ArgumentException("'topK' must be > 0.");
 
         var result = _store.GetMessages(conversationId, topK);
+        var messages = result.Messages
+            .Select(static msg => new ChatHistoryMessageDto(
+                msg.Role,
+                msg.Content,
+                msg.CreatedAt.ToString("o"),
+                msg.Meta?.Clone()))
+            .ToArray();
 
-        var messagesArray = new JsonArray();
-        foreach (var msg in result.Messages)
-        {
-            var msgObj = new JsonObject
-            {
-                ["role"] = msg.Role,
-                ["content"] = msg.Content,
-                ["created_at"] = msg.CreatedAt.ToString("o")
-            };
-            if (msg.Meta != null)
-                msgObj["meta"] = msg.Meta.DeepClone();
-            messagesArray.Add((JsonNode)msgObj);
-        }
-
-        return new JsonObject
-        {
-            ["success"] = true,
-            ["conversation_id"] = result.ConversationId,
-            ["messages"] = messagesArray
-        };
+        return new ChatHistoryGetToolResult(true, result.ConversationId, messages);
     }
 
-    internal static JsonObject SerializeUserConfig(UserConfigSnapshot snapshot)
-        => new()
-        {
-            ["success"] = true,
-            ["config"] = new JsonObject
-            {
-                ["default_llm_provider"] = snapshot.DefaultLlmProvider,
-                ["default_llm_model"] = snapshot.DefaultLlmModel,
-                ["default_embedding_config"] = snapshot.DefaultEmbeddingConfig,
-                ["default_agent"] = snapshot.DefaultAgent,
-                ["model_overrides"] = SerializeModelOverrides(snapshot.ModelOverrides),
-                ["updated_at"] = snapshot.UpdatedAt?.ToString("o")
-            }
-        };
+    internal static UserConfigToolResult SerializeUserConfig(UserConfigSnapshot snapshot)
+        => new(true, new UserConfigDto(
+            snapshot.DefaultLlmProvider,
+            snapshot.DefaultLlmModel,
+            snapshot.DefaultEmbeddingConfig,
+            snapshot.DefaultAgent,
+            snapshot.ModelOverrides ?? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase),
+            snapshot.UpdatedAt?.ToString("o")));
 
-    private static JsonObject? ParseModelOverrides(string? modelOverridesJson)
+    private static IReadOnlyDictionary<string, LLMModelMetadata>? ParseModelOverrides(string? modelOverridesJson)
     {
         if (modelOverridesJson is null)
             return null;
 
-        return JsonNode.Parse(modelOverridesJson) as JsonObject ?? new JsonObject();
+        return JsonSerializer.Deserialize(modelOverridesJson, AgentMcpJsonContext.Default.DictionaryStringLLMModelMetadata)
+               ?? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static JsonNode SerializeModelOverrides(JsonObject? overrides)
-        => overrides?.DeepClone() ?? new JsonObject();
+    private static ChatHistoryAppendToolResult ChatHistoryAppendError(string errorCode, string errorMessage)
+        => new(false, ErrorCode: errorCode, ErrorMessage: errorMessage);
 
-    private static JsonObject ErrorResult(string errorCode, string errorMessage)
-        => new()
-        {
-            ["success"] = false,
-            ["error_code"] = errorCode,
-            ["error_message"] = errorMessage
-        };
+    private static ChatHistoryGetToolResult ChatHistoryGetError(string errorCode, string errorMessage)
+        => new(false, ErrorCode: errorCode, ErrorMessage: errorMessage);
+
+    private static UserConfigToolResult UserConfigError(string errorCode, string errorMessage)
+        => new(false, ErrorCode: errorCode, ErrorMessage: errorMessage);
 }
 

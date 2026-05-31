@@ -12,73 +12,73 @@
 @inject AgentHumanInputProvider HumanInputProvider
 @inject AgentUserConfigMcpClient UserConfigClient
 
-<div class="sa-app">
-    <aside class="sa-app__sidebar sa-sidebar @( _sidebarOpen ? "sa-sidebar--open" : "")">
-        <div class="sa-sidebar__header">
-            <div class="sa-sidebar__brand">
-                <img class="sa-sidebar__logo" src="assets/gnougo-agent-logo.png" alt="GnOuGo.Agent" />
-                <div class="sa-sidebar__brand-text">
-                    <div class="sa-sidebar__title">GnOuGo.Agent</div>
-                    <div class="sa-sidebar__subtitle">Chats stored locally</div>
+<div class="gnougo-app">
+    <aside class="gnougo-app__sidebar gnougo-sidebar @( _sidebarOpen ? "gnougo-sidebar--open" : "")">
+        <div class="gnougo-sidebar__header">
+            <div class="gnougo-sidebar__brand">
+                <img class="gnougo-sidebar__logo" src="assets/gnougo-agent-logo.png" alt="GnOuGo.Agent" />
+                <div class="gnougo-sidebar__brand-text">
+                    <div class="gnougo-sidebar__title">GnOuGo.Agent</div>
+                    <div class="gnougo-sidebar__subtitle">Chats stored locally</div>
                 </div>
             </div>
 
-            <button class="sa-sidebar__new" @onclick="NewChatAsync" type="button" title="New chat">
-                <span class="sa-sidebar__new-icon">＋</span>
-                <span class="sa-sidebar__new-text">New chat</span>
+            <button class="gnougo-sidebar__new" @onclick="NewChatAsync" type="button" title="New chat">
+                <span class="gnougo-sidebar__new-icon">＋</span>
+                <span class="gnougo-sidebar__new-text">New chat</span>
             </button>
 
-            <button class="sa-sidebar__close" @onclick="ToggleSidebar" type="button" title="Close">
+            <button class="gnougo-sidebar__close" @onclick="ToggleSidebar" type="button" title="Close">
                 ✕
             </button>
         </div>
 
-        <nav class="sa-sidebar__list" aria-label="Chats">
+        <nav class="gnougo-sidebar__list" aria-label="Chats">
             @if (_store.Sessions.Count == 0)
             {
-                <div class="sa-sidebar__empty">No chats yet.</div>
+                <div class="gnougo-sidebar__empty">No chats yet.</div>
             }
             else
             {
                 @foreach (var s in _store.Sessions.OrderByDescending(x => x.UpdatedAtUnixMs))
                 {
                     var isActive = string.Equals(_store.ActiveId, s.Id, StringComparison.Ordinal);
-                    <button class="sa-sidebar__item @(isActive ? "sa-sidebar__item--active" : "")"
+                    <button class="gnougo-sidebar__item @(isActive ? "gnougo-sidebar__item--active" : "")"
                             @onclick="@(() => SelectChatAsync(s.Id))"
                             type="button">
-                        <div class="sa-sidebar__item-title">@s.Title</div>
-                        <div class="sa-sidebar__item-meta">@FormatUpdatedAt(s.UpdatedAtUnixMs)</div>
+                        <div class="gnougo-sidebar__item-title">@s.Title</div>
+                        <div class="gnougo-sidebar__item-meta">@FormatUpdatedAt(s.UpdatedAtUnixMs)</div>
                     </button>
                 }
             }
         </nav>
 
-        <div class="sa-sidebar__footer">
-            <div class="sa-sidebar__hint">
-                Tip: your history is stored in <span class="sa-sidebar__hint-strong">localStorage</span>.
+        <div class="gnougo-sidebar__footer">
+            <div class="gnougo-sidebar__hint">
+                Tip: your history is stored in <span class="gnougo-sidebar__hint-strong">localStorage</span>.
             </div>
         </div>
     </aside>
 
-    <main class="sa-app__main sa-chat">
-        <header class="sa-chat__topbar">
-            <button class="sa-chat__menu" @onclick="ToggleSidebar" type="button" title="Menu">
+    <main class="gnougo-app__main gnougo-chat">
+        <header class="gnougo-chat__topbar">
+            <button class="gnougo-chat__menu" @onclick="ToggleSidebar" type="button" title="Menu">
                 ☰
             </button>
 
-            <div class="sa-chat__topbar-title">
+            <div class="gnougo-chat__topbar-title">
                 @if (!string.IsNullOrWhiteSpace(_defaultAgentName))
                 {
-                    <span class="sa-chat__agent-badge" title="Active agent">🤖 @_defaultAgentName</span>
+                    <span class="gnougo-chat__agent-badge" title="Active agent">🤖 @_defaultAgentName</span>
                     <span style="margin: 0 8px; opacity: 0.4;">|</span>
                 }
                 @(_active?.Title ?? "Chat")
             </div>
 
-            <div class="sa-chat__topbar-actions">
-                <label for="chatAgentSelect" class="sa-chat__agent-select-label">Agent</label>
+            <div class="gnougo-chat__topbar-actions">
+                <label for="chatAgentSelect" class="gnougo-chat__agent-select-label">Agent</label>
                 <select id="chatAgentSelect"
-                        class="sa-chat__agent-select"
+                        class="gnougo-chat__agent-select"
                         title="Select default agent"
                         disabled="@(_isStreaming || _agentsLoading || _availableAgents.Count == 0)"
                         value="@(_defaultAgentName ?? string.Empty)"
@@ -97,25 +97,25 @@
                 </select>
                 @if (_isStreaming)
                 {
-                    <div class="sa-chat__streaming" title="Streaming…">
-                        <span class="sa-chat__streaming-dot"></span>
+                    <div class="gnougo-chat__streaming" title="Streaming…">
+                        <span class="gnougo-chat__streaming-dot"></span>
                         Streaming…
                     </div>
                 }
             </div>
         </header>
 
-        <section class="sa-chat__messages" id="chatMessages">
+        <section class="gnougo-chat__messages" id="chatMessages">
             @if (!string.IsNullOrWhiteSpace(_error))
             {
-                <div class="sa-chat__error">@_error</div>
+                <div class="gnougo-chat__error">@_error</div>
             }
 
             @if (_active is null || _active.Messages.Count == 0)
             {
-                <div class="sa-chat__empty">
-                    <div class="sa-chat__empty-title">Start a new chat</div>
-                    <div class="sa-chat__empty-subtitle">Your messages and history stay in your browser.</div>
+                <div class="gnougo-chat__empty">
+                    <div class="gnougo-chat__empty-title">Start a new chat</div>
+                    <div class="gnougo-chat__empty-subtitle">Your messages and history stay in your browser.</div>
                 </div>
             }
             else
@@ -128,25 +128,25 @@
 
                     @if (isThinking || isThought)
                     {
-                        <article class="sa-chat__message @(isThought ? "sa-chat__message--thought" : "sa-chat__message--thinking")">
-                            <div class="sa-chat__thinking">
-                                <span class="sa-chat__thinking-icon">💭</span>
-                                <span class="sa-chat__thinking-text">@msg.Content</span>
+                        <article class="gnougo-chat__message @(isThought ? "gnougo-chat__message--thought" : "gnougo-chat__message--thinking")">
+                            <div class="gnougo-chat__thinking">
+                                <span class="gnougo-chat__thinking-icon">💭</span>
+                                <span class="gnougo-chat__thinking-text">@msg.Content</span>
                             </div>
                         </article>
                     }
                     else
                     {
-                        <article class="sa-chat__message @(isUser ? "sa-chat__message--user" : "sa-chat__message--assistant")">
-                            <div class="sa-chat__bubble">
-                                <div class="sa-chat__bubble-meta">
-                                    <span class="sa-chat__bubble-role">@((isUser ? "You" : "GnOuGo.Agent"))</span>
+                        <article class="gnougo-chat__message @(isUser ? "gnougo-chat__message--user" : "gnougo-chat__message--assistant")">
+                            <div class="gnougo-chat__bubble">
+                                <div class="gnougo-chat__bubble-meta">
+                                    <span class="gnougo-chat__bubble-role">@((isUser ? "You" : "GnOuGo.Agent"))</span>
                                     @if (!isUser)
                                     {
                                         var isTraceSelected = ReferenceEquals(_selectedTraceMessage, msg)
                                                               || (!string.IsNullOrWhiteSpace(_selectedTraceMessage?.MessageId)
                                                                   && string.Equals(_selectedTraceMessage?.MessageId, msg.MessageId, StringComparison.Ordinal));
-                                        <button class="sa-chat__bubble-action @(isTraceSelected && _traceSidebarOpen ? "sa-chat__bubble-action--active" : "")"
+                                        <button class="gnougo-chat__bubble-action @(isTraceSelected && _traceSidebarOpen ? "gnougo-chat__bubble-action--active" : "")"
                                                 type="button"
                                                 title="Open trace debug sidebar"
                                                 @onclick="() => OpenTraceSidebar(msg)">
@@ -155,7 +155,7 @@
                                     }
                                 </div>
 
-                                <MarkdownContent Class="sa-chat__bubble-text" Content="@msg.Content" />
+                                <MarkdownContent Class="gnougo-chat__bubble-text" Content="@msg.Content" />
                             </div>
                         </article>
                     }
@@ -164,17 +164,17 @@
 
             @if (_pendingHumanInput is not null)
             {
-                <article class="sa-chat__message sa-chat__message--assistant">
-                    <div class="sa-chat__bubble">
-                        <div class="sa-chat__bubble-meta">
-                            <span class="sa-chat__bubble-role">⚙️ Configuration</span>
+                <article class="gnougo-chat__message gnougo-chat__message--assistant">
+                    <div class="gnougo-chat__bubble">
+                        <div class="gnougo-chat__bubble-meta">
+                            <span class="gnougo-chat__bubble-role">⚙️ Configuration</span>
                         </div>
-                        <div class="sa-chat__bubble-text">
+                        <div class="gnougo-chat__bubble-text">
                             <p><strong>@_pendingHumanInput.Prompt</strong></p>
 
                             @if (!string.IsNullOrWhiteSpace(_pendingHumanInput.Context))
                             {
-                                <MarkdownContent Class="sa-hitl-context" Content="@FormatHumanInputContextAsMarkdown(_pendingHumanInput.Context)" />
+                                <MarkdownContent Class="gnougo-hitl-context" Content="@FormatHumanInputContextAsMarkdown(_pendingHumanInput.Context)" />
                             }
 
                             @if (_pendingHumanInput.Choices is { Count: > 0 })
@@ -183,7 +183,7 @@
                                     @foreach (var choice in _pendingHumanInput.Choices)
                                     {
                                         var c = choice;
-                                        <button class="sa-composer__send"
+                                        <button class="gnougo-composer__send"
                                                 type="button"
                                                 style="min-width: 80px;"
                                                 @onclick="@(() => SubmitHumanInputChoice(c))">
@@ -208,7 +208,7 @@
                                             }
                                             @if (string.Equals(field.Type, "select", StringComparison.OrdinalIgnoreCase) && field.Options is { Count: > 0 })
                                             {
-                                                <select class="sa-composer__input"
+                                                <select class="gnougo-composer__input"
                                                         style="width: 100%; padding: 6px 10px; border-radius: 6px;"
                                                         value="@GetFieldValue(field.Name)"
                                                         @onchange="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))">
@@ -220,21 +220,21 @@
                                             }
                                             else if (ShouldUseMultilineField(field))
                                             {
-                                                <textarea class="sa-composer__input sa-hitl-field__textarea @(LooksLikeCodeField(field) ? "sa-hitl-field__textarea--code" : "")"
+                                                <textarea class="gnougo-composer__input gnougo-hitl-field__textarea @(LooksLikeCodeField(field) ? "gnougo-hitl-field__textarea--code" : "")"
                                                           value="@GetFieldValue(field.Name)"
                                                           @oninput="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))"></textarea>
                                             }
                                             else
                                             {
                                                 <input type="text"
-                                                       class="sa-composer__input"
+                                                       class="gnougo-composer__input"
                                                        style="width: 100%; padding: 6px 10px; border-radius: 6px;"
                                                        value="@GetFieldValue(field.Name)"
                                                        @onchange="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))" />
                                             }
                                         </div>
                                     }
-                                    <button class="sa-composer__send"
+                                    <button class="gnougo-composer__send"
                                             type="button"
                                             style="margin-top: 8px;"
                                             @onclick="SubmitHumanInputFields">
@@ -248,21 +248,21 @@
             }
         </section>
 
-        <footer class="sa-chat__composer">
-            <EditForm id="@ComposerDropZoneId" class="sa-composer" Model="_model" OnValidSubmit="SendAsync">
+        <footer class="gnougo-chat__composer">
+            <EditForm id="@ComposerDropZoneId" class="gnougo-composer" Model="_model" OnValidSubmit="SendAsync">
                 <DataAnnotationsValidator />
-                <input id="@ComposerFileInputId" class="sa-composer__file-input" type="file" multiple />
+                <input id="@ComposerFileInputId" class="gnougo-composer__file-input" type="file" multiple />
 
                 @if (_composerUploads.Count > 0)
                 {
-                    <div class="sa-composer__uploads" aria-live="polite">
+                    <div class="gnougo-composer__uploads" aria-live="polite">
                         @foreach (var upload in _composerUploads)
                         {
-                            <div class="sa-composer__upload @(upload.IsCompleted ? "sa-composer__upload--done" : upload.IsFailed ? "sa-composer__upload--failed" : "sa-composer__upload--loading")">
-                                <div class="sa-composer__upload-icon">@(upload.IsCompleted ? "✓" : upload.IsFailed ? "!" : "⇧")</div>
-                                <div class="sa-composer__upload-body">
-                                    <div class="sa-composer__upload-title" title="@upload.FileName">@upload.FileName</div>
-                                    <div class="sa-composer__upload-meta">
+                            <div class="gnougo-composer__upload @(upload.IsCompleted ? "gnougo-composer__upload--done" : upload.IsFailed ? "gnougo-composer__upload--failed" : "gnougo-composer__upload--loading")">
+                                <div class="gnougo-composer__upload-icon">@(upload.IsCompleted ? "✓" : upload.IsFailed ? "!" : "⇧")</div>
+                                <div class="gnougo-composer__upload-body">
+                                    <div class="gnougo-composer__upload-title" title="@upload.FileName">@upload.FileName</div>
+                                    <div class="gnougo-composer__upload-meta">
                                         @if (upload.IsCompleted)
                                         {
                                             <span>Uploaded · id @ShortId(upload.FileId)</span>
@@ -276,11 +276,11 @@
                                             <span>@FormatBytes(upload.SizeBytes) · @upload.Progress%</span>
                                         }
                                     </div>
-                                    <div class="sa-composer__upload-progress" aria-hidden="true">
-                                        <div class="sa-composer__upload-progress-bar" style="width: @upload.Progress%"></div>
+                                    <div class="gnougo-composer__upload-progress" aria-hidden="true">
+                                        <div class="gnougo-composer__upload-progress-bar" style="width: @upload.Progress%"></div>
                                     </div>
                                 </div>
-                                <button class="sa-composer__upload-remove"
+                                <button class="gnougo-composer__upload-remove"
                                         type="button"
                                         title="Remove file from message"
                                         disabled="@_isStreaming"
@@ -294,11 +294,11 @@
 
                 @if (UseWorkflowInputComposer && _workflowInputSchema is not null)
                 {
-                    <div class="sa-composer__workflow" aria-label="Workflow inputs">
-                        <div class="sa-composer__workflow-header">
+                    <div class="gnougo-composer__workflow" aria-label="Workflow inputs">
+                        <div class="gnougo-composer__workflow-header">
                             <div>
-                                <div class="sa-composer__workflow-title">Workflow inputs</div>
-                                <div class="sa-composer__workflow-subtitle">
+                                <div class="gnougo-composer__workflow-title">Workflow inputs</div>
+                                <div class="gnougo-composer__workflow-subtitle">
                                     @if (!string.IsNullOrWhiteSpace(_workflowInputSchema.AgentName))
                                     {
                                         <span>Agent: @_workflowInputSchema.AgentName</span>
@@ -311,18 +311,18 @@
                             </div>
                             @if (_workflowInputsLoading)
                             {
-                                <span class="sa-composer__workflow-loading">Loading…</span>
+                                <span class="gnougo-composer__workflow-loading">Loading…</span>
                             }
                         </div>
 
                         @if (!string.IsNullOrWhiteSpace(_workflowInputSchema.ErrorMessage))
                         {
-                            <div class="sa-composer__workflow-error">
+                            <div class="gnougo-composer__workflow-error">
                                 Could not load workflow inputs: @_workflowInputSchema.ErrorMessage
                             </div>
                         }
 
-                        <div class="sa-composer__workflow-grid">
+                        <div class="gnougo-composer__workflow-grid">
                             @foreach (var field in _workflowInputSchema.Fields)
                             {
                                 @RenderWorkflowInputField(field, field.Name, 0)
@@ -330,8 +330,8 @@
                         </div>
                     </div>
 
-                    <div class="sa-composer__row sa-composer__row--actions">
-                        <button class="sa-composer__attach"
+                    <div class="gnougo-composer__row gnougo-composer__row--actions">
+                        <button class="gnougo-composer__attach"
                                 type="button"
                                 title="Attach documents"
                                 disabled="@_isStreaming"
@@ -339,30 +339,30 @@
                             📎
                         </button>
 
-                        <div class="sa-composer__workflow-action-spacer"></div>
+                        <div class="gnougo-composer__workflow-action-spacer"></div>
 
                         @if (_isStreaming)
                         {
-                            <button class="sa-composer__send sa-composer__send--stop" type="button" @onclick="Stop" title="Stop">
-                                <span class="sa-composer__send-text">Stop</span>
+                            <button class="gnougo-composer__send gnougo-composer__send--stop" type="button" @onclick="Stop" title="Stop">
+                                <span class="gnougo-composer__send-text">Stop</span>
                             </button>
                         }
                         else
                         {
-                            <button class="sa-composer__send" type="submit" disabled="@(!CanSend)">
-                                <span class="sa-composer__send-text">Run workflow</span>
+                            <button class="gnougo-composer__send" type="submit" disabled="@(!CanSend)">
+                                <span class="gnougo-composer__send-text">Run workflow</span>
                             </button>
                         }
                     </div>
 
-                    <div class="sa-composer__hint">
+                    <div class="gnougo-composer__hint">
                         Fill the selected agent inputs • JSON/YAML accepted for complex fields • Drag & drop documents to upload them first
                     </div>
                 }
                 else
                 {
-                    <div class="sa-composer__row">
-                        <button class="sa-composer__attach"
+                    <div class="gnougo-composer__row">
+                        <button class="gnougo-composer__attach"
                                 type="button"
                                 title="Attach documents"
                                 disabled="@_isStreaming"
@@ -370,7 +370,7 @@
                             📎
                         </button>
 
-                        <textarea class="sa-composer__input"
+                        <textarea class="gnougo-composer__input"
                                   @bind="_model.Prompt"
                                   @bind:event="oninput"
                                   placeholder="Write a message or YAML… Drop documents here to upload them before sending."
@@ -382,19 +382,19 @@
 
                         @if (_isStreaming)
                         {
-                            <button class="sa-composer__send sa-composer__send--stop" type="button" @onclick="Stop" title="Stop">
-                                <span class="sa-composer__send-text">Stop</span>
+                            <button class="gnougo-composer__send gnougo-composer__send--stop" type="button" @onclick="Stop" title="Stop">
+                                <span class="gnougo-composer__send-text">Stop</span>
                             </button>
                         }
                         else
                         {
-                            <button class="sa-composer__send" type="submit" disabled="@(!CanSend)">
-                                <span class="sa-composer__send-text">Send</span>
+                            <button class="gnougo-composer__send" type="submit" disabled="@(!CanSend)">
+                                <span class="gnougo-composer__send-text">Send</span>
                             </button>
                         }
                     </div>
 
-                    <div class="sa-composer__hint">
+                    <div class="gnougo-composer__hint">
                         Enter to send • Shift+Enter for newline • Drag & drop documents to upload them first
                     </div>
                 }
@@ -447,8 +447,8 @@
         public string? Default { get; set; }
     }
 
-    private const string StorageKeyV2 = "gnougo-agent.sa-chat.store.v2";
-    private const string LegacyStorageKey = "gnougo-sa-chat.sa-chat.history.v1";
+    private const string StorageKeyV2 = "gnougo-agent.gnougo-chat.store.v2";
+    private const string LegacyStorageKey = "gnougo-gnougo-chat.gnougo-chat.history.v1";
 
     private static readonly JsonSerializerOptions PrettyJsonOptions = new() { WriteIndented = true };
 
@@ -796,24 +796,24 @@
         => string.Equals(field.Type, "object", StringComparison.OrdinalIgnoreCase)
            && field.PropertyList.Count > 0;
 
-    private RenderFragment RenderWorkflowInputField(WorkflowInputFieldSchema field, string path, int depth) => @<div class="sa-workflow-input @(depth > 0 ? "sa-workflow-input--nested" : "")">
-        <label class="sa-workflow-input__label" for="@WorkflowInputDomId(path)">
+    private RenderFragment RenderWorkflowInputField(WorkflowInputFieldSchema field, string path, int depth) => @<div class="gnougo-workflow-input @(depth > 0 ? "gnougo-workflow-input--nested" : "")">
+        <label class="gnougo-workflow-input__label" for="@WorkflowInputDomId(path)">
             <span>@field.Name</span>
             @if (field.Required)
             {
-                <span class="sa-workflow-input__required">*</span>
+                <span class="gnougo-workflow-input__required">*</span>
             }
-            <span class="sa-workflow-input__type">@field.Type</span>
+            <span class="gnougo-workflow-input__type">@field.Type</span>
         </label>
 
         @if (!string.IsNullOrWhiteSpace(field.Description))
         {
-            <div class="sa-workflow-input__description">@field.Description</div>
+            <div class="gnougo-workflow-input__description">@field.Description</div>
         }
 
         @if (IsStructuredObjectField(field))
         {
-            <div class="sa-workflow-input__object">
+            <div class="gnougo-workflow-input__object">
                 @foreach (var property in field.PropertyList)
                 {
                     @RenderWorkflowInputField(property, $"{path}.{property.Name}", depth + 1)
@@ -823,7 +823,7 @@
         else if (WorkflowInputComposer.IsBooleanType(field.Type))
         {
             <select id="@WorkflowInputDomId(path)"
-                    class="sa-composer__input sa-workflow-input__control"
+                    class="gnougo-composer__input gnougo-workflow-input__control"
                     disabled="@(_isStreaming || HasBlockingUploads)"
                     value="@GetWorkflowInputValue(path)"
                     @onchange="@(e => SetWorkflowInputValue(path, e.Value?.ToString() ?? ""))">
@@ -835,7 +835,7 @@
         else if (ShouldUseWorkflowMultilineField(field))
         {
             <textarea id="@WorkflowInputDomId(path)"
-                      class="sa-composer__input sa-workflow-input__control sa-workflow-input__textarea @(WorkflowInputComposer.IsComplexType(field.Type) ? "sa-workflow-input__textarea--code" : "")"
+                      class="gnougo-composer__input gnougo-workflow-input__control gnougo-workflow-input__textarea @(WorkflowInputComposer.IsComplexType(field.Type) ? "gnougo-workflow-input__textarea--code" : "")"
                       rows="@(WorkflowInputComposer.IsComplexType(field.Type) ? 5 : 2)"
                       disabled="@(_isStreaming || HasBlockingUploads)"
                       value="@GetWorkflowInputValue(path)"
@@ -845,7 +845,7 @@
         {
             <input id="@WorkflowInputDomId(path)"
                    type="@(WorkflowInputComposer.IsNumberType(field.Type) ? "number" : "text")"
-                   class="sa-composer__input sa-workflow-input__control"
+                   class="gnougo-composer__input gnougo-workflow-input__control"
                    disabled="@(_isStreaming || HasBlockingUploads)"
                    value="@GetWorkflowInputValue(path)"
                    @oninput="@(e => SetWorkflowInputValue(path, e.Value?.ToString() ?? ""))" />
@@ -1345,7 +1345,7 @@
             // Update title if still default
             if (_active is not null &&
                 (string.Equals(_active.Title, "New chat", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(_active.Title, "Migrated sa-chat", StringComparison.OrdinalIgnoreCase)))
+                 string.Equals(_active.Title, "Migrated gnougo-chat", StringComparison.OrdinalIgnoreCase)))
             {
                 try
                 {
@@ -1545,7 +1545,7 @@
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var session = new ChatSessionDto(
                 Id: Guid.NewGuid().ToString("N"),
-                Title: "Migrated sa-chat",
+                Title: "Migrated gnougo-chat",
                 UpdatedAtUnixMs: now,
                 Messages: msgs);
 

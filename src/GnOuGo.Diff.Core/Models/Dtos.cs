@@ -7,7 +7,8 @@ public record CreateRevisionRequest(
     string EntityType,
     string EntityId,
     string CurrentValue,
-    string Author
+    string Author,
+    bool ForceCreate = false
 );
 
 /// <summary>

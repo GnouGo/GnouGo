@@ -1,7 +1,7 @@
-# GnOuGo.Agent (Blazor + Minimal API, Native AOT-ready)
+# GnOuGo.Agent (Blazor + Minimal API)
 
 This solution contains:
-- **GnOuGo.Agent.Server**: Blazor (server interactive) UI + Minimal API streaming endpoint
+- **GnOuGo.Agent.Server**: Blazor (server interactive) UI + Minimal API streaming endpoint; published as a trimmed self-contained single-file executable with bundled MCP tools.
 - **GnOuGo.Agent.Shared**: shared DTOs
 
 ## Architecture
@@ -102,7 +102,7 @@ Standalone MCP hosts still expose `/mcp` directly in their own projects:
 
 ## Bundled stdio MCP tools
 
-The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, `GnOuGo.Document.Mcp`, and `GnOuGo.GithubCopilot.Mcp` for non-development runs using bundled executable paths:
+The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, `GnOuGo.Document.Mcp`, `GnOuGo.GithubCopilot.Mcp`, and `GnOuGo.Git.Mcp` for non-development runs using bundled executable paths:
 
 ```json
 {
@@ -127,6 +127,11 @@ The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, 
 		"Type": "stdio",
 		"Command": "tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp",
 		"Args": []
+	  },
+	  "GnOuGo.Git.Mcp": {
+		"Type": "stdio",
+		"Command": "tools/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp",
+		"Args": []
 	  }
 	}
   }
@@ -137,11 +142,33 @@ During local source-based development, `appsettings.Development.json` still over
 
 Published outputs now bundle the MCP stdio tools under `tools/`:
 
-- `GnOuGo.Agent.Server` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, `tools/GnOuGo.Document.Mcp/`, and `tools/GnOuGo.GithubCopilot.Mcp/`
-- `GnOuGo.Agent.Desktop` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, `tools/GnOuGo.Document.Mcp/`, and `tools/GnOuGo.GithubCopilot.Mcp/`
+- `GnOuGo.Agent.Server` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, `tools/GnOuGo.Document.Mcp/`, `tools/GnOuGo.GithubCopilot.Mcp/`, and `tools/GnOuGo.Git.Mcp/`
+- `GnOuGo.Agent.Desktop` publish output includes `tools/GnOuGo.Browser.Mcp/`, `tools/GnOuGo.Cmd.Mcp/`, `tools/GnOuGo.Document.Mcp/`, `tools/GnOuGo.GithubCopilot.Mcp/`, and `tools/GnOuGo.Git.Mcp/`
 
-This keeps the browser, command, document, and code MCP servers available in packaged server, desktop, and container runs without requiring the repository source tree.
+This keeps the browser, command, document, code, and Git MCP servers available in packaged server, desktop, and container runs without requiring the repository source tree.
 Final publish outputs also strip all `.pdb` files from both the main application and bundled MCP tools before packaging.
+
+## Server publish (trimmed self-contained)
+
+The linux-x64 CI and Docker paths publish `GnOuGo.Agent.Server` as a trimmed self-contained single-file executable. That path intentionally passes:
+
+- `/p:PublishAot=false`
+- `/p:PublishTrimmed=true`
+- `/p:PublishSingleFile=true`
+
+The server uses Entity Framework Core for all persistence (Agent, KeyVault, OTLP Collector, Diff, Files). Blazor Interactive Server components are fully included.
+
+The Docker image is built from `mcr.microsoft.com/dotnet/aspnet:10.0` and starts the executable directly:
+
+```powershell
+Set-Location "C:\github\GnouGo"
+docker build -t gnougo-agent -f src/GnOuGo.Agent.Server/Dockerfile .
+docker run --rm -p 5000:5000 gnougo-agent
+```
+
+## Desktop publish
+
+The desktop workflow publishes a trimmed self-contained `GnOuGo.Agent.Desktop` (Photino) with bundled stdio MCP tools. The bundled stdio tools (`GnOuGo.Cmd.Mcp`, `GnOuGo.Document.Mcp`, `GnOuGo.Git.Mcp`, `GnOuGo.GithubCopilot.Mcp`, `GnOuGo.DocIngestor.Mcp`) are published as Native AOT executables for maximum startup performance.
 
 ## Default SQLite locations
 

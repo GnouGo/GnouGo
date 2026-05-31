@@ -42,11 +42,10 @@ public sealed class KeyVaultService
 
     public async Task<List<TenantDto>> ListTenantsAsync(CancellationToken ct = default)
     {
-        return await _db.Tenants
-            .Where(t => !t.IsDeleted && t.Name != "__default__")
-            .OrderBy(t => t.Name)
-            .Select(t => new TenantDto(t.Id, t.Name, new DateTimeOffset(t.CreatedAtTicks, TimeSpan.Zero), t.CreatedBy))
-            .ToListAsync(ct);
+        var tenants = new List<TenantDto>();
+        await foreach (var t in KeyVaultQueries.GetActiveNonDefaultTenants(_db))
+            tenants.Add(new TenantDto(t.Id, t.Name, new DateTimeOffset(t.CreatedAtTicks, TimeSpan.Zero), t.CreatedBy));
+        return tenants;
     }
 
     public async Task<bool> DeleteTenantAsync(Guid tenantId, string author, CancellationToken ct = default)
@@ -67,9 +66,7 @@ public sealed class KeyVaultService
         var (pubPem, _) = await GetKeyPairAsync(tenantId, ct);
         var encrypted = CryptoService.Encrypt(value, pubPem);
 
-        var secret = await _db.Secrets
-            .Include(s => s.Versions)
-            .FirstOrDefaultAsync(s => s.Key == key && s.TenantId == tenantId && !s.IsDeleted, ct);
+        var secret = await KeyVaultQueries.GetSecretByKeyAndTenant(_db, key, tenantId);
 
         if (secret is null)
         {
@@ -104,9 +101,7 @@ public sealed class KeyVaultService
 
     public async Task<SecretValueDto?> GetSecretAsync(string key, Guid? tenantId, string author, CancellationToken ct = default)
     {
-        var secret = await _db.Secrets
-            .Include(s => s.Versions)
-            .FirstOrDefaultAsync(s => s.Key == key && s.TenantId == tenantId && !s.IsDeleted, ct);
+        var secret = await KeyVaultQueries.GetSecretByKeyAndTenant(_db, key, tenantId);
 
         if (secret is null) return null;
 
@@ -124,8 +119,7 @@ public sealed class KeyVaultService
 
     public async Task<bool> DeleteSecretAsync(string key, Guid? tenantId, string author, CancellationToken ct = default)
     {
-        var secret = await _db.Secrets
-            .FirstOrDefaultAsync(s => s.Key == key && s.TenantId == tenantId && !s.IsDeleted, ct);
+        var secret = await KeyVaultQueries.GetSecretByKeyAndTenantNoVersions(_db, key, tenantId);
 
         if (secret is null) return false;
 
@@ -138,6 +132,7 @@ public sealed class KeyVaultService
     public async Task<List<SecretDto>> ListSecretsAsync(Guid? tenantId, CancellationToken ct = default)
     {
         var query = _db.Secrets
+            .AsNoTracking()
             .Include(s => s.Versions)
             .Include(s => s.Tenant)
             .Where(s => !s.IsDeleted);
@@ -162,9 +157,7 @@ public sealed class KeyVaultService
 
     public async Task<List<SecretVersionDto>> GetSecretVersionsAsync(string key, Guid? tenantId, CancellationToken ct = default)
     {
-        var secret = await _db.Secrets
-            .Include(s => s.Versions)
-            .FirstOrDefaultAsync(s => s.Key == key && s.TenantId == tenantId && !s.IsDeleted, ct);
+        var secret = await KeyVaultQueries.GetSecretByKeyAndTenant(_db, key, tenantId);
 
         if (secret is null) return [];
 
@@ -178,7 +171,7 @@ public sealed class KeyVaultService
 
     public async Task<List<AuditEntryDto>> GetAuditLogAsync(Guid? tenantId, string? secretKey, int skip, int take, CancellationToken ct = default)
     {
-        var query = _db.AuditEntries.AsQueryable();
+        var query = _db.AuditEntries.AsNoTracking().AsQueryable();
 
         if (tenantId.HasValue)
             query = query.Where(a => a.TenantId == tenantId.Value);
@@ -205,9 +198,8 @@ public sealed class KeyVaultService
     /// </summary>
     public async Task EnsureDefaultKeyPairAsync(CancellationToken ct = default)
     {
-        // Use a well-known "default" tenant row with a sentinel name
         const string defaultName = "__default__";
-        var defaultTenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Name == defaultName, ct);
+        var defaultTenant = await KeyVaultQueries.GetTenantByName(_db, defaultName);
 
         if (defaultTenant is null)
         {
@@ -243,7 +235,6 @@ public sealed class KeyVaultService
                 if (_defaultPublicPem is not null && _defaultPrivatePem is not null)
                     return (_defaultPublicPem, _defaultPrivatePem);
             }
-            // Fallback: load from DB
             await EnsureDefaultKeyPairAsync(ct);
             lock (_lock)
             {
@@ -276,5 +267,4 @@ public sealed class KeyVaultService
 
     private static TenantDto ToDto(Tenant t) => new(t.Id, t.Name, t.CreatedAt, t.CreatedBy);
 }
-
 

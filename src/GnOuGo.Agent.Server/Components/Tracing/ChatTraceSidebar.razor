@@ -3,67 +3,67 @@
 @inject TraceDebugService TraceDebug
 @if (IsOpen)
 {
-    <button class="sa-trace-panel__backdrop" type="button" aria-label="Close trace panel" @onclick="HandleCloseAsync"></button>
+    <button class="gnougo-trace-panel__backdrop" type="button" aria-label="Close trace panel" @onclick="HandleCloseAsync"></button>
 }
-<aside class="sa-trace-panel @(IsOpen ? "sa-trace-panel--open" : string.Empty)" aria-hidden="@(!IsOpen)">
-    <header class="sa-trace-panel__header">
+<aside class="gnougo-trace-panel @(IsOpen ? "gnougo-trace-panel--open" : string.Empty)" aria-hidden="@(!IsOpen)">
+    <header class="gnougo-trace-panel__header">
         <div>
-            <div class="sa-trace-panel__eyebrow">OpenTelemetry / GenAI / RAG</div>
-            <h2 class="sa-trace-panel__title">Message Trace Debug</h2>
-            <div class="sa-trace-panel__meta">
+            <div class="gnougo-trace-panel__eyebrow">OpenTelemetry / GenAI / RAG</div>
+            <h2 class="gnougo-trace-panel__title">Message Trace Debug</h2>
+            <div class="gnougo-trace-panel__meta">
                 <span>Correlation: <code>@(Message?.CorrelationId ?? "n/a")</code></span>
                 <span>Trace: <code>@(_snapshot.TraceId ?? Message?.TraceId ?? "pending")</code></span>
             </div>
         </div>
-        <div class="sa-trace-panel__header-actions">
-            <button class="sa-trace-panel__toggle"
+        <div class="gnougo-trace-panel__header-actions">
+            <button class="gnougo-trace-panel__toggle"
                     type="button"
                     @onclick="ToggleRenderMode"
                     title="Toggle between formatted rendering and raw text">
                 @(_renderFormatted ? "Formatted" : "Raw")
             </button>
-            <span class="sa-trace-panel__badge @GetStatusBadgeClass()">@GetStatusLabel()</span>
-            <button class="sa-trace-panel__close" type="button" @onclick="HandleCloseAsync" aria-label="Close trace panel">x</button>
+            <span class="gnougo-trace-panel__badge @GetStatusBadgeClass()">@GetStatusLabel()</span>
+            <button class="gnougo-trace-panel__close" type="button" @onclick="HandleCloseAsync" aria-label="Close trace panel">x</button>
         </div>
     </header>
-    <nav class="sa-trace-panel__tabs" aria-label="Trace debug sections">
-        <button class="sa-trace-panel__tab @GetTabClass(TracePanelTab.Traces)"
+    <nav class="gnougo-trace-panel__tabs" aria-label="Trace debug sections">
+        <button class="gnougo-trace-panel__tab @GetTabClass(TracePanelTab.Traces)"
                 type="button"
                 role="tab"
                 aria-selected="@(_activeTab == TracePanelTab.Traces)"
                 @onclick="() => SelectTab(TracePanelTab.Traces)">
             <span>Traces</span>
-            <span class="sa-trace-panel__tab-count">@(_snapshot.Trace?.Spans.Count ?? 0)</span>
+            <span class="gnougo-trace-panel__tab-count">@(_snapshot.Trace?.Spans.Count ?? 0)</span>
         </button>
-        <button class="sa-trace-panel__tab @GetTabClass(TracePanelTab.Logs)"
+        <button class="gnougo-trace-panel__tab @GetTabClass(TracePanelTab.Logs)"
                 type="button"
                 role="tab"
                 aria-selected="@(_activeTab == TracePanelTab.Logs)"
                 @onclick="() => SelectTab(TracePanelTab.Logs)">
             <span>Logs</span>
-            <span class="sa-trace-panel__tab-count">@_snapshot.Logs.Count</span>
+            <span class="gnougo-trace-panel__tab-count">@_snapshot.Logs.Count</span>
         </button>
     </nav>
-    <div class="sa-trace-panel__body">
+    <div class="gnougo-trace-panel__body">
         @if (!IsOpen || Message is null)
         {
-            <div class="sa-trace-panel__state">
-                <div class="sa-trace-panel__state-title">Select a GnOuGo message</div>
-                <div class="sa-trace-panel__state-text">Open a message trace to inspect the full RAG execution in real time.</div>
+            <div class="gnougo-trace-panel__state">
+                <div class="gnougo-trace-panel__state-title">Select a GnOuGo message</div>
+                <div class="gnougo-trace-panel__state-text">Open a message trace to inspect the full RAG execution in real time.</div>
             </div>
         }
         else if (!_snapshot.Availability.Enabled)
         {
-            <div class="sa-trace-panel__state sa-trace-panel__state--warning">
-                <div class="sa-trace-panel__state-title">Trace debugging unavailable</div>
-                <div class="sa-trace-panel__state-text">@_snapshot.Availability.Message</div>
+            <div class="gnougo-trace-panel__state gnougo-trace-panel__state--warning">
+                <div class="gnougo-trace-panel__state-title">Trace debugging unavailable</div>
+                <div class="gnougo-trace-panel__state-text">@_snapshot.Availability.Message</div>
             </div>
         }
         else if (!string.IsNullOrWhiteSpace(_loadError))
         {
-            <div class="sa-trace-panel__state sa-trace-panel__state--error">
-                <div class="sa-trace-panel__state-title">Unable to load live telemetry</div>
-                <div class="sa-trace-panel__state-text">@_loadError</div>
+            <div class="gnougo-trace-panel__state gnougo-trace-panel__state--error">
+                <div class="gnougo-trace-panel__state-title">Unable to load live telemetry</div>
+                <div class="gnougo-trace-panel__state-text">@_loadError</div>
             </div>
         }
         else if (_activeTab == TracePanelTab.Logs)
@@ -74,13 +74,13 @@
         }
         else if (_snapshot.Trace is null)
         {
-            <div class="sa-trace-panel__state">
-                <div class="sa-trace-panel__state-title">@(_snapshot.Pending ? "Waiting for spans..." : "Trace not found")</div>
-                <div class="sa-trace-panel__state-text">@_snapshot.Message</div>
+            <div class="gnougo-trace-panel__state">
+                <div class="gnougo-trace-panel__state-title">@(_snapshot.Pending ? "Waiting for spans..." : "Trace not found")</div>
+                <div class="gnougo-trace-panel__state-text">@_snapshot.Message</div>
                 @if (_isLoading)
                 {
-                    <div class="sa-trace-panel__spinner-row">
-                        <span class="sa-trace-panel__spinner"></span>
+                    <div class="gnougo-trace-panel__spinner-row">
+                        <span class="gnougo-trace-panel__spinner"></span>
                         <span>Polling the OTLP collector...</span>
                     </div>
                 }
@@ -226,16 +226,16 @@
          await InvokeAsync(StateHasChanged);
      }
     private string GetTabClass(TracePanelTab tab)
-        => _activeTab == tab ? "sa-trace-panel__tab--active" : string.Empty;
+        => _activeTab == tab ? "gnougo-trace-panel__tab--active" : string.Empty;
     private string GetStatusBadgeClass()
     {
         if (!_snapshot.Availability.Enabled)
-            return "sa-trace-panel__badge--disabled";
+            return "gnougo-trace-panel__badge--disabled";
         if (!string.IsNullOrWhiteSpace(_loadError))
-            return "sa-trace-panel__badge--error";
+            return "gnougo-trace-panel__badge--error";
         if (_snapshot.Trace is not null)
-            return "sa-trace-panel__badge--live";
-        return "sa-trace-panel__badge--pending";
+            return "gnougo-trace-panel__badge--live";
+        return "gnougo-trace-panel__badge--pending";
     }
     private string GetStatusLabel()
     {

@@ -12,6 +12,7 @@ This service receives OpenTelemetry data (traces, metrics, logs) over OTLP/gRPC 
 - Optional routing to external OTLP/HTTP collectors using typed `TelemetryRouting` settings
 - Development mode support when tenant id is missing
 - Static UI served from `wwwroot`
+- SQLite persistence via Entity Framework Core (`TelemetryDbContext`) with `AsNoTracking` optimizations and pre-compiled queries
 
 ## Prerequisites
 
@@ -122,12 +123,28 @@ Avoid storing production secrets in `appsettings.json`; use environment-specific
 
 ## Publish
 
-Example self-contained publish:
+`Release` publishes are trimmed self-contained single-file executables. Example Windows x64 publish:
 
-```bash
-cd <repo-root>
-dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -r osx-arm64 /p:SkipClientBuild=true
-dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r osx-arm64 --self-contained true -o artifacts/publish/otlp-collector/osx-arm64 --no-restore /p:SkipClientBuild=true
+```powershell
+dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish/otlp-collector/win-x64 /p:SkipClientBuild=true /p:PublishTrimmed=true /p:PublishSingleFile=true /p:SkipModelMetadataGeneration=true
+```
+
+The Windows publish output must contain `GnOuGo.OtlpCollector.Server.exe`; Unix-like RIDs publish `GnOuGo.OtlpCollector.Server`.
+
+Example macOS arm64 publish:
+
+```powershell
+dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -c Release -r osx-arm64 --self-contained true -o artifacts/publish/otlp-collector/osx-arm64 /p:SkipClientBuild=true /p:PublishTrimmed=true /p:PublishSingleFile=true /p:SkipModelMetadataGeneration=true
+```
+
+## Docker
+
+The Dockerfile builds `linux/amd64` and `linux/arm64` trimmed self-contained images through Docker Buildx using the `mcr.microsoft.com/dotnet/aspnet:10.0` runtime base image.
+
+Local validation example:
+
+```powershell
+docker buildx build --progress=plain --platform linux/arm64 --target build -f src/GnOuGo.OtlpCollector.Server/Dockerfile .
 ```
 
 ## CI artifacts

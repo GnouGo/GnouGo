@@ -21,7 +21,7 @@ jobs:
             rid: linux-x64
           - os: windows-latest
             rid: win-x64
-          - os: macos-latest
+          - os: macos-15
             rid: osx-arm64
     runs-on: ${{ matrix.os }}
     steps:
@@ -32,6 +32,12 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+
+      - name: Install build toolchain (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30
+          sudo apt-get install -y --no-install-recommends -o Acquire::Retries=5 protobuf-compiler
 
       - name: Ensure OTLP proto files
         shell: pwsh
@@ -69,11 +75,10 @@ jobs:
             -o artifacts/publish/otlp-collector/${{ matrix.rid }} `
             --no-restore `
             /p:SkipClientBuild=true `
+            /p:PublishTrimmed=true `
             /p:PublishSingleFile=true `
-            /p:EnableCompressionInSingleFile=true `
-            /p:IncludeAllContentForSelfExtract=false `
-            /p:DebugSymbols=false `
-            /p:DebugType=None
+            /p:UseAppHost=true `
+            /p:SkipModelMetadataGeneration=true
 
       - name: Validate OTLP Collector output
         shell: pwsh
@@ -82,6 +87,12 @@ jobs:
           $exeExt = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
           $collectorExe = Join-Path $publishRoot "GnOuGo.OtlpCollector.Server$exeExt"
           if (-not (Test-Path $collectorExe)) {
+            Write-Host "Published OTLP Collector tree under ${publishRoot}:"
+            if (Test-Path $publishRoot) {
+              Get-ChildItem $publishRoot -Recurse | Select-Object -First 200 FullName, Length | Format-Table -AutoSize | Out-String | Write-Host
+            } else {
+              Write-Host "Publish root does not exist."
+            }
             throw "Missing OTLP Collector executable: $collectorExe"
           }
 
@@ -105,6 +116,12 @@ jobs:
           $exeExt = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
           $collectorExe = Join-Path $publishRoot "GnOuGo.OtlpCollector.Server$exeExt"
           if (-not (Test-Path $collectorExe)) {
+            Write-Host "Published OTLP Collector tree under ${publishRoot}:"
+            if (Test-Path $publishRoot) {
+              Get-ChildItem $publishRoot -Recurse | Select-Object -First 200 FullName, Length | Format-Table -AutoSize | Out-String | Write-Host
+            } else {
+              Write-Host "Publish root does not exist."
+            }
             throw "Missing OTLP Collector executable: $collectorExe"
           }
           $zip = "GnOuGo.OtlpCollector.Server-${{ matrix.rid }}.zip"

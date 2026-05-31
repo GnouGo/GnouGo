@@ -1,27 +1,17 @@
-﻿using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
-using System.Text.Json.Nodes;
-using GnOuGo.Agent.Mcp.Data;
+﻿using GnOuGo.AI.Core;
 using GnOuGo.Agent.Mcp.Services;
 
 namespace GnOuGo.Agent.Mcp.Tests;
 
-public sealed class UserConfigRepositoryTests : IAsyncDisposable
+public sealed class UserConfigRepositoryTests : IDisposable
 {
-    private readonly SqliteConnection _connection;
-    private readonly AgentDbContext _db;
+    private readonly AgentMcpTestDatabase _database;
     private readonly UserConfigRepository _repository;
 
     public UserConfigRepositoryTests()
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
-
-        _db = new AgentDbContext(new DbContextOptionsBuilder<AgentDbContext>()
-            .UseSqlite(_connection)
-            .Options);
-        _db.Database.EnsureCreated();
-        _repository = new UserConfigRepository(_db);
+        _database = new AgentMcpTestDatabase();
+        _repository = _database.CreateUserConfigRepository();
     }
 
     [Fact]
@@ -75,23 +65,23 @@ public sealed class UserConfigRepositoryTests : IAsyncDisposable
             DefaultLlmProvider: null,
             DefaultLlmModel: null,
             DefaultAgent: null,
-            ModelOverrides: new JsonObject
+            ModelOverrides: new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase)
             {
-                ["local/custom"] = new JsonObject
+                ["local/custom"] = new LLMModelMetadata
                 {
-                    ["id"] = "local/custom",
-                    ["providerType"] = "ollama",
-                    ["contextWindowTokens"] = 32768,
-                    ["maxInputTokens"] = 32768,
-                    ["maxOutputTokens"] = 4096,
-                    ["pricing"] = new JsonObject { ["inputPer1MTokens"] = 0, ["outputPer1MTokens"] = 0 },
-                    ["capabilities"] = new JsonObject
+                    Id = "local/custom",
+                    ProviderType = "ollama",
+                    ContextWindowTokens = 32768,
+                    MaxInputTokens = 32768,
+                    MaxOutputTokens = 4096,
+                    Pricing = new ModelPricingMetadata { InputPer1MTokens = 0, OutputPer1MTokens = 0 },
+                    Capabilities = new ModelCapabilityMetadata
                     {
-                        ["supportsTemperature"] = true,
-                        ["supportsReasoningEffort"] = false,
-                        ["supportsStructuredOutput"] = true,
-                        ["supportsTools"] = true,
-                        ["supportsJsonMode"] = true
+                        SupportsTemperature = true,
+                        SupportsReasoningEffort = false,
+                        SupportsStructuredOutput = true,
+                        SupportsTools = true,
+                        SupportsJsonMode = true
                     }
                 }
             }));
@@ -100,17 +90,26 @@ public sealed class UserConfigRepositoryTests : IAsyncDisposable
 
         Assert.NotNull(snapshot.ModelOverrides);
         var overrides = snapshot.ModelOverrides!;
-        var metadata = Assert.Single(overrides).Value!.AsObject();
-        Assert.Equal("local/custom", metadata["id"]!.GetValue<string>());
-        Assert.Equal(32768, metadata["contextWindowTokens"]!.GetValue<int>());
-        Assert.Equal(0, metadata["pricing"]!.AsObject()["inputPer1MTokens"]!.GetValue<int>());
-        Assert.True(metadata["capabilities"]!.AsObject()["supportsTools"]!.GetValue<bool>());
+        var metadata = Assert.Single(overrides).Value;
+        Assert.Equal("local/custom", metadata.Id);
+        Assert.Equal(32768, metadata.ContextWindowTokens);
+        Assert.Equal(0, metadata.Pricing!.InputPer1MTokens);
+        Assert.True(metadata.Capabilities.SupportsTools);
     }
 
-    public async ValueTask DisposeAsync()
+    [Fact]
+    public async Task SetAsync_CreatesAuditRevision_ForEverySave()
     {
-        await _db.DisposeAsync();
-        await _connection.DisposeAsync();
+        var update = new UserConfigUpdate("ollama", "llama3", "slimfaas");
+
+        await _repository.SetAsync(update);
+        await _repository.SetAsync(update);
+
+        var revisions = await _database.DiffService.GetRevisionsAsync("AgentConfiguration", "global");
+        Assert.Equal(2, revisions.Count);
+        Assert.All(revisions, revision => Assert.Contains("llama3", revision.CurrentValue));
     }
+
+    public void Dispose() => _database.Dispose();
 }
 

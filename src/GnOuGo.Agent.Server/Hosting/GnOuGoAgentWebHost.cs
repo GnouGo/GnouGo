@@ -6,8 +6,6 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.Components;
@@ -400,14 +398,7 @@ public static class GnOuGoAgentWebHost
         app.Services.InitializeAgentMcpAsync().GetAwaiter().GetResult();
         app.Services.InitializeGnOuGoFilesServerAsync().GetAwaiter().GetResult();
 
-        using (var scope = app.Services.CreateScope())
-        {
-            var keyVaultDb = scope.ServiceProvider.GetRequiredService<KeyVaultDbContext>();
-            KeyVaultDatabaseBootstrap.EnsureCreatedAsync(keyVaultDb).GetAwaiter().GetResult();
-
-            var keyVaultService = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-            keyVaultService.EnsureDefaultKeyPairAsync().GetAwaiter().GetResult();
-        }
+        app.Services.InitializeKeyVaultMcpAsync().GetAwaiter().GetResult();
 
         HydrateRuntimeOptionsFromKeyVaultAsync(app.Services).GetAwaiter().GetResult();
 
@@ -447,9 +438,36 @@ public static class GnOuGoAgentWebHost
             });
         }
 
+        if (isDesktopHosted)
+        {
+            // In desktop mode, log unhandled exceptions to desktop.log so AOT / trim
+            // failures are always visible — the default exception handler swallows them.
+            app.Use(async (context, next) =>
+            {
+                try
+                {
+                    await next();
+                }
+                catch (Exception ex)
+                {
+                    Log($"UnhandledException on {context.Request.Method} {context.Request.Path}: {ex}");
+                    throw; // re-throw so the normal handler still runs
+                }
+            });
+        }
+
         if (!app.Environment.IsDevelopment())
         {
-            app.UseExceptionHandler("/Error", createScopeForErrors: true);
+            if (isDesktopHosted)
+            {
+                // In desktop mode, show the full developer exception page so AOT/trim
+                // crashes are immediately visible in the embedded WebView.
+                app.UseDeveloperExceptionPage();
+            }
+            else
+            {
+                app.UseExceptionHandler("/Error", createScopeForErrors: true);
+            }
             app.UseHsts();
         }
 
@@ -500,7 +518,7 @@ public static class GnOuGoAgentWebHost
         }
 
         MapMountedMcpEndpoints(app, mountedMcpHostsHolder);
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+        app.MapGet("/health", () => Results.Text("{\"status\":\"ok\"}", "application/json"));
         app.MapGet("/desktop/boot-log/{token}", (string token, string? step, string? detail) =>
         {
             if (!string.IsNullOrWhiteSpace(token))
@@ -525,7 +543,7 @@ public static class GnOuGoAgentWebHost
 
         // --- UI ---
         // Always register interactive server render mode.
-        // In published Desktop/NativeAOT builds the static web assets manifest
+        // In published Desktop builds the static web assets manifest
         // may be absent; MapStaticAssets() is only called when the manifest exists,
         // but interactive SSR is always available.
         app.MapRazorComponents<App>()
@@ -775,7 +793,7 @@ public static class GnOuGoAgentWebHost
                 .CreateLogger("GnOuGo.Agent.Server.UserConfigBootstrap");
 
             var snapshot = await userConfigs.GetAsync(ct: CancellationToken.None);
-            foreach (var kv in ParseModelOverrides(snapshot.ModelOverrides))
+            foreach (var kv in NormalizeModelOverrides(snapshot.ModelOverrides))
                 runtimeOptions.UpsertModelOverride(kv.Key, kv.Value);
 
             if (!string.IsNullOrWhiteSpace(snapshot.DefaultLlmProvider))
@@ -817,21 +835,11 @@ public static class GnOuGoAgentWebHost
         }
     }
 
-    private static IReadOnlyDictionary<string, LLMModelMetadata> ParseModelOverrides(JsonObject? modelOverrides)
-    {
-        if (modelOverrides is null)
-            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
-
-        try
-        {
-            return JsonSerializer.Deserialize<Dictionary<string, LLMModelMetadata>>(modelOverrides.ToJsonString(), new JsonSerializerOptions(JsonSerializerDefaults.Web))
-                   ?? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
-        }
-        catch (JsonException)
-        {
-            return new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
-        }
-    }
+    private static IReadOnlyDictionary<string, LLMModelMetadata> NormalizeModelOverrides(
+        IReadOnlyDictionary<string, LLMModelMetadata>? modelOverrides)
+        => modelOverrides is null
+            ? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, LLMModelMetadata>(modelOverrides, StringComparer.OrdinalIgnoreCase);
 
     private static void MapMountedMcpEndpoints(WebApplication app, MountedMcpHostsHolder holder)
     {

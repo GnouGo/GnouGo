@@ -22,7 +22,7 @@ public static class JsonSchemaConverter
         {
             properties[name] = InputDefToSchema(def);
             if (def.Required)
-                required.Add(name);
+                required.Add((JsonNode)JsonValue.Create(name));
         }
 
         var schema = new JsonObject
@@ -61,14 +61,14 @@ public static class JsonSchemaConverter
             {
                 props[key] = InputDefToSchema(propDef);
                 if (propDef.Required)
-                    reqProps.Add(key);
+                    reqProps.Add((JsonNode)JsonValue.Create(key));
             }
             schema["properties"] = props;
             if (def.RequiredProperties is { Count: > 0 })
             {
                 var reqList = new JsonArray();
                 foreach (var rp in def.RequiredProperties)
-                    reqList.Add(rp);
+                    reqList.Add((JsonNode)JsonValue.Create(rp));
                 schema["required"] = reqList;
             }
             else if (reqProps.Count > 0)
@@ -130,7 +130,7 @@ public static class JsonSchemaConverter
             {
                 var reqList = new JsonArray();
                 foreach (var rp in def.RequiredProperties)
-                    reqList.Add(rp);
+                    reqList.Add((JsonNode)JsonValue.Create(rp));
                 schema["required"] = reqList;
             }
         }

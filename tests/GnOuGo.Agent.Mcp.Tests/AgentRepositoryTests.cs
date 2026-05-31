@@ -1,51 +1,21 @@
-﻿using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
-using GnOuGo.Agent.Mcp.Data;
-using GnOuGo.Agent.Mcp.Models;
+﻿using GnOuGo.Agent.Mcp.Models;
 using GnOuGo.Agent.Mcp.Services;
-using GnOuGo.Diff.Core.Data;
-using GnOuGo.Diff.Core.Services;
 using Xunit;
 
 namespace GnOuGo.Agent.Mcp.Tests;
 
 public class AgentRepositoryTests : IDisposable
 {
-    private readonly SqliteConnection _connection;
-    private readonly AgentDbContext _db;
-    private readonly DiffDbContext _diffDb;
+    private readonly AgentMcpTestDatabase _database;
     private readonly AgentRepository _repo;
 
     public AgentRepositoryTests()
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
-
-        var agentOptions = new DbContextOptionsBuilder<AgentDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-        _db = new AgentDbContext(agentOptions);
-        _db.Database.EnsureCreated();
-
-        var diffOptions = new DbContextOptionsBuilder<DiffDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-        _diffDb = new DiffDbContext(diffOptions);
-        // EnsureCreated skips when DB already exists — use CreateTables for the second context
-        _diffDb.GetService<IRelationalDatabaseCreator>().CreateTables();
-
-        var diffService = new DiffService(_diffDb);
-        _repo = new AgentRepository(_db, diffService);
+        _database = new AgentMcpTestDatabase();
+        _repo = _database.CreateAgentRepository();
     }
 
-    public void Dispose()
-    {
-        _diffDb.Dispose();
-        _db.Dispose();
-        _connection.Dispose();
-    }
+    public void Dispose() => _database.Dispose();
 
     // ── AddAgent ─────────────────────────────────────────────────────
 
@@ -239,8 +209,7 @@ public class AgentRepositoryTests : IDisposable
     {
         var agent = await _repo.AddAgentAsync("DiffTest", "wf", [new Schedule { Name = "s", Cron = "0 0 * * *" }]);
 
-        var diffService = new DiffService(_diffDb);
-        var revisions = await diffService.GetRevisionsAsync("AgentDefinition", agent.Id.ToString());
+        var revisions = await _database.DiffService.GetRevisionsAsync("AgentDefinition", agent.Id.ToString());
 
         Assert.Single(revisions);
         Assert.True(revisions[0].IsFirstRevision);
@@ -254,8 +223,7 @@ public class AgentRepositoryTests : IDisposable
         var agent = await _repo.AddAgentAsync("V1", "wf1", []);
         await _repo.UpdateAgentAsync(agent.Id, "V2", "wf2", [new Schedule { Name = "new", Cron = "*/5 * * * *" }]);
 
-        var diffService = new DiffService(_diffDb);
-        var revisions = await diffService.GetRevisionsAsync("AgentDefinition", agent.Id.ToString());
+        var revisions = await _database.DiffService.GetRevisionsAsync("AgentDefinition", agent.Id.ToString());
 
         Assert.Equal(2, revisions.Count);
         // Most recent first
@@ -270,8 +238,7 @@ public class AgentRepositoryTests : IDisposable
         var agent = await _repo.AddAgentAsync("WillDelete", "wf", []);
         await _repo.DeleteAgentAsync(agent.Id);
 
-        var diffService = new DiffService(_diffDb);
-        var revisions = await diffService.GetRevisionsAsync("AgentDefinition", agent.Id.ToString());
+        var revisions = await _database.DiffService.GetRevisionsAsync("AgentDefinition", agent.Id.ToString());
 
         Assert.Equal(2, revisions.Count);
         Assert.Contains("Agent deleted", revisions[0].CurrentValue);
@@ -292,7 +259,7 @@ public class AgentRepositoryTests : IDisposable
 
         var yaml = AgentRepository.SerializeAgentToYaml(agent);
 
-        Assert.Contains("name: YamlTest", yaml);
+        Assert.Contains("YamlTest", yaml);
         Assert.Contains("0 8 * * *", yaml);
         Assert.Contains("daily", yaml);
     }

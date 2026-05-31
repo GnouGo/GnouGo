@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 using GnOuGo.Agent.Mcp.Models;
@@ -24,7 +23,7 @@ public sealed class AgentTools
     [McpServerTool(Name = "agent_add"), Description(
         "Create a new agent with a name, workflow definition, and optional schedules. " +
         "Returns { success, agent } or { success: false, error_code, error_message }.")]
-    public async Task<JsonObject> AgentAdd(
+    public async Task<AgentToolResult> AgentAdd(
         [Description("Agent name (required).")]
         string name,
         [Description("Workflow definition text (required).")]
@@ -42,11 +41,7 @@ public sealed class AgentTools
             var list = schedules?.ToList() ?? [];
             var agent = await _repo.AddAgentAsync(name, workflow, list, originalPrompt, scheduleDescription);
 
-            return new JsonObject
-            {
-                ["success"] = true,
-                ["agent"] = SerializeAgent(agent)
-            };
+            return new AgentToolResult(true, SerializeAgent(agent));
         }
         catch (DuplicateAgentNameException ex)
         {
@@ -70,7 +65,7 @@ public sealed class AgentTools
     [McpServerTool(Name = "agent_update"), Description(
         "Update an existing agent's name, workflow, and schedules. " +
         "Returns { success, agent } or { success: false, error_code, error_message }.")]
-    public async Task<JsonObject> AgentUpdate(
+    public async Task<AgentToolResult> AgentUpdate(
         [Description("Agent identifier (GUID, required).")]
         string id,
         [Description("New agent name (required).")]
@@ -92,11 +87,7 @@ public sealed class AgentTools
             var list = schedules?.ToList() ?? [];
             var agent = await _repo.UpdateAgentAsync(agentId, name, workflow, list, originalPrompt, scheduleDescription);
 
-            return new JsonObject
-            {
-                ["success"] = true,
-                ["agent"] = SerializeAgent(agent)
-            };
+            return new AgentToolResult(true, SerializeAgent(agent));
         }
         catch (DuplicateAgentNameException ex)
         {
@@ -124,26 +115,17 @@ public sealed class AgentTools
 
     [McpServerTool(Name = "agent_list"), Description(
         "List all agents. Returns { success, agents: [...] }.")]
-    public async Task<JsonObject> AgentList()
+    public async Task<AgentListToolResult> AgentList()
     {
         try
         {
             var agents = await _repo.ListAgentsAsync();
-
-            var arr = new JsonArray();
-            foreach (var a in agents)
-                arr.Add(SerializeAgent(a));
-
-            return new JsonObject
-            {
-                ["success"] = true,
-                ["agents"] = arr
-            };
+            return new AgentListToolResult(true, agents.Select(SerializeAgent).ToArray());
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "agent_list unexpected error");
-            return ErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
+            return ListErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 
@@ -151,7 +133,7 @@ public sealed class AgentTools
 
     [McpServerTool(Name = "agent_delete"), Description(
         "Delete an agent by its identifier. Returns { success } or { success: false, error_code, error_message }.")]
-    public async Task<JsonObject> AgentDelete(
+    public async Task<AgentDeleteToolResult> AgentDelete(
         [Description("Agent identifier (GUID, required).")]
         string id)
     {
@@ -162,26 +144,22 @@ public sealed class AgentTools
 
             await _repo.DeleteAgentAsync(agentId);
 
-            return new JsonObject
-            {
-                ["success"] = true,
-                ["deleted_id"] = id
-            };
+            return new AgentDeleteToolResult(true, id);
         }
         catch (ArgumentException ex)
         {
             _logger.LogWarning(ex, "agent_delete validation error");
-            return ErrorResult("INVALID_INPUT", ex.Message);
+            return DeleteErrorResult("INVALID_INPUT", ex.Message);
         }
         catch (KeyNotFoundException ex)
         {
             _logger.LogWarning(ex, "agent_delete not found");
-            return ErrorResult("NOT_FOUND", ex.Message);
+            return DeleteErrorResult("NOT_FOUND", ex.Message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "agent_delete unexpected error");
-            return ErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
+            return DeleteErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 
@@ -190,7 +168,7 @@ public sealed class AgentTools
     [McpServerTool(Name = "agent_get_by_name"), Description(
         "Get an agent by its name (case-insensitive). " +
         "Returns { success, agent } or { success: false, error_code, error_message }.")]
-    public async Task<JsonObject> AgentGetByName(
+    public async Task<AgentToolResult> AgentGetByName(
         [Description("Agent name (required).")]
         string name)
     {
@@ -200,11 +178,7 @@ public sealed class AgentTools
             if (agent is null)
                 return ErrorResult("NOT_FOUND", $"Agent '{name}' not found.");
 
-            return new JsonObject
-            {
-                ["success"] = true,
-                ["agent"] = SerializeAgent(agent)
-            };
+            return new AgentToolResult(true, SerializeAgent(agent));
         }
         catch (Exception ex)
         {
@@ -216,29 +190,28 @@ public sealed class AgentTools
     // ── Helpers ──────────────────────────────────────────────────────
 
 
-    private static JsonObject SerializeAgent(AgentDefinition agent)
+    private static AgentDto SerializeAgent(AgentDefinition agent)
     {
-        var schedulesNode = JsonNode.Parse(agent.SchedulesJson) ?? new JsonArray();
+        var schedules = AgentRepository.DeserializeSchedules(agent.SchedulesJson);
 
-        return new JsonObject
-        {
-            ["id"] = agent.Id.ToString(),
-            ["name"] = agent.Name,
-            ["workflow"] = agent.Workflow,
-            ["original_prompt"] = agent.OriginalPrompt,
-            ["schedule_description"] = agent.ScheduleDescription,
-            ["schedules"] = schedulesNode,
-            ["created_at"] = agent.CreatedAt.ToString("o"),
-            ["updated_at"] = agent.UpdatedAt.ToString("o")
-        };
+        return new AgentDto(
+            agent.Id.ToString(),
+            agent.Name,
+            agent.Workflow,
+            agent.OriginalPrompt,
+            agent.ScheduleDescription,
+            schedules,
+            agent.CreatedAt.ToString("o"),
+            agent.UpdatedAt.ToString("o"));
     }
 
-    private static JsonObject ErrorResult(string errorCode, string errorMessage)
-        => new()
-        {
-            ["success"] = false,
-            ["error_code"] = errorCode,
-            ["error_message"] = errorMessage
-        };
+    private static AgentToolResult ErrorResult(string errorCode, string errorMessage)
+        => new(false, ErrorCode: errorCode, ErrorMessage: errorMessage);
+
+    private static AgentListToolResult ListErrorResult(string errorCode, string errorMessage)
+        => new(false, ErrorCode: errorCode, ErrorMessage: errorMessage);
+
+    private static AgentDeleteToolResult DeleteErrorResult(string errorCode, string errorMessage)
+        => new(false, ErrorCode: errorCode, ErrorMessage: errorMessage);
 }
 

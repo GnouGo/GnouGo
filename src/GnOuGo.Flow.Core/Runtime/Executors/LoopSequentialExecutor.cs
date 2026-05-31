@@ -5,7 +5,7 @@ using GnOuGo.Flow.Core.Models;
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
 /// <summary>
-/// Sequential loop: while/times based.
+/// Sequential loop: iterates over an <c>items</c> (or <c>over</c>) array, or loops <c>times</c>/<c>while</c> times.
 /// </summary>
 public sealed class LoopSequentialExecutor : IStepExecutor
 {
@@ -18,19 +18,32 @@ public sealed class LoopSequentialExecutor : IStepExecutor
     };
 
     public string DslSnippet => """
-        ### loop.sequential — Loop with while/times
+        ### loop.sequential — Sequential loop over items or with while/times
         ```yaml
+        # Iterate over a list sequentially:
+        - id: process
+          type: loop.sequential
+          input:
+            items: "${data.inputs.my_list}"    # required — array expression (alias: 'over')
+          item_var: item                        # variable name for current item (default: "item")
+          index_var: idx                        # variable name for current index (default: "i")
+          steps:
+            - id: transform
+              type: set
+              input: { value: "${data.item}" }
+
+        # Fixed iteration count:
         - id: loop
           type: loop.sequential
           input:
-            times: 5                # fixed iteration count
+            times: 5
             # or: while: "${data._loop.index < 10}"
           steps:
             - id: iter
               type: template.render
               input: { engine: mustache, template: "Iteration {{idx}}", data: { idx: "${data._loop.index}" }, mode: text }
         ```
-        Context: `data._loop.index` (current 0-based iteration index, available from 0 during the first `while` evaluation).
+        Context: `data.<item_var>` (current item), `data.<index_var>` (current index), `data._loop.index`, `data._loop.item` (when iterating items).
         Output: `{ iterations: [...], count: N }`
         """;
 
@@ -42,18 +55,74 @@ public sealed class LoopSequentialExecutor : IStepExecutor
         var input = ctx.Engine.GetResolvedInput(ctx);
         var inputObj = input as JsonObject;
 
-        int? times = null;
         int maxTimes = ctx.Limits.MaxLoopIterations;
+        if (inputObj?.TryGetPropertyValue("max_times", out var mt) == true && mt != null)
+            maxTimes = (int)ExpressionEvaluator.GetNumber(mt);
 
-        if (inputObj != null)
+        // Resolve items array: support both 'items' and 'over' (alias)
+        JsonArray? items = null;
+        if (inputObj?.TryGetPropertyValue("items", out var itemsNode) == true && itemsNode is JsonArray itemsArr)
+            items = itemsArr;
+        else if (inputObj?.TryGetPropertyValue("over", out var overNode) == true && overNode is JsonArray overArr)
+            items = overArr;
+
+        int? times = null;
+        if (inputObj?.TryGetPropertyValue("times", out var t) == true && t != null)
+            times = (int)ExpressionEvaluator.GetNumber(t);
+
+        // Validate: items and times are mutually exclusive
+        if (items != null && times != null)
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                "loop.sequential: 'items'/'over' and 'times' are mutually exclusive");
+
+        // ── items-based iteration ──────────────────────────────────────
+        if (items != null)
         {
-            if (inputObj.TryGetPropertyValue("times", out var t) && t != null)
-                times = (int)ExpressionEvaluator.GetNumber(t);
-            if (inputObj.TryGetPropertyValue("max_times", out var mt) && mt != null)
-                maxTimes = (int)ExpressionEvaluator.GetNumber(mt);
+            var itemVar = ctx.Step.Source.ItemVar ?? "item";
+            var indexVar = ctx.Step.Source.IndexVar ?? "i";
+
+            if (items.Count > maxTimes)
+                throw new WorkflowRuntimeException(ErrorCodes.LoopLimit,
+                    $"Loop items ({items.Count}) exceeds limit ({maxTimes})");
+
+            var iterations = new JsonArray();
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var currentItem = items[i]?.DeepClone();
+                ctx.Data[itemVar] = currentItem?.DeepClone();
+                ctx.Data[indexVar] = JsonValue.Create(i);
+                ctx.Data["_loop"] = new JsonObject { ["index"] = JsonValue.Create(i), ["item"] = currentItem?.DeepClone() };
+                ctx.Data["loop"] = new JsonObject { ["index"] = JsonValue.Create(i), ["item"] = currentItem?.DeepClone() };
+
+                // Evaluate while condition if present (combined items + while)
+                if (inputObj?.TryGetPropertyValue("while", out var whileExpr) == true && whileExpr != null)
+                {
+                    var whileStr = ExpressionEvaluator.GetString(whileExpr);
+                    var condResult = ctx.Engine.Interpolator.Interpolate(whileStr, ctx.Data);
+                    if (!ExpressionEvaluator.GetBool(condResult))
+                        break;
+                }
+
+                var result = new RunResult { Success = true };
+                await ctx.Engine.ExecuteStepsAsync(subSteps, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
+
+                iterations.Add(ctx.Data["steps"]?.DeepClone() ?? new JsonObject());
+            }
+
+            // Clean up loop-scoped variables
+            ctx.Data.Remove(itemVar);
+            ctx.Data.Remove(indexVar);
+            ctx.Data.Remove("_loop");
+            ctx.Data.Remove("loop");
+
+            return new JsonObject { ["iterations"] = iterations, ["count"] = iterations.Count };
         }
 
-        var iterations = new JsonArray();
+        // ── times / while iteration ────────────────────────────────────
+        var whileIterations = new JsonArray();
         int iteration = 0;
 
         while (true)
@@ -71,22 +140,22 @@ public sealed class LoopSequentialExecutor : IStepExecutor
             ctx.Data["loop"] = new JsonObject { ["index"] = iteration };
 
             // Evaluate while condition
-            if (inputObj?.TryGetPropertyValue("while", out var whileExpr) == true && whileExpr != null)
+            if (inputObj?.TryGetPropertyValue("while", out var whileExpr2) == true && whileExpr2 != null)
             {
-                var whileStr = ExpressionEvaluator.GetString(whileExpr);
+                var whileStr = ExpressionEvaluator.GetString(whileExpr2);
                 var condResult = ctx.Engine.Interpolator.Interpolate(whileStr, ctx.Data);
                 if (!ExpressionEvaluator.GetBool(condResult))
                     break;
             }
 
             // Execute iteration
-            var result = new RunResult { Success = true };
-            await ctx.Engine.ExecuteStepsAsync(subSteps, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
+            var result2 = new RunResult { Success = true };
+            await ctx.Engine.ExecuteStepsAsync(subSteps, ctx.Data, result2, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
 
-            iterations.Add(ctx.Data["steps"]?.DeepClone() ?? new JsonObject());
+            whileIterations.Add(ctx.Data["steps"]?.DeepClone() ?? new JsonObject());
             iteration++;
         }
 
-        return new JsonObject { ["iterations"] = iterations, ["count"] = iteration };
+        return new JsonObject { ["iterations"] = whileIterations, ["count"] = iteration };
     }
 }

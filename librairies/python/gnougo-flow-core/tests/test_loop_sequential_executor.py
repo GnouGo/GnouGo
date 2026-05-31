@@ -140,3 +140,58 @@ async def test_loop_over_and_times_combined_raises() -> None:
     assert result.error.code == "INPUT_VALIDATION"
     assert "mutually exclusive" in result.error.message
 
+
+@pytest.mark.asyncio
+async def test_loop_items_is_alias_for_over() -> None:
+    """The 'items' key (primary) works the same as 'over' (alias)."""
+    yaml_text = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: loop
+            type: loop.sequential
+            item_var: entry
+            index_var: idx
+            input:
+              items: ["x", "y", "z"]
+            steps:
+              - id: handle
+                type: set
+                input: { value: "${entry}", idx: "${idx}" }
+        outputs:
+          count: "${data.steps.loop.count}"
+          last_value: "${data.steps.handle.value}"
+    """
+    engine = WorkflowEngine()
+    compiled = _compile(yaml_text)
+    result = await engine.execute_async(compiled.workflows["main"], {})
+    assert result.success is True, result.error
+    assert result.outputs["count"] == 3
+    assert result.outputs["last_value"] == "z"
+
+
+@pytest.mark.asyncio
+async def test_loop_items_and_times_combined_raises() -> None:
+    """'items' and 'times' are mutually exclusive like 'over' and 'times'."""
+    yaml_text = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: loop
+            type: loop.sequential
+            input:
+              items: ["a"]
+              times: 2
+            steps:
+              - id: noop
+                type: set
+                input: { v: 1 }
+    """
+    engine = WorkflowEngine()
+    compiled = _compile(yaml_text)
+    result = await engine.execute_async(compiled.workflows["main"], {})
+    assert result.success is False
+    assert result.error.code == "INPUT_VALIDATION"
+    assert "mutually exclusive" in result.error.message

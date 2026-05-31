@@ -1503,7 +1503,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 {
                     "sequence" => "runs child steps sequentially, so any unhandled child failure can stop the container.",
                     "parallel" => "can fail because one branch throws an unhandled child error, in addition to its own parallel-limit checks.",
-                    "loop.sequential" => "can fail because one iteration throws an unhandled child error, in addition to loop-limit checks.",
+                    "loop.sequential" => "can fail because one iteration throws an unhandled child error, in addition to loop-limit checks. Supports items/over array iteration and while/times modes.",
                     "loop.parallel" => "can fail because one parallel iteration throws an unhandled child error, in addition to loop-limit checks.",
                     "switch" => "can fail because the selected case/default branch throws an unhandled child error.",
                     "workflow.call" => "can fail because the called sub-workflow throws an error, in addition to workflow reference/fetch/policy errors.",

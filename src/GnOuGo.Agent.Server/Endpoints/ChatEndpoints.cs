@@ -1,6 +1,5 @@
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Shared;
-using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Agent.Server.Endpoints;
 
@@ -27,7 +26,7 @@ public static class ChatEndpoints
             }
 
             var text = await smartFlow.CompleteAsync(lastUserMsg, request.AgentName, request.FilesIds, ct).ConfigureAwait(false);
-            return Results.Ok(new { text });
+            return Results.Ok(new ChatCompletionResponseDto(text));
         }
         catch (Exception ex)
         {

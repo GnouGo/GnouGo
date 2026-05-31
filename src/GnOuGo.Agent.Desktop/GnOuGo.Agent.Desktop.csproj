@@ -26,6 +26,7 @@
   <ApplicationIcon>Assets/icon.ico</ApplicationIcon>
 </PropertyGroup>
 
+
   <ItemGroup>
     <PackageReference Include="Photino.NET" Version="4.0.16" />
   </ItemGroup>
@@ -116,14 +117,30 @@
   -->
   <Target Name="CopyBlazorFrameworkAssetsToPublish" AfterTargets="Publish" BeforeTargets="RemoveStaticWebAssetsManifestsFromPublish" Condition="'$(PublishDir)' != ''">
     <ItemGroup>
+      <!-- Search in temporary server publish (if running during multi-project build) -->
+      <_BlazorFrameworkAssets Include="artifacts/tmp-server-assets-only/wwwroot/_framework/blazor.web.js" />
+      <_BlazorFrameworkAssets Include="artifacts/tmp-server-assets-only/wwwroot/_framework/blazor.server.js" />
+      <!-- Search in the ASP.NET Core app runtime NuGet package (primary source) -->
+      <_BlazorFrameworkAssets Include="$(NuGetPackageRoot)microsoft.aspnetcore.app.runtime.*/runtimes/*/lib/net*/wwwroot/_framework/blazor.web.js" />
+      <_BlazorFrameworkAssets Include="$(NuGetPackageRoot)microsoft.aspnetcore.app.runtime.*/runtimes/*/lib/net*/wwwroot/_framework/blazor.server.js" />
+      <!-- Fallback: internal assets package (if present) -->
       <_BlazorFrameworkAssets Include="$(NuGetPackageRoot)microsoft.aspnetcore.app.internal.assets/*/_framework/blazor.web.js" />
       <_BlazorFrameworkAssets Include="$(NuGetPackageRoot)microsoft.aspnetcore.app.internal.assets/*/_framework/blazor.server.js" />
+      <!-- Fallback: already-published locations -->
+      <_BlazorFrameworkAssets Include="$(PublishDir)_framework/blazor.web.js" />
+      <_BlazorFrameworkAssets Include="$(PublishDir)_framework/blazor.server.js" />
+      <_BlazorFrameworkAssets Include="$(PublishDir)wwwroot/_framework/blazor.web.js" />
+      <_BlazorFrameworkAssets Include="$(PublishDir)wwwroot/_framework/blazor.server.js" />
     </ItemGroup>
 
-    <Error Condition="'@(_BlazorFrameworkAssets)' == ''" Text="Unable to locate Blazor framework assets under $(NuGetPackageRoot)microsoft.aspnetcore.app.internal.assets." />
-    <MakeDir Directories="$(PublishDir)wwwroot\_framework" />
-    <Copy SourceFiles="@(_BlazorFrameworkAssets)" DestinationFolder="$(PublishDir)wwwroot\_framework" SkipUnchangedFiles="true" />
-    <Message Importance="high" Text="Copied @(_BlazorFrameworkAssets->Count()) Blazor framework asset(s) into $(PublishDir)wwwroot\_framework." />
+    <ItemGroup>
+      <_BlazorFrameworkAssets Remove="@(_BlazorFrameworkAssets)" Condition="!Exists('%(Identity)')" />
+    </ItemGroup>
+
+    <Warning Condition="'@(_BlazorFrameworkAssets)' == ''" Text="Unable to locate Blazor framework assets. The ASP.NET Core runtime package may not be properly restored, or the server publish did not occur. Continuing without copying assets." />
+    <MakeDir Directories="$(PublishDir)wwwroot\_framework" Condition="'@(_BlazorFrameworkAssets)' != ''" />
+    <Copy SourceFiles="@(_BlazorFrameworkAssets)" DestinationFolder="$(PublishDir)wwwroot\_framework" SkipUnchangedFiles="true" Condition="'@(_BlazorFrameworkAssets)' != ''" />
+    <Message Importance="high" Text="Copied @(_BlazorFrameworkAssets->Count()) Blazor framework asset(s) into $(PublishDir)wwwroot\_framework." Condition="'@(_BlazorFrameworkAssets)' != ''" />
   </Target>
 
   <!-- Clean up any staticwebassets manifests that leaked into the publish output from the build step -->

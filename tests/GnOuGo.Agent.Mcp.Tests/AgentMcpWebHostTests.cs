@@ -110,7 +110,9 @@ public sealed class AgentMcpWebHostTests
             Assert.False(getResult.IsError);
 
             var payload = Assert.IsType<System.Text.Json.Nodes.JsonObject>(getResult.Content);
-            Assert.True(payload["success"]!.GetValue<bool>());
+            Assert.True(
+                payload["success"]!.GetValue<bool>(),
+                $"user_config_get returned success=false. error_code={payload["error_code"]}, error_message={payload["error_message"]}");
             var config = Assert.IsType<System.Text.Json.Nodes.JsonObject>(payload["config"]);
             Assert.Equal("ollama", config["default_llm_provider"]!.GetValue<string>());
             Assert.Equal("llama3:8b", config["default_llm_model"]!.GetValue<string>());

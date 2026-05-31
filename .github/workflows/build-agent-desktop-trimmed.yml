@@ -1,4 +1,4 @@
-﻿name: Build Agent Desktop Trimmed
+﻿name: Build Agent Desktop (Trimmed + Native AOT tools)
 
 on:
   workflow_call:
@@ -8,6 +8,11 @@ on:
         required: false
         type: string
         default: ""
+      publish_aot:
+        description: "Bundled stdio MCP tools use Native AOT for fast startup. The desktop host itself uses trimmed managed publish."
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -17,8 +22,8 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
 
 jobs:
-  desktop_aot:
-    name: Desktop Trimmed (${{ matrix.rid }})
+  desktop_build:
+    name: Desktop Build (${{ matrix.rid }})
     strategy:
       fail-fast: false
       matrix:
@@ -72,15 +77,23 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "pnpm-lock.yaml"
 
-      - name: Install Linux ARM64 Native AOT toolchain
-        if: matrix.os == 'ubuntu-latest' && matrix.rid == 'linux-arm64'
+      - name: Install Linux Native Toolchains
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y clang binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+          if [ "${{ matrix.rid }}" = "linux-arm64" ]; then
+            sudo apt-get install -y --no-install-recommends \
+              binutils-aarch64-linux-gnu \
+              gcc-aarch64-linux-gnu \
+              g++-aarch64-linux-gnu \
+              libc6-dev-arm64-cross \
+              linux-libc-dev-arm64-cross
+          fi
 
-      - name: Validate Browser MCP self-contained publish
+      - name: Validate Browser MCP (self-contained, non-AOT)
         shell: pwsh
         run: |
           dotnet publish src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj `
@@ -94,7 +107,7 @@ jobs:
             -p:InvariantGlobalization=false `
             -p:SkipModelMetadataGeneration=true
 
-      - name: Validate Git MCP Native AOT publish
+      - name: Validate Git MCP (Native AOT)
         shell: pwsh
         run: |
           $publishArgs = @(
@@ -113,7 +126,7 @@ jobs:
           }
           dotnet @publishArgs
 
-      - name: Validate GitHub Copilot MCP Native AOT publish
+      - name: Validate GitHub Copilot MCP (Native AOT)
         shell: pwsh
         run: |
           $publishArgs = @(
@@ -132,7 +145,7 @@ jobs:
           }
           dotnet @publishArgs
 
-      - name: Validate Cmd MCP Native AOT publish
+      - name: Validate Cmd MCP (Native AOT)
         shell: pwsh
         run: |
           $publishArgs = @(
@@ -151,7 +164,7 @@ jobs:
           }
           dotnet @publishArgs
 
-      - name: Validate Document MCP Native AOT publish
+      - name: Validate Document MCP (Native AOT)
         shell: pwsh
         run: |
           $publishArgs = @(
@@ -171,7 +184,7 @@ jobs:
           dotnet @publishArgs
 
 
-      - name: Validate DocIngestor MCP Native AOT publish
+      - name: Validate DocIngestor MCP (Native AOT)
         shell: pwsh
         run: |
           $publishArgs = @(
@@ -196,24 +209,53 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build
 
-      - name: Publish Desktop (self-contained trimmed)
+      - name: Publish Desktop (Trimmed Managed)
         shell: pwsh
         run: |
-          dotnet restore -r ${{ matrix.rid }} /p:SkipClientBuild=true
-          dotnet publish src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj `
-            -c Release `
-            -r ${{ matrix.rid }} `
-            --self-contained true `
-            -o artifacts/publish/desktop/${{ matrix.rid }} `
-            --no-restore `
-            /p:SkipClientBuild=true `
-            /p:PublishTrimmed=true `
-            /p:InvariantGlobalization=true
+          $rid = '${{ matrix.rid }}'
+          $publishDir = "artifacts/publish/desktop/$rid"
 
-      - name: Validate bundled desktop tools
+          # Blazor Interactive Server does NOT support Native AOT (ServerComponent JSON
+          # serialization requires generic instantiations that cannot be generated ahead-of-time).
+          # See: https://aka.ms/aspnet/nativeaot
+          # The desktop app uses trimmed managed self-contained publish instead.
+          # Bundled MCP tools (Git, Cmd, Document, etc.) remain Native AOT.
+          $publishAot = $false
+          "DESKTOP_EFFECTIVE_AOT=$publishAot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $commonProperties = @(
+            '-p:SkipClientBuild=true',
+            '-p:PublishTrimmed=true',
+            '-p:PublishAot=false',
+            '-p:InvariantGlobalization=true',
+            '-p:SkipModelMetadataGeneration=true',
+            '-p:DebugType=None',
+            '-p:DebugSymbols=false'
+          )
+
+          dotnet restore src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj -r $rid @commonProperties
+
+          $publishArgs = @(
+            'publish', 'src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj',
+            '-c', 'Release',
+            '-r', $rid,
+            '--self-contained', 'true',
+            '-o', $publishDir,
+            '--no-restore'
+          ) + $commonProperties
+
+          dotnet @publishArgs
+
+      - name: Validate Bundled Desktop Tools
         shell: pwsh
         run: |
           $toolExtension = if ('${{ matrix.rid }}' -like 'win-*') { '.exe' } else { '' }
+          $desktopExecutable = "artifacts/publish/desktop/${{ matrix.rid }}/GnOuGo.Agent$toolExtension"
+          if (-not (Test-Path $desktopExecutable)) {
+            throw "Missing desktop executable: $desktopExecutable"
+          }
+
+
           $requiredTools = @(
             "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp$toolExtension",
             "artifacts/publish/desktop/${{ matrix.rid }}/tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp$toolExtension",
@@ -323,10 +365,11 @@ jobs:
           $playwrightDriverNodes | Select-Object -First 20 FullName | Format-Table -AutoSize | Out-String | Write-Host
 
           $requiredUiAssets = @(
-            "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js",
             "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/ui/app.js",
             "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/ui/app.css"
           )
+
+          $requiredUiAssets += "artifacts/publish/desktop/${{ matrix.rid }}/wwwroot/_framework/blazor.web.js"
 
           foreach ($path in $requiredUiAssets) {
             if (-not (Test-Path $path)) {
@@ -334,7 +377,7 @@ jobs:
             }
           }
 
-      - name: Package Desktop output
+      - name: Package Desktop Artifact
         shell: pwsh
         run: |
           Get-ChildItem "artifacts/publish/desktop/${{ matrix.rid }}" -Recurse -Filter *.pdb | Remove-Item -Force
@@ -384,7 +427,7 @@ jobs:
             Compress-Archive -Path "artifacts/publish/desktop/${{ matrix.rid }}/*" -DestinationPath $archive
           }
 
-      - name: Upload Desktop artifact
+      - name: Upload Desktop Artifact
         uses: actions/upload-artifact@v4
         with:
           name: gnougo-${{ matrix.rid }}

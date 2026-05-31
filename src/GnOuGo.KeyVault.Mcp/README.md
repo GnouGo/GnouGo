@@ -6,6 +6,8 @@ HTTP-based MCP server for encrypted KeyVault secret management.
 
 This component is independently publishable, testable, and deployable per `AGENTS.md` rules.
 It can run as a standalone HTTP MCP host or be mounted inside `GnOuGo.Agent.Server`.
+Persistence is handled by `KeyVaultService` from `GnOuGo.KeyVault.Core` using Entity Framework Core
+(`KeyVaultDbContext`) with `AsNoTracking` optimizations for read queries.
 
 ## Hosted tools
 
@@ -85,6 +87,12 @@ dotnet run
 
 ```powershell
 dotnet test "C:\github\GnouGo\tests\GnOuGo.KeyVault.Mcp.Tests\GnOuGo.KeyVault.Mcp.Tests.csproj"
+```
+
+## Publish (self-contained trimmed)
+
+```powershell
+dotnet publish "C:\github\GnouGo\src\GnOuGo.KeyVault.Mcp\GnOuGo.KeyVault.Mcp.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=true
 ```
 
 

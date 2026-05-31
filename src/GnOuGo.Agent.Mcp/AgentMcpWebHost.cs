@@ -1,6 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using GnOuGo.Observability.Core;
+﻿using GnOuGo.Observability.Core;
+using System.Text.Json;
 
 namespace GnOuGo.Agent.Mcp;
 
@@ -17,7 +16,7 @@ public static class AgentMcpWebHost
         builder.Logging.AddConsole();
         builder.AddGnOuGoOpenTelemetry("GnOuGo.Agent.Mcp");
 
-        var dbRelativePath = builder.Configuration.GetValue<string>("Agent:DatabasePath")
+        var dbRelativePath = builder.Configuration["Agent:DatabasePath"]
             ?? AgentMcpHostingExtensions.DefaultDatabasePath;
         var dbPath = AgentMcpHostingExtensions.ResolveDatabasePath(dbRelativePath, AppContext.BaseDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
@@ -28,7 +27,17 @@ public static class AgentMcpWebHost
         var app = builder.Build();
         app.Services.InitializeAgentMcpAsync().GetAwaiter().GetResult();
 
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+        app.Use(static async (context, next) =>
+        {
+            if (HttpMethods.IsGet(context.Request.Method)
+                && context.Request.Path.Equals("/health", StringComparison.OrdinalIgnoreCase))
+            {
+                await WriteHealthResponseAsync(context);
+                return;
+            }
+
+            await next(context);
+        });
         app.MapAgentMcp(routePrefix);
 
         var logger = app.Services.GetRequiredService<ILoggerFactory>()
@@ -40,6 +49,18 @@ public static class AgentMcpWebHost
             routePrefix);
 
         return app;
+    }
+
+    private static async Task WriteHealthResponseAsync(HttpContext context)
+    {
+        context.Response.StatusCode = StatusCodes.Status200OK;
+        context.Response.ContentType = "application/json; charset=utf-8";
+
+        var payload = JsonSerializer.SerializeToUtf8Bytes(
+            new HealthResponse("ok"),
+            AgentMcpJsonContext.Default.HealthResponse);
+
+        await context.Response.Body.WriteAsync(payload, context.RequestAborted);
     }
 }
 
