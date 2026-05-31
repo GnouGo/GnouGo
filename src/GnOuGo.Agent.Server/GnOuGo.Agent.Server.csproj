@@ -3,6 +3,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Version: overridden at publish time via -p:Version=x.y.z -->
+    <Version Condition="'$(Version)' == ''">0.0.0-dev</Version>
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">$(Version)</InformationalVersion>
   </PropertyGroup>
 
   <!-- Keep Debug fast & friendly; enable trimming in Release/publish only. -->

@@ -16,6 +16,9 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 	public const string DefaultEndpoint = "https://api.anthropic.com/v1";
 	private const string AnthropicVersion = "2023-06-01";
 
+	private static readonly TimeSpan BackgroundInitialPollDelay = TimeSpan.FromSeconds(2);
+	private static readonly TimeSpan BackgroundMaxPollDelay = TimeSpan.FromSeconds(15);
+
 	private readonly HttpClient _http;
 	private readonly ILogger<AnthropicLLMProvider> _logger;
 
@@ -33,8 +36,19 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 
 	/// <summary>
 	/// Sends a chat request to the Anthropic Messages API.
+	/// When <see cref="LLMClientRequest.UseBackgroundMode"/> is set, uses the Message Batches API
+	/// for asynchronous processing (equivalent to OpenAI's background mode).
 	/// </summary>
 	public async Task<LLMClientResponse> CallAsync(
+		string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
+	{
+		if (request.UseBackgroundMode)
+			return await CallBatchBackgroundAsync(model, provider, request, ct);
+
+		return await CallMessagesAsync(model, provider, request, ct);
+	}
+
+	private async Task<LLMClientResponse> CallMessagesAsync(
 		string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
 	{
 		var url = BuildMessagesUrl(provider.Url);
@@ -57,6 +71,138 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		using var json = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
 		var root = json.RootElement;
 
+		return BuildResponse(root, request, model);
+	}
+
+	private async Task<LLMClientResponse> CallBatchBackgroundAsync(
+		string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
+	{
+		var batchUrl = BuildBatchesUrl(provider.Url);
+		var auth = await ResolveAuthAsync(provider, ct);
+		var prompt = BuildPrompt(request.Prompt, request.StructuredOutputSchema);
+
+		byte[] payload = BuildBatchPayload(model, prompt, request.Temperature, request.Tools, request.Reasoning, request.MaxOutputTokens);
+
+		using var createReq = HttpRequestHelper.CreateJsonPost(batchUrl, payload);
+		ApplyHeaders(createReq, auth);
+
+		using var createResp = await _http.SendAsync(createReq, HttpCompletionOption.ResponseHeadersRead, ct);
+		var createBody = await createResp.Content.ReadAsStringAsync(ct);
+
+		if (!createResp.IsSuccessStatusCode)
+		{
+			// If batches API is not available, fall back to synchronous
+			if (IsBatchUnsupported(createResp.StatusCode, createBody))
+			{
+				_logger.LogDebug("Anthropic batch API not available, falling back to synchronous call.");
+				return await CallMessagesAsync(model, provider, request, ct);
+			}
+
+			throw new HttpRequestException(
+				$"Anthropic batch creation failed: {(int)createResp.StatusCode} {createResp.ReasonPhrase ?? ""} - {createBody}");
+		}
+
+		return await PollBatchUntilCompleteAsync(batchUrl, auth, createBody, request, model, ct);
+	}
+
+	private async Task<LLMClientResponse> PollBatchUntilCompleteAsync(
+		string batchUrl, AnthropicAuth auth, string responseBody,
+		LLMClientRequest request, string model, CancellationToken ct)
+	{
+		var delay = BackgroundInitialPollDelay;
+
+		while (true)
+		{
+			using var json = JsonDocument.Parse(responseBody);
+			var root = json.RootElement;
+
+			var status = TryGetString(root, "processing_status");
+
+			if (string.Equals(status, "ended", StringComparison.OrdinalIgnoreCase))
+			{
+				// Retrieve results from the results_url
+				var resultsUrl = TryGetString(root, "results_url");
+				if (!string.IsNullOrWhiteSpace(resultsUrl))
+					return await FetchBatchResultAsync(resultsUrl, auth, request, model, ct);
+
+				// Fallback: try to get results from the batch response directly
+				throw new HttpRequestException(
+					$"Anthropic batch ended but no results_url found: {responseBody}");
+			}
+
+			if (IsTerminalBatchStatus(status))
+				throw new HttpRequestException(
+					$"Anthropic batch ended with status '{status}': {responseBody}");
+
+			var batchId = TryGetString(root, "id");
+			if (string.IsNullOrWhiteSpace(batchId))
+				throw new HttpRequestException(
+					$"Anthropic batch response did not include an id: {responseBody}");
+
+			await Task.Delay(delay, ct);
+			if (delay < BackgroundMaxPollDelay)
+				delay = TimeSpan.FromMilliseconds(Math.Min(delay.TotalMilliseconds * 1.5, BackgroundMaxPollDelay.TotalMilliseconds));
+
+			// Poll batch status
+			var pollUrl = batchUrl.TrimEnd('/') + "/" + Uri.EscapeDataString(batchId);
+			using var pollReq = HttpRequestHelper.CreateGet(pollUrl);
+			ApplyHeaders(pollReq, auth);
+
+			using var pollResp = await _http.SendAsync(pollReq, HttpCompletionOption.ResponseHeadersRead, ct);
+			responseBody = await pollResp.Content.ReadAsStringAsync(ct);
+
+			if (!pollResp.IsSuccessStatusCode)
+				throw new HttpRequestException(
+					$"Anthropic batch polling failed: {(int)pollResp.StatusCode} {pollResp.ReasonPhrase ?? ""} - {responseBody}");
+		}
+	}
+
+	private async Task<LLMClientResponse> FetchBatchResultAsync(
+		string resultsUrl, AnthropicAuth auth, LLMClientRequest request, string model, CancellationToken ct)
+	{
+		using var resultsReq = HttpRequestHelper.CreateGet(resultsUrl);
+		ApplyHeaders(resultsReq, auth);
+
+		using var resultsResp = await _http.SendAsync(resultsReq, HttpCompletionOption.ResponseHeadersRead, ct);
+		if (!resultsResp.IsSuccessStatusCode)
+		{
+			var errBody = await HttpRequestHelper.ReadErrorBodyAsync(resultsResp, ct);
+			throw new HttpRequestException(
+				$"Anthropic batch results fetch failed: {(int)resultsResp.StatusCode} - {errBody}");
+		}
+
+		// Results are JSONL — we only submitted one request, so take the first line
+		var resultsBody = await resultsResp.Content.ReadAsStringAsync(ct);
+		var firstLine = resultsBody.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+		if (string.IsNullOrWhiteSpace(firstLine))
+			throw new HttpRequestException("Anthropic batch results were empty.");
+
+		using var resultDoc = JsonDocument.Parse(firstLine);
+		var resultRoot = resultDoc.RootElement;
+
+		// The result has structure: { "custom_id": "...", "result": { "type": "succeeded", "message": { ...message response... } } }
+		if (resultRoot.TryGetProperty("result", out var result)
+			&& result.TryGetProperty("message", out var message))
+		{
+			return BuildResponse(message, request, model);
+		}
+
+		// Check for error
+		if (resultRoot.TryGetProperty("result", out var errResult)
+			&& errResult.TryGetProperty("type", out var errType)
+			&& errType.GetString() != "succeeded")
+		{
+			var errorMsg = errResult.TryGetProperty("error", out var errObj)
+				? errObj.GetRawText()
+				: "unknown error";
+			throw new HttpRequestException($"Anthropic batch request failed: {errorMsg}");
+		}
+
+		throw new HttpRequestException($"Anthropic batch result has unexpected structure: {firstLine}");
+	}
+
+	private LLMClientResponse BuildResponse(JsonElement root, LLMClientRequest request, string model)
+	{
 		var content = ExtractContent(root);
 		var usage = ExtractUsage(root);
 		var toolCalls = ParseToolCalls(root);
@@ -175,6 +321,18 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		return b + "/v1/messages";
 	}
 
+	internal static string BuildBatchesUrl(string? baseUrl)
+	{
+		var b = string.IsNullOrWhiteSpace(baseUrl) ? DefaultEndpoint : baseUrl.TrimEnd('/');
+		if (b.EndsWith("/batches", StringComparison.OrdinalIgnoreCase))
+			return b;
+		if (b.EndsWith("/messages", StringComparison.OrdinalIgnoreCase))
+			return b + "/batches";
+		if (b.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+			return b + "/messages/batches";
+		return b + "/v1/messages/batches";
+	}
+
 	internal static string BuildModelsUrl(string? baseUrl)
 	{
 		var b = string.IsNullOrWhiteSpace(baseUrl) ? DefaultEndpoint : baseUrl.TrimEnd('/');
@@ -202,6 +360,97 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			_ => null
 		};
 	}
+
+	/// <summary>
+	/// Builds the payload for the Anthropic Message Batches API.
+	/// Wraps a single message request in the batch format.
+	/// </summary>
+	internal static byte[] BuildBatchPayload(
+		string model,
+		string prompt,
+		double? temperature = null,
+		IReadOnlyList<LLMToolDef>? tools = null,
+		string? reasoning = null,
+		int? maxOutputTokens = null)
+	{
+		const int DefaultMaxTokens = 16384;
+		var thinkingBudget = NormalizeThinkingBudget(reasoning);
+		var maxTokens = maxOutputTokens
+			?? (thinkingBudget.HasValue ? Math.Max(DefaultMaxTokens, thinkingBudget.Value + 1024) : DefaultMaxTokens);
+
+		using var ms = new MemoryStream();
+		using (var w = new Utf8JsonWriter(ms))
+		{
+			w.WriteStartObject();
+			w.WriteStartArray("requests");
+
+			// Single request in the batch
+			w.WriteStartObject();
+			w.WriteString("custom_id", "bg-request-1");
+
+			// params = the standard messages API body
+			w.WriteStartObject("params");
+			w.WriteString("model", model);
+			w.WriteNumber("max_tokens", maxTokens);
+
+			if (temperature.HasValue && !thinkingBudget.HasValue)
+				w.WriteNumber("temperature", temperature.Value);
+
+			if (thinkingBudget.HasValue)
+			{
+				w.WriteStartObject("thinking");
+				w.WriteString("type", "enabled");
+				w.WriteNumber("budget_tokens", thinkingBudget.Value);
+				w.WriteEndObject();
+			}
+
+			w.WriteStartArray("messages");
+			w.WriteStartObject();
+			w.WriteString("role", "user");
+			w.WriteString("content", prompt);
+			w.WriteEndObject();
+			w.WriteEndArray();
+
+			if (tools is { Count: > 0 })
+			{
+				w.WriteStartArray("tools");
+				foreach (var tool in tools)
+				{
+					w.WriteStartObject();
+					w.WriteString("name", tool.Name);
+					if (!string.IsNullOrWhiteSpace(tool.Description))
+						w.WriteString("description", tool.Description);
+					w.WritePropertyName("input_schema");
+					(tool.InputSchema ?? new JsonObject { ["type"] = "object" }).WriteTo(w);
+					w.WriteEndObject();
+				}
+				w.WriteEndArray();
+			}
+
+			w.WriteEndObject(); // end params
+			w.WriteEndObject(); // end request
+
+			w.WriteEndArray(); // end requests
+			w.WriteEndObject();
+		}
+
+		return ms.ToArray();
+	}
+
+	private static bool IsBatchUnsupported(System.Net.HttpStatusCode statusCode, string body)
+		=> statusCode is System.Net.HttpStatusCode.NotFound
+			   or System.Net.HttpStatusCode.MethodNotAllowed
+			   or System.Net.HttpStatusCode.NotImplemented
+		   || ((int)statusCode == 400
+			   && (body.Contains("batch", StringComparison.OrdinalIgnoreCase)
+				   || body.Contains("unsupported", StringComparison.OrdinalIgnoreCase)));
+
+	private static bool IsTerminalBatchStatus(string? status)
+		=> status is not null
+		   && (status.Equals("failed", StringComparison.OrdinalIgnoreCase)
+			   || status.Equals("canceled", StringComparison.OrdinalIgnoreCase)
+			   || status.Equals("cancelled", StringComparison.OrdinalIgnoreCase)
+			   || status.Equals("expired", StringComparison.OrdinalIgnoreCase));
 
 	internal static string ExtractContent(JsonElement root)
 	{
