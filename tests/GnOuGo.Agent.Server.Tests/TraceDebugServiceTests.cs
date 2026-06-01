@@ -334,16 +334,51 @@ public sealed class TraceDebugServiceTests
         Assert.Contains(snapshot.Trace.Spans, span => span.Name == "workflow");
     }
 
+    [Fact]
+    public async Task StreamSnapshotsAsync_EmitsInitialAndCollectorFlushSnapshots()
+    {
+        await using var host = await CollectorTestHost.CreateAsync();
+        var settings = new OpenTelemetrySettings { Enabled = true, ServiceName = "GnOuGo.Agent.Server" };
+        var eventBus = new TelemetryEventBus();
+        var service = CreateService(host.Services, settings, eventBus: eventBus);
+        var traceIdHex = "99999999999999999999999999999999";
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        await using var snapshots = service.StreamSnapshotsAsync("corr-stream", null, cts.Token)
+            .GetAsyncEnumerator(cts.Token);
+
+        Assert.True(await snapshots.MoveNextAsync());
+        Assert.True(snapshots.Current.Pending);
+
+        await host.AddSpansAsync(CreateSpan(
+            traceIdHex,
+            "aaaaaaaaaaaaaaaa",
+            parentSpanIdHex: null,
+            name: "chat.message",
+            correlationId: "corr-stream",
+            serviceName: settings.ServiceName,
+            startUnixNs: 1_710_000_000_000_000_000,
+            endUnixNs: 1_710_000_000_500_000_000));
+        eventBus.NotifyFlushed(spanCount: 1, logCount: 0);
+
+        Assert.True(await snapshots.MoveNextAsync());
+        Assert.NotNull(snapshots.Current.Trace);
+        Assert.Equal(traceIdHex, snapshots.Current.TraceId);
+    }
+
     private static TraceDebugService CreateService(
         IServiceProvider services,
         OpenTelemetrySettings openTelemetrySettings,
-        LocalTraceDebugStore? localStore = null)
+        LocalTraceDebugStore? localStore = null,
+        TelemetryEventBus? eventBus = null)
     {
         localStore ??= new LocalTraceDebugStore(new StaticOptionsMonitor<OpenTelemetrySettings>(openTelemetrySettings));
+        eventBus ??= new TelemetryEventBus();
 
         return new TraceDebugService(
             services.GetRequiredService<IServiceScopeFactory>(),
             localStore,
+            eventBus,
             new StaticOptionsMonitor<OpenTelemetrySettings>(openTelemetrySettings),
             NullLogger<TraceDebugService>.Instance);
     }

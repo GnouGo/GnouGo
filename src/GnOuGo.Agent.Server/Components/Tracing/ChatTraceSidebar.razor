@@ -134,8 +134,9 @@
         _activeTab = TracePanelTab.Traces;
         StopRefreshLoop();
         _refreshCts = new CancellationTokenSource();
-        await RefreshAsync(_refreshCts.Token);
+        _isLoading = true;
         _ = RunRefreshLoopAsync(_refreshCts.Token);
+        await Task.CompletedTask;
     }
     public ValueTask DisposeAsync()
     {
@@ -144,68 +145,49 @@
     }
     private async Task RunRefreshLoopAsync(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                // Keep selected span detail stable while user is inspecting one span.
-                if (!(_stickySpanSelection
-                    && _activeTab == TracePanelTab.Traces
-                    && !string.IsNullOrWhiteSpace(_selectedSpanId)))
-                {
-                    await RefreshAsync(ct);
-                }
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                break;
-            }
-            catch
-            {
-                // Keep polling even if one refresh cycle fails.
-            }
-            if (!IsOpen)
-                break;
-            try
-            {
-                await Task.Delay(TraceDebug.RefreshInterval, ct);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                break;
-            }
-        }
-    }
-    private async Task RefreshAsync(CancellationToken ct)
-    {
-        if (Message is null)
-            return;
-        _isLoading = true;
-        _loadError = null;
         try
         {
-            _snapshot = await TraceDebug.GetSnapshotAsync(Message.CorrelationId, Message.TraceId, ct);
-            if (_snapshot.Trace is not null && !string.IsNullOrWhiteSpace(_selectedSpanId))
+            var correlationId = Message?.CorrelationId;
+            var traceId = Message?.TraceId;
+            await foreach (var snapshot in TraceDebug.StreamSnapshotsAsync(correlationId, traceId, ct))
             {
-                var matchingSpan = _snapshot.Trace.Spans.FirstOrDefault(
-                    span => string.Equals(span.SpanId, _selectedSpanId, StringComparison.OrdinalIgnoreCase));
+                if (!IsOpen || ct.IsCancellationRequested)
+                    break;
 
-                // Keep selection stable across refreshes even if span id casing changes.
-                _selectedSpanId = matchingSpan?.SpanId;
+                // Keep selected span detail stable while user is inspecting one span.
+                if (_stickySpanSelection
+                    && _activeTab == TracePanelTab.Traces
+                    && !string.IsNullOrWhiteSpace(_selectedSpanId))
+                {
+                    continue;
+                }
+
+                ApplySnapshot(snapshot);
+                _isLoading = false;
+                _loadError = null;
+                await InvokeAsync(StateHasChanged);
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            throw;
         }
         catch (Exception ex)
         {
             _loadError = ex.Message;
-        }
-        finally
-        {
             _isLoading = false;
             await InvokeAsync(StateHasChanged);
+        }
+    }
+    private void ApplySnapshot(TraceDebugSnapshot snapshot)
+    {
+        _snapshot = snapshot;
+        if (_snapshot.Trace is not null && !string.IsNullOrWhiteSpace(_selectedSpanId))
+        {
+            var matchingSpan = _snapshot.Trace.Spans.FirstOrDefault(
+                span => string.Equals(span.SpanId, _selectedSpanId, StringComparison.OrdinalIgnoreCase));
+
+            // Keep selection stable across refreshes even if span id casing changes.
+            _selectedSpanId = matchingSpan?.SpanId;
         }
     }
     private void StopRefreshLoop()

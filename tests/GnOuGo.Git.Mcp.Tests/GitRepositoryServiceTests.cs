@@ -40,8 +40,11 @@ public sealed class GitRepositoryServiceTests : IDisposable
         var log = service.GetLog(_root, 10);
 
         Assert.False(status.IsDirty);
+        Assert.Contains("Repository is clean", status.Output, StringComparison.OrdinalIgnoreCase);
         Assert.False(string.IsNullOrWhiteSpace(commit.Sha));
+        Assert.Contains("Created commit", commit.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("Initial commit", Assert.Single(log.Commits).MessageShort);
+        Assert.Contains("Returned 1 commit", log.Output, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -93,6 +96,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
         var status = service.GetStatus(_root);
 
         Assert.True(result.Success);
+        Assert.Contains("Staged 1 pathspec", result.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(status.Entries, entry => entry.Path.Replace('\\', '/') == "a..b.txt" && entry.State.Contains("NewInIndex", StringComparison.Ordinal));
     }
 
@@ -110,6 +114,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
         var clone = service.Clone(source, target);
 
         Assert.Equal(NormalizePath(target), NormalizePath(clone.RepositoryRoot));
+        Assert.Contains("Cloned", clone.Output, StringComparison.OrdinalIgnoreCase);
         Assert.True(Repository.IsValid(target));
         Assert.True(File.Exists(Path.Combine(target, "README.md")));
     }

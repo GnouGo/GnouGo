@@ -104,9 +104,16 @@ Output: `{ iterations: [...], count: <number> }`.
             ctx.data.pop("_loop", None)
             ctx.data.pop("loop", None)
 
-            return {"iterations": iterations, "count": len(iterations)}
+            return {"results": iterations, "count": len(iterations)}
 
         # ── times / while iteration ────────────────────────────────────
+        # Guard: at least one termination condition must be present
+        if times is None and while_expr is None:
+            raise WorkflowRuntimeException(
+                ErrorCodes.INPUT_VALIDATION,
+                "loop.sequential requires at least one of: 'items', 'over', 'times', or 'while'",
+            )
+
         i = 0
         while True:
             if times is not None and i >= int(ExpressionEvaluator.get_number(times)):
@@ -133,4 +140,4 @@ Output: `{ iterations: [...], count: <number> }`.
             iterations.append(copy.deepcopy(ctx.data.get("steps", {})))
             i += 1
 
-        return {"iterations": iterations, "count": i}
+        return {"results": iterations, "count": i}

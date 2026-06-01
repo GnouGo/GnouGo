@@ -11,6 +11,7 @@
 @inject SmartFlowService SmartFlow
 @inject AgentHumanInputProvider HumanInputProvider
 @inject AgentUserConfigMcpClient UserConfigClient
+@inject AppVersionInfo VersionInfo
 
 <div class="gnougo-app">
     <aside class="gnougo-app__sidebar gnougo-sidebar @( _sidebarOpen ? "gnougo-sidebar--open" : "")">
@@ -57,6 +58,7 @@
             <div class="gnougo-sidebar__hint">
                 Tip: your history is stored in <span class="gnougo-sidebar__hint-strong">localStorage</span>.
             </div>
+            <div class="gnougo-sidebar__version" title="@VersionInfo.Version">v@(VersionInfo.ShortVersion)</div>
         </div>
     </aside>
 

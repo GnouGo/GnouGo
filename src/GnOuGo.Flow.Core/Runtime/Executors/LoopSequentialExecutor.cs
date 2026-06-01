@@ -61,10 +61,22 @@ public sealed class LoopSequentialExecutor : IStepExecutor
 
         // Resolve items array: support both 'items' and 'over' (alias)
         JsonArray? items = null;
-        if (inputObj?.TryGetPropertyValue("items", out var itemsNode) == true && itemsNode is JsonArray itemsArr)
-            items = itemsArr;
-        else if (inputObj?.TryGetPropertyValue("over", out var overNode) == true && overNode is JsonArray overArr)
-            items = overArr;
+        bool itemsKeyPresent = false;
+        JsonNode? rawItemsValue = null;
+        if (inputObj?.TryGetPropertyValue("items", out var itemsNode) == true && itemsNode != null)
+        {
+            itemsKeyPresent = true;
+            rawItemsValue = itemsNode;
+            if (itemsNode is JsonArray itemsArr)
+                items = itemsArr;
+        }
+        else if (inputObj?.TryGetPropertyValue("over", out var overNode) == true && overNode != null)
+        {
+            itemsKeyPresent = true;
+            rawItemsValue = overNode;
+            if (overNode is JsonArray overArr)
+                items = overArr;
+        }
 
         int? times = null;
         if (inputObj?.TryGetPropertyValue("times", out var t) == true && t != null)
@@ -74,6 +86,13 @@ public sealed class LoopSequentialExecutor : IStepExecutor
         if (items != null && times != null)
             throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
                 "loop.sequential: 'items'/'over' and 'times' are mutually exclusive");
+
+        // Validate: if 'items'/'over' key was specified but didn't resolve to an array, fail early
+        if (itemsKeyPresent && items == null)
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                "loop.sequential: 'items'/'over' must resolve to an array. "
+                + $"Got: {rawItemsValue?.GetValueKind().ToString() ?? "null"}. "
+                + "Check that the expression returns a JSON array.");
 
         // ── items-based iteration ──────────────────────────────────────
         if (items != null)
@@ -122,6 +141,13 @@ public sealed class LoopSequentialExecutor : IStepExecutor
         }
 
         // ── times / while iteration ────────────────────────────────────
+        bool hasWhile = inputObj?.ContainsKey("while") == true;
+
+        // Guard: at least one termination condition must be present
+        if (!times.HasValue && !hasWhile)
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                "loop.sequential requires at least one of: 'items', 'over', 'times', or 'while'");
+
         var whileIterations = new JsonArray();
         int iteration = 0;
 
