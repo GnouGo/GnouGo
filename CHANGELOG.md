@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.9.0 - 2026-06-01
+
+- feat: add version (release) (#47) (7551ff7)
+
 ## v0.8.8 - 2026-05-31
 
 - fix: copilot more permissive (release) (#46) (16de581)
