@@ -19,7 +19,7 @@ internal static class TelemetryQueries
     public static readonly Func<TelemetryDbContext, IAsyncEnumerable<TenantEntity>> GetAllTenants =
         EF.CompileAsyncQuery(
             (TelemetryDbContext db) =>
-                db.Tenants.OrderByDescending(t => t.CreatedUtc).AsQueryable());
+                db.Tenants.AsQueryable());
 
     // ── Spans ────────────────────────────────────────────────────────
 

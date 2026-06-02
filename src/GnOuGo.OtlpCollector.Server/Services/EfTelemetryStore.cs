@@ -72,7 +72,9 @@ public sealed class EfTelemetryStore
         var tenants = new List<TenantEntity>();
         await foreach (var t in TelemetryQueries.GetAllTenants(_db))
             tenants.Add(t);
-        return tenants;
+        return tenants
+            .OrderByDescending(t => t.CreatedUtc)
+            .ToList();
     }
 
     public async Task DeleteTenantAsync(Guid tenantId)
