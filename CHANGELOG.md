@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.9.1 - 2026-06-03
+
+- fix: enhance workflow.plan (#48) (release) (b682844)
+
 ## v0.9.0 - 2026-06-01
 
 - feat: add version (release) (#47) (7551ff7)
