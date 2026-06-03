@@ -13,9 +13,25 @@ namespace GnOuGo.Flow.Core.Expressions;
 /// </summary>
 public sealed class ExpressionEvaluator
 {
+    private const int DefaultMaxStatements = 100_000;
+    private const int DefaultTimeoutSeconds = 15;
+    private const int DefaultMemoryLimitBytes = 50_000_000;
+
     private readonly Dictionary<string, Func<JsonNode?[], JsonNode?>> _functions;
+    private readonly int _maxStatements;
+    private readonly TimeSpan _timeout;
+    private readonly int _memoryLimitBytes;
 
     public ExpressionEvaluator(Dictionary<string, Func<JsonNode?[], JsonNode?>>? extraFunctions = null)
+        : this(extraFunctions, maxStatements: DefaultMaxStatements, timeout: TimeSpan.FromSeconds(DefaultTimeoutSeconds), memoryLimitBytes: DefaultMemoryLimitBytes)
+    {
+    }
+
+    public ExpressionEvaluator(
+        Dictionary<string, Func<JsonNode?[], JsonNode?>>? extraFunctions,
+        int maxStatements,
+        TimeSpan timeout,
+        int memoryLimitBytes = DefaultMemoryLimitBytes)
     {
         _functions = new Dictionary<string, Func<JsonNode?[], JsonNode?>>(BuiltInFunctions.All);
         if (extraFunctions != null)
@@ -23,6 +39,10 @@ public sealed class ExpressionEvaluator
             foreach (var kv in extraFunctions)
                 _functions[kv.Key] = kv.Value;
         }
+
+        _maxStatements = Math.Max(1, maxStatements);
+        _timeout = timeout <= TimeSpan.Zero ? TimeSpan.FromSeconds(DefaultTimeoutSeconds) : timeout;
+        _memoryLimitBytes = Math.Max(1_000_000, memoryLimitBytes);
     }
 
     /// <summary>
@@ -34,9 +54,9 @@ public sealed class ExpressionEvaluator
     {
         var engine = new Engine(options =>
         {
-            options.MaxStatements(10_000);
-            options.TimeoutInterval(TimeSpan.FromSeconds(5));
-            options.LimitMemory(50_000_000);
+            options.MaxStatements(_maxStatements);
+            options.TimeoutInterval(_timeout);
+            options.LimitMemory(_memoryLimitBytes);
             options.Strict(false);
         });
 
@@ -70,9 +90,20 @@ public sealed class ExpressionEvaluator
         {
             throw new WorkflowRuntimeException(ErrorCodes.EvalError, $"Expression error: {ex.Message}");
         }
+        catch (StatementsCountOverflowException ex)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.EvalError,
+                $"Expression exceeded the configured statement limit ({_maxStatements}). Increase ExecutionLimits.MaxExpressionStatements or simplify the expression.",
+                retryable: false,
+                inner: ex);
+        }
         catch (ExecutionCanceledException)
         {
-            throw new WorkflowRuntimeException(ErrorCodes.EvalError, "Expression evaluation timed out or exceeded limit");
+            throw new WorkflowRuntimeException(
+                ErrorCodes.EvalError,
+                $"Expression evaluation timed out or exceeded a runtime limit (timeout: {_timeout.TotalSeconds:0.#}s, statements: {_maxStatements}).",
+                retryable: false);
         }
     }
 

@@ -233,6 +233,30 @@ public class ExpressionEvaluatorTests
         var result = eval.Evaluate("double_val(21)", null);
         Assert.Equal(42, result!.GetValue<int>());
     }
+
+    [Fact]
+    public void Evaluate_WhenStatementLimitExceeded_ThrowsWorkflowRuntimeException()
+    {
+        var eval = new ExpressionEvaluator(null, maxStatements: 20, timeout: TimeSpan.FromSeconds(5));
+
+        var ex = Assert.Throws<WorkflowRuntimeException>(() =>
+            eval.Evaluate("(() => { let x = 0; for (let i = 0; i < 100; i++) { x += i; } return x; })()", null));
+
+        Assert.Equal(ErrorCodes.EvalError, ex.Code);
+        Assert.Contains("statement limit", ex.Message);
+        Assert.Contains("MaxExpressionStatements", ex.Message);
+    }
+
+    [Fact]
+    public void Evaluate_WithHigherStatementLimit_AllowsLongerExpression()
+    {
+        var eval = new ExpressionEvaluator(null, maxStatements: 10_000, timeout: TimeSpan.FromSeconds(5));
+
+        var result = eval.Evaluate("(() => { let x = 0; for (let i = 0; i < 100; i++) { x += i; } return x; })()", null);
+
+        Assert.Equal(4950, result!.GetValue<int>());
+    }
+
     [Fact]
     public void Evaluate_ErrorContext_AccessesErrorAndStep()
     {
