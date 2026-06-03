@@ -1,7 +1,16 @@
 from __future__ import annotations
 
+import copy
+import json
+
+from gnougo_flow_core.compilation import ValidationError, WorkflowValidator
 from gnougo_flow_core.models import StepDef, WorkflowDocument
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
+from gnougo_flow_core.workflow_plan_semantic_validator import (
+    McpToolOutputContract,
+    WorkflowSemanticValidationException,
+    validate_workflow_semantics,
+)
 
 
 class WorkflowPlanExecutor:
@@ -65,6 +74,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         max_attempts = max(1, int(on_invalid.get("max_attempts", 3)))
         on_invalid_action = str(on_invalid.get("action", "fail"))
 
+        mcp_tool_contracts: list[McpToolOutputContract] = []
         base_prompt = await self._build_planning_prompt(
             ctx,
             instruction,
@@ -73,6 +83,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             limits,
             generator,
             plan_reasoning,
+            mcp_tool_contracts,
         )
         prompt = base_prompt
         last_error: Exception | None = None
@@ -123,7 +134,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     validation_span.set_attribute("gnougo-flow.plan.workflow_count", len(doc.workflows))
                     self._enforce_plan_policy(doc, policy, limits)
                     if bool(validate.get("compile", True)):
+                        self._validate_generated_workflow(doc)
                         WorkflowCompiler().compile(doc)
+                        self._validate_generated_workflow_semantics(doc, mcp_tool_contracts)
                 return {
                     "yaml": yaml_text,
                     "workflow": {
@@ -170,10 +183,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         limits: dict[str, Any],
         generator: dict[str, Any],
         plan_reasoning: str | None = None,
+        mcp_tool_contracts: list[McpToolOutputContract] | None = None,
     ) -> str:
         allowed_types = set(policy.get("allowed_step_types") or []) or None
         candidate_mcp_servers = await self._maybe_prefilter_mcp_server_metadata(ctx, generator, instruction, context_text, plan_reasoning)
-        mcp_doc = await self._build_mcp_documentation(ctx, candidate_mcp_servers)
+        mcp_doc = await self._build_mcp_documentation(ctx, candidate_mcp_servers, mcp_tool_contracts)
         mcp_doc = await self._maybe_prefilter_mcp_documentation(ctx, generator, instruction, mcp_doc, plan_reasoning)
         steps_doc = "\n\n".join(ctx.engine.registry.get_dsl_snippets(allowed_types))
         exc_doc = self._build_step_exceptions_doc(ctx.engine.registry, allowed_types)
@@ -195,6 +209,41 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "Step fields: id, type, if, input, output, retry, on_error, steps, branches, cases, expr, default, item_var, index_var.\n"
             "Retry fields: max, backoff_ms, backoff_mult, jitter_ms.\n"
             "on_error cases: if, action (continue|stop), set_output.\n\n"
+            "[REQUIRED ROOT YAML SHAPE]\n"
+            "The generated YAML MUST include all required root keys exactly once: version, name, workflows.\n"
+            "Root key requirements:\n"
+            "- version: non-empty string or number 1\n"
+            "- name: non-empty string\n"
+            "- workflows: non-empty object\n"
+            "Each workflow entry under workflows MUST define a steps array.\n"
+            "Minimal valid skeleton:\n"
+            "version: 1\n"
+            "name: generated-workflow\n"
+            "workflows:\n"
+            "  main:\n"
+            "    steps: []\n\n"
+            "[GENERATION VALIDATION CHECKLIST]\n"
+            "Before returning YAML, self-check these rules and fix the YAML silently:\n"
+            "- Use only exact step types listed in [AVAILABLE STEP TYPES]. Do not invent aliases or legacy names.\n"
+            "- Every step has a unique non-empty `id` and a non-empty `type`.\n"
+            "- Put common step fields (`id`, `type`, `if`, `input`, `output`, `retry`, `on_error`) at the step level, not inside `input`.\n"
+            "- Put executor-specific arguments inside `input` only. For example `llm.call.input.prompt`, "
+            "`mcp.call.input.server`, `template.render.input.template`.\n"
+            "- Container mappings must use their documented shape: `sequence`/`loop.*` use step-level `steps`; "
+            "`parallel` uses step-level `branches[].steps`; `switch` uses step-level `cases[].steps` "
+            "and optional step-level `default`.\n"
+            "- Do not reference future steps. Expressions may read `data.inputs.*` and outputs from earlier `data.steps.<id>.*` only.\n"
+            "- Use documented output shapes exactly: `template.render` text is `data.steps.<id>.text`; "
+            "`llm.call` text is `data.steps.<id>.text` and structured JSON is `data.steps.<id>.json`; "
+            "`mcp.call` single-tool response is `data.steps.<id>.response`.\n"
+            "- Do not assume nested fields inside opaque MCP `response` unless the tool schema/description explicitly "
+            "documents them; pass the whole response onward when uncertain.\n"
+            "- NEVER invent properties under `data.steps.<id>.response`. Access `response.<field>` only when an "
+            "`output_schema` or `example_response` explicitly documents that field.\n"
+            "- If an MCP response is opaque, use `json(data.steps.<id>.response)` to pass the whole response to another step.\n"
+            "- If precise fields are needed from an opaque response, add an `llm.call` normalization step with "
+            "`structured_output`, then read fields from `data.steps.<normalizer>.json`.\n"
+            "- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`.\n\n"
             "[TASK]\n"
             f"Instruction: {instruction}\n"
             f"Context: {context_text or '(none)'}\n\n"
@@ -210,7 +259,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "For LLM-assisted MCP calls, put the natural-language instruction in input.prompt and pass discovered `tools`/`prompts`.\n"
             'mcp.call single-tool output shape: `{ status: "ok"|"error", response: <tool-specific JSON> }`\n'
             "Access status via `data.steps.<id>.status` and full result via `data.steps.<id>.response`.\n"
-            "Do not assume any field inside `response` unless MCP docs explicitly define it.\n"
+            "Do not assume any field inside `response` unless MCP docs explicitly define it through `output_schema` or `example_response`.\n"
+            "If the response is opaque, use `json(data.steps.<id>.response)` or add an `llm.call` normalization step with `structured_output`.\n"
             "When `response` is an array, access items directly (`response[0]...`) or through `response.content[0]...` compatibility alias.\n"
             "For batch output: `{ status, results: [{ method, status, response }] }`.\n"
             'For LLM-assisted output: `{ status, selection_mode: "llm", text, tool_calls, results, json? }`.\n\n'
@@ -594,6 +644,41 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         compact = {k: v for k, v in normalized.items() if v is not None}
         return yaml.safe_dump(compact, sort_keys=False, allow_unicode=False).strip()
 
+    @staticmethod
+    def _validate_generated_workflow(doc: WorkflowDocument) -> None:
+        errors = WorkflowValidator().validate(doc)
+        if not errors:
+            return
+        raise WorkflowRuntimeException(
+            ErrorCodes.TEMPLATE_PLAN,
+            "Generated workflow validation failed: " + WorkflowPlanExecutor._format_validation_errors(errors),
+        )
+
+    @staticmethod
+    def _format_validation_errors(errors: list[ValidationError]) -> str:
+        formatted: list[str] = []
+        for error in errors:
+            location_parts: list[str] = []
+            if error.workflow_name:
+                location_parts.append(f"workflow '{error.workflow_name}'")
+            if error.step_id:
+                location_parts.append(f"step '{error.step_id}'")
+            if error.field:
+                location_parts.append(f"field '{error.field}'")
+            prefix = f"[{', '.join(location_parts)}] " if location_parts else ""
+            formatted.append(f"{prefix}{error.code}: {error.message}")
+        return "; ".join(formatted)
+
+    @staticmethod
+    def _validate_generated_workflow_semantics(
+        doc: WorkflowDocument,
+        mcp_tool_contracts: list[McpToolOutputContract],
+    ) -> None:
+        try:
+            validate_workflow_semantics(doc, mcp_tool_contracts)
+        except WorkflowSemanticValidationException as exc:
+            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, str(exc)) from exc
+
     async def _maybe_prefilter_mcp_documentation(
         self,
         ctx: StepExecutionContext,
@@ -748,7 +833,12 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         prefilter_span.end()
         return mcp_doc
 
-    async def _build_mcp_documentation(self, ctx: StepExecutionContext, server_meta_override: list[McpServerMetadata] | None = None) -> str:
+    async def _build_mcp_documentation(
+        self,
+        ctx: StepExecutionContext,
+        server_meta_override: list[McpServerMetadata] | None = None,
+        mcp_tool_contracts: list[McpToolOutputContract] | None = None,
+    ) -> str:
         factory = ctx.engine.mcp_client_factory
         if factory is None:
             return "No MCP client factory configured."
@@ -783,7 +873,28 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     resources_total += len(resources)
                     section.append(f"Tools ({len(tools)}):")
                     for t in tools:
-                        section.append(f"- {t.name}: {t.description or '(no description)'}")
+                        tool_name = self._get_mcp_field(t, "name")
+                        tool_description = self._get_mcp_field(t, "description")
+                        input_schema = self._get_mcp_field(t, "input_schema") or self._get_mcp_field(t, "inputSchema")
+                        output_schema = self._get_mcp_field(t, "output_schema") or self._get_mcp_field(t, "outputSchema")
+                        example_response = self._get_mcp_field(t, "example_response") or self._get_mcp_field(t, "exampleResponse")
+
+                        section.append(f"- {tool_name}: {tool_description or '(no description)'}")
+                        if input_schema is not None:
+                            section.append(f"  input_schema: {self._dump_json(input_schema)}")
+                        if output_schema is not None:
+                            section.append(f"  output_schema: {self._dump_json(output_schema)}")
+                        if example_response is not None:
+                            section.append(f"  example_response: {self._dump_json(example_response)}")
+                        if mcp_tool_contracts is not None and tool_name:
+                            mcp_tool_contracts.append(
+                                McpToolOutputContract(
+                                    server_name=str(name),
+                                    tool_name=str(tool_name),
+                                    output_schema=copy.deepcopy(output_schema),
+                                    example_response=copy.deepcopy(example_response),
+                                )
+                            )
                     section.append(f"Prompts ({len(prompts)}):")
                     for p in prompts:
                         section.append(f"- {p.name}: {p.description or '(no description)'}")
@@ -800,6 +911,18 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             discovery_span.set_attribute("mcp.prompts_total", prompts_total)
             discovery_span.set_attribute("mcp.resources_total", resources_total)
             return "\n\n".join(sections)
+
+    @staticmethod
+    def _get_mcp_field(value: Any, name: str) -> Any:
+        if isinstance(value, dict):
+            return value.get(name)
+        return getattr(value, name, None)
+
+    @staticmethod
+    def _dump_json(value: Any) -> str:
+        if hasattr(value, "model_dump"):
+            value = value.model_dump(by_alias=False)
+        return json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
 
     def _enforce_plan_policy(self, doc: WorkflowDocument, policy: dict[str, Any], limits: dict[str, Any]) -> None:
         allowed = set(policy.get("allowed_step_types") or [])

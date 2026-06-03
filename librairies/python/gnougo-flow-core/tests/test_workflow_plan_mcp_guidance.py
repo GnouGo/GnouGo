@@ -32,7 +32,15 @@ class _CaptureLlm:
 
 class _ToolSession:
     async def list_tools_async(self):
-        return [McpToolInfo(name="list_repos", description="List repos")]
+        return [
+            McpToolInfo(
+                name="list_repos",
+                description="List repos",
+                input_schema={"type": "object", "properties": {"user": {"type": "string"}}, "required": ["user"]},
+                output_schema={"type": "object", "properties": {"repositories": {"type": "array"}}, "additionalProperties": False},
+                example_response={"repositories": [{"name": "demo"}]},
+            )
+        ]
 
     async def list_resources_async(self):
         return []
@@ -157,6 +165,10 @@ async def test_workflow_plan_prompt_mentions_llm_assisted_and_direct_mcp_call() 
     assert "put the natural-language instruction in input.prompt" in prompt
     assert "Preferred MCP planning pattern: when tool names and input schemas are listed above, use `mcp.call` directly" in prompt
     assert "list_repos" in prompt
+    assert "input_schema:" in prompt
+    assert "output_schema:" in prompt
+    assert "example_response:" in prompt
+    assert "repositories" in prompt
     assert "[STRUCTURED OUTPUT STRICT SCHEMAS]" not in prompt
 
 

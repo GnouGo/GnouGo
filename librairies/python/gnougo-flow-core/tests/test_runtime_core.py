@@ -1,6 +1,7 @@
 import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
+from gnougo_flow_core.models import ExecutionLimits
 from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
 
@@ -134,5 +135,14 @@ async def test_runtime_switch_supports_boolean_numeric_and_null_case_values() ->
     assert number_result.outputs["picked"] == "number"
     assert null_result.success is True
     assert null_result.outputs["picked"] == "null"
+
+
+def test_execution_limits_expression_defaults_match_dotnet_runtime() -> None:
+    limits = ExecutionLimits()
+
+    assert limits.max_total_steps_executed == 10_000
+    assert limits.max_expression_statements == 100_000
+    assert limits.expression_timeout_seconds == 15
+    assert limits.expression_memory_limit_bytes == 50_000_000
 
 

@@ -17,6 +17,17 @@ class CapturePlanLlm:
         return LLMResponse(text=self.yaml_text)
 
 
+class SequencePlanLlm:
+    def __init__(self, responses: list[str]) -> None:
+        self.responses = responses
+        self.prompts: list[str] = []
+
+    async def call_async(self, request):
+        self.prompts.append(request.prompt)
+        index = min(len(self.prompts), len(self.responses)) - 1
+        return LLMResponse(text=self.responses[index])
+
+
 class FakeMcpSession:
     server_name = "demo"
 
@@ -42,6 +53,37 @@ class FakeMcpFactory:
 
     async def get_client_async(self, server_name):
         return FakeMcpSession()
+
+
+class DocsMcpSession:
+    server_name = "docs"
+
+    def __init__(self, tool: McpToolInfo) -> None:
+        self.tool = tool
+
+    async def list_tools_async(self):
+        return [self.tool]
+
+    async def list_resources_async(self):
+        return []
+
+    async def list_prompts_async(self):
+        return []
+
+    async def call_tool_async(self, tool_name, arguments):
+        raise NotImplementedError
+
+    async def get_prompt_async(self, prompt_name, arguments):
+        raise NotImplementedError
+
+
+class DocsMcpFactory:
+    def __init__(self, tool: McpToolInfo) -> None:
+        self.tool = tool
+        self.server_metadata = [McpServerMetadata(name="docs", description="Documentation tools")]
+
+    async def get_client_async(self, server_name):
+        return DocsMcpSession(self.tool)
 
 
 @pytest.mark.asyncio
@@ -385,5 +427,267 @@ async def test_workflow_plan_uses_prompt_snippet_from_executor_class() -> None:
         assert "Sequence test snippet from class" in prompt
     finally:
         SequenceExecutor.dsl_snippet = old
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_reprompts_on_validator_diagnostics_not_only_compiler_errors() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build something"
+                prefilter: false
+              on_invalid:
+                action: reprompt
+                max_attempts: 2
+    """
+    invalid_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: s
+            type: definitely.not.a.step
+    """
+    valid_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: s
+            type: set
+            input:
+              text: ok
+    """
+
+    llm = SequencePlanLlm([invalid_yaml, valid_yaml])
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    compiled = WorkflowCompiler().compile(WorkflowParser.parse(source))
+
+    result = await engine.execute_async(compiled.workflows["main"], {})
+
+    assert result.success is True
+    assert len(llm.prompts) == 2
+    assert "[PREVIOUS ERROR]" in llm.prompts[1]
+    assert "STEP_TYPE_UNKNOWN" in llm.prompts[1]
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_allows_known_mcp_response_property() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: get_doc
+          - id: map
+            type: set
+            input:
+              title: "${data.steps.fetch.response.title}"
+    """
+    tool = McpToolInfo(
+        name="get_doc",
+        description="Get a document",
+        output_schema={"type": "object", "properties": {"title": {"type": "string"}}, "additionalProperties": False},
+    )
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_rejects_unknown_mcp_response_property() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: get_doc
+          - id: map
+            type: set
+            input:
+              title: "${data.steps.fetch.response.missing_title}"
+    """
+    tool = McpToolInfo(
+        name="get_doc",
+        description="Get a document",
+        output_schema={"type": "object", "properties": {"title": {"type": "string"}}, "additionalProperties": False},
+    )
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "STEP_OUTPUT_PROPERTY_UNKNOWN" in result.error.message
+    assert "data.steps.fetch.response.missing_title" in result.error.message
+    assert "data.steps.fetch.response.title" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_rejects_deep_access_into_opaque_mcp_response() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: get_doc
+          - id: map
+            type: set
+            input:
+              title: "${data.steps.fetch.response.title}"
+    """
+    tool = McpToolInfo(name="get_doc", description="Get a document without declared output contract")
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "OPAQUE_RESPONSE_DEEP_ACCESS" in result.error.message
+    assert "json(data.steps.fetch.response)" in result.error.message
+    assert "structured_output" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_reprompt_can_fix_opaque_mcp_response_mapping() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+              on_invalid:
+                action: reprompt
+                max_attempts: 2
+    """
+    invalid_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: get_doc
+          - id: map
+            type: set
+            input:
+              title: "${data.steps.fetch.response.title}"
+    """
+    fixed_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: get_doc
+          - id: normalize
+            type: llm.call
+            input:
+              model: gpt-4o-mini
+              prompt: "Normalize this MCP response: ${json(data.steps.fetch.response)}"
+              structured_output:
+                schema_inline:
+                  type: object
+                  properties:
+                    title: { type: string }
+                  required: [title]
+                  additionalProperties: false
+          - id: map
+            type: set
+            input:
+              title: "${data.steps.normalize.json.title}"
+    """
+    tool = McpToolInfo(name="get_doc", description="Get a document without declared output contract")
+    llm = SequencePlanLlm([invalid_yaml, fixed_yaml])
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    assert len(llm.prompts) == 2
+    assert "OPAQUE_RESPONSE_DEEP_ACCESS" in llm.prompts[1]
+    assert "structured_output" in llm.prompts[1]
 
 

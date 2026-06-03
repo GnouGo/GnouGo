@@ -483,7 +483,7 @@ class WorkflowEngine:
             script_functions.update(sandbox.load_functions(workflow.source.functions))
         script_functions.update(self.script_functions)
 
-        self._evaluator = ExpressionEvaluator(script_functions)
+        self._evaluator = ExpressionEvaluator(script_functions, self.limits)
         self._interpolator = StringInterpolator(self._evaluator)
 
     async def _save_checkpoint_async(

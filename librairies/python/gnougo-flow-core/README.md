@@ -29,6 +29,8 @@ This Python package mirrors its public surface as closely as Python idioms allow
 | `LLMRequest.reasoning` field | Yes |
 | Model metadata catalog (pricing, token limits, capabilities, overrides) | Yes |
 | `workflow.plan` defaults `reasoning="high"` | Yes |
+| `workflow.plan` validator + semantic mapping checks | Yes |
+| MCP tool `output_schema` / `example_response` planning contracts | Yes |
 | Workflow source telemetry (`source_text` / `source_format`) | Yes |
 | `JsonSchemaConverter` (inputs/outputs to JSON Schema) | Yes |
 | `WorkflowCheckpointer` + `WorkflowEngine.resume_async` | Yes |
@@ -194,6 +196,14 @@ def build_mcp_factory() -> InMemoryMcpClientFactory:
                         "type": "object",
                         "properties": {"topic": {"type": "string"}},
                         "required": ["topic"],
+                    },
+                    output_schema={
+                        "type": "object",
+                        "properties": {
+                            "topic": {"type": "string"},
+                            "facts": {"type": "array", "items": {"type": "string"}},
+                        },
+                        "additionalProperties": False,
                     },
                 )
             ],
@@ -603,7 +613,7 @@ Matching messages are forwarded immediately as `gnougo-flow.step.thinking` telem
 | Batch/auto | `data.steps.<id>.results` (array) |
 | LLM-assisted | `data.steps.<id>.text`, `data.steps.<id>.json` |
 
-> **Important:** The `response` object is tool-specific. Do not assume field names unless documented by the tool. Use `json(data.steps.<id>.response)` to serialize it.
+> **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises `output_schema` or `example_response`. Access `data.steps.<id>.response.<field>` only for documented fields. Otherwise pass the whole response with `json(data.steps.<id>.response)` or add an `llm.call` normalization step with `structured_output`.
 
 ---
 
@@ -946,7 +956,9 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 - **MCP pre-filter**: Uses a lightweight LLM call to select only the MCP servers/tools relevant to the task instruction — reduces prompt size and cost.
 - **Full DSL reference injection**: The LLM receives the complete DSL documentation (step types, expressions, error handling) so it can generate valid workflows.
 - **Policy enforcement**: Generated workflows are validated against allowed/denied step types and max step limits.
-- **Self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error), the error is sent back to the LLM for automatic correction.
+- **Full validation before acceptance**: `workflow.plan` runs the validator, compiler, and semantic checks before returning a plan. This catches non-fatal validator diagnostics such as unknown step types, invalid container shapes, future step references, and invalid `data.steps.<id>.response.<field>` mappings.
+- **MCP output contracts**: MCP discovery injects complete `input_schema`, `output_schema`, and `example_response` metadata into the planning prompt. `output_schema` / `example_response` define which fields may be read from `mcp.call` single-tool `response` objects.
+- **Self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error, or semantic mapping error), the error is sent back to the LLM for automatic correction.
 - **OpenTelemetry tracing**: Full GenAI convention traces for the planning LLM call, MCP discovery, and pre-filter phases.
 
 ---
@@ -1133,6 +1145,19 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript-s
 - Ternary: `${data.inputs.mode == "fast" ? 0.0 : 0.7}`
 - Template literals: `` ${`Hello ${data.inputs.name}`} ``
 - Array methods: `${data.inputs.items.filter(i => i.active).length}`
+
+### Runtime limits
+
+Expression evaluation is sandboxed through `ExecutionLimits`:
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `max_expression_ast_nodes` | `500` | Parser/validator complexity limit. |
+| `max_expression_statements` | `100000` | JS-subset interpreter statement budget. |
+| `expression_timeout_seconds` | `15` | Evaluation timeout. |
+| `expression_memory_limit_bytes` | `50000000` | Parity configuration value; the Python in-tree interpreter currently enforces node/statement/time/call-depth limits. |
+
+Increase these limits only for trusted workflows; prefer simplifying expressions or moving complex logic to WFScript functions.
 
 ---
 

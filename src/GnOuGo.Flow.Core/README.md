@@ -143,6 +143,16 @@ mcp.RegisterServer("demo", new MockMcpServerConfig
               "properties": { "topic": { "type": "string" } },
               "required": ["topic"]
             }
+            """),
+            OutputSchema = JsonNode.Parse("""
+            {
+              "type": "object",
+              "properties": {
+                "topic": { "type": "string" },
+                "facts": { "type": "array", "items": { "type": "string" } }
+              },
+              "additionalProperties": false
+            }
             """)
         }
     ],
@@ -509,7 +519,7 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 | Batch/auto | `data.steps.<id>.results` (array) |
 | LLM-assisted | `data.steps.<id>.text`, `data.steps.<id>.json` |
 
-> **Important:** The `response` object is tool-specific. Do not assume field names unless documented by the tool. Use `json(data.steps.<id>.response)` to serialize it.
+> **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises `OutputSchema` or `ExampleResponse`. Access `data.steps.<id>.response.<field>` only for documented fields. Otherwise pass the whole response with `json(data.steps.<id>.response)` or add an `llm.call` normalization step with `structured_output`.
 
 #### MCP progress events → thinking telemetry
 
@@ -916,7 +926,9 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 - **MCP pre-filter**: Uses a lightweight LLM call to select only the MCP servers/tools relevant to the task instruction — reduces prompt size and cost.
 - **Full DSL reference injection**: The LLM receives the complete DSL documentation (step types, expressions, error handling) so it can generate valid workflows.
 - **Policy enforcement**: Generated workflows are validated against allowed/denied step types and max step limits.
-- **Self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error), the error is sent back to the LLM for automatic correction.
+- **Full validation before acceptance**: `workflow.plan` runs the validator, compiler, and semantic checks before returning a plan. This catches non-fatal validator diagnostics such as unknown step types, invalid container shapes, future step references, and invalid `data.steps.<id>.response.<field>` mappings.
+- **MCP output contracts**: MCP discovery injects complete `input_schema`, `output_schema`, and `example_response` metadata into the planning prompt. `output_schema` / `example_response` define which fields may be read from `mcp.call` single-tool `response` objects.
+- **Self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error, or semantic mapping error), the error is sent back to the LLM for automatic correction.
 - **OpenTelemetry tracing**: Full GenAI convention traces for the planning LLM call, MCP discovery, and pre-filter phases.
 
 ---
@@ -1103,6 +1115,19 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 - Ternary: `${data.inputs.mode == "fast" ? 0.0 : 0.7}`
 - Template literals: `` ${`Hello ${data.inputs.name}`} ``
 - Array methods: `${data.inputs.items.filter(i => i.active).length}`
+
+### Runtime limits
+
+Expression evaluation is sandboxed through `ExecutionLimits`:
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `MaxExpressionAstNodes` | `500` | Parser/validator complexity limit. |
+| `MaxExpressionStatements` | `100000` | Jint statement budget for expression evaluation. |
+| `ExpressionTimeoutSeconds` | `15` | Evaluation timeout. |
+| `ExpressionMemoryLimitBytes` | `50000000` | Jint memory limit. |
+
+Increase these limits only for trusted workflows; prefer simplifying expressions or moving complex logic to WFScript functions.
 
 ---
 
