@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using GnOuGo.AI.Core;
+using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
@@ -146,6 +147,22 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("workflows:");
         basePrompt.AppendLine("  main:");
         basePrompt.AppendLine("    steps: []");
+
+        basePrompt.AppendLine();
+        basePrompt.AppendLine("[GENERATION VALIDATION CHECKLIST]");
+        basePrompt.AppendLine("Before returning YAML, self-check these rules and fix the YAML silently:");
+        basePrompt.AppendLine("- Use only exact step types listed in [AVAILABLE STEP TYPES]. Do not invent aliases or legacy names.");
+        basePrompt.AppendLine("- Every step has a unique non-empty `id` and a non-empty `type`.");
+        basePrompt.AppendLine("- Put common step fields (`id`, `type`, `if`, `input`, `output`, `retry`, `on_error`) at the step level, not inside `input`.");
+        basePrompt.AppendLine("- Put executor-specific arguments inside `input` only. For example `llm.call.input.prompt`, `mcp.call.input.server`, `template.render.input.template`.");
+        basePrompt.AppendLine("- Container mappings must use their documented shape: `sequence`/`loop.*` use step-level `steps`; `parallel` uses step-level `branches[].steps`; `switch` uses step-level `cases[].steps` and optional step-level `default`.");
+        basePrompt.AppendLine("- Do not reference future steps. Expressions may read `data.inputs.*` and outputs from earlier `data.steps.<id>.*` only.");
+        basePrompt.AppendLine("- Use documented output shapes exactly: `template.render` text is `data.steps.<id>.text`; `llm.call` text is `data.steps.<id>.text` and structured JSON is `data.steps.<id>.json`; `mcp.call` single-tool response is `data.steps.<id>.response`.");
+        basePrompt.AppendLine("- Do not assume nested fields inside opaque MCP `response` unless the tool schema/description explicitly documents them; pass the whole response onward when uncertain.");
+        basePrompt.AppendLine("- NEVER invent properties under `data.steps.<id>.response`. Access `response.<field>` only when an `output_schema` or `example_response` explicitly documents that field.");
+        basePrompt.AppendLine("- If an MCP response is opaque, use `json(data.steps.<id>.response)` to pass the whole response to another step.");
+        basePrompt.AppendLine("- If precise fields are needed from an opaque response, add an `llm.call` normalization step with `structured_output`, then read fields from `data.steps.<normalizer>.json`.");
+        basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
 
         basePrompt.AppendLine();
         basePrompt.AppendLine("[LLM MODEL PARAMETERS]");
@@ -374,8 +391,10 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                         // Compile to validate
                         if (validate?["compile"]?.GetValue<bool>() ?? true)
                         {
-                            var compiler = new Compilation.WorkflowCompiler();
+                            ValidateGeneratedWorkflow(generatedDoc);
+                            var compiler = new WorkflowCompiler();
                             compiler.Compile(generatedDoc);
+                            ValidateGeneratedWorkflowSemantics(generatedDoc, discovered);
                         }
                     }
                     catch (Exception ex)
@@ -1281,6 +1300,20 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                             schemaStr = schemaStr[..500] + "…";
                         sb.AppendLine($"      input_schema: {schemaStr}");
                     }
+                    if (t.OutputSchema != null)
+                    {
+                        var outputSchemaStr = t.OutputSchema.ToJsonString();
+                        if (outputSchemaStr.Length > 800)
+                            outputSchemaStr = outputSchemaStr[..800] + "…";
+                        sb.AppendLine($"      output_schema: {outputSchemaStr}");
+                    }
+                    if (t.ExampleResponse != null)
+                    {
+                        var exampleResponseStr = t.ExampleResponse.ToJsonString();
+                        if (exampleResponseStr.Length > 800)
+                            exampleResponseStr = exampleResponseStr[..800] + "…";
+                        sb.AppendLine($"      example_response: {exampleResponseStr}");
+                    }
                 }
             }
 
@@ -1319,6 +1352,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("If the exact tool or prompt name is unknown, use mcp.list first, then either add an intermediate explicit selection step or use mcp.call with prompt + model (+ optional temperature) and pass the discovered tools/prompts.");
         sb.AppendLine("When using LLM-assisted mcp.call, put the natural-language instruction in input.prompt and pass candidate capabilities through input.tools and/or input.prompts, typically from mcp.list outputs.");
         sb.AppendLine("If a server lists a recommended mcp.call timeout, include at least that value as `input.timeout_ms` for generated calls to that server.");
+        sb.AppendLine("For `mcp.call` single-tool outputs, access `data.steps.<id>.response.<field>` only when that field is documented in `output_schema` or `example_response` above. Otherwise the response is opaque: use `json(data.steps.<id>.response)` or normalize it with `llm.call` + `structured_output`.");
         return sb.ToString().TrimEnd();
     }
 
@@ -1351,6 +1385,75 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         return generatedDoc;
     }
 
+    private static void ValidateGeneratedWorkflow(WorkflowDocument generatedDoc)
+    {
+        var validator = new WorkflowValidator();
+        var errors = validator.Validate(generatedDoc);
+        if (errors.Count == 0)
+            return;
+
+        throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan,
+            "Generated workflow validation failed: " + FormatValidationErrors(errors));
+    }
+
+    private static void ValidateGeneratedWorkflowSemantics(WorkflowDocument generatedDoc, IReadOnlyList<McpServerDiscovery>? discovered)
+    {
+        try
+        {
+            WorkflowPlanSemanticValidator.Validate(generatedDoc, BuildMcpToolOutputContracts(discovered));
+        }
+        catch (WorkflowSemanticValidationException ex)
+        {
+            throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, ex.Message);
+        }
+    }
+
+    private static IReadOnlyList<McpToolOutputContract> BuildMcpToolOutputContracts(IReadOnlyList<McpServerDiscovery>? discovered)
+    {
+        if (discovered == null || discovered.Count == 0)
+            return Array.Empty<McpToolOutputContract>();
+
+        var contracts = new List<McpToolOutputContract>();
+        foreach (var server in discovered)
+        {
+            foreach (var tool in server.Tools)
+            {
+                contracts.Add(new McpToolOutputContract(
+                    server.Name,
+                    tool.Name,
+                    tool.OutputSchema?.DeepClone(),
+                    tool.ExampleResponse?.DeepClone()));
+            }
+        }
+
+        return contracts;
+    }
+
+    private static string FormatValidationErrors(IReadOnlyList<ValidationError> errors)
+    {
+        return string.Join("; ", errors.Select(error =>
+        {
+            var location = new StringBuilder();
+            if (!string.IsNullOrWhiteSpace(error.WorkflowName))
+                location.Append($"workflow '{error.WorkflowName}'");
+            if (!string.IsNullOrWhiteSpace(error.StepId))
+            {
+                if (location.Length > 0)
+                    location.Append(", ");
+                location.Append($"step '{error.StepId}'");
+            }
+            if (!string.IsNullOrWhiteSpace(error.Field))
+            {
+                if (location.Length > 0)
+                    location.Append(", ");
+                location.Append($"field '{error.Field}'");
+            }
+
+            var prefix = location.Length > 0 ? $"[{location}] " : "";
+            return $"{prefix}{error.Code}: {error.Message}";
+        }));
+    }
+
     private static string BuildStructuredPlanError(Exception ex, int attempt)
     {
         var message = ex.Message.Trim();
@@ -1363,6 +1466,10 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             errorCode = "MISSING_ROOT_KEY_VERSION";
         else if (lower.Contains("missing required field 'name'"))
             errorCode = "MISSING_ROOT_KEY_NAME";
+        else if (lower.Contains("step_type_unknown"))
+            errorCode = "UNKNOWN_STEP_TYPE";
+        else if (lower.Contains("missing_steps") || lower.Contains("missing_branches") || lower.Contains("missing_cases"))
+            errorCode = "INVALID_CONTAINER_SHAPE";
         else if (lower.Contains("yaml"))
             errorCode = "YAML_PARSE_ERROR";
         else if (lower.Contains("not allowed by policy") || lower.Contains("denied by policy"))

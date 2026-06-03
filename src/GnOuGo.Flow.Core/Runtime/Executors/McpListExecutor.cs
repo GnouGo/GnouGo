@@ -373,6 +373,10 @@ public sealed class McpListExecutor : IStepExecutor
                     };
                     if (t.InputSchema != null)
                         serverTool["input_schema"] = t.InputSchema.DeepClone();
+                    if (t.OutputSchema != null)
+                        serverTool["output_schema"] = t.OutputSchema.DeepClone();
+                    if (t.ExampleResponse != null)
+                        serverTool["example_response"] = t.ExampleResponse.DeepClone();
 
                     serverTools.Add(serverTool.DeepClone());
                     toolsArr?.Add((JsonNode)serverTool);

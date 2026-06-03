@@ -774,7 +774,9 @@ Produce the final answer strictly from the executed MCP results.
             {
                 Name = name,
                 Description = node["description"]?.GetValue<string>(),
-                InputSchema = node["input_schema"]?.DeepClone() ?? node["inputSchema"]?.DeepClone()
+                InputSchema = node["input_schema"]?.DeepClone() ?? node["inputSchema"]?.DeepClone(),
+                OutputSchema = node["output_schema"]?.DeepClone() ?? node["outputSchema"]?.DeepClone(),
+                ExampleResponse = node["example_response"]?.DeepClone() ?? node["exampleResponse"]?.DeepClone()
             }, usedNames));
         }
     }
