@@ -176,6 +176,9 @@ class ExecutionLimits(BaseModel):
     max_parallel_branches: int = 50
     max_loop_iterations: int = 1000
     max_expression_ast_nodes: int = 500
+    max_expression_statements: int = 100_000
+    expression_timeout_seconds: int = 15
+    expression_memory_limit_bytes: int = 50_000_000
     max_switch_cases: int = 100
     max_function_call_depth: int = 50
     log_step_content: bool = False
@@ -307,9 +310,13 @@ class McpServerMetadata(BaseModel):
 
 
 class McpToolInfo(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     name: str
     description: str | None = None
     input_schema: Any = None
+    output_schema: Any = Field(default=None, alias="outputSchema")
+    example_response: Any = Field(default=None, alias="exampleResponse")
 
 
 class McpResourceInfo(BaseModel):

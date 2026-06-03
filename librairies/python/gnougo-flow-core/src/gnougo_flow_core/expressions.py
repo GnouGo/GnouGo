@@ -16,7 +16,9 @@ from typing import Any, Callable
 
 from . import _jsmini
 from ._jsmini import (
-    ExecutionLimits,
+    ExecutionLimits as JsExecutionLimits,
+)
+from ._jsmini import (
     Interpreter,
     JsLimitError,
     JsParseError,
@@ -234,12 +236,26 @@ class ExpressionEvaluator:
     def __init__(
         self,
         extra_functions: dict[str, Callable[..., Any]] | None = None,
-        limits: ExecutionLimits | None = None,
+        limits: Any | None = None,
     ) -> None:
         self._functions: dict[str, Callable[..., Any]] = BuiltInFunctions.all()
         if extra_functions:
             self._functions.update(extra_functions)
-        self.limits = limits or ExecutionLimits()
+        self.limits = self._to_js_limits(limits)
+
+    @staticmethod
+    def _to_js_limits(limits: Any | None) -> JsExecutionLimits:
+        if isinstance(limits, JsExecutionLimits):
+            return limits
+        if limits is None:
+            return JsExecutionLimits(max_statements=100_000, timeout_seconds=15.0)
+
+        return JsExecutionLimits(
+            max_statements=max(1, int(getattr(limits, "max_expression_statements", 100_000) or 100_000)),
+            max_nodes=max(1, int(getattr(limits, "max_expression_ast_nodes", 500) or 500)),
+            timeout_seconds=max(0.001, float(getattr(limits, "expression_timeout_seconds", 15) or 15)),
+            max_call_depth=max(1, int(getattr(limits, "max_function_call_depth", 50) or 50)),
+        )
 
     @property
     def functions(self) -> dict[str, Callable[..., Any]]:
@@ -272,8 +288,14 @@ class ExpressionEvaluator:
         try:
             return interpreter.evaluate_expression(node, scope)
         except (JsRuntimeError, JsLimitError) as exc:
+            message = str(exc)
+            if isinstance(exc, JsLimitError) and "statement" in message.lower():
+                message = (
+                    f"Expression exceeded the configured statement limit ({self.limits.max_statements}). "
+                    "Increase ExecutionLimits.max_expression_statements or simplify the expression."
+                )
             raise WorkflowRuntimeException(
-                ErrorCodes.EVAL_ERROR, f"Expression error: {exc}"
+                ErrorCodes.EVAL_ERROR, f"Expression error: {message}"
             ) from exc
 
     @staticmethod

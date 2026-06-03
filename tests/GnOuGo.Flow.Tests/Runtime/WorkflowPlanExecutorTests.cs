@@ -365,6 +365,347 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_Reprompt_OnValidatorDiagnostics_NotOnlyCompilerFatalErrors()
+    {
+        var prompts = new List<string>();
+        int callCount = 0;
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => prompts.Add(req.Prompt))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    return new LLMResponse
+                    {
+                        Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: definitely.not.a.step\n"
+                    };
+                }
+
+                return new LLMResponse
+                {
+                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                };
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build something
+          on_invalid:
+            action: reprompt
+            max_attempts: 3
+");
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, prompts.Count);
+        Assert.Contains("[PREVIOUS ERROR]", prompts[1]);
+        Assert.Contains("UNKNOWN_STEP_TYPE", prompts[1]);
+        Assert.Contains("STEP_TYPE_UNKNOWN", prompts[1]);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_AllowsKnownMcpResponseProperty()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       workflows:
+                         main:
+                           steps:
+                             - id: fetch
+                               type: mcp.call
+                               input:
+                                 server: docs
+                                 method: get_doc
+                                 request: { id: "intro" }
+                             - id: map
+                               type: set
+                               input:
+                                 title: "${data.steps.fetch.response.title}"
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("docs", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "get_doc",
+                    Description = "Get a document",
+                    OutputSchema = JsonNode.Parse("""
+                    { "type": "object", "properties": { "title": { "type": "string" } }, "additionalProperties": false }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a docs workflow
+            prefilter: false
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsUnknownMcpResponseProperty()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       workflows:
+                         main:
+                           steps:
+                             - id: fetch
+                               type: mcp.call
+                               input:
+                                 server: docs
+                                 method: get_doc
+                                 request: { id: "intro" }
+                             - id: map
+                               type: set
+                               input:
+                                 title: "${data.steps.fetch.response.missing_title}"
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("docs", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "get_doc",
+                    Description = "Get a document",
+                    OutputSchema = JsonNode.Parse("""
+                    { "type": "object", "properties": { "title": { "type": "string" } }, "additionalProperties": false }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a docs workflow
+            prefilter: false
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("STEP_OUTPUT_PROPERTY_UNKNOWN", result.Error.Message);
+        Assert.Contains("data.steps.fetch.response.missing_title", result.Error.Message);
+        Assert.Contains("data.steps.fetch.response.title", result.Error.Message);
+        Assert.Contains("suggestion", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsDeepAccessIntoOpaqueMcpResponse()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       workflows:
+                         main:
+                           steps:
+                             - id: fetch
+                               type: mcp.call
+                               input:
+                                 server: docs
+                                 method: get_doc
+                                 request: { id: "intro" }
+                             - id: map
+                               type: set
+                               input:
+                                 title: "${data.steps.fetch.response.title}"
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("docs", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "get_doc", Description = "Get a document without a declared output contract" }
+            }
+        });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a docs workflow
+            prefilter: false
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("OPAQUE_RESPONSE_DEEP_ACCESS", result.Error.Message);
+        Assert.Contains("json(data.steps.fetch.response)", result.Error.Message);
+        Assert.Contains("structured_output", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RepromptCanFixOpaqueMcpResponseMapping()
+    {
+        var prompts = new List<string>();
+        int callCount = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => prompts.Add(req.Prompt))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                               version: 1
+                               workflows:
+                                 main:
+                                   steps:
+                                     - id: fetch
+                                       type: mcp.call
+                                       input:
+                                         server: docs
+                                         method: get_doc
+                                     - id: map
+                                       type: set
+                                       input:
+                                         title: "${data.steps.fetch.response.title}"
+                               """
+                    };
+                }
+
+                return new LLMResponse
+                {
+                    Text = """
+                           version: 1
+                           workflows:
+                             main:
+                               steps:
+                                 - id: fetch
+                                   type: mcp.call
+                                   input:
+                                     server: docs
+                                     method: get_doc
+                                 - id: normalize
+                                   type: llm.call
+                                   input:
+                                     model: gpt-4o-mini
+                                     prompt: "Normalize this MCP response: ${json(data.steps.fetch.response)}"
+                                     structured_output:
+                                       schema_inline:
+                                         type: object
+                                         properties:
+                                           title: { type: string }
+                                         required: [title]
+                                         additionalProperties: false
+                                 - id: map
+                                   type: set
+                                   input:
+                                     title: "${data.steps.normalize.json.title}"
+                           """
+                };
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("docs", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "get_doc", Description = "Get a document without a declared output contract" }
+            }
+        });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a docs workflow
+            prefilter: false
+          on_invalid:
+            action: reprompt
+            max_attempts: 2
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, prompts.Count);
+        Assert.Contains("OPAQUE_RESPONSE_DEEP_ACCESS", prompts[1]);
+        Assert.Contains("structured_output", prompts[1]);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_StripMarkdownFences()
     {
         var mockLlm = new Mock<ILLMClient>();
@@ -418,7 +759,14 @@ workflows:
             Description = "GitHub repository automation and file operations",
             Tools = new List<McpToolInfo>
             {
-                new() { Name = "list_repos", Description = "List repositories for a user", InputSchema = System.Text.Json.Nodes.JsonNode.Parse("{\"type\":\"object\",\"properties\":{\"user\":{\"type\":\"string\"}},\"required\":[\"user\"]}") },
+                new()
+                {
+                    Name = "list_repos",
+                    Description = "List repositories for a user",
+                    InputSchema = System.Text.Json.Nodes.JsonNode.Parse("{\"type\":\"object\",\"properties\":{\"user\":{\"type\":\"string\"}},\"required\":[\"user\"]}"),
+                    OutputSchema = JsonNode.Parse("{\"type\":\"object\",\"properties\":{\"repositories\":{\"type\":\"array\"}},\"additionalProperties\":false}"),
+                    ExampleResponse = JsonNode.Parse("{\"repositories\":[{\"name\":\"demo\"}]}")
+                },
                 new() { Name = "get_file", Description = "Get file contents from a repo" }
             },
             Prompts = new List<McpPromptInfo>
@@ -466,6 +814,9 @@ workflows:
         Assert.Contains("List repositories for a user", capturedPrompt);
         Assert.Contains("get_file", capturedPrompt);
         Assert.Contains("input_schema:", capturedPrompt);
+        Assert.Contains("output_schema:", capturedPrompt);
+        Assert.Contains("example_response:", capturedPrompt);
+        Assert.Contains("repositories", capturedPrompt);
         Assert.Contains("- weather: Weather forecasts and city conditions", capturedPrompt);
         Assert.Contains("get_weather", capturedPrompt);
 

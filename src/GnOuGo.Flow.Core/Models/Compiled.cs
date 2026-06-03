@@ -109,6 +109,9 @@ public sealed class ExecutionLimits
     public int MaxParallelBranches { get; set; } = 50;
     public int MaxLoopIterations { get; set; } = 1_000;
     public int MaxExpressionAstNodes { get; set; } = 500;
+    public int MaxExpressionStatements { get; set; } = 100_000;
+    public int ExpressionTimeoutSeconds { get; set; } = 15;
+    public int ExpressionMemoryLimitBytes { get; set; } = 50_000_000;
     public int MaxSwitchCases { get; set; } = 100;
     public int MaxFunctionCallDepth { get; set; } = 50;
 

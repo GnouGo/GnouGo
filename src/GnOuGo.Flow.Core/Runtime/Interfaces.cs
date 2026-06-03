@@ -259,6 +259,20 @@ public sealed class McpToolInfo
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public JsonNode? InputSchema { get; set; }
+
+    /// <summary>
+    /// Optional JSON Schema describing the tool result content returned as
+    /// <c>data.steps.&lt;step_id&gt;.response</c> by <c>mcp.call</c>.
+    /// When omitted, planners must treat the response as opaque.
+    /// </summary>
+    public JsonNode? OutputSchema { get; set; }
+
+    /// <summary>
+    /// Optional representative response example for prompt guidance.
+    /// If <see cref="OutputSchema"/> is omitted, planning validation can infer
+    /// a conservative object shape from this example.
+    /// </summary>
+    public JsonNode? ExampleResponse { get; set; }
 }
 
 /// <summary>

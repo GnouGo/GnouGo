@@ -77,7 +77,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             scriptFunctions[kv.Key] = kv.Value;
 
         // Rebuild evaluator with script functions
-        _evaluator = new ExpressionEvaluator(scriptFunctions);
+        _evaluator = CreateExpressionEvaluator(scriptFunctions, Limits);
         _interpolator = new StringInterpolator(_evaluator);
 
         var data = new JsonObject
@@ -210,7 +210,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                 scriptFunctions[kv.Key] = kv.Value;
         foreach (var kv in ScriptFunctions)
             scriptFunctions[kv.Key] = kv.Value;
-        _evaluator = new ExpressionEvaluator(scriptFunctions);
+        _evaluator = CreateExpressionEvaluator(scriptFunctions, Limits);
         _interpolator = new StringInterpolator(_evaluator);
 
         // Restore data from checkpoint
@@ -653,6 +653,17 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public ExpressionEvaluator Evaluator => _evaluator;
     public StringInterpolator Interpolator => _interpolator;
     public StepExecutorRegistry Registry => _registry;
+
+    private static ExpressionEvaluator CreateExpressionEvaluator(
+        Dictionary<string, Func<JsonNode?[], JsonNode?>> scriptFunctions,
+        ExecutionLimits limits)
+    {
+        return new ExpressionEvaluator(
+            scriptFunctions,
+            limits.MaxExpressionStatements,
+            TimeSpan.FromSeconds(limits.ExpressionTimeoutSeconds),
+            limits.ExpressionMemoryLimitBytes);
+    }
 
     /// <summary>
     /// Evaluates an <see cref="OutputDef"/> against the data context.
