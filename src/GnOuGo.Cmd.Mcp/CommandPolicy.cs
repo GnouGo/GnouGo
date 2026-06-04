@@ -225,6 +225,7 @@ public sealed class CommandPolicy
     public string RenderScript(AllowedCommandSettings command, JsonObject? parameters, string workingDirectory)
     {
         parameters ??= new JsonObject();
+        ApplyLegacyArgsAlias(parameters, command);
         var normalizedParameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var supplied in parameters.Select(kv => kv.Key))
@@ -270,6 +271,40 @@ public sealed class CommandPolicy
             throw new InvalidOperationException("Command script still contains unresolved placeholders.");
 
         return rendered;
+    }
+
+    private static void ApplyLegacyArgsAlias(JsonObject parameters, AllowedCommandSettings command)
+    {
+        if (!parameters.TryGetPropertyValue("args", out var argsNode)
+            || command.Parameters.ContainsKey("args"))
+        {
+            return;
+        }
+
+        // Backward compatibility: some clients send {"args":"<value>"}.
+        // Accept it only when the command declares exactly one non-args parameter.
+        if (command.Parameters.Count != 1)
+        {
+            throw new InvalidOperationException(
+                "Parameter 'args' is not declared for this command. " +
+                "Provide declared parameter names in parametersJson (for example {\"path\":\"...\"}).");
+        }
+
+        var targetParameter = command.Parameters.Keys.Single();
+        if (parameters.ContainsKey(targetParameter))
+            return;
+
+        if (argsNode is null)
+            throw new InvalidOperationException("Parameter 'args' must not be null.");
+
+        if (argsNode is not JsonValue argsValue || !argsValue.TryGetValue<string>(out var legacyValue) || string.IsNullOrWhiteSpace(legacyValue))
+        {
+            throw new InvalidOperationException(
+                "Parameter 'args' must be a non-empty JSON string when used as legacy alias.");
+        }
+
+        parameters[targetParameter] = legacyValue;
+        parameters.Remove("args");
     }
 
     internal static string EscapeForShell(string shellName, string value)
