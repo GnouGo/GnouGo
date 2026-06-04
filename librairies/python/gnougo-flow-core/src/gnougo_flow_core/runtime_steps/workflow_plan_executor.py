@@ -165,14 +165,46 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
     @staticmethod
     def _build_reprompt(base_prompt: str, exc: Exception) -> str:
+        structured_error = WorkflowPlanExecutor._build_structured_plan_error(exc)
         return (
             f"{base_prompt}\n\n"
             "The previous output was invalid. Fix it and return only valid YAML.\n"
-            f"Validation error: {exc}\n"
+            f"Validation error: {structured_error}\n"
             "[PREVIOUS ERROR]\n"
-            f"{exc}\n"
+            f"{structured_error}\n"
             "Fix the issues above and generate a corrected YAML."
         )
+
+    @staticmethod
+    def _build_structured_plan_error(exc: Exception) -> str:
+        message = str(exc).strip()
+        lower = message.lower()
+
+        error_code = "VALIDATION_ERROR"
+        if "missing required field 'workflows'" in lower:
+            error_code = "MISSING_ROOT_KEY_WORKFLOWS"
+        elif "missing required field 'version'" in lower:
+            error_code = "MISSING_ROOT_KEY_VERSION"
+        elif "missing required field 'name'" in lower:
+            error_code = "MISSING_ROOT_KEY_NAME"
+        elif "step_type_unknown" in lower:
+            error_code = "UNKNOWN_STEP_TYPE"
+        elif "missing_steps" in lower or "missing_branches" in lower or "missing_cases" in lower:
+            error_code = "INVALID_CONTAINER_SHAPE"
+        elif "step_reference_not_available" in lower or "step_reference_unknown" in lower or "semantic_mapping_error" in lower:
+            error_code = "SEMANTIC_MAPPING_ERROR"
+        elif "opaque_response_deep_access" in lower:
+            error_code = "OPAQUE_RESPONSE_DEEP_ACCESS"
+        elif "step_output_property_unknown" in lower:
+            error_code = "STEP_OUTPUT_PROPERTY_UNKNOWN"
+        elif "yaml" in lower:
+            error_code = "YAML_PARSE_ERROR"
+        elif "not allowed by policy" in lower or "denied by policy" in lower:
+            error_code = "POLICY_ERROR"
+        elif "exceeds limit" in lower:
+            error_code = "LIMIT_ERROR"
+
+        return f"code={error_code}; message={message}"
 
     async def _build_planning_prompt(
         self,
@@ -233,6 +265,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "`parallel` uses step-level `branches[].steps`; `switch` uses step-level `cases[].steps` "
             "and optional step-level `default`.\n"
             "- Do not reference future steps. Expressions may read `data.inputs.*` and outputs from earlier `data.steps.<id>.*` only.\n"
+            "- Do not reference `data.steps.<id>.*` produced only inside `switch` cases, `if`-guarded steps, or loop bodies from later steps unless you first map every possible path to a guaranteed value.\n"
+            "- Function arguments are evaluated before the function runs: `coalesce(data.steps.branch_a.value, data.steps.branch_b.value)` is invalid if either branch step may not exist.\n"
+            "- After a `switch`, prefer writing a common result object via the same workflow-level output alias in every case/default branch, or add one guaranteed normalization step that receives the whole switch/branch context and emits a stable schema.\n"
             "- Use documented output shapes exactly: `template.render` text is `data.steps.<id>.text`; "
             "`llm.call` text is `data.steps.<id>.text` and structured JSON is `data.steps.<id>.json`; "
             "`mcp.call` single-tool response is `data.steps.<id>.response`.\n"

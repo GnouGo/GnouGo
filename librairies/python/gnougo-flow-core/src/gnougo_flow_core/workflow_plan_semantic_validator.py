@@ -121,6 +121,7 @@ def _validate_step(
     _validate_string(step.if_, workflow_name, step.id, "if", known_contracts, all_step_ids, errors)
     _validate_string(step.expr, workflow_name, step.id, "expr", known_contracts, all_step_ids, errors)
     _validate_json(step.input, workflow_name, step.id, "input", known_contracts, all_step_ids, errors)
+    step_is_conditional = bool(step.if_ and str(step.if_).strip())
 
     if step.on_error:
         for index, case in enumerate(step.on_error.cases):
@@ -135,18 +136,34 @@ def _validate_step(
             for key, value in branch_known.items():
                 if key not in known_contracts:
                     produced[key] = copy.deepcopy(value)
-        known_contracts.update(produced)
-    else:
-        if step.steps:
-            _validate_step_list(step.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, errors)
+        if not step_is_conditional:
+            known_contracts.update(produced)
+    elif step.type == "switch":
         if step.cases:
             for case in step.cases:
                 _validate_string(case.when, workflow_name, step.id, "cases.when", known_contracts, all_step_ids, errors)
-                _validate_step_list(case.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, errors)
-        if step.default:
-            _validate_step_list(step.default, workflow_name, known_contracts, all_step_ids, mcp_contracts, errors)
 
-    if step.id:
+                # Only one switch branch runs, so case-local outputs are not guaranteed after the switch.
+                case_known = copy.deepcopy(known_contracts)
+                _validate_step_list(case.steps, workflow_name, case_known, all_step_ids, mcp_contracts, errors)
+
+        if step.default:
+            default_known = copy.deepcopy(known_contracts)
+            _validate_step_list(step.default, workflow_name, default_known, all_step_ids, mcp_contracts, errors)
+    elif step.type in {"loop.sequential", "loop.parallel"}:
+        if step.steps:
+            # Loop body outputs are not guaranteed after the loop because iterations may be zero.
+            loop_known = copy.deepcopy(known_contracts)
+            _validate_step_list(step.steps, workflow_name, loop_known, all_step_ids, mcp_contracts, errors)
+    else:
+        if step.steps:
+            if step_is_conditional:
+                conditional_known = copy.deepcopy(known_contracts)
+                _validate_step_list(step.steps, workflow_name, conditional_known, all_step_ids, mcp_contracts, errors)
+            else:
+                _validate_step_list(step.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, errors)
+
+    if step.id and not step_is_conditional:
         known_contracts[step.id] = _build_step_output_schema(step, mcp_contracts)
 
 
