@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.9.2 - 2026-06-04
+
+- fix: workflow plan validation input/output (#49) (release) (38cb38a)
+
 ## v0.9.1 - 2026-06-03
 
 - fix: enhance workflow.plan (#48) (release) (b682844)
