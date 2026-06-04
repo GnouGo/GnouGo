@@ -148,6 +148,8 @@ internal static class WorkflowPlanSemanticValidator
         ValidateString(step.Expr, workflowName, step.Id, "expr", knownContracts, allStepIds, errors);
         ValidateJson(step.Input, workflowName, step.Id, "input", knownContracts, allStepIds, errors);
 
+        var stepIsConditional = !string.IsNullOrWhiteSpace(step.If);
+
         if (step.OnError != null)
         {
             for (var i = 0; i < step.OnError.Cases.Count; i++)
@@ -169,28 +171,60 @@ internal static class WorkflowPlanSemanticValidator
                     branchProducedContracts[produced.Key] = produced.Value?.DeepClone();
             }
 
-            foreach (var produced in branchProducedContracts)
-                knownContracts[produced.Key] = produced.Value?.DeepClone();
+            if (!stepIsConditional)
+            {
+                foreach (var produced in branchProducedContracts)
+                    knownContracts[produced.Key] = produced.Value?.DeepClone();
+            }
         }
-        else
+        else if (step.Type == "switch")
         {
-            if (step.Steps != null)
-                ValidateStepList(step.Steps, workflowName, knownContracts, allStepIds, mcpContracts, errors);
-
             if (step.Cases != null)
             {
                 foreach (var @case in step.Cases)
                 {
                     ValidateString(@case.When, workflowName, step.Id, "cases.when", knownContracts, allStepIds, errors);
-                    ValidateStepList(@case.Steps, workflowName, knownContracts, allStepIds, mcpContracts, errors);
+
+                    // Only one switch branch runs at runtime, so branch-local step outputs are not
+                    // guaranteed mappings after the switch. Validate each branch independently.
+                    var caseKnown = CloneContracts(knownContracts);
+                    ValidateStepList(@case.Steps, workflowName, caseKnown, allStepIds, mcpContracts, errors);
                 }
             }
 
             if (step.Default != null)
-                ValidateStepList(step.Default, workflowName, knownContracts, allStepIds, mcpContracts, errors);
+            {
+                var defaultKnown = CloneContracts(knownContracts);
+                ValidateStepList(step.Default, workflowName, defaultKnown, allStepIds, mcpContracts, errors);
+            }
+        }
+        else if (step.Type is "loop.sequential" or "loop.parallel")
+        {
+            if (step.Steps != null)
+            {
+                // Loop bodies may execute zero times, so their inner step outputs are not guaranteed
+                // mappings after the loop. References inside the loop are still validated in order.
+                var loopKnown = CloneContracts(knownContracts);
+                ValidateStepList(step.Steps, workflowName, loopKnown, allStepIds, mcpContracts, errors);
+            }
+        }
+        else
+        {
+            if (step.Steps != null)
+            {
+                if (stepIsConditional)
+                {
+                    var conditionalKnown = CloneContracts(knownContracts);
+                    ValidateStepList(step.Steps, workflowName, conditionalKnown, allStepIds, mcpContracts, errors);
+                }
+                else
+                {
+                    ValidateStepList(step.Steps, workflowName, knownContracts, allStepIds, mcpContracts, errors);
+                }
+            }
         }
 
-        if (!string.IsNullOrWhiteSpace(step.Id))
+        if (!stepIsConditional && !string.IsNullOrWhiteSpace(step.Id))
             knownContracts[step.Id] = BuildStepOutputSchema(step, mcpContracts);
     }
 

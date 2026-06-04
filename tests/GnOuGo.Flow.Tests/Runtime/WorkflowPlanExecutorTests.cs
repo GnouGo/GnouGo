@@ -157,6 +157,9 @@ workflows:
         Assert.Contains("LLM_TIMEOUT (retryable)", capturedPrompt);
         Assert.Contains("- template.render", capturedPrompt);
         Assert.Contains("JSON_PARSE (non-retryable)", capturedPrompt);
+        Assert.Contains("Function arguments are evaluated before the function runs", capturedPrompt);
+        Assert.Contains("coalesce(data.steps.branch_a.value, data.steps.branch_b.value)", capturedPrompt);
+        Assert.Contains("produced only inside `switch` cases", capturedPrompt);
         // Should contain built-in functions doc
         Assert.Contains("exists(val)", capturedPrompt);
         Assert.Contains("len(val)", capturedPrompt);
@@ -602,6 +605,195 @@ workflows:
         Assert.Contains("OPAQUE_RESPONSE_DEEP_ACCESS", result.Error.Message);
         Assert.Contains("json(data.steps.fetch.response)", result.Error.Message);
         Assert.Contains("structured_output", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsSwitchBranchStepOutputMappingAfterSwitch()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       workflows:
+                         main:
+                           steps:
+                             - id: classify
+                               type: set
+                               input:
+                                 classification: question
+                             - id: route_action
+                               type: switch
+                               cases:
+                                 - when: "${data.steps.classify.classification == 'question'}"
+                                   steps:
+                                     - id: set_question_result
+                                       type: set
+                                       input:
+                                         pr_link: "N/A"
+                                 - when: "${data.steps.classify.classification == 'bug'}"
+                                   steps:
+                                     - id: set_fix_result
+                                       type: set
+                                       input:
+                                         pr_link: "https://example.test/pr/1"
+                               default:
+                                 - id: set_complex_result
+                                   type: set
+                                   input:
+                                     pr_link: "N/A"
+                             - id: map_result
+                               type: set
+                               input:
+                                 pr_link: "${coalesce(data.steps.set_fix_result.pr_link, data.steps.set_question_result.pr_link, data.steps.set_complex_result.pr_link, 'N/A')}"
+                       """
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a branching workflow
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("STEP_REFERENCE_NOT_AVAILABLE", result.Error.Message);
+        Assert.Contains("data.steps.set_fix_result.pr_link", result.Error.Message);
+        Assert.Contains("data.steps.set_question_result.pr_link", result.Error.Message);
+        Assert.Contains("data.steps.set_complex_result.pr_link", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RepromptCanFixSwitchBranchMapping()
+    {
+        var prompts = new List<string>();
+        var callCount = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => prompts.Add(req.Prompt))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                               version: 1
+                               workflows:
+                                 main:
+                                   steps:
+                                     - id: classify
+                                       type: set
+                                       input:
+                                         classification: question
+                                     - id: route_action
+                                       type: switch
+                                       cases:
+                                         - when: "${data.steps.classify.classification == 'question'}"
+                                           steps:
+                                             - id: set_question_result
+                                               type: set
+                                               input:
+                                                 pr_link: "N/A"
+                                         - when: "${data.steps.classify.classification == 'bug'}"
+                                           steps:
+                                             - id: set_fix_result
+                                               type: set
+                                               input:
+                                                 pr_link: "https://example.test/pr/1"
+                                       default:
+                                         - id: set_complex_result
+                                           type: set
+                                           input:
+                                             pr_link: "N/A"
+                                     - id: map_result
+                                       type: set
+                                       input:
+                                         pr_link: "${coalesce(data.steps.set_fix_result.pr_link, data.steps.set_question_result.pr_link, data.steps.set_complex_result.pr_link, 'N/A')}"
+                               """
+                    };
+                }
+
+                return new LLMResponse
+                {
+                    Text = """
+                           version: 1
+                           workflows:
+                             main:
+                               steps:
+                                 - id: classify
+                                   type: set
+                                   input:
+                                     classification: question
+                                 - id: route_action
+                                   type: switch
+                                   cases:
+                                     - when: "${data.steps.classify.classification == 'question'}"
+                                       steps:
+                                         - id: set_question_result
+                                           type: set
+                                           output: branch_result
+                                           input:
+                                             pr_link: "N/A"
+                                     - when: "${data.steps.classify.classification == 'bug'}"
+                                       steps:
+                                         - id: set_fix_result
+                                           type: set
+                                           output: branch_result
+                                           input:
+                                             pr_link: "https://example.test/pr/1"
+                                   default:
+                                     - id: set_complex_result
+                                       type: set
+                                       output: branch_result
+                                       input:
+                                         pr_link: "N/A"
+                                 - id: map_result
+                                   type: set
+                                   input:
+                                     pr_link: "${data.branch_result.pr_link}"
+                           """
+                };
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a branching workflow
+          on_invalid:
+            action: reprompt
+            max_attempts: 2
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, prompts.Count);
+        Assert.Contains("SEMANTIC_MAPPING_ERROR", prompts[1]);
+        Assert.Contains("STEP_REFERENCE_NOT_AVAILABLE", prompts[1]);
+        Assert.Contains("set_fix_result", prompts[1]);
     }
 
     [Fact]
