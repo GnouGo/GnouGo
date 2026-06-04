@@ -157,6 +157,9 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- Put executor-specific arguments inside `input` only. For example `llm.call.input.prompt`, `mcp.call.input.server`, `template.render.input.template`.");
         basePrompt.AppendLine("- Container mappings must use their documented shape: `sequence`/`loop.*` use step-level `steps`; `parallel` uses step-level `branches[].steps`; `switch` uses step-level `cases[].steps` and optional step-level `default`.");
         basePrompt.AppendLine("- Do not reference future steps. Expressions may read `data.inputs.*` and outputs from earlier `data.steps.<id>.*` only.");
+        basePrompt.AppendLine("- Do not reference `data.steps.<id>.*` produced only inside `switch` cases, `if`-guarded steps, or loop bodies from later steps unless you first map every possible path to a guaranteed value.");
+        basePrompt.AppendLine("- Function arguments are evaluated before the function runs: `coalesce(data.steps.branch_a.value, data.steps.branch_b.value)` is invalid if either branch step may not exist.");
+        basePrompt.AppendLine("- After a `switch`, prefer writing a common result object via the same workflow-level output alias in every case/default branch, or add one guaranteed normalization step that receives the whole switch/branch context and emits a stable schema.");
         basePrompt.AppendLine("- Use documented output shapes exactly: `template.render` text is `data.steps.<id>.text`; `llm.call` text is `data.steps.<id>.text` and structured JSON is `data.steps.<id>.json`; `mcp.call` single-tool response is `data.steps.<id>.response`.");
         basePrompt.AppendLine("- Do not assume nested fields inside opaque MCP `response` unless the tool schema/description explicitly documents them; pass the whole response onward when uncertain.");
         basePrompt.AppendLine("- NEVER invent properties under `data.steps.<id>.response`. Access `response.<field>` only when an `output_schema` or `example_response` explicitly documents that field.");
@@ -1421,6 +1424,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 contracts.Add(new McpToolOutputContract(
                     server.Name,
                     tool.Name,
+                    tool.InputSchema?.DeepClone(),
                     tool.OutputSchema?.DeepClone(),
                     tool.ExampleResponse?.DeepClone()));
             }
@@ -1470,6 +1474,12 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             errorCode = "UNKNOWN_STEP_TYPE";
         else if (lower.Contains("missing_steps") || lower.Contains("missing_branches") || lower.Contains("missing_cases"))
             errorCode = "INVALID_CONTAINER_SHAPE";
+        else if (lower.Contains("step_reference_not_available") || lower.Contains("step_reference_unknown") || lower.Contains("semantic_mapping_error"))
+            errorCode = "SEMANTIC_MAPPING_ERROR";
+        else if (lower.Contains("opaque_response_deep_access"))
+            errorCode = "OPAQUE_RESPONSE_DEEP_ACCESS";
+        else if (lower.Contains("step_output_property_unknown"))
+            errorCode = "STEP_OUTPUT_PROPERTY_UNKNOWN";
         else if (lower.Contains("yaml"))
             errorCode = "YAML_PARSE_ERROR";
         else if (lower.Contains("not allowed by policy") || lower.Contains("denied by policy"))

@@ -126,6 +126,9 @@ async def test_workflow_plan_prompt_contains_dotnet_like_sections() -> None:
     assert "[AVAILABLE MCP SERVERS]" in prompt
     assert "[STEP EXCEPTIONS BY TYPE]" in prompt
     assert "## Server: demo" in prompt
+    assert "Function arguments are evaluated before the function runs" in prompt
+    assert "coalesce(data.steps.branch_a.value, data.steps.branch_b.value)" in prompt
+    assert "produced only inside `switch` cases" in prompt
 
 
 @pytest.mark.asyncio
@@ -618,6 +621,173 @@ async def test_workflow_plan_semantic_validation_rejects_deep_access_into_opaque
 
 
 @pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_rejects_switch_branch_step_output_mapping_after_switch() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build branching workflow"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: classify
+            type: set
+            input:
+              classification: question
+          - id: route_action
+            type: switch
+            cases:
+              - when: "${data.steps.classify.classification == 'question'}"
+                steps:
+                  - id: set_question_result
+                    type: set
+                    input:
+                      pr_link: "N/A"
+              - when: "${data.steps.classify.classification == 'bug'}"
+                steps:
+                  - id: set_fix_result
+                    type: set
+                    input:
+                      pr_link: "https://example.test/pr/1"
+            default:
+              - id: set_complex_result
+                type: set
+                input:
+                  pr_link: "N/A"
+          - id: map_result
+            type: set
+            input:
+              pr_link: "${coalesce(data.steps.set_fix_result.pr_link, data.steps.set_question_result.pr_link, data.steps.set_complex_result.pr_link, 'N/A')}"
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "STEP_REFERENCE_NOT_AVAILABLE" in result.error.message
+    assert "data.steps.set_fix_result.pr_link" in result.error.message
+    assert "data.steps.set_question_result.pr_link" in result.error.message
+    assert "data.steps.set_complex_result.pr_link" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_reprompt_can_fix_switch_branch_mapping() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build branching workflow"
+                prefilter: false
+              on_invalid:
+                action: reprompt
+                max_attempts: 2
+    """
+    invalid_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: classify
+            type: set
+            input:
+              classification: question
+          - id: route_action
+            type: switch
+            cases:
+              - when: "${data.steps.classify.classification == 'question'}"
+                steps:
+                  - id: set_question_result
+                    type: set
+                    input:
+                      pr_link: "N/A"
+              - when: "${data.steps.classify.classification == 'bug'}"
+                steps:
+                  - id: set_fix_result
+                    type: set
+                    input:
+                      pr_link: "https://example.test/pr/1"
+            default:
+              - id: set_complex_result
+                type: set
+                input:
+                  pr_link: "N/A"
+          - id: map_result
+            type: set
+            input:
+              pr_link: "${coalesce(data.steps.set_fix_result.pr_link, data.steps.set_question_result.pr_link, data.steps.set_complex_result.pr_link, 'N/A')}"
+    """
+    fixed_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: classify
+            type: set
+            input:
+              classification: question
+          - id: route_action
+            type: switch
+            cases:
+              - when: "${data.steps.classify.classification == 'question'}"
+                steps:
+                  - id: set_question_result
+                    type: set
+                    output: branch_result
+                    input:
+                      pr_link: "N/A"
+              - when: "${data.steps.classify.classification == 'bug'}"
+                steps:
+                  - id: set_fix_result
+                    type: set
+                    output: branch_result
+                    input:
+                      pr_link: "https://example.test/pr/1"
+            default:
+              - id: set_complex_result
+                type: set
+                output: branch_result
+                input:
+                  pr_link: "N/A"
+          - id: map_result
+            type: set
+            input:
+              pr_link: "${data.branch_result.pr_link}"
+    """
+
+    llm = SequencePlanLlm([invalid_yaml, fixed_yaml])
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    assert len(llm.prompts) == 2
+    assert "SEMANTIC_MAPPING_ERROR" in llm.prompts[1]
+    assert "STEP_REFERENCE_NOT_AVAILABLE" in llm.prompts[1]
+    assert "set_fix_result" in llm.prompts[1]
+
+
+@pytest.mark.asyncio
 async def test_workflow_plan_semantic_validation_reprompt_can_fix_opaque_mcp_response_mapping() -> None:
     source = """
     version: 1
@@ -689,5 +859,66 @@ async def test_workflow_plan_semantic_validation_reprompt_can_fix_opaque_mcp_res
     assert len(llm.prompts) == 2
     assert "OPAQUE_RESPONSE_DEEP_ACCESS" in llm.prompts[1]
     assert "structured_output" in llm.prompts[1]
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_rejects_invalid_mcp_request_against_input_schema() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "close a github issue"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: close_issue
+            type: mcp.call
+            input:
+              server: docs
+              method: issue_write
+              request:
+                owner: AxaFrance
+                repo: oidc-client
+                issue_number: 1651
+                state: closed
+    """
+    tool = McpToolInfo(
+        name="issue_write",
+        description="Update an issue",
+        input_schema={
+            "type": "object",
+            "required": ["owner", "repo", "issue_number", "method"],
+            "properties": {
+                "owner": {"type": "string"},
+                "repo": {"type": "string"},
+                "issue_number": {"type": "number"},
+                "method": {"type": "string"},
+                "state": {"type": "string"},
+            },
+            "additionalProperties": False,
+        },
+    )
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "MCP_REQUEST_SCHEMA_INVALID" in result.error.message
+    assert "input.request.method" in result.error.message
+    assert "docs/issue_write" in result.error.message
 
 

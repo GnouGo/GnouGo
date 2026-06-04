@@ -111,7 +111,7 @@ public sealed class ExecutionLimits
     public int MaxExpressionAstNodes { get; set; } = 500;
     public int MaxExpressionStatements { get; set; } = 100_000;
     public int ExpressionTimeoutSeconds { get; set; } = 15;
-    public int ExpressionMemoryLimitBytes { get; set; } = 50_000_000;
+    public int ExpressionMemoryLimitBytes { get; set; } = 1_000_000_000;
     public int MaxSwitchCases { get; set; } = 100;
     public int MaxFunctionCallDepth { get; set; } = 50;
 

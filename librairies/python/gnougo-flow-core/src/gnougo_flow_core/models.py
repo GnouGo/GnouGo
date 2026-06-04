@@ -271,6 +271,9 @@ class LLMRequest(BaseModel):
     # "max" maps to the highest provider-supported level (e.g. "high" for OpenAI).
     reasoning: str | None = None
     tools: list[LLMTool] | None = None
+    # When True, hints to the provider that this is a background/planning call
+    # (lower priority queue, no interactive latency budget). Mirrors .NET UseBackgroundMode.
+    use_background_mode: bool = False
 
 
 class LLMResponse(BaseModel):

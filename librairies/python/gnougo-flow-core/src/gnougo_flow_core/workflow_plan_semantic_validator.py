@@ -14,6 +14,7 @@ from .models import OutputDef, StepDef, WorkflowDocument
 class McpToolOutputContract:
     server_name: str
     tool_name: str
+    input_schema: Any = None
     output_schema: Any = None
     example_response: Any = None
 
@@ -121,6 +122,8 @@ def _validate_step(
     _validate_string(step.if_, workflow_name, step.id, "if", known_contracts, all_step_ids, errors)
     _validate_string(step.expr, workflow_name, step.id, "expr", known_contracts, all_step_ids, errors)
     _validate_json(step.input, workflow_name, step.id, "input", known_contracts, all_step_ids, errors)
+    _validate_mcp_call_input_request(step, workflow_name, mcp_contracts, errors)
+    step_is_conditional = bool(step.if_ and str(step.if_).strip())
 
     if step.on_error:
         for index, case in enumerate(step.on_error.cases):
@@ -135,18 +138,34 @@ def _validate_step(
             for key, value in branch_known.items():
                 if key not in known_contracts:
                     produced[key] = copy.deepcopy(value)
-        known_contracts.update(produced)
-    else:
-        if step.steps:
-            _validate_step_list(step.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, errors)
+        if not step_is_conditional:
+            known_contracts.update(produced)
+    elif step.type == "switch":
         if step.cases:
             for case in step.cases:
                 _validate_string(case.when, workflow_name, step.id, "cases.when", known_contracts, all_step_ids, errors)
-                _validate_step_list(case.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, errors)
-        if step.default:
-            _validate_step_list(step.default, workflow_name, known_contracts, all_step_ids, mcp_contracts, errors)
 
-    if step.id:
+                # Only one switch branch runs, so case-local outputs are not guaranteed after the switch.
+                case_known = copy.deepcopy(known_contracts)
+                _validate_step_list(case.steps, workflow_name, case_known, all_step_ids, mcp_contracts, errors)
+
+        if step.default:
+            default_known = copy.deepcopy(known_contracts)
+            _validate_step_list(step.default, workflow_name, default_known, all_step_ids, mcp_contracts, errors)
+    elif step.type in {"loop.sequential", "loop.parallel"}:
+        if step.steps:
+            # Loop body outputs are not guaranteed after the loop because iterations may be zero.
+            loop_known = copy.deepcopy(known_contracts)
+            _validate_step_list(step.steps, workflow_name, loop_known, all_step_ids, mcp_contracts, errors)
+    else:
+        if step.steps:
+            if step_is_conditional:
+                conditional_known = copy.deepcopy(known_contracts)
+                _validate_step_list(step.steps, workflow_name, conditional_known, all_step_ids, mcp_contracts, errors)
+            else:
+                _validate_step_list(step.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, errors)
+
+    if step.id and not step_is_conditional:
         known_contracts[step.id] = _build_step_output_schema(step, mcp_contracts)
 
 
@@ -245,6 +264,189 @@ def _validate_string(
                     message=result[1],
                 )
             )
+
+
+@dataclass(slots=True)
+class _SchemaValidationError:
+    path: str
+    message: str
+
+
+def _validate_mcp_call_input_request(
+    step: StepDef,
+    workflow_name: str,
+    mcp_contracts: dict[tuple[str, str], McpToolOutputContract],
+    errors: list[WorkflowSemanticValidationError],
+) -> None:
+    if step.type != "mcp.call" or not isinstance(step.input, dict):
+        return
+
+    kind = _try_get_input_string(step, "kind") or "tool"
+    if kind.lower() != "tool":
+        return
+
+    server_name = _try_get_input_string(step, "server")
+    method_name = _try_get_input_string(step, "method")
+    if not server_name or not method_name:
+        return
+
+    contract = mcp_contracts.get((server_name, method_name))
+    if contract is None or not isinstance(contract.input_schema, dict):
+        return
+
+    request_node = step.input.get("request")
+    request_object = request_node if isinstance(request_node, dict) else {}
+    schema_errors: list[_SchemaValidationError] = []
+    _validate_json_node_against_schema(request_object, contract.input_schema, "", schema_errors)
+    if not schema_errors:
+        return
+
+    allowed_paths = list(_enumerate_allowed_paths("input.request", contract.input_schema))[:64]
+    for schema_error in schema_errors:
+        invalid_path = "input.request" if not schema_error.path else f"input.request.{schema_error.path}"
+        errors.append(
+            WorkflowSemanticValidationError(
+                code="MCP_REQUEST_SCHEMA_INVALID",
+                workflow_name=workflow_name,
+                step_id=step.id,
+                field="input.request",
+                invalid_path=invalid_path,
+                allowed_paths=allowed_paths,
+                suggestion=f"Align `mcp.call` request with MCP tool schema for server '{server_name}' method '{method_name}'.",
+                message=f"mcp.call request for '{server_name}/{method_name}' is invalid: {schema_error.message}",
+            )
+        )
+
+
+def _validate_json_node_against_schema(value: Any, schema: Any, path: str, errors: list[_SchemaValidationError]) -> None:
+    if not isinstance(schema, dict):
+        return
+
+    any_of = schema.get("anyOf")
+    if isinstance(any_of, list):
+        if _matches_any_schema_variant(value, any_of):
+            return
+        errors.append(_SchemaValidationError(path=path, message="value does not match any allowed schema variant"))
+        return
+
+    one_of = schema.get("oneOf")
+    if isinstance(one_of, list):
+        if _matches_any_schema_variant(value, one_of):
+            return
+        errors.append(_SchemaValidationError(path=path, message="value does not match any allowed schema variant"))
+        return
+
+    schema_type = _read_schema_type(schema)
+    if schema_type == "object":
+        _validate_object_against_schema(value, schema, path, errors)
+    elif schema_type == "array":
+        _validate_array_against_schema(value, schema, path, errors)
+    elif schema_type in {"string", "number", "integer", "boolean", "null"}:
+        _validate_primitive_type(value, schema_type, path, errors)
+
+
+def _matches_any_schema_variant(value: Any, variants: list[Any]) -> bool:
+    for variant in variants:
+        variant_errors: list[_SchemaValidationError] = []
+        _validate_json_node_against_schema(value, variant, "", variant_errors)
+        if not variant_errors:
+            return True
+    return False
+
+
+def _validate_object_against_schema(value: Any, schema: dict[str, Any], path: str, errors: list[_SchemaValidationError]) -> None:
+    if _is_dynamic_expression_string(value):
+        return
+    if not isinstance(value, dict):
+        errors.append(_SchemaValidationError(path=path, message="expected object"))
+        return
+
+    required = schema.get("required")
+    if isinstance(required, list):
+        for required_name in required:
+            if not isinstance(required_name, str) or not required_name.strip():
+                continue
+            if required_name not in value:
+                required_path = required_name if not path else f"{path}.{required_name}"
+                errors.append(_SchemaValidationError(path=required_path, message="missing required property"))
+
+    properties = schema.get("properties")
+    for property_name, property_value in value.items():
+        property_schema = properties.get(property_name) if isinstance(properties, dict) else None
+        property_path = property_name if not path else f"{path}.{property_name}"
+
+        if property_schema is not None:
+            _validate_json_node_against_schema(property_value, property_schema, property_path, errors)
+            continue
+
+        if not _allows_additional_properties(schema):
+            errors.append(_SchemaValidationError(path=property_path, message="property is not allowed by schema"))
+            continue
+
+        additional_schema = schema.get("additionalProperties")
+        if isinstance(additional_schema, dict):
+            _validate_json_node_against_schema(property_value, additional_schema, property_path, errors)
+
+
+def _validate_array_against_schema(value: Any, schema: dict[str, Any], path: str, errors: list[_SchemaValidationError]) -> None:
+    if _is_dynamic_expression_string(value):
+        return
+    if not isinstance(value, list):
+        errors.append(_SchemaValidationError(path=path, message="expected array"))
+        return
+
+    if "items" not in schema:
+        return
+    for index, item in enumerate(value):
+        item_path = f"[{index}]" if not path else f"{path}[{index}]"
+        _validate_json_node_against_schema(item, schema.get("items"), item_path, errors)
+
+
+def _validate_primitive_type(value: Any, expected_type: str, path: str, errors: list[_SchemaValidationError]) -> None:
+    if _is_dynamic_expression_string(value):
+        return
+
+    if value is None:
+        if expected_type != "null":
+            errors.append(_SchemaValidationError(path=path, message=f"expected {expected_type} but got null"))
+        return
+
+    is_valid = False
+    if expected_type == "string":
+        is_valid = isinstance(value, str)
+    elif expected_type == "number":
+        is_valid = isinstance(value, (int, float)) and not isinstance(value, bool)
+    elif expected_type == "integer":
+        is_valid = isinstance(value, int) and not isinstance(value, bool)
+    elif expected_type == "boolean":
+        is_valid = isinstance(value, bool)
+    elif expected_type == "null":
+        is_valid = value is None
+
+    if not is_valid:
+        errors.append(_SchemaValidationError(path=path, message=f"expected {expected_type}"))
+
+
+def _is_dynamic_expression_string(value: Any) -> bool:
+    return isinstance(value, str) and "${" in value
+
+
+def _read_schema_type(schema: dict[str, Any]) -> str | None:
+    type_value = schema.get("type")
+    if isinstance(type_value, str):
+        return type_value
+    if isinstance(type_value, list):
+        for item in type_value:
+            if isinstance(item, str) and item.strip() and item != "null":
+                return item
+    return None
+
+
+def _allows_additional_properties(schema: dict[str, Any]) -> bool:
+    if "additionalProperties" not in schema:
+        return False
+    additional = schema.get("additionalProperties")
+    return additional is True or isinstance(additional, dict)
 
 
 def _build_property_suggestion(prefix: str, referenced_step_id: str, is_opaque_response: bool) -> str:

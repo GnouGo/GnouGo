@@ -7,6 +7,7 @@ namespace GnOuGo.Flow.Core.Runtime;
 internal sealed record McpToolOutputContract(
     string ServerName,
     string ToolName,
+    JsonNode? InputSchema,
     JsonNode? OutputSchema,
     JsonNode? ExampleResponse);
 
@@ -147,6 +148,9 @@ internal static class WorkflowPlanSemanticValidator
         ValidateString(step.If, workflowName, step.Id, "if", knownContracts, allStepIds, errors);
         ValidateString(step.Expr, workflowName, step.Id, "expr", knownContracts, allStepIds, errors);
         ValidateJson(step.Input, workflowName, step.Id, "input", knownContracts, allStepIds, errors);
+        ValidateMcpCallInputRequest(step, workflowName, mcpContracts, errors);
+
+        var stepIsConditional = !string.IsNullOrWhiteSpace(step.If);
 
         if (step.OnError != null)
         {
@@ -169,28 +173,60 @@ internal static class WorkflowPlanSemanticValidator
                     branchProducedContracts[produced.Key] = produced.Value?.DeepClone();
             }
 
-            foreach (var produced in branchProducedContracts)
-                knownContracts[produced.Key] = produced.Value?.DeepClone();
+            if (!stepIsConditional)
+            {
+                foreach (var produced in branchProducedContracts)
+                    knownContracts[produced.Key] = produced.Value?.DeepClone();
+            }
         }
-        else
+        else if (step.Type == "switch")
         {
-            if (step.Steps != null)
-                ValidateStepList(step.Steps, workflowName, knownContracts, allStepIds, mcpContracts, errors);
-
             if (step.Cases != null)
             {
                 foreach (var @case in step.Cases)
                 {
                     ValidateString(@case.When, workflowName, step.Id, "cases.when", knownContracts, allStepIds, errors);
-                    ValidateStepList(@case.Steps, workflowName, knownContracts, allStepIds, mcpContracts, errors);
+
+                    // Only one switch branch runs at runtime, so branch-local step outputs are not
+                    // guaranteed mappings after the switch. Validate each branch independently.
+                    var caseKnown = CloneContracts(knownContracts);
+                    ValidateStepList(@case.Steps, workflowName, caseKnown, allStepIds, mcpContracts, errors);
                 }
             }
 
             if (step.Default != null)
-                ValidateStepList(step.Default, workflowName, knownContracts, allStepIds, mcpContracts, errors);
+            {
+                var defaultKnown = CloneContracts(knownContracts);
+                ValidateStepList(step.Default, workflowName, defaultKnown, allStepIds, mcpContracts, errors);
+            }
+        }
+        else if (step.Type is "loop.sequential" or "loop.parallel")
+        {
+            if (step.Steps != null)
+            {
+                // Loop bodies may execute zero times, so their inner step outputs are not guaranteed
+                // mappings after the loop. References inside the loop are still validated in order.
+                var loopKnown = CloneContracts(knownContracts);
+                ValidateStepList(step.Steps, workflowName, loopKnown, allStepIds, mcpContracts, errors);
+            }
+        }
+        else
+        {
+            if (step.Steps != null)
+            {
+                if (stepIsConditional)
+                {
+                    var conditionalKnown = CloneContracts(knownContracts);
+                    ValidateStepList(step.Steps, workflowName, conditionalKnown, allStepIds, mcpContracts, errors);
+                }
+                else
+                {
+                    ValidateStepList(step.Steps, workflowName, knownContracts, allStepIds, mcpContracts, errors);
+                }
+            }
         }
 
-        if (!string.IsNullOrWhiteSpace(step.Id))
+        if (!stepIsConditional && !string.IsNullOrWhiteSpace(step.Id))
             knownContracts[step.Id] = BuildStepOutputSchema(step, mcpContracts);
     }
 
@@ -319,6 +355,273 @@ internal static class WorkflowPlanSemanticValidator
             return Array.Empty<string>();
 
         return path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    private static void ValidateMcpCallInputRequest(
+        StepDef step,
+        string workflowName,
+        Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        if (!string.Equals(step.Type, "mcp.call", StringComparison.Ordinal)
+            || step.Input is not JsonObject input)
+        {
+            return;
+        }
+
+        var kind = TryGetInputString(step, "kind") ?? "tool";
+        if (!string.Equals(kind, "tool", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var serverName = TryGetInputString(step, "server");
+        var methodName = TryGetInputString(step, "method");
+        if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(methodName))
+            return;
+
+        if (!mcpContracts.TryGetValue((serverName, methodName), out var contract)
+            || contract.InputSchema is not JsonObject inputSchema)
+        {
+            return;
+        }
+
+        var requestNode = input["request"];
+        var requestObject = requestNode as JsonObject ?? new JsonObject();
+        var schemaErrors = new List<SchemaValidationError>();
+        ValidateJsonNodeAgainstSchema(requestObject, inputSchema, "", schemaErrors);
+        if (schemaErrors.Count == 0)
+            return;
+
+        foreach (var schemaError in schemaErrors)
+        {
+            var invalidPath = string.IsNullOrEmpty(schemaError.Path)
+                ? "input.request"
+                : $"input.request.{schemaError.Path}";
+
+            errors.Add(new WorkflowSemanticValidationError
+            {
+                Code = "MCP_REQUEST_SCHEMA_INVALID",
+                WorkflowName = workflowName,
+                StepId = step.Id,
+                Field = "input.request",
+                InvalidPath = invalidPath,
+                AllowedPaths = EnumerateAllowedPaths("input.request", inputSchema).Take(64).ToArray(),
+                Suggestion = $"Align `mcp.call` request with MCP tool schema for server '{serverName}' method '{methodName}'.",
+                Message = $"mcp.call request for '{serverName}/{methodName}' is invalid: {schemaError.Message}"
+            });
+        }
+    }
+
+    private sealed record SchemaValidationError(string Path, string Message);
+
+    private static void ValidateJsonNodeAgainstSchema(
+        JsonNode? value,
+        JsonNode? schema,
+        string path,
+        List<SchemaValidationError> errors)
+    {
+        if (schema is not JsonObject schemaObject)
+            return;
+
+        if (schemaObject["anyOf"] is JsonArray anyOf)
+        {
+            if (MatchesAnySchemaVariant(value, anyOf))
+                return;
+
+            errors.Add(new SchemaValidationError(path, "value does not match any allowed schema variant"));
+            return;
+        }
+
+        if (schemaObject["oneOf"] is JsonArray oneOf)
+        {
+            if (MatchesAnySchemaVariant(value, oneOf))
+                return;
+
+            errors.Add(new SchemaValidationError(path, "value does not match any allowed schema variant"));
+            return;
+        }
+
+        var typeName = ReadSchemaType(schemaObject);
+        switch (typeName)
+        {
+            case "object":
+                ValidateObjectAgainstSchema(value, schemaObject, path, errors);
+                break;
+            case "array":
+                ValidateArrayAgainstSchema(value, schemaObject, path, errors);
+                break;
+            case "string":
+                ValidatePrimitiveType(value, "string", path, errors);
+                break;
+            case "number":
+                ValidatePrimitiveType(value, "number", path, errors);
+                break;
+            case "integer":
+                ValidatePrimitiveType(value, "integer", path, errors);
+                break;
+            case "boolean":
+                ValidatePrimitiveType(value, "boolean", path, errors);
+                break;
+            case "null":
+                ValidatePrimitiveType(value, "null", path, errors);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static bool MatchesAnySchemaVariant(JsonNode? value, JsonArray variants)
+    {
+        foreach (var variant in variants)
+        {
+            var variantErrors = new List<SchemaValidationError>();
+            ValidateJsonNodeAgainstSchema(value, variant, string.Empty, variantErrors);
+            if (variantErrors.Count == 0)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static void ValidateObjectAgainstSchema(
+        JsonNode? value,
+        JsonObject schema,
+        string path,
+        List<SchemaValidationError> errors)
+    {
+        if (IsDynamicExpressionString(value))
+            return;
+
+        if (value is not JsonObject obj)
+        {
+            errors.Add(new SchemaValidationError(path, "expected object"));
+            return;
+        }
+
+        var properties = schema["properties"] as JsonObject;
+        var required = schema["required"] as JsonArray;
+        if (required != null)
+        {
+            foreach (var requiredNode in required)
+            {
+                var requiredName = requiredNode?.GetValue<string>();
+                if (string.IsNullOrWhiteSpace(requiredName))
+                    continue;
+
+                if (!obj.ContainsKey(requiredName))
+                {
+                    var requiredPath = string.IsNullOrEmpty(path) ? requiredName : $"{path}.{requiredName}";
+                    errors.Add(new SchemaValidationError(requiredPath, "missing required property"));
+                }
+            }
+        }
+
+        foreach (var (propertyName, propertyValue) in obj)
+        {
+            if (properties != null && properties.TryGetPropertyValue(propertyName, out var propertySchema) && propertySchema != null)
+            {
+                var propertyPath = string.IsNullOrEmpty(path) ? propertyName : $"{path}.{propertyName}";
+                ValidateJsonNodeAgainstSchema(propertyValue, propertySchema, propertyPath, errors);
+                continue;
+            }
+
+            if (!AllowsAdditionalProperties(schema))
+            {
+                var propertyPath = string.IsNullOrEmpty(path) ? propertyName : $"{path}.{propertyName}";
+                errors.Add(new SchemaValidationError(propertyPath, "property is not allowed by schema"));
+                continue;
+            }
+
+            if (schema["additionalProperties"] is JsonObject additionalSchema)
+            {
+                var propertyPath = string.IsNullOrEmpty(path) ? propertyName : $"{path}.{propertyName}";
+                ValidateJsonNodeAgainstSchema(propertyValue, additionalSchema, propertyPath, errors);
+            }
+        }
+    }
+
+    private static void ValidateArrayAgainstSchema(
+        JsonNode? value,
+        JsonObject schema,
+        string path,
+        List<SchemaValidationError> errors)
+    {
+        if (IsDynamicExpressionString(value))
+            return;
+
+        if (value is not JsonArray array)
+        {
+            errors.Add(new SchemaValidationError(path, "expected array"));
+            return;
+        }
+
+        if (schema["items"] == null)
+            return;
+
+        for (var i = 0; i < array.Count; i++)
+        {
+            var itemPath = string.IsNullOrEmpty(path) ? $"[{i}]" : $"{path}[{i}]";
+            ValidateJsonNodeAgainstSchema(array[i], schema["items"], itemPath, errors);
+        }
+    }
+
+    private static void ValidatePrimitiveType(
+        JsonNode? value,
+        string expectedType,
+        string path,
+        List<SchemaValidationError> errors)
+    {
+        if (IsDynamicExpressionString(value))
+            return;
+
+        if (value is null)
+        {
+            if (!string.Equals(expectedType, "null", StringComparison.Ordinal))
+                errors.Add(new SchemaValidationError(path, $"expected {expectedType} but got null"));
+            return;
+        }
+
+        if (value is not JsonValue jsonValue)
+        {
+            errors.Add(new SchemaValidationError(path, $"expected {expectedType}"));
+            return;
+        }
+
+        var valid = expectedType switch
+        {
+            "string" => jsonValue.TryGetValue<string>(out _),
+            "number" => jsonValue.TryGetValue<double>(out _),
+            "integer" => jsonValue.TryGetValue<long>(out _) || jsonValue.TryGetValue<int>(out _),
+            "boolean" => jsonValue.TryGetValue<bool>(out _),
+            "null" => false,
+            _ => true
+        };
+
+        if (!valid)
+            errors.Add(new SchemaValidationError(path, $"expected {expectedType}"));
+    }
+
+    private static bool IsDynamicExpressionString(JsonNode? value)
+    {
+        return value is JsonValue jsonValue
+            && jsonValue.TryGetValue<string>(out var text)
+            && text != null
+            && text.Contains("${", StringComparison.Ordinal);
+    }
+
+    private static string? ReadSchemaType(JsonObject schema)
+    {
+        if (schema["type"] is JsonValue typeValue && typeValue.TryGetValue<string>(out var singleType))
+            return singleType;
+
+        if (schema["type"] is JsonArray typeArray)
+        {
+            var first = typeArray
+                .Select(node => node is JsonValue value && value.TryGetValue<string>(out var parsed) ? parsed : null)
+                .FirstOrDefault(parsed => !string.IsNullOrWhiteSpace(parsed) && !string.Equals(parsed, "null", StringComparison.Ordinal));
+            return first;
+        }
+
+        return null;
     }
 
     private sealed record SchemaPathValidationResult(bool IsValid, string Message, bool IsOpaqueResponse = false);
