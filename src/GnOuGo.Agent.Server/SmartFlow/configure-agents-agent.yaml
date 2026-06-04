@@ -305,7 +305,7 @@ workflows:
                   - Use available MCP tools when applicable, especially Browser/Document/Cmd tools for web and file tasks.
                   - For Browser MCP browser_get_content on search/e-commerce pages such as Amazon, prefer waitUntil="domcontentloaded" or "load"; avoid "networkidle" unless the page is known to become idle.
                   - For llm.call steps, omit provider/model so runtime defaults are used automatically; set temperature 0.7 unless a lower temperature is needed for deterministic formatting.
-                  - Keep the workflow concise and under 15 total steps.
+                  - Keep the workflow concise and under 100 total steps.
                   - Add the original agent description as a YAML comment at the top.
                   - Return only a complete workflow YAML document.
                 context: >
@@ -332,7 +332,7 @@ workflows:
                   - workflow.call
                 allow_remote_workflow_refs: false
               limits:
-                max_steps_total: 15
+                max_steps_total: 100
               validate:
                 compile: true
               on_invalid:
