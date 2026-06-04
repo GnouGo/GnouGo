@@ -337,7 +337,7 @@ workflows:
                 compile: true
               on_invalid:
                 action: reprompt
-                max_attempts: 3
+                max_attempts: 6
 
           - id: emit_workflow
             type: emit
