@@ -180,6 +180,46 @@ public class CommandPolicyTests
     }
 
     [Fact]
+    public void RenderScript_AcceptsLegacyArgsAlias_ForSingleParameterCommand()
+    {
+        var root = CreateTempDirectory();
+        var settings = CreateSettings(root, "Get-ChildItem {{path}}", parameters: new Dictionary<string, CommandParameterSettings>
+        {
+            ["path"] = new()
+            {
+                Required = true,
+                Pattern = "^[A-Za-z0-9_.\\/-]{1,120}$",
+                MaxLength = 120,
+                IsWorkspacePath = true
+            }
+        });
+        var policy = new CommandPolicy(settings, root);
+        var command = policy.GetRequiredCommand("test");
+
+        var rendered = policy.RenderScript(command, new JsonObject { ["args"] = "notes/today.md" }, root);
+
+        Assert.Equal($"Get-ChildItem '{Path.Combine(root, "notes", "today.md")}'", rendered);
+    }
+
+    [Fact]
+    public void RenderScript_RejectsLegacyArgsAlias_ForMultiParameterCommand()
+    {
+        var root = CreateTempDirectory();
+        var settings = CreateSettings(root, "Copy-Item {{source}} {{target}}", parameters: new Dictionary<string, CommandParameterSettings>
+        {
+            ["source"] = new() { Required = true, Pattern = "^.+$", MaxLength = 120 },
+            ["target"] = new() { Required = true, Pattern = "^.+$", MaxLength = 120 }
+        });
+        var policy = new CommandPolicy(settings, root);
+        var command = policy.GetRequiredCommand("test");
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            policy.RenderScript(command, new JsonObject { ["args"] = "notes" }, root));
+
+        Assert.Contains("Provide declared parameter names", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ResolveTimeoutMs_ClampsRequestedTimeoutToPolicyMaximum()
     {
         var root = CreateTempDirectory();

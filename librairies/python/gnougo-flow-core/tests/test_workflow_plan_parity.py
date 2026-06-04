@@ -861,3 +861,64 @@ async def test_workflow_plan_semantic_validation_reprompt_can_fix_opaque_mcp_res
     assert "structured_output" in llm.prompts[1]
 
 
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_rejects_invalid_mcp_request_against_input_schema() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "close a github issue"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: close_issue
+            type: mcp.call
+            input:
+              server: docs
+              method: issue_write
+              request:
+                owner: AxaFrance
+                repo: oidc-client
+                issue_number: 1651
+                state: closed
+    """
+    tool = McpToolInfo(
+        name="issue_write",
+        description="Update an issue",
+        input_schema={
+            "type": "object",
+            "required": ["owner", "repo", "issue_number", "method"],
+            "properties": {
+                "owner": {"type": "string"},
+                "repo": {"type": "string"},
+                "issue_number": {"type": "number"},
+                "method": {"type": "string"},
+                "state": {"type": "string"},
+            },
+            "additionalProperties": False,
+        },
+    )
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "MCP_REQUEST_SCHEMA_INVALID" in result.error.message
+    assert "input.request.method" in result.error.message
+    assert "docs/issue_write" in result.error.message
+
+

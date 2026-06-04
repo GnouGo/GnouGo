@@ -926,6 +926,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                                 McpToolOutputContract(
                                     server_name=str(name),
                                     tool_name=str(tool_name),
+                                    input_schema=copy.deepcopy(input_schema),
                                     output_schema=copy.deepcopy(output_schema),
                                     example_response=copy.deepcopy(example_response),
                                 )

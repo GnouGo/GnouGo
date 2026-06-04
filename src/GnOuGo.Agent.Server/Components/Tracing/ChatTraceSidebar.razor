@@ -68,7 +68,8 @@
         }
         else if (_activeTab == TracePanelTab.Logs)
         {
-            <ChatTraceLogs Logs="_snapshot.Logs"
+            <ChatTraceLogs @key="GetPanelContentKey()"
+                           Logs="_snapshot.Logs"
                            IsLoading="_isLoading"
                            RenderFormatted="_renderFormatted" />
         }
@@ -88,7 +89,8 @@
         }
         else
         {
-            <ChatTraceTraces Trace="_snapshot.Trace"
+            <ChatTraceTraces @key="GetPanelContentKey()"
+                             Trace="_snapshot.Trace"
                              CorrelationId="@Message.CorrelationId"
                              SnapshotMessage="@_snapshot.Message"
                              SelectedSpanId="@_selectedSpanId"
@@ -117,6 +119,8 @@
     private bool _renderFormatted = true;
     private bool _stickySpanSelection = true;
     private TracePanelTab _activeTab = TracePanelTab.Traces;
+    private bool _isDisposed;
+
     protected override async Task OnParametersSetAsync()
     {
         if (!IsOpen || Message is null)
@@ -140,9 +144,11 @@
     }
     public ValueTask DisposeAsync()
     {
+        _isDisposed = true;
         StopRefreshLoop();
         return ValueTask.CompletedTask;
     }
+
     private async Task RunRefreshLoopAsync(CancellationToken ct)
     {
         try
@@ -151,21 +157,27 @@
             var traceId = Message?.TraceId;
             await foreach (var snapshot in TraceDebug.StreamSnapshotsAsync(correlationId, traceId, ct))
             {
-                if (!IsOpen || ct.IsCancellationRequested)
+                if (!IsRefreshActive(ct))
                     break;
 
-                // Keep selected span detail stable while user is inspecting one span.
-                if (_stickySpanSelection
-                    && _activeTab == TracePanelTab.Traces
-                    && !string.IsNullOrWhiteSpace(_selectedSpanId))
+                await InvokeAsync(() =>
                 {
-                    continue;
-                }
+                    if (!IsRefreshActive(ct))
+                        return;
 
-                ApplySnapshot(snapshot);
-                _isLoading = false;
-                _loadError = null;
-                await InvokeAsync(StateHasChanged);
+                    // Keep selected span detail stable while user is inspecting one span.
+                    if (_stickySpanSelection
+                        && _activeTab == TracePanelTab.Traces
+                        && !string.IsNullOrWhiteSpace(_selectedSpanId))
+                    {
+                        return;
+                    }
+
+                    ApplySnapshot(snapshot);
+                    _isLoading = false;
+                    _loadError = null;
+                    StateHasChanged();
+                });
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -173,11 +185,21 @@
         }
         catch (Exception ex)
         {
-            _loadError = ex.Message;
-            _isLoading = false;
-            await InvokeAsync(StateHasChanged);
+            if (!IsRefreshActive(ct))
+                return;
+
+            await InvokeAsync(() =>
+            {
+                if (!IsRefreshActive(ct))
+                    return;
+
+                _loadError = ex.Message;
+                _isLoading = false;
+                StateHasChanged();
+            });
         }
     }
+
     private void ApplySnapshot(TraceDebugSnapshot snapshot)
     {
         _snapshot = snapshot;
@@ -202,13 +224,16 @@
     private Task HandleCloseAsync() => OnClose.InvokeAsync();
     private void ToggleRenderMode() => _renderFormatted = !_renderFormatted;
     private void SelectTab(TracePanelTab tab) => _activeTab = tab;
-     private async Task OnSelectedSpanChanged(string? spanId)
-     {
-         _selectedSpanId = spanId;
-         await InvokeAsync(StateHasChanged);
-     }
+
+    private async Task OnSelectedSpanChanged(string? spanId)
+    {
+        _selectedSpanId = spanId;
+        await InvokeAsync(StateHasChanged);
+    }
+
     private string GetTabClass(TracePanelTab tab)
         => _activeTab == tab ? "gnougo-trace-panel__tab--active" : string.Empty;
+
     private string GetStatusBadgeClass()
     {
         if (!_snapshot.Availability.Enabled)
@@ -229,6 +254,21 @@
             return _isLoading ? "Live" : "Loaded";
         return _snapshot.Pending ? "Pending" : "Idle";
     }
+
+    private bool IsRefreshActive(CancellationToken ct)
+        => !_isDisposed
+            && !ct.IsCancellationRequested
+            && IsOpen
+            && _refreshCts is not null
+            && ct == _refreshCts.Token;
+
+    private string GetPanelContentKey()
+        => string.Join('|',
+            _parameterKey ?? "no-message",
+            _activeTab,
+            _snapshot.TraceId ?? "no-trace",
+            _selectedSpanId ?? "no-span");
+
     private enum TracePanelTab
     {
         Traces,
