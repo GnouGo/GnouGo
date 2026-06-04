@@ -1424,6 +1424,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 contracts.Add(new McpToolOutputContract(
                     server.Name,
                     tool.Name,
+                    tool.InputSchema?.DeepClone(),
                     tool.OutputSchema?.DeepClone(),
                     tool.ExampleResponse?.DeepClone()));
             }

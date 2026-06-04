@@ -608,6 +608,93 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsInvalidMcpRequestAgainstInputSchema()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       workflows:
+                         main:
+                           steps:
+                             - id: close_issue
+                               type: mcp.call
+                               input:
+                                 server: github
+                                 kind: tool
+                                 method: issue_write
+                                 request:
+                                   owner: AxaFrance
+                                   repo: oidc-client
+                                   issue_number: 1651
+                                   state: closed
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "issue_write",
+                    Description = "Update an issue state",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "owner": { "type": "string" },
+                        "repo": { "type": "string" },
+                        "method": { "type": "string" },
+                        "issue_number": { "type": "integer" },
+                        "state": { "type": "string" }
+                      },
+                      "required": ["owner", "repo", "method", "issue_number", "state"],
+                      "additionalProperties": false
+                    }
+                    """),
+                    OutputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": { "type": "string" }
+                      },
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Close GitHub issue
+            prefilter: false
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
+        Assert.Contains("input.request.method", result.Error.Message);
+        Assert.Contains("missing required property", result.Error.Message);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_SemanticValidation_RejectsSwitchBranchStepOutputMappingAfterSwitch()
     {
         var mockLlm = new Mock<ILLMClient>();
