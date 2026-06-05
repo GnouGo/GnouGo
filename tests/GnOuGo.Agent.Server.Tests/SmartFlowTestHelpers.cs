@@ -94,12 +94,6 @@ internal sealed class RecordingLlmClient : ILLMClient
                 """;
         }
 
-        if (request.Prompt.Contains("Convert the following schedule description", StringComparison.OrdinalIgnoreCase)
-            || request.Prompt.Contains("Return ONLY the JSON array", StringComparison.OrdinalIgnoreCase))
-        {
-            return """[{"name":"daily-8am","cron":"0 8 * * *"}]""";
-        }
-
         return "stub-response";
     }
 }
@@ -354,24 +348,13 @@ internal static class SmartFlowTestFactory
         };
     }
 
-    public static JsonObject AgentSummary(string id, string name, int schedulesCount, string updatedAt)
+    public static JsonObject AgentSummary(string id, string name, string updatedAt)
     {
-        var schedules = new JsonArray();
-        for (var i = 0; i < schedulesCount; i++)
-        {
-            schedules.Add(new JsonObject
-            {
-                ["name"] = $"schedule-{i + 1}",
-                ["cron"] = "0 8 * * *"
-            });
-        }
-
         return new JsonObject
         {
             ["id"] = id,
             ["name"] = name,
             ["workflow"] = "version: 1",
-            ["schedules"] = schedules,
             ["updated_at"] = updatedAt
         };
     }

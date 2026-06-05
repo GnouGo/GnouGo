@@ -18,6 +18,7 @@ internal sealed class AgentMcpTestDatabase : IDisposable
         Directory.CreateDirectory(_directory);
 
         DatabasePath = Path.Combine(_directory, "agent.db");
+        AgentsDirectory = Path.Combine(_directory, "agents");
         var connectionString = $"Data Source={DatabasePath}";
 
         // Create AgentMcp tables first
@@ -46,13 +47,15 @@ internal sealed class AgentMcpTestDatabase : IDisposable
 
     public string DatabasePath { get; }
 
+    public string AgentsDirectory { get; }
+
     public AgentMcpDbContext AgentDb { get; }
 
     public DiffDbContext DiffDb { get; }
 
     public DiffService DiffService { get; }
 
-    public AgentRepository CreateAgentRepository() => new(AgentDb, DiffService);
+    public AgentRepository CreateAgentRepository() => new(AgentsDirectory);
 
     public UserConfigRepository CreateUserConfigRepository() => new(AgentDb, DiffService);
 

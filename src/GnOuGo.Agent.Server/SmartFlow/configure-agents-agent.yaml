@@ -14,8 +14,8 @@ meta:
   author: GnOuGo.Agent
   description: >
     Interactive agent management wizard triggered by /agent slash-commands.
-    Agents are stored in the GnOuGo.Agent.Mcp database with workflow YAML,
-    original prompts, and schedule metadata.
+    Agents are stored as YAML files in the GnOuGo workspace with workflow YAML
+    and original prompts.
 
 workflows:
   main:
@@ -121,8 +121,7 @@ workflows:
                 1. Choose a name for the agent
                 2. Describe what the agent should do (natural language prompt)
                 3. A workflow YAML is generated from your description
-                4. Optionally configure schedules (cron expressions)
-                5. The agent is saved with all metadata
+                4. The agent is saved with all metadata
 
                 The selected agent name is displayed at the top of the chat.
                 The text input supports YAML directly.
@@ -171,11 +170,11 @@ workflows:
             Format:
             # 🤖 Configured Agents
 
-            | Name | ID | Schedules | Created | Updated |
-            |------|----|-----------|---------|---------|
+            | Name | ID | Created | Updated |
+            |------|----|---------|---------|
 
-            For each agent, show the name, a short ID (first 8 chars), number of schedules,
-            and formatted dates. If no agents found, say "No agents configured yet. Use `/agent add` to create one."
+            For each agent, show the name, a short ID (first 8 chars), and formatted dates.
+            If no agents found, say "No agents configured yet. Use `/agent add` to create one."
 
       - id: emit_list
         type: emit
@@ -388,112 +387,7 @@ workflows:
             input:
               workflow: "${data.steps.final_workflow_modified?.workflow ?? data.steps.final_workflow_approved?.workflow ?? data.steps.generate_workflow.yaml}"
 
-          # Step 5: Schedules
-          - id: want_schedules
-            type: human.input
-            input:
-              prompt: "Would you like to add schedules (cron jobs) to this agent?"
-              choices:
-                - yes
-                - no
-              timeout_ms: 300000
-
-          - id: schedule_branch
-            type: switch
-            cases:
-              - when: "${data.steps.want_schedules.response == 'yes'}"
-                steps:
-                  - id: describe_schedule
-                    type: human.input
-                    input:
-                      prompt: "Describe when this agent should run (e.g. 'every day at 8am', 'every Monday at noon'):"
-                      fields:
-                        - name: schedule_text
-                          type: string
-                          required: true
-                          description: "Natural language schedule description"
-                      timeout_ms: 300000
-
-                  - id: think_cron
-                    type: emit
-                    input:
-                      message: "⏰ Generating cron expression…"
-                      level: thinking
-
-                  - id: generate_cron
-                    type: llm.call
-                    input:
-                      temperature: 0.2
-                      prompt: >
-                        Convert the following schedule description to one or more Kubernetes cron expressions
-                        (5 fields: minute hour day-of-month month day-of-week).
-
-                        Description: ${data.steps.describe_schedule.schedule_text}
-
-                        Return a JSON array of objects with "name" and "cron" fields.
-                        Example: [{"name":"daily-8am","cron":"0 8 * * *"}]
-
-                        Return ONLY the JSON array, no explanation.
-
-                  - id: review_cron
-                    type: human.input
-                    input:
-                      prompt: "Review the generated schedule(s):"
-                      context: "${data.steps.generate_cron.text}"
-                      choices:
-                        - approve
-                        - modify
-                      timeout_ms: 300000
-
-                  - id: cron_branch
-                    type: switch
-                    cases:
-                      - when: "${data.steps.review_cron.response == 'modify'}"
-                        steps:
-                          - id: custom_cron
-                            type: human.input
-                            input:
-                              prompt: "Enter the schedule JSON (array of {name, cron}):"
-                              fields:
-                                - name: schedules_json
-                                  type: json
-                                  required: true
-                                  description: "JSON array of schedules"
-                                  default: "${data.steps.generate_cron.text}"
-                              timeout_ms: 300000
-                          - id: final_schedules_modified
-                            type: set
-                            input:
-                              schedules_json: "${data.steps.custom_cron.schedules_json}"
-                              schedule_description: "${data.steps.describe_schedule.schedule_text}"
-
-                    default:
-                      - id: final_schedules_approved
-                        type: set
-                        input:
-                          schedules_json: "${data.steps.generate_cron.text}"
-                          schedule_description: "${data.steps.describe_schedule.schedule_text}"
-
-                  - id: merged_schedules
-                    type: set
-                    input:
-                      schedules_json: "${data.steps.final_schedules_modified?.schedules_json ?? data.steps.final_schedules_approved?.schedules_json ?? '[]'}"
-                      schedule_description: "${data.steps.final_schedules_modified?.schedule_description ?? data.steps.final_schedules_approved?.schedule_description ?? ''}"
-
-            default:
-              - id: no_schedules
-                type: set
-                input:
-                  schedules_json: "[]"
-                  schedule_description: ""
-
-          - id: final_schedule_data
-            type: set
-            input:
-              schedules_json: "${data.steps.merged_schedules?.schedules_json ?? data.steps.no_schedules?.schedules_json ?? '[]'}"
-              schedule_description: "${data.steps.merged_schedules?.schedule_description ?? data.steps.no_schedules?.schedule_description ?? ''}"
-
-          # Step 6: Save agent via MCP
+          # Step 5: Save agent via MCP
           - id: think_saving
             type: emit
             input:
@@ -508,9 +402,7 @@ workflows:
               request:
                 name: "${data.steps.normalized_name.agent_name}"
                 workflow: "${data.steps.final_workflow.workflow}"
-                schedules: "${fromJson(data.steps.final_schedule_data.schedules_json)}"
                 originalPrompt: "${data.steps.input_prompt.description}"
-                scheduleDescription: "${data.steps.final_schedule_data.schedule_description}"
 
           - id: save_agent_branch
             type: switch
@@ -633,47 +525,27 @@ workflows:
                       level: response
 
             default:
-              - id: edit_choice
+              - id: edit_workflow
                 type: human.input
                 input:
-                  prompt: "What would you like to edit?"
-                  choices:
-                    - workflow
-                    - schedules
-                    - both
-                  timeout_ms: 300000
+                  prompt: "Enter the new workflow YAML (or modify the existing one):"
+                  fields:
+                    - name: yaml
+                      type: yaml
+                      required: true
+                      description: "Workflow YAML"
+                      default: "${data.steps.find_agent.response.agent.workflow}"
+                  timeout_ms: 600000
 
-              - id: edit_branch
-                type: switch
-                cases:
-                  - when: "${data.steps.edit_choice.response == 'workflow' || data.steps.edit_choice.response == 'both'}"
-                    steps:
-                      - id: edit_workflow
-                        type: human.input
-                        input:
-                          prompt: "Enter the new workflow YAML (or modify the existing one):"
-                          fields:
-                            - name: yaml
-                              type: yaml
-                              required: true
-                              description: "Workflow YAML"
-                              default: "${data.steps.find_agent.response.agent.workflow}"
-                          timeout_ms: 600000
-                      - id: new_workflow
-                        type: set
-                        input:
-                          workflow: "${data.steps.edit_workflow.yaml}"
-
-                default:
-                  - id: keep_workflow
-                    type: set
-                    input:
-                      workflow: "${data.steps.find_agent.response.agent.workflow}"
+              - id: new_workflow
+                type: set
+                input:
+                  workflow: "${data.steps.edit_workflow.yaml}"
 
               - id: final_edit_workflow
                 type: set
                 input:
-                  workflow: "${data.steps.new_workflow?.workflow ?? data.steps.keep_workflow?.workflow ?? data.steps.find_agent.response.agent.workflow}"
+                  workflow: "${data.steps.new_workflow?.workflow ?? data.steps.find_agent.response.agent.workflow}"
 
               - id: confirm_edit
                 type: human.input
@@ -698,7 +570,6 @@ workflows:
                             id: "${data.steps.find_agent.response.agent.id}"
                             name: "${data.steps.normalized_edit_name.agent_name}"
                             workflow: "${data.steps.final_edit_workflow.workflow}"
-                            schedules: "${data.steps.find_agent.response.agent.schedules}"
 
                       - id: save_update_result
                         type: switch

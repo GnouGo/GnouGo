@@ -1,6 +1,4 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
-using GnOuGo.Agent.Mcp.Models;
-
 namespace GnOuGo.Agent.Mcp.Tests;
 
 public class AgentToolsTests : IDisposable
@@ -18,27 +16,15 @@ public class AgentToolsTests : IDisposable
     public void Dispose() => _database.Dispose();
 
     [Fact]
-    public async Task AgentAdd_CreatesAgent_WithSchedules()
+    public async Task AgentAdd_CreatesAgent()
     {
-        var schedules = new[] { new Schedule { Name = "daily", Cron = "0 8 * * *" } };
-
-        var result = await _tools.AgentAdd("MyAgent", "do something", schedules);
+        var result = await _tools.AgentAdd("MyAgent", "do something", "original prompt");
 
         Assert.True(result.Success);
         Assert.NotNull(result.Agent);
         Assert.Equal("MyAgent", result.Agent.Name);
         Assert.Equal("do something", result.Agent.Workflow);
-        Assert.Single(result.Agent.Schedules);
-    }
-
-    [Fact]
-    public async Task AgentAdd_CreatesAgent_WithNoSchedules()
-    {
-        var result = await _tools.AgentAdd("NoSched", "wf");
-
-        Assert.True(result.Success);
-        Assert.NotNull(result.Agent);
-        Assert.Empty(result.Agent.Schedules);
+        Assert.Equal("original prompt", result.Agent.OriginalPrompt);
     }
 
     [Fact]
@@ -90,14 +76,13 @@ public class AgentToolsTests : IDisposable
         var addResult = await _tools.AgentAdd("Original", "wf1");
         var id = addResult.Agent!.Id;
 
-        var newSchedules = new[] { new Schedule { Name = "nightly", Cron = "0 2 * * *" } };
-        var updateResult = await _tools.AgentUpdate(id, "Updated", "wf2", newSchedules);
+        var updateResult = await _tools.AgentUpdate(id, "Updated", "wf2", "new prompt");
 
         Assert.True(updateResult.Success);
         Assert.NotNull(updateResult.Agent);
         Assert.Equal("Updated", updateResult.Agent.Name);
         Assert.Equal("wf2", updateResult.Agent.Workflow);
-        Assert.Single(updateResult.Agent.Schedules);
+        Assert.Equal("new prompt", updateResult.Agent.OriginalPrompt);
     }
 
     [Fact]
@@ -168,7 +153,7 @@ public class AgentToolsTests : IDisposable
     [Fact]
     public async Task RoundTrip_AddListUpdateDelete()
     {
-        var add = await _tools.AgentAdd("RT", "step1", [new Schedule { Name = "s", Cron = "0 0 * * *" }]);
+        var add = await _tools.AgentAdd("RT", "step1");
         Assert.True(add.Success);
         var id = add.Agent!.Id;
 
@@ -176,7 +161,7 @@ public class AgentToolsTests : IDisposable
         Assert.NotNull(list.Agents);
         Assert.Single(list.Agents);
 
-        var upd = await _tools.AgentUpdate(id, "RT-v2", "step2", []);
+        var upd = await _tools.AgentUpdate(id, "RT-v2", "step2");
         Assert.True(upd.Success);
         Assert.Equal("RT-v2", upd.Agent!.Name);
 

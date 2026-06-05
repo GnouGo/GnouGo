@@ -28,8 +28,6 @@ public sealed record AgentDto(
     string Name,
     string Workflow,
     [property: JsonPropertyName("original_prompt")] string? OriginalPrompt,
-    [property: JsonPropertyName("schedule_description")] string? ScheduleDescription,
-    IReadOnlyList<Schedule> Schedules,
     [property: JsonPropertyName("created_at")] string CreatedAt,
     [property: JsonPropertyName("updated_at")] string UpdatedAt);
 
@@ -80,16 +78,8 @@ internal sealed class AgentSnapshot
     public string Name { get; set; } = "";
     public string Workflow { get; set; } = "";
     public string OriginalPrompt { get; set; } = "";
-    public string ScheduleDescription { get; set; } = "";
-    public ScheduleSnapshot[] Schedules { get; set; } = [];
     public string CreatedAt { get; set; } = "";
     public string UpdatedAt { get; set; } = "";
 }
 
-internal sealed class ScheduleSnapshot
-{
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    public string Cron { get; set; } = "";
-}
 

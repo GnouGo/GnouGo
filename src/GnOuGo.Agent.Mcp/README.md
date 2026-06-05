@@ -9,8 +9,8 @@ It can run as a standalone HTTP MCP host or be mounted inside `GnOuGo.Agent.Serv
 
 ## Hosted tools
 
-- `agent_add` — Create a new agent with name, workflow, and optional schedules
-- `agent_update` — Update an existing agent's name, workflow, and schedules
+- `agent_add` — Create a new agent with name and workflow
+- `agent_update` — Update an existing agent's name and workflow
 - `agent_list` — List all agents
 - `agent_delete` — Delete an agent by identifier
 - `agent_get_by_name` — Get an agent by name (case-insensitive)
@@ -33,15 +33,24 @@ KeyVault tools now live in the dedicated HTTP project `GnOuGo.KeyVault.Mcp`.
 }
 ```
 
-The same SQLite database now stores:
+Agent definitions are stored as YAML files in the GnOuGo workspace:
 
-- agent definitions,
+```text
+<GnOuGo workspace>/agents/{agent-name}.yaml
+```
+
+The agent list is obtained by enumerating `*.yaml` files from this `agents` directory.
+Agent names are validated as safe file names; absolute paths and path traversal are not accepted as names.
+
+SQLite is still used for non-agent persisted data:
+
 - diff revisions,
 - persisted user defaults (`default_llm_provider`, `default_llm_model`, `default_agent`).
 
-Persistence is implemented with **Entity Framework Core** (`AgentMcpDbContext` + `DiffDbContext`) and uses `AsNoTracking` for read-only queries for optimal performance.
+User configuration persistence is implemented with **Entity Framework Core** (`AgentMcpDbContext` + `DiffDbContext`).
 
 When `Agent:DatabasePath` keeps its default logical value (`data/gnougo-agent.db`), the actual SQLite file is created under the current user's Desktop in `Desktop/GnOuGo/data/gnougo-agent.db`.
+Agent YAML files are created next to it under `Desktop/GnOuGo/agents/`.
 Explicit absolute paths are still honored.
 
 ## HTTP routes

@@ -10,16 +10,6 @@ namespace GnOuGo.Agent.Mcp.Data;
 /// </summary>
 internal static class AgentMcpQueries
 {
-    // ── Agent queries ────────────────────────────────────────────────
-
-    public static Task<AgentDefinition?> GetAgentById(AgentMcpDbContext db, Guid id)
-        => db.Agents.FirstOrDefaultAsync(a => a.Id == id);
-
-    public static Task<AgentDefinition?> GetAgentByName(AgentMcpDbContext db, string name)
-        => db.Agents.FirstOrDefaultAsync(a => a.Name.ToUpper() == name.ToUpper());
-
-    public static Task<AgentDefinition?> GetAgentByNameExcluding(AgentMcpDbContext db, string name, Guid excludedId)
-        => db.Agents.FirstOrDefaultAsync(a => a.Name.ToUpper() == name.ToUpper() && a.Id != excludedId);
 
     // ── UserConfig queries ───────────────────────────────────────────
 

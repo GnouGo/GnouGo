@@ -25,6 +25,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public IMcpClientFactory? McpClientFactory { get; set; }
     public IHumanInputProvider? HumanInputProvider { get; set; }
     public IWorkflowCheckpointer? Checkpointer { get; set; }
+    public IWorkflowCallResolver WorkflowCallResolver { get; set; } = new DefaultWorkflowCallResolver();
     public IWorkflowTelemetry Telemetry { get; set; } = NullWorkflowTelemetry.Instance;
     public LlmRuntimeDefaults LlmDefaults { get; set; } = new();
     public FetchPolicy? FetchPolicy { get; set; }
@@ -687,6 +688,14 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         }
 
         return null;
+    }
+
+    internal CompiledDocument? ReplaceCompiledDocumentForWorkflowCall(CompiledDocument? document)
+    {
+        var previous = CompiledDocument;
+        if (document is not null)
+            CompiledDocument = document;
+        return previous;
     }
 
     private static StepExecutorRegistry CreateDefaultRegistry()

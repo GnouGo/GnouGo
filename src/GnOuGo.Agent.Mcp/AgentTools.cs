@@ -21,25 +21,19 @@ public sealed class AgentTools
     // ── Add Agent ────────────────────────────────────────────────────
 
     [McpServerTool(Name = "agent_add"), Description(
-        "Create a new agent with a name, workflow definition, and optional schedules. " +
+        "Create a new agent with a name and workflow definition. " +
         "Returns { success, agent } or { success: false, error_code, error_message }.")]
     public async Task<AgentToolResult> AgentAdd(
         [Description("Agent name (required).")]
         string name,
         [Description("Workflow definition text (required).")]
         string workflow,
-        [Description("Array of schedules, each with 'name' (string) and 'cron' (string, Kubernetes cron format). " +
-                     "Example: [{\"name\":\"daily\",\"cron\":\"0 8 * * *\"}]. Omit for no schedules.")]
-        Schedule[]? schedules = null,
         [Description("Original natural-language prompt used to generate the workflow.")]
-        string? originalPrompt = null,
-        [Description("Human-readable schedule description before cron conversion.")]
-        string? scheduleDescription = null)
+        string? originalPrompt = null)
     {
         try
         {
-            var list = schedules?.ToList() ?? [];
-            var agent = await _repo.AddAgentAsync(name, workflow, list, originalPrompt, scheduleDescription);
+            var agent = await _repo.AddAgentAsync(name, workflow, originalPrompt);
 
             return new AgentToolResult(true, SerializeAgent(agent));
         }
@@ -63,7 +57,7 @@ public sealed class AgentTools
     // ── Update Agent ─────────────────────────────────────────────────
 
     [McpServerTool(Name = "agent_update"), Description(
-        "Update an existing agent's name, workflow, and schedules. " +
+        "Update an existing agent's name and workflow. " +
         "Returns { success, agent } or { success: false, error_code, error_message }.")]
     public async Task<AgentToolResult> AgentUpdate(
         [Description("Agent identifier (GUID, required).")]
@@ -72,20 +66,15 @@ public sealed class AgentTools
         string name,
         [Description("New workflow definition text (required).")]
         string workflow,
-        [Description("Array of schedules, each with 'name' and 'cron'. Pass an empty array to clear schedules.")]
-        Schedule[]? schedules = null,
         [Description("Original natural-language prompt used to generate the workflow.")]
-        string? originalPrompt = null,
-        [Description("Human-readable schedule description before cron conversion.")]
-        string? scheduleDescription = null)
+        string? originalPrompt = null)
     {
         try
         {
             if (!Guid.TryParse(id, out var agentId))
                 throw new ArgumentException("'id' must be a valid GUID.");
 
-            var list = schedules?.ToList() ?? [];
-            var agent = await _repo.UpdateAgentAsync(agentId, name, workflow, list, originalPrompt, scheduleDescription);
+            var agent = await _repo.UpdateAgentAsync(agentId, name, workflow, originalPrompt);
 
             return new AgentToolResult(true, SerializeAgent(agent));
         }
@@ -192,15 +181,11 @@ public sealed class AgentTools
 
     private static AgentDto SerializeAgent(AgentDefinition agent)
     {
-        var schedules = AgentRepository.DeserializeSchedules(agent.SchedulesJson);
-
         return new AgentDto(
             agent.Id.ToString(),
             agent.Name,
             agent.Workflow,
             agent.OriginalPrompt,
-            agent.ScheduleDescription,
-            schedules,
             agent.CreatedAt.ToString("o"),
             agent.UpdatedAt.ToString("o"));
     }

@@ -42,7 +42,6 @@ public sealed class ConfigureAgentsServiceTests
                 ["agent"] = SmartFlowTestFactory.AgentSummary(
                     "12345678-1234-1234-1234-1234567890ab",
                     "slimfaas",
-                    0,
                     "2026-04-01T12:35:00+00:00")
             });
 
@@ -59,13 +58,11 @@ public sealed class ConfigureAgentsServiceTests
                         ? new JsonObject { ["description"] = "Explain SlimFaas" }
                         : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
                             ? new JsonObject { ["response"] = "approve" }
-                            : request.StepId.EndsWith("want_schedules", StringComparison.Ordinal)
-                                ? new JsonObject { ["response"] = "no" }
                                 : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
 
                 humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
 
-                if (request.StepId.EndsWith("want_schedules", StringComparison.Ordinal))
+                if (request.StepId.EndsWith("review_workflow", StringComparison.Ordinal))
                     break;
             }
         }, token);
@@ -107,7 +104,6 @@ public sealed class ConfigureAgentsServiceTests
                         ["agent"] = SmartFlowTestFactory.AgentSummary(
                             "12345678-1234-1234-1234-1234567890ab",
                             "DailyReporter",
-                            1,
                             "2026-04-01T12:35:00+00:00")
                     }
                 });
@@ -184,13 +180,11 @@ public sealed class ConfigureAgentsServiceTests
                         ? new JsonObject { ["description"] = "Explain SlimFaas" }
                         : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
                             ? new JsonObject { ["response"] = "approve" }
-                            : request.StepId.EndsWith("want_schedules", StringComparison.Ordinal)
-                                ? new JsonObject { ["response"] = "no" }
                                 : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
 
                 humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
 
-                if (request.StepId.EndsWith("want_schedules", StringComparison.Ordinal))
+                if (request.StepId.EndsWith("review_workflow", StringComparison.Ordinal))
                     break;
             }
         }, token);
@@ -224,7 +218,6 @@ public sealed class ConfigureAgentsServiceTests
                 ["agent"] = SmartFlowTestFactory.AgentSummary(
                     "12345678-1234-1234-1234-1234567890ab",
                     "slimfaas",
-                    0,
                     "2026-04-01T12:35:00+00:00")
             });
 
@@ -371,7 +364,6 @@ public sealed class ConfigureAgentsServiceTests
                         ["agent"] = SmartFlowTestFactory.AgentSummary(
                             "12345678-1234-1234-1234-1234567890ab",
                             "slimfaas",
-                            0,
                             "2026-04-01T12:35:00+00:00")
                     };
                 }
@@ -464,7 +456,6 @@ public sealed class ConfigureAgentsServiceTests
                         ["agent"] = SmartFlowTestFactory.AgentSummary(
                             "12345678-1234-1234-1234-1234567890ab",
                             "slimfaas",
-                            0,
                             "2026-04-01T12:35:00+00:00")
                     };
                 }
@@ -476,7 +467,6 @@ public sealed class ConfigureAgentsServiceTests
                         ["agent"] = SmartFlowTestFactory.AgentSummary(
                             "87654321-4321-4321-4321-ba0987654321",
                             "DailyReporter",
-                            1,
                             "2026-04-01T12:40:00+00:00")
                     };
                 }
@@ -547,12 +537,10 @@ public sealed class ConfigureAgentsServiceTests
                 SmartFlowTestFactory.AgentSummary(
                     "12345678-1234-1234-1234-1234567890ab",
                     "daily-reporter",
-                    2,
                     "2026-04-01T12:30:00+00:00"),
                 SmartFlowTestFactory.AgentSummary(
                     "87654321-4321-4321-4321-ba0987654321",
                     "reviewer",
-                    0,
                     "2026-04-01T12:35:00+00:00")));
 
         var service = SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory(agentMcp));
@@ -563,8 +551,8 @@ public sealed class ConfigureAgentsServiceTests
         Assert.Equal("answer", answer.Type);
         Assert.NotNull(answer.Text);
         Assert.Contains("# 🤖 Configured Agents", answer.Text);
-        Assert.Contains("| daily-reporter | `12345678` | 2 |", answer.Text);
-        Assert.Contains("| reviewer | `87654321` | 0 |", answer.Text);
+        Assert.Contains("| daily-reporter | `12345678` |", answer.Text);
+        Assert.Contains("| reviewer | `87654321` |", answer.Text);
         Assert.Equal(0, llm.CallCount);
     }
 

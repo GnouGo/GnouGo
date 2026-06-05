@@ -17,66 +17,62 @@ public class AgentRepositoryTests : IDisposable
 
     public void Dispose() => _database.Dispose();
 
-    // ── AddAgent ─────────────────────────────────────────────────────
-
     [Fact]
-    public async Task AddAgent_CreatesAgentWithSchedules()
+    public async Task AddAgent_CreatesYamlFileInAgentsDirectory()
     {
-        var schedules = new List<Schedule>
-        {
-            new() { Name = "daily", Cron = "0 8 * * *" },
-            new() { Name = "weekly", Cron = "0 9 * * 1" }
-        };
-
-        var agent = await _repo.AddAgentAsync("TestAgent", "step1: hello", schedules);
+        var agent = await _repo.AddAgentAsync("TestAgent", "step1: hello", "original prompt");
 
         Assert.NotEqual(Guid.Empty, agent.Id);
         Assert.Equal("TestAgent", agent.Name);
         Assert.Equal("step1: hello", agent.Workflow);
+        Assert.Equal("original prompt", agent.OriginalPrompt);
 
-        var deserialized = AgentRepository.DeserializeSchedules(agent.SchedulesJson);
-        Assert.Equal(2, deserialized.Count);
-        Assert.Equal("daily", deserialized[0].Name);
-        Assert.Equal("0 8 * * *", deserialized[0].Cron);
-        Assert.Equal("weekly", deserialized[1].Name);
-    }
-
-    [Fact]
-    public async Task AddAgent_EmptySchedules_CreatesAgentWithEmptyArray()
-    {
-        var agent = await _repo.AddAgentAsync("NoSchedule", "workflow", []);
-
-        Assert.Equal("[]", agent.SchedulesJson);
+        var filePath = Path.Combine(_database.AgentsDirectory, "TestAgent.yaml");
+        Assert.True(File.Exists(filePath));
+        var yaml = await File.ReadAllTextAsync(filePath);
+        Assert.Contains("name: \"TestAgent\"", yaml);
+        Assert.Contains("workflow: \"step1: hello\"", yaml);
     }
 
     [Fact]
     public async Task AddAgent_ThrowsOnEmptyName()
     {
         await Assert.ThrowsAsync<ArgumentException>(
-            () => _repo.AddAgentAsync("", "workflow", []));
+            () => _repo.AddAgentAsync("", "workflow"));
     }
 
     [Fact]
     public async Task AddAgent_ThrowsOnEmptyWorkflow()
     {
         await Assert.ThrowsAsync<ArgumentException>(
-            () => _repo.AddAgentAsync("name", "", []));
+            () => _repo.AddAgentAsync("name", ""));
     }
 
     [Fact]
     public async Task AddAgent_TrimsName()
     {
-        var agent = await _repo.AddAgentAsync("  padded  ", "wf", []);
+        var agent = await _repo.AddAgentAsync("  padded  ", "wf");
         Assert.Equal("padded", agent.Name);
+    }
+
+    [Theory]
+    [InlineData("../bad")]
+    [InlineData("bad/name")]
+    [InlineData(".")]
+    [InlineData("..")]
+    public async Task AddAgent_RejectsUnsafeFileNames(string name)
+    {
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _repo.AddAgentAsync(name, "wf"));
     }
 
     [Fact]
     public async Task AddAgent_ThrowsWhenNameAlreadyExists_IgnoringCaseAndWhitespace()
     {
-        await _repo.AddAgentAsync("DailyReporter", "wf", []);
+        await _repo.AddAgentAsync("DailyReporter", "wf");
 
         var ex = await Assert.ThrowsAsync<DuplicateAgentNameException>(
-            () => _repo.AddAgentAsync("  dailyreporter  ", "wf-2", []));
+            () => _repo.AddAgentAsync("  dailyreporter  ", "wf-2"));
 
         Assert.Equal("DailyReporter", (await _repo.ListAgentsAsync()).Single().Name);
         Assert.Equal("An agent named 'dailyreporter' already exists.", ex.Message);
@@ -94,8 +90,8 @@ public class AgentRepositoryTests : IDisposable
     [Fact]
     public async Task ListAgents_ReturnsAllAgents_OrderedByName()
     {
-        await _repo.AddAgentAsync("Bravo", "wf", []);
-        await _repo.AddAgentAsync("Alpha", "wf", []);
+        await _repo.AddAgentAsync("Bravo", "wf");
+        await _repo.AddAgentAsync("Alpha", "wf");
 
         var agents = await _repo.ListAgentsAsync();
 
@@ -109,49 +105,47 @@ public class AgentRepositoryTests : IDisposable
     [Fact]
     public async Task UpdateAgent_ModifiesAllFields()
     {
-        var created = await _repo.AddAgentAsync("Original", "wf1", [new Schedule { Name = "old", Cron = "0 0 * * *" }]);
+        var created = await _repo.AddAgentAsync("Original", "wf1", "prompt1");
 
-        var newSchedules = new List<Schedule> { new() { Name = "new-sched", Cron = "*/5 * * * *" } };
-        var updated = await _repo.UpdateAgentAsync(created.Id, "Renamed", "wf2", newSchedules);
+        var updated = await _repo.UpdateAgentAsync(created.Id, "Renamed", "wf2", "prompt2");
 
         Assert.Equal(created.Id, updated.Id);
         Assert.Equal("Renamed", updated.Name);
         Assert.Equal("wf2", updated.Workflow);
+        Assert.Equal("prompt2", updated.OriginalPrompt);
 
-        var deserialized = AgentRepository.DeserializeSchedules(updated.SchedulesJson);
-        Assert.Single(deserialized);
-        Assert.Equal("new-sched", deserialized[0].Name);
-        Assert.Equal("*/5 * * * *", deserialized[0].Cron);
+        Assert.False(File.Exists(Path.Combine(_database.AgentsDirectory, "Original.yaml")));
+        Assert.True(File.Exists(Path.Combine(_database.AgentsDirectory, "Renamed.yaml")));
     }
 
     [Fact]
     public async Task UpdateAgent_ThrowsWhenNotFound()
     {
         await Assert.ThrowsAsync<KeyNotFoundException>(
-            () => _repo.UpdateAgentAsync(Guid.NewGuid(), "name", "wf", []));
+            () => _repo.UpdateAgentAsync(Guid.NewGuid(), "name", "wf"));
     }
 
     [Fact]
     public async Task UpdateAgent_UpdatesTimestamp()
     {
-        var created = await _repo.AddAgentAsync("Agent", "wf", []);
+        var created = await _repo.AddAgentAsync("Agent", "wf");
         var createdTime = created.UpdatedAt;
 
         // Small delay to ensure different tick
         await Task.Delay(10);
 
-        var updated = await _repo.UpdateAgentAsync(created.Id, "Agent", "wf2", []);
+        var updated = await _repo.UpdateAgentAsync(created.Id, "Agent", "wf2");
         Assert.True(updated.UpdatedAt >= createdTime);
     }
 
     [Fact]
     public async Task UpdateAgent_ThrowsWhenRenamingToExistingName_IgnoringCase()
     {
-        await _repo.AddAgentAsync("Alpha", "wf", []);
-        var second = await _repo.AddAgentAsync("Bravo", "wf", []);
+        await _repo.AddAgentAsync("Alpha", "wf");
+        var second = await _repo.AddAgentAsync("Bravo", "wf");
 
         var ex = await Assert.ThrowsAsync<DuplicateAgentNameException>(
-            () => _repo.UpdateAgentAsync(second.Id, " alpha ", "wf-2", []));
+            () => _repo.UpdateAgentAsync(second.Id, " alpha ", "wf-2"));
 
         Assert.Equal("An agent named 'alpha' already exists.", ex.Message);
         Assert.Equal("Bravo", (await _repo.ListAgentsAsync()).Single(a => a.Id == second.Id).Name);
@@ -162,7 +156,7 @@ public class AgentRepositoryTests : IDisposable
     [Fact]
     public async Task DeleteAgent_RemovesAgent()
     {
-        var agent = await _repo.AddAgentAsync("ToDelete", "wf", []);
+        var agent = await _repo.AddAgentAsync("ToDelete", "wf");
 
         await _repo.DeleteAgentAsync(agent.Id);
 
@@ -183,7 +177,7 @@ public class AgentRepositoryTests : IDisposable
     public async Task RoundTrip_CreateListUpdateDelete()
     {
         // Create
-        var agent = await _repo.AddAgentAsync("RoundTrip", "step1", [new Schedule { Name = "s1", Cron = "0 0 * * *" }]);
+        var agent = await _repo.AddAgentAsync("RoundTrip", "step1");
         Assert.NotEqual(Guid.Empty, agent.Id);
 
         // List
@@ -191,7 +185,7 @@ public class AgentRepositoryTests : IDisposable
         Assert.Single(list);
 
         // Update
-        await _repo.UpdateAgentAsync(agent.Id, "RoundTrip-Updated", "step2", []);
+        await _repo.UpdateAgentAsync(agent.Id, "RoundTrip-Updated", "step2");
 
         var updated = (await _repo.ListAgentsAsync())[0];
         Assert.Equal("RoundTrip-Updated", updated.Name);
@@ -202,48 +196,6 @@ public class AgentRepositoryTests : IDisposable
         Assert.Empty(await _repo.ListAgentsAsync());
     }
 
-    // ── Diff revisions ───────────────────────────────────────────────
-
-    [Fact]
-    public async Task AddAgent_CreatesDiffRevision()
-    {
-        var agent = await _repo.AddAgentAsync("DiffTest", "wf", [new Schedule { Name = "s", Cron = "0 0 * * *" }]);
-
-        var revisions = await _database.DiffService.GetRevisionsAsync("AgentDefinition", agent.Id.ToString());
-
-        Assert.Single(revisions);
-        Assert.True(revisions[0].IsFirstRevision);
-        Assert.Contains("DiffTest", revisions[0].CurrentValue);
-        Assert.Contains("0 0 * * *", revisions[0].CurrentValue);
-    }
-
-    [Fact]
-    public async Task UpdateAgent_CreatesDiffWithPreviousRevision()
-    {
-        var agent = await _repo.AddAgentAsync("V1", "wf1", []);
-        await _repo.UpdateAgentAsync(agent.Id, "V2", "wf2", [new Schedule { Name = "new", Cron = "*/5 * * * *" }]);
-
-        var revisions = await _database.DiffService.GetRevisionsAsync("AgentDefinition", agent.Id.ToString());
-
-        Assert.Equal(2, revisions.Count);
-        // Most recent first
-        Assert.False(revisions[0].IsFirstRevision);
-        Assert.NotNull(revisions[0].DiffFromPrevious);
-        Assert.Contains("V2", revisions[0].CurrentValue);
-    }
-
-    [Fact]
-    public async Task DeleteAgent_CreatesTombstoneRevision()
-    {
-        var agent = await _repo.AddAgentAsync("WillDelete", "wf", []);
-        await _repo.DeleteAgentAsync(agent.Id);
-
-        var revisions = await _database.DiffService.GetRevisionsAsync("AgentDefinition", agent.Id.ToString());
-
-        Assert.Equal(2, revisions.Count);
-        Assert.Contains("Agent deleted", revisions[0].CurrentValue);
-    }
-
     [Fact]
     public async Task SerializeAgentToYaml_ProducesValidYaml()
     {
@@ -252,7 +204,6 @@ public class AgentRepositoryTests : IDisposable
             Id = Guid.NewGuid(),
             Name = "YamlTest",
             Workflow = "step1: echo hello\nstep2: done",
-            SchedulesJson = """[{"id":"abc","name":"daily","cron":"0 8 * * *"}]""",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
@@ -260,7 +211,7 @@ public class AgentRepositoryTests : IDisposable
         var yaml = AgentRepository.SerializeAgentToYaml(agent);
 
         Assert.Contains("YamlTest", yaml);
-        Assert.Contains("0 8 * * *", yaml);
-        Assert.Contains("daily", yaml);
+        Assert.Contains("workflow: |-", yaml);
+        Assert.DoesNotContain("schedules", yaml, StringComparison.OrdinalIgnoreCase);
     }
 }
