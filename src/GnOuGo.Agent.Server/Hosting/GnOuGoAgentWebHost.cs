@@ -332,7 +332,10 @@ public static class GnOuGoAgentWebHost
         // --- services ---
         // LLMRuntimeOptionsStore: holds the live LLMOptions hydrated from appsettings + KeyVault.
         builder.Services.AddMemoryCache();
-        builder.Services.AddHttpClient(TraceDebugService.HttpClientName);
+        builder.Services.AddHttpClient(TraceDebugService.HttpClientName, client =>
+        {
+            client.Timeout = Timeout.InfiniteTimeSpan;
+        });
         builder.Services.AddSingleton<AppVersionInfo>();
         builder.Services.AddSingleton<LocalTraceDebugStore>();
         builder.Services.AddSingleton<LLMRuntimeOptionsStore>(sp =>

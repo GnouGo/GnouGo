@@ -14,35 +14,33 @@ public sealed class TraceDebugService
 {
     public const string HttpClientName = "TraceDebug";
 
-    private static readonly TimeSpan DefaultRefreshInterval = TimeSpan.FromSeconds(1);
-
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly LocalTraceDebugStore _localTraceStore;
-    private readonly TelemetryEventBus _telemetryEventBus;
+    private readonly IOptionsMonitor<TraceDebugSettings> _traceDebugSettings;
     private readonly IOptionsMonitor<OpenTelemetrySettings> _openTelemetrySettings;
     private readonly ILogger<TraceDebugService> _logger;
 
     public TraceDebugService(
+        IHttpClientFactory httpClientFactory,
         IServiceScopeFactory scopeFactory,
         LocalTraceDebugStore localTraceStore,
-        TelemetryEventBus telemetryEventBus,
+        IOptionsMonitor<TraceDebugSettings> traceDebugSettings,
         IOptionsMonitor<OpenTelemetrySettings> openTelemetrySettings,
         ILogger<TraceDebugService> logger)
     {
+        _httpClientFactory = httpClientFactory;
         _scopeFactory = scopeFactory;
         _localTraceStore = localTraceStore;
-        _telemetryEventBus = telemetryEventBus;
+        _traceDebugSettings = traceDebugSettings;
         _openTelemetrySettings = openTelemetrySettings;
         _logger = logger;
     }
 
-    public TimeSpan RefreshInterval => DefaultRefreshInterval;
-
     /// <summary>
-    /// Streams trace debug snapshots. The first snapshot is returned immediately,
-    /// then subsequent snapshots are pushed when the embedded OTLP collector flushes
-    /// new spans/logs. A lightweight heartbeat keeps local in-memory traces fresh
-    /// even before a collector flush occurs.
+    /// Streams trace debug snapshots. The first snapshot is returned immediately
+    /// from local/persisted state, then subsequent snapshots are triggered by the
+    /// OTLP collector HTTP SSE trace stream.
     /// </summary>
     public async IAsyncEnumerable<TraceDebugSnapshot> StreamSnapshotsAsync(
         string? correlationId,
@@ -51,32 +49,9 @@ public sealed class TraceDebugService
     {
         yield return await GetSnapshotAsync(correlationId, traceId, ct).ConfigureAwait(false);
 
-        var subscription = _telemetryEventBus.Subscribe();
-        try
+        await foreach (var _ in ReadCollectorTraceStreamAsync(correlationId, traceId, ct).ConfigureAwait(false))
         {
-            while (!ct.IsCancellationRequested)
-            {
-                var waitForFlushTask = subscription.Reader.WaitToReadAsync(ct).AsTask();
-                var heartbeatTask = Task.Delay(DefaultRefreshInterval, ct);
-                var completedTask = await Task.WhenAny(waitForFlushTask, heartbeatTask).ConfigureAwait(false);
-
-                if (completedTask == waitForFlushTask)
-                {
-                    if (!await waitForFlushTask.ConfigureAwait(false))
-                        yield break;
-
-                    while (subscription.Reader.TryRead(out _))
-                    {
-                        // Drain coalesced flush events; one fresh snapshot is enough.
-                    }
-                }
-
-                yield return await GetSnapshotAsync(correlationId, traceId, ct).ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            _telemetryEventBus.Unsubscribe(subscription);
+            yield return await GetSnapshotAsync(correlationId, traceId, ct).ConfigureAwait(false);
         }
     }
 
@@ -324,6 +299,92 @@ public sealed class TraceDebugService
         var tenantId = _openTelemetrySettings.CurrentValue.TenantId;
         return Guid.TryParse(tenantId, out var parsedTenantId) ? parsedTenantId : null;
     }
+
+    private async IAsyncEnumerable<bool> ReadCollectorTraceStreamAsync(
+        string? correlationId,
+        string? traceId,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var requestUri = BuildTraceStreamUri(correlationId, traceId);
+        using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+        request.Headers.Accept.ParseAdd("text/event-stream");
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var response = await client.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            ct).ConfigureAwait(false);
+
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        using var reader = new StreamReader(stream);
+        var eventName = string.Empty;
+        var hasData = false;
+
+        while (!ct.IsCancellationRequested)
+        {
+            var line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
+            if (line is null)
+                yield break;
+
+            if (line.Length == 0)
+            {
+                if (hasData && IsSnapshotEvent(eventName))
+                    yield return true;
+
+                eventName = string.Empty;
+                hasData = false;
+                continue;
+            }
+
+            if (line.StartsWith("event:", StringComparison.Ordinal))
+            {
+                eventName = line["event:".Length..].Trim();
+            }
+            else if (line.StartsWith("data:", StringComparison.Ordinal))
+            {
+                hasData = true;
+            }
+        }
+    }
+
+    private Uri BuildTraceStreamUri(string? correlationId, string? traceId)
+    {
+        var settings = _traceDebugSettings.CurrentValue;
+        var baseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl)
+            ? "http://localhost:4318"
+            : settings.BaseUrl.Trim();
+
+        var builder = new UriBuilder(new Uri(new Uri(baseUrl, UriKind.Absolute), "/api/tenants/traces/stream"));
+        var query = new List<string>
+        {
+            $"limit={Math.Clamp(settings.RecentTraceLimit <= 0 ? 20 : settings.RecentTraceLimit, 1, 500)}"
+        };
+
+        var tenantId = ResolveTenantId();
+        if (tenantId is not null)
+            query.Add($"tenantId={Uri.EscapeDataString(tenantId.Value.ToString())}");
+
+        var serviceName = string.IsNullOrWhiteSpace(settings.ServiceName)
+            ? _openTelemetrySettings.CurrentValue.ServiceName
+            : settings.ServiceName.Trim();
+
+        if (!string.IsNullOrWhiteSpace(serviceName))
+            query.Add($"serviceName={Uri.EscapeDataString(serviceName)}");
+
+        if (!string.IsNullOrWhiteSpace(traceId))
+            query.Add($"traceIdFilter={Uri.EscapeDataString(traceId.Trim())}");
+        else if (!string.IsNullOrWhiteSpace(correlationId))
+            query.Add($"attributeContains={Uri.EscapeDataString(correlationId.Trim())}");
+
+        builder.Query = string.Join('&', query);
+        return builder.Uri;
+    }
+
+    private static bool IsSnapshotEvent(string eventName)
+        => string.Equals(eventName, "init", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(eventName, "update", StringComparison.OrdinalIgnoreCase);
 
     private static string BuildPendingMessage()
         => "Waiting for telemetry spans to arrive for this message.";

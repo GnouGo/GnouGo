@@ -24,12 +24,16 @@ public sealed class ChatTraceSidebarTests : TestContext
         };
 
         var localStore = new LocalTraceDebugStore(new TestOptionsMonitor<OpenTelemetrySettings>(settings));
-        var eventBus = new TelemetryEventBus();
         var scopeFactory = Services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
         var traceDebug = new TraceDebugService(
+            new StaticHttpClientFactory("event: init\ndata: []\n\n"),
             scopeFactory,
             localStore,
-            eventBus,
+            new TestOptionsMonitor<TraceDebugSettings>(new TraceDebugSettings
+            {
+                BaseUrl = "http://localhost:4318",
+                ServiceName = settings.ServiceName
+            }),
             new TestOptionsMonitor<OpenTelemetrySettings>(settings),
             NullLogger<TraceDebugService>.Instance);
 
@@ -76,7 +80,6 @@ public sealed class ChatTraceSidebarTests : TestContext
             workflowActivity.SetTag(AgentOTelTelemetry.CorrelationIdTagName, "corr-sidebar");
             localStore.Track(workflowActivity);
             localStore.Complete(workflowActivity);
-            eventBus.NotifyFlushed(spanCount: 1, logCount: 0);
         });
 
         var closeButton = cut.Find("button[aria-label='Close trace panel']");
@@ -98,7 +101,29 @@ public sealed class ChatTraceSidebarTests : TestContext
             Assert.DoesNotContain("Live logs for this answer", cut.Markup);
         });
     }
-}
 
+    private sealed class StaticHttpClientFactory(string streamContent) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name)
+            => new(new StaticSseHandler(streamContent))
+            {
+                BaseAddress = new Uri("http://localhost:4318"),
+                Timeout = Timeout.InfiniteTimeSpan
+            };
+    }
+
+    private sealed class StaticSseHandler(string streamContent) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(streamContent)
+            };
+            response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/event-stream");
+            return Task.FromResult(response);
+        }
+    }
+}
 
 
