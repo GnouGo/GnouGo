@@ -15,6 +15,39 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class ChatTraceSidebarTests : TestContext
 {
     [Fact]
+    public void Logs_RenderDetailsLazily_AndKeepParentActionsClickable()
+    {
+        var logs = new List<TraceLogDto>
+        {
+            new(
+                ReceivedUtc: DateTimeOffset.Parse("2026-06-06T10:00:00+00:00"),
+                TraceId: "11111111111111111111111111111111",
+                SpanId: "2222222222222222",
+                SeverityNumber: 9,
+                SeverityText: "Information",
+                Body: "{\"large\":\"payload\"}",
+                ServiceName: "GnOuGo.Agent.Server",
+                Attributes: new Dictionary<string, object?> { ["large"] = "{\"nested\":true}" },
+                Resource: new Dictionary<string, object?> { ["service.name"] = "GnOuGo.Agent.Server" },
+                Scope: new Dictionary<string, object?> { ["name"] = "tests" })
+        };
+
+        var cut = RenderComponent<ChatTraceLogs>(parameters => parameters
+            .Add(p => p.Logs, logs)
+            .Add(p => p.RenderFormatted, true));
+
+        Assert.DoesNotContain("Log identifiers", cut.Markup);
+
+        cut.Find("button.gnougo-trace-log__summary").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Log identifiers", cut.Markup));
+
+        cut.Find("button.gnougo-trace-log__summary").Click();
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Log identifiers", cut.Markup));
+    }
+
+    [Fact]
     public async Task SwitchingToLogs_ThenClosingDuringRefresh_DoesNotThrowAndClosesPanel()
     {
         var settings = new OpenTelemetrySettings
@@ -125,5 +158,4 @@ public sealed class ChatTraceSidebarTests : TestContext
         }
     }
 }
-
 
