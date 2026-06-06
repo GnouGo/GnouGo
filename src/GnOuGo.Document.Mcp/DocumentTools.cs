@@ -70,7 +70,8 @@ public sealed class DocumentTools
     }
 
     [McpServerTool(Name = "document_write"), Description(
-        "Writes text content to a file. For .docx, generates a simple Word document. " +
+        "Writes text content to a file. For .docx, automatically detects Markdown and maps headings, lists, emphasis, code, links, blockquotes, and tables to Word structures. " +
+        "For .pdf, generates a readable A4 PDF and automatically renders Markdown headings, lists, emphasis, code, links, blockquotes, tables, and separators. " +
         "For .xlsx, generates a spreadsheet from tab/comma-separated text. " +
         "For other allowed extensions, writes plain text. " +
         "Use a relative path from the workspace root.")]

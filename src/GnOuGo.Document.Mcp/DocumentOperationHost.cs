@@ -123,6 +123,9 @@ public sealed class DocumentOperationHost
 
             switch (ext)
             {
+                case ".pdf":
+                    PdfWriter.WriteSimplePdf(resolved, content);
+                    break;
                 case ".docx":
                     DocxWriter.WriteSimpleDocx(resolved, content);
                     break;
@@ -441,7 +444,6 @@ public sealed class DocumentOperationHost
         };
     }
 }
-
 
 
 
