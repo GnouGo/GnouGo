@@ -84,6 +84,8 @@ The persisted values live in the Agent MCP SQLite database (`Agent:DatabasePath`
 LLM provider and MCP server definitions are hydrated from encrypted KeyVault secrets at startup; `user-settings.json` is no longer used.
 `/llm add` can configure `openai`, `ollama`, `copilot`, and `anthropic` providers. The Anthropic provider uses the Anthropic Messages API endpoint `https://api.anthropic.com/v1` and stores the API key encrypted in KeyVault like the other remote providers. The legacy `claude` name is still accepted as an alias for existing configurations.
 
+Bundled MCP servers can also expose selected editable fields through the `BundledMcp` settings section. Each field maps to a KeyVault secret and a runtime target such as `env:Git__Token`, so `/mcp list` can show the bundled server and `/mcp edit <name>` only prompts for the configured fields. The default configuration makes `GnOuGo.Git.Mcp` listable and exposes only the Git token; the token is saved encrypted in KeyVault and injected into the Git MCP process as `Git:Token` when runtime MCP options are hydrated.
+
 ## Dynamic workflow input composer
 
 The Blazor chat composer resolves the active/default agent workflow through `SmartFlowService` and adapts the user input area to the workflow `inputs` declaration:
@@ -328,4 +330,3 @@ The cache key includes the active provider configuration fingerprint, so changin
 ```powershell
 dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Server.Tests\GnOuGo.Agent.Server.Tests.csproj"
 ```
-

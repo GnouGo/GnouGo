@@ -196,7 +196,8 @@ internal static class SmartFlowTestFactory
         LLMOptions? options = null,
         AgentHumanInputProvider? humanInput = null,
         IKeyVaultRuntimeConfigStore? keyVaultStore = null,
-        AgentOTelTelemetry? telemetry = null)
+        AgentOTelTelemetry? telemetry = null,
+        BundledMcpSettings? bundledMcpSettings = null)
         => new(
             llmClient,
             humanInput ?? new AgentHumanInputProvider(),
@@ -204,7 +205,8 @@ internal static class SmartFlowTestFactory
             keyVaultStore ?? new FakeKeyVaultRuntimeConfigStore(),
             CreateRuntimeOptionsStore(options),
             telemetry ?? CreateTelemetry(),
-            NullLogger<ConfigureProvidersService>.Instance);
+            NullLogger<ConfigureProvidersService>.Instance,
+            bundledMcpSettings: Options.Create(bundledMcpSettings ?? new BundledMcpSettings()));
 
     public static ConfigureAgentsService CreateAgentsService(
         RecordingLlmClient llmClient,

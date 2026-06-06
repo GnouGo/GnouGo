@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.Endpoints;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Shared;
@@ -10,6 +11,7 @@ using GnOuGo.Agent.Mcp;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using OtlpTenantCollector.Models;
 
 namespace GnOuGo.Agent.Server.Tests;
@@ -202,6 +204,85 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Contains("Unknown `/mcp` command", answer.Text);
         Assert.Contains("# 🔌 MCP Server Commands", answer.Text);
         Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpList_IncludesListableBundledMcpServers()
+    {
+        var llm = new RecordingLlmClient();
+        var settings = CreateBundledGitMcpSettings();
+        var service = SmartFlowTestFactory.CreateProvidersService(llm, bundledMcpSettings: settings);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp list", CancellationToken.None));
+
+        var answer = Assert.Single(events);
+        Assert.Equal("answer", answer.Type);
+        Assert.Contains("# 🔌 Configured MCP Servers", answer.Text);
+        Assert.Contains("GnOuGo.Git.Mcp", answer.Text);
+        Assert.Contains("Git Token", answer.Text);
+        Assert.Contains("LLM--McpServerOverrides--GnOuGo.Git.Mcp--Git--Token", answer.Text);
+        Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_McpEdit_BundledGitMcpEditsOnlyGitTokenSecret()
+    {
+        var llm = new RecordingLlmClient();
+        var settings = CreateBundledGitMcpSettings();
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
+        var humanInput = new AgentHumanInputProvider();
+        var runtimeOptions = new LLMOptions
+        {
+            McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["GnOuGo.Git.Mcp"] = new()
+                {
+                    Type = "stdio",
+                    Description = "Git MCP",
+                    Command = "tools/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp",
+                    Args = []
+                }
+            }
+        };
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(runtimeOptions);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                Assert.Equal("mcp_edit.bundled_fields", request.StepId);
+                Assert.NotNull(request.Fields);
+                var field = Assert.Single(request.Fields!);
+                Assert.Equal("git_token", field.Name);
+                Assert.DoesNotContain(request.Fields!, f => f.Name is "command" or "args" or "description");
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject
+                {
+                    ["git_token"] = "ghp-test-token"
+                });
+                break;
+            }
+        }, token);
+
+        var service = new ConfigureProvidersService(
+            llm,
+            humanInput,
+            new FakeModelCatalog(),
+            keyVaultStore,
+            runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<ConfigureProvidersService>.Instance,
+            bundledMcpSettings: Options.Create(settings));
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp edit GnOuGo.Git.Mcp", token), token);
+        await responder;
+
+        Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("updated", StringComparison.OrdinalIgnoreCase) == true);
+        var stored = await keyVaultStore.GetSecretValueAsync("LLM--McpServerOverrides--GnOuGo.Git.Mcp--Git--Token", CancellationToken.None);
+        Assert.Equal("ghp-test-token", stored);
+        Assert.Equal("tools/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp", runtimeStore.Current.McpServers["GnOuGo.Git.Mcp"].Command);
     }
 
     [Fact]
@@ -578,8 +659,8 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("answer", answer.Type);
         Assert.NotNull(answer.Text);
         Assert.Contains("# 🔌 Configured MCP Servers", answer.Text);
-        Assert.Contains("| github | `LLM--McpServers--github` | 4 |", answer.Text);
-        Assert.Contains("| slack | `LLM--McpServers--slack` | 2 |", answer.Text);
+        Assert.Contains("| github | KeyVault | full | `LLM--McpServers--github` | 4 |", answer.Text);
+        Assert.Contains("| slack | KeyVault | full | `LLM--McpServers--slack` | 2 |", answer.Text);
         Assert.DoesNotContain("LLM--Models--openai", answer.Text, StringComparison.Ordinal);
         Assert.Equal(0, llm.CallCount);
     }
@@ -1686,6 +1767,29 @@ public sealed class ConfigureProvidersServiceTests
         return spans;
     }
 
+    private static BundledMcpSettings CreateBundledGitMcpSettings()
+        => new()
+        {
+            Servers = new Dictionary<string, BundledMcpServerSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["GnOuGo.Git.Mcp"] = new()
+                {
+                    Listable = true,
+                    EditableFields = new Dictionary<string, BundledMcpEditableFieldSettings>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["git_token"] = new()
+                        {
+                            DisplayName = "Git Token",
+                            Description = "Git token",
+                            Sensitive = true,
+                            SecretKey = "LLM--McpServerOverrides--GnOuGo.Git.Mcp--Git--Token",
+                            Target = "env:Git__Token"
+                        }
+                    }
+                }
+            }
+        };
+
     private static Dictionary<string, LLMModelMetadata> TestModelOverrides(params string[] modelIds)
     {
         var result = new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
@@ -1764,4 +1868,3 @@ file static class TestStringHelpers
         return count;
     }
 }
-

@@ -200,7 +200,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             Arguments = config.Args ?? [],
             Name = "GnOuGo.Flow",
             WorkingDirectory = commandResolution.WorkingDirectory,
-            EnvironmentVariables = BuildCorrelationEnvironment(correlation),
+            EnvironmentVariables = BuildStdioEnvironment(config, correlation),
             StandardErrorLines = line => CaptureStdioErrorLine(serverName, line)
         });
     }
@@ -424,6 +424,21 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
     {
         if (!string.IsNullOrWhiteSpace(value))
             headers.TryAddWithoutValidation(name, value);
+    }
+
+    private static Dictionary<string, string?>? BuildStdioEnvironment(McpServerOptions config, McpCorrelationContext? correlation)
+    {
+        var env = BuildCorrelationEnvironment(correlation) ?? new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        if (config.EnvironmentVariables is not null)
+        {
+            foreach (var kv in config.EnvironmentVariables)
+            {
+                if (!string.IsNullOrWhiteSpace(kv.Key))
+                    env[kv.Key] = kv.Value;
+            }
+        }
+
+        return env.Count == 0 ? null : env;
     }
 
     private static Dictionary<string, string?>? BuildCorrelationEnvironment(McpCorrelationContext? correlation)

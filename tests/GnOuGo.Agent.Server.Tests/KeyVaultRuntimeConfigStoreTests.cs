@@ -1,5 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using GnOuGo.AI.Core;
+using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.KeyVault.Mcp;
@@ -147,7 +149,86 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             }
         }
     }
-}
 
+    [Fact]
+    public async Task BuildEffectiveOptionsAsync_AppliesBundledMcpFieldOverrideToEnvironment()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-keyvault-tests-{Guid.NewGuid():N}.db");
+        var settings = new BundledMcpSettings
+        {
+            Servers = new Dictionary<string, BundledMcpServerSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["GnOuGo.Git.Mcp"] = new()
+                {
+                    Listable = true,
+                    EditableFields = new Dictionary<string, BundledMcpEditableFieldSettings>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["git_token"] = new()
+                        {
+                            SecretKey = "LLM--McpServerOverrides--GnOuGo.Git.Mcp--Git--Token",
+                            Target = "env:Git__Token"
+                        }
+                    }
+                }
+            }
+        };
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddKeyVaultMcpPersistence(dbPath);
+        services.AddSingleton<IOptions<BundledMcpSettings>>(Options.Create(settings));
+        services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
+
+        await using var provider = services.BuildServiceProvider();
+
+        try
+        {
+            await using (var scope = provider.CreateAsyncScope())
+            {
+                await provider.InitializeKeyVaultMcpAsync();
+                var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
+                await keyVault.SetSecretAsync(
+                    "LLM--McpServerOverrides--GnOuGo.Git.Mcp--Git--Token",
+                    "ghp-runtime-token",
+                    null,
+                    "test",
+                    CancellationToken.None);
+            }
+
+            var store = provider.GetRequiredService<IKeyVaultRuntimeConfigStore>();
+            var baseOptions = new LLMOptions
+            {
+                McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["GnOuGo.Git.Mcp"] = new()
+                    {
+                        Type = "stdio",
+                        Command = "tools/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp",
+                        Args = []
+                    }
+                }
+            };
+
+            var effective = await store.BuildEffectiveOptionsAsync(baseOptions, CancellationToken.None);
+
+            var git = Assert.Contains("GnOuGo.Git.Mcp", effective.McpServers);
+            Assert.Equal("tools/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp", git.Command);
+            Assert.Equal("ghp-runtime-token", git.EnvironmentVariables?["Git__Token"]);
+            Assert.Null(git.ApiKey);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(dbPath))
+                    File.Delete(dbPath);
+            }
+            catch (IOException)
+            {
+                // Best-effort cleanup for a temporary SQLite file.
+            }
+        }
+    }
+}
 
 

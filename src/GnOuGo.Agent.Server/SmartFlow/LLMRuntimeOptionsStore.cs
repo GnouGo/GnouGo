@@ -342,6 +342,9 @@ public sealed class LLMRuntimeOptionsStore
             ClientSecret = source.ClientSecret,
             Scopes = source.Scopes,
             Command = source.Command,
-            Args = source.Args is null ? null : [.. source.Args]
+            Args = source.Args is null ? null : [.. source.Args],
+            EnvironmentVariables = source.EnvironmentVariables is null
+                ? null
+                : new Dictionary<string, string?>(source.EnvironmentVariables, StringComparer.OrdinalIgnoreCase)
         };
 }

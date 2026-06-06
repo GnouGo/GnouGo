@@ -313,6 +313,8 @@ public static class GnOuGoAgentWebHost
         });
         builder.Services.Configure<ModelCatalogCacheSettings>(
             builder.Configuration.GetSection(ModelCatalogCacheSettings.SectionName));
+        builder.Services.Configure<BundledMcpSettings>(
+            builder.Configuration.GetSection(BundledMcpSettings.SectionName));
         builder.Services.Configure<KeyVaultSettings>(
             builder.Configuration.GetSection(KeyVaultSettings.SectionName));
         builder.Services.AddOtlpCollectorCore(builder.Configuration);
