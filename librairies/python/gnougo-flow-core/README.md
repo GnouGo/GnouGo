@@ -850,7 +850,8 @@ Two forms: expression-based and when-based.
 
 ### `workflow.call` — Call a Sub-Workflow
 
-Calls another workflow defined in the same document or fetched from an external source.
+Calls another workflow defined in the same document, fetched from an external source, or loaded from the configured workspace root.
+Resolution is delegated to `WorkflowEngine.workflow_call_resolver` (`DefaultWorkflowCallResolver` by default), so applications can add their own `kind` values without replacing the executor.
 
 #### Local call
 
@@ -860,8 +861,8 @@ Calls another workflow defined in the same document or fetched from an external 
   input:
     ref:
       kind: local
-      workflow: analysis       # Name of a workflow in the same document
-    inputs:
+      name: analysis       # Name of a workflow in the same document
+    args:
       data: "${data.inputs.raw_data}"
 ```
 
@@ -874,10 +875,28 @@ Calls another workflow defined in the same document or fetched from an external 
     ref:
       kind: url
       url: "https://example.com/workflows/analysis.yaml"
-      workflow: main
-    inputs:
+      export: main         # Optional exported workflow name
+    args:
       data: "${data.inputs.raw_data}"
 ```
+
+Configure `DefaultWorkflowCallResolver(allowed_hostnames=[...])` or `WorkflowEngine.fetch_policy.allowed_hostnames` to restrict URL hosts. `FetchPolicy.require_https` remains enabled by default.
+
+#### Workspace call
+
+```yaml
+- id: run_workspace
+  type: workflow.call
+  input:
+    ref:
+      kind: workspace
+      path: workflows/analysis.yaml
+      export: main         # Optional
+    args:
+      data: "${data.inputs.raw_data}"
+```
+
+`workspace` paths are resolved relative to the workspace root injected into `DefaultWorkflowCallResolver`. Absolute paths and path traversal outside that root are rejected.
 
 ---
 

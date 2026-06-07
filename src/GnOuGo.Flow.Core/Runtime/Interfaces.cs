@@ -115,6 +115,38 @@ public interface IWorkflowFetcher
 }
 
 /// <summary>
+/// Resolves <c>workflow.call</c> references to compiled workflows.
+/// Implementations may support local documents, remote URLs, workspace files,
+/// databases, or any other stable workflow source.
+/// </summary>
+public interface IWorkflowCallResolver
+{
+    Task<WorkflowCallResolution> ResolveAsync(WorkflowCallResolutionContext context, CancellationToken ct);
+}
+
+/// <summary>
+/// Context passed to an <see cref="IWorkflowCallResolver"/> for one workflow.call step.
+/// </summary>
+public sealed class WorkflowCallResolutionContext
+{
+    public required WorkflowEngine Engine { get; init; }
+    public required JsonObject Ref { get; init; }
+    public required string Kind { get; init; }
+    public required int CallDepth { get; init; }
+    public required IReadOnlySet<string> CallStack { get; init; }
+}
+
+/// <summary>
+/// Result of resolving a workflow.call reference.
+/// </summary>
+public sealed class WorkflowCallResolution
+{
+    public required CompiledWorkflow Workflow { get; init; }
+    public required string WorkflowName { get; init; }
+    public string? CallStackKey { get; init; }
+}
+
+/// <summary>
 /// Interface for template engine abstraction.
 /// </summary>
 public interface ITemplateEngine

@@ -5,13 +5,54 @@ from gnougo_flow_core.compilation import WorkflowCompiler
 from gnougo_flow_core.models import FetchPolicy
 from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
+from gnougo_flow_core.workflow_call_resolver import DefaultWorkflowCallResolver, WorkflowCallResolution
 
 
 def _compile(yaml_text: str):
     return WorkflowCompiler().compile(WorkflowParser.parse(yaml_text))
 
 
+class _InlineResolver:
+    def __init__(self, yaml_text: str):
+        self._compiled = _compile(yaml_text)
+
+    async def resolve_async(self, context):
+        wf = self._compiled.workflows[self._compiled.entrypoint]
+        return WorkflowCallResolution(wf, wf.name, "custom:inline")
+
+
 # ---------- local ----------
+
+@pytest.mark.asyncio
+async def test_workflow_call_uses_injected_resolver() -> None:
+    yaml_text = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: c
+            type: workflow.call
+            input:
+              ref: { kind: custom, name: ignored }
+        outputs:
+          r: "${data.steps.c.outputs.v}"
+    """
+    engine = WorkflowEngine()
+    engine.workflow_call_resolver = _InlineResolver("""
+    version: 1
+    workflows:
+      generated:
+        steps:
+          - id: s
+            type: set
+            input: { v: 99 }
+        outputs:
+          v: "${data.steps.s.v}"
+    """)
+    compiled = _compile(yaml_text)
+    result = await engine.execute_async(compiled.workflows["main"], {})
+    assert result.success is True, result.error
+    assert result.outputs["r"] == 99
 
 @pytest.mark.asyncio
 async def test_workflow_call_local_passes_args_and_returns_outputs() -> None:
@@ -168,6 +209,89 @@ async def test_workflow_call_args_are_deep_copied() -> None:
     assert result.success is True, result.error
     assert result.outputs["parent_count"] == 1
     assert result.outputs["sub_count"] == 1
+
+
+# ---------- workspace ----------
+
+@pytest.mark.asyncio
+async def test_workflow_call_workspace_resolves_relative_file(tmp_path) -> None:
+    workflows = tmp_path / "workflows"
+    workflows.mkdir()
+    (workflows / "helper.yaml").write_text(
+        """
+        version: 1
+        workflows:
+          helper:
+            steps:
+              - id: s
+                type: set
+                input: { v: "from workspace" }
+            outputs:
+              v: "${data.steps.s.v}"
+        """,
+        encoding="utf-8",
+    )
+    yaml_text = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: c
+            type: workflow.call
+            input:
+              ref: { kind: workspace, path: workflows/helper.yaml }
+        outputs:
+          r: "${data.steps.c.outputs.v}"
+    """
+    engine = WorkflowEngine()
+    engine.workflow_call_resolver = DefaultWorkflowCallResolver(workspace_root=tmp_path)
+    compiled = _compile(yaml_text)
+    result = await engine.execute_async(compiled.workflows["main"], {})
+    assert result.success is True, result.error
+    assert result.outputs["r"] == "from workspace"
+
+
+@pytest.mark.asyncio
+async def test_workflow_call_workspace_rejects_absolute_path(tmp_path) -> None:
+    absolute = str(tmp_path / "helper.yaml").replace("\\", "\\\\")
+    yaml_text = f"""
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: c
+            type: workflow.call
+            input:
+              ref: {{ kind: workspace, path: "{absolute}" }}
+    """
+    engine = WorkflowEngine()
+    engine.workflow_call_resolver = DefaultWorkflowCallResolver(workspace_root=tmp_path)
+    compiled = _compile(yaml_text)
+    result = await engine.execute_async(compiled.workflows["main"], {})
+    assert result.success is False
+    assert result.error.code == "WORKFLOW_FETCH_POLICY"
+    assert "relative" in result.error.message.lower()
+
+
+@pytest.mark.asyncio
+async def test_workflow_call_workspace_rejects_path_traversal(tmp_path) -> None:
+    yaml_text = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: c
+            type: workflow.call
+            input:
+              ref: { kind: workspace, path: ../outside.yaml }
+    """
+    engine = WorkflowEngine()
+    engine.workflow_call_resolver = DefaultWorkflowCallResolver(workspace_root=tmp_path)
+    compiled = _compile(yaml_text)
+    result = await engine.execute_async(compiled.workflows["main"], {})
+    assert result.success is False
+    assert result.error.code == "WORKFLOW_FETCH_POLICY"
+    assert "traversal" in result.error.message.lower()
 
 
 # ---------- remote ----------

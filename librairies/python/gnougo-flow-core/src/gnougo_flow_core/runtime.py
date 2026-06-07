@@ -428,6 +428,7 @@ class WorkflowEngine:
 
         self.llm_client: ILLMClient | None = None
         self.workflow_fetcher: IWorkflowFetcher | None = None
+        self.workflow_call_resolver: Any = None
         self.template_engine: ITemplateEngine | None = None
         self.mcp_client_factory: IMcpClientFactory | None = None
         self.human_input_provider: IHumanInputProvider | None = None

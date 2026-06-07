@@ -11,14 +11,6 @@ internal static class AgentMcpYamlContext
         AppendScalar(builder, "name", snapshot.Name);
         AppendBlock(builder, "workflow", snapshot.Workflow);
         AppendScalar(builder, "originalPrompt", snapshot.OriginalPrompt);
-        AppendScalar(builder, "scheduleDescription", snapshot.ScheduleDescription);
-        builder.AppendLine("schedules:");
-        foreach (var schedule in snapshot.Schedules)
-        {
-            builder.AppendLine("- id: " + Quote(schedule.Id));
-            builder.AppendLine("  name: " + Quote(schedule.Name));
-            builder.AppendLine("  cron: " + Quote(schedule.Cron));
-        }
 
         AppendScalar(builder, "createdAt", snapshot.CreatedAt);
         AppendScalar(builder, "updatedAt", snapshot.UpdatedAt);

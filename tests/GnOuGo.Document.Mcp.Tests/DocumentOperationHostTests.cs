@@ -1,3 +1,5 @@
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
 using GnOuGo.Document.Mcp;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -114,6 +116,290 @@ public class DocumentOperationHostTests
         Assert.True(readResult.Success);
         Assert.Contains("Line 1", readResult.Sections[0].Content);
         Assert.Contains("Line 2", readResult.Sections[0].Content);
+    }
+
+    [Fact]
+    public void Write_DocxFile_WhenContentLooksLikeMarkdown_AppliesWordStyles()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+        var markdown = """
+            # Report title
+
+            This has **bold** and *italic* text with `code`.
+
+            - First bullet
+            - Second bullet
+
+            1. First step
+            2. Second step
+
+            > Important note
+            """;
+
+        var writeResult = host.Write("markdown.docx", markdown, null);
+
+        Assert.True(writeResult.Success);
+        using var doc = WordprocessingDocument.Open(writeResult.FilePath!, false);
+        var document = doc.MainDocumentPart!.Document;
+        Assert.NotNull(document);
+        var body = document.Body;
+        Assert.NotNull(body);
+
+        var paragraphs = body!.Elements<Paragraph>().ToArray();
+        Assert.Contains(paragraphs, p => p.ParagraphProperties?.ParagraphStyleId?.Val?.Value == "Heading1"
+            && p.InnerText.Contains("Report title", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p => p.Descendants<Bold>().Any()
+            && p.InnerText.Contains("bold", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p => p.Descendants<Italic>().Any()
+            && p.InnerText.Contains("italic", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p => p.ParagraphProperties?.NumberingProperties?.NumberingId?.Val?.Value == 1
+            && p.InnerText.Contains("First bullet", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p => p.ParagraphProperties?.NumberingProperties?.NumberingId?.Val?.Value == 2
+            && p.InnerText.Contains("First step", StringComparison.Ordinal));
+        Assert.Contains(paragraphs, p => p.ParagraphProperties?.ParagraphStyleId?.Val?.Value == "Quote"
+            && p.InnerText.Contains("Important note", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Write_DocxFile_WhenMarkdownContainsTable_CreatesWordTable()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+        var markdown = """
+            | Name | Age |
+            | --- | --- |
+            | Alice | 30 |
+            | Bob | 25 |
+            """;
+
+        var writeResult = host.Write("table.docx", markdown, null);
+
+        Assert.True(writeResult.Success);
+        using var doc = WordprocessingDocument.Open(writeResult.FilePath!, false);
+        var document = doc.MainDocumentPart!.Document;
+        Assert.NotNull(document);
+        var table = document.Body!.Elements<Table>().SingleOrDefault();
+        Assert.NotNull(table);
+        Assert.Contains("Alice", table!.InnerText, StringComparison.Ordinal);
+        Assert.Equal(3, table.Elements<TableRow>().Count());
+    }
+
+    [Fact]
+    public void Write_DocxFile_WhenContentOnlyHasBoldMarkdown_AppliesBold()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+
+        var writeResult = host.Write("bold.docx", "Un **texte** important.", null);
+
+        Assert.True(writeResult.Success);
+        using var doc = WordprocessingDocument.Open(writeResult.FilePath!, false);
+        var document = doc.MainDocumentPart!.Document;
+        Assert.NotNull(document);
+        var body = document.Body;
+        Assert.NotNull(body);
+
+        var paragraph = Assert.Single(body!.Elements<Paragraph>());
+        Assert.Contains(paragraph.Descendants<Run>(), run =>
+            run.InnerText == "texte" && run.RunProperties?.Bold is not null);
+        Assert.DoesNotContain("**", paragraph.InnerText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Write_DocxFile_WhenMarkdownContainsLink_CreatesHyperlink()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+
+        var writeResult = host.Write("link.docx", "Voir [GnOuGo](https://example.com/gnougo).", null);
+
+        Assert.True(writeResult.Success);
+        using var doc = WordprocessingDocument.Open(writeResult.FilePath!, false);
+        var document = doc.MainDocumentPart!.Document;
+        Assert.NotNull(document);
+        var body = document.Body;
+        Assert.NotNull(body);
+        var hyperlink = body!
+            .Descendants<Hyperlink>()
+            .SingleOrDefault();
+
+        Assert.NotNull(hyperlink);
+        Assert.Equal("GnOuGo", hyperlink!.InnerText);
+        Assert.DoesNotContain("[", body.InnerText, StringComparison.Ordinal);
+        Assert.Contains(doc.MainDocumentPart.HyperlinkRelationships,
+            relationship => relationship.Uri.ToString() == "https://example.com/gnougo");
+    }
+
+    [Fact]
+    public void Write_DocxFile_WhenMarkdownContainsHorizontalRule_CreatesParagraphBorder()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+
+        var writeResult = host.Write("rule.docx", "Intro\n\n---\n\nOutro", null);
+
+        Assert.True(writeResult.Success);
+        using var doc = WordprocessingDocument.Open(writeResult.FilePath!, false);
+        var document = doc.MainDocumentPart!.Document;
+        Assert.NotNull(document);
+        var body = document.Body;
+        Assert.NotNull(body);
+        var rule = body!
+            .Elements<Paragraph>()
+            .SingleOrDefault(p => p.ParagraphProperties?.ParagraphBorders?.BottomBorder is not null);
+
+        Assert.NotNull(rule);
+    }
+
+    [Fact]
+    public void Write_DocxFile_WhenMarkdownTableContainsInlineMarkdown_FormatsCellContent()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+        var markdown = """
+            | Name | Link |
+            | --- | --- |
+            | **Alice** | [Site](https://example.com) |
+            """;
+
+        var writeResult = host.Write("table-inline.docx", markdown, null);
+
+        Assert.True(writeResult.Success);
+        using var doc = WordprocessingDocument.Open(writeResult.FilePath!, false);
+        var document = doc.MainDocumentPart!.Document;
+        Assert.NotNull(document);
+        var body = document.Body;
+        Assert.NotNull(body);
+        var table = body!.Elements<Table>().Single();
+
+        Assert.Contains(table.Descendants<Run>(), run =>
+            run.InnerText == "Alice" && run.RunProperties?.Bold is not null);
+        Assert.Contains(table.Descendants<Hyperlink>(), hyperlink => hyperlink.InnerText == "Site");
+    }
+
+    [Fact]
+    public void Write_DocxFile_WhenMarkdownContainsSlimFaasSources_CreatesBothLinks()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+        var markdown = "Sources : [https://slimfaas.dev](https://slimfaas.dev) - Projet CNCF Sandbox - GitHub : [SlimPlanet/SlimFaas](https://github.com/SlimPlanet/SlimFaas)";
+
+        var writeResult = host.Write("sources.docx", markdown, null);
+
+        Assert.True(writeResult.Success);
+        using var doc = WordprocessingDocument.Open(writeResult.FilePath!, false);
+        var document = doc.MainDocumentPart!.Document;
+        Assert.NotNull(document);
+        var body = document.Body;
+        Assert.NotNull(body);
+
+        var links = body!.Descendants<Hyperlink>().ToArray();
+        Assert.Equal(2, links.Length);
+        Assert.Contains(links, link => link.InnerText == "https://slimfaas.dev");
+        Assert.Contains(links, link => link.InnerText == "SlimPlanet/SlimFaas");
+        Assert.Contains(doc.MainDocumentPart.HyperlinkRelationships,
+            relationship => relationship.Uri.ToString() == "https://slimfaas.dev/");
+        Assert.Contains(doc.MainDocumentPart.HyperlinkRelationships,
+            relationship => relationship.Uri.ToString() == "https://github.com/SlimPlanet/SlimFaas");
+    }
+
+    [Theory]
+    [InlineData("---")]
+    [InlineData("***")]
+    [InlineData("___")]
+    [InlineData("==========")]
+    public void Write_DocxFile_WhenMarkdownContainsSeparator_CreatesParagraphBorder(string separator)
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+
+        var writeResult = host.Write("separator.docx", $"Intro\n\n{separator}\n\nOutro", null);
+
+        Assert.True(writeResult.Success);
+        using var doc = WordprocessingDocument.Open(writeResult.FilePath!, false);
+        var document = doc.MainDocumentPart!.Document;
+        Assert.NotNull(document);
+        var body = document.Body;
+        Assert.NotNull(body);
+
+        Assert.Contains(body!.Elements<Paragraph>(),
+            paragraph => paragraph.ParagraphProperties?.ParagraphBorders?.BottomBorder is not null);
+    }
+
+    [Fact]
+    public void Write_DocxFile_WhenMarkdownTableWithoutOuterPipesContainsBold_FormatsCellContent()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+        var markdown = """
+            Name | Value
+            --- | ---
+            Feature | **something**
+            """;
+
+        var writeResult = host.Write("table-no-outer-pipes.docx", markdown, null);
+
+        Assert.True(writeResult.Success);
+        using var doc = WordprocessingDocument.Open(writeResult.FilePath!, false);
+        var document = doc.MainDocumentPart!.Document;
+        Assert.NotNull(document);
+        var body = document.Body;
+        Assert.NotNull(body);
+
+        var table = Assert.Single(body!.Elements<Table>());
+        Assert.Contains(table.Descendants<Run>(), run =>
+            run.InnerText == "something" && run.RunProperties?.Bold is not null);
+        Assert.DoesNotContain("**", table.InnerText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Write_PdfFile_CreatesReadablePdf()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+
+        var writeResult = host.Write("plain.pdf", "Line 1\nLine 2", null);
+
+        Assert.True(writeResult.Success);
+        Assert.True(File.Exists(writeResult.FilePath));
+
+        var readResult = host.Read("plain.pdf", "plain");
+        Assert.True(readResult.Success);
+        Assert.Contains("Line", readResult.Sections[0].Content);
+    }
+
+    [Fact]
+    public void Write_PdfFile_WhenContentLooksLikeMarkdown_RendersReadableMarkdownContent()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+        var markdown = """
+            # Report title
+
+            Sources : [https://slimfaas.dev](https://slimfaas.dev) - GitHub : [SlimPlanet/SlimFaas](https://github.com/SlimPlanet/SlimFaas)
+
+            ---
+
+            Name | Value
+            --- | ---
+            Feature | **something**
+            """;
+
+        var writeResult = host.Write("markdown.pdf", markdown, null);
+
+        Assert.True(writeResult.Success);
+        Assert.True(File.Exists(writeResult.FilePath));
+
+        var readResult = host.Read("markdown.pdf", "plain");
+        Assert.True(readResult.Success);
+        var content = string.Join("\n", readResult.Sections.Select(section => section.Content));
+        Assert.Contains("Report", content, StringComparison.Ordinal);
+        Assert.Contains("https://slimfaas.dev", content, StringComparison.Ordinal);
+        Assert.Contains("SlimPlanet/SlimFaas", content, StringComparison.Ordinal);
+        Assert.Contains("something", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("**", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("[SlimPlanet/SlimFaas]", content, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -236,4 +522,3 @@ public class DocumentOperationHostTests
         return path;
     }
 }
-

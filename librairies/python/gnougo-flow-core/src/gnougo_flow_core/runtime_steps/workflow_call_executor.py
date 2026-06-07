@@ -1,34 +1,9 @@
 from __future__ import annotations
 
 import copy
-from urllib.parse import urlparse
 
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
-
-
-def _enforce_fetch_policy(url: str, integrity: str | None, policy) -> None:
-    """Mirror .NET FetchPolicy validation (scheme, host, integrity)."""
-    if policy is None:
-        return
-    parsed = urlparse(url)
-    if policy.require_https and (parsed.scheme or "").lower() != "https":
-        raise WorkflowRuntimeException(
-            ErrorCodes.WORKFLOW_FETCH_POLICY,
-            f"HTTPS required by fetch policy (got '{parsed.scheme or 'about'}://')",
-        )
-    allow = list(getattr(policy, "allowed_hostnames", None) or [])
-    if allow:
-        host = (parsed.hostname or "").lower()
-        if host not in {h.lower() for h in allow}:
-            raise WorkflowRuntimeException(
-                ErrorCodes.WORKFLOW_FETCH_POLICY,
-                f"Host '{host}' not in allow-list",
-            )
-    if getattr(policy, "require_integrity", False) and not integrity:
-        raise WorkflowRuntimeException(
-            ErrorCodes.WORKFLOW_FETCH_POLICY,
-            "Integrity hash required by fetch policy but missing",
-        )
+from gnougo_flow_core.workflow_call_resolver import DefaultWorkflowCallResolver, WorkflowCallResolution, WorkflowCallResolutionContext
 
 
 class WorkflowCallExecutor:
@@ -56,6 +31,14 @@ class WorkflowCallExecutor:
       integrity: sha256-...
       export: my_entry      # optional - must be in remote `exports`
     args: { x: 1 }
+
+# Or from the configured workspace root:
+- id: call_workspace
+  type: workflow.call
+  input:
+    ref:
+      kind: workspace
+      path: workflows/helper.yaml
 ```
 Output: `{ outputs: <workflow outputs>, workflow: <name> }`.
 """
@@ -86,131 +69,54 @@ Output: `{ outputs: <workflow outputs>, workflow: <name> }`.
                 f"Max call depth ({ctx.limits.max_call_depth}) exceeded",
             )
 
-        if kind == "local":
-            return await self._call_local(ctx, ref, args)
-        if kind == "url":
-            return await self._call_remote(ctx, ref, args)
+        resolver = ctx.engine.workflow_call_resolver or DefaultWorkflowCallResolver()
+        resolution = await resolver.resolve_async(
+            WorkflowCallResolutionContext(
+                engine=ctx.engine,
+                ref=ref,
+                kind=kind,
+                call_depth=ctx.call_depth,
+                call_stack=set(ctx.call_stack),
+            )
+        )
 
-        raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, f"Unknown workflow.call kind: {kind}")
-
-    async def _call_local(self, ctx: StepExecutionContext, ref: dict, args: Any) -> Any:
-        name = ref.get("name")
-        if not isinstance(name, str):
-            raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "Local workflow.call requires 'name'")
-        if name in ctx.call_stack:
+        if resolution.call_stack_key and resolution.call_stack_key in ctx.call_stack:
             raise WorkflowRuntimeException(
                 ErrorCodes.WORKFLOW_CYCLE_DETECTED,
-                f"Cycle detected: workflow '{name}' already in call stack",
+                f"Cycle detected: workflow '{resolution.workflow_name}' already in call stack",
             )
 
-        compiled_doc = ctx.engine.compiled_document
-        if not compiled_doc or name not in compiled_doc.workflows:
-            raise WorkflowRuntimeException(
-                ErrorCodes.INPUT_VALIDATION,
-                f"Local workflow '{name}' not found",
-            )
-        sub = compiled_doc.workflows[name]
+        return await self._execute_resolved(ctx, resolution, args)
+
+    async def _execute_resolved(self, ctx: StepExecutionContext, resolution: WorkflowCallResolution, args: Any) -> Any:
+        sub = resolution.workflow
+        call_stack = set(ctx.call_stack)
+        if resolution.call_stack_key:
+            call_stack.add(resolution.call_stack_key)
         sub_data = {
             "inputs": copy.deepcopy(args) if isinstance(args, (dict, list)) else dict(args or {}),
             "steps": {},
             "env": copy.deepcopy(ctx.data.get("env", {})),
         }
         rr = RunResult(success=True)
-        await ctx.engine.execute_steps_async(
-            sub.steps,
-            sub_data,
-            rr,
-            ctx.limits,
-            ctx.call_depth + 1,
-            set(ctx.call_stack) | {name},
-            ctx.telemetry_span,
-            ct=ctx.ct,
-        )
+        previous_document = ctx.engine.compiled_document
+        if sub.document is not None:
+            ctx.engine.compiled_document = sub.document
+        try:
+            await ctx.engine.execute_steps_async(
+                sub.steps,
+                sub_data,
+                rr,
+                ctx.limits,
+                ctx.call_depth + 1,
+                call_stack,
+                ctx.telemetry_span,
+                ct=ctx.ct,
+            )
+        finally:
+            ctx.engine.compiled_document = previous_document
         if sub.outputs:
             outputs = {k: ctx.engine.evaluate_output_def(v, sub_data) for k, v in sub.outputs.items()}
         else:
             outputs = copy.deepcopy(sub_data.get("steps", {}))
-        return {"outputs": outputs, "workflow": name}
-
-    async def _call_remote(self, ctx: StepExecutionContext, ref: dict, args: Any) -> Any:
-        fetcher = ctx.engine.workflow_fetcher
-        if fetcher is None:
-            raise WorkflowRuntimeException(
-                ErrorCodes.WORKFLOW_FETCH_NETWORK, "No workflow fetcher configured"
-            )
-        url = ref.get("url")
-        if not isinstance(url, str):
-            raise WorkflowRuntimeException(
-                ErrorCodes.INPUT_VALIDATION, "Remote workflow.call requires 'url'"
-            )
-        integrity = ref.get("integrity")
-        export = ref.get("export")
-
-        policy = ctx.engine.fetch_policy
-        _enforce_fetch_policy(url, integrity, policy)
-
-        try:
-            yaml_text = await fetcher.fetch_async(url, integrity)
-        except WorkflowRuntimeException:
-            raise
-        except Exception as exc:
-            raise WorkflowRuntimeException(
-                ErrorCodes.WORKFLOW_FETCH_NETWORK,
-                f"Failed to fetch remote workflow: {exc}",
-            ) from exc
-
-        if policy is not None and getattr(policy, "max_size_bytes", 0):
-            size = len(yaml_text.encode("utf-8")) if isinstance(yaml_text, str) else len(yaml_text or b"")
-            if size > policy.max_size_bytes:
-                raise WorkflowRuntimeException(
-                    ErrorCodes.WORKFLOW_FETCH_POLICY,
-                    f"Remote workflow ({size} bytes) exceeds max_size_bytes ({policy.max_size_bytes})",
-                )
-
-        doc = WorkflowParser.parse(yaml_text)
-        compiled = WorkflowCompiler().compile(doc)
-
-        # Target selection: explicit export → entrypoint → single workflow → first.
-        wf = None
-        if isinstance(export, str) and export:
-            exports = list(doc.exports or [])
-            if exports and export not in exports:
-                raise WorkflowRuntimeException(
-                    ErrorCodes.WORKFLOW_FETCH_POLICY,
-                    f"Requested export '{export}' is not in remote document exports",
-                )
-            wf = compiled.workflows.get(export)
-            if wf is None:
-                raise WorkflowRuntimeException(
-                    ErrorCodes.WORKFLOW_FETCH_POLICY,
-                    f"Requested export '{export}' is not defined in the remote document",
-                )
-        else:
-            if compiled.entrypoint and compiled.entrypoint in compiled.workflows:
-                wf = compiled.workflows[compiled.entrypoint]
-            elif len(compiled.workflows) == 1:
-                wf = next(iter(compiled.workflows.values()))
-            else:
-                wf = next(iter(compiled.workflows.values()))
-
-        sub_data = {
-            "inputs": copy.deepcopy(args) if isinstance(args, (dict, list)) else dict(args or {}),
-            "steps": {},
-            "env": copy.deepcopy(ctx.data.get("env", {})),
-        }
-        rr = RunResult(success=True)
-        await ctx.engine.execute_steps_async(
-            wf.steps,
-            sub_data,
-            rr,
-            ctx.limits,
-            ctx.call_depth + 1,
-            set(ctx.call_stack),
-            ctx.telemetry_span,
-            ct=ctx.ct,
-        )
-        if wf.outputs:
-            outputs = {k: ctx.engine.evaluate_output_def(v, sub_data) for k, v in wf.outputs.items()}
-        else:
-            outputs = copy.deepcopy(sub_data.get("steps", {}))
-        return {"outputs": outputs, "workflow": wf.name}
+        return {"outputs": outputs, "workflow": resolution.workflow_name}

@@ -182,4 +182,10 @@ public sealed class McpServerOptions
 
     /// <summary>Arguments for the command (stdio transport).</summary>
     public List<string>? Args { get; set; }
+
+    /// <summary>
+    /// Extra environment variables passed to stdio MCP subprocesses.
+    /// Useful for injecting encrypted runtime settings without changing bundled appsettings.
+    /// </summary>
+    public Dictionary<string, string?>? EnvironmentVariables { get; set; }
 }

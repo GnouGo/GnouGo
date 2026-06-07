@@ -2,7 +2,6 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
-using GnOuGo.Flow.Core.Parsing;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
@@ -56,39 +55,36 @@ public sealed class WorkflowCallExecutor : IStepExecutor
                 $"Max call depth ({ctx.Limits.MaxCallDepth}) exceeded");
         }
 
-        if (kind == "local")
+        var resolution = await ctx.Engine.WorkflowCallResolver.ResolveAsync(new WorkflowCallResolutionContext
         {
-            return await CallLocal(ctx, refObj, args, ct);
-        }
-        else if (kind == "url")
+            Engine = ctx.Engine,
+            Ref = refObj,
+            Kind = kind,
+            CallDepth = ctx.CallDepth,
+            CallStack = ctx.CallStack
+        }, ct);
+
+        if (!string.IsNullOrWhiteSpace(resolution.CallStackKey) && ctx.CallStack.Contains(resolution.CallStackKey))
         {
-            return await CallRemote(ctx, refObj, args, ct);
+            ctx.Engine.Logger.LogError("workflow.call: cycle detected, workflow call '{WorkflowCallKey}' already in call stack", resolution.CallStackKey);
+            throw new WorkflowRuntimeException(ErrorCodes.WorkflowCycleDetected,
+                $"Cycle detected: workflow '{resolution.WorkflowName}' already in call stack");
         }
-        else
-        {
-            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"Unknown workflow.call kind: {kind}");
-        }
+
+        return await ExecuteResolvedWorkflow(ctx, resolution, args, ct);
     }
 
-    private static async Task<JsonNode?> CallLocal(StepExecutionContext ctx, JsonObject refObj, JsonNode? args, CancellationToken ct)
+    private static async Task<JsonNode?> ExecuteResolvedWorkflow(
+        StepExecutionContext ctx,
+        WorkflowCallResolution resolution,
+        JsonNode? args,
+        CancellationToken ct)
     {
-        var name = refObj["name"]?.GetValue<string>()
-            ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Local workflow.call requires 'name'");
+        var subWorkflow = resolution.Workflow;
+        var newCallStack = new HashSet<string>(ctx.CallStack);
+        if (!string.IsNullOrWhiteSpace(resolution.CallStackKey))
+            newCallStack.Add(resolution.CallStackKey);
 
-        // Check for cycles
-        if (ctx.CallStack.Contains(name))
-        {
-            ctx.Engine.Logger.LogError("workflow.call: cycle detected, workflow '{WorkflowName}' already in call stack", name);
-            throw new WorkflowRuntimeException(ErrorCodes.WorkflowCycleDetected,
-                $"Cycle detected: workflow '{name}' already in call stack");
-        }
-
-        // Look up compiled workflow from the step's document
-        var compiledDoc = FindCompiledDocument(ctx);
-        if (compiledDoc == null || !compiledDoc.Workflows.TryGetValue(name, out var subWorkflow))
-            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"Local workflow '{name}' not found");
-
-        var newCallStack = new HashSet<string>(ctx.CallStack) { name };
         var result = new RunResult { Success = true };
         var subData = new JsonObject
         {
@@ -97,7 +93,15 @@ public sealed class WorkflowCallExecutor : IStepExecutor
             ["env"] = ctx.Data["env"]?.DeepClone() ?? new JsonObject()
         };
 
-        await ctx.Engine.ExecuteStepsAsync(subWorkflow.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, newCallStack, ct, ctx.TelemetrySpan);
+        var previousDocument = ctx.Engine.ReplaceCompiledDocumentForWorkflowCall(subWorkflow.Document);
+        try
+        {
+            await ctx.Engine.ExecuteStepsAsync(subWorkflow.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, newCallStack, ct, ctx.TelemetrySpan);
+        }
+        finally
+        {
+            ctx.Engine.ReplaceCompiledDocumentForWorkflowCall(previousDocument);
+        }
 
         // Evaluate outputs
         JsonNode? outputs;
@@ -118,81 +122,8 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         return new JsonObject
         {
             ["outputs"] = outputs,
-            ["workflow"] = name
+            ["workflow"] = resolution.WorkflowName
         };
-    }
-
-    private static async Task<JsonNode?> CallRemote(StepExecutionContext ctx, JsonObject refObj, JsonNode? args, CancellationToken ct)
-    {
-        var url = refObj["url"]?.GetValue<string>()
-            ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Remote workflow.call requires 'url'");
-
-        var fetcher = ctx.Engine.WorkflowFetcher
-            ?? throw new WorkflowRuntimeException(ErrorCodes.WorkflowFetchNetwork, "No workflow fetcher configured");
-
-        // Policy check
-        var policy = ctx.Engine.FetchPolicy;
-        if (policy != null)
-        {
-            var uri = new Uri(url);
-            if (policy.RequireHttps && uri.Scheme != "https")
-                throw new WorkflowRuntimeException(ErrorCodes.WorkflowFetchPolicy, "HTTPS required by policy");
-            if (policy.AllowedHostnames.Count > 0 && !policy.AllowedHostnames.Contains(uri.Host))
-                throw new WorkflowRuntimeException(ErrorCodes.WorkflowFetchPolicy, $"Host '{uri.Host}' not in allow-list");
-        }
-
-        var integrity = refObj["integrity"]?.GetValue<string>();
-        var yaml = await fetcher.FetchAsync(url, integrity, ct);
-
-        // Parse and compile remote workflow
-        var remoteDoc = WorkflowParser.Parse(yaml);
-        var exportName = refObj["export"]?.GetValue<string>();
-
-        WorkflowDef? targetWf = null;
-        if (exportName != null)
-        {
-            if (remoteDoc.Exports == null || !remoteDoc.Exports.Contains(exportName))
-                throw new WorkflowRuntimeException(ErrorCodes.WorkflowFetchPolicy,
-                    $"Workflow '{exportName}' is not exported from remote document");
-            targetWf = remoteDoc.Workflows.GetValueOrDefault(exportName);
-        }
-        else if (remoteDoc.Exports?.Count == 1)
-        {
-            targetWf = remoteDoc.Workflows.GetValueOrDefault(remoteDoc.Exports[0]);
-        }
-        else if (remoteDoc.Entrypoint != null)
-        {
-            targetWf = remoteDoc.Workflows.GetValueOrDefault(remoteDoc.Entrypoint);
-        }
-
-        if (targetWf == null)
-            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Could not resolve target workflow from remote document");
-
-        // Compile and execute
-        var compiler = new Compilation.WorkflowCompiler();
-        var compiledDoc = compiler.Compile(remoteDoc);
-        var compiledWf = compiledDoc.Workflows.Values.First();
-
-        var subData = new JsonObject
-        {
-            ["inputs"] = args?.DeepClone() ?? new JsonObject(),
-            ["steps"] = new JsonObject(),
-            ["env"] = ctx.Data["env"]?.DeepClone() ?? new JsonObject()
-        };
-
-        var result = new RunResult { Success = true };
-        await ctx.Engine.ExecuteStepsAsync(compiledWf.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, ctx.CallStack, ct, ctx.TelemetrySpan);
-
-        return new JsonObject
-        {
-            ["outputs"] = subData["steps"]?.DeepClone(),
-            ["workflow"] = compiledWf.Name
-        };
-    }
-
-    private static CompiledDocument? FindCompiledDocument(StepExecutionContext ctx)
-    {
-        return ctx.Engine.CompiledDocument;
     }
 }
 

@@ -282,17 +282,16 @@ public sealed class ConfigureAgentsService
         var sb = new StringBuilder();
         sb.AppendLine("# 🤖 Configured Agents");
         sb.AppendLine();
-        sb.AppendLine("| Name | ID | Schedules | Updated |");
-        sb.AppendLine("|------|----|-----------|---------|");
+        sb.AppendLine("| Name | ID | Updated |");
+        sb.AppendLine("|------|----|---------|");
 
         foreach (var agent in agents.OfType<JsonObject>().OrderBy(a => a["name"]?.GetValue<string>() ?? "", StringComparer.OrdinalIgnoreCase))
         {
             var name = agent["name"]?.GetValue<string>() ?? "";
             var id = agent["id"]?.GetValue<string>() ?? "";
-            var schedules = (agent["schedules"] as JsonArray)?.Count ?? 0;
             var updated = agent["updated_at"]?.GetValue<string>() ?? "";
             var shortId = id.Length > 8 ? id[..8] : id;
-            sb.AppendLine($"| {EscapeMarkdownCell(name)} | `{EscapeBackticks(shortId)}` | {schedules} | {EscapeMarkdownCell(FormatTimestamp(updated))} |");
+            sb.AppendLine($"| {EscapeMarkdownCell(name)} | `{EscapeBackticks(shortId)}` | {EscapeMarkdownCell(FormatTimestamp(updated))} |");
         }
 
         return sb.ToString().TrimEnd();

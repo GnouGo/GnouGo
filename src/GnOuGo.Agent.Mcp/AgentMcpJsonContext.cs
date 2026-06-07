@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using GnOuGo.AI.Core;
-using GnOuGo.Agent.Mcp.Models;
 using GnOuGo.Agent.Mcp.Services;
 
 namespace GnOuGo.Agent.Mcp;
@@ -18,9 +17,6 @@ internal static class AgentMcpJson
     }
 }
 
-[JsonSerializable(typeof(List<Schedule>))]
-[JsonSerializable(typeof(Schedule[]))]
-[JsonSerializable(typeof(IReadOnlyList<Schedule>))]
 [JsonSerializable(typeof(AgentDto))]
 [JsonSerializable(typeof(IReadOnlyList<AgentDto>))]
 [JsonSerializable(typeof(AgentToolResult))]

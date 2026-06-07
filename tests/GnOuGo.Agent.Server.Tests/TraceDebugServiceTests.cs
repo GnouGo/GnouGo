@@ -339,8 +339,10 @@ public sealed class TraceDebugServiceTests
     {
         await using var host = await CollectorTestHost.CreateAsync();
         var settings = new OpenTelemetrySettings { Enabled = true, ServiceName = "GnOuGo.Agent.Server" };
-        var eventBus = new TelemetryEventBus();
-        var service = CreateService(host.Services, settings, eventBus: eventBus);
+        var service = CreateService(
+            host.Services,
+            settings,
+            streamContent: "event: init\ndata: []\n\nevent: update\ndata: []\n\n");
         var traceIdHex = "99999999999999999999999999999999";
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
@@ -359,7 +361,6 @@ public sealed class TraceDebugServiceTests
             serviceName: settings.ServiceName,
             startUnixNs: 1_710_000_000_000_000_000,
             endUnixNs: 1_710_000_000_500_000_000));
-        eventBus.NotifyFlushed(spanCount: 1, logCount: 0);
 
         Assert.True(await snapshots.MoveNextAsync());
         Assert.NotNull(snapshots.Current.Trace);
@@ -370,15 +371,19 @@ public sealed class TraceDebugServiceTests
         IServiceProvider services,
         OpenTelemetrySettings openTelemetrySettings,
         LocalTraceDebugStore? localStore = null,
-        TelemetryEventBus? eventBus = null)
+        string streamContent = "event: init\ndata: []\n\n")
     {
         localStore ??= new LocalTraceDebugStore(new StaticOptionsMonitor<OpenTelemetrySettings>(openTelemetrySettings));
-        eventBus ??= new TelemetryEventBus();
 
         return new TraceDebugService(
+            new StaticHttpClientFactory(streamContent),
             services.GetRequiredService<IServiceScopeFactory>(),
             localStore,
-            eventBus,
+            new StaticOptionsMonitor<TraceDebugSettings>(new TraceDebugSettings
+            {
+                BaseUrl = "http://localhost:4318",
+                ServiceName = openTelemetrySettings.ServiceName
+            }),
             new StaticOptionsMonitor<OpenTelemetrySettings>(openTelemetrySettings),
             NullLogger<TraceDebugService>.Instance);
     }
@@ -477,6 +482,29 @@ public sealed class TraceDebugServiceTests
         public T Get(string? name) => CurrentValue;
 
         public IDisposable? OnChange(Action<T, string?> listener) => null;
+    }
+
+    private sealed class StaticHttpClientFactory(string streamContent) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name)
+            => new(new StaticSseHandler(streamContent))
+            {
+                BaseAddress = new Uri("http://localhost:4318"),
+                Timeout = Timeout.InfiniteTimeSpan
+            };
+    }
+
+    private sealed class StaticSseHandler(string streamContent) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(streamContent)
+            };
+            response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/event-stream");
+            return Task.FromResult(response);
+        }
     }
 
     private sealed class CollectorTestHost : IAsyncDisposable

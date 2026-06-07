@@ -82,7 +82,7 @@
                 {
                     <div class="gnougo-trace-panel__spinner-row">
                         <span class="gnougo-trace-panel__spinner"></span>
-                        <span>Polling the OTLP collector...</span>
+                        <span>Listening to the OTLP collector stream...</span>
                     </div>
                 }
             </div>
@@ -137,9 +137,10 @@
         _loadError = null;
         _activeTab = TracePanelTab.Traces;
         StopRefreshLoop();
-        _refreshCts = new CancellationTokenSource();
+        var refreshCts = new CancellationTokenSource();
+        _refreshCts = refreshCts;
         _isLoading = true;
-        _ = RunRefreshLoopAsync(_refreshCts.Token);
+        _ = RunRefreshLoopAsync(refreshCts);
         await Task.CompletedTask;
     }
     public ValueTask DisposeAsync()
@@ -149,20 +150,21 @@
         return ValueTask.CompletedTask;
     }
 
-    private async Task RunRefreshLoopAsync(CancellationToken ct)
+    private async Task RunRefreshLoopAsync(CancellationTokenSource refreshCts)
     {
+        var ct = refreshCts.Token;
         try
         {
             var correlationId = Message?.CorrelationId;
             var traceId = Message?.TraceId;
             await foreach (var snapshot in TraceDebug.StreamSnapshotsAsync(correlationId, traceId, ct))
             {
-                if (!IsRefreshActive(ct))
+                if (!IsRefreshActive(refreshCts))
                     break;
 
                 await InvokeAsync(() =>
                 {
-                    if (!IsRefreshActive(ct))
+                    if (!IsRefreshActive(refreshCts))
                         return;
 
                     // Keep selected span detail stable while user is inspecting one span.
@@ -185,18 +187,24 @@
         }
         catch (Exception ex)
         {
-            if (!IsRefreshActive(ct))
+            if (!IsRefreshActive(refreshCts))
                 return;
 
             await InvokeAsync(() =>
             {
-                if (!IsRefreshActive(ct))
+                if (!IsRefreshActive(refreshCts))
                     return;
 
                 _loadError = ex.Message;
                 _isLoading = false;
                 StateHasChanged();
             });
+        }
+        finally
+        {
+            if (ReferenceEquals(_refreshCts, refreshCts))
+                _refreshCts = null;
+            refreshCts.Dispose();
         }
     }
 
@@ -214,14 +222,19 @@
     }
     private void StopRefreshLoop()
     {
-        if (_refreshCts is null)
+        var refreshCts = _refreshCts;
+        if (refreshCts is null)
             return;
-        try { _refreshCts.Cancel(); }
-        catch (ObjectDisposedException) { }
-        _refreshCts.Dispose();
         _refreshCts = null;
+        try { refreshCts.Cancel(); }
+        catch (ObjectDisposedException) { }
     }
-    private Task HandleCloseAsync() => OnClose.InvokeAsync();
+    private async Task HandleCloseAsync()
+    {
+        StopRefreshLoop();
+        _isLoading = false;
+        await OnClose.InvokeAsync();
+    }
     private void ToggleRenderMode() => _renderFormatted = !_renderFormatted;
     private void SelectTab(TracePanelTab tab) => _activeTab = tab;
 
@@ -255,12 +268,11 @@
         return _snapshot.Pending ? "Pending" : "Idle";
     }
 
-    private bool IsRefreshActive(CancellationToken ct)
+    private bool IsRefreshActive(CancellationTokenSource refreshCts)
         => !_isDisposed
-            && !ct.IsCancellationRequested
+            && !refreshCts.IsCancellationRequested
             && IsOpen
-            && _refreshCts is not null
-            && ct == _refreshCts.Token;
+            && ReferenceEquals(_refreshCts, refreshCts);
 
     private string GetPanelContentKey()
         => string.Join('|',

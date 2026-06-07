@@ -1095,6 +1095,8 @@ html, body {
 }
 
 .gnougo-trace-panel__header {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1198,6 +1200,8 @@ html, body {
 }
 
 .gnougo-trace-panel__tabs {
+  position: relative;
+  z-index: 2;
   display: flex;
   gap: 8px;
   padding: 10px 20px 0;
@@ -1248,6 +1252,8 @@ html, body {
 }
 
 .gnougo-trace-panel__body {
+  position: relative;
+  z-index: 1;
   flex: 1;
   overflow: auto;
   padding: 18px 20px 28px;
@@ -1580,6 +1586,7 @@ html, body {
 .gnougo-trace-log {
   border-radius: 16px;
   overflow: hidden;
+  background: rgba(15, 23, 42, 0.82);
 }
 
 .gnougo-trace-log--trace { border-color: rgba(148, 163, 184, 0.22); }
@@ -1590,6 +1597,10 @@ html, body {
 .gnougo-trace-log--fatal { border-color: rgba(239, 68, 68, 0.42); }
 
 .gnougo-trace-log__summary {
+  appearance: none;
+  width: 100%;
+  border: 0;
+  background: rgba(15, 23, 42, 0.82);
   display: grid;
   grid-template-columns: 18px 96px minmax(78px, auto) minmax(120px, 180px) minmax(0, 1fr);
   gap: 10px;
@@ -1599,6 +1610,16 @@ html, body {
   color: #e2e8f0;
   list-style: none;
   min-width: 0;
+  text-align: left;
+}
+
+.gnougo-trace-log__summary:hover,
+.gnougo-trace-log__summary[aria-expanded="true"] {
+  background: rgba(30, 41, 59, 0.92);
+}
+
+.gnougo-trace-log__content {
+  background: rgba(15, 23, 42, 0.82);
 }
 
 .gnougo-trace-log__summary::marker {
@@ -1614,7 +1635,7 @@ html, body {
   transition: transform 160ms ease;
 }
 
-.gnougo-trace-log[open] .gnougo-trace-log__chevron {
+.gnougo-trace-log__summary[aria-expanded="true"] .gnougo-trace-log__chevron {
   transform: rotate(180deg);
 }
 

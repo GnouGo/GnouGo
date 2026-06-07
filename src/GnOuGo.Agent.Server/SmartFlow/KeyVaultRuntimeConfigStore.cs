@@ -1,6 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
+using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.KeyVault.Core.Services;
+using Microsoft.Extensions.Options;
 
 namespace GnOuGo.Agent.Server.SmartFlow;
 
@@ -21,13 +23,16 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<KeyVaultRuntimeConfigStore> _logger;
+    private readonly BundledMcpSettings _bundledMcpSettings;
 
     public KeyVaultRuntimeConfigStore(
         IServiceScopeFactory scopeFactory,
-        ILogger<KeyVaultRuntimeConfigStore> logger)
+        ILogger<KeyVaultRuntimeConfigStore> logger,
+        IOptions<BundledMcpSettings>? bundledMcpSettings = null)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _bundledMcpSettings = bundledMcpSettings?.Value ?? new BundledMcpSettings();
     }
 
     public async Task<IReadOnlyList<KeyVaultSecretSummary>> ListSecretsAsync(CancellationToken ct)
@@ -140,6 +145,7 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 Url = ReadConfigString(config, "url") ?? string.Empty,
                 Command = ReadConfigString(config, "command"),
                 Args = ParseArgs(config["args"]),
+                EnvironmentVariables = ParseEnvironmentVariables(config["environmentVariables"], existingServer?.EnvironmentVariables),
                 ApiKey = string.Equals(authType, "api_key", StringComparison.OrdinalIgnoreCase)
                     ? ReadConfigString(config, "apiKey", "api_key")
                     : null,
@@ -149,6 +155,8 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 ClientSecret = ReadConfigString(config, "oidcClientSecret", "oidc_client_secret")
             };
         }
+
+        await ApplyBundledMcpFieldOverridesAsync(effective, ct);
 
         if (!effective.Models.ContainsKey(effective.DefaultProvider)
             && effective.Models.Count > 0)
@@ -232,6 +240,91 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
         return valuesFromString.Count == 0 ? null : valuesFromString;
     }
 
+    private async Task ApplyBundledMcpFieldOverridesAsync(LLMOptions effective, CancellationToken ct)
+    {
+        foreach (var serverEntry in _bundledMcpSettings.Servers)
+        {
+            if (!effective.McpServers.TryGetValue(serverEntry.Key, out var serverOptions))
+                continue;
+
+            foreach (var fieldEntry in serverEntry.Value.EditableFields)
+            {
+                var field = fieldEntry.Value;
+                if (string.IsNullOrWhiteSpace(field.Target))
+                    continue;
+
+                var secretKey = field.ResolveSecretKey(serverEntry.Key, fieldEntry.Key);
+                var value = await GetSecretValueAsync(secretKey, ct);
+                if (string.IsNullOrWhiteSpace(value))
+                    continue;
+
+                ApplyMcpFieldTarget(serverOptions, field.Target, value);
+            }
+        }
+    }
+
+    private static Dictionary<string, string?>? ParseEnvironmentVariables(
+        JsonNode? node,
+        Dictionary<string, string?>? existingEnvironmentVariables)
+    {
+        Dictionary<string, string?>? values = existingEnvironmentVariables is null
+            ? null
+            : new Dictionary<string, string?>(existingEnvironmentVariables, StringComparer.OrdinalIgnoreCase);
+
+        if (node is not JsonObject obj)
+            return values;
+
+        values ??= new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in obj)
+        {
+            if (!string.IsNullOrWhiteSpace(kv.Key))
+                values[kv.Key] = kv.Value?.GetValue<string>();
+        }
+
+        return values.Count == 0 ? null : values;
+    }
+
+    private static void ApplyMcpFieldTarget(McpServerOptions options, string target, string value)
+    {
+        var separator = target.IndexOf(':', StringComparison.Ordinal);
+        if (separator <= 0 || separator == target.Length - 1)
+            return;
+
+        var kind = target[..separator].Trim();
+        var name = target[(separator + 1)..].Trim();
+
+        if (string.Equals(kind, "env", StringComparison.OrdinalIgnoreCase))
+        {
+            options.EnvironmentVariables ??= new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            options.EnvironmentVariables[name] = value;
+            return;
+        }
+
+        if (!string.Equals(kind, "option", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        switch (name.ToLowerInvariant())
+        {
+            case "apikey":
+            case "api_key":
+                options.ApiKey = value;
+                break;
+            case "url":
+                options.Url = value;
+                break;
+            case "command":
+                options.Command = value;
+                break;
+            case "description":
+                options.Description = value;
+                break;
+            case "clientsecret":
+            case "client_secret":
+                options.ClientSecret = value;
+                break;
+        }
+    }
+
     private static LLMOptions CloneOptions(LLMOptions source)
     {
         var clone = new LLMOptions
@@ -274,7 +367,10 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 ClientSecret = kv.Value.ClientSecret,
                 Scopes = kv.Value.Scopes,
                 Command = kv.Value.Command,
-                Args = kv.Value.Args is null ? null : [.. kv.Value.Args]
+                Args = kv.Value.Args is null ? null : [.. kv.Value.Args],
+                EnvironmentVariables = kv.Value.EnvironmentVariables is null
+                    ? null
+                    : new Dictionary<string, string?>(kv.Value.EnvironmentVariables, StringComparer.OrdinalIgnoreCase)
             };
         }
 
@@ -284,5 +380,3 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
         return clone;
     }
 }
-
-

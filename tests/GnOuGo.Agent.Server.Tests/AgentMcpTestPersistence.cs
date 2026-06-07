@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.Agent.Mcp;
-using GnOuGo.Agent.Mcp.Models;
 using GnOuGo.Agent.Mcp.Services;
 
 namespace GnOuGo.Agent.Server.Tests;
@@ -11,7 +10,7 @@ internal static class AgentMcpTestPersistence
         => await WithAgentMcpServicesAsync(dbPath, async scope =>
         {
             var agents = scope.ServiceProvider.GetRequiredService<IAgentRepository>();
-            await agents.AddAgentAsync(name, workflow, new List<Schedule>(), ct: ct);
+            await agents.AddAgentAsync(name, workflow, ct: ct);
         }, ct);
 
     public static async Task SeedUserConfigAsync(string dbPath, UserConfigUpdate update, CancellationToken ct = default)

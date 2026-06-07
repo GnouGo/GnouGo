@@ -32,8 +32,9 @@ public sealed class AgentMcpDatabaseBootstrapTests : IAsyncDisposable
 
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
         await connection.OpenAsync();
-        Assert.True(await TableExistsAsync(connection, "Agents"));
         Assert.True(await TableExistsAsync(connection, "UserConfigs"));
+        Assert.True(await IndexExistsAsync(connection, "IX_UserConfigs_TenantScopeKey"));
+        Assert.True(await IndexExistsAsync(connection, "IX_UserConfigs_TenantId"));
     }
 
     [Fact]
@@ -47,8 +48,8 @@ public sealed class AgentMcpDatabaseBootstrapTests : IAsyncDisposable
 
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
         await connection.OpenAsync();
-        Assert.True(await TableExistsAsync(connection, "Agents"));
         Assert.True(await TableExistsAsync(connection, "UserConfigs"));
+        Assert.True(await IndexExistsAsync(connection, "IX_UserConfigs_TenantScopeKey"));
     }
 
     public ValueTask DisposeAsync()
@@ -72,6 +73,15 @@ public sealed class AgentMcpDatabaseBootstrapTests : IAsyncDisposable
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $name LIMIT 1;";
         command.Parameters.AddWithValue("$name", tableName);
+        var result = await command.ExecuteScalarAsync();
+        return result is not null && result != DBNull.Value;
+    }
+
+    private static async Task<bool> IndexExistsAsync(SqliteConnection connection, string indexName)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = $name LIMIT 1;";
+        command.Parameters.AddWithValue("$name", indexName);
         var result = await command.ExecuteScalarAsync();
         return result is not null && result != DBNull.Value;
     }

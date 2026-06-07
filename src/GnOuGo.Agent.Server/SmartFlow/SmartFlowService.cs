@@ -250,6 +250,7 @@ public sealed class SmartFlowService
                 McpClientFactory = runtime.McpClientFactory,
                 McpCache = _mcpCache,
                 HumanInputProvider = _humanInput,
+                WorkflowCallResolver = CreateWorkflowCallResolver(),
                 Telemetry = telemetry,
                 Logger = _logger,
                 Limits = new ExecutionLimits
@@ -603,6 +604,37 @@ public sealed class SmartFlowService
             throw new InvalidOperationException("No entrypoint workflow found in dynamic-workflow-agent.yaml");
 
         return compiled.Workflows[entrypoint];
+    }
+
+    private IWorkflowCallResolver CreateWorkflowCallResolver()
+    {
+        var workspaceRoot = DiscoverWorkspaceRoot(Directory.GetCurrentDirectory())
+            ?? DiscoverWorkspaceRoot(AppContext.BaseDirectory);
+
+        return _scopeFactory is not null
+            ? new AgentDatabaseWorkflowCallResolver(_scopeFactory, workspaceRoot)
+            : new DefaultWorkflowCallResolver(workspaceRoot);
+    }
+
+    private static string? DiscoverWorkspaceRoot(string startPath)
+    {
+        try
+        {
+            var current = new DirectoryInfo(Path.GetFullPath(startPath));
+            while (current is not null)
+            {
+                if (current.GetFiles("*.sln").Length != 0 || Directory.Exists(Path.Combine(current.FullName, ".git")))
+                    return current.FullName;
+
+                current = current.Parent;
+            }
+        }
+        catch
+        {
+            // Best effort only; workspace calls will fail closed when no root is configured.
+        }
+
+        return null;
     }
 
     private static JsonObject BuildWorkflowInputs(

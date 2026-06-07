@@ -1,7 +1,7 @@
 ﻿namespace GnOuGo.Agent.Mcp.Models;
 
 /// <summary>
-/// Represents an agent definition with a workflow and associated schedules.
+/// Represents an agent definition with a workflow and metadata.
 /// </summary>
 public sealed class AgentDefinition
 {
@@ -19,11 +19,6 @@ public sealed class AgentDefinition
     /// <summary>Original natural-language prompt used to generate the workflow.</summary>
     public string? OriginalPrompt { get; set; }
 
-    /// <summary>Human-readable schedule description before cron conversion.</summary>
-    public string? ScheduleDescription { get; set; }
-
-    /// <summary>Schedules serialized as a JSON array of <see cref="Schedule"/>.</summary>
-    public string SchedulesJson { get; set; } = "[]";
 
     public long CreatedAtTicks { get; set; }
     public long UpdatedAtTicks { get; set; }

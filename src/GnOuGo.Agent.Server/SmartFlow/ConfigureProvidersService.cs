@@ -4,7 +4,9 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using GnOuGo.AI.Core;
+using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.SmartFlow;
@@ -21,6 +23,7 @@ public sealed class ConfigureProvidersService
     private readonly IKeyVaultRuntimeConfigStore _keyVaultStore;
     private readonly LLMRuntimeOptionsStore _optionsStore;
     private readonly AgentUserConfigMcpClient? _userConfigClient;
+    private readonly BundledMcpSettings _bundledMcpSettings;
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<ConfigureProvidersService> _logger;
 
@@ -32,7 +35,8 @@ public sealed class ConfigureProvidersService
         LLMRuntimeOptionsStore optionsStore,
         AgentOTelTelemetry otel,
         ILogger<ConfigureProvidersService> logger,
-        AgentUserConfigMcpClient? userConfigClient = null)
+        AgentUserConfigMcpClient? userConfigClient = null,
+        IOptions<BundledMcpSettings>? bundledMcpSettings = null)
     {
         _llm = llm;
         _humanInput = humanInput;
@@ -40,6 +44,7 @@ public sealed class ConfigureProvidersService
         _keyVaultStore = keyVaultStore;
         _optionsStore = optionsStore;
         _userConfigClient = userConfigClient;
+        _bundledMcpSettings = bundledMcpSettings?.Value ?? new BundledMcpSettings();
         _otel = otel;
         _logger = logger;
     }
@@ -289,11 +294,7 @@ public sealed class ConfigureProvidersService
         {
             using var span = StartNestedTrace("configure.providers.mcp.list.render", "mcp.list");
             var secrets = await LoadKeyVaultSecretsAsync(ct);
-            var result = RenderSecretTable(
-                secrets,
-                kind: KeyVaultConfigSecretKind.McpServer,
-                title: "# 🔌 Configured MCP Servers",
-                emptyMessage: "No MCP servers configured yet. Use `/mcp add` to get started.");
+            var result = RenderConfiguredMcpServers(secrets);
             span.SetTag("gnougo.agent.keyvault.secret_count", secrets.Count);
             span.SetStatus(ActivityStatusCode.Ok);
             return result;
@@ -1385,6 +1386,14 @@ public sealed class ConfigureProvidersService
         }
         var runId = Guid.NewGuid().ToString("N");
         using var flowSpan = StartConfigureFlowTrace("configure.providers.mcp.edit.interactive", "mcp", "edit", runId, name);
+        if (TryResolveBundledMcpServer(name, out var bundledServerName, out var bundledServer))
+        {
+            await foreach (var evt in ExecuteInteractiveBundledMcpEditAsync(runId, bundledServerName, bundledServer, ct))
+                yield return evt;
+            flowSpan.SetStatus(ActivityStatusCode.Ok);
+            yield break;
+        }
+
         var existing = await LoadMcpServerConfigAsync(name, ct);
         if (existing is null)
         {
@@ -1450,6 +1459,73 @@ public sealed class ConfigureProvidersService
         await SaveMcpServerConfigAsync(existing, ct);
         yield return new SmartFlowEvent("answer", $"✅ MCP server '{existing.Name}' updated.");
         flowSpan.SetStatus(ActivityStatusCode.Ok);
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveBundledMcpEditAsync(
+        string runId,
+        string serverName,
+        BundledMcpServerSettings serverSettings,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        if (serverSettings.EditableFields.Count == 0)
+        {
+            yield return new SmartFlowEvent("answer", $"❌ MCP server '{serverName}' has no editable fields.");
+            yield break;
+        }
+
+        var fields = new List<HumanInputFieldDef>();
+        var fieldSecretKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var fieldEntry in serverSettings.EditableFields.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            var field = fieldEntry.Value;
+            var secretKey = field.ResolveSecretKey(serverName, fieldEntry.Key);
+            fieldSecretKeys[fieldEntry.Key] = secretKey;
+            var existingValue = await _keyVaultStore.GetSecretValueAsync(secretKey, ct);
+            fields.Add(new HumanInputFieldDef
+            {
+                Name = fieldEntry.Key,
+                Type = string.IsNullOrWhiteSpace(field.Type) ? "string" : field.Type,
+                Required = field.Required && !field.Sensitive,
+                Description = string.IsNullOrWhiteSpace(field.Description)
+                    ? GetMcpEditableFieldDisplayName(fieldEntry.Key, field)
+                    : field.Description,
+                Default = field.Sensitive
+                    ? string.Empty
+                    : existingValue ?? string.Empty
+            });
+        }
+
+        JsonNode? response = null;
+        var request = CreateFieldsRequest(
+            runId,
+            "mcp_edit.bundled_fields",
+            $"Edit MCP server '{serverName}':",
+            fields,
+            JsonValue.Create("Only the configured editable fields are shown. Sensitive fields can be left empty to keep the current stored value."));
+        await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
+            yield return evt;
+
+        var values = ReadFieldResponse(response, request.Fields!);
+        var savedFields = new List<string>();
+        foreach (var fieldEntry in serverSettings.EditableFields)
+        {
+            var value = values.GetValueOrDefault(fieldEntry.Key);
+            if (string.IsNullOrWhiteSpace(value))
+                continue;
+
+            await _keyVaultStore.SaveSecretValueAsync(fieldSecretKeys[fieldEntry.Key], value, ct);
+            savedFields.Add(GetMcpEditableFieldDisplayName(fieldEntry.Key, fieldEntry.Value));
+        }
+
+        if (savedFields.Count == 0)
+        {
+            yield return new SmartFlowEvent("answer", $"ℹ️ MCP server '{serverName}' unchanged.");
+            yield break;
+        }
+
+        var effective = await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, ct);
+        _optionsStore.ReplaceRuntimeOptions(effective);
+        yield return new SmartFlowEvent("answer", $"✅ MCP server '{serverName}' updated: {string.Join(", ", savedFields)}.");
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteInteractiveMcpRemoveAsync(
@@ -2445,6 +2521,31 @@ public sealed class ConfigureProvidersService
     private static string JoinArgs(IReadOnlyList<string>? args)
         => args is { Count: > 0 } ? string.Join(",", args) : string.Empty;
 
+    private static string GetMcpEditableFieldDisplayName(string fieldName, BundledMcpEditableFieldSettings field)
+        => string.IsNullOrWhiteSpace(field.DisplayName)
+            ? fieldName
+            : field.DisplayName;
+
+    private bool TryResolveBundledMcpServer(
+        string requestedName,
+        out string serverName,
+        out BundledMcpServerSettings settings)
+    {
+        foreach (var entry in _bundledMcpSettings.Servers)
+        {
+            if (string.Equals(entry.Key, requestedName, StringComparison.OrdinalIgnoreCase))
+            {
+                serverName = entry.Key;
+                settings = entry.Value;
+                return true;
+            }
+        }
+
+        serverName = string.Empty;
+        settings = new BundledMcpServerSettings();
+        return false;
+    }
+
     private async Task<string?> ResolveSecretKeyAsync(KeyVaultConfigSecretKind kind, string logicalName, CancellationToken ct)
     {
         var secrets = await _keyVaultStore.ListSecretsAsync(ct);
@@ -2454,6 +2555,7 @@ public sealed class ConfigureProvidersService
     private sealed record ProviderDefaults(string Url, string Model, IReadOnlyList<string> AuthModes);
     private sealed record LlmProviderConfig(string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret, string OidcPrivateKeyPem, string ApiVersion = "");
     private sealed record McpServerConfig(string Name, string Transport, string Description, string Url, string Command, IReadOnlyList<string> Args, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret);
+    private sealed record McpListRow(string Name, string Source, string Editable, string Key, string Version, string Stored);
     private sealed record EmbeddingProviderConfig(string Name, string Provider, string? Model, string? EndpointUrl, string? BaseUrl, string? ApiKey, string? ApiKeySecretKey, int Dimensions);
     private sealed record ConfiguredLlmProvider(string Provider, KeyVaultSecretSummary Secret, LlmProviderConfig Config);
     private sealed record ConfiguredEmbeddingConfig(string Name, KeyVaultSecretSummary Secret, EmbeddingProviderConfig Config);
@@ -2828,6 +2930,61 @@ public sealed class ConfigureProvidersService
         return sb.ToString().TrimEnd();
     }
 
+    private string RenderConfiguredMcpServers(IReadOnlyList<KeyVaultSecretSummary> secrets)
+    {
+        var rows = new Dictionary<string, McpListRow>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var secret in KeyVaultConfigNaming.SelectPreferredSecrets(secrets, KeyVaultConfigSecretKind.McpServer))
+        {
+            var name = KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.McpServer, secret.Key) ?? secret.Key;
+            rows[name] = new McpListRow(
+                name,
+                Source: "KeyVault",
+                Editable: "full",
+                Key: $"`{EscapeBackticks(secret.Key)}`",
+                Version: secret.LatestVersion.ToString(CultureInfo.InvariantCulture),
+                Stored: FormatTimestamp(secret.CreatedAt));
+        }
+
+        foreach (var serverEntry in _bundledMcpSettings.Servers.Where(s => s.Value.Listable))
+        {
+            var name = serverEntry.Key;
+            var editableFields = serverEntry.Value.EditableFields;
+            rows.TryGetValue(name, out var existing);
+            var key = editableFields.Count == 0
+                ? existing?.Key ?? "(appsettings)"
+                : string.Join("<br/>", editableFields.Select(field =>
+                    $"`{EscapeBackticks(field.Value.ResolveSecretKey(name, field.Key))}`"));
+            var editable = editableFields.Count == 0
+                ? ""
+                : string.Join(", ", editableFields.Select(field => EscapeMarkdownCell(GetMcpEditableFieldDisplayName(field.Key, field.Value))));
+
+            rows[name] = new McpListRow(
+                name,
+                Source: existing is null ? "Bundled" : "Bundled + KeyVault",
+                Editable: editable,
+                Key: key,
+                Version: existing?.Version ?? "",
+                Stored: existing?.Stored ?? "");
+        }
+
+        if (rows.Count == 0)
+            return "# 🔌 Configured MCP Servers\n\nNo MCP servers configured yet. Use `/mcp add` to get started.";
+
+        var sb = new StringBuilder();
+        sb.AppendLine("# 🔌 Configured MCP Servers");
+        sb.AppendLine();
+        sb.AppendLine("| Server | Source | Editable Fields | Key / Override Secret | Version | Stored |");
+        sb.AppendLine("|--------|--------|-----------------|-----------------------|---------|--------|");
+        foreach (var row in rows.Values.OrderBy(row => row.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            sb.AppendLine(
+                $"| {EscapeMarkdownCell(row.Name)} | {EscapeMarkdownCell(row.Source)} | {row.Editable} | {row.Key} | {EscapeMarkdownCell(row.Version)} | {EscapeMarkdownCell(row.Stored)} |");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
     private string RenderStatus(IReadOnlyList<KeyVaultSecretSummary> secrets)
     {
         var llms = secrets
@@ -3089,4 +3246,3 @@ public sealed class ConfigureProvidersService
         }
     }
 }
-
