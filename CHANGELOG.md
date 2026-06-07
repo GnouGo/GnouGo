@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.10.0 - 2026-06-07
+
+- feat: agent more local (#50) (release) (fece944)
+
 ## v0.9.2 - 2026-06-04
 
 - fix: workflow plan validation input/output (#49) (release) (38cb38a)
