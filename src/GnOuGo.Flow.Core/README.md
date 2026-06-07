@@ -820,10 +820,15 @@ Two forms: expression-based and when-based.
 
 ### `workflow.call` — Call a Sub-Workflow
 
-Calls another workflow defined in the same document, fetched from an external source, or loaded from the configured workspace root.
-Resolution is delegated to `WorkflowEngine.WorkflowCallResolver` (`DefaultWorkflowCallResolver` by default), so applications can add their own `kind` values without replacing the executor.
+Calls another workflow through one canonical shape:
 
-#### Local call
+- `input.ref` identifies the target workflow.
+- `input.args` provides the target workflow inputs.
+- The called workflow result is stored in `data.steps.<step_id>.outputs`.
+
+Resolution is delegated to `WorkflowEngine.WorkflowCallResolver` (`DefaultWorkflowCallResolver` by default), so applications can add their own `ref.kind` values without changing the `workflow.call` step shape.
+
+#### Canonical call
 
 ```yaml
 - id: run_analysis
@@ -836,37 +841,123 @@ Resolution is delegated to `WorkflowEngine.WorkflowCallResolver` (`DefaultWorkfl
       data: "${data.inputs.raw_data}"
 ```
 
-#### Remote call (URL)
+#### Input/output contract
+
+`workflow.call` acts like a function call between workflows:
+
+| Where | Meaning |
+|---|---|
+| Parent workflow `data.inputs.*` | Inputs received by the currently running workflow. In CLI/Agent usage, these are the values passed by the caller or collected by the UI. |
+| `workflow.call.input.args.*` | Values sent to the called workflow. |
+| Called workflow `data.inputs.*` | The called workflow reads `args` here. |
+| Called workflow `outputs.*` | Values returned by the called workflow. |
+| Parent workflow `data.steps.<call_step_id>.outputs.*` | Returned values available after the call. |
+| Parent workflow `data.steps.<call_step_id>.workflow` | Name of the workflow that was executed. |
+
+If the called workflow has no `outputs` block, the engine returns the called workflow step outputs instead. Prefer defining explicit `outputs` so the contract stays stable.
+
+#### Complete local example
+
+This example defines three workflows in the same file:
+
+- `main` receives the application input.
+- `normalize_message` prepares data.
+- `classify_message` consumes normalized data and returns a classification.
 
 ```yaml
-- id: run_remote
-  type: workflow.call
-  input:
-    ref:
-      kind: url
-      url: "https://example.com/workflows/analysis.yaml"
-      export: main         # Optional exported workflow name
-    args:
-      data: "${data.inputs.raw_data}"
+version: 1
+name: workflow-call-demo
+
+workflows:
+  main:
+    inputs:
+      message: { type: string, required: true }
+    steps:
+      - id: normalize
+        type: workflow.call
+        input:
+          ref:
+            kind: local
+            name: normalize_message
+          args:
+            text: "${data.inputs.message}"
+
+      - id: classify
+        type: workflow.call
+        input:
+          ref:
+            kind: local
+            name: classify_message
+          args:
+            text: "${data.steps.normalize.outputs.normalized_text}"
+
+      - id: summary
+        type: template.render
+        input:
+          engine: mustache
+          template: "Message '{{text}}' was classified as {{category}}."
+          mode: text
+          data:
+            text: "${data.steps.normalize.outputs.normalized_text}"
+            category: "${data.steps.classify.outputs.category}"
+
+    outputs:
+      normalized_text: "${data.steps.normalize.outputs.normalized_text}"
+      category: "${data.steps.classify.outputs.category}"
+      summary: "${data.steps.summary.text}"
+
+  normalize_message:
+    inputs:
+      text: { type: string, required: true }
+    steps:
+      - id: normalize
+        type: set
+        input:
+          normalized_text: "${lower(trim(data.inputs.text))}"
+    outputs:
+      normalized_text: "${data.steps.normalize.normalized_text}"
+
+  classify_message:
+    inputs:
+      text: { type: string, required: true }
+    steps:
+      - id: classify
+        type: set
+        input:
+          category: "${contains(data.inputs.text, 'urgent') ? 'critical' : 'standard'}"
+    outputs:
+      category: "${data.steps.classify.category}"
 ```
 
-Configure `DefaultWorkflowCallResolver(allowedHostnames: [...])` or `WorkflowEngine.FetchPolicy.AllowedHostnames` to restrict URL hosts. `FetchPolicy.RequireHttps` remains enabled by default.
+Run it from the CLI:
 
-#### Workspace call
-
-```yaml
-- id: run_workspace
-  type: workflow.call
-  input:
-    ref:
-      kind: workspace
-      path: workflows/analysis.yaml
-      export: main         # Optional
-    args:
-      data: "${data.inputs.raw_data}"
+```bash
+dotnet run --project src/GnOuGo.Flow.Cli -- run workflow-call-demo.yaml -i 'message=Urgent: please review this document'
 ```
 
-`workspace` paths are resolved relative to the workspace root injected into `DefaultWorkflowCallResolver`. Absolute paths and path traversal outside that root are rejected.
+Expected output fields:
+
+```json
+{
+  "normalized_text": "urgent: please review this document",
+  "category": "critical",
+  "summary": "Message 'urgent: please review this document' was classified as critical."
+}
+```
+
+#### Plugging into the current system
+
+In the current GnOuGo flow system, the outer workflow is the integration point:
+
+1. The CLI, Agent UI, API, or another workflow provides the outer workflow inputs.
+2. The outer workflow maps those inputs into sub-workflow `args`.
+3. Each sub-workflow declares the `inputs` it expects and the `outputs` it returns.
+4. The outer workflow reads sub-workflow results from `data.steps.<call_id>.outputs`.
+5. The outer workflow exposes its final contract through its own `outputs` block.
+
+This keeps sub-workflows independently testable and reusable: a sub-workflow should not depend on the parent workflow's `data.inputs`; it should only depend on the `args` passed to it.
+
+Use this same shape for every resolver-supported reference. The built-in resolver supports `local`, `url`, and `workspace` references, but documentation and generated workflows should prefer the local form above unless an application explicitly configures external workflow resolution.
 
 ---
 
