@@ -14,6 +14,10 @@ public sealed record ChatStreamRequestDto(
 
 public sealed record ChatCompletionResponseDto(string Text);
 
+public sealed record AppVersionDto(
+    string Version,
+    string ShortVersion);
+
 // Browser-side persisted store (localStorage)
 public sealed record ChatSessionDto(
     string Id,
@@ -43,4 +47,3 @@ public sealed record LlmProviderModelsDto(
     string Provider,
     string ProviderType,
     IReadOnlyList<LlmModelDto> Models);
-

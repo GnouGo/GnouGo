@@ -8,6 +8,8 @@
 @implements IAsyncDisposable
 
 @inject IJSRuntime Js
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Navigation
 @inject SmartFlowService SmartFlow
 @inject AgentHumanInputProvider HumanInputProvider
 @inject AgentUserConfigMcpClient UserConfigClient
@@ -58,7 +60,7 @@
             <div class="gnougo-sidebar__hint">
                 Tip: your history is stored in <span class="gnougo-sidebar__hint-strong">localStorage</span>.
             </div>
-            <div class="gnougo-sidebar__version" title="@VersionInfo.Version">v@(VersionInfo.ShortVersion)</div>
+            <div class="gnougo-sidebar__version" title="@DisplayVersionTitle">v@(DisplayVersion)</div>
         </div>
     </aside>
 
@@ -480,6 +482,7 @@
     private readonly Dictionary<string, string> _fieldValues = new();
     private bool _traceSidebarOpen;
     private ChatMessageDto? _selectedTraceMessage;
+    private AppVersionDto? _appVersion;
 
     /// <summary>Accumulates all HITL prompt+response pairs so they can be grouped
     /// into a single message at the end of the flow.</summary>
@@ -491,6 +494,10 @@
     private bool HasBlockingUploads => _composerUploads.Any(static upload => !upload.IsCompleted);
 
     private bool UseWorkflowInputComposer => _workflowInputSchema is { IsPromptOnly: false };
+
+    private string DisplayVersion => _appVersion?.ShortVersion ?? VersionInfo.ShortVersion;
+
+    private string DisplayVersionTitle => _appVersion?.Version ?? VersionInfo.Version;
 
     private bool CanSend => !_isStreaming
                             && !HasBlockingUploads
@@ -511,6 +518,8 @@
             await RefreshWorkflowInputSchemaAsync();
             EnsureActiveSession();
             await RegisterFileUploadInteropAsync();
+            await LoadAppVersionAsync();
+            StateHasChanged();
         }
 
         if (_browserStatePending)
@@ -538,6 +547,25 @@
             catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
             {
             }
+        }
+    }
+
+    private async Task LoadAppVersionAsync()
+    {
+        try
+        {
+            var http = HttpClientFactory.CreateClient();
+            var versionUri = Navigation.ToAbsoluteUri("api/version");
+            _appVersion = await http.GetFromJsonAsync(versionUri, ChatJsonContext.Default.AppVersionDto);
+        }
+        catch (HttpRequestException)
+        {
+        }
+        catch (JsonException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
         }
     }
 
@@ -1710,4 +1738,3 @@
         }
     }
 }
-

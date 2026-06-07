@@ -89,10 +89,13 @@ jobs:
 
   desktop_trimmed:
     name: Desktop (Trimmed + Native AOT tools)
+    needs: [stable_unit_tests, tags]
+    if: always() && needs.stable_unit_tests.result == 'success' && (needs.tags.result == 'success' || needs.tags.result == 'skipped')
     uses: ./.github/workflows/build-agent-desktop-trimmed.yml
     permissions:
       contents: read
     with:
+      package_version: ${{ needs.tags.outputs.new_version }}
       publish_aot: true
 
   keyvault_mcp:

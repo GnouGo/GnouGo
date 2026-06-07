@@ -11,8 +11,8 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
 
 jobs:
-  stable_unit_tests:
-    name: Stable Unit Tests
+  stable_dotnet_unit_tests:
+    name: Stable .NET Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -45,3 +45,25 @@ jobs:
             }
           }
 
+  python_unit_tests:
+    name: Python Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run gnougo-flow-core unit tests
+        working-directory: librairies/python/gnougo-flow-core
+        run: uv run --extra dev pytest -q
+
+      - name: Run gnougo-flow-cli unit tests
+        working-directory: librairies/python/gnougo-flow-cli
+        run: uv run --extra dev pytest -q

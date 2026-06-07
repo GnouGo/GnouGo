@@ -508,6 +508,7 @@ public static class GnOuGoAgentWebHost
         app.MapPost("/api/chat", ChatEndpoints.CompleteAsync);
         app.MapPost("/api/chat/stream", ChatEndpoints.StreamAsync);
         app.MapGnOuGoFilesServer(includeHealthEndpoint: false);
+        app.MapGet("/api/version", (AppVersionInfo versionInfo) => versionInfo.ToDto());
         app.MapGet("/api/llm/providers", LlmProviderEndpoints.ListProviders);
         app.MapGet("/api/llm/providers/{provider}/models", LlmProviderEndpoints.ListModelsAsync);
 
