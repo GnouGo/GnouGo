@@ -1,4 +1,5 @@
 using System.Reflection;
+using GnOuGo.Agent.Shared;
 
 namespace GnOuGo.Agent.Server;
 
@@ -31,5 +32,7 @@ public sealed class AppVersionInfo
         var plusIndex = Version.IndexOf('+');
         ShortVersion = plusIndex > 0 ? Version[..plusIndex] : Version;
     }
-}
 
+    public AppVersionDto ToDto()
+        => new(Version, ShortVersion);
+}

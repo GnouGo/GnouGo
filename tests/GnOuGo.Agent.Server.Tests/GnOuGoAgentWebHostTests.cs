@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using System.Net.Http.Json;
 
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,7 @@ using OtlpTenantCollector.Hosting;
 using System.Net;
 using System.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore;
+using GnOuGo.Agent.Shared;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -243,6 +245,40 @@ public sealed class GnOuGoAgentWebHostTests
 
             if (Directory.Exists(tempContentRoot))
                 Directory.Delete(tempContentRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task StartAsync_ExposesApplicationVersionEndpoint()
+    {
+        var contentRoot = GetServerContentRoot();
+        var args = TelemetryTestHostArgs.Create();
+
+        await using var app = GnOuGoAgentWebHost.Build(
+            args,
+            urls: "http://127.0.0.1:0",
+            contentRoot: contentRoot,
+            enableHttpsRedirection: false);
+
+        await app.StartAsync();
+
+        try
+        {
+            var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
+            var baseAddress = TestServerAddressResolver.NormalizeBaseAddress(
+                publishedEndpoints.AppBaseAddress ?? throw new InvalidOperationException("The main app address should be published."));
+
+            using var http = new HttpClient { BaseAddress = new Uri(baseAddress + "/", UriKind.Absolute) };
+            var version = await http.GetFromJsonAsync("api/version", ChatJsonContext.Default.AppVersionDto);
+
+            Assert.NotNull(version);
+            Assert.False(string.IsNullOrWhiteSpace(version!.Version));
+            Assert.False(string.IsNullOrWhiteSpace(version.ShortVersion));
+            Assert.DoesNotContain("+", version.ShortVersion, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await app.StopAsync();
         }
     }
 
@@ -694,4 +730,3 @@ public sealed class GnOuGoAgentWebHostTests
         return false;
     }
 }
-
