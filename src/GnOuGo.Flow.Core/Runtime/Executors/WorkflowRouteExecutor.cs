@@ -420,7 +420,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             Telemetry = ctx.Engine.Telemetry,
             LlmDefaults = ctx.Engine.LlmDefaults,
             FetchPolicy = ctx.Engine.FetchPolicy,
-            Limits = ctx.Limits,
+            Limits = CreateChildLimits(ctx.Limits, candidate),
             Logger = ctx.Engine.Logger,
             McpCache = ctx.Engine.McpCache
         };
@@ -694,6 +694,46 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             ?? obj["text"]?.GetValue<string>()
             ?? obj["result"]?.GetValue<string>()
             ?? obj["response"]?.GetValue<string>();
+    }
+
+    private static ExecutionLimits CreateChildLimits(ExecutionLimits parent, RouteCandidate candidate)
+    {
+        var parentRunId = string.IsNullOrWhiteSpace(parent.RunId)
+            ? Guid.NewGuid().ToString("N")
+            : parent.RunId;
+
+        return new ExecutionLimits
+        {
+            MaxTotalStepsExecuted = parent.MaxTotalStepsExecuted,
+            MaxCallDepth = parent.MaxCallDepth,
+            MaxParallelBranches = parent.MaxParallelBranches,
+            MaxLoopIterations = parent.MaxLoopIterations,
+            MaxExpressionAstNodes = parent.MaxExpressionAstNodes,
+            MaxExpressionStatements = parent.MaxExpressionStatements,
+            ExpressionTimeoutSeconds = parent.ExpressionTimeoutSeconds,
+            ExpressionMemoryLimitBytes = parent.ExpressionMemoryLimitBytes,
+            MaxSwitchCases = parent.MaxSwitchCases,
+            MaxFunctionCallDepth = parent.MaxFunctionCallDepth,
+            LogStepContent = parent.LogStepContent,
+            RunId = $"{parentRunId}:route:{SanitizeRunIdPart(candidate.Id)}:{Guid.NewGuid():N}"
+        };
+    }
+
+    private static string SanitizeRunIdPart(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "candidate";
+
+        var sb = new StringBuilder(Math.Min(value.Length, 64));
+        foreach (var c in value.Trim())
+        {
+            if (sb.Length >= 64)
+                break;
+
+            sb.Append(char.IsLetterOrDigit(c) || c is '-' or '_' ? c : '_');
+        }
+
+        return sb.Length == 0 ? "candidate" : sb.ToString();
     }
 
     private sealed record RouteCandidate(

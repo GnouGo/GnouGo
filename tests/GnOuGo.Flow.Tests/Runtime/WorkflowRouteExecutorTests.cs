@@ -232,6 +232,74 @@ workflows:
         Assert.Contains("repository_path", request.Prompt);
     }
 
+    [Fact]
+    public async Task WorkflowRoute_UsesDistinctRunIdsForParallelHumanInputCandidates()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    inputs:
+      prompt: { type: string, required: true }
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          prompt: "${data.inputs.prompt}"
+          candidates:
+            - ref: { kind: local, name: first }
+              description: First interactive workflow.
+            - ref: { kind: local, name: second }
+              description: Second interactive workflow.
+          selection:
+            mode: multiple
+            min: 2
+            max: 2
+          execution:
+            parallel: true
+            max_concurrency: 2
+          combine:
+            strategy: raw
+  first:
+    steps:
+      - id: ask_user
+        type: human.input
+        input:
+          prompt: First question?
+    outputs:
+      answer:
+        expr: "${data.steps.ask_user.response}"
+        type: string
+  second:
+    steps:
+      - id: ask_user
+        type: human.input
+        input:
+          prompt: Second question?
+    outputs:
+      answer:
+        expr: "${data.steps.ask_user.response}"
+        type: string
+""";
+
+        var humanInput = new CapturingHumanInputProvider();
+        var workflow = Compile(yaml);
+        var engine = new WorkflowEngine
+        {
+            LLMClient = new SelectingLlmClient("local:first", "local:second"),
+            HumanInputProvider = humanInput,
+            Limits = new ExecutionLimits { RunId = "parent-run" }
+        };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject { ["prompt"] = "ask both" }, CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, humanInput.Requests.Count);
+        Assert.All(humanInput.Requests, static request => Assert.Equal("ask_user", request.StepId));
+        Assert.All(humanInput.Requests, static request => Assert.StartsWith("parent-run:route:", request.RunId, StringComparison.Ordinal));
+        Assert.Equal(2, humanInput.Requests.Select(static request => request.RunId).Distinct(StringComparer.Ordinal).Count());
+    }
+
     private static CompiledWorkflow Compile(string yaml)
     {
         var doc = WorkflowParser.Parse(yaml);
@@ -241,11 +309,11 @@ workflows:
 
     private sealed class SelectingLlmClient : ILLMClient
     {
-        private readonly string _selectedId;
+        private readonly IReadOnlyList<string> _selectedIds;
 
-        public SelectingLlmClient(string selectedId)
+        public SelectingLlmClient(params string[] selectedIds)
         {
-            _selectedId = selectedId;
+            _selectedIds = selectedIds;
         }
 
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
@@ -253,17 +321,33 @@ workflows:
             {
                 Json = new JsonObject
                 {
-                    ["selected"] = new JsonArray
-                    {
-                        new JsonObject
+                    ["selected"] = new JsonArray(_selectedIds
+                        .Select(static selectedId => (JsonNode)new JsonObject
                         {
-                            ["id"] = _selectedId,
+                            ["id"] = selectedId,
                             ["reason"] = "matches",
                             ["confidence"] = 0.9
-                        }
-                    }
+                        })
+                        .ToArray())
                 }
             });
+    }
+
+    private sealed class CapturingHumanInputProvider : IHumanInputProvider
+    {
+        private readonly object _gate = new();
+
+        public List<HumanInputRequest> Requests { get; } = new();
+
+        public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            lock (_gate)
+            {
+                Requests.Add(request);
+            }
+
+            return Task.FromResult<JsonNode?>(new JsonObject { ["response"] = request.Prompt });
+        }
     }
 
     private sealed class ExtractingLlmClient : ILLMClient

@@ -237,6 +237,22 @@
                                     </button>
                                 </div>
                             }
+                            else
+                            {
+                                <div style="margin-top: 8px;">
+                                    <textarea class="gnougo-composer__input gnougo-hitl-field__textarea"
+                                              placeholder="Your answer"
+                                              value="@_pendingHumanInput.ResponseText"
+                                              @oninput="@(e => _pendingHumanInput.ResponseText = e.Value?.ToString() ?? "")"></textarea>
+                                    <button class="gnougo-composer__send"
+                                            type="button"
+                                            style="margin-top: 8px;"
+                                            disabled="@string.IsNullOrWhiteSpace(_pendingHumanInput.ResponseText)"
+                                            @onclick="SubmitHumanInputText">
+                                        Submit
+                                    </button>
+                                </div>
+                            }
                         </div>
                     </div>
                 </article>
@@ -428,6 +444,7 @@
         public string StepId { get; set; } = "";
         public string Prompt { get; set; } = "";
         public string? Context { get; set; }
+        public string ResponseText { get; set; } = "";
         public List<string>? Choices { get; set; }
         public List<HumanInputFieldModel>? Fields { get; set; }
     }
@@ -589,6 +606,17 @@
             return BuildFencedCode("yaml", normalized);
 
         return normalized;
+    }
+
+    private static string? FormatHumanInputContextNode(JsonNode? context)
+    {
+        if (context is null)
+            return null;
+
+        if (context is JsonValue value && value.TryGetValue<string>(out var text))
+            return text;
+
+        return context.ToJsonString();
     }
 
     private static string FormatEditableFieldValue(HumanInputFieldModel field, string value)
@@ -1318,7 +1346,7 @@
                             RunId = requestJson["run_id"]?.GetValue<string>() ?? "",
                             StepId = requestJson["step_id"]?.GetValue<string>() ?? "",
                             Prompt = requestJson["prompt"]?.GetValue<string>() ?? "",
-                            Context = requestJson["context"]?.GetValue<string>(),
+                            Context = FormatHumanInputContextNode(requestJson["context"]),
                         };
 
                         if (requestJson["choices"] is JsonArray choicesArr)
@@ -1454,6 +1482,23 @@
 
         // Log the interaction for the grouped summary (instead of inserting a message)
         _hitlLog.Add((_pendingHumanInput.Prompt, choice));
+
+        _pendingHumanInput = null;
+        _fieldValues.Clear();
+        StateHasChanged();
+    }
+
+    private void SubmitHumanInputText()
+    {
+        if (_pendingHumanInput is null) return;
+
+        var answer = _pendingHumanInput.ResponseText.Trim();
+        if (string.IsNullOrWhiteSpace(answer)) return;
+
+        var response = new JsonObject { ["response"] = answer };
+        HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
+
+        _hitlLog.Add((_pendingHumanInput.Prompt, answer));
 
         _pendingHumanInput = null;
         _fieldValues.Clear();
