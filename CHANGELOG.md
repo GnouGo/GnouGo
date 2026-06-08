@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.10.1 - 2026-06-08
+
+- fix: numversion display inside gnougo (#51) (release) (5a5f545)
+- fix: doc update workflow.call (1f23345)
+
 ## v0.10.0 - 2026-06-07
 
 - feat: agent more local (#50) (release) (fece944)
