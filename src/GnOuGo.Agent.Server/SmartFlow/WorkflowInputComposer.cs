@@ -22,15 +22,26 @@ public sealed record WorkflowInputSchema(
         "message"
     };
 
+    private static readonly HashSet<string> SystemInputNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "conversation_id",
+        "conversationId",
+        "history",
+        "files_ids",
+        "filesIds",
+        "correlation_id"
+    };
+
     public bool IsPromptOnly => Fields.Count is 0 || IsPromptOnlyShape(Fields);
 
     private static bool IsPromptOnlyShape(IReadOnlyList<WorkflowInputFieldSchema> fields)
     {
-        var requiredFields = fields.Where(static field => field.Required).ToArray();
+        var userFacingFields = fields.Where(static field => !SystemInputNames.Contains(field.Name)).ToArray();
+        var requiredFields = userFacingFields.Where(static field => field.Required).ToArray();
         return requiredFields.Length is 1
                && PromptInputNames.Contains(requiredFields[0].Name)
                && WorkflowInputComposer.IsStringType(requiredFields[0].Type)
-               && fields.All(static field => field.Required || field.DefaultValue is not null);
+               && userFacingFields.All(static field => field.Required || field.DefaultValue is not null);
     }
 }
 
@@ -454,6 +465,5 @@ public static class WorkflowInputComposer
         return $"`{node.ToJsonString(IndentedJsonOptions)}`";
     }
 }
-
 
 

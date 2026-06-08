@@ -15,6 +15,7 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 - [Get Started — One-file with mocks](#get-started--one-file-with-mocks)
 - [Quick Start](#quick-start)
 - [Document Structure](#document-structure)
+- [Skill Metadata](#skill-metadata)
 - [Step Types Reference](#step-types-reference)
   - [template.render](#templaterender--mustache-templating)
   - [llm.call](#llmcall--call-a-language-model)
@@ -29,6 +30,7 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
   - [loop.parallel](#loopparallel--iterate-in-parallel)
   - [switch](#switch--conditional-branching)
   - [workflow.call](#workflowcall--call-a-sub-workflow)
+  - [workflow.route](#workflowroute--route-to-workflow-candidates)
   - [workflow.plan](#workflowplan--generate-a-workflow-dynamically-via-llm)
   - [workflow.execute](#workflowexecute--execute-a-planned-workflow)
 - [Typed Inputs](#typed-inputs)
@@ -60,6 +62,34 @@ src/
 tests/
   GnOuGo.Flow.Tests/         # Unit tests
 ```
+
+---
+
+## Skill Metadata
+
+A workflow document can advertise routing metadata through a top-level `skill` block. Hosts can parse this lightweight card for catalogs without compiling the workflow.
+
+```yaml
+version: 1
+name: document-agent
+skill:
+  description: Answers questions over indexed local documents.
+  tags: [documents, rag, search]
+  inputs:
+    prompt: { type: string, required: true }
+    history: { type: array, required: false }
+  outputs:
+    answer: { type: string }
+workflows:
+  main:
+    steps:
+      - id: answer
+        type: llm.call
+        input:
+          prompt: "${data.inputs.prompt}"
+```
+
+`skill` is descriptive metadata only. Runtime validation still uses each workflow's own `inputs` and `outputs`.
 
 ---
 
@@ -958,6 +988,62 @@ In the current GnOuGo flow system, the outer workflow is the integration point:
 This keeps sub-workflows independently testable and reusable: a sub-workflow should not depend on the parent workflow's `data.inputs`; it should only depend on the `args` passed to it.
 
 Use this same shape for every resolver-supported reference. The built-in resolver supports `local`, `url`, and `workspace` references, but documentation and generated workflows should prefer the local form above unless an application explicitly configures external workflow resolution.
+
+---
+
+### `workflow.route` — Route to Workflow Candidates
+
+Selects one or more workflow candidates, executes them, and returns either raw results, the first answer, or an LLM-synthesized answer.
+
+Candidates can mix explicit references and dynamic sources. A host supplies dynamic candidates through `WorkflowEngine.WorkflowCandidateProvider`; for example, `ref: { kind: database }` can expand to all persisted agent workflows in an application.
+
+```yaml
+- id: route
+  type: workflow.route
+  input:
+    prompt: "${data.inputs.prompt}"
+    history: "${data.inputs.history}"
+    candidates:
+      - ref: { kind: database, agent: DocumentAgent }
+        description: Answers questions over local documents.
+        tags: [documents, rag]
+      - ref: { kind: database }
+        tags_any: [git, documents]
+        limit: 20
+      - ref: { kind: local, name: fallback_general }
+        description: General-purpose fallback.
+    selection:
+      mode: multiple
+      min: 1
+      max: 3
+    args:
+      passthrough: true
+      auto_extract:
+        provider: openai   # optional; omit to use runtime default
+        model: gpt-5.4-mini
+      add:
+        history: "${data.inputs.history}"
+    execution:
+      parallel: true
+      max_concurrency: 3
+    combine:
+      strategy: synthesize
+```
+
+Output shape:
+
+```json
+{
+  "selected": [{ "id": "database:DocumentAgent", "name": "DocumentAgent", "reason": "..." }],
+  "results": [{ "workflow": "DocumentAgent", "success": true, "outputs": { "answer": "..." } }],
+  "answer": "Final synthesized answer",
+  "text": "Final synthesized answer"
+}
+```
+
+`args.passthrough: true` forwards all current `data.inputs` to each selected workflow. Extra undeclared inputs are preserved by the runtime and only declared fields are validated by the called workflow.
+
+`args.auto_extract` can be `true` or an object with optional `provider`, `model`, and `temperature`. When enabled, `workflow.route` uses the selected workflow's declared `inputs` plus candidate `skill.inputs` metadata to extract structured arguments from `prompt` and `history` before calling the workflow. If provider/model are omitted, the runtime defaults are used.
 
 ---
 

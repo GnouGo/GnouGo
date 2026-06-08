@@ -1,0 +1,98 @@
+version: 1
+name: main-routing-agent
+skill:
+  description: Routes chat prompts to the most relevant persisted agents, then returns a synthesized answer.
+  tags: [chat, routing, agent]
+  inputs:
+    prompt:
+      type: string
+      required: true
+      description: Current user prompt.
+    conversation_id:
+      type: string
+      required: false
+      description: Logical conversation identifier.
+    history:
+      type: array
+      required: false
+      description: Recent conversation messages.
+  outputs:
+    answer:
+      type: string
+      description: Final assistant response.
+    conversation_id:
+      type: string
+      description: Conversation identifier.
+
+workflows:
+  main:
+    inputs:
+      prompt: { type: string, required: true }
+      conversation_id: { type: string, required: false }
+      history: { type: array, required: false }
+      files_ids: { type: array, required: false }
+      filesIds: { type: array, required: false }
+      correlation_id: { type: string, required: false }
+
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          prompt: "${data.inputs.prompt}"
+          history: "${data.inputs.history}"
+          candidates:
+            - ref: { kind: database }
+              limit: 50
+            - ref: { kind: local, name: fallback_general }
+              description: General-purpose chat fallback for prompts that do not require a specialized persisted agent.
+              tags: [general, fallback, chat]
+          selection:
+            mode: multiple
+            min: 1
+            max: 3
+          args:
+            passthrough: true
+            auto_extract: true
+            add:
+              history: "${data.inputs.history}"
+              conversation_id: "${data.inputs.conversation_id}"
+          execution:
+            parallel: true
+            max_concurrency: 3
+          combine:
+            strategy: synthesize
+
+    outputs:
+      answer:
+        expr: "${data.steps.route.answer}"
+        type: string
+      conversation_id:
+        expr: "${data.inputs.conversation_id}"
+        type: string
+      selected_workflows:
+        expr: "${data.steps.route.selected}"
+        type: array
+
+  fallback_general:
+    skill:
+      description: General-purpose chat responder.
+      tags: [general, fallback, chat]
+    inputs:
+      prompt: { type: string, required: true }
+      history: { type: array, required: false }
+    steps:
+      - id: answer
+        type: llm.call
+        input:
+          prompt: >
+            Answer the user's prompt clearly and directly.
+
+            Recent conversation history:
+            ${json(data.inputs.history)}
+
+            User prompt:
+            ${data.inputs.prompt}
+    outputs:
+      answer:
+        expr: "${data.steps.answer.text}"
+        type: string

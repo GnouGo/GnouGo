@@ -107,6 +107,15 @@ public class WorkflowPlanExecutorTests
         Assert.Contains("stop", reference);
     }
 
+    [Fact]
+    public void DslReference_CommonReference_ContainsSkillMetadataGuidance()
+    {
+        var reference = GnOuGo.Flow.Core.Runtime.Executors.DslReference.CommonReference;
+        Assert.Contains("skill:", reference);
+        Assert.Contains("Skill metadata", reference);
+        Assert.Contains("auto-extract", reference);
+    }
+
     // ------ Prompt construction tests ------
 
     [Fact]
@@ -1386,7 +1395,6 @@ workflows:
         Assert.False(engine.Registry.Has("template.execute"));
     }
 }
-
 
 
 

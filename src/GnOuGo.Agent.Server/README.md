@@ -96,6 +96,12 @@ The Blazor chat composer resolves the active/default agent workflow through `Sma
 - `array`, `object`, `dictionary`, and `any` fields accept JSON or YAML text;
 - the UI sends structured `JsonObject` workflow inputs to `SmartFlowService` while keeping a masked Markdown summary in the chat history for sensitive-looking field names such as `key`, `secret`, `password`, or `token`.
 
+## Main routing workflow and conversation history
+
+When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract missing structured inputs from the prompt/history, run them in parallel, and synthesize the final response. It also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.
+
+The Blazor chat session now carries a server-facing `ConversationId`. The UI keeps its local transcript for display, while `SmartFlowService` loads recent server-side messages into the routing workflow as `history` and appends the user/assistant turn after a successful answer. HTTP clients can also pass `conversationId` and `prompt` on `/api/chat` or `/api/chat/stream`; if omitted, the server creates a new conversation id and returns/emits it.
+
 Standalone MCP hosts still expose `/mcp` directly in their own projects:
 
 - `GnOuGo.Agent.Mcp` → `http://127.0.0.1:5198/mcp`

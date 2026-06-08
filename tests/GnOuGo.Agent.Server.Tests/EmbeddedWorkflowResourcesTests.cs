@@ -10,6 +10,7 @@ public sealed class EmbeddedWorkflowResourcesTests
     [Theory]
     [InlineData("configure-agents-agent.yaml")]
     [InlineData("dynamic-workflow-agent.yaml")]
+    [InlineData("main-routing-agent.yaml")]
     public void EmbeddedWorkflowYaml_ParsesAndCompiles(string resourceSuffix)
     {
         var yaml = LoadEmbeddedYaml(resourceSuffix);
@@ -58,4 +59,3 @@ public sealed class EmbeddedWorkflowResourcesTests
         return reader.ReadToEnd();
     }
 }
-

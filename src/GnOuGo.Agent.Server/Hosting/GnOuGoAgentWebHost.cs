@@ -386,6 +386,7 @@ public static class GnOuGoAgentWebHost
         });
         builder.Services.AddSingleton<AgentHumanInputProvider>();
         builder.Services.AddSingleton<AgentOTelTelemetry>();
+        builder.Services.AddSingleton<IWorkflowCandidateProvider, DatabaseAgentWorkflowCandidateProvider>();
         builder.Services.AddSingleton<ConfigureProvidersService>();
         builder.Services.AddSingleton<ConfigureAgentsService>();
         builder.Services.AddSingleton<SmartFlowService>();

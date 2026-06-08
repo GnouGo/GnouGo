@@ -10,9 +10,11 @@ public sealed record ChatMessageDto(
 public sealed record ChatStreamRequestDto(
     IReadOnlyList<ChatMessageDto> Messages,
     string? AgentName = null,
-    IReadOnlyList<string>? FilesIds = null);
+    IReadOnlyList<string>? FilesIds = null,
+    string? ConversationId = null,
+    string? Prompt = null);
 
-public sealed record ChatCompletionResponseDto(string Text);
+public sealed record ChatCompletionResponseDto(string Text, string? ConversationId = null);
 
 public sealed record AppVersionDto(
     string Version,
@@ -24,7 +26,8 @@ public sealed record ChatSessionDto(
     string Title,
     long UpdatedAtUnixMs,
     List<ChatMessageDto> Messages,
-    string? AgentName = null);
+    string? AgentName = null,
+    string? ConversationId = null);
 
 public sealed record ChatStoreDto(
     string? ActiveId,

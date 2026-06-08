@@ -135,9 +135,11 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine();
         basePrompt.AppendLine("[REQUIRED ROOT YAML SHAPE]");
         basePrompt.AppendLine("The generated YAML MUST include all required root keys exactly once: version, name, workflows.");
+        basePrompt.AppendLine("The generated YAML SHOULD include a top-level `skill` block for routing metadata unless policy or task constraints explicitly forbid it.");
         basePrompt.AppendLine("Root key requirements:");
         basePrompt.AppendLine("- version: non-empty string");
         basePrompt.AppendLine("- name: non-empty string");
+        basePrompt.AppendLine("- skill: optional but recommended object with description, tags, inputs, and outputs for routing and argument extraction");
         basePrompt.AppendLine("- workflows: non-empty object");
         basePrompt.AppendLine("Each workflow entry under workflows MUST define a steps array.");
         basePrompt.AppendLine("If any required key is missing or has the wrong shape, the output is invalid.");

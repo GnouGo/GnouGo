@@ -14,6 +14,9 @@ public sealed class WorkflowDocument
     /// <summary>Optional metadata.</summary>
     public Dictionary<string, string>? Meta { get; set; }
 
+    /// <summary>Advertised skill metadata used by routers and catalogs.</summary>
+    public WorkflowSkillDef? Skill { get; set; }
+
     /// <summary>Global WFScript functions block (JavaScript via Jint).</summary>
     public string? Functions { get; set; }
 
@@ -28,4 +31,16 @@ public sealed class WorkflowDocument
 
     /// <summary>Original YAML source text (preserved for checkpoint/resume).</summary>
     public string? RawYaml { get; set; }
+}
+
+/// <summary>
+/// Top-level capability card for a workflow document or persisted agent.
+/// It is intentionally lightweight so catalogs can expose it without compiling workflows.
+/// </summary>
+public sealed class WorkflowSkillDef
+{
+    public string? Description { get; set; }
+    public List<string>? Tags { get; set; }
+    public Dictionary<string, InputDef>? Inputs { get; set; }
+    public Dictionary<string, OutputDef>? Outputs { get; set; }
 }

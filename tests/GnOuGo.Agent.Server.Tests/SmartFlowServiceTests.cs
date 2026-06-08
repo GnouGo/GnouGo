@@ -349,7 +349,8 @@ public sealed class SmartFlowServiceTests
         var schema = await smartFlow.GetActiveWorkflowInputSchemaAsync(agentName: null, CancellationToken.None);
 
         Assert.True(schema.IsPromptOnly);
-        Assert.Contains(schema.Fields, field => field.Name == "task" && field.Type == "string");
+        Assert.Contains(schema.Fields, field => field.Name == "prompt" && field.Type == "string");
+        Assert.Contains(schema.Fields, field => field.Name == "conversation_id" && field.Required == false);
     }
 
     [Fact]

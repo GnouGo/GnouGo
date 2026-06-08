@@ -26,6 +26,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public IHumanInputProvider? HumanInputProvider { get; set; }
     public IWorkflowCheckpointer? Checkpointer { get; set; }
     public IWorkflowCallResolver WorkflowCallResolver { get; set; } = new DefaultWorkflowCallResolver();
+    public IWorkflowCandidateProvider? WorkflowCandidateProvider { get; set; }
     public IWorkflowTelemetry Telemetry { get; set; } = NullWorkflowTelemetry.Instance;
     public LlmRuntimeDefaults LlmDefaults { get; set; } = new();
     public FetchPolicy? FetchPolicy { get; set; }
@@ -710,6 +711,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.TemplateRenderExecutor());
         registry.Register(new Executors.LlmCallExecutor());
         registry.Register(new Executors.WorkflowCallExecutor());
+        registry.Register(new Executors.WorkflowRouteExecutor());
         registry.Register(new Executors.WorkflowPlanExecutor());
         registry.Register(new Executors.WorkflowExecuteExecutor());
         registry.Register(new Executors.McpCallExecutor());
@@ -719,4 +721,3 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         return registry;
     }
 }
-
