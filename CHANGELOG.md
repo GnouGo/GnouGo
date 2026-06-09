@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.10.2 - 2026-06-09
+
+- feature: workflow route (#52) (release) (bab8e21)
+
 ## v0.10.1 - 2026-06-08
 
 - fix: numversion display inside gnougo (#51) (release) (5a5f545)
