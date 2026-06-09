@@ -107,6 +107,31 @@ public class InMemoryChatHistoryStoreTests
         Assert.Equal("original", result.Messages[0].Meta!.Value.GetProperty("tag").GetString());
     }
 
+    [Fact]
+    public void ListConversations_ReturnsSummariesOrderedByLatestMessage()
+    {
+        var older = DateTimeOffset.Parse("2026-01-01T10:00:00Z");
+        var newer = DateTimeOffset.Parse("2026-01-02T10:00:00Z");
+
+        _store.AppendMessages("older",
+        [
+            new ChatMessage { Role = "user", Content = "Older question", CreatedAt = older },
+            new ChatMessage { Role = "assistant", Content = "Older answer", CreatedAt = older.AddMinutes(1) }
+        ]);
+        _store.AppendMessages("newer",
+        [
+            new ChatMessage { Role = "system", Content = "System prompt", CreatedAt = newer },
+            new ChatMessage { Role = "user", Content = "Newer question with a useful title", CreatedAt = newer.AddMinutes(1) }
+        ]);
+
+        var summaries = _store.ListConversations();
+
+        Assert.Equal(["newer", "older"], summaries.Select(static summary => summary.ConversationId).ToArray());
+        Assert.Equal("Newer question with a useful title", summaries[0].Title);
+        Assert.Equal(2, summaries[0].MessageCount);
+        Assert.Equal(newer.AddMinutes(1), summaries[0].UpdatedAt);
+    }
+
     // ── Thread safety (basic smoke test) ─────────────────────────────
 
     [Fact]
@@ -128,5 +153,4 @@ public class InMemoryChatHistoryStoreTests
         Assert.Equal(iterations, result.Messages.Count);
     }
 }
-
 

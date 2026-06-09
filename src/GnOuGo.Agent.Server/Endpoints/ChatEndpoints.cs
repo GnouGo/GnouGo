@@ -1,10 +1,54 @@
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Shared;
+using GnOuGo.Agent.Mcp;
 
 namespace GnOuGo.Agent.Server.Endpoints;
 
 public static class ChatEndpoints
 {
+    public static IResult ListConversations(InMemoryChatHistoryStore historyStore)
+    {
+        var conversations = historyStore.ListConversations()
+            .Select(static conversation => new ChatConversationSummaryDto(
+                conversation.ConversationId,
+                conversation.Title,
+                conversation.UpdatedAt.ToUnixTimeMilliseconds(),
+                conversation.MessageCount))
+            .ToList();
+
+        return Results.Ok(conversations);
+    }
+
+    public static IResult GetConversation(string conversationId, InMemoryChatHistoryStore historyStore)
+    {
+        if (string.IsNullOrWhiteSpace(conversationId))
+            return Results.BadRequest("conversationId is required.");
+
+        var result = historyStore.GetMessages(conversationId, topK: int.MaxValue);
+        if (result.Messages.Count == 0)
+            return Results.NotFound();
+
+        var messages = result.Messages
+            .Select(static message => new ChatMessageDto(
+                message.Role,
+                message.Content,
+                MessageId: Guid.NewGuid().ToString("N"),
+                CorrelationId: TryGetMetaString(message.Meta, "correlation_id")))
+            .ToList();
+
+        var updatedAt = result.Messages.Max(static message => message.CreatedAt);
+        var title = historyStore.ListConversations()
+            .FirstOrDefault(summary => string.Equals(summary.ConversationId, conversationId, StringComparison.Ordinal))
+            ?.Title ?? "Chat";
+
+        return Results.Ok(new ChatSessionDto(
+            Id: conversationId,
+            Title: title,
+            UpdatedAtUnixMs: updatedAt.ToUnixTimeMilliseconds(),
+            Messages: messages,
+            ConversationId: conversationId));
+    }
+
     public static async Task<IResult> CompleteAsync(
         ChatStreamRequestDto request,
         SmartFlowService smartFlow,
@@ -102,5 +146,16 @@ public static class ChatEndpoints
         }
 
         return "";
+    }
+
+    private static string? TryGetMetaString(System.Text.Json.JsonElement? meta, string propertyName)
+    {
+        if (meta is not { ValueKind: System.Text.Json.JsonValueKind.Object } element)
+            return null;
+
+        return element.TryGetProperty(propertyName, out var property)
+               && property.ValueKind == System.Text.Json.JsonValueKind.String
+            ? property.GetString()
+            : null;
     }
 }

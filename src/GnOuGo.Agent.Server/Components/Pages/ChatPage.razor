@@ -58,7 +58,7 @@
 
         <div class="gnougo-sidebar__footer">
             <div class="gnougo-sidebar__hint">
-                Tip: your history is stored in <span class="gnougo-sidebar__hint-strong">localStorage</span>.
+                Tip: your history is stored in <span class="gnougo-sidebar__hint-strong">GnOuGo.Agent.Mcp</span>.
             </div>
             <div class="gnougo-sidebar__version" title="@DisplayVersionTitle">v@(DisplayVersion)</div>
         </div>
@@ -110,7 +110,7 @@
             {
                 <div class="gnougo-chat__empty">
                     <div class="gnougo-chat__empty-title">Start a new chat</div>
-                    <div class="gnougo-chat__empty-subtitle">Your messages and history stay in your browser.</div>
+                    <div class="gnougo-chat__empty-subtitle">Your messages and history stay in the local agent store.</div>
                 </div>
             }
             else
@@ -972,8 +972,11 @@
         try
         {
             await LoadStoreAsync();
-            var sessionsChanged = SyncSessionsToDefaultAgent();
+            var sessionsChanged = await MergeServerConversationsAsync();
             EnsureActiveSession();
+            if (_active is { Messages.Count: 0 })
+                sessionsChanged |= await TryHydrateSessionMessagesAsync(_active);
+            sessionsChanged |= SyncSessionsToDefaultAgent();
             if (sessionsChanged)
                 await PersistAsync();
             _browserStatePending = false;
@@ -1612,6 +1615,10 @@
         {
             _store = _store with { ActiveId = id };
             _active = _store.Sessions.FirstOrDefault(s => s.Id == id);
+            if (_active is { Messages.Count: 0 } && await TryHydrateSessionMessagesAsync(_active))
+            {
+                _active = _store.Sessions.FirstOrDefault(s => s.Id == id);
+            }
             CloseTraceSidebar();
 
             CloseSidebar();
@@ -1619,6 +1626,114 @@
             _needsMarkdownEnhance = true;
             StateHasChanged();
             await ScrollToBottomAsync();
+        }
+    }
+
+    private async Task<bool> MergeServerConversationsAsync()
+    {
+        try
+        {
+            var http = HttpClientFactory.CreateClient();
+            var conversationsUri = Navigation.ToAbsoluteUri("api/chat/conversations");
+            var conversations = await http.GetFromJsonAsync(conversationsUri, ChatJsonContext.Default.ListChatConversationSummaryDto)
+                                ?? new List<ChatConversationSummaryDto>();
+
+            var changed = false;
+            foreach (var conversation in conversations)
+            {
+                var existingIndex = _store.Sessions.FindIndex(session =>
+                    string.Equals(session.ConversationId, conversation.ConversationId, StringComparison.Ordinal)
+                    || string.Equals(session.Id, conversation.ConversationId, StringComparison.Ordinal));
+
+                if (existingIndex >= 0)
+                {
+                    var existing = _store.Sessions[existingIndex];
+                    var title = IsDefaultChatTitle(existing.Title) ? conversation.Title : existing.Title;
+                    var updatedAt = Math.Max(existing.UpdatedAtUnixMs, conversation.UpdatedAtUnixMs);
+                    var updated = existing with
+                    {
+                        Title = title,
+                        UpdatedAtUnixMs = updatedAt,
+                        ConversationId = conversation.ConversationId
+                    };
+
+                    if (!ReferenceEquals(existing, updated) && !Equals(existing, updated))
+                    {
+                        _store.Sessions[existingIndex] = updated;
+                        changed = true;
+                    }
+
+                    continue;
+                }
+
+                _store.Sessions.Add(new ChatSessionDto(
+                    Id: conversation.ConversationId,
+                    Title: conversation.Title,
+                    UpdatedAtUnixMs: conversation.UpdatedAtUnixMs,
+                    Messages: new List<ChatMessageDto>(),
+                    AgentName: _defaultAgentName,
+                    ConversationId: conversation.ConversationId));
+                changed = true;
+            }
+
+            if (changed)
+                _store.Sessions.Sort(static (left, right) => right.UpdatedAtUnixMs.CompareTo(left.UpdatedAtUnixMs));
+
+            return changed;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> TryHydrateSessionMessagesAsync(ChatSessionDto session)
+    {
+        var conversationId = string.IsNullOrWhiteSpace(session.ConversationId) ? session.Id : session.ConversationId;
+        if (string.IsNullOrWhiteSpace(conversationId))
+            return false;
+
+        try
+        {
+            var http = HttpClientFactory.CreateClient();
+            var conversationUri = Navigation.ToAbsoluteUri($"api/chat/conversations/{Uri.EscapeDataString(conversationId)}");
+            var hydrated = await http.GetFromJsonAsync(conversationUri, ChatJsonContext.Default.ChatSessionDto);
+            if (hydrated is null)
+                return false;
+
+            var updated = session with
+            {
+                Title = IsDefaultChatTitle(session.Title) ? hydrated.Title : session.Title,
+                UpdatedAtUnixMs = Math.Max(session.UpdatedAtUnixMs, hydrated.UpdatedAtUnixMs),
+                Messages = hydrated.Messages,
+                ConversationId = hydrated.ConversationId ?? conversationId
+            };
+
+            ReplaceSession(updated);
+            if (string.Equals(_store.ActiveId, session.Id, StringComparison.Ordinal))
+                _active = updated;
+
+            return true;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
         }
     }
 
@@ -1731,6 +1846,12 @@
             }
         }
     }
+
+    private static bool IsDefaultChatTitle(string? title)
+        => string.IsNullOrWhiteSpace(title)
+           || string.Equals(title, "New chat", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(title, "Migrated gnougo-chat", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(title, "Chat", StringComparison.OrdinalIgnoreCase);
 
     private async Task PersistAsync()
     {

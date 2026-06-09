@@ -15,6 +15,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore;
 using GnOuGo.Agent.Shared;
+using GnOuGo.Agent.Mcp;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -318,6 +319,71 @@ public sealed class GnOuGoAgentWebHostTests
 
             var collectorApiOnMainPort = await http.GetAsync($"{publishedEndpoints.AppBaseAddress}/api/tenants/traces/recent");
             Assert.Equal(HttpStatusCode.NotFound, collectorApiOnMainPort.StatusCode);
+        }
+        finally
+        {
+            await app.StopAsync();
+        }
+    }
+
+    [Fact]
+    public async Task ChatConversationsApi_ReturnsExistingMcpStoreConversationsWithoutLlm()
+    {
+        var contentRoot = GetServerContentRoot();
+        var args = TelemetryTestHostArgs.Create();
+
+        await using var app = GnOuGoAgentWebHost.Build(
+            args,
+            urls: "http://127.0.0.1:0",
+            contentRoot: contentRoot,
+            enableHttpsRedirection: false);
+
+        var historyStore = app.Services.GetRequiredService<InMemoryChatHistoryStore>();
+        historyStore.AppendMessages("conv-existing",
+        [
+            new ChatMessage
+            {
+                Role = "user",
+                Content = "Show me the existing chat",
+                CreatedAt = DateTimeOffset.Parse("2026-02-01T10:00:00Z")
+            },
+            new ChatMessage
+            {
+                Role = "assistant",
+                Content = "Here is the existing answer.",
+                CreatedAt = DateTimeOffset.Parse("2026-02-01T10:01:00Z")
+            }
+        ]);
+
+        await app.StartAsync();
+
+        try
+        {
+            var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
+            var address = publishedEndpoints.AppBaseAddress ?? throw new InvalidOperationException("The main app address should be published.");
+
+            using var http = new HttpClient();
+            var summaries = await http.GetFromJsonAsync(
+                $"{address}/api/chat/conversations",
+                ChatJsonContext.Default.ListChatConversationSummaryDto);
+
+            var summary = Assert.Single(summaries ?? []);
+            Assert.Equal("conv-existing", summary.ConversationId);
+            Assert.Equal("Show me the existing chat", summary.Title);
+            Assert.Equal(2, summary.MessageCount);
+
+            var session = await http.GetFromJsonAsync(
+                $"{address}/api/chat/conversations/conv-existing",
+                ChatJsonContext.Default.ChatSessionDto);
+
+            Assert.NotNull(session);
+            Assert.Equal("conv-existing", session!.ConversationId);
+            Assert.Equal("Show me the existing chat", session.Title);
+            Assert.Equal(2, session.Messages.Count);
+            Assert.Equal("user", session.Messages[0].Role);
+            Assert.Equal("Show me the existing chat", session.Messages[0].Content);
+            Assert.Equal("assistant", session.Messages[1].Role);
+            Assert.Equal("Here is the existing answer.", session.Messages[1].Content);
         }
         finally
         {

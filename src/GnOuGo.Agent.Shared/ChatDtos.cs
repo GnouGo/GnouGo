@@ -16,6 +16,12 @@ public sealed record ChatStreamRequestDto(
 
 public sealed record ChatCompletionResponseDto(string Text, string? ConversationId = null);
 
+public sealed record ChatConversationSummaryDto(
+    string ConversationId,
+    string Title,
+    long UpdatedAtUnixMs,
+    int MessageCount);
+
 public sealed record AppVersionDto(
     string Version,
     string ShortVersion);
