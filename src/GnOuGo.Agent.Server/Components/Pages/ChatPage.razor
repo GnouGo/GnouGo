@@ -190,22 +190,21 @@
                             }
                             else if (_pendingHumanInput.Fields is { Count: > 0 })
                             {
-                                <div style="margin-top: 8px;">
+                                <div class="gnougo-hitl-form">
                                     @foreach (var field in _pendingHumanInput.Fields)
                                     {
-                                        <div style="margin-bottom: 8px;">
-                                            <label style="display: block; font-weight: 600; margin-bottom: 2px;">
+                                        <div class="gnougo-hitl-field">
+                                            <label class="gnougo-hitl-field__label">
                                                 @field.Name
-                                                @if (field.Required) { <span style="color: #e74c3c;">*</span> }
+                                                @if (field.Required) { <span class="gnougo-hitl-field__required">*</span> }
                                             </label>
                                             @if (!string.IsNullOrWhiteSpace(field.Description))
                                             {
-                                                <div style="font-size: 0.8em; opacity: 0.7; margin-bottom: 2px;">@field.Description</div>
+                                                <div class="gnougo-hitl-field__description">@field.Description</div>
                                             }
-                                            @if (string.Equals(field.Type, "select", StringComparison.OrdinalIgnoreCase) && field.Options is { Count: > 0 })
+                                            @if (IsSelectField(field) && field.Options is { Count: > 0 })
                                             {
                                                 <select class="gnougo-composer__input"
-                                                        style="width: 100%; padding: 6px 10px; border-radius: 6px;"
                                                         value="@GetFieldValue(field.Name)"
                                                         @onchange="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))">
                                                     @foreach (var option in field.Options)
@@ -213,6 +212,41 @@
                                                         <option value="@option">@option</option>
                                                     }
                                                 </select>
+                                            }
+                                            else if (IsRadioField(field) && field.Options is { Count: > 0 })
+                                            {
+                                                <div class="gnougo-hitl-options" role="radiogroup" aria-label="@field.Name">
+                                                    @foreach (var option in field.Options)
+                                                    {
+                                                        var radioId = HumanInputOptionDomId(field, option);
+                                                        <label class="gnougo-hitl-option" for="@radioId">
+                                                            <input id="@radioId"
+                                                                   name="@HumanInputFieldDomName(field)"
+                                                                   type="radio"
+                                                                   value="@option"
+                                                                   checked="@string.Equals(GetFieldValue(field.Name), option, StringComparison.Ordinal)"
+                                                                   @onchange="@(e => SetFieldValue(field.Name, option))" />
+                                                            <span>@option</span>
+                                                        </label>
+                                                    }
+                                                </div>
+                                            }
+                                            else if (IsMultiOptionField(field) && field.Options is { Count: > 0 })
+                                            {
+                                                <div class="gnougo-hitl-options" role="group" aria-label="@field.Name">
+                                                    @foreach (var option in field.Options)
+                                                    {
+                                                        var checkboxId = HumanInputOptionDomId(field, option);
+                                                        <label class="gnougo-hitl-option" for="@checkboxId">
+                                                            <input id="@checkboxId"
+                                                                   type="checkbox"
+                                                                   value="@option"
+                                                                   checked="@IsFieldOptionSelected(field.Name, option)"
+                                                                   @onchange="@(e => SetFieldOptionSelected(field.Name, option, e.Value is bool b && b))" />
+                                                            <span>@option</span>
+                                                        </label>
+                                                    }
+                                                </div>
                                             }
                                             else if (ShouldUseMultilineField(field))
                                             {
@@ -222,16 +256,17 @@
                                             }
                                             else if (string.Equals(field.Type, "boolean", StringComparison.OrdinalIgnoreCase))
                                             {
-                                                <input type="checkbox"
-                                                       class="gnougo-composer__input"
-                                                       checked="@IsFieldChecked(field.Name)"
-                                                       @onchange="@(e => SetFieldValue(field.Name, e.Value is bool b && b ? "true" : "false"))" />
+                                                <label class="gnougo-hitl-option gnougo-hitl-option--inline">
+                                                    <input type="checkbox"
+                                                           checked="@IsFieldChecked(field.Name)"
+                                                           @onchange="@(e => SetFieldValue(field.Name, e.Value is bool b && b ? "true" : "false"))" />
+                                                    <span>@(IsFieldChecked(field.Name) ? "True" : "False")</span>
+                                                </label>
                                             }
                                             else
                                             {
                                                 <input type="@GetFieldInputType(field)"
                                                        class="gnougo-composer__input"
-                                                       style="width: 100%; padding: 6px 10px; border-radius: 6px;"
                                                        value="@GetFieldValue(field.Name)"
                                                        @onchange="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))" />
                                             }
@@ -496,6 +531,7 @@
 
     private HumanInputModel? _pendingHumanInput;
     private readonly Dictionary<string, string> _fieldValues = new();
+    private readonly Dictionary<string, HashSet<string>> _multiFieldValues = new(StringComparer.Ordinal);
     private bool _traceSidebarOpen;
     private ChatMessageDto? _selectedTraceMessage;
     private AppVersionDto? _appVersion;
@@ -640,6 +676,7 @@
         var type = field.Type.Trim();
         return type.Equals("text", StringComparison.OrdinalIgnoreCase)
                || type.Equals("textarea", StringComparison.OrdinalIgnoreCase)
+               || type.Equals("markdown", StringComparison.OrdinalIgnoreCase)
                || type.Equals("yaml", StringComparison.OrdinalIgnoreCase)
                || type.Equals("json", StringComparison.OrdinalIgnoreCase)
                || LooksLikeCodeField(field)
@@ -664,10 +701,130 @@
         return "text";
     }
 
+    private static bool IsSelectField(HumanInputFieldModel field)
+        => field.Type.Equals("select", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRadioField(HumanInputFieldModel field)
+        => field.Type.Equals("radio", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMultiOptionField(HumanInputFieldModel field)
+        => field.Type.Equals("multiselect", StringComparison.OrdinalIgnoreCase)
+           || field.Type.Equals("checkbox", StringComparison.OrdinalIgnoreCase);
+
+    private string HumanInputFieldDomName(HumanInputFieldModel field)
+        => $"hitl-{_pendingHumanInput?.RunId}-{_pendingHumanInput?.StepId}-{SanitizeDomId(field.Name)}";
+
+    private string HumanInputOptionDomId(HumanInputFieldModel field, string option)
+        => $"{HumanInputFieldDomName(field)}-{SanitizeDomId(option)}";
+
+    private static string SanitizeDomId(string value)
+        => string.Concat(value.Select(static ch => char.IsLetterOrDigit(ch) ? ch : '-')).Trim('-');
+
     private bool IsFieldChecked(string name)
         => string.Equals(GetFieldValue(name), "true", StringComparison.OrdinalIgnoreCase)
            || GetFieldValue(name) == "1"
            || string.Equals(GetFieldValue(name), "yes", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsFieldOptionSelected(string name, string option)
+        => _multiFieldValues.TryGetValue(name, out var selected)
+           && selected.Contains(option);
+
+    private void SetFieldOptionSelected(string name, string option, bool isSelected)
+    {
+        if (!_multiFieldValues.TryGetValue(name, out var selected))
+        {
+            selected = new HashSet<string>(StringComparer.Ordinal);
+            _multiFieldValues[name] = selected;
+        }
+
+        if (isSelected)
+            selected.Add(option);
+        else
+            selected.Remove(option);
+    }
+
+    private IReadOnlyCollection<string> GetSelectedFieldOptions(HumanInputFieldModel field)
+        => _multiFieldValues.TryGetValue(field.Name, out var selected)
+            ? selected.ToArray()
+            : Array.Empty<string>();
+
+    private void SeedHumanInputFieldDefaults(IReadOnlyList<HumanInputFieldModel>? fields)
+    {
+        _fieldValues.Clear();
+        _multiFieldValues.Clear();
+        if (fields is null)
+            return;
+
+        foreach (var field in fields)
+        {
+            if (IsMultiOptionField(field))
+            {
+                var selected = ParseMultiOptionDefault(field);
+                if (selected.Count > 0)
+                    _multiFieldValues[field.Name] = selected;
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(field.Default))
+            {
+                _fieldValues[field.Name] = FormatEditableFieldValue(field, field.Default);
+                continue;
+            }
+
+            if ((IsSelectField(field) || IsRadioField(field)) && field.Options is { Count: > 0 })
+                _fieldValues[field.Name] = field.Options[0];
+            else if (field.Type.Equals("boolean", StringComparison.OrdinalIgnoreCase))
+                _fieldValues[field.Name] = "false";
+        }
+    }
+
+    private static HashSet<string> ParseMultiOptionDefault(HumanInputFieldModel field)
+    {
+        var selected = new HashSet<string>(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(field.Default))
+            return selected;
+
+        if (TryParseJsonArray(field.Default, out var jsonArray))
+        {
+            foreach (var item in jsonArray)
+            {
+                var value = ReadHumanInputString(item);
+                if (!string.IsNullOrWhiteSpace(value))
+                    selected.Add(value);
+            }
+            return selected;
+        }
+
+        foreach (var value in field.Default.Split([',', ';', '\n'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            selected.Add(value);
+
+        return selected;
+    }
+
+    private static bool TryParseJsonArray(string value, out JsonArray jsonArray)
+    {
+        jsonArray = new JsonArray();
+        try
+        {
+            if (JsonNode.Parse(value) is JsonArray parsed)
+            {
+                jsonArray = parsed;
+                return true;
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return false;
+    }
+
+    private void ResetHumanInputState()
+    {
+        _pendingHumanInput = null;
+        _fieldValues.Clear();
+        _multiFieldValues.Clear();
+    }
 
     private static bool LooksLikeCodeField(HumanInputFieldModel field)
         => IsYamlField(field) || IsJsonField(field);
@@ -1341,8 +1498,7 @@
                             }
                         }
 
-                        _pendingHumanInput = null;
-                        _fieldValues.Clear();
+                        ResetHumanInputState();
                         StateHasChanged();
                         await ScrollToBottomAsync();
                     }
@@ -1401,16 +1557,7 @@
                             }
                         }
 
-                        // Pre-populate field defaults
-                        _fieldValues.Clear();
-                        if (model.Fields is not null)
-                        {
-                            foreach (var f in model.Fields)
-                            {
-                                if (!string.IsNullOrEmpty(f.Default))
-                                    _fieldValues[f.Name] = FormatEditableFieldValue(f, f.Default);
-                            }
-                        }
+                        SeedHumanInputFieldDefaults(model.Fields);
 
                         _pendingHumanInput = model;
                         StateHasChanged();
@@ -1482,8 +1629,7 @@
         finally
         {
             _isStreaming = false;
-            _pendingHumanInput = null;
-            _fieldValues.Clear();
+            ResetHumanInputState();
             _hitlLog.Clear();
             _cts?.Dispose();
             _cts = null;
@@ -1510,8 +1656,7 @@
         // Log the interaction for the grouped summary (instead of inserting a message)
         _hitlLog.Add((_pendingHumanInput.Prompt, choice));
 
-        _pendingHumanInput = null;
-        _fieldValues.Clear();
+        ResetHumanInputState();
         StateHasChanged();
     }
 
@@ -1527,8 +1672,7 @@
 
         _hitlLog.Add((_pendingHumanInput.Prompt, answer));
 
-        _pendingHumanInput = null;
-        _fieldValues.Clear();
+        ResetHumanInputState();
         StateHasChanged();
     }
 
@@ -1542,7 +1686,7 @@
             foreach (var field in _pendingHumanInput.Fields)
             {
                 var value = _fieldValues.TryGetValue(field.Name, out var v) ? v : "";
-                response[field.Name] = BuildHumanInputFieldValue(field, value);
+                response[field.Name] = BuildHumanInputFieldValue(field, value, GetSelectedFieldOptions(field));
             }
         }
 
@@ -1554,7 +1698,7 @@
             foreach (var field in _pendingHumanInput.Fields)
             {
                 var label = field.Description ?? field.Name;
-                var value = _fieldValues.TryGetValue(field.Name, out var v) ? v : field.Default ?? "";
+                var value = FormatHumanInputLogValue(field);
                 var isSensitive = field.Name.Contains("key", StringComparison.OrdinalIgnoreCase)
                                || field.Name.Contains("secret", StringComparison.OrdinalIgnoreCase)
                                || field.Name.Contains("password", StringComparison.OrdinalIgnoreCase)
@@ -1563,13 +1707,14 @@
             }
         }
 
-        _pendingHumanInput = null;
-        _fieldValues.Clear();
+        ResetHumanInputState();
         StateHasChanged();
     }
 
-    private static JsonNode? BuildHumanInputFieldValue(HumanInputFieldModel field, string value)
+    private static JsonNode? BuildHumanInputFieldValue(HumanInputFieldModel field, string value, IReadOnlyCollection<string> selectedOptions)
     {
+        if (IsMultiOptionField(field))
+            return new JsonArray(selectedOptions.Select(option => (JsonNode?)JsonValue.Create(option)).ToArray());
         if (field.Type.Equals("integer", StringComparison.OrdinalIgnoreCase)
             && int.TryParse(value, out var intValue))
             return JsonValue.Create(intValue);
@@ -1581,6 +1726,13 @@
                                     || value == "1"
                                     || value.Equals("yes", StringComparison.OrdinalIgnoreCase));
         return JsonValue.Create(value);
+    }
+
+    private string FormatHumanInputLogValue(HumanInputFieldModel field)
+    {
+        if (IsMultiOptionField(field))
+            return string.Join(", ", GetSelectedFieldOptions(field));
+        return _fieldValues.TryGetValue(field.Name, out var value) ? value : field.Default ?? "";
     }
 
     private static string? ReadHumanInputString(JsonNode? node)
