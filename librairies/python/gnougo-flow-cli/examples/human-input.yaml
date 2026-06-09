@@ -6,6 +6,7 @@ workflows:
       - id: ask
         type: human.input
         input:
+          mode: choice
           prompt: "Approve this action?"
           choices: [approve, reject]
       - id: result

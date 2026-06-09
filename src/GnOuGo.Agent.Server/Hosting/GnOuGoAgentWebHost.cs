@@ -386,6 +386,7 @@ public static class GnOuGoAgentWebHost
         });
         builder.Services.AddSingleton<AgentHumanInputProvider>();
         builder.Services.AddSingleton<AgentOTelTelemetry>();
+        builder.Services.AddSingleton<IWorkflowCandidateProvider, DatabaseAgentWorkflowCandidateProvider>();
         builder.Services.AddSingleton<ConfigureProvidersService>();
         builder.Services.AddSingleton<ConfigureAgentsService>();
         builder.Services.AddSingleton<SmartFlowService>();
@@ -507,6 +508,8 @@ public static class GnOuGoAgentWebHost
         // --- API ---
         app.MapPost("/api/chat", ChatEndpoints.CompleteAsync);
         app.MapPost("/api/chat/stream", ChatEndpoints.StreamAsync);
+        app.MapGet("/api/chat/conversations", ChatEndpoints.ListConversations);
+        app.MapGet("/api/chat/conversations/{conversationId}", ChatEndpoints.GetConversation);
         app.MapGnOuGoFilesServer(includeHealthEndpoint: false);
         app.MapGet("/api/version", (AppVersionInfo versionInfo) => versionInfo.ToDto());
         app.MapGet("/api/llm/providers", LlmProviderEndpoints.ListProviders);

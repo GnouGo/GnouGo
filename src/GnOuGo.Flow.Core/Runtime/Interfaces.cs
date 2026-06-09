@@ -147,6 +147,38 @@ public sealed class WorkflowCallResolution
 }
 
 /// <summary>
+/// Resolves dynamic workflow routing candidates from host-owned catalogs such as
+/// persisted agents, workspace workflows, or other registries.
+/// </summary>
+public interface IWorkflowCandidateProvider
+{
+    Task<IReadOnlyList<WorkflowRouteCandidate>> GetCandidatesAsync(
+        WorkflowRouteCandidateQuery query,
+        CancellationToken ct);
+}
+
+public sealed class WorkflowRouteCandidateQuery
+{
+    public required JsonObject Ref { get; init; }
+    public string Kind { get; init; } = "";
+    public IReadOnlyList<string> TagsAny { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> TagsAll { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> ExcludeTags { get; init; } = Array.Empty<string>();
+    public int? Limit { get; init; }
+}
+
+public sealed class WorkflowRouteCandidate
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public required JsonObject Ref { get; set; }
+    public string? Description { get; set; }
+    public List<string> Tags { get; set; } = new();
+    public JsonNode? Inputs { get; set; }
+    public JsonNode? Outputs { get; set; }
+}
+
+/// <summary>
 /// Interface for template engine abstraction.
 /// </summary>
 public interface ITemplateEngine

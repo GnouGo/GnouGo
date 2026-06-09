@@ -1,14 +1,99 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Globalization;
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
+
+internal static class HumanInputDslReference
+{
+    public static string Snippet => $$"""
+        ### human.input — Wait for human input
+        Pauses the workflow and asks the user for text, a choice, confirmation, or a structured form.
+        Always set `input.mode` explicitly when generating workflows.
+
+        Valid modes: {{string.Join(", ", HumanInputContract.KnownModesForDsl)}}.
+        Valid field types: {{string.Join(", ", HumanInputContract.KnownFieldTypesForDsl)}}.
+
+        Common input fields:
+          - prompt (string, required): question/instruction shown to the user.
+          - mode (string, required for generated DSL): text, choice, form, or confirm.
+          - context (any, optional): structured data shown next to the prompt.
+          - timeout_ms (number, optional): milliseconds before HUMAN_INPUT_TIMEOUT. Default: 300000. Use 0 for no timeout.
+
+        Mode patterns:
+        ```yaml
+        - id: ask_feedback
+          type: human.input
+          input:
+            mode: text
+            prompt: "What should be changed?"
+            context: "${json(data.steps.draft)}"
+        ```
+
+        ```yaml
+        - id: review
+          type: human.input
+          input:
+            mode: choice
+            prompt: "Choose the next action."
+            choices: [approve, modify, reject]
+            timeout_ms: 300000
+        ```
+
+        ```yaml
+        - id: confirm_publish
+          type: human.input
+          input:
+            mode: confirm
+            prompt: "Publish the generated report?"
+            choices: [approve, reject]
+        ```
+
+        ```yaml
+        - id: user_config
+          type: human.input
+          input:
+            mode: form
+            prompt: "Please configure the request."
+            fields:
+              - name: email
+                type: email
+                required: true
+                description: Contact email
+              - name: due_date
+                type: date
+                required: false
+                default: "2026-06-09"
+              - name: priority
+                type: select
+                options: [low, medium, high]
+                default: medium
+              - name: notes
+                type: textarea
+                required: false
+        ```
+
+        Rules:
+          - `choice` and `confirm` require a non-empty `choices` array of strings.
+          - `form` requires a non-empty `fields` array.
+          - `select`, `radio`, `multiselect`, and `checkbox` fields require non-empty `options`.
+          - Field names must be unique and non-empty.
+          - Use `date` for ISO date input (`YYYY-MM-DD`); it is returned as a string.
+
+        Output access patterns:
+          - text/choice/confirm: `data.steps.<id>.response`
+          - form: `data.steps.<id>.<field_name>` (for example `data.steps.user_config.due_date`)
+          - Providers may also include `source`; use `data.steps.<id>.source` only when the provider supplies it.
+        """;
+}
 
 /// <summary>
 /// Pauses the workflow and waits for human input via <see cref="IHumanInputProvider"/>.
 ///
 /// Input:
 ///   - prompt   (string, required)  : The question or instruction shown to the user.
+///   - mode     (string, optional)  : text, choice, form, or confirm. Inferred from choices/fields when omitted.
 ///   - context  (any, optional)     : Structured data shown alongside the prompt.
 ///   - choices  (array, optional)   : Quick-reply choice strings (e.g. ["approve", "reject"]).
 ///   - fields   (array, optional)   : Array of { name, type, required?, description?, options?, default? }.
@@ -28,40 +113,7 @@ public sealed class HumanInputExecutor : IStepExecutor
         new("HUMAN_INPUT_TIMEOUT", false, "The human did not respond within the configured timeout."),
     };
 
-    public string DslSnippet => """
-        ### human.input — Wait for human input
-        Pauses the workflow and sends a prompt to the user.
-        The workflow resumes when the user submits a response.
-        ```yaml
-        - id: review
-          type: human.input
-          input:
-            prompt: "The agent wants to call API X. Approve?"
-            context: "${json(data.steps.plan)}"
-            choices:
-              - approve
-              - reject
-              - modify
-            timeout_ms: 300000
-        ```
-        With structured fields:
-        ```yaml
-        - id: user_info
-          type: human.input
-          input:
-            prompt: "Please provide the following details:"
-            fields:
-              - name: email
-                type: string
-                required: true
-                description: Your email address
-              - name: priority
-                type: select
-                options: [low, medium, high]
-                default: medium
-        ```
-        Output: the user's response as a JSON object.
-        """;
+    public string DslSnippet => HumanInputDslReference.Snippet;
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
     {
@@ -73,7 +125,7 @@ public sealed class HumanInputExecutor : IStepExecutor
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
                 "human.input input must be an object.");
 
-        var prompt = input["prompt"]?.GetValue<string>()
+        var prompt = ReadString(input["prompt"])
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
                 "human.input requires a 'prompt' field.");
 
@@ -84,7 +136,7 @@ public sealed class HumanInputExecutor : IStepExecutor
         // Parse choices
         List<string>? choices = null;
         if (input["choices"] is JsonArray choicesArr)
-            choices = choicesArr.Select(c => c?.GetValue<string>() ?? "").ToList();
+            choices = choicesArr.Select(c => ReadString(c) ?? "").ToList();
 
         // Parse fields
         List<HumanInputFieldDef>? fields = null;
@@ -96,15 +148,18 @@ public sealed class HumanInputExecutor : IStepExecutor
                 if (fNode is not JsonObject fObj) continue;
                 fields.Add(new HumanInputFieldDef
                 {
-                    Name = fObj["name"]?.GetValue<string>() ?? "",
-                    Type = fObj["type"]?.GetValue<string>() ?? "string",
-                    Required = fObj["required"]?.GetValue<bool>() ?? true,
-                    Description = fObj["description"]?.GetValue<string>(),
-                    Options = (fObj["options"] as JsonArray)?.Select(o => o?.GetValue<string>() ?? "").ToList(),
-                    Default = fObj["default"]?.GetValue<string>(),
+                    Name = ReadString(fObj["name"]) ?? "",
+                    Type = (ReadString(fObj["type"]) ?? "string").Trim(),
+                    Required = ReadBool(fObj["required"], defaultValue: true),
+                    Description = ReadString(fObj["description"]),
+                    Options = (fObj["options"] as JsonArray)?.Select(o => ReadString(o) ?? "").ToList(),
+                    Default = ReadString(fObj["default"]),
                 });
             }
         }
+
+        var mode = ResolveMode(input, choices, fields);
+        ValidateRequest(mode, choices, fields);
 
         var context = input["context"];
 
@@ -116,6 +171,7 @@ public sealed class HumanInputExecutor : IStepExecutor
         var requestPayload = new JsonObject
         {
             ["prompt"] = prompt,
+            ["mode"] = mode,
             ["run_id"] = runId,
             ["step_id"] = ctx.Step.Id,
         };
@@ -148,6 +204,7 @@ public sealed class HumanInputExecutor : IStepExecutor
             RunId = runId,
             StepId = ctx.Step.Id,
             Prompt = prompt,
+            Mode = mode,
             Context = context?.DeepClone(),
             Choices = choices,
             Fields = fields,
@@ -178,7 +235,132 @@ public sealed class HumanInputExecutor : IStepExecutor
                 $"human.input step '{ctx.Step.Id}' timed out after {timeoutMs}ms waiting for user response.");
         }
     }
+
+    private static string ResolveMode(JsonObject input, List<string>? choices, List<HumanInputFieldDef>? fields)
+    {
+        var rawMode = ReadString(input["mode"])?.Trim();
+        if (!string.IsNullOrWhiteSpace(rawMode))
+            return rawMode;
+
+        if (fields is { Count: > 0 })
+            return HumanInputContract.ModeForm;
+        if (choices is { Count: > 0 })
+            return choices.Count == 2
+                   && choices.Any(c => IsConfirmChoice(c))
+                   && choices.Any(c => IsRejectChoice(c))
+                ? HumanInputContract.ModeConfirm
+                : HumanInputContract.ModeChoice;
+        return HumanInputContract.ModeText;
+    }
+
+    private static void ValidateRequest(string mode, List<string>? choices, List<HumanInputFieldDef>? fields)
+    {
+        if (!HumanInputContract.KnownModes.Contains(mode))
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                $"human.input mode '{mode}' is not supported. Known modes: {string.Join(", ", HumanInputContract.KnownModes)}.");
+
+        if (mode.Equals(HumanInputContract.ModeChoice, StringComparison.OrdinalIgnoreCase)
+            || mode.Equals(HumanInputContract.ModeConfirm, StringComparison.OrdinalIgnoreCase))
+        {
+            if (choices is not { Count: > 0 })
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                    $"human.input mode '{mode}' requires a non-empty 'choices' array.");
+        }
+
+        if (mode.Equals(HumanInputContract.ModeForm, StringComparison.OrdinalIgnoreCase))
+        {
+            if (fields is not { Count: > 0 })
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                    "human.input mode 'form' requires a non-empty 'fields' array.");
+        }
+
+        if (mode.Equals(HumanInputContract.ModeText, StringComparison.OrdinalIgnoreCase)
+            && choices is { Count: > 0 })
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                "human.input mode 'text' cannot define 'choices'. Use mode 'choice' or 'confirm'.");
+
+        if (mode.Equals(HumanInputContract.ModeText, StringComparison.OrdinalIgnoreCase)
+            && fields is { Count: > 0 })
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                "human.input mode 'text' cannot define 'fields'. Use mode 'form'.");
+
+        if (fields == null)
+            return;
+
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var field in fields)
+        {
+            if (string.IsNullOrWhiteSpace(field.Name))
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                    "human.input field requires a non-empty 'name'.");
+            if (!names.Add(field.Name))
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                    $"human.input field '{field.Name}' is defined more than once.");
+            if (!HumanInputContract.KnownFieldTypes.Contains(field.Type))
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                    $"human.input field '{field.Name}' uses unsupported type '{field.Type}'. Known types: {string.Join(", ", HumanInputContract.KnownFieldTypes)}.");
+            if (HumanInputContract.RequiresOptions(field.Type) && field.Options is not { Count: > 0 })
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                    $"human.input field '{field.Name}' of type '{field.Type}' requires non-empty 'options'.");
+        }
+    }
+
+    private static bool IsConfirmChoice(string value) =>
+        value.Equals("approve", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("true", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("confirm", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("ok", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRejectChoice(string value) =>
+        value.Equals("reject", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("no", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("false", StringComparison.OrdinalIgnoreCase)
+        || value.Equals("cancel", StringComparison.OrdinalIgnoreCase);
+
+    private static string? ReadString(JsonNode? node)
+    {
+        if (node is not JsonValue value)
+            return null;
+        if (value.TryGetValue<string>(out var stringValue))
+            return stringValue;
+        if (value.TryGetValue<bool>(out var boolValue))
+            return boolValue ? "true" : "false";
+        if (value.TryGetValue<int>(out var intValue))
+            return intValue.ToString(CultureInfo.InvariantCulture);
+        if (value.TryGetValue<long>(out var longValue))
+            return longValue.ToString(CultureInfo.InvariantCulture);
+        if (value.TryGetValue<double>(out var doubleValue))
+            return doubleValue.ToString(CultureInfo.InvariantCulture);
+        if (value.TryGetValue<decimal>(out var decimalValue))
+            return decimalValue.ToString(CultureInfo.InvariantCulture);
+        return null;
+    }
+
+    private static bool ReadBool(JsonNode? node, bool defaultValue)
+    {
+        if (node is not JsonValue value)
+            return defaultValue;
+        if (value.TryGetValue<bool>(out var boolValue))
+            return boolValue;
+        if (value.TryGetValue<string>(out var stringValue))
+        {
+            var normalized = stringValue.Trim();
+            if (bool.TryParse(normalized, out var parsed))
+                return parsed;
+            if (normalized.Equals("1", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("yes", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("y", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (normalized.Equals("0", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("no", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("n", StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+        if (value.TryGetValue<int>(out var intValue))
+            return intValue != 0;
+        if (value.TryGetValue<long>(out var longValue))
+            return longValue != 0L;
+        return defaultValue;
+    }
 }
-
-
-

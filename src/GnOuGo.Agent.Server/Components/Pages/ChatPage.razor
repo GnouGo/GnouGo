@@ -1,5 +1,6 @@
 @page "/"
 @using System.Diagnostics
+@using System.Globalization
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using System.Threading
@@ -58,7 +59,7 @@
 
         <div class="gnougo-sidebar__footer">
             <div class="gnougo-sidebar__hint">
-                Tip: your history is stored in <span class="gnougo-sidebar__hint-strong">localStorage</span>.
+                Tip: your history is stored in <span class="gnougo-sidebar__hint-strong">GnOuGo.Agent.Mcp</span>.
             </div>
             <div class="gnougo-sidebar__version" title="@DisplayVersionTitle">v@(DisplayVersion)</div>
         </div>
@@ -71,11 +72,8 @@
             </button>
 
             <div class="gnougo-chat__topbar-title">
-                @if (!string.IsNullOrWhiteSpace(_defaultAgentName))
-                {
-                    <span class="gnougo-chat__agent-badge" title="Active agent">🤖 @_defaultAgentName</span>
-                    <span style="margin: 0 8px; opacity: 0.4;">|</span>
-                }
+                <span class="gnougo-chat__agent-badge" title="Active workflow">🤖 @ActiveWorkflowDisplayName</span>
+                <span style="margin: 0 8px; opacity: 0.4;">|</span>
                 @(_active?.Title ?? "Chat")
             </div>
 
@@ -83,20 +81,14 @@
                 <label for="chatAgentSelect" class="gnougo-chat__agent-select-label">Agent</label>
                 <select id="chatAgentSelect"
                         class="gnougo-chat__agent-select"
-                        title="Select default agent"
-                        disabled="@(_isStreaming || _agentsLoading || _availableAgents.Count == 0)"
+                        title="Select default workflow or agent"
+                        disabled="@(_isStreaming || _agentsLoading)"
                         value="@(_defaultAgentName ?? string.Empty)"
                         @onchange="OnAgentSelectionChangedAsync">
-                    @if (_availableAgents.Count == 0)
+                    <option value="">@DefaultWorkflowDisplayName</option>
+                    @foreach (var agent in _availableAgents)
                     {
-                        <option value="">No agents</option>
-                    }
-                    else
-                    {
-                        @foreach (var agent in _availableAgents)
-                        {
-                            <option value="@agent">@agent</option>
-                        }
+                        <option value="@agent">@agent</option>
                     }
                 </select>
                 @if (_isStreaming)
@@ -119,7 +111,7 @@
             {
                 <div class="gnougo-chat__empty">
                     <div class="gnougo-chat__empty-title">Start a new chat</div>
-                    <div class="gnougo-chat__empty-subtitle">Your messages and history stay in your browser.</div>
+                    <div class="gnougo-chat__empty-subtitle">Your messages and history stay in the local agent store.</div>
                 </div>
             }
             else
@@ -198,22 +190,21 @@
                             }
                             else if (_pendingHumanInput.Fields is { Count: > 0 })
                             {
-                                <div style="margin-top: 8px;">
+                                <div class="gnougo-hitl-form">
                                     @foreach (var field in _pendingHumanInput.Fields)
                                     {
-                                        <div style="margin-bottom: 8px;">
-                                            <label style="display: block; font-weight: 600; margin-bottom: 2px;">
+                                        <div class="gnougo-hitl-field">
+                                            <label class="gnougo-hitl-field__label">
                                                 @field.Name
-                                                @if (field.Required) { <span style="color: #e74c3c;">*</span> }
+                                                @if (field.Required) { <span class="gnougo-hitl-field__required">*</span> }
                                             </label>
                                             @if (!string.IsNullOrWhiteSpace(field.Description))
                                             {
-                                                <div style="font-size: 0.8em; opacity: 0.7; margin-bottom: 2px;">@field.Description</div>
+                                                <div class="gnougo-hitl-field__description">@field.Description</div>
                                             }
-                                            @if (string.Equals(field.Type, "select", StringComparison.OrdinalIgnoreCase) && field.Options is { Count: > 0 })
+                                            @if (IsSelectField(field) && field.Options is { Count: > 0 })
                                             {
                                                 <select class="gnougo-composer__input"
-                                                        style="width: 100%; padding: 6px 10px; border-radius: 6px;"
                                                         value="@GetFieldValue(field.Name)"
                                                         @onchange="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))">
                                                     @foreach (var option in field.Options)
@@ -222,17 +213,60 @@
                                                     }
                                                 </select>
                                             }
+                                            else if (IsRadioField(field) && field.Options is { Count: > 0 })
+                                            {
+                                                <div class="gnougo-hitl-options" role="radiogroup" aria-label="@field.Name">
+                                                    @foreach (var option in field.Options)
+                                                    {
+                                                        var radioId = HumanInputOptionDomId(field, option);
+                                                        <label class="gnougo-hitl-option" for="@radioId">
+                                                            <input id="@radioId"
+                                                                   name="@HumanInputFieldDomName(field)"
+                                                                   type="radio"
+                                                                   value="@option"
+                                                                   checked="@string.Equals(GetFieldValue(field.Name), option, StringComparison.Ordinal)"
+                                                                   @onchange="@(e => SetFieldValue(field.Name, option))" />
+                                                            <span>@option</span>
+                                                        </label>
+                                                    }
+                                                </div>
+                                            }
+                                            else if (IsMultiOptionField(field) && field.Options is { Count: > 0 })
+                                            {
+                                                <div class="gnougo-hitl-options" role="group" aria-label="@field.Name">
+                                                    @foreach (var option in field.Options)
+                                                    {
+                                                        var checkboxId = HumanInputOptionDomId(field, option);
+                                                        <label class="gnougo-hitl-option" for="@checkboxId">
+                                                            <input id="@checkboxId"
+                                                                   type="checkbox"
+                                                                   value="@option"
+                                                                   checked="@IsFieldOptionSelected(field.Name, option)"
+                                                                   @onchange="@(e => SetFieldOptionSelected(field.Name, option, e.Value is bool b && b))" />
+                                                            <span>@option</span>
+                                                        </label>
+                                                    }
+                                                </div>
+                                            }
                                             else if (ShouldUseMultilineField(field))
                                             {
                                                 <textarea class="gnougo-composer__input gnougo-hitl-field__textarea @(LooksLikeCodeField(field) ? "gnougo-hitl-field__textarea--code" : "")"
                                                           value="@GetFieldValue(field.Name)"
                                                           @oninput="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))"></textarea>
                                             }
+                                            else if (string.Equals(field.Type, "boolean", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <label class="gnougo-hitl-option gnougo-hitl-option--inline">
+                                                    <input type="checkbox"
+                                                           checked="@IsFieldChecked(field.Name)"
+                                                           @onchange="@(e => SetFieldValue(field.Name, e.Value is bool b && b ? "true" : "false"))" />
+                                                    <span>@(IsFieldChecked(field.Name) ? "True" : "False")</span>
+                                                </label>
+                                            }
                                             else
                                             {
-                                                <input type="text"
+                                                <input type="@GetFieldInputType(field)"
                                                        class="gnougo-composer__input"
-                                                       style="width: 100%; padding: 6px 10px; border-radius: 6px;"
                                                        value="@GetFieldValue(field.Name)"
                                                        @onchange="@(e => SetFieldValue(field.Name, e.Value?.ToString() ?? ""))" />
                                             }
@@ -242,6 +276,22 @@
                                             type="button"
                                             style="margin-top: 8px;"
                                             @onclick="SubmitHumanInputFields">
+                                        Submit
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div style="margin-top: 8px;">
+                                    <textarea class="gnougo-composer__input gnougo-hitl-field__textarea"
+                                              placeholder="Your answer"
+                                              value="@_pendingHumanInput.ResponseText"
+                                              @oninput="@(e => _pendingHumanInput.ResponseText = e.Value?.ToString() ?? "")"></textarea>
+                                    <button class="gnougo-composer__send"
+                                            type="button"
+                                            style="margin-top: 8px;"
+                                            disabled="@string.IsNullOrWhiteSpace(_pendingHumanInput.ResponseText)"
+                                            @onclick="SubmitHumanInputText">
                                         Submit
                                     </button>
                                 </div>
@@ -436,7 +486,9 @@
         public string RunId { get; set; } = "";
         public string StepId { get; set; } = "";
         public string Prompt { get; set; } = "";
+        public string Mode { get; set; } = "text";
         public string? Context { get; set; }
+        public string ResponseText { get; set; } = "";
         public List<string>? Choices { get; set; }
         public List<HumanInputFieldModel>? Fields { get; set; }
     }
@@ -451,8 +503,7 @@
         public string? Default { get; set; }
     }
 
-    private const string StorageKeyV2 = "gnougo-agent.gnougo-chat.store.v2";
-    private const string LegacyStorageKey = "gnougo-gnougo-chat.gnougo-chat.history.v1";
+    private const string DefaultWorkflowDisplayName = "Workflow GnOuGo";
 
     private static readonly JsonSerializerOptions PrettyJsonOptions = new() { WriteIndented = true };
 
@@ -473,13 +524,14 @@
     private bool _sidebarOpen;
     private bool _isStreaming;
     private string _error = "";
-    private bool _browserStatePending = true;
+    private bool _chatStatePending = true;
 
     private CancellationTokenSource? _cts;
     private bool _needsMarkdownEnhance;
 
     private HumanInputModel? _pendingHumanInput;
     private readonly Dictionary<string, string> _fieldValues = new();
+    private readonly Dictionary<string, HashSet<string>> _multiFieldValues = new(StringComparer.Ordinal);
     private bool _traceSidebarOpen;
     private ChatMessageDto? _selectedTraceMessage;
     private AppVersionDto? _appVersion;
@@ -498,6 +550,10 @@
     private string DisplayVersion => _appVersion?.ShortVersion ?? VersionInfo.ShortVersion;
 
     private string DisplayVersionTitle => _appVersion?.Version ?? VersionInfo.Version;
+
+    private string ActiveWorkflowDisplayName => string.IsNullOrWhiteSpace(_defaultAgentName)
+        ? DefaultWorkflowDisplayName
+        : _defaultAgentName!;
 
     private bool CanSend => !_isStreaming
                             && !HasBlockingUploads
@@ -522,9 +578,9 @@
             StateHasChanged();
         }
 
-        if (_browserStatePending)
+        if (_chatStatePending)
         {
-            var initialized = await TryInitializeBrowserStateAsync();
+            var initialized = await TryInitializeChatStateAsync();
             if (initialized)
             {
                 _needsMarkdownEnhance = true;
@@ -595,6 +651,17 @@
         return normalized;
     }
 
+    private static string? FormatHumanInputContextNode(JsonNode? context)
+    {
+        if (context is null)
+            return null;
+
+        if (context is JsonValue value && value.TryGetValue<string>(out var text))
+            return text;
+
+        return context.ToJsonString();
+    }
+
     private static string FormatEditableFieldValue(HumanInputFieldModel field, string value)
     {
         var normalized = NormalizeLineEndings(value).Trim();
@@ -609,10 +676,154 @@
         var type = field.Type.Trim();
         return type.Equals("text", StringComparison.OrdinalIgnoreCase)
                || type.Equals("textarea", StringComparison.OrdinalIgnoreCase)
+               || type.Equals("markdown", StringComparison.OrdinalIgnoreCase)
                || type.Equals("yaml", StringComparison.OrdinalIgnoreCase)
                || type.Equals("json", StringComparison.OrdinalIgnoreCase)
                || LooksLikeCodeField(field)
                || (field.Default?.Contains('\n') ?? false);
+    }
+
+    private static string GetFieldInputType(HumanInputFieldModel field)
+    {
+        var type = field.Type.Trim();
+        if (type.Equals("number", StringComparison.OrdinalIgnoreCase)
+            || type.Equals("integer", StringComparison.OrdinalIgnoreCase))
+            return "number";
+        if (type.Equals("date", StringComparison.OrdinalIgnoreCase))
+            return "date";
+        if (type.Equals("password", StringComparison.OrdinalIgnoreCase)
+            || type.Equals("secret", StringComparison.OrdinalIgnoreCase))
+            return "password";
+        if (type.Equals("email", StringComparison.OrdinalIgnoreCase))
+            return "email";
+        if (type.Equals("url", StringComparison.OrdinalIgnoreCase))
+            return "url";
+        return "text";
+    }
+
+    private static bool IsSelectField(HumanInputFieldModel field)
+        => field.Type.Equals("select", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRadioField(HumanInputFieldModel field)
+        => field.Type.Equals("radio", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMultiOptionField(HumanInputFieldModel field)
+        => field.Type.Equals("multiselect", StringComparison.OrdinalIgnoreCase)
+           || field.Type.Equals("checkbox", StringComparison.OrdinalIgnoreCase);
+
+    private string HumanInputFieldDomName(HumanInputFieldModel field)
+        => $"hitl-{_pendingHumanInput?.RunId}-{_pendingHumanInput?.StepId}-{SanitizeDomId(field.Name)}";
+
+    private string HumanInputOptionDomId(HumanInputFieldModel field, string option)
+        => $"{HumanInputFieldDomName(field)}-{SanitizeDomId(option)}";
+
+    private static string SanitizeDomId(string value)
+        => string.Concat(value.Select(static ch => char.IsLetterOrDigit(ch) ? ch : '-')).Trim('-');
+
+    private bool IsFieldChecked(string name)
+        => string.Equals(GetFieldValue(name), "true", StringComparison.OrdinalIgnoreCase)
+           || GetFieldValue(name) == "1"
+           || string.Equals(GetFieldValue(name), "yes", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsFieldOptionSelected(string name, string option)
+        => _multiFieldValues.TryGetValue(name, out var selected)
+           && selected.Contains(option);
+
+    private void SetFieldOptionSelected(string name, string option, bool isSelected)
+    {
+        if (!_multiFieldValues.TryGetValue(name, out var selected))
+        {
+            selected = new HashSet<string>(StringComparer.Ordinal);
+            _multiFieldValues[name] = selected;
+        }
+
+        if (isSelected)
+            selected.Add(option);
+        else
+            selected.Remove(option);
+    }
+
+    private IReadOnlyCollection<string> GetSelectedFieldOptions(HumanInputFieldModel field)
+        => _multiFieldValues.TryGetValue(field.Name, out var selected)
+            ? selected.ToArray()
+            : Array.Empty<string>();
+
+    private void SeedHumanInputFieldDefaults(IReadOnlyList<HumanInputFieldModel>? fields)
+    {
+        _fieldValues.Clear();
+        _multiFieldValues.Clear();
+        if (fields is null)
+            return;
+
+        foreach (var field in fields)
+        {
+            if (IsMultiOptionField(field))
+            {
+                var selected = ParseMultiOptionDefault(field);
+                if (selected.Count > 0)
+                    _multiFieldValues[field.Name] = selected;
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(field.Default))
+            {
+                _fieldValues[field.Name] = FormatEditableFieldValue(field, field.Default);
+                continue;
+            }
+
+            if ((IsSelectField(field) || IsRadioField(field)) && field.Options is { Count: > 0 })
+                _fieldValues[field.Name] = field.Options[0];
+            else if (field.Type.Equals("boolean", StringComparison.OrdinalIgnoreCase))
+                _fieldValues[field.Name] = "false";
+        }
+    }
+
+    private static HashSet<string> ParseMultiOptionDefault(HumanInputFieldModel field)
+    {
+        var selected = new HashSet<string>(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(field.Default))
+            return selected;
+
+        if (TryParseJsonArray(field.Default, out var jsonArray))
+        {
+            foreach (var item in jsonArray)
+            {
+                var value = ReadHumanInputString(item);
+                if (!string.IsNullOrWhiteSpace(value))
+                    selected.Add(value);
+            }
+            return selected;
+        }
+
+        foreach (var value in field.Default.Split([',', ';', '\n'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            selected.Add(value);
+
+        return selected;
+    }
+
+    private static bool TryParseJsonArray(string value, out JsonArray jsonArray)
+    {
+        jsonArray = new JsonArray();
+        try
+        {
+            if (JsonNode.Parse(value) is JsonArray parsed)
+            {
+                jsonArray = parsed;
+                return true;
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return false;
+    }
+
+    private void ResetHumanInputState()
+    {
+        _pendingHumanInput = null;
+        _fieldValues.Clear();
+        _multiFieldValues.Clear();
     }
 
     private static bool LooksLikeCodeField(HumanInputFieldModel field)
@@ -778,7 +989,18 @@
 
         var selectedAgent = e.Value?.ToString()?.Trim();
         if (string.IsNullOrWhiteSpace(selectedAgent))
+        {
+            if (string.IsNullOrWhiteSpace(_defaultAgentName))
+                return;
+
+            var clearedSnapshot = await UserConfigClient.SetAsync(clearDefaultAgent: true, ct: CancellationToken.None);
+            _defaultAgentName = clearedSnapshot?.DefaultAgent;
+
+            SyncSessionsToDefaultAgent();
+            await RefreshWorkflowInputSchemaAsync();
+            StateHasChanged();
             return;
+        }
 
         if (string.Equals(_defaultAgentName, selectedAgent, StringComparison.Ordinal))
             return;
@@ -788,7 +1010,6 @@
 
         SyncSessionsToDefaultAgent();
         await RefreshWorkflowInputSchemaAsync();
-        await PersistAsync();
         StateHasChanged();
     }
 
@@ -931,16 +1152,16 @@
         }
     }
 
-    private async Task<bool> TryInitializeBrowserStateAsync()
+    private async Task<bool> TryInitializeChatStateAsync()
     {
         try
         {
-            await LoadStoreAsync();
-            var sessionsChanged = SyncSessionsToDefaultAgent();
+            await MergeServerConversationsAsync();
             EnsureActiveSession();
-            if (sessionsChanged)
-                await PersistAsync();
-            _browserStatePending = false;
+            if (_active is { Messages.Count: 0 })
+                await TryHydrateSessionMessagesAsync(_active);
+            SyncSessionsToDefaultAgent();
+            _chatStatePending = false;
             return true;
         }
         catch (JSDisconnectedException)
@@ -1163,7 +1384,6 @@
         _active.Messages.Add(assistantMsg);
 
         TouchActive();
-        await PersistAsync();
 
         _isStreaming = true;
         _cts = new CancellationTokenSource();
@@ -1173,7 +1393,8 @@
 
         try
         {
-            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, agentName: null, filesIds, workflowInputs, _cts.Token))
+            var conversationId = string.IsNullOrWhiteSpace(_active.ConversationId) ? _active.Id : _active.ConversationId;
+            await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, agentName: null, filesIds, workflowInputs, conversationId, _cts.Token))
             {
                 if (evt.Type is "trace.started")
                 {
@@ -1185,6 +1406,17 @@
                     ReplaceLastAssistant(assistantMsg);
                     TouchActive();
                     StateHasChanged();
+                    continue;
+                }
+
+                if (evt.Type is "conversation")
+                {
+                    var resolvedConversationId = evt.ConversationId ?? evt.Text;
+                    if (!string.IsNullOrWhiteSpace(resolvedConversationId) && _active is not null)
+                    {
+                        _active = _active with { ConversationId = resolvedConversationId };
+                        ReplaceSession(_active);
+                    }
                     continue;
                 }
 
@@ -1266,8 +1498,7 @@
                             }
                         }
 
-                        _pendingHumanInput = null;
-                        _fieldValues.Clear();
+                        ResetHumanInputState();
                         StateHasChanged();
                         await ScrollToBottomAsync();
                     }
@@ -1295,14 +1526,15 @@
                     {
                         var model = new HumanInputModel
                         {
-                            RunId = requestJson["run_id"]?.GetValue<string>() ?? "",
-                            StepId = requestJson["step_id"]?.GetValue<string>() ?? "",
-                            Prompt = requestJson["prompt"]?.GetValue<string>() ?? "",
-                            Context = requestJson["context"]?.GetValue<string>(),
+                            RunId = ReadHumanInputString(requestJson["run_id"]) ?? "",
+                            StepId = ReadHumanInputString(requestJson["step_id"]) ?? "",
+                            Prompt = ReadHumanInputString(requestJson["prompt"]) ?? "",
+                            Mode = ReadHumanInputString(requestJson["mode"]) ?? "text",
+                            Context = FormatHumanInputContextNode(requestJson["context"]),
                         };
 
                         if (requestJson["choices"] is JsonArray choicesArr)
-                            model.Choices = choicesArr.Select(c => c?.GetValue<string>() ?? "").ToList();
+                            model.Choices = choicesArr.Select(c => ReadHumanInputString(c) ?? "").ToList();
 
                         if (requestJson["fields"] is JsonArray fieldsArr)
                         {
@@ -1312,29 +1544,20 @@
                                 if (fNode is not JsonObject fObj) continue;
                                 var field = new HumanInputFieldModel
                                 {
-                                    Name = fObj["name"]?.GetValue<string>() ?? "",
-                                    Type = fObj["type"]?.GetValue<string>() ?? "string",
-                                    Required = fObj["required"]?.GetValue<bool>() ?? false,
-                                    Description = fObj["description"]?.GetValue<string>(),
+                                    Name = ReadHumanInputString(fObj["name"]) ?? "",
+                                    Type = ReadHumanInputString(fObj["type"]) ?? "string",
+                                    Required = ReadHumanInputBool(fObj["required"], defaultValue: false),
+                                    Description = ReadHumanInputString(fObj["description"]),
                                     Options = fObj["options"] is JsonArray optionsArr
-                                        ? optionsArr.Select(o => o?.GetValue<string>() ?? "").Where(o => !string.IsNullOrWhiteSpace(o)).ToList()
+                                        ? optionsArr.Select(o => ReadHumanInputString(o) ?? "").Where(o => !string.IsNullOrWhiteSpace(o)).ToList()
                                         : null,
-                                    Default = fObj["default"]?.GetValue<string>(),
+                                    Default = ReadHumanInputString(fObj["default"]),
                                 };
                                 model.Fields.Add(field);
                             }
                         }
 
-                        // Pre-populate field defaults
-                        _fieldValues.Clear();
-                        if (model.Fields is not null)
-                        {
-                            foreach (var f in model.Fields)
-                            {
-                                if (!string.IsNullOrEmpty(f.Default))
-                                    _fieldValues[f.Name] = FormatEditableFieldValue(f, f.Default);
-                            }
-                        }
+                        SeedHumanInputFieldDefaults(model.Fields);
 
                         _pendingHumanInput = model;
                         StateHasChanged();
@@ -1406,14 +1629,12 @@
         finally
         {
             _isStreaming = false;
-            _pendingHumanInput = null;
-            _fieldValues.Clear();
+            ResetHumanInputState();
             _hitlLog.Clear();
             _cts?.Dispose();
             _cts = null;
 
             TouchActive();
-            await PersistAsync();
 
             _needsMarkdownEnhance = true;
             StateHasChanged();
@@ -1435,8 +1656,23 @@
         // Log the interaction for the grouped summary (instead of inserting a message)
         _hitlLog.Add((_pendingHumanInput.Prompt, choice));
 
-        _pendingHumanInput = null;
-        _fieldValues.Clear();
+        ResetHumanInputState();
+        StateHasChanged();
+    }
+
+    private void SubmitHumanInputText()
+    {
+        if (_pendingHumanInput is null) return;
+
+        var answer = _pendingHumanInput.ResponseText.Trim();
+        if (string.IsNullOrWhiteSpace(answer)) return;
+
+        var response = new JsonObject { ["response"] = answer };
+        HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
+
+        _hitlLog.Add((_pendingHumanInput.Prompt, answer));
+
+        ResetHumanInputState();
         StateHasChanged();
     }
 
@@ -1450,7 +1686,7 @@
             foreach (var field in _pendingHumanInput.Fields)
             {
                 var value = _fieldValues.TryGetValue(field.Name, out var v) ? v : "";
-                response[field.Name] = value;
+                response[field.Name] = BuildHumanInputFieldValue(field, value, GetSelectedFieldOptions(field));
             }
         }
 
@@ -1462,7 +1698,7 @@
             foreach (var field in _pendingHumanInput.Fields)
             {
                 var label = field.Description ?? field.Name;
-                var value = _fieldValues.TryGetValue(field.Name, out var v) ? v : field.Default ?? "";
+                var value = FormatHumanInputLogValue(field);
                 var isSensitive = field.Name.Contains("key", StringComparison.OrdinalIgnoreCase)
                                || field.Name.Contains("secret", StringComparison.OrdinalIgnoreCase)
                                || field.Name.Contains("password", StringComparison.OrdinalIgnoreCase)
@@ -1471,9 +1707,78 @@
             }
         }
 
-        _pendingHumanInput = null;
-        _fieldValues.Clear();
+        ResetHumanInputState();
         StateHasChanged();
+    }
+
+    private static JsonNode? BuildHumanInputFieldValue(HumanInputFieldModel field, string value, IReadOnlyCollection<string> selectedOptions)
+    {
+        if (IsMultiOptionField(field))
+            return new JsonArray(selectedOptions.Select(option => (JsonNode?)JsonValue.Create(option)).ToArray());
+        if (field.Type.Equals("integer", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(value, out var intValue))
+            return JsonValue.Create(intValue);
+        if (field.Type.Equals("number", StringComparison.OrdinalIgnoreCase)
+            && double.TryParse(value, out var numberValue))
+            return JsonValue.Create(numberValue);
+        if (field.Type.Equals("boolean", StringComparison.OrdinalIgnoreCase))
+            return JsonValue.Create(value.Equals("true", StringComparison.OrdinalIgnoreCase)
+                                    || value == "1"
+                                    || value.Equals("yes", StringComparison.OrdinalIgnoreCase));
+        return JsonValue.Create(value);
+    }
+
+    private string FormatHumanInputLogValue(HumanInputFieldModel field)
+    {
+        if (IsMultiOptionField(field))
+            return string.Join(", ", GetSelectedFieldOptions(field));
+        return _fieldValues.TryGetValue(field.Name, out var value) ? value : field.Default ?? "";
+    }
+
+    private static string? ReadHumanInputString(JsonNode? node)
+    {
+        if (node is not JsonValue value)
+            return null;
+        if (value.TryGetValue<string>(out var stringValue))
+            return stringValue;
+        if (value.TryGetValue<bool>(out var boolValue))
+            return boolValue ? "true" : "false";
+        if (value.TryGetValue<int>(out var intValue))
+            return intValue.ToString(CultureInfo.InvariantCulture);
+        if (value.TryGetValue<long>(out var longValue))
+            return longValue.ToString(CultureInfo.InvariantCulture);
+        if (value.TryGetValue<double>(out var doubleValue))
+            return doubleValue.ToString(CultureInfo.InvariantCulture);
+        if (value.TryGetValue<decimal>(out var decimalValue))
+            return decimalValue.ToString(CultureInfo.InvariantCulture);
+        return null;
+    }
+
+    private static bool ReadHumanInputBool(JsonNode? node, bool defaultValue)
+    {
+        if (node is not JsonValue value)
+            return defaultValue;
+        if (value.TryGetValue<bool>(out var boolValue))
+            return boolValue;
+        if (value.TryGetValue<string>(out var stringValue))
+        {
+            var normalized = stringValue.Trim();
+            if (bool.TryParse(normalized, out var parsed))
+                return parsed;
+            if (normalized.Equals("1", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("yes", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("y", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (normalized.Equals("0", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("no", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("n", StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+        if (value.TryGetValue<int>(out var intValue))
+            return intValue != 0;
+        if (value.TryGetValue<long>(out var longValue))
+            return longValue != 0L;
+        return defaultValue;
     }
 
     private string GetFieldValue(string name)
@@ -1513,15 +1818,17 @@
         _composerUploads.Clear();
 
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var sessionId = Guid.NewGuid().ToString("N");
         var session = new ChatSessionDto(
-            Id: Guid.NewGuid().ToString("N"),
+            Id: sessionId,
             Title: "New chat",
             UpdatedAtUnixMs: now,
             Messages: new List<ChatMessageDto>
             {
                     new("assistant", "New chat started. Ask me anything — I'll stream the answer as it's generated.", Guid.NewGuid().ToString("N"))
             },
-            AgentName: _defaultAgentName);
+            AgentName: _defaultAgentName,
+            ConversationId: sessionId);
 
         // Put it on top.
         _store.Sessions.Insert(0, session);
@@ -1531,7 +1838,6 @@
 
         CloseSidebar();
 
-        await PersistAsync();
         _needsMarkdownEnhance = true;
         StateHasChanged();
         await ScrollToBottomAsync();
@@ -1545,44 +1851,124 @@
         {
             _store = _store with { ActiveId = id };
             _active = _store.Sessions.FirstOrDefault(s => s.Id == id);
+            if (_active is { Messages.Count: 0 } && await TryHydrateSessionMessagesAsync(_active))
+            {
+                _active = _store.Sessions.FirstOrDefault(s => s.Id == id);
+            }
             CloseTraceSidebar();
 
             CloseSidebar();
-            await PersistAsync();
             _needsMarkdownEnhance = true;
             StateHasChanged();
             await ScrollToBottomAsync();
         }
     }
 
-    private async Task LoadStoreAsync()
+    private async Task<bool> MergeServerConversationsAsync()
     {
-        var json = await Js.InvokeAsync<string?>("GnOuGo.Agent.storage.load", StorageKeyV2);
-        if (!string.IsNullOrWhiteSpace(json))
+        try
         {
-            var saved = JsonSerializer.Deserialize(json, ChatJsonContext.Default.ChatStoreDto);
-            if (saved is not null)
-                _store = saved;
-            return;
+            var http = HttpClientFactory.CreateClient();
+            var conversationsUri = Navigation.ToAbsoluteUri("api/chat/conversations");
+            var conversations = await http.GetFromJsonAsync(conversationsUri, ChatJsonContext.Default.ListChatConversationSummaryDto)
+                                ?? new List<ChatConversationSummaryDto>();
+
+            var changed = false;
+            foreach (var conversation in conversations)
+            {
+                var existingIndex = _store.Sessions.FindIndex(session =>
+                    string.Equals(session.ConversationId, conversation.ConversationId, StringComparison.Ordinal)
+                    || string.Equals(session.Id, conversation.ConversationId, StringComparison.Ordinal));
+
+                if (existingIndex >= 0)
+                {
+                    var existing = _store.Sessions[existingIndex];
+                    var title = IsDefaultChatTitle(existing.Title) ? conversation.Title : existing.Title;
+                    var updatedAt = Math.Max(existing.UpdatedAtUnixMs, conversation.UpdatedAtUnixMs);
+                    var updated = existing with
+                    {
+                        Title = title,
+                        UpdatedAtUnixMs = updatedAt,
+                        ConversationId = conversation.ConversationId
+                    };
+
+                    if (!ReferenceEquals(existing, updated) && !Equals(existing, updated))
+                    {
+                        _store.Sessions[existingIndex] = updated;
+                        changed = true;
+                    }
+
+                    continue;
+                }
+
+                _store.Sessions.Add(new ChatSessionDto(
+                    Id: conversation.ConversationId,
+                    Title: conversation.Title,
+                    UpdatedAtUnixMs: conversation.UpdatedAtUnixMs,
+                    Messages: new List<ChatMessageDto>(),
+                    AgentName: _defaultAgentName,
+                    ConversationId: conversation.ConversationId));
+                changed = true;
+            }
+
+            if (changed)
+                _store.Sessions.Sort(static (left, right) => right.UpdatedAtUnixMs.CompareTo(left.UpdatedAtUnixMs));
+
+            return changed;
         }
-
-        var legacy = await Js.InvokeAsync<string?>("GnOuGo.Agent.storage.load", LegacyStorageKey);
-        if (!string.IsNullOrWhiteSpace(legacy))
+        catch (HttpRequestException)
         {
-            var msgs = JsonSerializer.Deserialize(legacy, ChatJsonContext.Default.ListChatMessageDto)
-                       ?? new List<ChatMessageDto>();
+            return false;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
 
-            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var session = new ChatSessionDto(
-                Id: Guid.NewGuid().ToString("N"),
-                Title: "Migrated gnougo-chat",
-                UpdatedAtUnixMs: now,
-                Messages: msgs);
+    private async Task<bool> TryHydrateSessionMessagesAsync(ChatSessionDto session)
+    {
+        var conversationId = string.IsNullOrWhiteSpace(session.ConversationId) ? session.Id : session.ConversationId;
+        if (string.IsNullOrWhiteSpace(conversationId))
+            return false;
 
-            _store = new ChatStoreDto(session.Id, new List<ChatSessionDto> { session });
+        try
+        {
+            var http = HttpClientFactory.CreateClient();
+            var conversationUri = Navigation.ToAbsoluteUri($"api/chat/conversations/{Uri.EscapeDataString(conversationId)}");
+            var hydrated = await http.GetFromJsonAsync(conversationUri, ChatJsonContext.Default.ChatSessionDto);
+            if (hydrated is null)
+                return false;
 
-            await Js.InvokeVoidAsync("GnOuGo.Agent.storage.clear", LegacyStorageKey);
-            await PersistAsync();
+            var updated = session with
+            {
+                Title = IsDefaultChatTitle(session.Title) ? hydrated.Title : session.Title,
+                UpdatedAtUnixMs = Math.Max(session.UpdatedAtUnixMs, hydrated.UpdatedAtUnixMs),
+                Messages = hydrated.Messages,
+                ConversationId = hydrated.ConversationId ?? conversationId
+            };
+
+            ReplaceSession(updated);
+            if (string.Equals(_store.ActiveId, session.Id, StringComparison.Ordinal))
+                _active = updated;
+
+            return true;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
         }
     }
 
@@ -1591,15 +1977,17 @@
         if (_store.Sessions.Count == 0)
         {
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var sessionId = Guid.NewGuid().ToString("N");
             var session = new ChatSessionDto(
-                Id: Guid.NewGuid().ToString("N"),
+                Id: sessionId,
                 Title: "New chat",
                 UpdatedAtUnixMs: now,
                 Messages: new List<ChatMessageDto>
                 {
                     new("assistant", "Hi! I'm GnOuGo.Agent. Ask me anything — I'll stream the answer as it's generated.", Guid.NewGuid().ToString("N"))
                 },
-                AgentName: _defaultAgentName);
+                AgentName: _defaultAgentName,
+                ConversationId: sessionId);
 
             _store.Sessions.Add(session);
             _store = _store with { ActiveId = session.Id };
@@ -1609,6 +1997,11 @@
             _store = _store with { ActiveId = _store.Sessions[0].Id };
 
         _active = _store.Sessions.FirstOrDefault(s => s.Id == _store.ActiveId) ?? _store.Sessions[0];
+        if (string.IsNullOrWhiteSpace(_active.ConversationId))
+        {
+            _active = _active with { ConversationId = _active.Id };
+            ReplaceSession(_active);
+        }
         _store = _store with { ActiveId = _active.Id };
     }
 
@@ -1656,11 +2049,11 @@
         }
     }
 
-    private async Task PersistAsync()
-    {
-        var json = JsonSerializer.Serialize(_store, ChatJsonContext.Default.ChatStoreDto);
-        await Js.InvokeVoidAsync("GnOuGo.Agent.storage.save", StorageKeyV2, json);
-    }
+    private static bool IsDefaultChatTitle(string? title)
+        => string.IsNullOrWhiteSpace(title)
+           || string.Equals(title, "New chat", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(title, "Migrated gnougo-chat", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(title, "Chat", StringComparison.OrdinalIgnoreCase);
 
     private void OpenTraceSidebar(ChatMessageDto msg)
     {

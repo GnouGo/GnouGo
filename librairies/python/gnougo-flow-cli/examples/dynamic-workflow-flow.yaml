@@ -45,6 +45,7 @@ workflows:
           - id: review
             type: human.input
             input:
+              mode: choice
               prompt: "Approve this approach?"
               context: "${data.steps.analyze.text}"
               choices: [approve, modify]
@@ -53,6 +54,7 @@ workflows:
             type: human.input
             if: "${data.steps.review.response == 'modify'}"
             input:
+              mode: text
               prompt: "What should be improved?"
 
       - id: generate

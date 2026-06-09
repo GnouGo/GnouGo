@@ -152,6 +152,7 @@ async def test_human_input_fields_telemetry_and_zero_timeout():
               - id: form
                 type: human.input
                 input:
+                  mode: form
                   prompt: Please fill in your details
                   timeout_ms: 0
                   fields:
@@ -170,6 +171,7 @@ async def test_human_input_fields_telemetry_and_zero_timeout():
 
     assert result.success is True
     assert provider.last_request.run_id == "run-phase5"
+    assert provider.last_request.mode == "form"
     assert provider.last_request.timeout_ms == 0
     assert provider.last_request.fields[0].name == "email"
     assert provider.last_request.fields[1].options == ["low", "medium", "high"]
@@ -178,5 +180,6 @@ async def test_human_input_fields_telemetry_and_zero_timeout():
     waiting = next(e for e in events if e[0] == "gnougo-flow.step.waiting_for_human")
     payload = json.loads(waiting[1]["gnougo-flow.human.request"])
     assert payload["run_id"] == "run-phase5"
+    assert payload["mode"] == "form"
     assert payload["fields"][1]["default"] == "medium"
     assert any(e[0] == "gnougo-flow.step.thinking" for e in events)

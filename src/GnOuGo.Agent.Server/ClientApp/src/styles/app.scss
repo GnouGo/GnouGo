@@ -419,6 +419,69 @@ html, body {
   max-height: 420px;
 }
 
+.gnougo-hitl-form {
+  margin-top: 10px;
+  display: grid;
+  gap: 12px;
+}
+
+.gnougo-hitl-field {
+  display: grid;
+  gap: 5px;
+}
+
+.gnougo-hitl-field__label {
+  display: block;
+  font-weight: 650;
+  font-size: 13px;
+}
+
+.gnougo-hitl-field__required {
+  color: #cf222e;
+  margin-left: 3px;
+}
+
+.gnougo-hitl-field__description {
+  color: var(--gnougo-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.gnougo-hitl-options {
+  display: grid;
+  gap: 6px;
+}
+
+.gnougo-hitl-option {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--gnougo-border);
+  border-radius: 8px;
+  background: var(--gnougo-surface);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.gnougo-hitl-option:hover {
+  background: var(--gnougo-surface-2);
+}
+
+.gnougo-hitl-option input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  accent-color: var(--gnougo-accent);
+}
+
+.gnougo-hitl-option--inline {
+  width: fit-content;
+  min-width: 120px;
+}
+
 .gnougo-hitl-field__textarea {
   display: block;
   width: 100%;

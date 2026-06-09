@@ -109,6 +109,7 @@
   </Target>
 
   <ItemGroup>
+    <EmbeddedResource Include="SmartFlow\main-routing-agent.yaml" />
     <EmbeddedResource Include="SmartFlow\dynamic-workflow-agent.yaml" />
     <EmbeddedResource Include="SmartFlow\configure-agents-agent.yaml" />
   </ItemGroup>

@@ -4,6 +4,7 @@ using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Runtime.Executors;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
@@ -66,6 +67,58 @@ public class WorkflowPlanExecutorTests
     }
 
     [Fact]
+    public void HumanInput_DslSnippet_ContainsPlannerContract()
+    {
+        var snippet = new HumanInputExecutor().DslSnippet!;
+
+        Assert.Contains("Always set `input.mode` explicitly", snippet);
+        Assert.Contains("Valid modes: text, choice, form, confirm.", snippet);
+        Assert.Contains("date", snippet);
+        Assert.Contains("mode: confirm", snippet);
+        Assert.Contains("data.steps.<id>.response", snippet);
+        Assert.Contains("data.steps.<id>.<field_name>", snippet);
+    }
+
+    [Fact]
+    public void WorkflowPlanSemanticValidator_AllowsHumanInputResponseAndFormFields()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: approval
+        type: human.input
+        input:
+          mode: choice
+          prompt: "Approve?"
+          choices: [approve, reject]
+      - id: schedule
+        type: human.input
+        input:
+          mode: form
+          prompt: "Pick a due date"
+          fields:
+            - name: due_date
+              type: date
+              required: true
+            - name: retry_count
+              type: integer
+              required: false
+      - id: use_values
+        type: set
+        input:
+          decision: "${data.steps.approval.response}"
+          due: "${data.steps.schedule.due_date}"
+          retries: "${data.steps.schedule.retry_count}"
+""");
+
+        var validatorType = typeof(WorkflowEngine).Assembly.GetType("GnOuGo.Flow.Core.Runtime.WorkflowPlanSemanticValidator", throwOnError: true)!;
+        var validate = validatorType.GetMethod("Validate", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!;
+        validate.Invoke(null, new object?[] { doc, null });
+    }
+
+    [Fact]
     public void DslReference_CommonReference_ContainsBuiltInFunctions()
     {
         var reference = GnOuGo.Flow.Core.Runtime.Executors.DslReference.CommonReference;
@@ -105,6 +158,15 @@ public class WorkflowPlanExecutorTests
         Assert.Contains("output:", reference);
         Assert.Contains("continue", reference);
         Assert.Contains("stop", reference);
+    }
+
+    [Fact]
+    public void DslReference_CommonReference_ContainsSkillMetadataGuidance()
+    {
+        var reference = GnOuGo.Flow.Core.Runtime.Executors.DslReference.CommonReference;
+        Assert.Contains("skill:", reference);
+        Assert.Contains("Skill metadata", reference);
+        Assert.Contains("auto-extract", reference);
     }
 
     // ------ Prompt construction tests ------
@@ -692,6 +754,64 @@ workflows:
         Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
         Assert.Contains("input.request.method", result.Error.Message);
         Assert.Contains("missing required property", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_Validation_ReturnsStructuralAndSemanticDiagnosticsTogether()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       workflows:
+                         main:
+                           inputs:
+                             bad_input:
+                               type: string
+                               properties:
+                                 nested:
+                                   type: string
+                           steps:
+                             - id: collect
+                               type: set
+                               input:
+                                 value: ok
+                           outputs:
+                             bad_output:
+                               type: string
+                               properties:
+                                 nested:
+                                   type: string
+                               expr: "${data.steps.missing.value}"
+                       """
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a workflow with typed inputs and outputs
+            prefilter: false
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("INVALID_INPUT_SCHEMA", result.Error.Message);
+        Assert.Contains("INVALID_OUTPUT_SCHEMA", result.Error.Message);
+        Assert.Contains("STEP_REFERENCE_UNKNOWN", result.Error.Message);
+        Assert.Contains("data.steps.missing.value", result.Error.Message);
     }
 
     [Fact]
@@ -1386,8 +1506,3 @@ workflows:
         Assert.False(engine.Registry.Has("template.execute"));
     }
 }
-
-
-
-
-

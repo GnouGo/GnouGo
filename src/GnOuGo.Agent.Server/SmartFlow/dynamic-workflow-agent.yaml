@@ -159,6 +159,7 @@ workflows:
       - id: ask_markdown_export
         type: human.input
         input:
+          mode: choice
           prompt: |
             The final answer is ready.
             Do you want to save it as a Markdown file?
@@ -171,6 +172,7 @@ workflows:
         type: human.input
         if: "${data.steps.ask_markdown_export.response == 'save'}"
         input:
+          mode: form
           prompt: "Enter the relative .md path to create inside the GnOuGo workspace:"
           fields:
             - name: file_path

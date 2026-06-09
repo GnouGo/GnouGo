@@ -78,6 +78,7 @@ workflows:
           - id: review
             type: human.input
             input:
+              mode: choice
               prompt: |
                 Please review the proposed approach below.
                 • **Approve** — proceed with automated workflow generation & execution.
@@ -92,6 +93,7 @@ workflows:
             type: human.input
             if: "${data.steps.review.response == 'modify'}"
             input:
+              mode: text
               prompt: "What should be improved or changed in the approach?"
 
       # ──────────────────────────────────────────────────────────

@@ -483,6 +483,58 @@ async def test_workflow_plan_reprompts_on_validator_diagnostics_not_only_compile
 
 
 @pytest.mark.asyncio
+async def test_workflow_plan_validation_returns_structural_and_semantic_diagnostics_together() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build a workflow with typed inputs and outputs"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        inputs:
+          bad_input:
+            type: string
+            properties:
+              nested:
+                type: string
+        steps:
+          - id: collect
+            type: set
+            input:
+              value: ok
+        outputs:
+          bad_output:
+            type: string
+            properties:
+              nested:
+                type: string
+            expr: "${data.steps.missing.value}"
+    """
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "INVALID_INPUT_SCHEMA" in result.error.message
+    assert "INVALID_OUTPUT_SCHEMA" in result.error.message
+    assert "STEP_REFERENCE_UNKNOWN" in result.error.message
+    assert "data.steps.missing.value" in result.error.message
+
+
+@pytest.mark.asyncio
 async def test_workflow_plan_semantic_validation_allows_known_mcp_response_property() -> None:
     source = """
     version: 1
@@ -920,5 +972,4 @@ async def test_workflow_plan_semantic_validation_rejects_invalid_mcp_request_aga
     assert "MCP_REQUEST_SCHEMA_INVALID" in result.error.message
     assert "input.request.method" in result.error.message
     assert "docs/issue_write" in result.error.message
-
 

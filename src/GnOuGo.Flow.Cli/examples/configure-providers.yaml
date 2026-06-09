@@ -168,6 +168,7 @@ workflows:
       - id: choose_provider
         type: human.input
         input:
+          mode: choice
           prompt: "Select the LLM provider to configure:"
           choices:
             - openai
@@ -222,6 +223,7 @@ workflows:
       - id: configure_connection
         type: human.input
         input:
+          mode: form
           prompt: "Configure ${data.steps.choose_provider.response} connection. Adjust defaults if needed:"
           context: "Default URL: ${data.steps.resolved_defaults.url} | Default model: ${data.steps.resolved_defaults.model}"
           fields:
@@ -260,6 +262,7 @@ workflows:
           - id: choose_auth
             type: human.input
             input:
+              mode: choice
               prompt: "Choose authentication mode for ${data.steps.choose_provider.response}:"
               context: "Available: ${data.steps.resolved_defaults.auth_modes}"
               choices:
@@ -277,6 +280,7 @@ workflows:
                   - id: input_api_key
                     type: human.input
                     input:
+                      mode: form
                       prompt: "Enter the API key:"
                       fields:
                         - name: api_key
@@ -301,6 +305,7 @@ workflows:
                   - id: input_oidc
                     type: human.input
                     input:
+                      mode: form
                       prompt: "Configure OpenID Connect (client_credentials):"
                       fields:
                         - name: issuer
@@ -408,6 +413,7 @@ workflows:
       - id: confirm_llm
         type: human.input
         input:
+          mode: choice
           prompt: "Save this LLM provider configuration?"
           context: "${data.steps.llm_summary.text}"
           choices:
@@ -479,6 +485,7 @@ workflows:
       - id: choose_transport
         type: human.input
         input:
+          mode: choice
           prompt: "What type of MCP server do you want to configure?"
           choices:
             - http
@@ -494,6 +501,7 @@ workflows:
               - id: configure_http
                 type: human.input
                 input:
+                  mode: form
                   prompt: "Configure the HTTP MCP server:"
                   fields:
                     - name: name
@@ -515,6 +523,7 @@ workflows:
               - id: http_auth_choice
                 type: human.input
                 input:
+                  mode: choice
                   prompt: "Authentication for this MCP server:"
                   choices:
                     - api_key
@@ -530,6 +539,7 @@ workflows:
                       - id: http_input_key
                         type: human.input
                         input:
+                          mode: form
                           prompt: "Enter the API key for this MCP server:"
                           fields:
                             - name: api_key
@@ -552,6 +562,7 @@ workflows:
                       - id: http_input_oidc
                         type: human.input
                         input:
+                          mode: form
                           prompt: "Configure OpenID Connect for this MCP server:"
                           fields:
                             - name: issuer
@@ -613,6 +624,7 @@ workflows:
           - id: configure_stdio
             type: human.input
             input:
+              mode: form
               prompt: "Configure the stdio MCP server:"
               fields:
                 - name: name
@@ -717,6 +729,7 @@ workflows:
       - id: confirm_mcp
         type: human.input
         input:
+          mode: choice
           prompt: "Save this MCP server configuration?"
           context: "${data.steps.mcp_summary.text}"
           choices:

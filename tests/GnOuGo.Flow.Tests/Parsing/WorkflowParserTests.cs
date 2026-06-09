@@ -70,6 +70,63 @@ public class WorkflowParserTests
     }
 
     [Fact]
+    public void Parse_WithSkill_SetsTopLevelSkillMetadata()
+    {
+        var yaml = """
+version: 1
+name: skill-demo
+skill:
+  description: Answers document questions.
+  tags: [documents, rag]
+  inputs:
+    prompt:
+      type: string
+      required: true
+  outputs:
+    answer:
+      type: string
+      description: Final answer.
+workflows:
+  main:
+    steps:
+      - id: s1
+        type: template.render
+""";
+
+        var doc = WorkflowParser.Parse(yaml);
+
+        Assert.NotNull(doc.Skill);
+        Assert.Equal("Answers document questions.", doc.Skill!.Description);
+        Assert.Equal(["documents", "rag"], doc.Skill.Tags);
+        Assert.Equal("string", doc.Skill.Inputs!["prompt"].Type);
+        Assert.Equal("string", doc.Skill.Outputs!["answer"].Type);
+    }
+
+    [Fact]
+    public void ParseSkill_ReadsOnlyTopLevelSkillMetadata()
+    {
+        var yaml = """
+version: 1
+skill:
+  description: Inspects git repositories.
+  tags:
+    - git
+    - code
+workflows:
+  main:
+    steps:
+      - id: s1
+        type: template.render
+""";
+
+        var skill = WorkflowParser.ParseSkill(yaml);
+
+        Assert.NotNull(skill);
+        Assert.Equal("Inspects git repositories.", skill!.Description);
+        Assert.Equal(["git", "code"], skill.Tags);
+    }
+
+    [Fact]
     public void Parse_StepWithIf_ParsesGuard()
     {
         var yaml = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n        if: \"${true}\"\n";

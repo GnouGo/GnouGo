@@ -134,9 +134,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     validation_span.set_attribute("gnougo-flow.plan.workflow_count", len(doc.workflows))
                     self._enforce_plan_policy(doc, policy, limits)
                     if bool(validate.get("compile", True)):
-                        self._validate_generated_workflow(doc)
-                        WorkflowCompiler().compile(doc)
-                        self._validate_generated_workflow_semantics(doc, mcp_tool_contracts)
+                        self._validate_generated_workflow_for_plan(doc, mcp_tool_contracts)
                 return {
                     "yaml": yaml_text,
                     "workflow": {
@@ -694,6 +692,52 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             ErrorCodes.TEMPLATE_PLAN,
             "Generated workflow validation failed: " + WorkflowPlanExecutor._format_validation_errors(errors),
         )
+
+    @staticmethod
+    def _validate_generated_workflow_for_plan(
+        doc: WorkflowDocument,
+        mcp_tool_contracts: list[McpToolOutputContract],
+    ) -> None:
+        errors = WorkflowValidator().validate(doc)
+        semantic_exception: WorkflowSemanticValidationException | None = None
+        compilation_exception: Exception | None = None
+
+        try:
+            validate_workflow_semantics(doc, mcp_tool_contracts)
+        except WorkflowSemanticValidationException as exc:
+            semantic_exception = exc
+
+        if not any(WorkflowPlanExecutor._is_fatal_compiler_validation_error(error) for error in errors):
+            try:
+                WorkflowCompiler().compile(doc)
+            except Exception as exc:
+                compilation_exception = exc
+
+        if not errors and semantic_exception is None and compilation_exception is None:
+            return
+
+        diagnostics: list[str] = []
+        if errors:
+            diagnostics.append("workflow validation: " + WorkflowPlanExecutor._format_validation_errors(errors))
+        if semantic_exception is not None:
+            diagnostics.append("semantic validation: " + str(semantic_exception))
+        if compilation_exception is not None:
+            diagnostics.append("compilation: " + str(compilation_exception))
+
+        raise WorkflowRuntimeException(
+            ErrorCodes.TEMPLATE_PLAN,
+            "Generated workflow validation failed: " + " | ".join(diagnostics),
+        )
+
+    @staticmethod
+    def _is_fatal_compiler_validation_error(error: ValidationError) -> bool:
+        return error.code in {
+            ErrorCodes.EXPR_PARSE,
+            "DSL_VERSION",
+            "NO_WORKFLOWS",
+            ErrorCodes.WORKFLOW_CYCLE_DETECTED,
+            "INVALID_ENTRYPOINT",
+        }
 
     @staticmethod
     def _format_validation_errors(errors: list[ValidationError]) -> str:

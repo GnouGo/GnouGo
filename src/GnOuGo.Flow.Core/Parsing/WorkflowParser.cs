@@ -38,6 +38,11 @@ public static class WorkflowParser
         if (root.HasKey("meta"))
             doc.Meta = root.GetStringMap("meta");
 
+        // skill metadata (singular preferred; plural accepted for compatibility)
+        var skillNode = root.GetMapping("skill") ?? root.GetMapping("skills");
+        if (skillNode != null)
+            doc.Skill = ParseWorkflowSkill(skillNode);
+
         // functions (global WFScript)
         doc.Functions = root.GetScalar("functions");
 
@@ -66,6 +71,20 @@ public static class WorkflowParser
             doc.Entrypoint = "main";
 
         return doc;
+    }
+
+    public static WorkflowSkillDef? ParseSkill(string yaml)
+    {
+        var stream = new YamlStream();
+        using var reader = new StringReader(yaml);
+        stream.Load(reader);
+
+        if (stream.Documents.Count == 0)
+            return null;
+
+        var root = stream.Documents[0].RootNode as YamlMappingNode;
+        var skillNode = root?.GetMapping("skill") ?? root?.GetMapping("skills");
+        return skillNode == null ? null : ParseWorkflowSkill(skillNode);
     }
 
     private static int ParseWorkflowVersion(YamlMappingNode root)
@@ -130,6 +149,44 @@ public static class WorkflowParser
         }
 
         return wf;
+    }
+
+    private static WorkflowSkillDef ParseWorkflowSkill(YamlMappingNode node)
+    {
+        var skill = new WorkflowSkillDef
+        {
+            Description = node.GetScalar("description")
+        };
+
+        var tags = node.GetStringList("tags");
+        if (tags.Count > 0)
+            skill.Tags = tags.Where(static tag => !string.IsNullOrWhiteSpace(tag)).ToList();
+
+        var inputsNode = node.GetMapping("inputs");
+        if (inputsNode != null)
+        {
+            skill.Inputs = new Dictionary<string, InputDef>();
+            foreach (var child in inputsNode.Children)
+            {
+                var key = (child.Key as YamlScalarNode)?.Value ?? "";
+                if (!string.IsNullOrWhiteSpace(key))
+                    skill.Inputs[key] = ParseInputDef(child.Value);
+            }
+        }
+
+        var outputsNode = node.GetMapping("outputs");
+        if (outputsNode != null)
+        {
+            skill.Outputs = new Dictionary<string, OutputDef>();
+            foreach (var child in outputsNode.Children)
+            {
+                var key = (child.Key as YamlScalarNode)?.Value ?? "";
+                if (!string.IsNullOrWhiteSpace(key))
+                    skill.Outputs[key] = ParseOutputDef(child.Value);
+            }
+        }
+
+        return skill;
     }
 
     private static InputDef ParseInputDef(YamlNode node)

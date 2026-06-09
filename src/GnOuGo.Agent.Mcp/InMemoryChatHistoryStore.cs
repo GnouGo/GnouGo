@@ -52,6 +52,50 @@ public sealed class InMemoryChatHistoryStore
             CountAppended = messages.Count
         };
     }
+
+    public IReadOnlyList<ChatConversationSummary> ListConversations()
+    {
+        var summaries = new List<ChatConversationSummary>();
+
+        foreach (var (conversationId, messages) in _conversations)
+        {
+            lock (messages)
+            {
+                if (messages.Count == 0)
+                    continue;
+
+                summaries.Add(new ChatConversationSummary
+                {
+                    ConversationId = conversationId,
+                    Title = BuildTitle(messages),
+                    UpdatedAt = messages.Max(static message => message.CreatedAt),
+                    MessageCount = messages.Count
+                });
+            }
+        }
+
+        return summaries
+            .OrderByDescending(static summary => summary.UpdatedAt)
+            .ThenBy(static summary => summary.ConversationId, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string BuildTitle(IReadOnlyList<ChatMessage> messages)
+    {
+        var source = messages.FirstOrDefault(static message =>
+            string.Equals(message.Role, "user", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(message.Content))
+            ?? messages.FirstOrDefault(static message => !string.IsNullOrWhiteSpace(message.Content));
+
+        if (source is null)
+            return "Chat";
+
+        var normalized = string.Join(" ", source.Content.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (normalized.Length == 0)
+            return "Chat";
+
+        return normalized.Length <= 48 ? normalized : normalized[..45].TrimEnd() + "...";
+    }
 }
 
 public sealed class ChatMessage
@@ -74,3 +118,10 @@ public sealed class ChatHistoryAppendResult
     public int CountAppended { get; set; }
 }
 
+public sealed class ChatConversationSummary
+{
+    public string ConversationId { get; set; } = "";
+    public string Title { get; set; } = "";
+    public DateTimeOffset UpdatedAt { get; set; }
+    public int MessageCount { get; set; }
+}

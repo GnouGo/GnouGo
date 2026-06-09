@@ -18,6 +18,13 @@ public static class DslReference
 ```yaml
 version: 1
 name: my-workflow
+skill:
+  description: "Short routing description of when this workflow should be selected."
+  tags: [example, routing]
+  inputs:
+    message: { type: string, required: true, description: "User message to process." }
+  outputs:
+    result: { type: string, description: "Final response." }
 workflows:
   main:
     inputs:
@@ -34,6 +41,13 @@ workflows:
         type: string
         description: The rendered result text
 ```
+
+## Skill metadata
+Generated workflow documents SHOULD include a top-level `skill` block. Routers use it to select the right workflow and to auto-extract structured inputs from natural-language prompts.
+
+`skill.description` must describe when the workflow should be used. `skill.tags` should contain concise routing terms. `skill.inputs` should document every user-facing parameter that can be extracted from prompt/history. `skill.outputs` should document the final contract.
+
+`skill` is metadata; each executable workflow still needs its own `inputs` and `outputs`. Keep `skill.inputs` compatible with the main workflow inputs.
 
 ## Input type system
 Inputs support rich type descriptors to document and validate the shape of data.

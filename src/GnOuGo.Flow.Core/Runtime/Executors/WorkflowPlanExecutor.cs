@@ -135,9 +135,11 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine();
         basePrompt.AppendLine("[REQUIRED ROOT YAML SHAPE]");
         basePrompt.AppendLine("The generated YAML MUST include all required root keys exactly once: version, name, workflows.");
+        basePrompt.AppendLine("The generated YAML SHOULD include a top-level `skill` block for routing metadata unless policy or task constraints explicitly forbid it.");
         basePrompt.AppendLine("Root key requirements:");
         basePrompt.AppendLine("- version: non-empty string");
         basePrompt.AppendLine("- name: non-empty string");
+        basePrompt.AppendLine("- skill: optional but recommended object with description, tags, inputs, and outputs for routing and argument extraction");
         basePrompt.AppendLine("- workflows: non-empty object");
         basePrompt.AppendLine("Each workflow entry under workflows MUST define a steps array.");
         basePrompt.AppendLine("If any required key is missing or has the wrong shape, the output is invalid.");
@@ -394,10 +396,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                         // Compile to validate
                         if (validate?["compile"]?.GetValue<bool>() ?? true)
                         {
-                            ValidateGeneratedWorkflow(generatedDoc);
-                            var compiler = new WorkflowCompiler();
-                            compiler.Compile(generatedDoc);
-                            ValidateGeneratedWorkflowSemantics(generatedDoc, discovered);
+                            ValidateGeneratedWorkflowForPlan(generatedDoc, discovered);
                         }
                     }
                     catch (Exception ex)
@@ -1388,28 +1387,60 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         return generatedDoc;
     }
 
-    private static void ValidateGeneratedWorkflow(WorkflowDocument generatedDoc)
+    private static void ValidateGeneratedWorkflowForPlan(WorkflowDocument generatedDoc, IReadOnlyList<McpServerDiscovery>? discovered)
     {
         var validator = new WorkflowValidator();
         var errors = validator.Validate(generatedDoc);
-        if (errors.Count == 0)
-            return;
+        WorkflowSemanticValidationException? semanticException = null;
+        Exception? compilationException = null;
 
-        throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan,
-            "Generated workflow validation failed: " + FormatValidationErrors(errors));
-    }
-
-    private static void ValidateGeneratedWorkflowSemantics(WorkflowDocument generatedDoc, IReadOnlyList<McpServerDiscovery>? discovered)
-    {
         try
         {
             WorkflowPlanSemanticValidator.Validate(generatedDoc, BuildMcpToolOutputContracts(discovered));
         }
         catch (WorkflowSemanticValidationException ex)
         {
-            throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, ex.Message);
+            semanticException = ex;
         }
+
+        if (!errors.Any(IsFatalCompilerValidationError))
+        {
+            try
+            {
+                var compiler = new WorkflowCompiler();
+                compiler.Compile(generatedDoc);
+            }
+            catch (WorkflowCompilationException ex)
+            {
+                compilationException = ex;
+            }
+            catch (Exception ex)
+            {
+                compilationException = ex;
+            }
+        }
+
+        if (errors.Count == 0 && semanticException == null && compilationException == null)
+            return;
+
+        var diagnostics = new List<string>();
+        if (errors.Count > 0)
+            diagnostics.Add("workflow validation: " + FormatValidationErrors(errors));
+        if (semanticException != null)
+            diagnostics.Add("semantic validation: " + semanticException.Message);
+        if (compilationException != null)
+            diagnostics.Add("compilation: " + compilationException.Message);
+
+        throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan,
+            "Generated workflow validation failed: " + string.Join(" | ", diagnostics));
     }
+
+    private static bool IsFatalCompilerValidationError(ValidationError error) =>
+        error.Code is ErrorCodes.ExprParse
+            or "DSL_VERSION"
+            or "NO_WORKFLOWS"
+            or ErrorCodes.WorkflowCycleDetected
+            or "INVALID_ENTRYPOINT";
 
     private static IReadOnlyList<McpToolOutputContract> BuildMcpToolOutputContracts(IReadOnlyList<McpServerDiscovery>? discovered)
     {

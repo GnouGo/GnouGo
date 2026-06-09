@@ -56,6 +56,7 @@ from .runtime_contracts import (
     IMcpSession,
     ITemplateEngine,
     ITelemetrySpan,
+    IWorkflowCandidateProvider,
     IWorkflowFetcher,
     IWorkflowCheckpointer,
     IWorkflowTelemetry,
@@ -429,6 +430,7 @@ class WorkflowEngine:
         self.llm_client: ILLMClient | None = None
         self.workflow_fetcher: IWorkflowFetcher | None = None
         self.workflow_call_resolver: Any = None
+        self.workflow_candidate_provider: IWorkflowCandidateProvider | None = None
         self.template_engine: ITemplateEngine | None = None
         self.mcp_client_factory: IMcpClientFactory | None = None
         self.human_input_provider: IHumanInputProvider | None = None
@@ -951,6 +953,7 @@ class WorkflowEngine:
             WorkflowCallExecutor,
             WorkflowExecuteExecutor,
             WorkflowPlanExecutor,
+            WorkflowRouteExecutor,
         )
 
         registry = StepExecutorRegistry()
@@ -965,6 +968,7 @@ class WorkflowEngine:
         registry.register(WorkflowCallExecutor())
         registry.register(WorkflowPlanExecutor())
         registry.register(WorkflowExecuteExecutor())
+        registry.register(WorkflowRouteExecutor())
         registry.register(McpCallExecutor())
         registry.register(McpListExecutor())
         registry.register(EmitExecutor())

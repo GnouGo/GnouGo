@@ -49,7 +49,8 @@ export function HumanInputForm({ pending, onSubmit }: Props) {
     if (pending.fields) {
       for (const f of pending.fields) {
         const v = values[f.name] ?? ''
-        if (f.type === 'number') result[f.name] = parseFloat(v) || 0
+        if (f.type === 'integer') result[f.name] = parseInt(v, 10) || 0
+        else if (f.type === 'number') result[f.name] = parseFloat(v) || 0
         else if (f.type === 'boolean') result[f.name] = v === 'true' || v === '1'
         else result[f.name] = v
       }
@@ -119,9 +120,16 @@ export function HumanInputForm({ pending, onSubmit }: Props) {
                     <option key={o} value={o}>{o}</option>
                   ))}
                 </select>
+              ) : f.type === 'boolean' ? (
+                <input
+                  type="checkbox"
+                  checked={(values[f.name] ?? '').toLowerCase() === 'true'}
+                  onChange={e => setValues(prev => ({ ...prev, [f.name]: e.target.checked ? 'true' : 'false' }))}
+                  disabled={isExpired}
+                />
               ) : (
                 <input
-                  type={f.type === 'number' ? 'number' : 'text'}
+                  type={f.type === 'number' || f.type === 'integer' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' || f.type === 'secret' ? 'password' : 'text'}
                   value={values[f.name] ?? ''}
                   placeholder={f.description ?? f.name}
                   onChange={e => setValues(prev => ({ ...prev, [f.name]: e.target.value }))}

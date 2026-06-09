@@ -85,6 +85,13 @@ class WorkflowDef(BaseModel):
     outputs: dict[str, OutputDef] | None = None
 
 
+class WorkflowSkillDef(BaseModel):
+    description: str | None = None
+    tags: list[str] | None = None
+    inputs: dict[str, InputDef] | None = None
+    outputs: dict[str, OutputDef] | None = None
+
+
 class WorkflowDocument(BaseModel):
     # Mirrors .NET WorkflowDocument.Version. `version` is the canonical field.
     model_config = ConfigDict(populate_by_name=True)
@@ -92,6 +99,7 @@ class WorkflowDocument(BaseModel):
     version: int = 1
     name: str | None = None
     meta: dict[str, str] | None = None
+    skill: WorkflowSkillDef | None = None
     functions: str | None = None
     exports: list[str] | None = None
     entrypoint: str | None = None
@@ -190,6 +198,25 @@ class LlmRuntimeDefaults(BaseModel):
     model: str | None = None
 
 
+class WorkflowRouteCandidateQuery(BaseModel):
+    ref: dict[str, Any]
+    kind: str = ""
+    tags_any: list[str] = Field(default_factory=list)
+    tags_all: list[str] = Field(default_factory=list)
+    exclude_tags: list[str] = Field(default_factory=list)
+    limit: int | None = None
+
+
+class WorkflowRouteCandidate(BaseModel):
+    id: str = ""
+    name: str = ""
+    ref: dict[str, Any]
+    description: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    inputs: Any = None
+    outputs: Any = None
+
+
 class ModelPricingMetadata(BaseModel):
     """Pricing metadata for a model, expressed per one million tokens."""
 
@@ -271,6 +298,7 @@ class LLMRequest(BaseModel):
     # "max" maps to the highest provider-supported level (e.g. "high" for OpenAI).
     reasoning: str | None = None
     tools: list[LLMTool] | None = None
+    max_tokens: int | None = None
     # When True, hints to the provider that this is a background/planning call
     # (lower priority queue, no interactive latency budget). Mirrors .NET UseBackgroundMode.
     use_background_mode: bool = False
@@ -360,6 +388,50 @@ class McpGetPromptResult(BaseModel):
     model: str | None = None
 
 
+HUMAN_INPUT_MODE_TEXT = "text"
+HUMAN_INPUT_MODE_CHOICE = "choice"
+HUMAN_INPUT_MODE_FORM = "form"
+HUMAN_INPUT_MODE_CONFIRM = "confirm"
+
+HUMAN_INPUT_MODES_FOR_DSL = (
+    HUMAN_INPUT_MODE_TEXT,
+    HUMAN_INPUT_MODE_CHOICE,
+    HUMAN_INPUT_MODE_FORM,
+    HUMAN_INPUT_MODE_CONFIRM,
+)
+
+HUMAN_INPUT_FIELD_TYPES_FOR_DSL = (
+    "string",
+    "text",
+    "textarea",
+    "markdown",
+    "json",
+    "yaml",
+    "number",
+    "integer",
+    "boolean",
+    "select",
+    "radio",
+    "multiselect",
+    "checkbox",
+    "password",
+    "secret",
+    "url",
+    "email",
+    "date",
+    "file",
+    "directory",
+)
+
+HUMAN_INPUT_MODES = frozenset(HUMAN_INPUT_MODES_FOR_DSL)
+
+HUMAN_INPUT_FIELD_TYPES = frozenset(HUMAN_INPUT_FIELD_TYPES_FOR_DSL)
+
+
+def human_input_field_type_requires_options(field_type: str) -> bool:
+    return field_type.lower() in {"select", "radio", "multiselect", "checkbox"}
+
+
 class HumanInputFieldDef(BaseModel):
     name: str
     type: str = "string"
@@ -373,6 +445,7 @@ class HumanInputRequest(BaseModel):
     run_id: str
     step_id: str
     prompt: str
+    mode: str = HUMAN_INPUT_MODE_TEXT
     context: Any = None
     choices: list[str] | None = None
     fields: list[HumanInputFieldDef] | None = None
@@ -387,4 +460,3 @@ CompiledSwitchCase.model_rebuild()
 CompiledStep.model_rebuild()
 CompiledWorkflow.model_rebuild()
 CompiledDocument.model_rebuild()
-

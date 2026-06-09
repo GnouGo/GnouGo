@@ -144,6 +144,7 @@ export interface PendingHumanInput {
   runId: string
   stepId: string
   prompt: string
+  mode?: string
   choices?: string[]
   fields?: HumanInputFieldDef[]
   context?: unknown
@@ -151,4 +152,3 @@ export interface PendingHumanInput {
   /** ISO timestamp when the request was emitted (from the SSE envelope). */
   requestedAt?: string
 }
-

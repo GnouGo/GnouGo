@@ -10,6 +10,8 @@ namespace GnOuGo.Agent.Shared;
 [JsonSerializable(typeof(ChatStreamRequestDto))]
 [JsonSerializable(typeof(ChatCompletionResponseDto))]
 [JsonSerializable(typeof(AppVersionDto))]
+[JsonSerializable(typeof(ChatConversationSummaryDto))]
+[JsonSerializable(typeof(List<ChatConversationSummaryDto>))]
 [JsonSerializable(typeof(ChatStoreDto))]
 [JsonSerializable(typeof(ChatSessionDto))]
 [JsonSerializable(typeof(List<ChatSessionDto>))]

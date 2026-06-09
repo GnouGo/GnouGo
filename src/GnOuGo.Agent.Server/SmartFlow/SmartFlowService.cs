@@ -22,10 +22,14 @@ public sealed record SmartFlowEvent(
     string Type,
     string? Text,
     string? CorrelationId = null,
-    string? TraceId = null)
+    string? TraceId = null,
+    string? ConversationId = null)
 {
     public static SmartFlowEvent TraceStarted(string correlationId, string traceId)
         => new("trace.started", null, correlationId, traceId);
+
+    public static SmartFlowEvent ConversationReady(string conversationId)
+        => new("conversation", conversationId, ConversationId: conversationId);
 
     public SmartFlowEvent WithCorrelation(string correlationId)
         => string.IsNullOrWhiteSpace(CorrelationId) ? this with { CorrelationId = correlationId } : this;
@@ -44,11 +48,13 @@ public sealed class SmartFlowService
     private readonly ConfigureAgentsService _configureAgents;
     private readonly AgentHumanInputProvider _humanInput;
     private readonly AgentUserConfigMcpClient? _userConfigClient;
+    private readonly IWorkflowCandidateProvider? _candidateProvider;
+    private readonly InMemoryChatHistoryStore? _historyStore;
 
     private readonly IServiceScopeFactory? _scopeFactory;
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<SmartFlowService> _logger;
-    private readonly string _workflowYaml;
+    private readonly string _routingWorkflowYaml;
 
     /// <summary>Slash commands that route to the configure-providers workflow.</summary>
     private static readonly string[] ProviderCommands = { "/llm", "/embedding", "/mcp", "/status" };
@@ -64,6 +70,8 @@ public sealed class SmartFlowService
         AgentOTelTelemetry otel,
         ILogger<SmartFlowService> logger,
         AgentUserConfigMcpClient? userConfigClient = null,
+        IWorkflowCandidateProvider? candidateProvider = null,
+        InMemoryChatHistoryStore? historyStore = null,
         IServiceScopeFactory? scopeFactory = null)
     {
         _llm = llm;
@@ -73,23 +81,13 @@ public sealed class SmartFlowService
         _configureAgents = configureAgents;
         _humanInput = humanInput;
         _userConfigClient = userConfigClient;
+        _candidateProvider = candidateProvider;
+        _historyStore = historyStore;
         _scopeFactory = scopeFactory;
         _otel = otel;
         _logger = logger;
 
-        // Load the embedded workflow YAML
-        var asm = typeof(SmartFlowService).Assembly;
-        var resourceName = asm.GetManifestResourceNames()
-            .FirstOrDefault(n => n.EndsWith("dynamic-workflow-agent.yaml", StringComparison.OrdinalIgnoreCase));
-
-        if (resourceName is null)
-            throw new InvalidOperationException(
-                "Embedded resource 'dynamic-workflow-agent.yaml' not found. " +
-                "Available: " + string.Join(", ", asm.GetManifestResourceNames()));
-
-        using var stream = asm.GetManifestResourceStream(resourceName)!;
-        using var reader = new StreamReader(stream);
-        _workflowYaml = reader.ReadToEnd();
+        _routingWorkflowYaml = LoadEmbeddedWorkflowYaml("main-routing-agent.yaml");
     }
 
 
@@ -113,6 +111,8 @@ public sealed class SmartFlowService
             otel,
             logger,
             userConfigClient,
+            candidateProvider: null,
+            historyStore: null,
             scopeFactory: null)
     {
     }
@@ -165,20 +165,45 @@ public sealed class SmartFlowService
         JsonObject? workflowInputs,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        await foreach (var evt in ExecuteAsync(task, correlationId, agentName, filesIds, workflowInputs, conversationId: null, ct))
+            yield return evt;
+    }
+
+    public async IAsyncEnumerable<SmartFlowEvent> ExecuteAsync(
+        string task,
+        string? correlationId,
+        string? agentName,
+        IReadOnlyList<string>? filesIds,
+        JsonObject? workflowInputs,
+        string? conversationId,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
         var effectiveCorrelationId = string.IsNullOrWhiteSpace(correlationId)
             ? ActivityTraceId.CreateRandom().ToHexString()
             : correlationId.Trim();
+        var effectiveConversationId = string.IsNullOrWhiteSpace(conversationId)
+            ? Guid.NewGuid().ToString("N")
+            : conversationId.Trim();
 
         using var messageTrace = _otel.StartChatMessageActivity(effectiveCorrelationId, task);
         yield return SmartFlowEvent.TraceStarted(effectiveCorrelationId, messageTrace.TraceId);
+        yield return SmartFlowEvent.ConversationReady(effectiveConversationId).WithCorrelation(effectiveCorrelationId);
 
         var hasError = false;
+        var finalAnswer = "";
+        var history = LoadConversationHistory(effectiveConversationId, topK: 40);
+        var mergedWorkflowInputs = MergeWorkflowInputsWithConversation(workflowInputs, effectiveConversationId, history);
 
-        await foreach (var evt in ExecuteCoreAsync(task, effectiveCorrelationId, agentName, filesIds, workflowInputs, messageTrace.Activity, ct))
+        await foreach (var evt in ExecuteCoreAsync(task, effectiveCorrelationId, agentName, filesIds, mergedWorkflowInputs, messageTrace.Activity, ct))
         {
             hasError |= string.Equals(evt.Type, "error", StringComparison.OrdinalIgnoreCase);
-            yield return evt.WithCorrelation(effectiveCorrelationId);
+            if (evt.Type is "answer")
+                finalAnswer = evt.Text ?? "";
+            yield return evt.WithCorrelation(effectiveCorrelationId) with { ConversationId = effectiveConversationId };
         }
+
+        if (!hasError && !string.IsNullOrWhiteSpace(finalAnswer))
+            AppendConversationTurn(effectiveConversationId, task, finalAnswer, effectiveCorrelationId);
 
         messageTrace.SetStatus(hasError ? ActivityStatusCode.Error : ActivityStatusCode.Ok);
     }
@@ -251,6 +276,7 @@ public sealed class SmartFlowService
                 McpCache = _mcpCache,
                 HumanInputProvider = _humanInput,
                 WorkflowCallResolver = CreateWorkflowCallResolver(),
+                WorkflowCandidateProvider = _candidateProvider,
                 Telemetry = telemetry,
                 Logger = _logger,
                 Limits = new ExecutionLimits
@@ -459,7 +485,7 @@ public sealed class SmartFlowService
                 ?? $"Selected agent '{selectedAgentName}' could not be loaded from {AgentMcpHostingExtensions.ServerName}.");
         }
 
-        return (CompileEmbeddedWorkflow(), null);
+        return (CompileRoutingWorkflow(), null);
     }
 
     private async Task<string?> ResolveAgentNameAsync(string? requestedAgentName, CancellationToken ct)
@@ -593,17 +619,36 @@ public sealed class SmartFlowService
         }
     }
 
-    private CompiledWorkflow CompileEmbeddedWorkflow()
+    private CompiledWorkflow CompileRoutingWorkflow()
+        => CompileEmbeddedWorkflow(_routingWorkflowYaml, "main-routing-agent.yaml");
+
+    private static CompiledWorkflow CompileEmbeddedWorkflow(string yaml, string resourceName)
     {
-        var doc = WorkflowParser.Parse(_workflowYaml);
+        var doc = WorkflowParser.Parse(yaml);
         var compiler = new WorkflowCompiler();
         var compiled = compiler.Compile(doc);
 
         var entrypoint = compiled.Entrypoint;
         if (entrypoint is null || !compiled.Workflows.ContainsKey(entrypoint))
-            throw new InvalidOperationException("No entrypoint workflow found in dynamic-workflow-agent.yaml");
+            throw new InvalidOperationException($"No entrypoint workflow found in {resourceName}");
 
         return compiled.Workflows[entrypoint];
+    }
+
+    private static string LoadEmbeddedWorkflowYaml(string fileName)
+    {
+        var asm = typeof(SmartFlowService).Assembly;
+        var resourceName = asm.GetManifestResourceNames()
+            .FirstOrDefault(n => n.EndsWith(fileName, StringComparison.OrdinalIgnoreCase));
+
+        if (resourceName is null)
+            throw new InvalidOperationException(
+                $"Embedded resource '{fileName}' not found. " +
+                "Available: " + string.Join(", ", asm.GetManifestResourceNames()));
+
+        using var stream = asm.GetManifestResourceStream(resourceName)!;
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
     }
 
     private IWorkflowCallResolver CreateWorkflowCallResolver()
@@ -689,6 +734,73 @@ public sealed class SmartFlowService
         return inputs;
     }
 
+    private JsonArray LoadConversationHistory(string conversationId, int topK)
+    {
+        var history = new JsonArray();
+        if (_historyStore is null || string.IsNullOrWhiteSpace(conversationId))
+            return history;
+
+        var messages = _historyStore.GetMessages(conversationId, topK).Messages;
+        foreach (var message in messages)
+        {
+            history.Add((JsonNode)new JsonObject
+            {
+                ["role"] = message.Role,
+                ["content"] = message.Content,
+                ["created_at"] = message.CreatedAt.ToString("o")
+            });
+        }
+
+        return history;
+    }
+
+    private static JsonObject MergeWorkflowInputsWithConversation(
+        JsonObject? workflowInputs,
+        string conversationId,
+        JsonArray history)
+    {
+        var merged = workflowInputs?.DeepClone() as JsonObject ?? new JsonObject();
+        merged["conversation_id"] = conversationId;
+        merged["conversationId"] = conversationId;
+        merged["history"] = history.DeepClone();
+        return merged;
+    }
+
+    private void AppendConversationTurn(
+        string conversationId,
+        string userPrompt,
+        string assistantAnswer,
+        string correlationId)
+    {
+        if (_historyStore is null || string.IsNullOrWhiteSpace(conversationId))
+            return;
+
+        var now = DateTimeOffset.UtcNow;
+        _historyStore.AppendMessages(conversationId, new List<ChatMessage>
+        {
+            new()
+            {
+                Role = "user",
+                Content = userPrompt,
+                CreatedAt = now,
+                Meta = CreateMessageMeta(correlationId)
+            },
+            new()
+            {
+                Role = "assistant",
+                Content = assistantAnswer,
+                CreatedAt = now,
+                Meta = CreateMessageMeta(correlationId)
+            }
+        });
+    }
+
+    private static System.Text.Json.JsonElement CreateMessageMeta(string correlationId)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse($$"""{"correlation_id":"{{correlationId}}"}""");
+        return document.RootElement.Clone();
+    }
+
     /// <summary>
     /// Generates a short title for the conversation using a direct LLM call.
     /// </summary>
@@ -726,4 +838,3 @@ public sealed class SmartFlowService
         public static AgentWorkflowLoadResult Fail(string errorMessage) => new(null, errorMessage);
     }
 }
-
