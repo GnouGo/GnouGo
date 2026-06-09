@@ -85,12 +85,6 @@ function renderMermaid(id: string) {
   }
 }
 
-const storage = {
-  load: (k: string) => localStorage.getItem(k),
-  save: (k: string, v: string) => localStorage.setItem(k, v),
-  clear: (k: string) => localStorage.removeItem(k),
-};
-
 const scrollToBottom = (id: string) => {
   const c = el(id);
   if (!c) {
@@ -245,7 +239,6 @@ const fileUploads = {
 
 window.GnOuGo ??= {};
 window.GnOuGo.Agent = {
-  storage,
   scrollToBottom,
   fileUploads,
   markdown: {

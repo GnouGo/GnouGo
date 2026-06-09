@@ -26,7 +26,7 @@ public sealed record AppVersionDto(
     string Version,
     string ShortVersion);
 
-// Browser-side persisted store (localStorage)
+// Chat page session state projected from the local Agent MCP store.
 public sealed record ChatSessionDto(
     string Id,
     string Title,
