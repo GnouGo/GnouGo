@@ -28,6 +28,59 @@ def test_parse_and_compile_basic_workflow() -> None:
     assert compiled.workflows["main"].steps[0].id == "init"
 
 
+def test_parse_with_skill_sets_top_level_skill_metadata() -> None:
+    yaml_text = """
+    version: 1
+    name: skill-demo
+    skill:
+      description: Answers document questions.
+      tags: [documents, rag]
+      inputs:
+        prompt:
+          type: string
+          required: true
+      outputs:
+        answer:
+          type: string
+          description: Final answer.
+    workflows:
+      main:
+        steps:
+          - id: s1
+            type: template.render
+    """
+
+    doc = WorkflowParser.parse(yaml_text)
+
+    assert doc.skill is not None
+    assert doc.skill.description == "Answers document questions."
+    assert doc.skill.tags == ["documents", "rag"]
+    assert doc.skill.inputs["prompt"].type == "string"
+    assert doc.skill.outputs["answer"].type == "string"
+
+
+def test_parse_skill_reads_only_top_level_skill_metadata() -> None:
+    yaml_text = """
+    version: 1
+    skill:
+      description: Inspects git repositories.
+      tags:
+        - git
+        - code
+    workflows:
+      main:
+        steps:
+          - id: s1
+            type: template.render
+    """
+
+    skill = WorkflowParser.parse_skill(yaml_text)
+
+    assert skill is not None
+    assert skill.description == "Inspects git repositories."
+    assert skill.tags == ["git", "code"]
+
+
 def test_parse_requires_version() -> None:
     yaml_text = """
     workflows:
@@ -223,5 +276,4 @@ def test_validator_reports_invalid_input_and_output_types() -> None:
     codes = {err.code for err in errors}
     assert "INVALID_INPUT_TYPE" in codes
     assert "INVALID_OUTPUT_TYPE" in codes
-
 

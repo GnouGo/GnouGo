@@ -14,6 +14,8 @@ from .models import (
     McpToolInfo,
     TemplateResult,
     WorkflowCheckpoint,
+    WorkflowRouteCandidate,
+    WorkflowRouteCandidateQuery,
 )
 
 
@@ -23,6 +25,10 @@ class ILLMClient(Protocol):
 
 class IWorkflowFetcher(Protocol):
     async def fetch_async(self, url: str, integrity: str | None) -> str: ...
+
+
+class IWorkflowCandidateProvider(Protocol):
+    async def get_candidates_async(self, query: WorkflowRouteCandidateQuery) -> list[WorkflowRouteCandidate]: ...
 
 
 class ITemplateEngine(Protocol):
@@ -100,4 +106,3 @@ class IWorkflowTelemetry:
 
 class NullWorkflowTelemetry(IWorkflowTelemetry):
     pass
-

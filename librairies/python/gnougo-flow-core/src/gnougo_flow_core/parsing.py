@@ -16,6 +16,7 @@ from .models import (
     SwitchCaseDef,
     WorkflowDef,
     WorkflowDocument,
+    WorkflowSkillDef,
 )
 
 
@@ -47,16 +48,27 @@ class WorkflowParser:
         if entrypoint is None and "main" in workflows:
             entrypoint = "main"
 
+        skill_raw = raw.get("skill") if "skill" in raw else raw.get("skills")
+
         return WorkflowDocument(
             version=version,
             name=raw.get("name"),
             meta=raw.get("meta"),
+            skill=WorkflowParser._parse_workflow_skill(skill_raw) if isinstance(skill_raw, dict) else None,
             functions=raw.get("functions"),
             exports=raw.get("exports"),
             entrypoint=entrypoint,
             workflows=workflows,
             raw_yaml=yaml_text,
         )
+
+    @staticmethod
+    def parse_skill(yaml_text: str) -> WorkflowSkillDef | None:
+        raw = yaml.safe_load(yaml_text)
+        if not isinstance(raw, dict):
+            return None
+        skill_raw = raw.get("skill") if "skill" in raw else raw.get("skills")
+        return WorkflowParser._parse_workflow_skill(skill_raw) if isinstance(skill_raw, dict) else None
 
     @staticmethod
     def _parse_workflow_version(value: Any) -> int:
@@ -95,6 +107,35 @@ class WorkflowParser:
             inputs=inputs,
             functions=node.get("functions"),
             steps=[WorkflowParser._parse_step(step) for step in steps_raw],
+            outputs=outputs,
+        )
+
+    @staticmethod
+    def _parse_workflow_skill(node: dict[str, Any]) -> WorkflowSkillDef:
+        tags = None
+        if isinstance(node.get("tags"), list):
+            tags = [str(tag).strip() for tag in node["tags"] if str(tag).strip()]
+
+        inputs = None
+        if isinstance(node.get("inputs"), dict):
+            inputs = {
+                str(k): WorkflowParser._parse_input_def(v)
+                for k, v in node["inputs"].items()
+                if str(k).strip()
+            }
+
+        outputs = None
+        if isinstance(node.get("outputs"), dict):
+            outputs = {
+                str(k): WorkflowParser._parse_output_def(v)
+                for k, v in node["outputs"].items()
+                if str(k).strip()
+            }
+
+        return WorkflowSkillDef(
+            description=node.get("description"),
+            tags=tags,
+            inputs=inputs,
             outputs=outputs,
         )
 
@@ -244,4 +285,3 @@ class WorkflowParser:
                 "index_var": node.get("index_var"),
             }
         )
-

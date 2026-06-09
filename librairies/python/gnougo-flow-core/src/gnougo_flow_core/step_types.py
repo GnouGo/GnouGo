@@ -13,6 +13,7 @@ STEP_TYPES = frozenset(
         "llm.call",
         "workflow.call",
         "workflow.plan",
+        "workflow.route",
         "workflow.execute",
         "mcp.call",
         "mcp.list",
@@ -20,4 +21,3 @@ STEP_TYPES = frozenset(
         "human.input",
     }
 )
-

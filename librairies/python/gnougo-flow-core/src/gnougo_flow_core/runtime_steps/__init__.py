@@ -15,6 +15,7 @@ from .template_render_executor import TemplateRenderExecutor
 from .workflow_call_executor import WorkflowCallExecutor
 from .workflow_execute_executor import WorkflowExecuteExecutor
 from .workflow_plan_executor import WorkflowPlanExecutor
+from .workflow_route_executor import WorkflowRouteExecutor
 
 _EXECUTOR_CLASSES = [
     SequenceExecutor,
@@ -27,6 +28,7 @@ _EXECUTOR_CLASSES = [
     LlmCallExecutor,
     WorkflowCallExecutor,
     WorkflowPlanExecutor,
+    WorkflowRouteExecutor,
     WorkflowExecuteExecutor,
     McpListExecutor,
     McpCallExecutor,
@@ -47,6 +49,7 @@ __all__ = [
     "LlmCallExecutor",
     "WorkflowCallExecutor",
     "WorkflowPlanExecutor",
+    "WorkflowRouteExecutor",
     "WorkflowExecuteExecutor",
     "McpListExecutor",
     "McpCallExecutor",

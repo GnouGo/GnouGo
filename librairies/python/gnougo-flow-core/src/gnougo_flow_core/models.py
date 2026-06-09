@@ -85,6 +85,13 @@ class WorkflowDef(BaseModel):
     outputs: dict[str, OutputDef] | None = None
 
 
+class WorkflowSkillDef(BaseModel):
+    description: str | None = None
+    tags: list[str] | None = None
+    inputs: dict[str, InputDef] | None = None
+    outputs: dict[str, OutputDef] | None = None
+
+
 class WorkflowDocument(BaseModel):
     # Mirrors .NET WorkflowDocument.Version. `version` is the canonical field.
     model_config = ConfigDict(populate_by_name=True)
@@ -92,6 +99,7 @@ class WorkflowDocument(BaseModel):
     version: int = 1
     name: str | None = None
     meta: dict[str, str] | None = None
+    skill: WorkflowSkillDef | None = None
     functions: str | None = None
     exports: list[str] | None = None
     entrypoint: str | None = None
@@ -190,6 +198,25 @@ class LlmRuntimeDefaults(BaseModel):
     model: str | None = None
 
 
+class WorkflowRouteCandidateQuery(BaseModel):
+    ref: dict[str, Any]
+    kind: str = ""
+    tags_any: list[str] = Field(default_factory=list)
+    tags_all: list[str] = Field(default_factory=list)
+    exclude_tags: list[str] = Field(default_factory=list)
+    limit: int | None = None
+
+
+class WorkflowRouteCandidate(BaseModel):
+    id: str = ""
+    name: str = ""
+    ref: dict[str, Any]
+    description: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    inputs: Any = None
+    outputs: Any = None
+
+
 class ModelPricingMetadata(BaseModel):
     """Pricing metadata for a model, expressed per one million tokens."""
 
@@ -271,6 +298,7 @@ class LLMRequest(BaseModel):
     # "max" maps to the highest provider-supported level (e.g. "high" for OpenAI).
     reasoning: str | None = None
     tools: list[LLMTool] | None = None
+    max_tokens: int | None = None
     # When True, hints to the provider that this is a background/planning call
     # (lower priority queue, no interactive latency budget). Mirrors .NET UseBackgroundMode.
     use_background_mode: bool = False
@@ -387,4 +415,3 @@ CompiledSwitchCase.model_rebuild()
 CompiledStep.model_rebuild()
 CompiledWorkflow.model_rebuild()
 CompiledDocument.model_rebuild()
-
