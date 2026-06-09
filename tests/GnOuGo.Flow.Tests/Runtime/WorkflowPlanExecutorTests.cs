@@ -704,6 +704,64 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_Validation_ReturnsStructuralAndSemanticDiagnosticsTogether()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       workflows:
+                         main:
+                           inputs:
+                             bad_input:
+                               type: string
+                               properties:
+                                 nested:
+                                   type: string
+                           steps:
+                             - id: collect
+                               type: set
+                               input:
+                                 value: ok
+                           outputs:
+                             bad_output:
+                               type: string
+                               properties:
+                                 nested:
+                                   type: string
+                               expr: "${data.steps.missing.value}"
+                       """
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a workflow with typed inputs and outputs
+            prefilter: false
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("INVALID_INPUT_SCHEMA", result.Error.Message);
+        Assert.Contains("INVALID_OUTPUT_SCHEMA", result.Error.Message);
+        Assert.Contains("STEP_REFERENCE_UNKNOWN", result.Error.Message);
+        Assert.Contains("data.steps.missing.value", result.Error.Message);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_SemanticValidation_RejectsSwitchBranchStepOutputMappingAfterSwitch()
     {
         var mockLlm = new Mock<ILLMClient>();
@@ -1395,7 +1453,6 @@ workflows:
         Assert.False(engine.Registry.Has("template.execute"));
     }
 }
-
 
 
 
