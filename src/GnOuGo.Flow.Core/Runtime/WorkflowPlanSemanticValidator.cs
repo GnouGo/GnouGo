@@ -716,10 +716,45 @@ internal static class WorkflowPlanSemanticValidator
             "loop.sequential" or "loop.parallel" => ObjectSchema(("results", ArraySchema()), ("count", NumberSchema())),
             "switch" => ObjectSchema(("matched", StringSchema()), ("steps", ObjectSchema())),
             "emit" => ObjectSchema(("event", OpaqueSchema()), ("status", StringSchema())),
-            "human.input" => ObjectSchema(("value", OpaqueSchema()), ("text", StringSchema()), ("status", StringSchema())),
+            "human.input" => BuildHumanInputOutputSchema(step),
             _ => OpaqueSchema()
         };
     }
+
+    private static JsonNode BuildHumanInputOutputSchema(StepDef step)
+    {
+        var properties = new List<(string Name, JsonNode? Schema)>
+        {
+            ("response", OpaqueSchema()),
+            ("source", StringSchema())
+        };
+
+        if (step.Input is JsonObject input && input["fields"] is JsonArray fields)
+        {
+            foreach (var fieldNode in fields)
+            {
+                if (fieldNode is not JsonObject field)
+                    continue;
+                var name = field["name"]?.GetValue<string>();
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+                var type = field["type"]?.GetValue<string>() ?? "string";
+                properties.Add((name, HumanInputFieldSchema(type)));
+            }
+        }
+
+        return ObjectSchema(properties.ToArray());
+    }
+
+    private static JsonNode HumanInputFieldSchema(string type) =>
+        type.ToLowerInvariant() switch
+        {
+            "number" or "integer" => NumberSchema(),
+            "boolean" => BooleanSchema(),
+            "json" => OpaqueSchema(),
+            "multiselect" or "checkbox" or "file" or "directory" => ArraySchema(),
+            _ => StringSchema()
+        };
 
     private static JsonNode BuildSetOutputSchema(StepDef step)
     {
@@ -888,5 +923,4 @@ internal static class WorkflowPlanSemanticValidator
         return true;
     }
 }
-
 

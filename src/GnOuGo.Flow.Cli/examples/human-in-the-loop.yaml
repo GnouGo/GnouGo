@@ -18,6 +18,7 @@ workflows:
       - id: confirm_topic
         type: human.input
         input:
+          mode: choice
           prompt: "The agent will research the following topic. Do you approve?"
           context: "${data.inputs.topic}"
           choices:
@@ -43,6 +44,7 @@ workflows:
               - id: ask_new_topic
                 type: human.input
                 input:
+                  mode: form
                   prompt: "Please provide the modified topic:"
                   fields:
                     - name: new_topic
@@ -93,6 +95,7 @@ workflows:
         type: human.input
         if: "${data.steps.confirm_topic.response != 'reject'}"
         input:
+          mode: choice
           prompt: "Here is the research summary. Do you want to publish it?"
           context: "${json(data.steps.research.json)}"
           choices:

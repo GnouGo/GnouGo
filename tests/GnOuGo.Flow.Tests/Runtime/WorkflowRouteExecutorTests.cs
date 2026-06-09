@@ -265,6 +265,7 @@ workflows:
       - id: ask_user
         type: human.input
         input:
+          mode: text
           prompt: First question?
     outputs:
       answer:
@@ -275,6 +276,7 @@ workflows:
       - id: ask_user
         type: human.input
         input:
+          mode: text
           prompt: Second question?
     outputs:
       answer:

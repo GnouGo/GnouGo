@@ -5,6 +5,12 @@ from dataclasses import dataclass
 from .errors import ErrorCodes
 from .expressions import ExpressionEvaluator, StringInterpolator
 from .models import (
+    HUMAN_INPUT_FIELD_TYPES,
+    HUMAN_INPUT_MODE_CHOICE,
+    HUMAN_INPUT_MODE_CONFIRM,
+    HUMAN_INPUT_MODE_FORM,
+    HUMAN_INPUT_MODE_TEXT,
+    HUMAN_INPUT_MODES,
     CompiledDocument,
     CompiledStep,
     CompiledSwitchCase,
@@ -14,8 +20,19 @@ from .models import (
     StepDef,
     WorkflowDef,
     WorkflowDocument,
+    human_input_field_type_requires_options,
 )
 from .step_types import STEP_TYPES
+
+
+def _read_scalar_string(value: object) -> str | None:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int | float):
+        return str(value)
+    return None
 
 
 @dataclass(slots=True)
@@ -153,6 +170,9 @@ class WorkflowValidator:
                         )
                     )
 
+        if step.type == "human.input":
+            self._validate_human_input_step(step, wf_name, errors)
+
         if step.cases:
             for case in step.cases:
                 if case.when is not None:
@@ -161,6 +181,138 @@ class WorkflowValidator:
         for nested in self._nested_steps(step):
             for child in nested:
                 self._validate_step(child, wf_name, doc, errors)
+
+    def _validate_human_input_step(self, step: StepDef, wf_name: str, errors: list[ValidationError]) -> None:
+        if not isinstance(step.input, dict):
+            self._human_input_error(errors, wf_name, step, "human.input requires an object 'input'.")
+            return
+
+        prompt = step.input.get("prompt")
+        if _read_scalar_string(prompt) is None:
+            self._human_input_error(errors, wf_name, step, "human.input requires a string 'prompt' field.", "input.prompt")
+
+        mode = step.input.get("mode")
+        mode_string = _read_scalar_string(mode)
+        mode_value = mode_string.strip() if mode_string is not None else None
+        if mode is not None and mode_value is None:
+            self._human_input_error(errors, wf_name, step, "human.input 'mode' must be a string.", "input.mode")
+        if mode_value is not None and mode_value.lower() not in HUMAN_INPUT_MODES:
+            self._human_input_error(
+                errors,
+                wf_name,
+                step,
+                f"human.input mode '{mode_value}' is not supported. Known modes: {', '.join(sorted(HUMAN_INPUT_MODES))}.",
+                "input.mode",
+            )
+
+        choices = step.input.get("choices")
+        if choices is not None and not isinstance(choices, list):
+            self._human_input_error(errors, wf_name, step, "human.input 'choices' must be an array of scalar values.", "input.choices")
+        elif isinstance(choices, list):
+            for idx, choice in enumerate(choices):
+                if _read_scalar_string(choice) is None:
+                    self._human_input_error(errors, wf_name, step, "human.input choices must contain only scalar values.", f"input.choices[{idx}]")
+
+        fields = step.input.get("fields")
+        if fields is not None and not isinstance(fields, list):
+            self._human_input_error(errors, wf_name, step, "human.input 'fields' must be an array of field objects.", "input.fields")
+        elif isinstance(fields, list):
+            self._validate_human_input_fields(fields, step, wf_name, errors)
+
+        if mode_value is None:
+            return
+        mode_lc = mode_value.lower()
+        if mode_lc in {HUMAN_INPUT_MODE_CHOICE, HUMAN_INPUT_MODE_CONFIRM} and not choices:
+            self._human_input_error(errors, wf_name, step, f"human.input mode '{mode_value}' requires a non-empty 'choices' array.", "input.choices")
+        if mode_lc == HUMAN_INPUT_MODE_FORM and not fields:
+            self._human_input_error(errors, wf_name, step, "human.input mode 'form' requires a non-empty 'fields' array.", "input.fields")
+        if mode_lc == HUMAN_INPUT_MODE_TEXT and choices:
+            self._human_input_error(errors, wf_name, step, "human.input mode 'text' cannot define 'choices'. Use mode 'choice' or 'confirm'.", "input.choices")
+        if mode_lc == HUMAN_INPUT_MODE_TEXT and fields:
+            self._human_input_error(errors, wf_name, step, "human.input mode 'text' cannot define 'fields'. Use mode 'form'.", "input.fields")
+
+    def _validate_human_input_fields(
+        self,
+        fields: list[object],
+        step: StepDef,
+        wf_name: str,
+        errors: list[ValidationError],
+    ) -> None:
+        names: set[str] = set()
+        for idx, field in enumerate(fields):
+            if not isinstance(field, dict):
+                self._human_input_error(errors, wf_name, step, "human.input field must be an object.", f"input.fields[{idx}]")
+                continue
+            name = field.get("name")
+            if not isinstance(name, str) or not name.strip():
+                self._human_input_error(errors, wf_name, step, "human.input field requires a non-empty 'name'.", f"input.fields[{idx}].name")
+                continue
+            name_key = name.lower()
+            if name_key in names:
+                self._human_input_error(errors, wf_name, step, f"human.input field '{name}' is defined more than once.", f"input.fields[{idx}].name")
+            names.add(name_key)
+            field_type = field.get("type", "string")
+            if not isinstance(field_type, str):
+                self._human_input_error(errors, wf_name, step, f"human.input field '{name}' type must be a string.", f"input.fields[{idx}].type")
+                continue
+            if field_type.lower() not in HUMAN_INPUT_FIELD_TYPES:
+                errors.append(
+                    ValidationError(
+                        code=ErrorCodes.INPUT_VALIDATION,
+                        workflow_name=wf_name,
+                        step_id=step.id,
+                        field=f"input.fields[{idx}].type",
+                        message=f"human.input field '{name}' uses unsupported type '{field_type}'. Known types: {', '.join(sorted(HUMAN_INPUT_FIELD_TYPES))}.",
+                    )
+                )
+            if human_input_field_type_requires_options(field_type) and not field.get("options"):
+                self._human_input_error(
+                    errors,
+                    wf_name,
+                    step,
+                    f"human.input field '{name}' of type '{field_type}' requires non-empty 'options'.",
+                    f"input.fields[{idx}].options",
+                )
+            if isinstance(field.get("options"), list):
+                self._validate_human_input_options(field["options"], step, wf_name, idx, name, errors)
+
+    def _validate_human_input_options(
+        self,
+        options: list[object],
+        step: StepDef,
+        wf_name: str,
+        field_index: int,
+        field_name: str,
+        errors: list[ValidationError],
+    ) -> None:
+        for option_index, option in enumerate(options):
+            if _read_scalar_string(option) is not None:
+                continue
+            self._human_input_error(
+                errors,
+                wf_name,
+                step,
+                f"human.input field '{field_name}' options must contain only scalar values.",
+                f"input.fields[{field_index}].options[{option_index}]",
+            )
+
+    @staticmethod
+    def _human_input_error(
+        errors: list[ValidationError],
+        wf_name: str,
+        step: StepDef,
+        message: str,
+        field: str | None = None,
+    ) -> None:
+        errors.append(
+            ValidationError(
+                code=ErrorCodes.INPUT_VALIDATION,
+                workflow_name=wf_name,
+                step_id=step.id,
+                field=field,
+                message=message,
+            )
+        )
 
     def _validate_expr(
         self,
@@ -371,7 +523,14 @@ class WorkflowCompiler:
 
     def compile(self, doc: WorkflowDocument) -> CompiledDocument:
         errors = self._validator.validate(doc)
-        hard_fail_codes = {ErrorCodes.EXPR_PARSE, "DSL_VERSION", "NO_WORKFLOWS", ErrorCodes.WORKFLOW_CYCLE_DETECTED, "INVALID_ENTRYPOINT"}
+        hard_fail_codes = {
+            ErrorCodes.EXPR_PARSE,
+            ErrorCodes.INPUT_VALIDATION,
+            "DSL_VERSION",
+            "NO_WORKFLOWS",
+            ErrorCodes.WORKFLOW_CYCLE_DETECTED,
+            "INVALID_ENTRYPOINT",
+        }
         if any(err.code in hard_fail_codes for err in errors):
             raise WorkflowCompilationException(errors)
 
@@ -408,4 +567,3 @@ class WorkflowCompiler:
         if step.default:
             compiled.default = self._compile_steps(step.default)
         return compiled
-

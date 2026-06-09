@@ -622,6 +622,7 @@ Pauses the workflow and prompts the user for input. The workflow resumes when th
 - id: approve
   type: human.input
   input:
+    mode: choice
     prompt: "The agent wants to call API X. Approve?"
     context: "${json(data.steps.plan)}"
     choices:
@@ -637,6 +638,7 @@ Pauses the workflow and prompts the user for input. The workflow resumes when th
 - id: user_config
   type: human.input
   input:
+    mode: form
     prompt: "Please configure the following settings:"
     fields:
       - name: api_key
@@ -654,6 +656,10 @@ Pauses the workflow and prompts the user for input. The workflow resumes when th
 ```
 
 **Output:** The user's response as a JSON object (e.g., `{ "response": "approve" }` or `{ "api_key": "...", "region": "eu-west", "max_retries": "3" }`).
+
+**Modes:** `text`, `choice`, `form`, `confirm`. When omitted, the engine infers `form` from `fields`, `choice`/`confirm` from `choices`, otherwise `text`.
+
+**Field types:** `string`, `text`, `textarea`, `markdown`, `json`, `yaml`, `number`, `integer`, `boolean`, `select`, `radio`, `multiselect`, `checkbox`, `password`, `secret`, `url`, `email`, `date`, `file`, `directory`.
 
 > **Timeout:** If the user doesn't respond within `timeout_ms`, the step fails with error code `HUMAN_INPUT_TIMEOUT`.
 
@@ -834,7 +840,7 @@ Two forms: expression-based and when-based.
       steps:
         - id: escalate
           type: human.input
-          input: { prompt: "Critical issue! Immediate action required." }
+          input: { mode: text, prompt: "Critical issue! Immediate action required." }
     - when: "${data.inputs.priority == 'high'}"
       steps:
         - id: auto_handle
@@ -1363,6 +1369,7 @@ workflows:
               - id: escalate
                 type: human.input
                 input:
+                  mode: text
                   prompt: "URGENT: ${functions.truncate(data.inputs.message, 100)}"
           - value: bug
             steps:

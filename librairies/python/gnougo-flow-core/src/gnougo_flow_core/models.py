@@ -388,6 +388,50 @@ class McpGetPromptResult(BaseModel):
     model: str | None = None
 
 
+HUMAN_INPUT_MODE_TEXT = "text"
+HUMAN_INPUT_MODE_CHOICE = "choice"
+HUMAN_INPUT_MODE_FORM = "form"
+HUMAN_INPUT_MODE_CONFIRM = "confirm"
+
+HUMAN_INPUT_MODES_FOR_DSL = (
+    HUMAN_INPUT_MODE_TEXT,
+    HUMAN_INPUT_MODE_CHOICE,
+    HUMAN_INPUT_MODE_FORM,
+    HUMAN_INPUT_MODE_CONFIRM,
+)
+
+HUMAN_INPUT_FIELD_TYPES_FOR_DSL = (
+    "string",
+    "text",
+    "textarea",
+    "markdown",
+    "json",
+    "yaml",
+    "number",
+    "integer",
+    "boolean",
+    "select",
+    "radio",
+    "multiselect",
+    "checkbox",
+    "password",
+    "secret",
+    "url",
+    "email",
+    "date",
+    "file",
+    "directory",
+)
+
+HUMAN_INPUT_MODES = frozenset(HUMAN_INPUT_MODES_FOR_DSL)
+
+HUMAN_INPUT_FIELD_TYPES = frozenset(HUMAN_INPUT_FIELD_TYPES_FOR_DSL)
+
+
+def human_input_field_type_requires_options(field_type: str) -> bool:
+    return field_type.lower() in {"select", "radio", "multiselect", "checkbox"}
+
+
 class HumanInputFieldDef(BaseModel):
     name: str
     type: str = "string"
@@ -401,6 +445,7 @@ class HumanInputRequest(BaseModel):
     run_id: str
     step_id: str
     prompt: str
+    mode: str = HUMAN_INPUT_MODE_TEXT
     context: Any = None
     choices: list[str] | None = None
     fields: list[HumanInputFieldDef] | None = None

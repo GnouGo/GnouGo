@@ -1825,6 +1825,7 @@ public sealed class ConfigureProvidersService
             RunId = runId,
             StepId = stepId,
             Prompt = prompt,
+            Mode = HumanInputContract.ModeChoice,
             Choices = choices.ToList(),
             Context = context,
             TimeoutMs = 300_000
@@ -1836,6 +1837,7 @@ public sealed class ConfigureProvidersService
             RunId = runId,
             StepId = stepId,
             Prompt = prompt,
+            Mode = HumanInputContract.ModeForm,
             Fields = fields.ToList(),
             Context = context,
             TimeoutMs = 300_000
@@ -1864,6 +1866,7 @@ public sealed class ConfigureProvidersService
         => new JsonObject
         {
             ["prompt"] = request.Prompt,
+            ["mode"] = request.Mode,
             ["run_id"] = request.RunId,
             ["step_id"] = request.StepId,
             ["timeout_ms"] = request.TimeoutMs,

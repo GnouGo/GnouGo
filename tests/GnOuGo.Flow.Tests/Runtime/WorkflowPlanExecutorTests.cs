@@ -4,6 +4,7 @@ using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Runtime.Executors;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
@@ -63,6 +64,58 @@ public class WorkflowPlanExecutorTests
         Assert.Contains("llm.call", joined);
         Assert.DoesNotContain("### mcp.call", joined);
         Assert.DoesNotContain("### sequence", joined);
+    }
+
+    [Fact]
+    public void HumanInput_DslSnippet_ContainsPlannerContract()
+    {
+        var snippet = new HumanInputExecutor().DslSnippet!;
+
+        Assert.Contains("Always set `input.mode` explicitly", snippet);
+        Assert.Contains("Valid modes: text, choice, form, confirm.", snippet);
+        Assert.Contains("date", snippet);
+        Assert.Contains("mode: confirm", snippet);
+        Assert.Contains("data.steps.<id>.response", snippet);
+        Assert.Contains("data.steps.<id>.<field_name>", snippet);
+    }
+
+    [Fact]
+    public void WorkflowPlanSemanticValidator_AllowsHumanInputResponseAndFormFields()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: approval
+        type: human.input
+        input:
+          mode: choice
+          prompt: "Approve?"
+          choices: [approve, reject]
+      - id: schedule
+        type: human.input
+        input:
+          mode: form
+          prompt: "Pick a due date"
+          fields:
+            - name: due_date
+              type: date
+              required: true
+            - name: retry_count
+              type: integer
+              required: false
+      - id: use_values
+        type: set
+        input:
+          decision: "${data.steps.approval.response}"
+          due: "${data.steps.schedule.due_date}"
+          retries: "${data.steps.schedule.retry_count}"
+""");
+
+        var validatorType = typeof(WorkflowEngine).Assembly.GetType("GnOuGo.Flow.Core.Runtime.WorkflowPlanSemanticValidator", throwOnError: true)!;
+        var validate = validatorType.GetMethod("Validate", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!;
+        validate.Invoke(null, new object?[] { doc, null });
     }
 
     [Fact]
@@ -1453,6 +1506,3 @@ workflows:
         Assert.False(engine.Registry.Has("template.execute"));
     }
 }
-
-
-

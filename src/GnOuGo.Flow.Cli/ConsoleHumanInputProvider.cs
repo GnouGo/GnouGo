@@ -76,6 +76,7 @@ public sealed class ConsoleHumanInputProvider : IHumanInputProvider
 
                 result[field.Name] = field.Type switch
                 {
+                    "integer" => int.TryParse(value, out var i) ? JsonValue.Create(i) : JsonValue.Create(value),
                     "number" => double.TryParse(value, out var n) ? JsonValue.Create(n) : JsonValue.Create(value),
                     "boolean" => JsonValue.Create(value.Equals("true", StringComparison.OrdinalIgnoreCase)
                                                   || value == "1" || value.Equals("yes", StringComparison.OrdinalIgnoreCase)),
@@ -107,4 +108,3 @@ public sealed class ConsoleHumanInputProvider : IHumanInputProvider
         }
     }
 }
-

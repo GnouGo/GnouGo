@@ -544,8 +544,37 @@ def _build_step_output_schema(step: StepDef, mcp_contracts: dict[tuple[str, str]
     if step.type == "emit":
         return _object_schema(("event", _opaque_schema()), ("status", _string_schema()))
     if step.type == "human.input":
-        return _object_schema(("value", _opaque_schema()), ("text", _string_schema()), ("status", _string_schema()))
+        return _build_human_input_output_schema(step)
     return _opaque_schema()
+
+
+def _build_human_input_output_schema(step: StepDef) -> Any:
+    properties: list[tuple[str, Any]] = [("response", _opaque_schema()), ("source", _string_schema())]
+    input_obj = step.input if isinstance(step.input, dict) else {}
+    fields = input_obj.get("fields")
+    if isinstance(fields, list):
+        for field in fields:
+            if not isinstance(field, dict):
+                continue
+            name = field.get("name")
+            if not isinstance(name, str) or not name.strip():
+                continue
+            field_type = field.get("type", "string")
+            properties.append((name, _human_input_field_schema(str(field_type))))
+    return _object_schema(*properties)
+
+
+def _human_input_field_schema(field_type: str) -> Any:
+    field_type = field_type.lower()
+    if field_type in {"number", "integer"}:
+        return _number_schema()
+    if field_type == "boolean":
+        return _boolean_schema()
+    if field_type == "json":
+        return _opaque_schema()
+    if field_type in {"multiselect", "checkbox", "file", "directory"}:
+        return _array_schema()
+    return _string_schema()
 
 
 def _build_set_output_schema(step: StepDef) -> Any:
@@ -652,5 +681,4 @@ def _array_schema() -> dict[str, Any]:
 
 def _opaque_schema() -> dict[str, bool]:
     return {"x-gnougo-opaque": True}
-
 

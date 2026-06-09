@@ -59,6 +59,7 @@ workflows:
       - id: ask
         type: human.input
         input:
+          mode: choice
           prompt: Do you approve?
           choices:
             - approve
@@ -77,6 +78,7 @@ workflows:
         Assert.True(result.Success);
         Assert.Equal(1, fakeProvider.CallCount);
         Assert.Equal("Do you approve?", fakeProvider.LastRequest!.Prompt);
+        Assert.Equal(HumanInputContract.ModeChoice, fakeProvider.LastRequest.Mode);
         Assert.Equal("test-run-1", fakeProvider.LastRequest.RunId);
         Assert.Contains("approve", fakeProvider.LastRequest.Choices!);
         Assert.Contains("reject", fakeProvider.LastRequest.Choices!);
@@ -97,6 +99,7 @@ workflows:
       - id: form
         type: human.input
         input:
+          mode: form
           prompt: Please fill in your details
           fields:
             - name: email
@@ -124,11 +127,119 @@ workflows:
 
         Assert.True(result.Success);
         Assert.NotNull(fakeProvider.LastRequest!.Fields);
+        Assert.Equal(HumanInputContract.ModeForm, fakeProvider.LastRequest.Mode);
         Assert.Equal(2, fakeProvider.LastRequest.Fields!.Count);
         Assert.Equal("email", fakeProvider.LastRequest.Fields[0].Name);
         Assert.True(fakeProvider.LastRequest.Fields[0].Required);
         Assert.Equal("select", fakeProvider.LastRequest.Fields[1].Type);
         Assert.Contains("high", fakeProvider.LastRequest.Fields[1].Options!);
+    }
+
+    [Fact]
+    public async Task HumanInput_WithScalarFieldMetadata_NormalizesForProvider()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: form
+        type: human.input
+        input:
+          mode: form
+          prompt: Numeric select
+          fields:
+            - name: sets_homme
+              type: select
+              required: ""true""
+              options: [3, 4, 5, 6]
+              default: 5
+            - name: optional_note
+              type: string
+              required: ""false""
+              description: 123
+");
+
+        var fakeProvider = new FakeHumanInputProvider(new JsonObject
+        {
+            ["sets_homme"] = "5",
+            ["optional_note"] = "ok"
+        });
+        var engine = new WorkflowEngine
+        {
+            HumanInputProvider = fakeProvider,
+            Limits = new ExecutionLimits { RunId = "test-run-scalar-metadata" }
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        var fields = fakeProvider.LastRequest!.Fields!;
+        Assert.Equal(["3", "4", "5", "6"], fields[0].Options);
+        Assert.Equal("5", fields[0].Default);
+        Assert.True(fields[0].Required);
+        Assert.False(fields[1].Required);
+        Assert.Equal("123", fields[1].Description);
+    }
+
+    [Fact]
+    public async Task HumanInput_WithDateField_ParsesDateFieldDef()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: form
+        type: human.input
+        input:
+          mode: form
+          prompt: Please pick a date
+          fields:
+            - name: due_date
+              type: date
+              required: true
+              description: Due date
+              default: ""2026-06-09""
+");
+
+        var fakeProvider = new FakeHumanInputProvider(new JsonObject
+        {
+            ["due_date"] = "2026-06-10"
+        });
+        var engine = new WorkflowEngine
+        {
+            HumanInputProvider = fakeProvider,
+            Limits = new ExecutionLimits { RunId = "test-run-date" }
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(HumanInputContract.ModeForm, fakeProvider.LastRequest!.Mode);
+        Assert.Equal("date", fakeProvider.LastRequest.Fields![0].Type);
+        Assert.Equal("2026-06-09", fakeProvider.LastRequest.Fields[0].Default);
+    }
+
+    [Fact]
+    public void HumanInput_WithUnsupportedFieldType_FailsCompilation()
+    {
+        var ex = Assert.Throws<WorkflowCompilationException>(() => CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: form
+        type: human.input
+        input:
+          mode: form
+          prompt: Bad field
+          fields:
+            - name: value
+              type: magical
+"));
+
+        Assert.Contains(ex.Errors, e => e.Code == ErrorCodes.InputValidation && e.Message.Contains("unsupported type"));
     }
 
     [Fact]
@@ -142,6 +253,7 @@ workflows:
       - id: ask
         type: human.input
         input:
+          mode: text
           prompt: Hello?
 ");
 
@@ -164,6 +276,7 @@ workflows:
       - id: ask
         type: human.input
         input:
+          mode: text
           prompt: What is your name?
       - id: greet
         type: set
@@ -307,6 +420,7 @@ workflows:
       - id: ask
         type: human.input
         input:
+          mode: text
           prompt: What is the secret?
       - id: step3
         type: set
@@ -368,5 +482,3 @@ workflows:
         Assert.Equal("Answer was secret_value", step3Output!["greeting"]!.GetValue<string>());
     }
 }
-
-

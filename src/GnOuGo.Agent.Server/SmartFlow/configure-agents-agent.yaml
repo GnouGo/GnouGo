@@ -201,6 +201,7 @@ workflows:
       - id: input_name
         type: human.input
         input:
+          mode: form
           prompt: "Choose a name for this agent:"
           fields:
             - name: agent_name
@@ -266,6 +267,7 @@ workflows:
           - id: input_prompt
             type: human.input
             input:
+              mode: form
               prompt: "Describe what this agent should do (natural language):"
               fields:
                 - name: description
@@ -348,6 +350,7 @@ workflows:
           - id: review_workflow
             type: human.input
             input:
+              mode: choice
               prompt: "Review the generated workflow. You can approve it or modify it by pasting corrected YAML."
               context: "${data.steps.generate_workflow.yaml}"
               choices:
@@ -363,6 +366,7 @@ workflows:
                   - id: custom_workflow
                     type: human.input
                     input:
+                      mode: form
                       prompt: "Paste your modified workflow YAML below:"
                       fields:
                         - name: yaml
@@ -473,6 +477,7 @@ workflows:
           - id: edit_name
             type: human.input
             input:
+              mode: form
               prompt: "Update the agent name if needed, or keep the current value:"
               fields:
                 - name: agent_name
@@ -528,6 +533,7 @@ workflows:
               - id: edit_workflow
                 type: human.input
                 input:
+                  mode: form
                   prompt: "Enter the new workflow YAML (or modify the existing one):"
                   fields:
                     - name: yaml
@@ -550,6 +556,7 @@ workflows:
               - id: confirm_edit
                 type: human.input
                 input:
+                  mode: choice
                   prompt: "Save the updated agent '${data.steps.normalized_edit_name.agent_name}'?"
                   choices:
                     - save
@@ -631,6 +638,7 @@ workflows:
           - id: confirm_remove
             type: human.input
             input:
+              mode: choice
               prompt: "⚠️ Are you sure you want to remove agent '${data.inputs.name}'?"
               choices:
                 - confirm

@@ -1,5 +1,8 @@
-﻿﻿using GnOuGo.Flow.Core.Expressions;
+﻿﻿using System.Globalization;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Runtime;
+using System.Text.Json.Nodes;
 
 namespace GnOuGo.Flow.Core.Compilation;
 
@@ -118,6 +121,124 @@ public sealed class WorkflowValidator
         }
     }
 
+    private static void ValidateHumanInputStep(StepDef step, string wfName, List<ValidationError> errors)
+    {
+        if (step.Input is not JsonObject input)
+        {
+            errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Message = "human.input requires an object 'input'." });
+            return;
+        }
+
+        if (ReadOptionalString(input["prompt"]) == null)
+            errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "input.prompt", Message = "human.input requires a string 'prompt' field." });
+
+        var mode = ReadOptionalString(input["mode"]);
+        if (mode != null && !HumanInputContract.KnownModes.Contains(mode))
+            errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "input.mode", Message = $"human.input mode '{mode}' is not supported. Known modes: {string.Join(", ", HumanInputContract.KnownModes)}." });
+
+        var choices = input["choices"] as JsonArray;
+        if (input.ContainsKey("choices") && choices == null)
+            errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "input.choices", Message = "human.input 'choices' must be an array of scalar values." });
+        if (choices != null)
+        {
+            for (var i = 0; i < choices.Count; i++)
+            {
+                if (ReadOptionalString(choices[i]) == null)
+                    errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = $"input.choices[{i}]", Message = "human.input choices must contain only scalar values." });
+            }
+        }
+
+        var fields = input["fields"] as JsonArray;
+        if (input.ContainsKey("fields") && fields == null)
+            errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "input.fields", Message = "human.input 'fields' must be an array of field objects." });
+
+        if (fields != null)
+            ValidateHumanInputFields(fields, step, wfName, errors);
+
+        if (mode == null)
+            return;
+
+        if ((mode.Equals(HumanInputContract.ModeChoice, StringComparison.OrdinalIgnoreCase) || mode.Equals(HumanInputContract.ModeConfirm, StringComparison.OrdinalIgnoreCase))
+            && choices is not { Count: > 0 })
+            errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "input.choices", Message = $"human.input mode '{mode}' requires a non-empty 'choices' array." });
+
+        if (mode.Equals(HumanInputContract.ModeForm, StringComparison.OrdinalIgnoreCase) && fields is not { Count: > 0 })
+            errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "input.fields", Message = "human.input mode 'form' requires a non-empty 'fields' array." });
+
+        if (mode.Equals(HumanInputContract.ModeText, StringComparison.OrdinalIgnoreCase) && choices is { Count: > 0 })
+            errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "input.choices", Message = "human.input mode 'text' cannot define 'choices'. Use mode 'choice' or 'confirm'." });
+
+        if (mode.Equals(HumanInputContract.ModeText, StringComparison.OrdinalIgnoreCase) && fields is { Count: > 0 })
+            errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "input.fields", Message = "human.input mode 'text' cannot define 'fields'. Use mode 'form'." });
+    }
+
+    private static void ValidateHumanInputFields(JsonArray fields, StepDef step, string wfName, List<ValidationError> errors)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < fields.Count; i++)
+        {
+            if (fields[i] is not JsonObject field)
+            {
+                errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = $"input.fields[{i}]", Message = "human.input field must be an object." });
+                continue;
+            }
+
+            var name = ReadOptionalString(field["name"]);
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = $"input.fields[{i}].name", Message = "human.input field requires a non-empty 'name'." });
+                continue;
+            }
+
+            if (!names.Add(name))
+                errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = $"input.fields[{i}].name", Message = $"human.input field '{name}' is defined more than once." });
+
+            var type = ReadOptionalString(field["type"]) ?? "string";
+            if (!HumanInputContract.KnownFieldTypes.Contains(type))
+                errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = $"input.fields[{i}].type", Message = $"human.input field '{name}' uses unsupported type '{type}'. Known types: {string.Join(", ", HumanInputContract.KnownFieldTypes)}." });
+
+            if (HumanInputContract.RequiresOptions(type) && field["options"] is not JsonArray { Count: > 0 })
+                errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = $"input.fields[{i}].options", Message = $"human.input field '{name}' of type '{type}' requires non-empty 'options'." });
+            else if (field["options"] is JsonArray options)
+                ValidateHumanInputOptions(options, step, wfName, i, name, errors);
+        }
+    }
+
+    private static void ValidateHumanInputOptions(JsonArray options, StepDef step, string wfName, int fieldIndex, string fieldName, List<ValidationError> errors)
+    {
+        for (var optionIndex = 0; optionIndex < options.Count; optionIndex++)
+        {
+            if (ReadOptionalString(options[optionIndex]) == null)
+                errors.Add(new ValidationError
+                {
+                    Code = ErrorCodes.InputValidation,
+                    WorkflowName = wfName,
+                    StepId = step.Id,
+                    Field = $"input.fields[{fieldIndex}].options[{optionIndex}]",
+                    Message = $"human.input field '{fieldName}' options must contain only scalar values."
+                });
+        }
+    }
+
+    private static string? ReadOptionalString(JsonNode? node)
+    {
+        if (node is not JsonValue value)
+            return null;
+        if (value.TryGetValue<string>(out var stringValue))
+            return stringValue.Trim();
+        if (value.TryGetValue<bool>(out var boolValue))
+            return boolValue ? "true" : "false";
+        if (value.TryGetValue<int>(out var intValue))
+            return intValue.ToString(CultureInfo.InvariantCulture);
+        if (value.TryGetValue<long>(out var longValue))
+            return longValue.ToString(CultureInfo.InvariantCulture);
+        if (value.TryGetValue<double>(out var doubleValue))
+            return doubleValue.ToString(CultureInfo.InvariantCulture);
+        if (value.TryGetValue<decimal>(out var decimalValue))
+            return decimalValue.ToString(CultureInfo.InvariantCulture);
+        return null;
+    }
+
     private void ValidateStep(StepDef step, string wfName, WorkflowDocument doc, List<ValidationError> errors)
     {
         // Known step type
@@ -164,6 +285,10 @@ public sealed class WorkflowValidator
 
             case "workflow.call":
                 ValidateWorkflowCallRef(step, wfName, doc, errors);
+                break;
+
+            case "human.input":
+                ValidateHumanInputStep(step, wfName, errors);
                 break;
         }
 

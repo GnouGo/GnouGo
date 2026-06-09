@@ -150,6 +150,7 @@ export function useWorkflowStream(): WorkflowStreamState {
                   runId: parsed.run_id ?? parsed.runId ?? '',
                   stepId: parsed.step_id ?? parsed.stepId ?? '',
                   prompt: parsed.prompt ?? '',
+                  mode: parsed.mode,
                   choices: parsed.choices,
                   fields: parsed.fields,
                   context: parsed.context,
@@ -332,4 +333,3 @@ export function useWorkflowStream(): WorkflowStreamState {
     run,
   }
 }
-

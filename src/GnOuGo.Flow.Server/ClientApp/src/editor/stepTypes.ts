@@ -255,8 +255,9 @@ export const STEP_TYPES: StepTypeDef[] = [
     description: 'Pause the workflow and wait for human input',
     fields: [
       { name: 'prompt', label: 'Prompt', type: 'text', required: true, placeholder: 'Please review the plan and approve or reject.' },
+      { name: 'mode', label: 'Mode', type: 'select', options: ['text', 'choice', 'form', 'confirm'], placeholder: 'choice', description: 'Interaction mode; old choices/fields shape is still inferred when omitted' },
       { name: 'choices', label: 'Choices (JSON)', type: 'json', placeholder: '["approve", "reject", "modify"]', description: 'Quick-reply buttons shown to the user' },
-      { name: 'fields', label: 'Form fields (JSON)', type: 'json', placeholder: '[{ "name": "email", "type": "string", "required": true }]', description: 'Structured form fields for richer input' },
+      { name: 'fields', label: 'Form fields (JSON)', type: 'json', placeholder: '[{ "name": "due_date", "type": "date", "required": true }]', description: 'Structured form fields. Known types include string, text, number, integer, boolean, select, date, password, json, yaml.' },
       { name: 'context', label: 'Context', type: 'expression', placeholder: '${json(data.steps.plan)}', description: 'Structured data shown alongside the prompt' },
       { name: 'timeout_ms', label: 'Timeout (ms)', type: 'number', placeholder: '300000', description: 'Timeout in milliseconds (default 5 min)' },
     ],
@@ -273,4 +274,3 @@ export const CATEGORIES = [
   { key: 'workflow', label: 'Workflow', icon: '🔗' },
   { key: 'chat', label: 'Chat', icon: '💬' },
 ] as const
-

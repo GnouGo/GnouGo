@@ -300,6 +300,7 @@ async def test_workflow_route_uses_distinct_run_ids_for_parallel_human_input_can
           - id: ask_user
             type: human.input
             input:
+              mode: text
               prompt: First question?
         outputs:
           answer:
@@ -310,6 +311,7 @@ async def test_workflow_route_uses_distinct_run_ids_for_parallel_human_input_can
           - id: ask_user
             type: human.input
             input:
+              mode: text
               prompt: Second question?
         outputs:
           answer:

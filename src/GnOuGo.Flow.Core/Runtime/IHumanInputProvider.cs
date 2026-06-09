@@ -3,15 +3,68 @@
 namespace GnOuGo.Flow.Core.Runtime;
 
 /// <summary>
+/// Shared human-input DSL contract.
+/// </summary>
+public static class HumanInputContract
+{
+    public const string ModeText = "text";
+    public const string ModeChoice = "choice";
+    public const string ModeForm = "form";
+    public const string ModeConfirm = "confirm";
+
+    public static readonly string[] KnownModesForDsl =
+    [
+        ModeText,
+        ModeChoice,
+        ModeForm,
+        ModeConfirm,
+    ];
+
+    public static readonly string[] KnownFieldTypesForDsl =
+    [
+        "string",
+        "text",
+        "textarea",
+        "markdown",
+        "json",
+        "yaml",
+        "number",
+        "integer",
+        "boolean",
+        "select",
+        "radio",
+        "multiselect",
+        "checkbox",
+        "password",
+        "secret",
+        "url",
+        "email",
+        "date",
+        "file",
+        "directory",
+    ];
+
+    public static readonly ISet<string> KnownModes = new HashSet<string>(KnownModesForDsl, StringComparer.OrdinalIgnoreCase);
+
+    public static readonly ISet<string> KnownFieldTypes = new HashSet<string>(KnownFieldTypesForDsl, StringComparer.OrdinalIgnoreCase);
+
+    public static bool RequiresOptions(string fieldType) =>
+        fieldType.Equals("select", StringComparison.OrdinalIgnoreCase)
+        || fieldType.Equals("radio", StringComparison.OrdinalIgnoreCase)
+        || fieldType.Equals("multiselect", StringComparison.OrdinalIgnoreCase)
+        || fieldType.Equals("checkbox", StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>
 /// Describes a single field expected from the human.
 /// </summary>
 public sealed class HumanInputFieldDef
 {
     public string Name { get; set; } = "";
-    public string Type { get; set; } = "string"; // string, number, boolean, text, select
+    public string Type { get; set; } = "string";
     public bool Required { get; set; } = true;
     public string? Description { get; set; }
-    public List<string>? Options { get; set; } // for select
+    public List<string>? Options { get; set; }
     public string? Default { get; set; }
 }
 
@@ -28,6 +81,9 @@ public sealed class HumanInputRequest
 
     /// <summary>Human-readable prompt / question.</summary>
     public string Prompt { get; set; } = "";
+
+    /// <summary>Interaction mode: text, choice, form, or confirm.</summary>
+    public string Mode { get; set; } = HumanInputContract.ModeText;
 
     /// <summary>Optional structured context shown to the user (e.g. plan JSON).</summary>
     public JsonNode? Context { get; set; }
@@ -54,4 +110,3 @@ public interface IHumanInputProvider
     /// </summary>
     Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct);
 }
-
