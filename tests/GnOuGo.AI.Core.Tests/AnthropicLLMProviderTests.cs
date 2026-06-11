@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.AI.Core.Tests;
 
@@ -213,6 +214,64 @@ public sealed class AnthropicLlmProviderTests
             model => Assert.Equal("claude-3-5-haiku-20241022", model.Id));
     }
 
+    [Fact]
+    public async Task CallAsync_WhenBatchUnsupported_LogsTechnicalFallbackDetails()
+    {
+        var calls = new List<string>();
+        var handler = new StubHttpMessageHandler(req =>
+        {
+            calls.Add(req.RequestUri!.ToString());
+            if (req.RequestUri!.AbsolutePath.EndsWith("/messages/batches", StringComparison.Ordinal))
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
+                {
+                    ReasonPhrase = "Not Found",
+                    Content = new StringContent("""
+                    {"type":"error","error":{"type":"not_found_error","message":"Not found: /v1/messages/batches"}}
+                    """)
+                });
+            }
+
+            return Task.FromResult(JsonResponse("""
+            {
+              "id": "msg_123",
+              "type": "message",
+              "role": "assistant",
+              "model": "claude-sonnet-4-20250514",
+              "content": [{ "type": "text", "text": "sync ok" }],
+              "usage": { "input_tokens": 1, "output_tokens": 1 }
+            }
+            """));
+        });
+
+        var logger = new CapturingLogger<AnthropicLLMProvider>();
+        using var http = new HttpClient(handler);
+        var provider = new AnthropicLLMProvider(http, logger);
+
+        var response = await provider.CallAsync(
+            "claude-sonnet-4-20250514",
+            new ModelProviderOptions { Url = "https://api.anthropic.test/v1", ApiKey = "sk-ant", Type = "anthropic" },
+            new LLMClientRequest
+            {
+                Prompt = "Hello",
+                UseBackgroundMode = true
+            },
+            CancellationToken.None);
+
+        Assert.Equal("sync ok", response.Text);
+        Assert.Equal(
+            ["https://api.anthropic.test/v1/messages/batches", "https://api.anthropic.test/v1/messages"],
+            calls);
+
+        var warning = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Warning);
+        Assert.Contains("Anthropic batch API not available", warning.Message);
+        Assert.Contains("https://api.anthropic.test/v1/messages/batches", warning.Message);
+        Assert.Contains("StatusCode: 404", warning.Message);
+        Assert.Contains("ReasonPhrase: Not Found", warning.Message);
+        Assert.Contains("not_found_error", warning.Message);
+        Assert.Contains("Not found: /v1/messages/batches", warning.Message);
+    }
+
     [Theory]
     [InlineData("https://api.anthropic.com", "https://api.anthropic.com/v1/messages")]
     [InlineData("https://api.anthropic.com/v1", "https://api.anthropic.com/v1/messages")]
@@ -237,6 +296,32 @@ public sealed class AnthropicLlmProviderTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => _handler(request);
     }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Entries.Add((logLevel, formatter(state, exception)));
+        }
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+
+            public void Dispose()
+            {
+            }
+        }
+    }
 }
-
-

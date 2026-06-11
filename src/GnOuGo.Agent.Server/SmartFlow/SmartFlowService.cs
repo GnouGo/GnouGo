@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
@@ -226,9 +227,14 @@ public sealed class SmartFlowService
             // ── Slash command routing ──
             var trimmed = task.Trim();
 
+            if (IsCommand(trimmed, "/help"))
+            {
+                yield return new SmartFlowEvent("answer", RenderHelp());
+                yield break;
+            }
+
             // Route /agent commands to ConfigureAgentsService
-            if (trimmed.StartsWith("/agent", StringComparison.OrdinalIgnoreCase)
-                && (trimmed.Length == 6 || char.IsWhiteSpace(trimmed[6])))
+            if (IsCommand(trimmed, "/agent"))
             {
                 await foreach (var evt in _configureAgents.ExecuteAsync(trimmed, ct))
                 {
@@ -240,8 +246,7 @@ public sealed class SmartFlowService
             // Route /llm, /mcp, /status commands to ConfigureProvidersService (with full command including sub-commands)
             foreach (var cmd in ProviderCommands)
             {
-                if (trimmed.StartsWith(cmd, StringComparison.OrdinalIgnoreCase)
-                    && (trimmed.Length == cmd.Length || char.IsWhiteSpace(trimmed[cmd.Length])))
+                if (IsCommand(trimmed, cmd))
                 {
                     await foreach (var evt in _configureProviders.ExecuteAsync(trimmed, ct))
                     {
@@ -373,6 +378,60 @@ public sealed class SmartFlowService
         {
             Activity.Current = previousActivity;
         }
+    }
+
+    private static bool IsCommand(string text, string command)
+        => text.StartsWith(command, StringComparison.OrdinalIgnoreCase)
+           && (text.Length == command.Length || char.IsWhiteSpace(text[command.Length]));
+
+    private static string RenderHelp()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("# GnOuGo Help");
+        sb.AppendLine();
+        sb.AppendLine("GnOuGo is a local agent workspace. You can chat normally, upload documents, route requests to configured agents, and use slash commands for configuration.");
+        sb.AppendLine();
+        sb.AppendLine("## Commands");
+        sb.AppendLine();
+        sb.AppendLine("| Command | Description |");
+        sb.AppendLine("|---|---|");
+        sb.AppendLine("| `/help` | Show this overview |");
+        sb.AppendLine("| `/status` | Display the current LLM, embedding, MCP, and agent configuration summary |");
+        sb.AppendLine("| `/llm` | Show LLM provider commands |");
+        sb.AppendLine("| `/llm list` | List configured LLM providers |");
+        sb.AppendLine("| `/llm models <name>` | List live models for a configured LLM provider |");
+        sb.AppendLine("| `/llm add` | Configure a new LLM provider |");
+        sb.AppendLine("| `/llm default [name]` | Set or change the default LLM provider/model |");
+        sb.AppendLine("| `/llm edit <name>` | Edit an existing LLM provider |");
+        sb.AppendLine("| `/llm remove <name>` | Remove an LLM provider |");
+        sb.AppendLine("| `/embedding` | Show embedding model commands |");
+        sb.AppendLine("| `/embedding list` | List configured embedding models |");
+        sb.AppendLine("| `/embedding add` | Configure a new embedding model |");
+        sb.AppendLine("| `/embedding default [name]` | Set or change the default embedding model |");
+        sb.AppendLine("| `/embedding edit <name>` | Edit an embedding model configuration |");
+        sb.AppendLine("| `/embedding remove <name>` | Remove an embedding model configuration |");
+        sb.AppendLine("| `/mcp` | Show MCP server commands |");
+        sb.AppendLine("| `/mcp list` | List configured MCP servers |");
+        sb.AppendLine("| `/mcp add` | Add a new MCP server |");
+        sb.AppendLine("| `/mcp edit <name>` | Edit an existing MCP server |");
+        sb.AppendLine("| `/mcp remove <name>` | Remove an MCP server |");
+        sb.AppendLine("| `/agent` | Show agent management commands |");
+        sb.AppendLine("| `/agent list` | List configured agents |");
+        sb.AppendLine("| `/agent add` | Create a new agent with the interactive wizard |");
+        sb.AppendLine("| `/agent edit <name>` | Edit an existing agent |");
+        sb.AppendLine("| `/agent remove <name>` | Remove an agent |");
+        sb.AppendLine("| `/agent select <name>` | Set the active chat agent |");
+        sb.AppendLine();
+        sb.AppendLine("## How GnOuGo Works");
+        sb.AppendLine();
+        sb.AppendLine("- Regular messages are routed to the active agent or to the built-in routing workflow.");
+        sb.AppendLine("- Agents are reusable workflow definitions stored locally.");
+        sb.AppendLine("- MCP servers expose local tools such as command execution, document operations, Git, browser automation, and code assistance.");
+        sb.AppendLine("- LLM, embedding, MCP, and agent settings are persisted locally, with secrets stored encrypted through KeyVault.");
+        sb.AppendLine("- Trace buttons on assistant messages open execution details for debugging and observability.");
+        sb.AppendLine();
+        sb.Append("Type a regular message to start working, or use one of the commands above.");
+        return sb.ToString();
     }
 
     /// <summary>

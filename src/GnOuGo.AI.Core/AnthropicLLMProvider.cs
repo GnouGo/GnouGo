@@ -111,7 +111,13 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			// If batches API is not available, fall back to synchronous
 			if (IsBatchUnsupported(createResp.StatusCode, createBody))
 			{
-				_logger.LogDebug("Anthropic batch API not available, falling back to synchronous call.");
+				_logger.LogWarning(
+					"Anthropic batch API not available, falling back to synchronous call. " +
+					"BatchUrl: {BatchUrl}; StatusCode: {StatusCode}; ReasonPhrase: {ReasonPhrase}; ResponseBody: {ResponseBody}",
+					batchUrl,
+					(int)createResp.StatusCode,
+					createResp.ReasonPhrase ?? "",
+					FormatLogBody(createBody));
 				return await CallMessagesAsync(model, provider, request, ct);
 			}
 
@@ -477,6 +483,22 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		   || ((int)statusCode == 400
 			   && (body.Contains("batch", StringComparison.OrdinalIgnoreCase)
 				   || body.Contains("unsupported", StringComparison.OrdinalIgnoreCase)));
+
+	internal static string FormatLogBody(string? body, int maxLength = 4096)
+	{
+		if (string.IsNullOrWhiteSpace(body))
+			return "";
+
+		var sanitized = body
+			.Replace("\r", "\\r", StringComparison.Ordinal)
+			.Replace("\n", "\\n", StringComparison.Ordinal)
+			.Trim();
+
+		if (sanitized.Length <= maxLength)
+			return sanitized;
+
+		return sanitized[..maxLength] + $"… (truncated, {sanitized.Length} chars total)";
+	}
 
 	private static bool IsTerminalBatchStatus(string? status)
 		=> status is not null
