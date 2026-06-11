@@ -757,6 +757,119 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_DryRun_RejectsFreeformLlmTextUsedAsNumber()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       workflows:
+                         main:
+                           steps:
+                             - id: extract
+                               type: llm.call
+                               input:
+                                 prompt: "Return a token budget"
+                             - id: answer
+                               type: llm.call
+                               input:
+                                 prompt: "Answer briefly"
+                                 max_tokens: "${data.steps.extract.text}"
+                       """
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a workflow that extracts a token budget
+            prefilter: false
+          validate:
+            dry_run: true
+          on_invalid:
+            action: stop
+            max_attempts: 1
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("dry_run", result.Error.Message);
+        Assert.Contains("Expected number", result.Error.Message);
+        Assert.Contains("dry-run text response", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_DryRun_AllowsStructuredLlmJsonUsedAsNumber()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       workflows:
+                         main:
+                           steps:
+                             - id: extract
+                               type: llm.call
+                               input:
+                                 prompt: "Return a token budget"
+                                 structured_output:
+                                   schema_inline:
+                                     type: object
+                                     properties:
+                                       max_tokens:
+                                         type: integer
+                                     required: [max_tokens]
+                                     additionalProperties: false
+                             - id: answer
+                               type: llm.call
+                               input:
+                                 prompt: "Answer briefly"
+                                 max_tokens: "${data.steps.extract.json.max_tokens}"
+                           outputs:
+                             answer:
+                               expr: "${data.steps.answer.text}"
+                               type: string
+                       """
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a workflow that extracts a token budget
+            prefilter: false
+          validate:
+            dry_run: true
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_SemanticValidation_AllowsIntegerYamlScalarForNumberMcpSchema()
     {
         var mockLlm = new Mock<ILLMClient>();

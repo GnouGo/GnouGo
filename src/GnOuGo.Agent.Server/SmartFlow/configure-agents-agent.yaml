@@ -336,6 +336,7 @@ workflows:
                 max_steps_total: 100
               validate:
                 compile: true
+                dry_run: true
               on_invalid:
                 action: reprompt
                 max_attempts: 6

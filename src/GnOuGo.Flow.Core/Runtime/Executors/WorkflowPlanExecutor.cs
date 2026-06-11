@@ -394,10 +394,21 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                         if (limits != null)
                             EnforceLimits(generatedDoc, limits);
 
-                        // Compile to validate
+                        // Compile + semantic validation
                         if (validate?["compile"]?.GetValue<bool>() ?? true)
                         {
                             ValidateGeneratedWorkflowForPlan(generatedDoc, discovered);
+                        }
+
+                        // Optional runtime dry-run with deterministic fake providers.
+                        if (validate?["dry_run"]?.GetValue<bool>() ?? false)
+                        {
+                            validationSpan.SetAttribute("gnougo-flow.plan.dry_run", true);
+                            await WorkflowPlanDryRunValidator.ValidateAsync(
+                                generatedDoc,
+                                BuildDryRunMcpClientFactory(discovered),
+                                ctx.Engine.Logger,
+                                ct);
                         }
                     }
                     catch (Exception ex)
@@ -1468,6 +1479,64 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         }
 
         return contracts;
+    }
+
+    private static IMcpClientFactory? BuildDryRunMcpClientFactory(IReadOnlyList<McpServerDiscovery>? discovered)
+    {
+        if (discovered == null || discovered.Count == 0)
+            return null;
+
+        var factory = new InMemoryMcpClientFactory();
+        foreach (var server in discovered)
+        {
+            var config = new MockMcpServerConfig
+            {
+                Description = server.Description,
+                CallTimeoutSeconds = server.CallTimeoutSeconds,
+                Tools = server.Tools.Select(tool => new McpToolInfo
+                {
+                    Name = tool.Name,
+                    Description = tool.Description,
+                    InputSchema = tool.InputSchema?.DeepClone(),
+                    OutputSchema = tool.OutputSchema?.DeepClone(),
+                    ExampleResponse = tool.ExampleResponse?.DeepClone()
+                }).ToList(),
+                Prompts = server.Prompts.Select(prompt => new McpPromptInfo
+                {
+                    Name = prompt.Name,
+                    Description = prompt.Description,
+                    Arguments = prompt.Arguments?.Select(argument => new McpPromptArgument
+                    {
+                        Name = argument.Name,
+                        Description = argument.Description,
+                        Required = argument.Required
+                    }).ToList()
+                }).ToList()
+            };
+
+            foreach (var tool in server.Tools)
+            {
+                var outputSchema = tool.OutputSchema?.DeepClone();
+                var exampleResponse = tool.ExampleResponse?.DeepClone();
+                config.ToolHandlers[tool.Name] = _ => new McpCallResult
+                {
+                    IsError = false,
+                    Content = exampleResponse?.DeepClone()
+                        ?? WorkflowPlanDryRunValidator.CreateSampleFromJsonSchema(outputSchema),
+                    Model = "dry-run-mcp",
+                    Usage = new JsonObject
+                    {
+                        ["prompt_tokens"] = 1,
+                        ["completion_tokens"] = 1,
+                        ["total_tokens"] = 2
+                    }
+                };
+            }
+
+            factory.RegisterServer(server.Name, config);
+        }
+
+        return factory;
     }
 
     private static string FormatValidationErrors(IReadOnlyList<ValidationError> errors)
