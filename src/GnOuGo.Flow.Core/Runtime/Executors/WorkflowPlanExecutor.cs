@@ -167,6 +167,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- NEVER invent properties under `data.steps.<id>.response`. Access `response.<field>` only when an `output_schema` or `example_response` explicitly documents that field.");
         basePrompt.AppendLine("- If an MCP response is opaque, use `json(data.steps.<id>.response)` to pass the whole response to another step.");
         basePrompt.AppendLine("- If precise fields are needed from an opaque response, add an `llm.call` normalization step with `structured_output`, then read fields from `data.steps.<normalizer>.json`.");
+        basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");
         basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
 
         basePrompt.AppendLine();
@@ -1354,6 +1355,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("If the exact tool or prompt name is unknown, use mcp.list first, then either add an intermediate explicit selection step or use mcp.call with prompt + model (+ optional temperature) and pass the discovered tools/prompts.");
         sb.AppendLine("When using LLM-assisted mcp.call, put the natural-language instruction in input.prompt and pass candidate capabilities through input.tools and/or input.prompts, typically from mcp.list outputs.");
         sb.AppendLine("If a server lists a recommended mcp.call timeout, include at least that value as `input.timeout_ms` for generated calls to that server.");
+        sb.AppendLine("When building `mcp.call.input.request`, preserve JSON schema scalar types exactly: numbers/integers/booleans must be unquoted YAML scalars, while strings may be quoted.");
+        sb.AppendLine("If a string field must contain JSON text, prefer a YAML literal block (`|`) so nested quotes remain valid YAML.");
         sb.AppendLine("For `mcp.call` single-tool outputs, access `data.steps.<id>.response.<field>` only when that field is documented in `output_schema` or `example_response` above. Otherwise the response is opaque: use `json(data.steps.<id>.response)` or normalize it with `llm.call` + `structured_output`.");
         return sb.ToString().TrimEnd();
     }
@@ -1393,10 +1396,13 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         var errors = validator.Validate(generatedDoc);
         WorkflowSemanticValidationException? semanticException = null;
         Exception? compilationException = null;
+        var mcpToolContracts = BuildMcpToolOutputContracts(discovered);
+
+        WorkflowPlanSemanticValidator.NormalizeMcpCallInputRequests(generatedDoc, mcpToolContracts);
 
         try
         {
-            WorkflowPlanSemanticValidator.Validate(generatedDoc, BuildMcpToolOutputContracts(discovered));
+            WorkflowPlanSemanticValidator.Validate(generatedDoc, mcpToolContracts);
         }
         catch (WorkflowSemanticValidationException ex)
         {

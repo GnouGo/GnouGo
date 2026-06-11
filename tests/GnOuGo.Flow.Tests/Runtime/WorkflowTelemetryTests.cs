@@ -70,13 +70,24 @@ public class WorkflowTelemetryTests
         public List<(string Event, object? Info)> Events { get; } = new();
 
         /// <summary>Captured step spans (accessible after execution to inspect attributes).</summary>
+        public List<TestSpan> WorkflowSpans { get; } = new();
         public List<TestSpan> StepSpans { get; } = new();
         public List<TestSpan> ChildSpans { get; } = new();
 
         public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info)
         {
             Events.Add(("WorkflowStart", info));
-            return new TestSpan { Name = info.WorkflowName };
+            var span = new TestSpan { Name = info.WorkflowName };
+            WorkflowSpans.Add(span);
+            return span;
+        }
+
+        public IWorkflowSpan WorkflowStart(ITelemetrySpan parentSpan, WorkflowTelemetryInfo info)
+        {
+            Events.Add(("WorkflowStart", info));
+            var span = new TestSpan { Name = info.WorkflowName, ParentName = (parentSpan as TestSpan)?.Name };
+            WorkflowSpans.Add(span);
+            return span;
         }
 
         public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result)
@@ -178,6 +189,55 @@ workflows:
         Assert.NotNull(wfResult);
         Assert.True(wfResult!.Success);
         Assert.Equal(1, wfResult.StepsExecuted);
+    }
+
+    [Fact]
+    public async Task CustomTelemetry_WorkflowStart_AddsSingleSerializedInputsAttribute()
+    {
+        var recording = new RecordingTelemetry();
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: echo
+        type: template.render
+        input:
+          engine: mustache
+          template: ""Hello {{name}}""
+          data:
+            name: ""${data.inputs.name}""
+          mode: text
+");
+        var inputs = new JsonObject
+        {
+            ["name"] = "Ada",
+            ["count"] = 3,
+            ["enabled"] = true,
+            ["secret_token"] = "must-not-leak",
+            ["profile"] = new JsonObject { ["role"] = "admin", ["api_key"] = "nested-secret" },
+            ["Display Name"] = "Ada Lovelace"
+        };
+        var engine = new WorkflowEngine { Telemetry = recording };
+
+        var result = await engine.ExecuteAsync(wf, inputs, CancellationToken.None);
+
+        Assert.True(result.Success);
+        var workflowSpan = Assert.Single(recording.WorkflowSpans);
+        Assert.Equal(6, workflowSpan.Attributes["gnougo-flow.workflow.inputs.count"]);
+        Assert.Equal("name,count,enabled,secret_token,profile,Display Name", workflowSpan.Attributes["gnougo-flow.workflow.inputs.keys"]);
+
+        var serializedInputs = Assert.IsType<string>(workflowSpan.Attributes["gnougo-flow.workflow.inputs"]);
+        var parsedInputs = Assert.IsType<JsonObject>(JsonNode.Parse(serializedInputs));
+        Assert.Equal("Ada", parsedInputs["name"]!.GetValue<string>());
+        Assert.Equal(3, parsedInputs["count"]!.GetValue<int>());
+        Assert.True(parsedInputs["enabled"]!.GetValue<bool>());
+        Assert.Equal("Ada Lovelace", parsedInputs["Display Name"]!.GetValue<string>());
+        Assert.Equal("<redacted>", parsedInputs["secret_token"]!.GetValue<string>());
+        Assert.Equal("<redacted>", parsedInputs["profile"]!["api_key"]!.GetValue<string>());
+        Assert.DoesNotContain("must-not-leak", serializedInputs, StringComparison.Ordinal);
+        Assert.DoesNotContain("nested-secret", serializedInputs, StringComparison.Ordinal);
+        Assert.DoesNotContain(workflowSpan.Attributes.Keys, key => key.StartsWith("gnougo-flow.workflow.input.", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -918,4 +978,3 @@ workflows:
         Assert.Empty(greetSpan.SpanEvents);
     }
 }
-

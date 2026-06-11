@@ -757,6 +757,77 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_SemanticValidation_AllowsIntegerYamlScalarForNumberMcpSchema()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       workflows:
+                         main:
+                           steps:
+                             - id: list_prs
+                               type: mcp.call
+                               input:
+                                 server: github
+                                 kind: tool
+                                 method: list_pull_requests
+                                 request:
+                                   owner: AxaFrance
+                                   repo: oidc-client
+                                   perPage: 100
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "list_pull_requests",
+                    Description = "List pull requests",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "owner": { "type": "string" },
+                        "repo": { "type": "string" },
+                        "perPage": { "type": "number" }
+                      },
+                      "required": ["owner", "repo"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: List GitHub pull requests
+            prefilter: false
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_Validation_ReturnsStructuralAndSemanticDiagnosticsTogether()
     {
         var mockLlm = new Mock<ILLMClient>();

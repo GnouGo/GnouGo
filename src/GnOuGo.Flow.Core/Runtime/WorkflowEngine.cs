@@ -82,6 +82,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             SourceText = workflow.Document?.Source?.RawYaml,
             SourceFormat = "yaml"
         });
+        WorkflowTelemetryInputAttributes.Apply(workflowSpan, data["inputs"]);
 
         var workflowSw = Stopwatch.StartNew();
 
@@ -195,6 +196,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             SourceText = workflow.Document?.Source?.RawYaml,
             SourceFormat = "yaml"
         });
+        WorkflowTelemetryInputAttributes.Apply(workflowSpan, data["inputs"]);
 
         var workflowSw = Stopwatch.StartNew();
         Logger.LogInformation("Workflow '{WorkflowName}' resuming from step index {StartIndex} (runId: {RunId})",
@@ -306,6 +308,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         var workflowSpan = parentSpan is null
             ? Telemetry.WorkflowStart(workflowInfo)
             : Telemetry.WorkflowStart(parentSpan, workflowInfo);
+        WorkflowTelemetryInputAttributes.Apply(workflowSpan, data["inputs"]);
 
         var workflowSw = Stopwatch.StartNew();
         Logger.LogInformation("Child workflow '{WorkflowName}' starting (document: {DocumentName})",

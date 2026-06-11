@@ -973,3 +973,58 @@ async def test_workflow_plan_semantic_validation_rejects_invalid_mcp_request_aga
     assert "input.request.method" in result.error.message
     assert "docs/issue_write" in result.error.message
 
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_coerces_string_scalars_for_mcp_request_schema() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "list github pull requests"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: list_prs
+            type: mcp.call
+            input:
+              server: docs
+              method: list_pull_requests
+              request:
+                owner: AxaFrance
+                repo: oidc-client
+                perPage: "100"
+    """
+    tool = McpToolInfo(
+        name="list_pull_requests",
+        description="List pull requests",
+        input_schema={
+            "type": "object",
+            "required": ["owner", "repo"],
+            "properties": {
+                "owner": {"type": "string"},
+                "repo": {"type": "string"},
+                "perPage": {"type": "number"},
+            },
+            "additionalProperties": False,
+        },
+    )
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    yaml_text = result.outputs["plan"]["yaml"]
+    assert "perPage: 100" in yaml_text
+    assert 'perPage: "100"' not in yaml_text

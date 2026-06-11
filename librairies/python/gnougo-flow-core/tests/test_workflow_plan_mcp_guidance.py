@@ -164,6 +164,9 @@ async def test_workflow_plan_prompt_mentions_llm_assisted_and_direct_mcp_call() 
     assert "use mcp.call with prompt + model (+ optional temperature)" in prompt
     assert "put the natural-language instruction in input.prompt" in prompt
     assert "Preferred MCP planning pattern: when tool names and input schemas are listed above, use `mcp.call` directly" in prompt
+    assert "preserve JSON schema scalar types exactly" in prompt
+    assert "numbers/integers/booleans must be unquoted YAML scalars" in prompt
+    assert "prefer a YAML literal block (`|`) so nested quotes remain valid YAML" in prompt
     assert "list_repos" in prompt
     assert "input_schema:" in prompt
     assert "output_schema:" in prompt
@@ -287,4 +290,3 @@ def test_mcp_executors_dsl_snippets_contain_llm_assisted_patterns() -> None:
     assert "additionalProperties: false" in llm_call.dsl_snippet
     assert "anyOf:" in llm_call.dsl_snippet
     assert "structured_output.schema_ref" in llm_call.dsl_snippet
-

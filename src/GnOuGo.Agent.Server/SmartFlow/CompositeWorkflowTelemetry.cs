@@ -59,6 +59,23 @@ public sealed class CompositeWorkflowTelemetry : IWorkflowTelemetry
         _otel.StepEnd(cs.OTel, result);
     }
 
+    public ITelemetrySpan SpanStart(ITelemetrySpan parentSpan, TelemetrySpanInfo info)
+    {
+        var cs = parentSpan as CompositeSpan;
+        var css = parentSpan as CompositeStepSpan;
+        var cgs = parentSpan as CompositeTelemetrySpan;
+        var s = _streaming.SpanStart(cs?.Streaming ?? css?.Streaming ?? cgs?.Streaming ?? parentSpan, info);
+        var o = _otel.SpanStart(cs?.OTel ?? css?.OTel ?? cgs?.OTel ?? parentSpan, info);
+        return new CompositeTelemetrySpan(s, o);
+    }
+
+    public void SpanEnd(ITelemetrySpan span, TelemetrySpanResultInfo result)
+    {
+        if (span is not CompositeTelemetrySpan cs) return;
+        _streaming.SpanEnd(cs.Streaming, result);
+        _otel.SpanEnd(cs.OTel, result);
+    }
+
     // ── Span wrappers ────────────────────────────────────────────────────────
 
     private sealed class CompositeSpan(IWorkflowSpan streaming, IWorkflowSpan otel) : IWorkflowSpan
@@ -84,6 +101,26 @@ public sealed class CompositeWorkflowTelemetry : IWorkflowTelemetry
     {
         public IStepSpan Streaming { get; } = streaming;
         public IStepSpan OTel      { get; } = otel;
+
+        public void SetAttribute(string key, object? value)
+        {
+            Streaming.SetAttribute(key, value);
+            OTel.SetAttribute(key, value);
+        }
+
+        public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
+        {
+            Streaming.AddEvent(name, attributes);
+            OTel.AddEvent(name, attributes);
+        }
+
+        public void Dispose() { Streaming.Dispose(); OTel.Dispose(); }
+    }
+
+    private sealed class CompositeTelemetrySpan(ITelemetrySpan streaming, ITelemetrySpan otel) : ITelemetrySpan
+    {
+        public ITelemetrySpan Streaming { get; } = streaming;
+        public ITelemetrySpan OTel      { get; } = otel;
 
         public void SetAttribute(string key, object? value)
         {

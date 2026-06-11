@@ -9,6 +9,7 @@ from gnougo_flow_core.runtime import *  # noqa: F401,F403
 from gnougo_flow_core.workflow_plan_semantic_validator import (
     McpToolOutputContract,
     WorkflowSemanticValidationException,
+    normalize_mcp_call_input_requests,
     validate_workflow_semantics,
 )
 
@@ -134,7 +135,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     validation_span.set_attribute("gnougo-flow.plan.workflow_count", len(doc.workflows))
                     self._enforce_plan_policy(doc, policy, limits)
                     if bool(validate.get("compile", True)):
-                        self._validate_generated_workflow_for_plan(doc, mcp_tool_contracts)
+                        normalization_count = self._validate_generated_workflow_for_plan(doc, mcp_tool_contracts)
+                        if normalization_count > 0:
+                            yaml_text = self._dump_workflow_yaml(doc)
                 return {
                     "yaml": yaml_text,
                     "workflow": {
@@ -282,6 +285,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "- If an MCP response is opaque, use `json(data.steps.<id>.response)` to pass the whole response to another step.\n"
             "- If precise fields are needed from an opaque response, add an `llm.call` normalization step with "
             "`structured_output`, then read fields from `data.steps.<normalizer>.json`.\n"
+            "- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; "
+            "do not put unescaped JSON inside a double-quoted YAML string.\n"
             "- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`.\n\n"
             "[TASK]\n"
             f"Instruction: {instruction}\n"
@@ -296,6 +301,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "Required MCP planning pattern: discover candidate servers with `mcp.list`, then use mcp.call with prompt + model (+ optional temperature) "
             "when exact tool names or arguments are not known.\n"
             "For LLM-assisted MCP calls, put the natural-language instruction in input.prompt and pass discovered `tools`/`prompts`.\n"
+            "When building `mcp.call.input.request`, preserve JSON schema scalar types exactly: numbers/integers/booleans must be unquoted YAML scalars, while strings may be quoted.\n"
+            "If a string field must contain JSON text, prefer a YAML literal block (`|`) so nested quotes remain valid YAML.\n"
             'mcp.call single-tool output shape: `{ status: "ok"|"error", response: <tool-specific JSON> }`\n'
             "Access status via `data.steps.<id>.status` and full result via `data.steps.<id>.response`.\n"
             "Do not assume any field inside `response` unless MCP docs explicitly define it through `output_schema` or `example_response`.\n"
@@ -697,12 +704,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
     def _validate_generated_workflow_for_plan(
         doc: WorkflowDocument,
         mcp_tool_contracts: list[McpToolOutputContract],
-    ) -> None:
+    ) -> int:
         errors = WorkflowValidator().validate(doc)
         semantic_exception: WorkflowSemanticValidationException | None = None
         compilation_exception: Exception | None = None
+        normalization_count = 0
 
         try:
+            normalization_count = normalize_mcp_call_input_requests(doc, mcp_tool_contracts)
             validate_workflow_semantics(doc, mcp_tool_contracts)
         except WorkflowSemanticValidationException as exc:
             semantic_exception = exc
@@ -714,7 +723,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 compilation_exception = exc
 
         if not errors and semantic_exception is None and compilation_exception is None:
-            return
+            return normalization_count
 
         diagnostics: list[str] = []
         if errors:
@@ -728,6 +737,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             ErrorCodes.TEMPLATE_PLAN,
             "Generated workflow validation failed: " + " | ".join(diagnostics),
         )
+
+    @staticmethod
+    def _dump_workflow_yaml(doc: WorkflowDocument) -> str:
+        data = doc.model_dump(by_alias=True, exclude_none=True, exclude={"raw_yaml"})
+        return yaml.safe_dump(data, sort_keys=False, allow_unicode=False).strip()
 
     @staticmethod
     def _is_fatal_compiler_validation_error(error: ValidationError) -> bool:

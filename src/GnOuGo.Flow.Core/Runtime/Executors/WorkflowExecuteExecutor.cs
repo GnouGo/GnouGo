@@ -81,6 +81,7 @@ public sealed class WorkflowExecuteExecutor : IStepExecutor
         var subWorkflowSpan = ctx.TelemetrySpan is null
             ? ctx.Engine.Telemetry.WorkflowStart(subWorkflowInfo)
             : ctx.Engine.Telemetry.WorkflowStart(ctx.TelemetrySpan, subWorkflowInfo);
+        WorkflowTelemetryInputAttributes.Apply(subWorkflowSpan, subData["inputs"]);
         var subWorkflowSw = System.Diagnostics.Stopwatch.StartNew();
         Exception? subWorkflowError = null;
         try
