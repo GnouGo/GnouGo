@@ -48,6 +48,25 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void StageAll_ExcludesGnOuGoWorkingDirectoryByDefault()
+    {
+        File.WriteAllText(Path.Combine(_root, "README.md"), "hello\n");
+        var copilotWorkingDirectory = Path.Combine(_root, ".GnOuGo");
+        Directory.CreateDirectory(copilotWorkingDirectory);
+        File.WriteAllText(Path.Combine(copilotWorkingDirectory, "temp.json"), "{}\n");
+        var service = CreateService();
+
+        var result = service.Stage(_root, []);
+        var status = service.GetStatus(_root);
+
+        Assert.True(result.Success);
+        Assert.Contains("Staged 1 pathspec", result.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(status.Entries, entry => entry.Path.Replace('\\', '/') == "README.md" && entry.State.Contains("NewInIndex", StringComparison.Ordinal));
+        Assert.Contains(status.Entries, entry => entry.Path.Replace('\\', '/') == ".GnOuGo/temp.json" && entry.State.Contains("NewInWorkdir", StringComparison.Ordinal));
+        Assert.DoesNotContain(status.Entries, entry => entry.Path.Replace('\\', '/') == ".GnOuGo/temp.json" && entry.State.Contains("NewInIndex", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void CreateBranchCheckoutAndMerge_ReportsConflicts()
     {
         var service = CreateService();
@@ -174,5 +193,4 @@ public sealed class GitRepositoryServiceTests : IDisposable
         return full;
     }
 }
-
 

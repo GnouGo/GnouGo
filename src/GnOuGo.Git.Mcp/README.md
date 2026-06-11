@@ -10,6 +10,8 @@ MCP stdio server for safe Git repository operations on local projects.
 - Perform guarded local mutations with `git_stage`, `git_unstage`, `git_commit`, `git_create_branch`, `git_checkout`, `git_merge`, and `git_resolve_conflict` when `Git:AllowMutations=true`.
 - Perform guarded network operations with `git_clone`, `git_fetch`, `git_pull`, and `git_push` when `Git:AllowNetworkOperations=true`.
 
+When `git_stage` is called without explicit paths, it stages all current changes except the repository-root `.GnOuGo/` directory. This keeps temporary Copilot SDK working files out of commits by default. Passing explicit paths still stages only the requested paths.
+
 ## Policy and authentication
 
 The tool resolves project roots under `Git:DefaultWorkingDirectory` and `Git:AllowedWorkingRoots`. Relative paths are resolved below the default working directory, which defaults to `GnOuGo` on the current user's Desktop for local desktop usage.
@@ -48,4 +50,3 @@ dotnet publish "C:\github\GnouGo\src\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj" -c Re
 ```
 
 CI also validates a dedicated `win-x64` Native AOT publish for `GnOuGo.Git.Mcp` in `.github/workflows/build-agent-desktop-trimmed.yml`.
-

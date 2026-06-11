@@ -6,6 +6,8 @@ namespace GnOuGo.Git.Mcp;
 
 public sealed class GitRepositoryService
 {
+    private const string DefaultExcludedRootDirectory = ".GnOuGo";
+
     private readonly GitPolicy _policy;
     private readonly GitServerSettings _settings;
 
@@ -163,7 +165,13 @@ public sealed class GitRepositoryService
         _policy.EnsureGitMutationsAllowed("stage");
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
         var pathspecs = NormalizePathspecs(paths);
-        Commands.Stage(repository, pathspecs);
+        if (pathspecs.Count == 0)
+        {
+            pathspecs = ResolveDefaultStagePathspecs(repository);
+        }
+
+        if (pathspecs.Count > 0)
+            Commands.Stage(repository, pathspecs);
         var message = $"Staged {pathspecs.Count} pathspec(s): {string.Join(", ", pathspecs)}.";
         return new GitOperationResult(repositoryRoot, "stage", message, true, BuildOperationOutput("stage", message, repositoryRoot));
     }
@@ -407,9 +415,21 @@ public sealed class GitRepositoryService
     private static IReadOnlyList<string> NormalizePathspecs(IReadOnlyList<string> paths)
     {
         if (paths.Count == 0)
-            return ["*"];
+            return [];
         return paths.Select(NormalizeRelativePath).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
+
+    private static IReadOnlyList<string> ResolveDefaultStagePathspecs(Repository repository)
+        => repository.RetrieveStatus(new StatusOptions())
+            .Select(static entry => NormalizeRelativePath(entry.FilePath))
+            .Where(static path => !IsInDefaultExcludedRootDirectory(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    private static bool IsInDefaultExcludedRootDirectory(string relativePath)
+        => relativePath.Equals(DefaultExcludedRootDirectory, StringComparison.OrdinalIgnoreCase)
+           || relativePath.StartsWith(DefaultExcludedRootDirectory + "/", StringComparison.OrdinalIgnoreCase);
 
     private static string NormalizeRelativePath(string relativePath)
     {
@@ -463,7 +483,5 @@ public sealed class GitRepositoryService
             .OrderBy(static conflict => conflict.Path, StringComparer.OrdinalIgnoreCase)
             .ToArray() ?? [];
 }
-
-
 
 
