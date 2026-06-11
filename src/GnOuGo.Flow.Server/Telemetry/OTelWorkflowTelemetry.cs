@@ -48,6 +48,21 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
         return new Span(activity);
     }
 
+    public IWorkflowSpan WorkflowStart(ITelemetrySpan parentSpan, WorkflowTelemetryInfo info)
+    {
+        var parent = ResolveParentActivity(parentSpan);
+        Activity? activity = parent != null
+            ? _source.StartActivity("workflow", ActivityKind.Internal,
+                new ActivityContext(parent.TraceId, parent.SpanId, ActivityTraceFlags.Recorded))
+            : _source.StartActivity("workflow", ActivityKind.Internal);
+
+        if (activity == null) return new Span(null);
+        activity.SetTag("gnougo-flow.workflow.name", info.WorkflowName);
+        if (info.DocumentName != null) activity.SetTag("gnougo-flow.document.name", info.DocumentName);
+        ApplyWorkflowSourceTags(activity, info);
+        return new Span(activity);
+    }
+
     public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result)
     {
         if (span is not Span ws || ws.Activity == null) return;

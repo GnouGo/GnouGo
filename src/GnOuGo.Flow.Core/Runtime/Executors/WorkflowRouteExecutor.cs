@@ -428,7 +428,17 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         var candidateArgs = args.DeepClone() as JsonObject ?? new JsonObject();
         candidateArgs = await ApplyAutoExtractArgsAsync(ctx, routeInput, argsInput, candidate, resolution.Workflow, candidateArgs, ct);
         var resolvedArgs = WorkflowInputDefaults.Apply(resolution.Workflow.Source, candidateArgs);
-        var result = await childEngine.ExecuteAsync(resolution.Workflow, resolvedArgs, ct);
+        var newCallStack = new HashSet<string>(ctx.CallStack);
+        if (!string.IsNullOrWhiteSpace(resolution.CallStackKey))
+            newCallStack.Add(resolution.CallStackKey);
+        var result = await childEngine.ExecuteChildWorkflowAsync(
+            resolution.Workflow,
+            resolvedArgs,
+            childEngine.Limits,
+            ctx.CallDepth + 1,
+            newCallStack,
+            ctx.TelemetrySpan,
+            ct);
 
         return new RouteExecutionResult(
             Candidate: candidate,

@@ -302,6 +302,59 @@ workflows:
         Assert.Equal(2, humanInput.Requests.Select(static request => request.RunId).Distinct(StringComparer.Ordinal).Count());
     }
 
+    [Fact]
+    public async Task WorkflowRoute_ExecutesSelectedWorkflowUnderRouteTelemetrySpan()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    inputs:
+      prompt: { type: string, required: true }
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          prompt: "${data.inputs.prompt}"
+          candidates:
+            - ref: { kind: local, name: child }
+          selection:
+            mode: single
+            min: 1
+            max: 1
+          combine:
+            strategy: first
+  child:
+    inputs:
+      prompt: { type: string, required: true }
+    steps:
+      - id: render
+        type: template.render
+        input:
+          engine: mustache
+          mode: text
+          template: "{{prompt}}"
+          data:
+            prompt: "${data.inputs.prompt}"
+    outputs:
+      answer:
+        expr: "${data.steps.render.text}"
+        type: string
+""";
+
+        var telemetry = new RecordingTelemetry();
+        var workflow = Compile(yaml);
+        var engine = new WorkflowEngine { Telemetry = telemetry };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject { ["prompt"] = "hello" }, CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var childWorkflow = Assert.Single(telemetry.WorkflowSpans, static span => span.Name == "child");
+        Assert.Equal("route", childWorkflow.ParentName);
+        var childStep = Assert.Single(telemetry.StepSpans, static span => span.Name == "render");
+        Assert.Equal("child", childStep.ParentName);
+    }
+
     private static CompiledWorkflow Compile(string yaml)
     {
         var doc = WorkflowParser.Parse(yaml);
@@ -350,6 +403,44 @@ workflows:
 
             return Task.FromResult<JsonNode?>(new JsonObject { ["response"] = request.Prompt });
         }
+    }
+
+    private sealed class RecordingTelemetry : IWorkflowTelemetry
+    {
+        public List<TestSpan> WorkflowSpans { get; } = new();
+        public List<TestSpan> StepSpans { get; } = new();
+
+        public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info)
+        {
+            var span = new TestSpan(info.WorkflowName, null);
+            WorkflowSpans.Add(span);
+            return span;
+        }
+
+        public IWorkflowSpan WorkflowStart(ITelemetrySpan parentSpan, WorkflowTelemetryInfo info)
+        {
+            var span = new TestSpan(info.WorkflowName, (parentSpan as TestSpan)?.Name);
+            WorkflowSpans.Add(span);
+            return span;
+        }
+
+        public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result) { }
+
+        public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info)
+        {
+            var span = new TestSpan(info.StepId, (parentSpan as TestSpan)?.Name);
+            StepSpans.Add(span);
+            return span;
+        }
+
+        public void StepEnd(IStepSpan span, StepResultInfo result) { }
+    }
+
+    private sealed class TestSpan(string name, string? parentName) : IWorkflowSpan, IStepSpan
+    {
+        public string Name { get; } = name;
+        public string? ParentName { get; } = parentName;
+        public void Dispose() { }
     }
 
     private sealed class ExtractingLlmClient : ILLMClient

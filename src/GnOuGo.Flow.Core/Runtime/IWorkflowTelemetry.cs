@@ -20,6 +20,12 @@ public interface IWorkflowTelemetry
     IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info);
 
     /// <summary>
+    /// Called when a workflow starts under an existing workflow or step span.
+    /// Implementations that can preserve trace hierarchy should use <paramref name="parentSpan"/>.
+    /// </summary>
+    IWorkflowSpan WorkflowStart(ITelemetrySpan parentSpan, WorkflowTelemetryInfo info) => WorkflowStart(info);
+
+    /// <summary>
     /// Called when a workflow finishes (success or failure).
     /// </summary>
     void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result);
@@ -224,8 +230,8 @@ public sealed class NullWorkflowTelemetry : IWorkflowTelemetry
     public static readonly NullWorkflowTelemetry Instance = new();
 
     public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info) => NullTelemetrySpan.Instance;
+    public IWorkflowSpan WorkflowStart(ITelemetrySpan parentSpan, WorkflowTelemetryInfo info) => NullTelemetrySpan.Instance;
     public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result) { }
     public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info) => NullTelemetrySpan.Instance;
     public void StepEnd(IStepSpan span, StepResultInfo result) { }
 }
-

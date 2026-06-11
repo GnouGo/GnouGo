@@ -27,6 +27,15 @@ public sealed class CompositeWorkflowTelemetry : IWorkflowTelemetry
         return new CompositeSpan(s, o);
     }
 
+    public IWorkflowSpan WorkflowStart(ITelemetrySpan parentSpan, WorkflowTelemetryInfo info)
+    {
+        var cs = parentSpan as CompositeSpan;
+        var css = parentSpan as CompositeStepSpan;
+        var s = _streaming.WorkflowStart(cs?.Streaming ?? css?.Streaming ?? parentSpan, info);
+        var o = _otel.WorkflowStart(cs?.OTel ?? css?.OTel ?? parentSpan, info);
+        return new CompositeSpan(s, o);
+    }
+
     public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result)
     {
         if (span is not CompositeSpan cs) return;
@@ -56,6 +65,18 @@ public sealed class CompositeWorkflowTelemetry : IWorkflowTelemetry
     {
         public IWorkflowSpan Streaming { get; } = streaming;
         public IWorkflowSpan OTel      { get; } = otel;
+        public void SetAttribute(string key, object? value)
+        {
+            Streaming.SetAttribute(key, value);
+            OTel.SetAttribute(key, value);
+        }
+
+        public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
+        {
+            Streaming.AddEvent(name, attributes);
+            OTel.AddEvent(name, attributes);
+        }
+
         public void Dispose() { Streaming.Dispose(); OTel.Dispose(); }
     }
 
@@ -79,4 +100,3 @@ public sealed class CompositeWorkflowTelemetry : IWorkflowTelemetry
         public void Dispose() { Streaming.Dispose(); OTel.Dispose(); }
     }
 }
-

@@ -54,33 +54,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         _totalStepsExecuted = 0;
         CompiledDocument = workflow.Document;
 
-        // Load WFScript functions (global + local) and inject into evaluator
-        var scriptFunctions = new Dictionary<string, Func<JsonNode?[], JsonNode?>>();
-        var jint = new JintSandbox();
-
-        // Global functions from document
-        if (workflow.Document?.Source?.Functions != null)
-        {
-            var globalFns = jint.LoadFunctions(workflow.Document.Source.Functions);
-            foreach (var kv in globalFns)
-                scriptFunctions[kv.Key] = kv.Value;
-        }
-
-        // Local functions from workflow (shadow global)
-        if (workflow.Source?.Functions != null)
-        {
-            var localFns = jint.LoadFunctions(workflow.Source.Functions);
-            foreach (var kv in localFns)
-                scriptFunctions[kv.Key] = kv.Value;
-        }
-
-        // Merge with manually registered script functions
-        foreach (var kv in ScriptFunctions)
-            scriptFunctions[kv.Key] = kv.Value;
-
-        // Rebuild evaluator with script functions
-        _evaluator = CreateExpressionEvaluator(scriptFunctions, Limits);
-        _interpolator = new StringInterpolator(_evaluator);
+        PrepareEvaluator(workflow);
 
         var data = new JsonObject
         {
@@ -201,19 +175,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         CompiledDocument = workflow.Document;
         Limits.RunId = runId;
 
-        // Rebuild evaluator (same as ExecuteAsync)
-        var scriptFunctions = new Dictionary<string, Func<JsonNode?[], JsonNode?>>();
-        var jint = new JintSandbox();
-        if (workflow.Document?.Source?.Functions != null)
-            foreach (var kv in jint.LoadFunctions(workflow.Document.Source.Functions))
-                scriptFunctions[kv.Key] = kv.Value;
-        if (workflow.Source?.Functions != null)
-            foreach (var kv in jint.LoadFunctions(workflow.Source.Functions))
-                scriptFunctions[kv.Key] = kv.Value;
-        foreach (var kv in ScriptFunctions)
-            scriptFunctions[kv.Key] = kv.Value;
-        _evaluator = CreateExpressionEvaluator(scriptFunctions, Limits);
-        _interpolator = new StringInterpolator(_evaluator);
+        PrepareEvaluator(workflow);
 
         // Restore data from checkpoint
         var data = new JsonObject
@@ -282,6 +244,122 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             result.Error = new WorkflowError { Code = "INTERNAL_ERROR", Message = ex.Message, Retryable = false };
             checkpoint.Status = "failed";
             await Checkpointer.SaveAsync(checkpoint, ct);
+        }
+        finally
+        {
+            workflowSw.Stop();
+            Telemetry.WorkflowEnd(workflowSpan, new WorkflowResultInfo
+            {
+                Success = result.Success,
+                StepsExecuted = _totalStepsExecuted,
+                Duration = workflowSw.Elapsed,
+                ErrorCode = result.Error?.Code,
+                ErrorMessage = result.Error?.Message
+            });
+            workflowSpan.Dispose();
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Executes a sub-workflow under an existing telemetry span without creating a detached trace.
+    /// Intended for executors that need isolated engine state, such as parallel workflow routing.
+    /// </summary>
+    public async Task<RunResult> ExecuteChildWorkflowAsync(
+        CompiledWorkflow workflow,
+        JsonNode? inputs,
+        ExecutionLimits limits,
+        int callDepth,
+        HashSet<string> callStack,
+        ITelemetrySpan? parentSpan,
+        CancellationToken ct)
+    {
+        _totalStepsExecuted = 0;
+        CompiledDocument = workflow.Document;
+        PrepareEvaluator(workflow);
+
+        var data = new JsonObject
+        {
+            ["inputs"] = inputs?.DeepClone() ?? new JsonObject(),
+            ["steps"] = new JsonObject(),
+            ["env"] = new JsonObject()
+        };
+
+        if (workflow.Source?.Inputs != null && data["inputs"] is JsonObject inputsObj)
+        {
+            var typeErrors = InputTypeValidator.Validate(workflow.Source, inputsObj);
+            if (typeErrors.Count > 0)
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
+                    $"Input validation failed: {string.Join("; ", typeErrors)}");
+        }
+
+        var result = new RunResult { Success = true };
+        var workflowInfo = new WorkflowTelemetryInfo
+        {
+            WorkflowName = workflow.Name,
+            DocumentName = workflow.Document?.Source?.Name,
+            Inputs = inputs?.DeepClone(),
+            SourceText = workflow.Document?.Source?.RawYaml,
+            SourceFormat = "yaml"
+        };
+        var workflowSpan = parentSpan is null
+            ? Telemetry.WorkflowStart(workflowInfo)
+            : Telemetry.WorkflowStart(parentSpan, workflowInfo);
+
+        var workflowSw = Stopwatch.StartNew();
+        Logger.LogInformation("Child workflow '{WorkflowName}' starting (document: {DocumentName})",
+            workflow.Name, workflow.Document?.Source?.Name ?? "(inline)");
+
+        try
+        {
+            await ExecuteStepsAsync(workflow.Steps, data, result, limits, callDepth, callStack, ct, workflowSpan);
+
+            if (workflow.Outputs != null)
+            {
+                var outputObj = new JsonObject();
+                foreach (var kv in workflow.Outputs)
+                    outputObj[kv.Key] = EvaluateOutputDef(kv.Value, data);
+                result.Outputs = outputObj;
+            }
+            else
+            {
+                result.Outputs = data["steps"]?.DeepClone();
+            }
+
+            Logger.LogInformation("Child workflow '{WorkflowName}' completed successfully in {DurationMs:F1}ms ({StepsExecuted} steps)",
+                workflow.Name, workflowSw.Elapsed.TotalMilliseconds, _totalStepsExecuted);
+        }
+        catch (WorkflowRuntimeException ex)
+        {
+            result.Success = false;
+            result.Error = ex.ToWorkflowError();
+            Logger.LogError(ex, "Child workflow '{WorkflowName}' failed: [{ErrorCode}] {ErrorMessage}",
+                workflow.Name, ex.Code, ex.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            result.Success = false;
+            result.Error = new WorkflowError
+            {
+                Code = "CANCELLED",
+                Message = "Workflow execution cancelled",
+                Retryable = true
+            };
+            Logger.LogWarning("Child workflow '{WorkflowName}' was cancelled after {DurationMs:F1}ms",
+                workflow.Name, workflowSw.Elapsed.TotalMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Error = new WorkflowError
+            {
+                Code = "INTERNAL_ERROR",
+                Message = ex.Message,
+                Retryable = false
+            };
+            Logger.LogError(ex, "Child workflow '{WorkflowName}' internal error: {ErrorMessage}",
+                workflow.Name, ex.Message);
         }
         finally
         {
@@ -655,6 +733,32 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public ExpressionEvaluator Evaluator => _evaluator;
     public StringInterpolator Interpolator => _interpolator;
     public StepExecutorRegistry Registry => _registry;
+
+    private void PrepareEvaluator(CompiledWorkflow workflow)
+    {
+        var scriptFunctions = new Dictionary<string, Func<JsonNode?[], JsonNode?>>();
+        var jint = new JintSandbox();
+
+        if (workflow.Document?.Source?.Functions != null)
+        {
+            var globalFns = jint.LoadFunctions(workflow.Document.Source.Functions);
+            foreach (var kv in globalFns)
+                scriptFunctions[kv.Key] = kv.Value;
+        }
+
+        if (workflow.Source?.Functions != null)
+        {
+            var localFns = jint.LoadFunctions(workflow.Source.Functions);
+            foreach (var kv in localFns)
+                scriptFunctions[kv.Key] = kv.Value;
+        }
+
+        foreach (var kv in ScriptFunctions)
+            scriptFunctions[kv.Key] = kv.Value;
+
+        _evaluator = CreateExpressionEvaluator(scriptFunctions, Limits);
+        _interpolator = new StringInterpolator(_evaluator);
+    }
 
     private static ExpressionEvaluator CreateExpressionEvaluator(
         Dictionary<string, Func<JsonNode?[], JsonNode?>> scriptFunctions,

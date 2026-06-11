@@ -18,6 +18,8 @@ public sealed class AgentStreamingTelemetry : IWorkflowTelemetry
 
     public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info) => new NoOpSpan();
 
+    public IWorkflowSpan WorkflowStart(ITelemetrySpan parentSpan, WorkflowTelemetryInfo info) => new NoOpSpan();
+
     public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result) { }
 
     public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info) =>
@@ -98,4 +100,3 @@ public sealed class AgentStreamingTelemetry : IWorkflowTelemetry
         public void Dispose() { }
     }
 }
-
