@@ -90,6 +90,94 @@ public sealed class AnthropicLlmProviderTests
     }
 
     [Fact]
+    public async Task CallAsync_UsesForcedToolForStructuredOutputAndParsesToolInput()
+    {
+        string? capturedBody = null;
+        var handler = new StubHttpMessageHandler(async req =>
+        {
+            capturedBody = req.Content == null ? null : await req.Content.ReadAsStringAsync();
+
+            return JsonResponse("""
+            {
+              "id": "msg_123",
+              "type": "message",
+              "role": "assistant",
+              "model": "claude-sonnet-4-20250514",
+              "content": [
+                {
+                  "type": "tool_use",
+                  "id": "toolu_json",
+                  "name": "gnougo_structured_output",
+                  "input": {
+                    "servers": [
+                      { "name": "github", "reason": "Repository tools are relevant." }
+                    ]
+                  }
+                }
+              ],
+              "stop_reason": "tool_use",
+              "usage": { "input_tokens": 20, "output_tokens": 9 }
+            }
+            """);
+        });
+
+        using var http = new HttpClient(handler);
+        var provider = new AnthropicLLMProvider(http);
+
+        var response = await provider.CallAsync(
+            "claude-sonnet-4-20250514",
+            new ModelProviderOptions { Url = "https://api.anthropic.test/v1", ApiKey = "sk-ant", Type = "anthropic" },
+            new LLMClientRequest
+            {
+                Prompt = "Select relevant servers.",
+                Reasoning = "medium",
+                StructuredOutputStrict = true,
+                StructuredOutputSchema = JsonNode.Parse("""
+                {
+                  "type": "object",
+                  "properties": {
+                    "servers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "reason": { "type": "string" }
+                        },
+                        "required": ["name", "reason"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["servers"],
+                  "additionalProperties": false
+                }
+                """)
+            },
+            CancellationToken.None);
+
+        using var posted = JsonDocument.Parse(capturedBody!);
+        var root = posted.RootElement;
+        Assert.False(root.TryGetProperty("thinking", out _));
+        Assert.DoesNotContain("Return only valid JSON", root.GetProperty("messages")[0].GetProperty("content").GetString());
+
+        var tool = root.GetProperty("tools")[0];
+        Assert.Equal("gnougo_structured_output", tool.GetProperty("name").GetString());
+        Assert.Equal("object", tool.GetProperty("input_schema").GetProperty("type").GetString());
+        Assert.True(tool.GetProperty("strict").GetBoolean());
+
+        var toolChoice = root.GetProperty("tool_choice");
+        Assert.Equal("tool", toolChoice.GetProperty("type").GetString());
+        Assert.Equal("gnougo_structured_output", toolChoice.GetProperty("name").GetString());
+
+        Assert.NotNull(response.Json);
+        var server = response.Json!["servers"]!.AsArray()[0]!.AsObject();
+        Assert.Equal("github", server["name"]!.GetValue<string>());
+        Assert.NotNull(response.ToolCalls);
+        Assert.Equal("gnougo_structured_output", Assert.Single(response.ToolCalls!).Name);
+    }
+
+    [Fact]
     public async Task ListModelsAsync_ParsesAnthropicModelCatalog()
     {
         var handler = new StubHttpMessageHandler(req =>
@@ -150,6 +238,5 @@ public sealed class AnthropicLlmProviderTests
             => _handler(request);
     }
 }
-
 
 

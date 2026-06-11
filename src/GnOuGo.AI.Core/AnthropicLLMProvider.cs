@@ -15,6 +15,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 {
 	public const string DefaultEndpoint = "https://api.anthropic.com/v1";
 	private const string AnthropicVersion = "2023-06-01";
+	private const string StructuredOutputToolName = "gnougo_structured_output";
 
 	private static readonly TimeSpan BackgroundInitialPollDelay = TimeSpan.FromSeconds(2);
 	private static readonly TimeSpan BackgroundMaxPollDelay = TimeSpan.FromSeconds(15);
@@ -53,8 +54,16 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 	{
 		var url = BuildMessagesUrl(provider.Url);
 		var auth = await ResolveAuthAsync(provider, ct);
-		var prompt = BuildPrompt(request.Prompt, request.StructuredOutputSchema);
-		byte[] payload = BuildMessagesPayload(model, prompt, request.Temperature, request.Tools, request.Reasoning, request.MaxOutputTokens);
+		var prompt = BuildPrompt(request.Prompt, request.StructuredOutputSchema, useStructuredOutputTool: true);
+		byte[] payload = BuildMessagesPayload(
+			model,
+			prompt,
+			request.Temperature,
+			request.Tools,
+			request.Reasoning,
+			request.MaxOutputTokens,
+			request.StructuredOutputSchema,
+			request.StructuredOutputStrict);
 
 		using var req = HttpRequestHelper.CreateJsonPost(url, payload);
 		ApplyHeaders(req, auth);
@@ -79,9 +88,17 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 	{
 		var batchUrl = BuildBatchesUrl(provider.Url);
 		var auth = await ResolveAuthAsync(provider, ct);
-		var prompt = BuildPrompt(request.Prompt, request.StructuredOutputSchema);
+		var prompt = BuildPrompt(request.Prompt, request.StructuredOutputSchema, useStructuredOutputTool: true);
 
-		byte[] payload = BuildBatchPayload(model, prompt, request.Temperature, request.Tools, request.Reasoning, request.MaxOutputTokens);
+		byte[] payload = BuildBatchPayload(
+			model,
+			prompt,
+			request.Temperature,
+			request.Tools,
+			request.Reasoning,
+			request.MaxOutputTokens,
+			request.StructuredOutputSchema,
+			request.StructuredOutputStrict);
 
 		using var createReq = HttpRequestHelper.CreateJsonPost(batchUrl, payload);
 		ApplyHeaders(createReq, auth);
@@ -208,12 +225,16 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		var toolCalls = ParseToolCalls(root);
 
 		JsonNode? jsonOutput = null;
-		if (request.StructuredOutputSchema != null && !string.IsNullOrWhiteSpace(content))
+		if (request.StructuredOutputSchema != null)
 		{
-			try { jsonOutput = JsonNode.Parse(content); }
-			catch (JsonException ex)
+			jsonOutput = ExtractStructuredOutputToolResult(toolCalls);
+			if (jsonOutput == null && !string.IsNullOrWhiteSpace(content))
 			{
-				_logger.LogDebug(ex, "Anthropic structured output was not valid JSON for model '{Model}'.", model);
+				try { jsonOutput = JsonNode.Parse(StripMarkdownFences(content)); }
+				catch (JsonException ex)
+				{
+					_logger.LogDebug(ex, "Anthropic structured output was not valid JSON for model '{Model}'.", model);
+				}
 			}
 		}
 
@@ -257,10 +278,13 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		double? temperature = null,
 		IReadOnlyList<LLMToolDef>? tools = null,
 		string? reasoning = null,
-		int? maxOutputTokens = null)
+		int? maxOutputTokens = null,
+		JsonNode? structuredOutputSchema = null,
+		bool? structuredOutputStrict = null)
 	{
 		const int DefaultMaxTokens = 16384;
-		var thinkingBudget = NormalizeThinkingBudget(reasoning);
+		var forceStructuredOutputTool = structuredOutputSchema != null;
+		var thinkingBudget = forceStructuredOutputTool ? null : NormalizeThinkingBudget(reasoning);
 		var maxTokens = maxOutputTokens
 			?? (thinkingBudget.HasValue ? Math.Max(DefaultMaxTokens, thinkingBudget.Value + 1024) : DefaultMaxTokens);
 
@@ -289,20 +313,23 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			w.WriteEndObject();
 			w.WriteEndArray();
 
-			if (tools is { Count: > 0 })
+			if (tools is { Count: > 0 } || forceStructuredOutputTool)
 			{
 				w.WriteStartArray("tools");
-				foreach (var tool in tools)
-				{
-					w.WriteStartObject();
-					w.WriteString("name", tool.Name);
-					if (!string.IsNullOrWhiteSpace(tool.Description))
-						w.WriteString("description", tool.Description);
-					w.WritePropertyName("input_schema");
-					(tool.InputSchema ?? new JsonObject { ["type"] = "object" }).WriteTo(w);
-					w.WriteEndObject();
-				}
+				if (!forceStructuredOutputTool && tools != null)
+					foreach (var tool in tools)
+						WriteTool(w, tool);
+				if (forceStructuredOutputTool)
+					WriteStructuredOutputTool(w, structuredOutputSchema!, structuredOutputStrict);
 				w.WriteEndArray();
+			}
+
+			if (forceStructuredOutputTool)
+			{
+				w.WriteStartObject("tool_choice");
+				w.WriteString("type", "tool");
+				w.WriteString("name", StructuredOutputToolName);
+				w.WriteEndObject();
 			}
 
 			w.WriteEndObject();
@@ -371,10 +398,13 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		double? temperature = null,
 		IReadOnlyList<LLMToolDef>? tools = null,
 		string? reasoning = null,
-		int? maxOutputTokens = null)
+		int? maxOutputTokens = null,
+		JsonNode? structuredOutputSchema = null,
+		bool? structuredOutputStrict = null)
 	{
 		const int DefaultMaxTokens = 16384;
-		var thinkingBudget = NormalizeThinkingBudget(reasoning);
+		var forceStructuredOutputTool = structuredOutputSchema != null;
+		var thinkingBudget = forceStructuredOutputTool ? null : NormalizeThinkingBudget(reasoning);
 		var maxTokens = maxOutputTokens
 			?? (thinkingBudget.HasValue ? Math.Max(DefaultMaxTokens, thinkingBudget.Value + 1024) : DefaultMaxTokens);
 
@@ -411,20 +441,23 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			w.WriteEndObject();
 			w.WriteEndArray();
 
-			if (tools is { Count: > 0 })
+			if (tools is { Count: > 0 } || forceStructuredOutputTool)
 			{
 				w.WriteStartArray("tools");
-				foreach (var tool in tools)
-				{
-					w.WriteStartObject();
-					w.WriteString("name", tool.Name);
-					if (!string.IsNullOrWhiteSpace(tool.Description))
-						w.WriteString("description", tool.Description);
-					w.WritePropertyName("input_schema");
-					(tool.InputSchema ?? new JsonObject { ["type"] = "object" }).WriteTo(w);
-					w.WriteEndObject();
-				}
+				if (!forceStructuredOutputTool && tools != null)
+					foreach (var tool in tools)
+						WriteTool(w, tool);
+				if (forceStructuredOutputTool)
+					WriteStructuredOutputTool(w, structuredOutputSchema!, structuredOutputStrict);
 				w.WriteEndArray();
+			}
+
+			if (forceStructuredOutputTool)
+			{
+				w.WriteStartObject("tool_choice");
+				w.WriteString("type", "tool");
+				w.WriteString("name", StructuredOutputToolName);
+				w.WriteEndObject();
 			}
 
 			w.WriteEndObject(); // end params
@@ -500,6 +533,44 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		return results.Count == 0 ? null : results;
 	}
 
+	private static JsonNode? ExtractStructuredOutputToolResult(IReadOnlyList<ToolCallResult>? toolCalls)
+	{
+		if (toolCalls == null)
+			return null;
+
+		foreach (var toolCall in toolCalls)
+		{
+			if (string.Equals(toolCall.Name, StructuredOutputToolName, StringComparison.Ordinal)
+				&& toolCall.Arguments != null)
+				return toolCall.Arguments.DeepClone();
+		}
+
+		return null;
+	}
+
+	private static void WriteTool(Utf8JsonWriter w, LLMToolDef tool)
+	{
+		w.WriteStartObject();
+		w.WriteString("name", tool.Name);
+		if (!string.IsNullOrWhiteSpace(tool.Description))
+			w.WriteString("description", tool.Description);
+		w.WritePropertyName("input_schema");
+		(tool.InputSchema ?? new JsonObject { ["type"] = "object" }).WriteTo(w);
+		w.WriteEndObject();
+	}
+
+	private static void WriteStructuredOutputTool(Utf8JsonWriter w, JsonNode structuredOutputSchema, bool? structuredOutputStrict)
+	{
+		w.WriteStartObject();
+		w.WriteString("name", StructuredOutputToolName);
+		w.WriteString("description", "Return the complete response as structured JSON matching the requested schema.");
+		w.WritePropertyName("input_schema");
+		structuredOutputSchema.WriteTo(w);
+		if (structuredOutputStrict == true)
+			w.WriteBoolean("strict", true);
+		w.WriteEndObject();
+	}
+
 	internal static JsonObject? ExtractUsage(JsonElement root)
 		=> root.TryGetProperty("usage", out var usage) ? JsonNode.Parse(usage.GetRawText()) as JsonObject : null;
 
@@ -569,9 +640,9 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", auth.BearerToken);
 	}
 
-	private static string BuildPrompt(string prompt, JsonNode? structuredOutputSchema)
+	private static string BuildPrompt(string prompt, JsonNode? structuredOutputSchema, bool useStructuredOutputTool)
 	{
-		if (structuredOutputSchema == null)
+		if (structuredOutputSchema == null || useStructuredOutputTool)
 			return prompt;
 
 		return $"""
@@ -581,6 +652,22 @@ Return only valid JSON matching this JSON Schema. Do not wrap it in Markdown fen
 Schema:
 {structuredOutputSchema.ToJsonString()}
 """;
+	}
+
+	private static string StripMarkdownFences(string text)
+	{
+		var trimmed = text.Trim();
+		if (!trimmed.StartsWith("```", StringComparison.Ordinal))
+			return trimmed;
+
+		var firstNewline = trimmed.IndexOf('\n');
+		if (firstNewline >= 0)
+			trimmed = trimmed[(firstNewline + 1)..];
+
+		if (trimmed.EndsWith("```", StringComparison.Ordinal))
+			trimmed = trimmed[..^3].TrimEnd();
+
+		return trimmed.Trim();
 	}
 
 	private static bool HasOidcConfiguration(ModelProviderOptions provider)
@@ -612,6 +699,3 @@ Schema:
 
 	private sealed record AnthropicAuth(string? ApiKey, string? BearerToken);
 }
-
-
-

@@ -14,6 +14,7 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 | `OpenAi`    | `openai`  | OpenAI, Azure OpenAI, or any compatible endpoint |
 | `Ollama`    | `ollama`  | Local Ollama server                              |
 | `Copilot`   | `copilot` | GitHub Copilot / GitHub Models API               |
+| `Anthropic` | `anthropic` | Anthropic Claude Messages API                  |
 
 ## Model Catalog Behavior
 
@@ -41,7 +42,8 @@ embedded catalog < LLM.ModelMetadataFiles < LLM.ModelOverrides < provider/model 
 ILLMProvider  (interface — one per backend)
   ├── OpenAiLLMProvider
   ├── OllamaLLMProvider
-  └── CopilotLLMProvider
+  ├── CopilotLLMProvider
+  └── AnthropicLLMProvider
 
 RoutingLLMClient  (routes requests to the right ILLMProvider based on config)
 ```
@@ -164,7 +166,7 @@ The Anthropic provider connects to the Anthropic Messages API. Configure it with
 3. `CLAUDE_API_KEY` environment variable
 4. OIDC client credentials, sent as a bearer token when `Issuer`, `ClientId`, and `Scopes` are configured with either `ClientSecret` or `PrivateKeyPem`
 
-Anthropic supports text responses, tool use (`tool_use` blocks), live model discovery via `/v1/models`, and best-effort structured JSON output by appending a strict JSON instruction to the prompt.
+Anthropic supports text responses, tool use (`tool_use` blocks), live model discovery via `/v1/models`, and structured JSON output. When `StructuredOutputSchema` is provided, GnOuGo sends a synthetic `gnougo_structured_output` client tool with the schema as `input_schema` and forces it through `tool_choice`, then maps the returned `tool_use.input` to `LLMClientResponse.Json`. Because Anthropic forced tool use is incompatible with extended thinking, the provider omits `thinking` for these structured-output calls.
 
 ## Reasoning / Thinking effort
 
