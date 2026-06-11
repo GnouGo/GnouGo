@@ -58,6 +58,12 @@ public sealed class GitTools
         [Description("Whether to checkout the new branch immediately.")] bool checkout = false)
         => Execute(() => _gitRepositoryService.CreateBranch(projectRoot, branchName, startPoint, checkout));
 
+    [McpServerTool(Name = "git_delete_branch"), Description("Deletes a local Git branch, equivalent to git branch -D <branch>. Requires Git:AllowMutations=true. Omit projectRoot to use the default workspace.")]
+    public object GitDeleteBranch(
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
+        [Description("Name of the local branch to delete.")] string branchName)
+        => Execute(() => _gitRepositoryService.DeleteBranch(projectRoot, branchName));
+
     [McpServerTool(Name = "git_checkout"), Description("Checks out an existing branch/commit, or creates a branch from a start point. Requires Git:AllowMutations=true. Omit projectRoot to use the default workspace.")]
     public object GitCheckout(
         [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
@@ -134,6 +140,13 @@ public sealed class GitTools
         [Description("Whether to configure upstream after push.")] bool setUpstream = true)
         => Execute(() => _gitRepositoryService.Push(projectRoot, remoteName, branchName, setUpstream));
 
+    [McpServerTool(Name = "git_delete_remote_branch"), Description("Deletes a branch on a remote, equivalent to git push <remote> --delete <branch>. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true. Omit projectRoot to use the default workspace.")]
+    public object GitDeleteRemoteBranch(
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
+        [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName,
+        [Description("Name of the remote branch to delete.")] string branchName)
+        => Execute(() => _gitRepositoryService.DeleteRemoteBranch(projectRoot, remoteName, branchName));
+
     private object Execute<T>(Func<T> action)
     {
         try
@@ -199,6 +212,5 @@ internal static class GitMcpJson
 [JsonSerializable(typeof(GitMergeResult))]
 [JsonSerializable(typeof(GitPushResult))]
 internal sealed partial class GitMcpJsonContext : JsonSerializerContext;
-
 
 

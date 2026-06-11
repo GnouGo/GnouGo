@@ -130,6 +130,22 @@ public sealed class GitRepositoryService
         return new GitOperationResult(repositoryRoot, "create_branch", message, true, BuildOperationOutput("create_branch", message, repositoryRoot));
     }
 
+    public GitOperationResult DeleteBranch(string? projectRoot, string branchName)
+    {
+        _policy.EnsureGitMutationsAllowed("delete_branch");
+        EnsureSafeBranchName(branchName);
+        using var repository = OpenRepository(projectRoot, out var repositoryRoot);
+        var branch = repository.Branches[branchName] ?? throw new InvalidOperationException($"Branch '{branchName}' was not found.");
+        if (branch.IsRemote)
+            throw new InvalidOperationException("Use git_delete_remote_branch to delete a branch from a remote.");
+        if (branch.IsCurrentRepositoryHead)
+            throw new InvalidOperationException("Cannot delete the currently checked-out branch.");
+
+        repository.Branches.Remove(branch);
+        var message = $"Deleted local branch '{branch.FriendlyName}'.";
+        return new GitOperationResult(repositoryRoot, "delete_branch", message, true, BuildOperationOutput("delete_branch", message, repositoryRoot));
+    }
+
     public GitOperationResult Checkout(string? projectRoot, string branchOrCommit, bool createBranch = false, string? newBranchName = null)
     {
         _policy.EnsureGitMutationsAllowed("checkout");
@@ -351,6 +367,23 @@ public sealed class GitRepositoryService
         return new GitPushResult(repositoryRoot, remote.Name, branch.FriendlyName, setUpstream, message, BuildOperationOutput("push", message, repositoryRoot));
     }
 
+    public GitOperationResult DeleteRemoteBranch(string? projectRoot, string? remoteName, string branchName)
+    {
+        _policy.EnsureGitNetworkAllowed("delete_remote_branch");
+        _policy.EnsureGitMutationsAllowed("delete_remote_branch");
+        EnsureSafeBranchName(branchName);
+        using var repository = OpenRepository(projectRoot, out var repositoryRoot);
+        var remote = ResolveRemote(repository, remoteName);
+
+        var options = new PushOptions();
+        ApplyCredentials(options);
+        var remoteRef = $"refs/heads/{branchName}";
+        repository.Network.Push(remote, $":{remoteRef}", options);
+
+        var message = $"Deleted remote branch '{branchName}' from '{remote.Name}'.";
+        return new GitOperationResult(repositoryRoot, "delete_remote_branch", message, true, BuildOperationOutput("delete_remote_branch", message, repositoryRoot));
+    }
+
     private static string BuildOperationOutput(string operation, string message, string repositoryRoot)
         => $"Git operation '{operation}' completed successfully.\nRepository: {repositoryRoot}\n{message}";
 
@@ -483,5 +516,4 @@ public sealed class GitRepositoryService
             .OrderBy(static conflict => conflict.Path, StringComparer.OrdinalIgnoreCase)
             .ToArray() ?? [];
 }
-
 

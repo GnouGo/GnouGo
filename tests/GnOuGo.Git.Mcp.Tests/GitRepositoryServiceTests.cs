@@ -106,6 +106,68 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void DeleteBranch_RemovesLocalBranch()
+    {
+        var service = CreateService();
+        WriteCommit(service, "README.md", "base\n", "base");
+        service.CreateBranch(_root, "feature/delete-me", checkout: true);
+        WriteCommit(service, "feature.txt", "unmerged\n", "unmerged feature");
+        service.Checkout(_root, "master");
+
+        var result = service.DeleteBranch(_root, "feature/delete-me");
+
+        Assert.True(result.Success);
+        Assert.Contains("Deleted local branch", result.Output, StringComparison.OrdinalIgnoreCase);
+
+        using var repository = new Repository(_root);
+        Assert.Null(repository.Branches["feature/delete-me"]);
+    }
+
+    [Fact]
+    public void DeleteBranch_RejectsCurrentBranch()
+    {
+        var service = CreateService();
+        WriteCommit(service, "README.md", "base\n", "base");
+        service.CreateBranch(_root, "feature/current", checkout: true);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => service.DeleteBranch(_root, "feature/current"));
+
+        Assert.Contains("currently checked-out", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DeleteRemoteBranch_RemovesBranchFromRemote()
+    {
+        var remoteRoot = Path.Combine(_root, "remote.git");
+        Repository.Init(remoteRoot, isBare: true);
+        var service = CreateService(allowNetwork: true);
+        WriteCommit(service, "README.md", "base\n", "base");
+        service.CreateBranch(_root, "feature/remote-delete");
+
+        using (var repository = new Repository(_root))
+        {
+            repository.Network.Remotes.Add("origin", remoteRoot);
+        }
+
+        service.Push(_root, "origin", "feature/remote-delete", setUpstream: false);
+
+        using (var remoteRepository = new Repository(remoteRoot))
+        {
+            Assert.NotNull(remoteRepository.Branches["feature/remote-delete"]);
+        }
+
+        var result = service.DeleteRemoteBranch(_root, "origin", "feature/remote-delete");
+
+        Assert.True(result.Success);
+        Assert.Contains("Deleted remote branch", result.Output, StringComparison.OrdinalIgnoreCase);
+
+        using (var remoteRepository = new Repository(remoteRoot))
+        {
+            Assert.Null(remoteRepository.Branches["feature/remote-delete"]);
+        }
+    }
+
+    [Fact]
     public void Stage_AllowsRelativeFileNamesContainingDoubleDotsWithoutTraversal()
     {
         File.WriteAllText(Path.Combine(_root, "a..b.txt"), "hello\n");
@@ -193,4 +255,3 @@ public sealed class GitRepositoryServiceTests : IDisposable
         return full;
     }
 }
-
