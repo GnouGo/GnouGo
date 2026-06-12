@@ -308,6 +308,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
                 new KeyValuePair<string, object?>("gen_ai.system", provider ?? "openai"),
                 new KeyValuePair<string, object?>("gen_ai.request.model", model),
+                new KeyValuePair<string, object?>("gen_ai.request.background", true),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.background_requested", true),
                 new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1)
             }))
             {
@@ -322,6 +324,14 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
 
                 try
                 {
+                    ctx.Engine.Logger.LogInformation(
+                        "workflow.plan generation request uses background mode. Provider={Provider}; Model={Model}; Attempt={Attempt}/{MaxAttempts}; Reasoning={Reasoning}",
+                        provider ?? "default",
+                        model,
+                        attempt + 1,
+                        maxAttempts,
+                        planReasoning ?? "(provider default)");
+
                     response = await llmClient.CallAsync(new LLMRequest
                     {
                         Provider = provider,

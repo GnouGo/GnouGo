@@ -289,13 +289,12 @@ workflows:
             input:
               generator:
                 prefilter: true
-                reasoning: low
+                reasoning: high
                 instruction: >
                   Generate a valid GnOuGo.Flow YAML workflow for a persisted chat agent.
 
                   Agent name: ${data.steps.normalized_name.agent_name}
                   Agent description: ${data.steps.input_prompt.description}
-
 
                   Requirements:
                   - Use workflow version 1.
