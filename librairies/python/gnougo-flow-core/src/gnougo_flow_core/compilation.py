@@ -63,6 +63,14 @@ class WorkflowValidator:
             errors.append(ValidationError(code="DSL_VERSION", message=f"Unsupported workflow version: {doc.version}"))
         if not doc.workflows:
             errors.append(ValidationError(code="NO_WORKFLOWS", message="Document must have at least one workflow"))
+        if doc.skill is None:
+            errors.append(
+                ValidationError(
+                    code=ErrorCodes.SKILL_REQUIRED,
+                    message="Document must define a top-level 'skill' block.",
+                    field="skill",
+                )
+            )
         if doc.entrypoint and doc.entrypoint not in doc.workflows:
             errors.append(ValidationError(code="INVALID_ENTRYPOINT", message=f"Entrypoint '{doc.entrypoint}' not found in workflows"))
         if doc.exports:

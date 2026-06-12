@@ -26,6 +26,7 @@ class ErrorCodes:
     PARALLEL_LIMIT = "PARALLEL_LIMIT"
     SCRIPT_ERROR = "SCRIPT_ERROR"
     STEP_TYPE_UNKNOWN = "STEP_TYPE_UNKNOWN"
+    SKILL_REQUIRED = "SKILL_REQUIRED"
     MCP_CONNECTION_ERROR = "MCP_CONNECTION_ERROR"
     MCP_CALL_ERROR = "MCP_CALL_ERROR"
     MCP_LIST_ERROR = "MCP_LIST_ERROR"
@@ -64,4 +65,3 @@ class WorkflowParseException(Exception):
 
 class ExpressionParseException(Exception):
     pass
-

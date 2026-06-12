@@ -8,9 +8,27 @@ from gnougo_flow_core.runtime import WorkflowEngine
 from gnougo_flow_core.runtime_steps import SequenceExecutor
 
 
+def ensure_generated_skill(yaml_text: str) -> str:
+    try:
+        parsed = yaml.safe_load(yaml_text)
+    except Exception:
+        return yaml_text
+
+    if not isinstance(parsed, dict) or isinstance(parsed.get("skill"), dict):
+        return yaml_text
+
+    parsed["skill"] = {
+        "description": "Generated workflow.",
+        "tags": ["generated"],
+        "inputs": {},
+        "outputs": {},
+    }
+    return yaml.safe_dump(parsed, sort_keys=False, allow_unicode=False)
+
+
 class CapturePlanLlm:
     def __init__(self, yaml_text: str) -> None:
-        self.yaml_text = yaml_text
+        self.yaml_text = ensure_generated_skill(yaml_text)
         self.prompts: list[str] = []
 
     async def call_async(self, request):
@@ -20,7 +38,7 @@ class CapturePlanLlm:
 
 class SequencePlanLlm:
     def __init__(self, responses: list[str]) -> None:
-        self.responses = responses
+        self.responses = [ensure_generated_skill(response) for response in responses]
         self.prompts: list[str] = []
 
     async def call_async(self, request):
@@ -130,6 +148,8 @@ async def test_workflow_plan_prompt_contains_dotnet_like_sections() -> None:
     assert "Function arguments are evaluated before the function runs" in prompt
     assert "coalesce(data.steps.branch_a.value, data.steps.branch_b.value)" in prompt
     assert "produced only inside `switch` cases" in prompt
+    assert "version, name, skill, workflows" in prompt
+    assert "- skill: required object" in prompt
 
 
 @pytest.mark.asyncio

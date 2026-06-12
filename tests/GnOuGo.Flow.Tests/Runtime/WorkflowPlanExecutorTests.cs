@@ -166,6 +166,7 @@ workflows:
         var reference = GnOuGo.Flow.Core.Runtime.Executors.DslReference.CommonReference;
         Assert.Contains("skill:", reference);
         Assert.Contains("Skill metadata", reference);
+        Assert.Contains("MUST include a top-level `skill` block", reference);
         Assert.Contains("auto-extract", reference);
     }
 
@@ -222,6 +223,8 @@ workflows:
         Assert.Contains("Function arguments are evaluated before the function runs", capturedPrompt);
         Assert.Contains("coalesce(data.steps.branch_a.value, data.steps.branch_b.value)", capturedPrompt);
         Assert.Contains("produced only inside `switch` cases", capturedPrompt);
+        Assert.Contains("version, name, skill, workflows", capturedPrompt);
+        Assert.Contains("- skill: required object", capturedPrompt);
         // Should contain built-in functions doc
         Assert.Contains("exists(val)", capturedPrompt);
         Assert.Contains("len(val)", capturedPrompt);
@@ -336,6 +339,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated token budget workflow.
+                         tags: [tokens]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -449,13 +457,13 @@ workflows:
                 {
                     return new LLMResponse
                     {
-                        Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: definitely.not.a.step\n"
+                        Text = "version: 1\nskill:\n  description: Generated workflow.\n  tags: [generated]\n  inputs: {}\n  outputs: {}\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: definitely.not.a.step\n"
                     };
                 }
 
                 return new LLMResponse
                 {
-                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                    Text = "version: 1\nskill:\n  description: Generated workflow.\n  tags: [generated]\n  inputs: {}\n  outputs: {}\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
                 };
             });
 
@@ -494,6 +502,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated docs workflow.
+                         tags: [docs]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -556,6 +569,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated token budget workflow.
+                         tags: [tokens]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -623,6 +641,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated token budget workflow.
+                         tags: [tokens]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -682,6 +705,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated GitHub pull request workflow.
+                         tags: [github, pull-requests]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -769,6 +797,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated token budget workflow.
+                         tags: [tokens]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -823,6 +856,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated GitHub pull request workflow.
+                         tags: [github, pull-requests]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -882,6 +920,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated GitHub pull request workflow.
+                         tags: [github, pull-requests]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -1087,6 +1130,11 @@ workflows:
                     {
                         Text = """
                                version: 1
+                               skill:
+                                 description: Generated docs workflow.
+                                 tags: [docs]
+                                 inputs: {}
+                                 outputs: {}
                                workflows:
                                  main:
                                    steps:
@@ -1126,6 +1174,11 @@ workflows:
                 {
                     Text = """
                            version: 1
+                           skill:
+                             description: Generated docs workflow.
+                             tags: [docs]
+                             inputs: {}
+                             outputs: {}
                            workflows:
                              main:
                                steps:
@@ -1228,6 +1281,11 @@ workflows:
                 {
                     Text = """
                            version: 1
+                           skill:
+                             description: Generated docs workflow.
+                             tags: [docs]
+                             inputs: {}
+                             outputs: {}
                            workflows:
                              main:
                                steps:

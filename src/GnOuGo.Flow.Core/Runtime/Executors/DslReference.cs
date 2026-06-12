@@ -43,7 +43,7 @@ workflows:
 ```
 
 ## Skill metadata
-Generated workflow documents SHOULD include a top-level `skill` block. Routers use it to select the right workflow and to auto-extract structured inputs from natural-language prompts.
+Workflow documents MUST include a top-level `skill` block. Routers use it to select the right workflow and to auto-extract structured inputs from natural-language prompts.
 
 `skill.description` must describe when the workflow should be used. `skill.tags` should contain concise routing terms. `skill.inputs` should document every user-facing parameter that can be extracted from prompt/history. `skill.outputs` should document the final contract.
 

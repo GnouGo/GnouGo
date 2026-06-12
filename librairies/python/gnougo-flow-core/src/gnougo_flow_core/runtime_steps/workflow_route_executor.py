@@ -329,13 +329,16 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
         config = self._parse_auto_extract_config(args_input)
         if not config.enabled:
             return args
-        if not workflow.source.inputs:
+
+        schema = copy.deepcopy(candidate.inputs) if candidate.inputs is not None else None
+        if schema is None and workflow.source.inputs:
+            schema = inputs_to_json_schema(workflow.source.inputs)
+        if schema is None:
             return args
         if ctx.engine.llm_client is None:
             raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, "workflow.route args.auto_extract requires an LLM client")
 
         provider, model = ctx.engine.resolve_llm_target(config.provider, config.model)
-        schema = inputs_to_json_schema(workflow.source.inputs)
         response = await ctx.engine.call_llm_async(
             LLMRequest(
                 provider=provider,

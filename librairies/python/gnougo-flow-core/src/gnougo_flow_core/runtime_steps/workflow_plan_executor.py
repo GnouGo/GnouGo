@@ -226,7 +226,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 structured_error,
                 "",
                 "[MINIMUM DSL CONTEXT]",
-                "Required root: version, name, workflows. Each workflow has steps: [] and optional outputs.",
+                "Required root: version, name, skill, workflows. `skill` is a top-level object with description, tags, inputs, and outputs. Each workflow has steps: [] and optional outputs.",
                 "Each step requires step-level id and type. Common fields stay at step level: if, input, output, retry, on_error, steps, branches, cases, default.",
                 "Executor-specific arguments go inside input only.",
                 "Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.",
@@ -346,6 +346,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             error_code = "MISSING_ROOT_KEY_VERSION"
         elif "missing required field 'name'" in lower:
             error_code = "MISSING_ROOT_KEY_NAME"
+        elif "skill_required" in lower or "top-level 'skill'" in lower:
+            error_code = "MISSING_ROOT_KEY_SKILL"
         elif "step_type_unknown" in lower:
             error_code = "UNKNOWN_STEP_TYPE"
         elif "missing_steps" in lower or "missing_branches" in lower or "missing_cases" in lower:
@@ -396,20 +398,26 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "Generate a valid GnOuGo.Flow YAML document (version: 1).\n"
             "You are a GnOuGo.Flow YAML workflow generator. Return ONLY valid YAML, no explanation or markdown fences.\n\n"
             "[DSL REFERENCE]\n"
-            "Use GnOuGo.Flow DSL v1. Root document must contain `version: 1` and `workflows` map.\n"
+            "Use GnOuGo.Flow DSL v1. Root document must contain `version: 1`, `name`, `skill`, and `workflows` map.\n"
             "Step fields: id, type, if, input, output, retry, on_error, steps, branches, cases, expr, default, item_var, index_var.\n"
             "Retry fields: max, backoff_ms, backoff_mult, jitter_ms.\n"
             "on_error cases: if, action (continue|stop), set_output.\n\n"
             "[REQUIRED ROOT YAML SHAPE]\n"
-            "The generated YAML MUST include all required root keys exactly once: version, name, workflows.\n"
+            "The generated YAML MUST include all required root keys exactly once: version, name, skill, workflows.\n"
             "Root key requirements:\n"
             "- version: non-empty string or number 1\n"
             "- name: non-empty string\n"
+            "- skill: required object with description, tags, inputs, and outputs for routing and argument extraction\n"
             "- workflows: non-empty object\n"
             "Each workflow entry under workflows MUST define a steps array.\n"
             "Minimal valid skeleton:\n"
             "version: 1\n"
             "name: generated-workflow\n"
+            "skill:\n"
+            "  description: Describe when this generated workflow should be used.\n"
+            "  tags: [generated]\n"
+            "  inputs: {}\n"
+            "  outputs: {}\n"
             "workflows:\n"
             "  main:\n"
             "    steps: []\n\n"
@@ -809,6 +817,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 "version": int(parsed.get("version", 1) or 1),
                 "name": parsed.get("name"),
                 "meta": parsed.get("meta"),
+                "skill": parsed.get("skill"),
                 "entrypoint": "generated",
                 "workflows": {
                     "generated": {
@@ -822,6 +831,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         elif self._looks_like_workflow_body(parsed):
             normalized = {
                 "version": int(parsed.get("version", 1) or 1),
+                "name": parsed.get("name"),
+                "meta": parsed.get("meta"),
+                "skill": parsed.get("skill"),
                 "entrypoint": "generated",
                 "workflows": {
                     "generated": {
@@ -838,6 +850,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 if self._looks_like_workflow_body(value):
                     normalized = {
                         "version": int(parsed.get("version", 1) or 1),
+                        "name": parsed.get("name"),
+                        "meta": parsed.get("meta"),
+                        "skill": parsed.get("skill"),
                         "entrypoint": str(key),
                         "workflows": {str(key): value},
                     }

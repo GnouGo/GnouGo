@@ -289,15 +289,17 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         if (!config.Enabled)
             return args;
 
-        var workflowInputs = workflow.Source.Inputs;
-        if (workflowInputs is null || workflowInputs.Count == 0)
+        var schema = candidate.Inputs?.DeepClone()
+            ?? (workflow.Source.Inputs is { Count: > 0 } workflowInputs
+                ? JsonSchemaConverter.InputsToJsonSchema(workflowInputs)
+                : null);
+        if (schema is null)
             return args;
 
         var llm = ctx.Engine.LLMClient
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "workflow.route args.auto_extract requires an LLM client");
 
         var (provider, model) = ctx.Engine.ResolveLlmTarget(config.Provider, config.Model);
-        var schema = JsonSchemaConverter.InputsToJsonSchema(workflowInputs);
         var response = await llm.CallAsync(new LLMRequest
         {
             Provider = provider,

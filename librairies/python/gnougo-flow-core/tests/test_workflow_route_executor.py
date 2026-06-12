@@ -269,6 +269,80 @@ async def test_workflow_route_auto_extracts_selected_workflow_arguments_with_con
 
 
 @pytest.mark.asyncio
+async def test_workflow_route_auto_extracts_arguments_from_candidate_skill_inputs_when_workflow_inputs_are_incomplete() -> None:
+    yaml_text = """
+    version: 1
+    workflows:
+      main:
+        inputs:
+          prompt: { type: string, required: true }
+        steps:
+          - id: route
+            type: workflow.route
+            input:
+              prompt: "${data.inputs.prompt}"
+              candidates:
+                - ref: { kind: local, name: issue_resolver }
+                  description: Resolves GitHub issues.
+                  inputs:
+                    type: object
+                    properties:
+                      task: { type: string }
+                      repo_url: { type: string, default: "https://github.com/AxaFrance/oidc-client" }
+                      max_issues: { type: string, default: "4" }
+              args:
+                passthrough: false
+                auto_extract: true
+              combine:
+                strategy: first
+        outputs:
+          answer:
+            expr: "${data.steps.route.answer}"
+            type: string
+      issue_resolver:
+        inputs:
+          task: { type: string, required: true }
+        steps:
+          - id: render
+            type: template.render
+            input:
+              engine: mustache
+              mode: text
+              template: "{{max_issues}} issues from {{repo_url}} for {{task}}"
+              data:
+                task: "${data.inputs.task}"
+                repo_url: "${data.inputs.repo_url}"
+                max_issues: "${data.inputs.max_issues}"
+        outputs:
+          answer:
+            expr: "${data.steps.render.text}"
+            type: string
+    """
+    llm = _ExtractingLlmClient(
+        {
+            "arguments": {
+                "task": "Resolve open issues",
+                "repo_url": "https://github.com/AxaFrance/axa-fr-oidc",
+                "max_issues": "20",
+            }
+        }
+    )
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+
+    result = await engine.execute_async(
+        _compile(yaml_text),
+        {"prompt": "Resolve the first 20 issues on https://github.com/AxaFrance/axa-fr-oidc/"},
+    )
+
+    assert result.success is True, result.error
+    assert result.outputs["answer"] == "20 issues from https://github.com/AxaFrance/axa-fr-oidc for Resolve open issues"
+    assert len(llm.requests) == 1
+    assert "repo_url" in llm.requests[0].prompt
+    assert "max_issues" in llm.requests[0].prompt
+
+
+@pytest.mark.asyncio
 async def test_workflow_route_uses_distinct_run_ids_for_parallel_human_input_candidates() -> None:
     yaml_text = """
     version: 1

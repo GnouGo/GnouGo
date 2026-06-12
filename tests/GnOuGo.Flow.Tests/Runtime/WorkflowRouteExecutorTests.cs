@@ -233,6 +233,84 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowRoute_AutoExtractsArgumentsFromCandidateSkillInputs_WhenWorkflowInputsAreIncomplete()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    inputs:
+      prompt: { type: string, required: true }
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          prompt: "${data.inputs.prompt}"
+          candidates:
+            - ref: { kind: local, name: issue_resolver }
+              description: Resolves GitHub issues.
+              inputs:
+                type: object
+                properties:
+                  task: { type: string }
+                  repo_url: { type: string, default: "https://github.com/AxaFrance/oidc-client" }
+                  max_issues: { type: string, default: "4" }
+          args:
+            passthrough: false
+            auto_extract: true
+          combine:
+            strategy: first
+    outputs:
+      answer:
+        expr: "${data.steps.route.answer}"
+        type: string
+  issue_resolver:
+    inputs:
+      task: { type: string, required: true }
+    steps:
+      - id: render
+        type: template.render
+        input:
+          engine: mustache
+          mode: text
+          template: "{{max_issues}} issues from {{repo_url}} for {{task}}"
+          data:
+            task: "${data.inputs.task}"
+            repo_url: "${data.inputs.repo_url}"
+            max_issues: "${data.inputs.max_issues}"
+    outputs:
+      answer:
+        expr: "${data.steps.render.text}"
+        type: string
+""";
+
+        var llm = new ExtractingLlmClient(new JsonObject
+        {
+            ["arguments"] = new JsonObject
+            {
+                ["task"] = "Resolve open issues",
+                ["repo_url"] = "https://github.com/AxaFrance/axa-fr-oidc",
+                ["max_issues"] = "20"
+            }
+        });
+        var workflow = Compile(yaml);
+        var engine = new WorkflowEngine { LLMClient = llm };
+
+        var result = await engine.ExecuteAsync(
+            workflow,
+            new JsonObject { ["prompt"] = "Resolve the first 20 issues on https://github.com/AxaFrance/axa-fr-oidc/" },
+            CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(
+            "20 issues from https://github.com/AxaFrance/axa-fr-oidc for Resolve open issues",
+            result.Outputs!["answer"]!.GetValue<string>());
+        var request = Assert.Single(llm.Requests);
+        Assert.Contains("repo_url", request.Prompt);
+        Assert.Contains("max_issues", request.Prompt);
+    }
+
+    [Fact]
     public async Task WorkflowRoute_UsesDistinctRunIdsForParallelHumanInputCandidates()
     {
         var yaml = """

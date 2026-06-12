@@ -175,6 +175,11 @@ async def test_llm_call_omits_reasoning_when_not_specified() -> None:
 async def test_workflow_plan_defaults_reasoning_to_medium() -> None:
     plan_yaml = """
     version: 1
+    skill:
+      description: Generated workflow.
+      tags: [generated]
+      inputs: {}
+      outputs: {}
     workflows:
       generated:
         steps:
@@ -221,6 +226,11 @@ async def test_workflow_plan_defaults_reasoning_to_medium() -> None:
 async def test_workflow_plan_respects_explicit_reasoning_override() -> None:
     plan_yaml = """
     version: 1
+    skill:
+      description: Generated workflow.
+      tags: [generated]
+      inputs: {}
+      outputs: {}
     workflows:
       generated:
         steps:
@@ -259,7 +269,6 @@ async def test_workflow_plan_respects_explicit_reasoning_override() -> None:
     engine.llm_client = llm
     await engine.execute_async(compiled.workflows["main"], inputs=None)
     assert all(r.reasoning == "low" for r in llm.requests), [r.reasoning for r in llm.requests]
-
 
 
 
