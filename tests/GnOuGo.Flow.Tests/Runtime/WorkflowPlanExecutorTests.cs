@@ -1389,6 +1389,7 @@ workflows:
     public async Task WorkflowPlan_PromptContainsAvailableMcpServers()
     {
         string? capturedPrompt = null;
+        var longSchemaDescription = new string('x', 620) + " schema-tail-marker";
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
@@ -1408,7 +1409,19 @@ workflows:
                 {
                     Name = "list_repos",
                     Description = "List repositories for a user",
-                    InputSchema = System.Text.Json.Nodes.JsonNode.Parse("{\"type\":\"object\",\"properties\":{\"user\":{\"type\":\"string\"}},\"required\":[\"user\"]}"),
+                    InputSchema = new JsonObject
+                    {
+                        ["type"] = "object",
+                        ["properties"] = new JsonObject
+                        {
+                            ["user"] = new JsonObject
+                            {
+                                ["type"] = "string",
+                                ["description"] = longSchemaDescription
+                            }
+                        },
+                        ["required"] = new JsonArray("user")
+                    },
                     OutputSchema = JsonNode.Parse("{\"type\":\"object\",\"properties\":{\"repositories\":{\"type\":\"array\"}},\"additionalProperties\":false}"),
                     ExampleResponse = JsonNode.Parse("{\"repositories\":[{\"name\":\"demo\"}]}")
                 },
@@ -1461,6 +1474,10 @@ workflows:
         Assert.Contains("input_schema:", capturedPrompt);
         Assert.Contains("output_schema:", capturedPrompt);
         Assert.Contains("example_response:", capturedPrompt);
+        Assert.Contains("```json", capturedPrompt);
+        Assert.Contains("\"type\": \"string\"", capturedPrompt);
+        Assert.Contains("schema-tail-marker", capturedPrompt);
+        Assert.DoesNotContain("schema-tail-marker…", capturedPrompt);
         Assert.Contains("repositories", capturedPrompt);
         Assert.Contains("- weather: Weather forecasts and city conditions", capturedPrompt);
         Assert.Contains("get_weather", capturedPrompt);

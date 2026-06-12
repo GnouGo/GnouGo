@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,10 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
     private const int DefaultMcpDiscoveryTimeoutSeconds = 30;
     private const int MinMcpDiscoveryTimeoutSeconds = 1;
     private const int MaxMcpDiscoveryTimeoutSeconds = 300;
+    private static readonly JsonSerializerOptions PromptJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
 
     public string StepType => "workflow.plan";
 
@@ -1337,26 +1342,11 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                         sb.Append($": {t.Description}");
                     sb.AppendLine();
                     if (t.InputSchema != null)
-                    {
-                        var schemaStr = t.InputSchema.ToJsonString();
-                        if (schemaStr.Length > 500)
-                            schemaStr = schemaStr[..500] + "…";
-                        sb.AppendLine($"      input_schema: {schemaStr}");
-                    }
+                        AppendJsonBlock(sb, "      ", "input_schema", t.InputSchema);
                     if (t.OutputSchema != null)
-                    {
-                        var outputSchemaStr = t.OutputSchema.ToJsonString();
-                        if (outputSchemaStr.Length > 800)
-                            outputSchemaStr = outputSchemaStr[..800] + "…";
-                        sb.AppendLine($"      output_schema: {outputSchemaStr}");
-                    }
+                        AppendJsonBlock(sb, "      ", "output_schema", t.OutputSchema);
                     if (t.ExampleResponse != null)
-                    {
-                        var exampleResponseStr = t.ExampleResponse.ToJsonString();
-                        if (exampleResponseStr.Length > 800)
-                            exampleResponseStr = exampleResponseStr[..800] + "…";
-                        sb.AppendLine($"      example_response: {exampleResponseStr}");
-                    }
+                        AppendJsonBlock(sb, "      ", "example_response", t.ExampleResponse);
                 }
             }
 
@@ -1844,21 +1834,27 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     sb.Append($": {tool.Description}");
                 sb.AppendLine();
                 if (tool.InputSchema != null)
-                    sb.AppendLine($"    input_schema: {TruncateJson(tool.InputSchema, 500)}");
+                    AppendJsonBlock(sb, "    ", "input_schema", tool.InputSchema);
                 if (tool.OutputSchema != null)
-                    sb.AppendLine($"    output_schema: {TruncateJson(tool.OutputSchema, 500)}");
+                    AppendJsonBlock(sb, "    ", "output_schema", tool.OutputSchema);
                 if (tool.ExampleResponse != null)
-                    sb.AppendLine($"    example_response: {TruncateJson(tool.ExampleResponse, 500)}");
+                    AppendJsonBlock(sb, "    ", "example_response", tool.ExampleResponse);
             }
         }
 
         return sb.Length == 0 ? null : sb.ToString().TrimEnd();
     }
 
-    private static string TruncateJson(JsonNode node, int maxLength)
+    private static void AppendJsonBlock(StringBuilder sb, string indent, string label, JsonNode node)
     {
-        var text = node.ToJsonString();
-        return text.Length <= maxLength ? text : text[..maxLength] + "…";
+        sb.Append(indent);
+        sb.Append(label);
+        sb.AppendLine(":");
+        sb.Append(indent);
+        sb.AppendLine("```json");
+        sb.AppendLine(node.ToJsonString(PromptJsonOptions));
+        sb.Append(indent);
+        sb.AppendLine("```");
     }
 
     private static string BuildStructuredPlanError(Exception ex, int attempt)

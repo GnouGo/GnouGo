@@ -974,6 +974,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         prompt = (
             "Select only MCP servers/capabilities relevant to the task.\n"
             'Return JSON object {"filtered":"..."} where filtered is a markdown subset.\n\n'
+            "When keeping a capability with input_schema, output_schema, or example_response, copy the complete "
+            "fenced ```json block verbatim. Do not summarize, rewrite, or truncate schema blocks/descriptions.\n"
+            "If preserving the selected schema blocks exactly is uncertain, return the full relevant server section.\n\n"
             f"Task:\n{instruction}\n\n"
             f"Available MCP:\n{mcp_doc}\n"
         )
@@ -1061,6 +1064,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             )
             if isinstance(response.json_payload, dict) and isinstance(response.json_payload.get("filtered"), str):
                 filtered = response.json_payload["filtered"]
+                if not self._filtered_mcp_doc_preserves_schema_blocks(mcp_doc, filtered):
+                    filtered = mcp_doc
                 prefilter_span.set_attribute("mcp.documentation.filtered_length", len(filtered))
                 ctx.add_telemetry_event(
                     "gnougo-flow.plan.prefilter.capabilities.result",
@@ -1077,6 +1082,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 parsed = json.loads(response.text)
                 if isinstance(parsed, dict) and isinstance(parsed.get("filtered"), str):
                     filtered = parsed["filtered"]
+                    if not self._filtered_mcp_doc_preserves_schema_blocks(mcp_doc, filtered):
+                        filtered = mcp_doc
                     prefilter_span.set_attribute("mcp.documentation.filtered_length", len(filtered))
                     ctx.add_telemetry_event(
                         "gnougo-flow.plan.prefilter.capabilities.result",
@@ -1105,6 +1112,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
         prefilter_span.end()
         return mcp_doc
+
+    @staticmethod
+    def _filtered_mcp_doc_preserves_schema_blocks(original: str, filtered: str) -> bool:
+        if "```json" not in original:
+            return True
+        if "```json" not in filtered:
+            return False
+        return "…" not in filtered and "... schema truncated" not in filtered.lower()
 
     async def _build_mcp_documentation(
         self,
@@ -1154,11 +1169,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
                         section.append(f"- {tool_name}: {tool_description or '(no description)'}")
                         if input_schema is not None:
-                            section.append(f"  input_schema: {self._dump_json(input_schema)}")
+                            self._append_json_block(section, "  ", "input_schema", input_schema)
                         if output_schema is not None:
-                            section.append(f"  output_schema: {self._dump_json(output_schema)}")
+                            self._append_json_block(section, "  ", "output_schema", output_schema)
                         if example_response is not None:
-                            section.append(f"  example_response: {self._dump_json(example_response)}")
+                            self._append_json_block(section, "  ", "example_response", example_response)
                         if mcp_tool_contracts is not None and tool_name:
                             mcp_tool_contracts.append(
                                 McpToolOutputContract(
@@ -1196,7 +1211,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
     def _dump_json(value: Any) -> str:
         if hasattr(value, "model_dump"):
             value = value.model_dump(by_alias=False)
-        return json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
+        return json.dumps(value, ensure_ascii=False, default=str, indent=2)
+
+    @staticmethod
+    def _append_json_block(lines: list[str], indent: str, label: str, value: Any) -> None:
+        lines.append(f"{indent}{label}:")
+        lines.append(f"{indent}```json")
+        lines.append(WorkflowPlanExecutor._dump_json(value))
+        lines.append(f"{indent}```")
 
     def _enforce_plan_policy(self, doc: WorkflowDocument, policy: dict[str, Any], limits: dict[str, Any]) -> None:
         allowed = set(policy.get("allowed_step_types") or [])
