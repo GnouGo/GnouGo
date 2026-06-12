@@ -28,7 +28,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
 | MCP server-level `DiscoveryTimeoutSeconds` / `CallTimeoutSeconds` metadata | Yes |
 | `LLMRequest.reasoning` field | Yes |
 | Model metadata catalog (pricing, token limits, capabilities, overrides) | Yes |
-| `workflow.plan` defaults `reasoning="high"` | Yes |
+| `workflow.plan` defaults `reasoning="medium"` | Yes |
 | `workflow.plan` validator + semantic mapping checks | Yes |
 | MCP tool `output_schema` / `example_response` planning contracts | Yes |
 | Workflow source telemetry (`source_text` / `source_format`) | Yes |
@@ -1057,6 +1057,7 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
     # Validation
     validate:
       compile: true                 # Parse + compile the generated YAML (default: true)
+      dry_run: true                 # Optional: execute once with fake providers before accepting
 
     # Self-correction on failure
     on_invalid:
@@ -1073,6 +1074,7 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 - **Full DSL reference injection**: The LLM receives the complete DSL documentation (step types, expressions, error handling) so it can generate valid workflows.
 - **Policy enforcement**: Generated workflows are validated against allowed/denied step types and max step limits.
 - **Full validation before acceptance**: `workflow.plan` runs the validator, compiler, and semantic checks before returning a plan. This catches non-fatal validator diagnostics such as unknown step types, invalid container shapes, future step references, conditional branch/loop mapping errors, and invalid `data.steps.<id>.response.<field>` mappings.
+- **Optional dry-run validation**: Set `validate.dry_run: true` to execute the generated workflow once with deterministic fake LLM, MCP, human-input, and routing providers. This catches runtime input-resolution errors such as free-form `llm.call.text` being used where a number is required. The dry-run never calls real LLMs or MCP tools.
 - **MCP output contracts**: MCP discovery injects complete `input_schema`, `output_schema`, and `example_response` metadata into the planning prompt. `output_schema` / `example_response` define which fields may be read from `mcp.call` single-tool `response` objects.
 - **Self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error, or semantic mapping error), the error is sent back to the LLM for automatic correction.
 - **OpenTelemetry tracing**: Full GenAI convention traces for the planning LLM call, MCP discovery, and pre-filter phases.

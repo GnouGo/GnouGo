@@ -1028,3 +1028,105 @@ async def test_workflow_plan_semantic_validation_coerces_string_scalars_for_mcp_
     yaml_text = result.outputs["plan"]["yaml"]
     assert "perPage: 100" in yaml_text
     assert 'perPage: "100"' not in yaml_text
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_dry_run_rejects_freeform_llm_text_used_as_number() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build token workflow"
+                prefilter: false
+              validate:
+                dry_run: true
+              on_invalid:
+                action: stop
+                max_attempts: 1
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: extract
+            type: llm.call
+            input:
+              prompt: "Return a token budget"
+          - id: answer
+            type: llm.call
+            input:
+              prompt: "Answer briefly"
+              max_tokens: "${data.steps.extract.text}"
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "dry_run" in result.error.message
+    assert "Expected number" in result.error.message
+    assert "dry-run text response" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_dry_run_allows_structured_llm_json_used_as_number() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build token workflow"
+                prefilter: false
+              validate:
+                dry_run: true
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: extract
+            type: llm.call
+            input:
+              prompt: "Return a token budget"
+              structured_output:
+                schema_inline:
+                  type: object
+                  properties:
+                    max_tokens:
+                      type: integer
+                  required: [max_tokens]
+                  additionalProperties: false
+          - id: answer
+            type: llm.call
+            input:
+              prompt: "Answer briefly"
+              max_tokens: "${data.steps.extract.json.max_tokens}"
+        outputs:
+          answer:
+            expr: "${data.steps.answer.text}"
+            type: string
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True

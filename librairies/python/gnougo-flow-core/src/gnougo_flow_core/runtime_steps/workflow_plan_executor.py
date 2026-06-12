@@ -6,6 +6,7 @@ import json
 from gnougo_flow_core.compilation import ValidationError, WorkflowValidator
 from gnougo_flow_core.models import StepDef, WorkflowDocument
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
+from gnougo_flow_core.workflow_plan_dry_run_validator import validate_workflow_plan_dry_run
 from gnougo_flow_core.workflow_plan_semantic_validator import (
     McpToolOutputContract,
     WorkflowSemanticValidationException,
@@ -33,6 +34,9 @@ class WorkflowPlanExecutor:
       allow_remote_workflow_refs: false
     limits:
       max_steps_total: 20
+    validate:
+      compile: true
+      dry_run: true
     on_invalid:
       action: reprompt
       max_attempts: 3
@@ -63,10 +67,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         provider, model = ctx.engine.resolve_llm_target(generator.get("provider"), generator.get("model"))
         model = model or "gpt-4"
 
-        # Reasoning effort: workflow planning is heavy reasoning, default to "high" (max).
+        # Reasoning effort: workflow planning is reasoning-heavy, default to "medium".
         # Authors can override via `generator.reasoning: auto|minimal|low|medium|high|max`.
         plan_reasoning_raw = generator.get("reasoning")
-        plan_reasoning = plan_reasoning_raw.strip() if isinstance(plan_reasoning_raw, str) and plan_reasoning_raw.strip() else "high"
+        plan_reasoning = plan_reasoning_raw.strip() if isinstance(plan_reasoning_raw, str) and plan_reasoning_raw.strip() else "medium"
 
         policy = input_obj.get("policy") if isinstance(input_obj.get("policy"), dict) else {}
         limits = input_obj.get("limits") if isinstance(input_obj.get("limits"), dict) else {}
@@ -138,6 +142,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                         normalization_count = self._validate_generated_workflow_for_plan(doc, mcp_tool_contracts)
                         if normalization_count > 0:
                             yaml_text = self._dump_workflow_yaml(doc)
+                    if bool(validate.get("dry_run", False)):
+                        validation_span.set_attribute("gnougo-flow.plan.dry_run", True)
+                        await validate_workflow_plan_dry_run(doc, mcp_tool_contracts)
                 return {
                     "yaml": yaml_text,
                     "workflow": {
@@ -301,7 +308,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "Required MCP planning pattern: discover candidate servers with `mcp.list`, then use mcp.call with prompt + model (+ optional temperature) "
             "when exact tool names or arguments are not known.\n"
             "For LLM-assisted MCP calls, put the natural-language instruction in input.prompt and pass discovered `tools`/`prompts`.\n"
-            "When building `mcp.call.input.request`, preserve JSON schema scalar types exactly: numbers/integers/booleans must be unquoted YAML scalars, while strings may be quoted.\n"
+            "When building `mcp.call.input.request`, preserve JSON schema scalar types exactly: "
+            "numbers/integers/booleans must be unquoted YAML scalars, while strings may be quoted.\n"
             "If a string field must contain JSON text, prefer a YAML literal block (`|`) so nested quotes remain valid YAML.\n"
             'mcp.call single-tool output shape: `{ status: "ok"|"error", response: <tool-specific JSON> }`\n'
             "Access status via `data.steps.<id>.status` and full result via `data.steps.<id>.response`.\n"
