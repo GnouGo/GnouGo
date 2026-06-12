@@ -480,6 +480,9 @@ async def test_workflow_plan_reprompts_on_validator_diagnostics_not_only_compile
     assert result.success is True
     assert len(llm.prompts) == 2
     assert "[PREVIOUS ERROR]" in llm.prompts[1]
+    assert "[INVALID YAML]" in llm.prompts[1]
+    assert "[DSL REFERENCE]" not in llm.prompts[1]
+    assert "[STEP EXCEPTIONS BY TYPE]" not in llm.prompts[1]
     assert "STEP_TYPE_UNKNOWN" in llm.prompts[1]
 
 

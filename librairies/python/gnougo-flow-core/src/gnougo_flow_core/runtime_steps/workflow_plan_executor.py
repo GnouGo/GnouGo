@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 
 from gnougo_flow_core.compilation import ValidationError, WorkflowValidator
 from gnougo_flow_core.models import StepDef, WorkflowDocument
@@ -80,10 +81,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         on_invalid_action = str(on_invalid.get("action", "fail"))
 
         mcp_tool_contracts: list[McpToolOutputContract] = []
+        context_text = str(generator.get("context", ""))
         base_prompt = await self._build_planning_prompt(
             ctx,
             instruction,
-            str(generator.get("context", "")),
+            context_text,
             policy,
             limits,
             generator,
@@ -92,8 +94,20 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         )
         prompt = base_prompt
         last_error: Exception | None = None
+        last_invalid_yaml: str | None = None
+        last_repair_context: str | None = None
 
         for attempt in range(1, max_attempts + 1):
+            if last_error is not None:
+                prompt = self._build_reprompt(
+                    instruction,
+                    context_text,
+                    policy,
+                    last_invalid_yaml,
+                    last_error,
+                    last_repair_context,
+                )
+
             with ctx.begin_telemetry_span(
                 "workflow.plan.generate",
                 "generation",
@@ -159,12 +173,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 if on_invalid_action != "reprompt" or attempt >= max_attempts:
                     raise
                 last_error = exc
-                prompt = self._build_reprompt(base_prompt, exc)
+                last_invalid_yaml = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
+                last_repair_context = self._build_minimal_repair_context(ctx, policy, last_invalid_yaml, exc)
             except Exception as exc:
                 last_error = exc
                 if on_invalid_action != "reprompt" or attempt >= max_attempts:
                     break
-                prompt = self._build_reprompt(base_prompt, exc)
+                last_invalid_yaml = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
+                last_repair_context = self._build_minimal_repair_context(ctx, policy, last_invalid_yaml, exc)
 
         raise WorkflowRuntimeException(
             ErrorCodes.TEMPLATE_PLAN,
@@ -172,16 +188,151 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         )
 
     @staticmethod
-    def _build_reprompt(base_prompt: str, exc: Exception) -> str:
+    def _build_reprompt(
+        instruction: str,
+        context_text: str,
+        policy: dict[str, Any],
+        invalid_yaml: str | None,
+        exc: Exception,
+        repair_context: str | None,
+    ) -> str:
         structured_error = WorkflowPlanExecutor._build_structured_plan_error(exc)
-        return (
-            f"{base_prompt}\n\n"
-            "The previous output was invalid. Fix it and return only valid YAML.\n"
-            f"Validation error: {structured_error}\n"
-            "[PREVIOUS ERROR]\n"
-            f"{structured_error}\n"
-            "Fix the issues above and generate a corrected YAML."
+        constraints: list[str] = []
+        if isinstance(policy.get("allowed_step_types"), list):
+            constraints.append(f"Allowed step types: {', '.join(str(x) for x in policy['allowed_step_types'])}")
+        if isinstance(policy.get("denied_step_types"), list):
+            constraints.append(f"Denied step types: {', '.join(str(x) for x in policy['denied_step_types'])}")
+        if not bool(policy.get("allow_remote_workflow_refs", False)):
+            constraints.append("Remote workflow references (kind: url) are NOT allowed.")
+
+        parts = [
+            "You are repairing a GnOuGo.Flow YAML workflow. Return ONLY corrected YAML, no markdown fences.",
+            "Keep the original task intent and change only what is needed to fix the validation errors.",
+            "",
+            "[TASK]",
+            f"Instruction: {instruction}",
+        ]
+        if context_text.strip():
+            parts.append(f"Context: {context_text}")
+        if constraints:
+            parts.extend(["", "[CONSTRAINTS]", "\n".join(constraints)])
+        parts.extend(
+            [
+                "",
+                "[INVALID YAML]",
+                invalid_yaml if invalid_yaml and invalid_yaml.strip() else "(previous output was empty)",
+                "",
+                "[PREVIOUS ERROR]",
+                structured_error,
+                "",
+                "[MINIMUM DSL CONTEXT]",
+                "Required root: version, name, workflows. Each workflow has steps: [] and optional outputs.",
+                "Each step requires step-level id and type. Common fields stay at step level: if, input, output, retry, on_error, steps, branches, cases, default.",
+                "Executor-specific arguments go inside input only.",
+                "Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.",
+                "Expressions may read data.inputs.* and earlier data.steps.<id>.* only.",
+            ]
         )
+        if repair_context and repair_context.strip():
+            parts.append(repair_context)
+        parts.extend(["", "Fix the issues above and generate a corrected YAML."])
+        return "\n".join(parts)
+
+    @staticmethod
+    def _build_minimal_repair_context(
+        ctx: StepExecutionContext,
+        policy: dict[str, Any],
+        invalid_yaml: str | None,
+        exc: Exception,
+    ) -> str:
+        selected_types = WorkflowPlanExecutor._extract_repair_step_types(ctx, invalid_yaml, str(exc))
+        if not selected_types:
+            selected_types = WorkflowPlanExecutor._extract_known_step_types_from_yaml(ctx, invalid_yaml)
+
+        allowed_raw = policy.get("allowed_step_types")
+        allowed_types = {str(x) for x in allowed_raw} if isinstance(allowed_raw, list) else None
+        if allowed_types is not None:
+            selected_types &= allowed_types
+
+        snippet_map = ctx.engine.registry.get_dsl_snippet_map(None)
+        available_types = sorted(allowed_types or set(snippet_map.keys()))
+        parts = ["", "Available step type names:", ", ".join(available_types)]
+
+        snippets = ctx.engine.registry.get_dsl_snippets(selected_types) if selected_types else []
+        if snippets:
+            parts.extend(["", "DSL snippets for failed/referenced step types:", "\n".join(snippets)])
+
+        return "\n".join(parts).rstrip()
+
+    @staticmethod
+    def _extract_repair_step_types(ctx: StepExecutionContext, invalid_yaml: str | None, error_message: str) -> set[str]:
+        lookup = WorkflowPlanExecutor._build_step_repair_lookup(invalid_yaml)
+        selected: set[str] = set()
+
+        for step_id in WorkflowPlanExecutor._extract_error_step_ids(error_message):
+            info = lookup.get(step_id)
+            if not info:
+                continue
+            step_type, ancestors = info
+            if ctx.engine.registry.get(step_type) is not None:
+                selected.add(step_type)
+            for ancestor_type in ancestors:
+                if ctx.engine.registry.get(ancestor_type) is not None:
+                    selected.add(ancestor_type)
+
+        for step_type in WorkflowPlanExecutor._extract_quoted_step_types(error_message):
+            if ctx.engine.registry.get(step_type) is not None:
+                selected.add(step_type)
+
+        return selected
+
+    @staticmethod
+    def _extract_known_step_types_from_yaml(ctx: StepExecutionContext, invalid_yaml: str | None) -> set[str]:
+        selected: set[str] = set()
+        for step_type, _ancestors in WorkflowPlanExecutor._build_step_repair_lookup(invalid_yaml).values():
+            if ctx.engine.registry.get(step_type) is not None:
+                selected.add(step_type)
+        return selected
+
+    @staticmethod
+    def _build_step_repair_lookup(invalid_yaml: str | None) -> dict[str, tuple[str, tuple[str, ...]]]:
+        lookup: dict[str, tuple[str, tuple[str, ...]]] = {}
+        if not invalid_yaml or not invalid_yaml.strip():
+            return lookup
+        try:
+            doc = WorkflowParser.parse(invalid_yaml)
+        except Exception:
+            return lookup
+
+        def visit(steps: list[StepDef] | None, ancestors: tuple[str, ...]) -> None:
+            for step in steps or []:
+                lookup[step.id] = (step.type, ancestors)
+                child_ancestors = ancestors + (step.type,)
+                visit(step.steps, child_ancestors)
+                for branch in step.branches or []:
+                    visit(branch.steps, child_ancestors)
+                for case in step.cases or []:
+                    visit(case.steps, child_ancestors)
+                visit(step.default, child_ancestors)
+
+        for workflow in doc.workflows.values():
+            visit(workflow.steps, ())
+        return lookup
+
+    @staticmethod
+    def _extract_error_step_ids(error_message: str) -> set[str]:
+        ids: set[str] = set()
+        ids.update(re.findall(r"step '([^']+)'", error_message, flags=re.IGNORECASE))
+        ids.update(re.findall(r'"step":"([^"]+)"', error_message, flags=re.IGNORECASE))
+        ids.update(re.findall(r"\bdata\.steps\.([A-Za-z_][A-Za-z0-9_-]*)", error_message, flags=re.IGNORECASE))
+        return ids
+
+    @staticmethod
+    def _extract_quoted_step_types(error_message: str) -> set[str]:
+        step_types: set[str] = set()
+        step_types.update(re.findall(r"Step type '([^']+)'", error_message, flags=re.IGNORECASE))
+        step_types.update(re.findall(r"type '([^']+)'", error_message, flags=re.IGNORECASE))
+        return step_types
 
     @staticmethod
     def _build_structured_plan_error(exc: Exception) -> str:

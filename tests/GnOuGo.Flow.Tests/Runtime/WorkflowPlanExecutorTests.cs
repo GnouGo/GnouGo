@@ -426,6 +426,10 @@ workflows:
         Assert.DoesNotContain("[PREVIOUS ERROR]", prompts[0]);
         // Second prompt SHOULD contain [PREVIOUS ERROR]
         Assert.Contains("[PREVIOUS ERROR]", prompts[1]);
+        Assert.Contains("[INVALID YAML]", prompts[1]);
+        Assert.Contains("version: 1", prompts[1]);
+        Assert.DoesNotContain("[DSL REFERENCE]", prompts[1]);
+        Assert.DoesNotContain("[STEP EXCEPTIONS BY TYPE]", prompts[1]);
         Assert.Contains("Fix the issues", prompts[1]);
     }
 
