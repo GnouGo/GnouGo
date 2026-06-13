@@ -126,7 +126,7 @@ public sealed class AnthropicLlmProviderTests
         var provider = new AnthropicLLMProvider(http);
 
         var response = await provider.CallAsync(
-            "claude-sonnet-4-20250514",
+            "claude-opus-4-8",
             new ModelProviderOptions { Url = "https://api.anthropic.test/v1", ApiKey = "sk-ant", Type = "anthropic" },
             new LLMClientRequest
             {
@@ -177,6 +177,95 @@ public sealed class AnthropicLlmProviderTests
         Assert.NotNull(response.ToolCalls);
         Assert.Equal("gnougo_structured_output", Assert.Single(response.ToolCalls!).Name);
     }
+
+    [Fact]
+    public void BuildMessagesPayload_OmitsStrictToolUseForClaudeOpus47()
+    {
+        var payload = AnthropicLLMProvider.BuildMessagesPayload(
+            "claude-opus-4-7",
+            "Return JSON.",
+            structuredOutputSchema: JsonNode.Parse("""
+            {
+              "type": "object",
+              "properties": {
+                "answer": { "type": "string" }
+              },
+              "required": ["answer"],
+              "additionalProperties": false
+            }
+            """),
+            structuredOutputStrict: true);
+
+        using var posted = JsonDocument.Parse(payload);
+        var tool = posted.RootElement.GetProperty("tools")[0];
+        Assert.Equal("gnougo_structured_output", tool.GetProperty("name").GetString());
+        Assert.False(tool.TryGetProperty("strict", out _));
+    }
+
+    [Fact]
+    public void BuildMessagesPayload_UsesAdaptiveThinkingForClaudeOpus47()
+    {
+        var payload = AnthropicLLMProvider.BuildMessagesPayload(
+            "claude-opus-4-7",
+            "Think deeply.",
+            temperature: 0.2,
+            reasoning: "high");
+
+        using var posted = JsonDocument.Parse(payload);
+        var root = posted.RootElement;
+        Assert.Equal("adaptive", root.GetProperty("thinking").GetProperty("type").GetString());
+        Assert.False(root.GetProperty("thinking").TryGetProperty("budget_tokens", out _));
+        Assert.Equal("high", root.GetProperty("output_config").GetProperty("effort").GetString());
+        Assert.False(root.TryGetProperty("temperature", out _));
+    }
+
+    [Fact]
+    public void BuildMessagesPayload_OmitsAdaptiveThinkingForClaudeOpus47WhenReasoningIsOff()
+    {
+        var payload = AnthropicLLMProvider.BuildMessagesPayload(
+            "claude-opus-4-7",
+            "No thinking requested.",
+            temperature: 0.2,
+            reasoning: "off");
+
+        using var posted = JsonDocument.Parse(payload);
+        var root = posted.RootElement;
+        Assert.False(root.TryGetProperty("thinking", out _));
+        Assert.False(root.TryGetProperty("output_config", out _));
+        Assert.Equal(0.2, root.GetProperty("temperature").GetDouble(), precision: 3);
+    }
+
+    [Fact]
+    public void BuildBatchPayload_UsesAdaptiveThinkingForClaudeOpus48()
+    {
+        var payload = AnthropicLLMProvider.BuildBatchPayload(
+            "anthropic/claude-opus-4-8",
+            "Think to solve this.",
+            reasoning: "xhigh");
+
+        using var posted = JsonDocument.Parse(payload);
+        var request = posted.RootElement.GetProperty("requests")[0].GetProperty("params");
+        Assert.Equal("adaptive", request.GetProperty("thinking").GetProperty("type").GetString());
+        Assert.False(request.GetProperty("thinking").TryGetProperty("budget_tokens", out _));
+        Assert.Equal("xhigh", request.GetProperty("output_config").GetProperty("effort").GetString());
+    }
+
+    [Theory]
+    [InlineData("claude-opus-4-7", false)]
+    [InlineData("anthropic/claude-opus-4-7", false)]
+    [InlineData("claude-opus-4-8", true)]
+    [InlineData("anthropic/claude-opus-4-8", true)]
+    public void SupportsStrictToolUse_IsModelAware(string model, bool expected)
+        => Assert.Equal(expected, AnthropicLLMProvider.SupportsStrictToolUse(model));
+
+    [Theory]
+    [InlineData("claude-opus-4-7", true)]
+    [InlineData("anthropic/claude-opus-4-7", true)]
+    [InlineData("claude-opus-4-8", true)]
+    [InlineData("anthropic/claude-opus-4-8", true)]
+    [InlineData("claude-sonnet-4-20250514", false)]
+    public void RequiresAdaptiveThinking_IsModelAware(string model, bool expected)
+        => Assert.Equal(expected, AnthropicLLMProvider.RequiresAdaptiveThinking(model));
 
     [Fact]
     public async Task ListModelsAsync_ParsesAnthropicModelCatalog()

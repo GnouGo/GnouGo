@@ -184,8 +184,17 @@ Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `n
 | `high` / `max`  | `reasoning_effort: "high"`              | `think: true`         | `thinking.budget_tokens=8192/16000` |
 | `none` / `off`  | (treated as `auto`)                     | `think: false`        | field omitted              |
 
+For Claude Opus 4.7 and later Opus models, Anthropic no longer accepts fixed `thinking.budget_tokens`. The provider keeps the same GnOuGo `Reasoning` values and sends `thinking.type=adaptive` with `output_config.effort` instead. For example, `Reasoning="high"` becomes:
+
+```json
+{
+  "thinking": { "type": "adaptive" },
+  "output_config": { "effort": "high" }
+}
+```
+
 Models that don't support thinking have the field removed by `LLMRequestSanitizer` before the provider call.
-Provider-specific mapping lives in `ChatRequestBuilder.NormalizeOpenAiReasoning`, `NormalizeOllamaThink`, and `AnthropicLLMProvider.NormalizeThinkingBudget`.
+Provider-specific mapping lives in `ChatRequestBuilder.NormalizeOpenAiReasoning`, `NormalizeOllamaThink`, `AnthropicLLMProvider.NormalizeThinkingBudget`, and `AnthropicLLMProvider.NormalizeAnthropicEffort`.
 
 ## Build
 

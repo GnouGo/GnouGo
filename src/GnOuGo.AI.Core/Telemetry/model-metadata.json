@@ -1,7 +1,7 @@
 ﻿{
     "_comment":  "Model metadata in USD, token limits and capabilities. This is the single builtin source for limits, capabilities and pricing. User overrides can be configured through LLM.ModelMetadataFiles and LLM.ModelOverrides.",
     "_source":  "https://openai.com/api/pricing/ + https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json + provider documentation",
-    "_updated":  "2026-05-21",
+    "_updated":  "2026-06-13",
     "models":  {
                    "anthropic/claude-3-5-haiku-20241022":  {
                                                             "providerType":  "anthropic",
@@ -476,6 +476,34 @@
                                                                                                               ]
                                                                             }
                                                        },
+                   "anthropic/claude-opus-4-8":  {
+                                                  "id":  "claude-opus-4-8",
+                                                  "providerType":  "anthropic",
+                                                  "ownedBy":  "anthropic",
+                                                  "contextWindowTokens":  1000000,
+                                                  "maxInputTokens":  1000000,
+                                                  "maxOutputTokens":  128000,
+                                                  "pricing":  {
+                                                                  "currency":  "USD",
+                                                                  "inputPer1MTokens":  5,
+                                                                  "outputPer1MTokens":  25,
+                                                                  "cachedInputPer1MTokens":  0.5
+                                                              },
+                                                  "capabilities":  {
+                                                                       "supportsTools":  true,
+                                                                       "supportsStructuredOutput":  true,
+                                                                       "supportsJsonMode":  true,
+                                                                       "supportsVision":  true,
+                                                                       "supportsReasoningEffort":  true,
+                                                                       "supportedReasoningEfforts":  [
+                                                                                                         "minimal",
+                                                                                                         "low",
+                                                                                                         "medium",
+                                                                                                         "high",
+                                                                                                         "max"
+                                                                                                     ]
+                                                                   }
+                                              },
                    "anthropic/claude-sonnet-4-20250514":  {
                                                            "providerType":  "anthropic",
                                                            "ownedBy":  "anthropic",
