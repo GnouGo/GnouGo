@@ -232,7 +232,7 @@ public sealed class AnthropicLlmProviderTests
         var root = posted.RootElement;
         Assert.False(root.TryGetProperty("thinking", out _));
         Assert.False(root.TryGetProperty("output_config", out _));
-        Assert.Equal(0.2, root.GetProperty("temperature").GetDouble(), precision: 3);
+        Assert.False(root.TryGetProperty("temperature", out _));
     }
 
     [Fact]
@@ -248,6 +248,21 @@ public sealed class AnthropicLlmProviderTests
         Assert.Equal("adaptive", request.GetProperty("thinking").GetProperty("type").GetString());
         Assert.False(request.GetProperty("thinking").TryGetProperty("budget_tokens", out _));
         Assert.Equal("xhigh", request.GetProperty("output_config").GetProperty("effort").GetString());
+    }
+
+    [Fact]
+    public void BuildBatchPayload_OmitsTemperatureForClaudeOpus48WithoutReasoning()
+    {
+        var payload = AnthropicLLMProvider.BuildBatchPayload(
+            "anthropic/claude-opus-4-8",
+            "Use the default behavior.",
+            temperature: 0.2);
+
+        using var posted = JsonDocument.Parse(payload);
+        var request = posted.RootElement.GetProperty("requests")[0].GetProperty("params");
+        Assert.False(request.TryGetProperty("thinking", out _));
+        Assert.False(request.TryGetProperty("output_config", out _));
+        Assert.False(request.TryGetProperty("temperature", out _));
     }
 
     [Theory]
@@ -266,6 +281,15 @@ public sealed class AnthropicLlmProviderTests
     [InlineData("claude-sonnet-4-20250514", false)]
     public void RequiresAdaptiveThinking_IsModelAware(string model, bool expected)
         => Assert.Equal(expected, AnthropicLLMProvider.RequiresAdaptiveThinking(model));
+
+    [Theory]
+    [InlineData("claude-opus-4-7", false)]
+    [InlineData("anthropic/claude-opus-4-7", false)]
+    [InlineData("claude-opus-4-8", false)]
+    [InlineData("anthropic/claude-opus-4-8", false)]
+    [InlineData("claude-sonnet-4-20250514", true)]
+    public void SupportsTemperature_IsModelAware(string model, bool expected)
+        => Assert.Equal(expected, AnthropicLLMProvider.SupportsTemperature(model));
 
     [Fact]
     public async Task ListModelsAsync_ParsesAnthropicModelCatalog()

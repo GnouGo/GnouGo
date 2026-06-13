@@ -301,7 +301,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			w.WriteString("model", model);
 			w.WriteNumber("max_tokens", maxTokens);
 
-			if (temperature.HasValue && thinking == null)
+			if (temperature.HasValue && thinking == null && SupportsTemperature(model))
 				w.WriteNumber("temperature", temperature.Value);
 
 			WriteThinkingConfig(w, thinking);
@@ -442,7 +442,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			w.WriteString("model", model);
 			w.WriteNumber("max_tokens", maxTokens);
 
-			if (temperature.HasValue && thinking == null)
+			if (temperature.HasValue && thinking == null && SupportsTemperature(model))
 				w.WriteNumber("temperature", temperature.Value);
 
 			WriteThinkingConfig(w, thinking);
@@ -650,6 +650,9 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		return normalized.StartsWith("claude-opus-4-7", StringComparison.OrdinalIgnoreCase)
 			|| normalized.StartsWith("claude-opus-4-8", StringComparison.OrdinalIgnoreCase);
 	}
+
+	internal static bool SupportsTemperature(string model)
+		=> !RequiresAdaptiveThinking(model);
 
 	private static string StripProviderPrefix(string model)
 	{

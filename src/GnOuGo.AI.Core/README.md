@@ -193,6 +193,8 @@ For Claude Opus 4.7 and later Opus models, Anthropic no longer accepts fixed `th
 }
 ```
 
+These models also reject non-default sampling parameters. GnOuGo marks `temperature`, `top_p`, and `top_k` as unsupported in model metadata and the Anthropic provider omits `temperature` defensively for Opus 4.7+ requests.
+
 Models that don't support thinking have the field removed by `LLMRequestSanitizer` before the provider call.
 Provider-specific mapping lives in `ChatRequestBuilder.NormalizeOpenAiReasoning`, `NormalizeOllamaThink`, `AnthropicLLMProvider.NormalizeThinkingBudget`, and `AnthropicLLMProvider.NormalizeAnthropicEffort`.
 

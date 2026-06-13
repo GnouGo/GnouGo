@@ -439,11 +439,18 @@
                                                                        "supportsJsonMode":  true,
                                                                        "supportsVision":  true,
                                                                        "supportsReasoningEffort":  true,
+                                                                       "supportsTemperature":  false,
+                                                                       "unsupportedRequestParameters":  [
+                                                                                                            "temperature",
+                                                                                                            "top_p",
+                                                                                                            "top_k"
+                                                                                                        ],
                                                                        "supportedReasoningEfforts":  [
                                                                                                          "minimal",
                                                                                                          "low",
                                                                                                          "medium",
                                                                                                          "high",
+                                                                                                         "xhigh",
                                                                                                          "max"
                                                                                                      ]
                                                                    }
@@ -467,11 +474,18 @@
                                                                                 "supportsJsonMode":  true,
                                                                                 "supportsVision":  true,
                                                                                 "supportsReasoningEffort":  true,
+                                                                                "supportsTemperature":  false,
+                                                                                "unsupportedRequestParameters":  [
+                                                                                                                     "temperature",
+                                                                                                                     "top_p",
+                                                                                                                     "top_k"
+                                                                                                                 ],
                                                                                 "supportedReasoningEfforts":  [
                                                                                                                   "minimal",
                                                                                                                   "low",
                                                                                                                   "medium",
                                                                                                                   "high",
+                                                                                                                  "xhigh",
                                                                                                                   "max"
                                                                                                               ]
                                                                             }
@@ -495,11 +509,18 @@
                                                                        "supportsJsonMode":  true,
                                                                        "supportsVision":  true,
                                                                        "supportsReasoningEffort":  true,
+                                                                       "supportsTemperature":  false,
+                                                                       "unsupportedRequestParameters":  [
+                                                                                                            "temperature",
+                                                                                                            "top_p",
+                                                                                                            "top_k"
+                                                                                                        ],
                                                                        "supportedReasoningEfforts":  [
                                                                                                          "minimal",
                                                                                                          "low",
                                                                                                          "medium",
                                                                                                          "high",
+                                                                                                         "xhigh",
                                                                                                          "max"
                                                                                                      ]
                                                                    }
