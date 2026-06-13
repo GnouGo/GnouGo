@@ -176,6 +176,47 @@ public sealed class GitRepositoryService
         return new GitOperationResult(repositoryRoot, "checkout", checkoutMessage, true, BuildOperationOutput("checkout", checkoutMessage, repositoryRoot));
     }
 
+    public GitOperationResult SwitchBranch(string? projectRoot, string branchName, string? startPoint = null, string? remoteName = null)
+    {
+        _policy.EnsureGitMutationsAllowed("switch_branch");
+        EnsureSafeBranchName(branchName);
+
+        using var repository = OpenRepository(projectRoot, out var repositoryRoot);
+        var remote = string.IsNullOrWhiteSpace(startPoint)
+            ? ResolveRemote(repository, remoteName)
+            : TryResolveRemote(repository, remoteName);
+        var resolvedStartPoint = string.IsNullOrWhiteSpace(startPoint)
+            ? $"{remote!.Name}/{branchName}"
+            : startPoint.Trim();
+        var commit = ResolveCommitish(repository, resolvedStartPoint);
+
+        var existingBranch = repository.Branches[branchName];
+        if (existingBranch is not null)
+        {
+            if (existingBranch.IsRemote)
+                throw new InvalidOperationException("Cannot reset a remote-tracking branch. Use a local branch name.");
+
+            if (existingBranch.IsCurrentRepositoryHead)
+                Commands.Checkout(repository, commit);
+
+            repository.Branches.Remove(existingBranch);
+        }
+
+        var branch = repository.CreateBranch(branchName, commit);
+        if (remote is not null && repository.Branches[$"{remote.Name}/{branchName}"] is not null)
+        {
+            repository.Branches.Update(branch, updater =>
+            {
+                updater.Remote = remote.Name;
+                updater.UpstreamBranch = $"refs/heads/{branchName}";
+            });
+        }
+
+        Commands.Checkout(repository, branch);
+        var message = $"Switched to branch '{branch.FriendlyName}' from '{resolvedStartPoint}' using -C semantics.";
+        return new GitOperationResult(repositoryRoot, "switch_branch", message, true, BuildOperationOutput("switch_branch", message, repositoryRoot));
+    }
+
     public GitOperationResult Stage(string? projectRoot, IReadOnlyList<string> paths)
     {
         _policy.EnsureGitMutationsAllowed("stage");
@@ -304,15 +345,20 @@ public sealed class GitRepositoryService
         return new GitCloneResult(workingDirectory, remoteUrl, branch, output);
     }
 
-    public GitOperationResult Fetch(string? projectRoot, string? remoteName = null)
+    public GitOperationResult Fetch(string? projectRoot, string? remoteName = null, string? refSpec = null)
     {
         _policy.EnsureGitNetworkAllowed("fetch");
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
         var remote = ResolveRemote(repository, remoteName);
         var options = new FetchOptions();
         ApplyCredentials(options);
-        Commands.Fetch(repository, remote.Name, remote.FetchRefSpecs.Select(static spec => spec.Specification), options, "fetch from Git MCP");
-        var message = $"Fetched remote '{remote.Name}'.";
+        var refSpecs = string.IsNullOrWhiteSpace(refSpec)
+            ? remote.FetchRefSpecs.Select(static spec => spec.Specification)
+            : [NormalizeFetchRefSpec(refSpec)];
+        Commands.Fetch(repository, remote.Name, refSpecs, options, "fetch from Git MCP");
+        var message = string.IsNullOrWhiteSpace(refSpec)
+            ? $"Fetched remote '{remote.Name}'."
+            : $"Fetched '{refSpec}' from remote '{remote.Name}'.";
         return new GitOperationResult(repositoryRoot, "fetch", message, true, BuildOperationOutput("fetch", message, repositoryRoot));
     }
 
@@ -412,6 +458,12 @@ public sealed class GitRepositoryService
         return remote ?? throw new InvalidOperationException($"Remote '{name}' was not found.");
     }
 
+    private Remote? TryResolveRemote(Repository repository, string? remoteName)
+    {
+        var name = string.IsNullOrWhiteSpace(remoteName) ? _settings.DefaultRemoteName : remoteName.Trim();
+        return repository.Network.Remotes[name];
+    }
+
     private Signature CreateSignature(string? authorName, string? authorEmail)
     {
         var name = string.IsNullOrWhiteSpace(authorName) ? _settings.DefaultAuthorName : authorName.Trim();
@@ -473,6 +525,33 @@ public sealed class GitRepositoryService
         return relativePath.Replace('\\', '/').Trim('/');
     }
 
+    private static string NormalizeFetchRefSpec(string refSpec)
+    {
+        var normalized = refSpec.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+            throw new InvalidOperationException("refSpec must not be empty.");
+        if (normalized.Contains("..", StringComparison.Ordinal)
+            || normalized.IndexOfAny(['~', '^', '?', '*', '[', '\\', ' ']) >= 0
+            || normalized.Contains("//", StringComparison.Ordinal)
+            || normalized.StartsWith(':')
+            || normalized.EndsWith(':'))
+            throw new InvalidOperationException("refSpec contains characters that are not allowed by the Git MCP policy.");
+
+        var parts = normalized.Split(':');
+        if (parts.Length is < 1 or > 2 || parts.Any(static part => string.IsNullOrWhiteSpace(part)))
+            throw new InvalidOperationException("refSpec must be a source ref or a source:destination ref.");
+        if (!parts[0].StartsWith("refs/heads/", StringComparison.Ordinal)
+            && !parts[0].StartsWith("refs/tags/", StringComparison.Ordinal))
+            throw new InvalidOperationException("refSpec source must start with refs/heads/ or refs/tags/.");
+        if (parts.Length == 2
+            && !parts[1].StartsWith("refs/remotes/", StringComparison.Ordinal)
+            && !parts[1].StartsWith("refs/tags/", StringComparison.Ordinal)
+            && !parts[1].StartsWith("refs/heads/", StringComparison.Ordinal))
+            throw new InvalidOperationException("refSpec destination must start with refs/remotes/, refs/tags/, or refs/heads/.");
+
+        return normalized;
+    }
+
     private static void EnsureSafeBranchName(string branchName)
     {
         if (string.IsNullOrWhiteSpace(branchName))
@@ -516,4 +595,3 @@ public sealed class GitRepositoryService
             .OrderBy(static conflict => conflict.Path, StringComparer.OrdinalIgnoreCase)
             .ToArray() ?? [];
 }
-

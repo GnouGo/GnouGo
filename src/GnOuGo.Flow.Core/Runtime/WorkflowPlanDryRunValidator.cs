@@ -77,10 +77,22 @@ internal static class WorkflowPlanDryRunValidator
         var error = result.Error;
         var code = string.IsNullOrWhiteSpace(error?.Code) ? "UNKNOWN" : error.Code;
         var message = string.IsNullOrWhiteSpace(error?.Message) ? "No error message returned." : error.Message;
+
+        if (IsInconclusiveInternalError(code))
+        {
+            logger?.LogWarning(
+                "Generated workflow dry_run was inconclusive because the dry-run runtime raised an internal error: {DryRunErrorMessage}",
+                message);
+            return;
+        }
+
         throw new WorkflowRuntimeException(
             ErrorCodes.TemplatePlan,
             $"Generated workflow dry_run failed: [{code}] {message}");
     }
+
+    private static bool IsInconclusiveInternalError(string code) =>
+        string.Equals(code, "INTERNAL_ERROR", StringComparison.Ordinal);
 
     internal static JsonNode? CreateSampleFromJsonSchema(JsonNode? schema)
     {

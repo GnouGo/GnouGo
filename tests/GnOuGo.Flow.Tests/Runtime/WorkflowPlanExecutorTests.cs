@@ -19,6 +19,19 @@ public class WorkflowPlanExecutorTests
         return compiled.Workflows[compiled.Entrypoint!];
     }
 
+    private static int CountOccurrences(string value, string needle)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = value.IndexOf(needle, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += needle.Length;
+        }
+
+        return count;
+    }
+
     // ------ DslSnippet tests ------
 
     [Fact]
@@ -439,6 +452,71 @@ workflows:
         Assert.DoesNotContain("[DSL REFERENCE]", prompts[1]);
         Assert.DoesNotContain("[STEP EXCEPTIONS BY TYPE]", prompts[1]);
         Assert.Contains("Fix the issues", prompts[1]);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_Reprompt_StripsDuplicatedTaskPreambleFromInvalidYaml()
+    {
+        const string uniqueTaskMarker = "UNIQUE_ORIGINAL_USER_PROMPT_TEST12";
+        var prompts = new List<string>();
+        int callCount = 0;
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => prompts.Add(req.Prompt))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    return new LLMResponse
+                    {
+                        Text = $"""
+                                Agent description:
+                                Build an agent for {uniqueTaskMarker} and keep the user request intent.
+                                version: 1
+                                workflows:
+                                  main:
+                                    steps:
+                                      - id: s
+                                """
+                    };
+                }
+
+                return new LLMResponse
+                {
+                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                };
+            });
+
+        var wf = CompileMain($$"""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: |
+              Agent description:
+              Build an agent for {{uniqueTaskMarker}} and keep the user request intent.
+          on_invalid:
+            action: reprompt
+            max_attempts: 3
+          validate:
+            compile: false
+""");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, prompts.Count);
+        Assert.Equal(1, CountOccurrences(prompts[1], uniqueTaskMarker));
+        Assert.Contains("[INVALID YAML]", prompts[1]);
+        Assert.Contains("version: 1", prompts[1]);
     }
 
     [Fact]
@@ -909,6 +987,21 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public void WorkflowPlan_DryRun_TreatsOnlyInternalErrorAsInconclusive()
+    {
+        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
+            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
+            throwOnError: true)!;
+        var method = validatorType.GetMethod(
+            "IsInconclusiveInternalError",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+        Assert.True((bool)method.Invoke(null, new object?[] { "INTERNAL_ERROR" })!);
+        Assert.False((bool)method.Invoke(null, new object?[] { ErrorCodes.EvalError })!);
+        Assert.False((bool)method.Invoke(null, new object?[] { ErrorCodes.InputValidation })!);
     }
 
     [Fact]

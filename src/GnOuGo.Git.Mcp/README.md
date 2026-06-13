@@ -7,10 +7,19 @@ MCP stdio server for safe Git repository operations on local projects.
 - Inspect the active policy with `git_get_policy`.
 - Read repository metadata with `git_repository_info`.
 - Inspect working tree status, diffs, branches, and logs with `git_status`, `git_diff`, `git_branches`, and `git_log`.
-- Perform guarded local mutations with `git_stage`, `git_unstage`, `git_commit`, `git_create_branch`, `git_delete_branch`, `git_checkout`, `git_merge`, and `git_resolve_conflict` when `Git:AllowMutations=true`.
+- Perform guarded local mutations with `git_stage`, `git_unstage`, `git_commit`, `git_create_branch`, `git_delete_branch`, `git_checkout`, `git_switch_branch`, `git_merge`, and `git_resolve_conflict` when `Git:AllowMutations=true`.
 - Perform guarded network operations with `git_clone`, `git_fetch`, `git_pull`, `git_push`, and `git_delete_remote_branch` when `Git:AllowNetworkOperations=true`.
 
 When `git_stage` is called without explicit paths, it stages all current changes except the repository-root `.GnOuGo/` directory. This keeps temporary Copilot SDK working files out of commits by default. Passing explicit paths still stages only the requested paths.
+
+To reproduce a pull request branch checkout equivalent to:
+
+```bash
+git fetch origin "refs/heads/<branchName>:refs/remotes/origin/<branchName>"
+git switch -C "<branchName>" "origin/<branchName>"
+```
+
+call `git_fetch` with `remoteName: "origin"` and `refSpec: "refs/heads/<branchName>:refs/remotes/origin/<branchName>"`, then call `git_switch_branch` with `branchName: "<branchName>"` and `startPoint: "origin/<branchName>"`.
 
 ## Policy and authentication
 

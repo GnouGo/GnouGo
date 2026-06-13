@@ -14,7 +14,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// Generates a workflow dynamically via LLM under policy constraints.
 /// Builds a comprehensive prompt from DslReference (common) + each executor's DslSnippet (step-specific).
 /// </summary>
-public sealed class WorkflowPlanExecutor : IStepExecutor
+public sealed partial class WorkflowPlanExecutor : IStepExecutor
 {
     private const int DefaultMcpDiscoveryTimeoutSeconds = 30;
     private const int MinMcpDiscoveryTimeoutSeconds = 1;
@@ -1607,7 +1607,9 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         }
         sb.AppendLine();
         sb.AppendLine("[INVALID YAML]");
-        sb.AppendLine(string.IsNullOrWhiteSpace(invalidYaml) ? "(previous output was empty)" : invalidYaml);
+        sb.AppendLine(string.IsNullOrWhiteSpace(invalidYaml)
+            ? "(previous output was empty)"
+            : RemoveDuplicateTaskPreamble(invalidYaml, instruction, context));
         sb.AppendLine();
         sb.AppendLine("[PREVIOUS ERROR]");
         sb.AppendLine(structuredError);
@@ -1624,6 +1626,72 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Fix the issues above and generate a corrected YAML.");
         return sb.ToString();
     }
+
+    private static string RemoveDuplicateTaskPreamble(string invalidYaml, string instruction, string? context)
+    {
+        if (string.IsNullOrWhiteSpace(invalidYaml))
+            return invalidYaml;
+
+        var trimmed = invalidYaml.Trim();
+        var rootMatch = RootYamlKeyRegex().Match(trimmed);
+
+        if (!rootMatch.Success || rootMatch.Index == 0)
+            return trimmed;
+
+        var preamble = trimmed[..rootMatch.Index].Trim();
+        if (!IsDuplicateTaskText(preamble, instruction, context))
+            return trimmed;
+
+        return trimmed[rootMatch.Index..].TrimStart();
+    }
+
+    private static bool IsDuplicateTaskText(string candidate, string instruction, string? context)
+    {
+        var normalizedCandidate = NormalizePromptText(candidate);
+        if (normalizedCandidate.Length < 80)
+            return false;
+
+        var normalizedTask = NormalizePromptText(string.IsNullOrWhiteSpace(context)
+            ? instruction
+            : instruction + "\n" + context);
+
+        if (normalizedTask.Contains(normalizedCandidate, StringComparison.Ordinal))
+            return true;
+
+        var candidateWords = PromptWordRegex()
+            .Matches(normalizedCandidate)
+            .Select(match => match.Value)
+            .ToArray();
+
+        if (candidateWords.Length < 20)
+            return false;
+
+        var taskWords = PromptWordRegex()
+            .Matches(normalizedTask)
+            .Select(match => match.Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (taskWords.Count == 0)
+            return false;
+
+        var matched = candidateWords.Count(taskWords.Contains);
+        return matched / (double)candidateWords.Length >= 0.85;
+    }
+
+    private static string NormalizePromptText(string value)
+    {
+        var normalized = WhitespaceRegex().Replace(value, " ").Trim().ToLowerInvariant();
+        return normalized;
+    }
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespaceRegex();
+
+    [GeneratedRegex(@"[\p{L}\p{N}_-]+")]
+    private static partial Regex PromptWordRegex();
+
+    [GeneratedRegex(@"(?m)^(version|name|skill|workflows|inputs|outputs)\s*:")]
+    private static partial Regex RootYamlKeyRegex();
 
     private static string BuildMinimalRepairContext(
         StepExecutorRegistry registry,

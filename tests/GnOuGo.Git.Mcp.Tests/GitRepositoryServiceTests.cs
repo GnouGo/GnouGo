@@ -168,6 +168,73 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void FetchRefSpecAndSwitchBranch_MatchesGitFetchAndSwitchC()
+    {
+        var remoteRoot = Path.Combine(_root, "remote.git");
+        var sourceRoot = Path.Combine(_root, "source");
+        var clientRoot = Path.Combine(_root, "client");
+        Repository.Init(remoteRoot, isBare: true);
+        Directory.CreateDirectory(sourceRoot);
+        Repository.Init(sourceRoot);
+
+        var sourceService = CreateService(sourceRoot, allowNetwork: true);
+        WriteCommit(sourceService, "README.md", "base\n", "base", sourceRoot);
+        using (var sourceRepository = new Repository(sourceRoot))
+        {
+            sourceRepository.Network.Remotes.Add("origin", remoteRoot);
+        }
+
+        sourceService.Push(sourceRoot, "origin", "master", setUpstream: false);
+        sourceService.CreateBranch(sourceRoot, "feature/pr-branch", checkout: true);
+        var featureCommit = WriteCommit(sourceService, "feature.txt", "feature\n", "feature", sourceRoot);
+        sourceService.Push(sourceRoot, "origin", "feature/pr-branch", setUpstream: false);
+
+        Directory.CreateDirectory(clientRoot);
+        Repository.Init(clientRoot);
+        using (var clientRepository = new Repository(clientRoot))
+        {
+            clientRepository.Network.Remotes.Add("origin", remoteRoot);
+        }
+
+        var clientService = CreateService(clientRoot, allowNetwork: true);
+        var fetch = clientService.Fetch(
+            clientRoot,
+            "origin",
+            "refs/heads/feature/pr-branch:refs/remotes/origin/feature/pr-branch");
+        var switchResult = clientService.SwitchBranch(clientRoot, "feature/pr-branch", "origin/feature/pr-branch");
+
+        Assert.True(fetch.Success);
+        Assert.True(switchResult.Success);
+        Assert.Contains("Fetched", fetch.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Switched to branch", switchResult.Output, StringComparison.OrdinalIgnoreCase);
+
+        using var verificationRepository = new Repository(clientRoot);
+        Assert.Equal("feature/pr-branch", verificationRepository.Head.FriendlyName);
+        Assert.Equal(featureCommit.Sha, verificationRepository.Head.Tip.Sha);
+        Assert.NotNull(verificationRepository.Branches["origin/feature/pr-branch"]);
+        Assert.True(File.Exists(Path.Combine(clientRoot, "feature.txt")));
+    }
+
+    [Fact]
+    public void SwitchBranch_ResetsExistingLocalBranchToStartPoint()
+    {
+        var service = CreateService();
+        WriteCommit(service, "README.md", "base\n", "base");
+        service.CreateBranch(_root, "feature/reset", checkout: true);
+        var oldCommit = WriteCommit(service, "feature.txt", "old\n", "old feature");
+        service.Checkout(_root, "master");
+        var newCommit = WriteCommit(service, "README.md", "base\nnew\n", "new master");
+
+        var result = service.SwitchBranch(_root, "feature/reset", "master");
+
+        Assert.True(result.Success);
+        using var repository = new Repository(_root);
+        Assert.Equal("feature/reset", repository.Head.FriendlyName);
+        Assert.Equal(newCommit.Sha, repository.Head.Tip.Sha);
+        Assert.NotEqual(oldCommit.Sha, repository.Head.Tip.Sha);
+    }
+
+    [Fact]
     public void Stage_AllowsRelativeFileNamesContainingDoubleDotsWithoutTraversal()
     {
         File.WriteAllText(Path.Combine(_root, "a..b.txt"), "hello\n");

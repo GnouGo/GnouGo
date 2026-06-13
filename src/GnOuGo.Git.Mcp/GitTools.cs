@@ -72,6 +72,14 @@ public sealed class GitTools
         [Description("New branch name when createBranch=true. If omitted, branchOrCommit is used.")] string? newBranchName = null)
         => Execute(() => _gitRepositoryService.Checkout(projectRoot, branchOrCommit, createBranch, newBranchName));
 
+    [McpServerTool(Name = "git_switch_branch"), Description("Switches to a local branch with git switch -C semantics, resetting/creating it from a start point such as origin/<branch>. Requires Git:AllowMutations=true. Omit projectRoot to use the default workspace.")]
+    public object GitSwitchBranch(
+        [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
+        [Description("Local branch name to create/reset and switch to, equivalent to git switch -C <branchName>.")] string branchName,
+        [Description("Optional start point commit, branch, tag, or remote-tracking branch. Defaults to <remoteName>/<branchName>.")] string? startPoint = null,
+        [Description("Remote name used for the default start point and upstream tracking. Defaults to Git:DefaultRemoteName.")] string? remoteName = null)
+        => Execute(() => _gitRepositoryService.SwitchBranch(projectRoot, branchName, startPoint, remoteName));
+
     [McpServerTool(Name = "git_stage"), Description("Stages pathspecs for commit. pathsJson is a JSON array of relative paths; empty/null stages all changes. Requires Git:AllowMutations=true. Use relative paths from the workspace root.")]
     public object GitStage(
         [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
@@ -118,11 +126,12 @@ public sealed class GitTools
         [Description("Optional branch to checkout during clone.")] string? branch = null)
         => Execute(() => _gitRepositoryService.Clone(remoteUrl, targetDirectory, branch));
 
-    [McpServerTool(Name = "git_fetch"), Description("Fetches from a remote. Requires Git:AllowNetworkOperations=true. Omit projectRoot to use the default workspace.")]
+    [McpServerTool(Name = "git_fetch"), Description("Fetches from a remote. Optional refSpec supports commands like git fetch origin \"refs/heads/<branch>:refs/remotes/origin/<branch>\". Requires Git:AllowNetworkOperations=true. Omit projectRoot to use the default workspace.")]
     public object GitFetch(
         [Description("Project root override or null to use the default workspace (recommended).")] string? projectRoot,
-        [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName = null)
-        => Execute(() => _gitRepositoryService.Fetch(projectRoot, remoteName));
+        [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName = null,
+        [Description("Optional fetch refspec, for example refs/heads/my-branch:refs/remotes/origin/my-branch.")] string? refSpec = null)
+        => Execute(() => _gitRepositoryService.Fetch(projectRoot, remoteName, refSpec));
 
     [McpServerTool(Name = "git_pull"), Description("Pulls the current branch from its configured remote. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true. Omit projectRoot to use the default workspace.")]
     public object GitPull(
@@ -212,5 +221,4 @@ internal static class GitMcpJson
 [JsonSerializable(typeof(GitMergeResult))]
 [JsonSerializable(typeof(GitPushResult))]
 internal sealed partial class GitMcpJsonContext : JsonSerializerContext;
-
 
