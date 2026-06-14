@@ -66,6 +66,11 @@ public sealed class WorkflowTelemetryAdapterTests
             new("gnougo-flow.thinking.level", "progress"),
             new("gnougo-flow.thinking.message", "Generating workflow plan")
         ]);
+        stepSpan.AddEvent("gnougo-flow.workflow_route.inputs_extracted", [
+            new("gnougo-flow.workflow_route.candidate.id", "local:docs"),
+            new("gnougo-flow.workflow_route.workflow.name", "docs"),
+            new("gnougo-flow.workflow_route.arguments", "{\"query\":\"hello\"}")
+        ]);
 
         var childSpan = telemetry.SpanStart(stepSpan, new TelemetrySpanInfo
         {
@@ -95,6 +100,9 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains(events, e => e.Type == "telemetry.step.start" && Json(e)["step.id"]!.GetValue<string>() == "plan");
         Assert.Contains(events, e => e.Type == "telemetry.step.attribute" && Json(e)["key"]!.GetValue<string>() == "gnougo-flow.plan.mode");
         Assert.Contains(events, e => e.Type == "thinking:progress" && e.Text == "Generating workflow plan");
+        var routeInputs = Assert.Single(events, e => e.Type == "workflow.route.inputs_extracted");
+        Assert.Equal("local:docs", Json(routeInputs)["attributes"]!["gnougo-flow.workflow_route.candidate.id"]!.GetValue<string>());
+        Assert.Equal("{\"query\":\"hello\"}", Json(routeInputs)["attributes"]!["gnougo-flow.workflow_route.arguments"]!.GetValue<string>());
         Assert.Contains(events, e => e.Type == "telemetry.step.event" && Json(e)["event.name"]!.GetValue<string>() == "gnougo-flow.step.thinking");
         Assert.Contains(events, e => e.Type == "telemetry.span.start" && Json(e)["span.name"]!.GetValue<string>() == "workflow.plan.generate");
         Assert.Contains(events, e => e.Type == "telemetry.span.event" && Json(e)["event.name"]!.GetValue<string>() == "gen_ai.content.prompt");

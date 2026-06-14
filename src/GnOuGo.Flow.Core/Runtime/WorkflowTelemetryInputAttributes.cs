@@ -23,15 +23,19 @@ internal static class WorkflowTelemetryInputAttributes
         if (inputs is not JsonObject inputObject)
         {
             span.SetAttribute("gnougo-flow.workflow.inputs.count", 0);
-            span.SetAttribute("gnougo-flow.workflow.inputs", inputs is null ? "{}" : Truncate(inputs.ToJsonString()));
+            span.SetAttribute("gnougo-flow.workflow.inputs", FormatForTelemetry(inputs));
             return;
         }
 
         span.SetAttribute("gnougo-flow.workflow.inputs.count", inputObject.Count);
         span.SetAttribute("gnougo-flow.workflow.inputs.keys", string.Join(",", inputObject.Select(static kv => kv.Key)));
-        var redactedInputs = RedactSensitiveValues(inputObject) ?? new JsonObject();
-        span.SetAttribute("gnougo-flow.workflow.inputs", Truncate(redactedInputs.ToJsonString()));
+        span.SetAttribute("gnougo-flow.workflow.inputs", FormatForTelemetry(inputObject));
     }
+
+    internal static string FormatForTelemetry(JsonNode? inputs)
+        => inputs is null
+            ? "{}"
+            : Truncate((RedactSensitiveValues(inputs) ?? new JsonObject()).ToJsonString());
 
     private static JsonNode? RedactSensitiveValues(JsonNode? value)
     {

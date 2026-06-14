@@ -185,6 +185,13 @@ public sealed class AgentStreamingTelemetry : IWorkflowTelemetry
                 }
             }
 
+            if (string.Equals(name, "gnougo-flow.workflow_route.inputs_extracted", StringComparison.Ordinal))
+            {
+                _emit(new SmartFlowEvent("workflow.route.inputs_extracted", Payload([
+                    new("attributes", AttributesObject(attributes))
+                ])));
+            }
+
             _emit(new SmartFlowEvent("telemetry.step.event", Payload([
                 new("step.id", Info.StepId),
                 new("step.type", Info.StepType),

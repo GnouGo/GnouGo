@@ -168,6 +168,7 @@ workflows:
                   prompt: { type: string }
                   repository_path: { type: string }
                   base_branch: { type: string }
+                  api_key: { type: string }
           args:
             passthrough: true
             auto_extract:
@@ -185,6 +186,7 @@ workflows:
       prompt: { type: string, required: true }
       repository_path: { type: string, required: true }
       base_branch: { type: string, required: false, default: main }
+      api_key: { type: string, required: false }
     steps:
       - id: render
         type: template.render
@@ -207,18 +209,22 @@ workflows:
             ["arguments"] = new JsonObject
             {
                 ["repository_path"] = "/tmp/repo",
-                ["base_branch"] = "develop"
+                ["base_branch"] = "develop",
+                ["api_key"] = "secret-value"
             }
         });
+        var telemetry = new RecordingTelemetry();
         var workflow = Compile(yaml);
         var engine = new WorkflowEngine
         {
             LLMClient = llm,
+            Telemetry = telemetry,
             LlmDefaults = new LlmRuntimeDefaults
             {
                 Provider = "default-provider",
                 Model = "default-model"
-            }
+            },
+            Limits = new ExecutionLimits { LogStepContent = true }
         };
 
         var result = await engine.ExecuteAsync(workflow, new JsonObject { ["prompt"] = "compare this repo with develop" }, CancellationToken.None);
@@ -230,6 +236,18 @@ workflows:
         Assert.Equal("test-model", request.Model);
         Assert.Equal(0.1, request.Temperature);
         Assert.Contains("repository_path", request.Prompt);
+
+        var routedInputs = Assert.Single(telemetry.Events, static evt => evt.Name == "gnougo-flow.workflow_route.inputs_extracted");
+        Assert.Equal("local:inspect_repo", routedInputs.Attributes["gnougo-flow.workflow_route.candidate.id"]);
+        Assert.Equal("inspect_repo", routedInputs.Attributes["gnougo-flow.workflow_route.workflow.name"]);
+        Assert.Equal(true, routedInputs.Attributes["gnougo-flow.workflow_route.auto_extract.enabled"]);
+        var argumentsJson = Assert.IsType<string>(routedInputs.Attributes["gnougo-flow.workflow_route.arguments"]);
+        var arguments = JsonNode.Parse(argumentsJson)!.AsObject();
+        Assert.Equal("/tmp/repo", arguments["repository_path"]!.GetValue<string>());
+        Assert.Equal("<redacted>", arguments["api_key"]!.GetValue<string>());
+        var resolvedInputsJson = Assert.IsType<string>(routedInputs.Attributes["gnougo-flow.workflow_route.resolved_inputs"]);
+        var resolvedInputs = JsonNode.Parse(resolvedInputsJson)!.AsObject();
+        Assert.Equal("develop", resolvedInputs["base_branch"]!.GetValue<string>());
     }
 
     [Fact]
@@ -487,17 +505,18 @@ workflows:
     {
         public List<TestSpan> WorkflowSpans { get; } = new();
         public List<TestSpan> StepSpans { get; } = new();
+        public List<TestTelemetryEvent> Events { get; } = new();
 
         public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info)
         {
-            var span = new TestSpan(info.WorkflowName, null);
+            var span = new TestSpan(info.WorkflowName, null, Events);
             WorkflowSpans.Add(span);
             return span;
         }
 
         public IWorkflowSpan WorkflowStart(ITelemetrySpan parentSpan, WorkflowTelemetryInfo info)
         {
-            var span = new TestSpan(info.WorkflowName, (parentSpan as TestSpan)?.Name);
+            var span = new TestSpan(info.WorkflowName, (parentSpan as TestSpan)?.Name, Events);
             WorkflowSpans.Add(span);
             return span;
         }
@@ -506,7 +525,7 @@ workflows:
 
         public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info)
         {
-            var span = new TestSpan(info.StepId, (parentSpan as TestSpan)?.Name);
+            var span = new TestSpan(info.StepId, (parentSpan as TestSpan)?.Name, Events);
             StepSpans.Add(span);
             return span;
         }
@@ -514,12 +533,21 @@ workflows:
         public void StepEnd(IStepSpan span, StepResultInfo result) { }
     }
 
-    private sealed class TestSpan(string name, string? parentName) : IWorkflowSpan, IStepSpan
+    private sealed class TestSpan(string name, string? parentName, List<TestTelemetryEvent> events) : IWorkflowSpan, IStepSpan
     {
         public string Name { get; } = name;
         public string? ParentName { get; } = parentName;
+
+        public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
+            => events.Add(new TestTelemetryEvent(
+                name,
+                attributes?.ToDictionary(static kv => kv.Key, static kv => kv.Value, StringComparer.Ordinal)
+                ?? new Dictionary<string, object?>(StringComparer.Ordinal)));
+
         public void Dispose() { }
     }
+
+    private sealed record TestTelemetryEvent(string Name, IReadOnlyDictionary<string, object?> Attributes);
 
     private sealed class ExtractingLlmClient : ILLMClient
     {
