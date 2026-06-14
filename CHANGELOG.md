@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.10.3 - 2026-06-14
+
+- fix: workflow.route loosing telemetry (#53) (release) (183ed03)
+
 ## v0.10.2 - 2026-06-09
 
 - feature: workflow route (#52) (release) (bab8e21)
