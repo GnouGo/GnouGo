@@ -673,7 +673,7 @@ Pauses the workflow and prompts the user for input. The workflow resumes when th
       - approve
       - reject
       - modify
-    timeout_ms: 300000        # 5 minutes (default)
+    timeout_ms: 36000000      # 10 hours (default)
 ```
 
 #### Structured form fields

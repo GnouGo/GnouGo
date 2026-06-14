@@ -392,6 +392,7 @@ HUMAN_INPUT_MODE_TEXT = "text"
 HUMAN_INPUT_MODE_CHOICE = "choice"
 HUMAN_INPUT_MODE_FORM = "form"
 HUMAN_INPUT_MODE_CONFIRM = "confirm"
+DEFAULT_HUMAN_INPUT_TIMEOUT_MS = 10 * 60 * 60 * 1000
 
 HUMAN_INPUT_MODES_FOR_DSL = (
     HUMAN_INPUT_MODE_TEXT,
@@ -449,7 +450,7 @@ class HumanInputRequest(BaseModel):
     context: Any = None
     choices: list[str] | None = None
     fields: list[HumanInputFieldDef] | None = None
-    timeout_ms: int = 300_000
+    timeout_ms: int = DEFAULT_HUMAN_INPUT_TIMEOUT_MS
 
 
 InputDef.model_rebuild()

@@ -259,7 +259,7 @@ export const STEP_TYPES: StepTypeDef[] = [
       { name: 'choices', label: 'Choices (JSON)', type: 'json', placeholder: '["approve", "reject", "modify"]', description: 'Quick-reply buttons shown to the user' },
       { name: 'fields', label: 'Form fields (JSON)', type: 'json', placeholder: '[{ "name": "due_date", "type": "date", "required": true }]', description: 'Structured form fields. Known types include string, text, number, integer, boolean, select, date, password, json, yaml.' },
       { name: 'context', label: 'Context', type: 'expression', placeholder: '${json(data.steps.plan)}', description: 'Structured data shown alongside the prompt' },
-      { name: 'timeout_ms', label: 'Timeout (ms)', type: 'number', placeholder: '300000', description: 'Timeout in milliseconds (default 5 min)' },
+      { name: 'timeout_ms', label: 'Timeout (ms)', type: 'number', placeholder: '36000000', description: 'Timeout in milliseconds (default 10 hours)' },
     ],
   },
 ]

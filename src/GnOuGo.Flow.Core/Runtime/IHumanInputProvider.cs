@@ -7,6 +7,8 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// </summary>
 public static class HumanInputContract
 {
+    public const int DefaultTimeoutMs = 10 * 60 * 60 * 1000;
+
     public const string ModeText = "text";
     public const string ModeChoice = "choice";
     public const string ModeForm = "form";
@@ -95,7 +97,7 @@ public sealed class HumanInputRequest
     public List<HumanInputFieldDef>? Fields { get; set; }
 
     /// <summary>Timeout in milliseconds (0 = no timeout).</summary>
-    public int TimeoutMs { get; set; } = 300_000; // 5 min default
+    public int TimeoutMs { get; set; } = HumanInputContract.DefaultTimeoutMs;
 }
 
 /// <summary>
