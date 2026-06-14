@@ -32,11 +32,16 @@ class _CaptureLlm:
 
 class _ToolSession:
     async def list_tools_async(self):
+        long_schema_description = ("x" * 620) + " schema-tail-marker"
         return [
             McpToolInfo(
                 name="list_repos",
                 description="List repos",
-                input_schema={"type": "object", "properties": {"user": {"type": "string"}}, "required": ["user"]},
+                input_schema={
+                    "type": "object",
+                    "properties": {"user": {"type": "string", "description": long_schema_description}},
+                    "required": ["user"],
+                },
                 output_schema={"type": "object", "properties": {"repositories": {"type": "array"}}, "additionalProperties": False},
                 example_response={"repositories": [{"name": "demo"}]},
             )
@@ -82,6 +87,25 @@ class _SequencePrefilterLlm:
             return LLMResponse(
                 text='{"filtered":"## Server: github\\nTools (1):\\n- list_repos: List repos"}',
                 json_payload={"filtered": "## Server: github\nTools (1):\n- list_repos: List repos"},
+            )
+        return LLMResponse(text=_VALID_PLAN_YAML)
+
+
+class _TruncatingPrefilterLlm:
+    def __init__(self) -> None:
+        self.requests = []
+
+    async def call_async(self, request):
+        self.requests.append(request)
+        if len(self.requests) == 1:
+            return LLMResponse(
+                text='{"servers":[{"name":"github","reason":"repository task"}]}',
+                json_payload={"servers": [{"name": "github", "reason": "repository task"}]},
+            )
+        if len(self.requests) == 2:
+            return LLMResponse(
+                text='{"filtered":"## Server: github\\nTools (1):\\n- list_repos: List repos\\n  input_schema: {\\"type\\":\\"object\\"}…"}',
+                json_payload={"filtered": '## Server: github\nTools (1):\n- list_repos: List repos\n  input_schema: {"type":"object"}…'},
             )
         return LLMResponse(text=_VALID_PLAN_YAML)
 
@@ -164,10 +188,17 @@ async def test_workflow_plan_prompt_mentions_llm_assisted_and_direct_mcp_call() 
     assert "use mcp.call with prompt + model (+ optional temperature)" in prompt
     assert "put the natural-language instruction in input.prompt" in prompt
     assert "Preferred MCP planning pattern: when tool names and input schemas are listed above, use `mcp.call` directly" in prompt
+    assert "preserve JSON schema scalar types exactly" in prompt
+    assert "numbers/integers/booleans must be unquoted YAML scalars" in prompt
+    assert "prefer a YAML literal block (`|`) so nested quotes remain valid YAML" in prompt
     assert "list_repos" in prompt
     assert "input_schema:" in prompt
     assert "output_schema:" in prompt
     assert "example_response:" in prompt
+    assert "```json" in prompt
+    assert '"type": "string"' in prompt
+    assert "schema-tail-marker" in prompt
+    assert "schema-tail-marker…" not in prompt
     assert "repositories" in prompt
     assert "[STRUCTURED OUTPUT STRICT SCHEMAS]" not in prompt
 
@@ -246,6 +277,37 @@ async def test_workflow_plan_server_prefilter_uses_explicit_temperature_when_con
 
 
 @pytest.mark.asyncio
+async def test_workflow_plan_capability_prefilter_falls_back_when_schema_is_truncated() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: gpt-4
+                instruction: Build an MCP workflow
+              validate:
+                compile: false
+    """
+    llm = _TruncatingPrefilterLlm()
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = _ToolFactory()
+
+    result = await engine.execute_async(_compile_main(source), {})
+
+    assert result.success
+    assert len(llm.requests) == 3
+    final_prompt = llm.requests[2].prompt
+    assert "schema-tail-marker" in final_prompt
+    assert "```json" in final_prompt
+    assert 'input_schema: {"type":"object"}…' not in final_prompt
+
+
+@pytest.mark.asyncio
 async def test_workflow_plan_prompt_falls_back_when_mcp_discovery_fails() -> None:
     prompt = await _run_plan(_BrokenFactory())
 
@@ -287,4 +349,3 @@ def test_mcp_executors_dsl_snippets_contain_llm_assisted_patterns() -> None:
     assert "additionalProperties: false" in llm_call.dsl_snippet
     assert "anyOf:" in llm_call.dsl_snippet
     assert "structured_output.schema_ref" in llm_call.dsl_snippet
-

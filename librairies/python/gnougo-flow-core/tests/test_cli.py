@@ -9,6 +9,21 @@ from gnougo_flow_core.cli import main
 SIMPLE_WORKFLOW = """
 version: 1
 name: cli-demo
+skill:
+  description: CLI demo workflow.
+  tags: [cli, demo]
+  inputs:
+    name:
+      type: string
+      required: false
+    count:
+      type: number
+      required: false
+  outputs:
+    message:
+      type: string
+    count:
+      type: number
 workflows:
   main:
     inputs:

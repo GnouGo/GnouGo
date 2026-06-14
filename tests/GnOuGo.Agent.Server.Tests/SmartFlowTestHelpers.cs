@@ -76,6 +76,17 @@ internal sealed class RecordingLlmClient : ILLMClient
             return """
                 version: 1
                 name: generated-agent
+                skill:
+                  description: Generated chat agent workflow.
+                  tags: [agent, generated]
+                  inputs:
+                    task:
+                      type: string
+                      description: User request to answer.
+                  outputs:
+                    answer:
+                      type: string
+                      description: Final answer for the user.
                 workflows:
                   main:
                     inputs:

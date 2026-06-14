@@ -1,4 +1,5 @@
 import pytest
+import yaml
 
 from gnougo_flow_core.compilation import WorkflowCompiler
 from gnougo_flow_core.models import LLMResponse, LLMToolCall, McpCallResult, McpToolInfo
@@ -6,11 +7,29 @@ from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
 
 
+def _ensure_generated_skill(yaml_text: str) -> str:
+    try:
+        parsed = yaml.safe_load(yaml_text)
+    except Exception:
+        return yaml_text
+
+    if not isinstance(parsed, dict) or isinstance(parsed.get("skill"), dict):
+        return yaml_text
+
+    parsed["skill"] = {
+        "description": "Generated workflow.",
+        "tags": ["generated"],
+        "inputs": {},
+        "outputs": {},
+    }
+    return yaml.safe_dump(parsed, sort_keys=False, allow_unicode=False)
+
+
 class FakeLLMClient:
     async def call_async(self, request):
         if "Generate a valid GnOuGo.Flow YAML document" in request.prompt:
             return LLMResponse(
-                text="""
+                text=_ensure_generated_skill("""
                 version: 1
                 workflows:
                   main:
@@ -19,7 +38,7 @@ class FakeLLMClient:
                         type: set
                         input:
                           ok: true
-                """
+                """)
             )
         if request.tools:
             return LLMResponse(
@@ -155,9 +174,8 @@ async def test_runtime_execute_supports_to_json_alias_in_generated_workflow_outp
 
 class CaptureFixedPlanLlm:
     def __init__(self, yaml_text: str) -> None:
-        self._yaml_text = yaml_text
+        self._yaml_text = _ensure_generated_skill(yaml_text)
 
     async def call_async(self, request):
         return LLMResponse(text=self._yaml_text)
-
 

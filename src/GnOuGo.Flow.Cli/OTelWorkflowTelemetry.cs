@@ -69,6 +69,31 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
         return new OTelWorkflowSpan(activity);
     }
 
+    public IWorkflowSpan WorkflowStart(ITelemetrySpan parentSpan, WorkflowTelemetryInfo info)
+    {
+        var parentActivity = ResolveParentActivity(parentSpan);
+        Activity? activity;
+        if (parentActivity != null)
+        {
+            var parentContext = new ActivityContext(parentActivity.TraceId, parentActivity.SpanId, ActivityTraceFlags.Recorded);
+            activity = _source.StartActivity("workflow", ActivityKind.Internal, parentContext);
+        }
+        else
+        {
+            activity = _source.StartActivity("workflow", ActivityKind.Internal);
+        }
+
+        if (activity == null)
+            return new OTelWorkflowSpan(null);
+
+        activity.SetTag("gnougo-flow.workflow.name", info.WorkflowName);
+        if (info.DocumentName != null)
+            activity.SetTag("gnougo-flow.document.name", info.DocumentName);
+        ApplyWorkflowSourceTags(activity, info);
+
+        return new OTelWorkflowSpan(activity);
+    }
+
     public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result)
     {
         if (span is not OTelWorkflowSpan ws || ws.Activity == null)
@@ -333,4 +358,3 @@ public sealed class OTelWorkflowTelemetry : IWorkflowTelemetry, IDisposable
         public void Dispose() => Activity?.Dispose();
     }
 }
-

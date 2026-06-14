@@ -78,7 +78,7 @@ In other words, runtime consumers should treat the mounted MCP endpoints as part
 `GnOuGo.Agent.Server` also uses the mounted `GnOuGo.Agent.Mcp` endpoint as the persistence API for local user defaults:
 
 - `user_config_get` — hydrate persisted `default_llm_provider`, `default_llm_model`, and `default_agent`
-- `user_config_set` — save updated defaults after `/llm default`, `/llm add` auto-promotion, or `/agent select`
+- `user_config_set` — save updated defaults after `/llm default`, `/llm add` auto-promotion, or `/gnougo select`
 
 The persisted values live in the Agent MCP SQLite database (`Agent:DatabasePath`) rather than only in browser state.
 LLM provider and MCP server definitions are hydrated from encrypted KeyVault secrets at startup; `user-settings.json` is no longer used.
@@ -178,16 +178,19 @@ docker run --rm -p 5000:5000 gnougo-agent
 
 The desktop workflow publishes a trimmed self-contained `GnOuGo.Agent.Desktop` (Photino) with bundled stdio MCP tools. The bundled stdio tools (`GnOuGo.Cmd.Mcp`, `GnOuGo.Document.Mcp`, `GnOuGo.Git.Mcp`, `GnOuGo.GithubCopilot.Mcp`, `GnOuGo.DocIngestor.Mcp`) are published as Native AOT executables for maximum startup performance.
 
-## Default SQLite locations
+## Default Local Data Locations
 
-By default, the local agent SQLite files are created under the current user's Desktop in `Desktop/GnOuGo/data/`:
+By default, the GnOuGo workspace remains `Desktop/GnOuGo`.
+Persisted agent workflow YAML files are saved directly in `Desktop/GnOuGo/`, and SQLite databases are saved in `Desktop/GnOuGo/.GnOuGo/data/`.
+The default settings carry these relative paths explicitly:
 
-- `Agent:DatabasePath` → `Desktop/GnOuGo/data/gnougo-agent.db`
-- `KeyVault:DatabasePath` → `Desktop/GnOuGo/data/gnougo-keyvault.db`
-- `DocsIngestorMcp:DatabasePath` → `Desktop/GnOuGo/data/gnougo-docs-ingestor-mcp.db`
-- `DocsIngestorMcp:VectorDatabasePath` → `Desktop/GnOuGo/data/gnougo-docs-ingestor-vectors.sqlite`
-- `DocsIngestorMcp:OriginalsDirectory` → `Desktop/GnOuGo/data/docs-ingestor/originals/`
-- `Database:Path` (embedded OTLP collector) → `Desktop/GnOuGo/data/gnougo-telemetry.db`
+- agent workflows → `./{agent-name}.yaml`
+- `Agent:DatabasePath` → `./.GnOuGo/data/gnougo-agent.db`
+- `KeyVault:DatabasePath` → `./.GnOuGo/data/gnougo-keyvault.db`
+- `DocsIngestorMcp:DatabasePath` → `./.GnOuGo/data/gnougo-docs-ingestor-mcp.db`
+- `DocsIngestorMcp:VectorDatabasePath` → `./.GnOuGo/data/gnougo-docs-ingestor-vectors.sqlite`
+- `DocsIngestorMcp:OriginalsDirectory` → `./.GnOuGo/data/docs-ingestor/originals/`
+- `Database:Path` (embedded OTLP collector) → `./.GnOuGo/data/gnougo-telemetry.db`
 
 If you explicitly configure an absolute path, that override is preserved.
 

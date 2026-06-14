@@ -177,6 +177,22 @@ public sealed class ConfigureProvidersServiceTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WizardHelp_IncludesGlobalHelpAndAgentCommands()
+    {
+        var llm = new RecordingLlmClient();
+        var service = SmartFlowTestFactory.CreateProvidersService(llm);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/unknown", CancellationToken.None));
+
+        var answer = Assert.Single(events);
+        Assert.Equal("answer", answer.Type);
+        Assert.Contains("# 🔧 GnOuGo Configuration Wizard", answer.Text);
+        Assert.Contains("`/help`", answer.Text);
+        Assert.Contains("`/gnougo add`", answer.Text);
+        Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_EmbeddingHelp_ReturnsDeterministicMarkdownWithoutCallingLlm()
     {
         var llm = new RecordingLlmClient();

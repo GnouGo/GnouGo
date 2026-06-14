@@ -101,6 +101,41 @@ Supporting libraries such as **GnOuGo.AI.Core**, **GnOuGo.Auth.Core**, and **GnO
 
 ---
 
+## 💬 GnOuGo.Agent.Server Slash Commands
+
+Slash commands are typed in the GnOuGo.Agent.Server chat input. They are case-insensitive.
+
+| Command | Description |
+|---|---|
+| `/help` | Show the chat and configuration command overview. |
+| `/status` | Display the current LLM, embedding, MCP, and agent configuration summary. |
+| `/llm` | Show LLM provider command help. |
+| `/llm list` | List configured LLM providers. |
+| `/llm models <name>` | List live models for a configured LLM provider. |
+| `/llm add` | Configure a new LLM provider. |
+| `/llm default [name]` | Set or change the default LLM provider and model. |
+| `/llm edit <name>` | Edit an existing LLM provider. |
+| `/llm remove <name>` | Remove an LLM provider. |
+| `/embedding` | Show embedding model command help. |
+| `/embedding list` | List configured embedding models. |
+| `/embedding add` | Configure a new embedding model. |
+| `/embedding default [name]` | Set or change the default embedding model. |
+| `/embedding edit <name>` | Edit an embedding model configuration. |
+| `/embedding remove <name>` | Remove an embedding model configuration. |
+| `/mcp` | Show MCP server command help. |
+| `/mcp list` | List configured MCP servers. |
+| `/mcp add` | Add a new MCP server. |
+| `/mcp edit <name>` | Edit an existing MCP server. |
+| `/mcp remove <name>` | Remove an MCP server. |
+| `/gnougo` | Show agent management command help. |
+| `/gnougo list` | List configured agents. |
+| `/gnougo add` | Create a new agent with the interactive wizard. |
+| `/gnougo edit <name>` | Edit an existing agent. |
+| `/gnougo remove <name>` | Remove an agent. |
+| `/gnougo select <name>` | Set the active chat agent. |
+
+---
+
 ## 📚 Published Libraries
 
 The current GnOuGo release publishes these reusable libraries and packages:

@@ -80,6 +80,7 @@ workflows:
         Assert.Equal("Do you approve?", fakeProvider.LastRequest!.Prompt);
         Assert.Equal(HumanInputContract.ModeChoice, fakeProvider.LastRequest.Mode);
         Assert.Equal("test-run-1", fakeProvider.LastRequest.RunId);
+        Assert.Equal(HumanInputContract.DefaultTimeoutMs, fakeProvider.LastRequest.TimeoutMs);
         Assert.Contains("approve", fakeProvider.LastRequest.Choices!);
         Assert.Contains("reject", fakeProvider.LastRequest.Choices!);
 

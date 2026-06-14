@@ -47,9 +47,9 @@ workflows:
               description: General-purpose chat fallback for prompts that do not require a specialized persisted agent.
               tags: [general, fallback, chat]
           selection:
-            mode: multiple
+            mode: single
             min: 1
-            max: 3
+            max: 1
           args:
             passthrough: true
             auto_extract: true
@@ -57,10 +57,10 @@ workflows:
               history: "${data.inputs.history}"
               conversation_id: "${data.inputs.conversation_id}"
           execution:
-            parallel: true
-            max_concurrency: 3
+            parallel: false
+            max_concurrency: 1
           combine:
-            strategy: synthesize
+            strategy: first
 
     outputs:
       answer:

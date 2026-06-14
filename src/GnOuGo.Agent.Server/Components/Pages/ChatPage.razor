@@ -111,7 +111,7 @@
             {
                 <div class="gnougo-chat__empty">
                     <div class="gnougo-chat__empty-title">Start a new chat</div>
-                    <div class="gnougo-chat__empty-subtitle">Your messages and history stay in the local agent store.</div>
+                    <div class="gnougo-chat__empty-subtitle">Type <code>/help</code> for commands and usage. Your messages and history stay in the local agent store.</div>
                 </div>
             }
             else
@@ -1453,6 +1453,18 @@
                     // (These are intermediate steps, not the final answer,
                     //  but we can show them to give feedback.)
                 }
+                else if (evt.Type.StartsWith("telemetry.", StringComparison.Ordinal))
+                {
+                    var liveStatus = FormatLiveTelemetryEvent(evt.Type, evt.Text);
+                    if (!string.IsNullOrWhiteSpace(liveStatus) && _active is not null)
+                    {
+                        var telemetryMsg = new ChatMessageDto("thinking", liveStatus);
+                        var lastIdx = _active.Messages.Count - 1;
+                        _active.Messages.Insert(lastIdx, telemetryMsg);
+                        StateHasChanged();
+                        await ScrollToBottomAsync();
+                    }
+                }
                 else if (evt.Type is "error")
                 {
                     // Detect HITL timeout and show a friendly message
@@ -1733,6 +1745,74 @@
         if (IsMultiOptionField(field))
             return string.Join(", ", GetSelectedFieldOptions(field));
         return _fieldValues.TryGetValue(field.Name, out var value) ? value : field.Default ?? "";
+    }
+
+    private static string? FormatLiveTelemetryEvent(string type, string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+            return null;
+
+        JsonObject? obj;
+        try
+        {
+            obj = JsonNode.Parse(payload)?.AsObject();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        if (obj is null)
+            return null;
+
+        return type switch
+        {
+            "telemetry.step.start" => $"Starting {ReadHumanInputString(obj["step.id"]) ?? "step"} ({ReadHumanInputString(obj["step.type"]) ?? "unknown"})",
+            "telemetry.step.end" => FormatLiveStepEnd(obj),
+            "telemetry.span.start" => $"Phase started: {ReadHumanInputString(obj["phase"]) ?? ReadHumanInputString(obj["span.name"]) ?? "internal"}",
+            "telemetry.span.end" => FormatLiveSpanEnd(obj),
+            _ => null
+        };
+    }
+
+    private static string FormatLiveStepEnd(JsonObject obj)
+    {
+        var stepId = ReadHumanInputString(obj["step.id"]) ?? "step";
+        var status = ReadHumanInputString(obj["status"]) ?? "completed";
+        var duration = FormatLiveDuration(obj["duration.ms"]);
+        return string.IsNullOrWhiteSpace(duration)
+            ? $"{stepId}: {status}"
+            : $"{stepId}: {status} in {duration}";
+    }
+
+    private static string FormatLiveSpanEnd(JsonObject obj)
+    {
+        var phase = ReadHumanInputString(obj["phase"]) ?? ReadHumanInputString(obj["span.name"]) ?? "internal";
+        var success = ReadHumanInputBool(obj["success"], defaultValue: true);
+        var duration = FormatLiveDuration(obj["duration.ms"]);
+        var status = success ? "completed" : "failed";
+        return string.IsNullOrWhiteSpace(duration)
+            ? $"Phase {status}: {phase}"
+            : $"Phase {status}: {phase} in {duration}";
+    }
+
+    private static string? FormatLiveDuration(JsonNode? node)
+    {
+        double? ms = node switch
+        {
+            JsonValue value when value.TryGetValue<double>(out var d) => d,
+            JsonValue value when value.TryGetValue<long>(out var l) => l,
+            JsonValue value when value.TryGetValue<string>(out var s)
+                && double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) => parsed,
+            _ => null
+        };
+
+        if (!ms.HasValue)
+            return null;
+
+        return ms.Value >= 1000
+            ? $"{ms.Value / 1000:0.0}s"
+            : $"{ms.Value:0}ms";
     }
 
     private static string? ReadHumanInputString(JsonNode? node)

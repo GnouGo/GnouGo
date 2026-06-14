@@ -12,6 +12,11 @@ public static class GnOuGoWorkspace
     public const string DefaultSubfolder = "GnOuGo";
 
     /// <summary>
+    /// Hidden folder used under the GnOuGo workspace for local data.
+    /// </summary>
+    public const string WorkspaceDataSubfolder = ".GnOuGo";
+
+    /// <summary>
     /// Resolves the current user's Desktop directory, with robust fallback for
     /// Native AOT, sandboxed, and headless environments.
     /// </summary>
@@ -112,11 +117,12 @@ public static class GnOuGoWorkspace
 
     /// <summary>
     /// Resolves a database file path using the GnOuGo data convention.
-    /// When the path uses the default <c>data/</c> prefix, it resolves to <c>Desktop/GnOuGo/data/</c>.
+    /// Relative paths are resolved from the default GnOuGo working directory,
+    /// which remains <c>Desktop/GnOuGo</c> unless explicitly configured.
     /// </summary>
     /// <param name="configuredPath">Configured database path (absolute, relative, or null).</param>
-    /// <param name="baseDirectory">Base directory for non-standard relative paths.</param>
-    /// <param name="defaultRelativePath">Default relative path when <paramref name="configuredPath"/> is null/empty (e.g. <c>data/gnougo-agent.db</c>).</param>
+    /// <param name="baseDirectory">Fallback base directory when Desktop-based resolution is unavailable.</param>
+    /// <param name="defaultRelativePath">Default relative path when <paramref name="configuredPath"/> is null/empty (e.g. <c>.GnOuGo/data/gnougo-agent.db</c>).</param>
     /// <returns>Absolute path to the database file.</returns>
     public static string ResolveDatabasePath(string? configuredPath, string baseDirectory, string defaultRelativePath)
     {
@@ -127,17 +133,18 @@ public static class GnOuGoWorkspace
             ? defaultRelativePath
             : configuredPath.Replace('\\', '/').Trim();
 
-        if (normalized.StartsWith("data/", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(normalized, defaultRelativePath, StringComparison.OrdinalIgnoreCase))
-        {
-            return Path.Combine(
-                ResolveDesktopDirectory(),
-                DefaultSubfolder,
-                normalized.Replace('/', Path.DirectorySeparatorChar));
-        }
-
-        return Path.GetFullPath(Path.Combine(baseDirectory, configuredPath ?? defaultRelativePath));
+        return Path.GetFullPath(Path.Combine(
+            ResolveDefaultWorkingDirectorySafe(contentRootPath: baseDirectory),
+            normalized.Replace('/', Path.DirectorySeparatorChar)));
     }
+
+    /// <summary>
+    /// Resolves the hidden GnOuGo data root under the default working directory.
+    /// </summary>
+    public static string ResolveWorkspaceDataDirectory(string baseDirectory)
+        => Path.GetFullPath(Path.Combine(
+            ResolveDefaultWorkingDirectorySafe(contentRootPath: baseDirectory),
+            WorkspaceDataSubfolder));
 
     /// <summary>
     /// Walks up the directory tree from <paramref name="startPath"/> looking for a <c>.sln</c> file
@@ -214,4 +221,3 @@ public static class GnOuGoWorkspace
         return contentRootPath ?? Path.GetTempPath();
     }
 }
-

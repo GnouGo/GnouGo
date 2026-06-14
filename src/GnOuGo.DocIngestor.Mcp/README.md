@@ -62,16 +62,16 @@ http://localhost:5088/mcp
 
 ```json
 "DocsIngestorMcp": {
-  "DatabasePath": "data/gnougo-docs-ingestor-mcp.db",
-  "VectorDatabasePath": "data/gnougo-docs-ingestor-vectors.sqlite",
-  "OriginalsDirectory": "data/docs-ingestor/originals",
+  "DatabasePath": ".GnOuGo/data/gnougo-docs-ingestor-mcp.db",
+  "VectorDatabasePath": ".GnOuGo/data/gnougo-docs-ingestor-vectors.sqlite",
+  "OriginalsDirectory": ".GnOuGo/data/docs-ingestor/originals",
   "DefaultCollection": "default",
   "DefaultEmbeddingConfigName": "hash-384",
   "DefaultTenantId": "default"
 }
 ```
 
-Relative `data/...` paths are resolved under `<Desktop>/GnOuGo/...` for local process sharing.
+Relative paths are resolved under the default workspace, so these defaults land under `Desktop/GnOuGo/.GnOuGo/data/...`.
 
 ## KeyVault embedding config schema
 
@@ -102,4 +102,3 @@ Ollama example:
 
 Secrets remain encrypted at rest by `GnOuGo.KeyVault.Core`.
 `GnOuGo.DocIngestor.Mcp` reads those encrypted secrets directly from the shared KeyVault SQLite database during Native AOT execution; secret values are still decrypted only in memory when needed for embedding configuration/API-key resolution.
-

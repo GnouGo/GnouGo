@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 
 from gnougo_flow_core.compilation import ValidationError, WorkflowValidator
 from gnougo_flow_core.models import StepDef, WorkflowDocument
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
+from gnougo_flow_core.workflow_plan_dry_run_validator import validate_workflow_plan_dry_run
 from gnougo_flow_core.workflow_plan_semantic_validator import (
     McpToolOutputContract,
     WorkflowSemanticValidationException,
+    normalize_mcp_call_input_requests,
     validate_workflow_semantics,
 )
 
@@ -32,6 +35,9 @@ class WorkflowPlanExecutor:
       allow_remote_workflow_refs: false
     limits:
       max_steps_total: 20
+    validate:
+      compile: true
+      dry_run: true
     on_invalid:
       action: reprompt
       max_attempts: 3
@@ -62,10 +68,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         provider, model = ctx.engine.resolve_llm_target(generator.get("provider"), generator.get("model"))
         model = model or "gpt-4"
 
-        # Reasoning effort: workflow planning is heavy reasoning, default to "high" (max).
+        # Reasoning effort: workflow planning is reasoning-heavy, default to "medium".
         # Authors can override via `generator.reasoning: auto|minimal|low|medium|high|max`.
         plan_reasoning_raw = generator.get("reasoning")
-        plan_reasoning = plan_reasoning_raw.strip() if isinstance(plan_reasoning_raw, str) and plan_reasoning_raw.strip() else "high"
+        plan_reasoning = plan_reasoning_raw.strip() if isinstance(plan_reasoning_raw, str) and plan_reasoning_raw.strip() else "medium"
 
         policy = input_obj.get("policy") if isinstance(input_obj.get("policy"), dict) else {}
         limits = input_obj.get("limits") if isinstance(input_obj.get("limits"), dict) else {}
@@ -75,10 +81,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         on_invalid_action = str(on_invalid.get("action", "fail"))
 
         mcp_tool_contracts: list[McpToolOutputContract] = []
+        context_text = str(generator.get("context", ""))
         base_prompt = await self._build_planning_prompt(
             ctx,
             instruction,
-            str(generator.get("context", "")),
+            context_text,
             policy,
             limits,
             generator,
@@ -87,8 +94,20 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         )
         prompt = base_prompt
         last_error: Exception | None = None
+        last_invalid_yaml: str | None = None
+        last_repair_context: str | None = None
 
         for attempt in range(1, max_attempts + 1):
+            if last_error is not None:
+                prompt = self._build_reprompt(
+                    instruction,
+                    context_text,
+                    policy,
+                    last_invalid_yaml,
+                    last_error,
+                    last_repair_context,
+                )
+
             with ctx.begin_telemetry_span(
                 "workflow.plan.generate",
                 "generation",
@@ -134,7 +153,12 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     validation_span.set_attribute("gnougo-flow.plan.workflow_count", len(doc.workflows))
                     self._enforce_plan_policy(doc, policy, limits)
                     if bool(validate.get("compile", True)):
-                        self._validate_generated_workflow_for_plan(doc, mcp_tool_contracts)
+                        normalization_count = self._validate_generated_workflow_for_plan(doc, mcp_tool_contracts)
+                        if normalization_count > 0:
+                            yaml_text = self._dump_workflow_yaml(doc)
+                    if bool(validate.get("dry_run", False)):
+                        validation_span.set_attribute("gnougo-flow.plan.dry_run", True)
+                        await validate_workflow_plan_dry_run(doc, mcp_tool_contracts)
                 return {
                     "yaml": yaml_text,
                     "workflow": {
@@ -149,12 +173,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 if on_invalid_action != "reprompt" or attempt >= max_attempts:
                     raise
                 last_error = exc
-                prompt = self._build_reprompt(base_prompt, exc)
+                last_invalid_yaml = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
+                last_repair_context = self._build_minimal_repair_context(ctx, policy, last_invalid_yaml, exc)
             except Exception as exc:
                 last_error = exc
                 if on_invalid_action != "reprompt" or attempt >= max_attempts:
                     break
-                prompt = self._build_reprompt(base_prompt, exc)
+                last_invalid_yaml = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
+                last_repair_context = self._build_minimal_repair_context(ctx, policy, last_invalid_yaml, exc)
 
         raise WorkflowRuntimeException(
             ErrorCodes.TEMPLATE_PLAN,
@@ -162,16 +188,151 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         )
 
     @staticmethod
-    def _build_reprompt(base_prompt: str, exc: Exception) -> str:
+    def _build_reprompt(
+        instruction: str,
+        context_text: str,
+        policy: dict[str, Any],
+        invalid_yaml: str | None,
+        exc: Exception,
+        repair_context: str | None,
+    ) -> str:
         structured_error = WorkflowPlanExecutor._build_structured_plan_error(exc)
-        return (
-            f"{base_prompt}\n\n"
-            "The previous output was invalid. Fix it and return only valid YAML.\n"
-            f"Validation error: {structured_error}\n"
-            "[PREVIOUS ERROR]\n"
-            f"{structured_error}\n"
-            "Fix the issues above and generate a corrected YAML."
+        constraints: list[str] = []
+        if isinstance(policy.get("allowed_step_types"), list):
+            constraints.append(f"Allowed step types: {', '.join(str(x) for x in policy['allowed_step_types'])}")
+        if isinstance(policy.get("denied_step_types"), list):
+            constraints.append(f"Denied step types: {', '.join(str(x) for x in policy['denied_step_types'])}")
+        if not bool(policy.get("allow_remote_workflow_refs", False)):
+            constraints.append("Remote workflow references (kind: url) are NOT allowed.")
+
+        parts = [
+            "You are repairing a GnOuGo.Flow YAML workflow. Return ONLY corrected YAML, no markdown fences.",
+            "Keep the original task intent and change only what is needed to fix the validation errors.",
+            "",
+            "[TASK]",
+            f"Instruction: {instruction}",
+        ]
+        if context_text.strip():
+            parts.append(f"Context: {context_text}")
+        if constraints:
+            parts.extend(["", "[CONSTRAINTS]", "\n".join(constraints)])
+        parts.extend(
+            [
+                "",
+                "[INVALID YAML]",
+                invalid_yaml if invalid_yaml and invalid_yaml.strip() else "(previous output was empty)",
+                "",
+                "[PREVIOUS ERROR]",
+                structured_error,
+                "",
+                "[MINIMUM DSL CONTEXT]",
+                "Required root: version, name, skill, workflows. `skill` is a top-level object with description, tags, inputs, and outputs. Each workflow has steps: [] and optional outputs.",
+                "Each step requires step-level id and type. Common fields stay at step level: if, input, output, retry, on_error, steps, branches, cases, default.",
+                "Executor-specific arguments go inside input only.",
+                "Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.",
+                "Expressions may read data.inputs.* and earlier data.steps.<id>.* only.",
+            ]
         )
+        if repair_context and repair_context.strip():
+            parts.append(repair_context)
+        parts.extend(["", "Fix the issues above and generate a corrected YAML."])
+        return "\n".join(parts)
+
+    @staticmethod
+    def _build_minimal_repair_context(
+        ctx: StepExecutionContext,
+        policy: dict[str, Any],
+        invalid_yaml: str | None,
+        exc: Exception,
+    ) -> str:
+        selected_types = WorkflowPlanExecutor._extract_repair_step_types(ctx, invalid_yaml, str(exc))
+        if not selected_types:
+            selected_types = WorkflowPlanExecutor._extract_known_step_types_from_yaml(ctx, invalid_yaml)
+
+        allowed_raw = policy.get("allowed_step_types")
+        allowed_types = {str(x) for x in allowed_raw} if isinstance(allowed_raw, list) else None
+        if allowed_types is not None:
+            selected_types &= allowed_types
+
+        snippet_map = ctx.engine.registry.get_dsl_snippet_map(None)
+        available_types = sorted(allowed_types or set(snippet_map.keys()))
+        parts = ["", "Available step type names:", ", ".join(available_types)]
+
+        snippets = ctx.engine.registry.get_dsl_snippets(selected_types) if selected_types else []
+        if snippets:
+            parts.extend(["", "DSL snippets for failed/referenced step types:", "\n".join(snippets)])
+
+        return "\n".join(parts).rstrip()
+
+    @staticmethod
+    def _extract_repair_step_types(ctx: StepExecutionContext, invalid_yaml: str | None, error_message: str) -> set[str]:
+        lookup = WorkflowPlanExecutor._build_step_repair_lookup(invalid_yaml)
+        selected: set[str] = set()
+
+        for step_id in WorkflowPlanExecutor._extract_error_step_ids(error_message):
+            info = lookup.get(step_id)
+            if not info:
+                continue
+            step_type, ancestors = info
+            if ctx.engine.registry.get(step_type) is not None:
+                selected.add(step_type)
+            for ancestor_type in ancestors:
+                if ctx.engine.registry.get(ancestor_type) is not None:
+                    selected.add(ancestor_type)
+
+        for step_type in WorkflowPlanExecutor._extract_quoted_step_types(error_message):
+            if ctx.engine.registry.get(step_type) is not None:
+                selected.add(step_type)
+
+        return selected
+
+    @staticmethod
+    def _extract_known_step_types_from_yaml(ctx: StepExecutionContext, invalid_yaml: str | None) -> set[str]:
+        selected: set[str] = set()
+        for step_type, _ancestors in WorkflowPlanExecutor._build_step_repair_lookup(invalid_yaml).values():
+            if ctx.engine.registry.get(step_type) is not None:
+                selected.add(step_type)
+        return selected
+
+    @staticmethod
+    def _build_step_repair_lookup(invalid_yaml: str | None) -> dict[str, tuple[str, tuple[str, ...]]]:
+        lookup: dict[str, tuple[str, tuple[str, ...]]] = {}
+        if not invalid_yaml or not invalid_yaml.strip():
+            return lookup
+        try:
+            doc = WorkflowParser.parse(invalid_yaml)
+        except Exception:
+            return lookup
+
+        def visit(steps: list[StepDef] | None, ancestors: tuple[str, ...]) -> None:
+            for step in steps or []:
+                lookup[step.id] = (step.type, ancestors)
+                child_ancestors = ancestors + (step.type,)
+                visit(step.steps, child_ancestors)
+                for branch in step.branches or []:
+                    visit(branch.steps, child_ancestors)
+                for case in step.cases or []:
+                    visit(case.steps, child_ancestors)
+                visit(step.default, child_ancestors)
+
+        for workflow in doc.workflows.values():
+            visit(workflow.steps, ())
+        return lookup
+
+    @staticmethod
+    def _extract_error_step_ids(error_message: str) -> set[str]:
+        ids: set[str] = set()
+        ids.update(re.findall(r"step '([^']+)'", error_message, flags=re.IGNORECASE))
+        ids.update(re.findall(r'"step":"([^"]+)"', error_message, flags=re.IGNORECASE))
+        ids.update(re.findall(r"\bdata\.steps\.([A-Za-z_][A-Za-z0-9_-]*)", error_message, flags=re.IGNORECASE))
+        return ids
+
+    @staticmethod
+    def _extract_quoted_step_types(error_message: str) -> set[str]:
+        step_types: set[str] = set()
+        step_types.update(re.findall(r"Step type '([^']+)'", error_message, flags=re.IGNORECASE))
+        step_types.update(re.findall(r"type '([^']+)'", error_message, flags=re.IGNORECASE))
+        return step_types
 
     @staticmethod
     def _build_structured_plan_error(exc: Exception) -> str:
@@ -185,6 +346,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             error_code = "MISSING_ROOT_KEY_VERSION"
         elif "missing required field 'name'" in lower:
             error_code = "MISSING_ROOT_KEY_NAME"
+        elif "skill_required" in lower or "top-level 'skill'" in lower:
+            error_code = "MISSING_ROOT_KEY_SKILL"
         elif "step_type_unknown" in lower:
             error_code = "UNKNOWN_STEP_TYPE"
         elif "missing_steps" in lower or "missing_branches" in lower or "missing_cases" in lower:
@@ -235,20 +398,26 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "Generate a valid GnOuGo.Flow YAML document (version: 1).\n"
             "You are a GnOuGo.Flow YAML workflow generator. Return ONLY valid YAML, no explanation or markdown fences.\n\n"
             "[DSL REFERENCE]\n"
-            "Use GnOuGo.Flow DSL v1. Root document must contain `version: 1` and `workflows` map.\n"
+            "Use GnOuGo.Flow DSL v1. Root document must contain `version: 1`, `name`, `skill`, and `workflows` map.\n"
             "Step fields: id, type, if, input, output, retry, on_error, steps, branches, cases, expr, default, item_var, index_var.\n"
             "Retry fields: max, backoff_ms, backoff_mult, jitter_ms.\n"
             "on_error cases: if, action (continue|stop), set_output.\n\n"
             "[REQUIRED ROOT YAML SHAPE]\n"
-            "The generated YAML MUST include all required root keys exactly once: version, name, workflows.\n"
+            "The generated YAML MUST include all required root keys exactly once: version, name, skill, workflows.\n"
             "Root key requirements:\n"
             "- version: non-empty string or number 1\n"
             "- name: non-empty string\n"
+            "- skill: required object with description, tags, inputs, and outputs for routing and argument extraction\n"
             "- workflows: non-empty object\n"
             "Each workflow entry under workflows MUST define a steps array.\n"
             "Minimal valid skeleton:\n"
             "version: 1\n"
             "name: generated-workflow\n"
+            "skill:\n"
+            "  description: Describe when this generated workflow should be used.\n"
+            "  tags: [generated]\n"
+            "  inputs: {}\n"
+            "  outputs: {}\n"
             "workflows:\n"
             "  main:\n"
             "    steps: []\n\n"
@@ -282,6 +451,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "- If an MCP response is opaque, use `json(data.steps.<id>.response)` to pass the whole response to another step.\n"
             "- If precise fields are needed from an opaque response, add an `llm.call` normalization step with "
             "`structured_output`, then read fields from `data.steps.<normalizer>.json`.\n"
+            "- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; "
+            "do not put unescaped JSON inside a double-quoted YAML string.\n"
             "- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`.\n\n"
             "[TASK]\n"
             f"Instruction: {instruction}\n"
@@ -296,6 +467,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "Required MCP planning pattern: discover candidate servers with `mcp.list`, then use mcp.call with prompt + model (+ optional temperature) "
             "when exact tool names or arguments are not known.\n"
             "For LLM-assisted MCP calls, put the natural-language instruction in input.prompt and pass discovered `tools`/`prompts`.\n"
+            "When building `mcp.call.input.request`, preserve JSON schema scalar types exactly: "
+            "numbers/integers/booleans must be unquoted YAML scalars, while strings may be quoted.\n"
+            "If a string field must contain JSON text, prefer a YAML literal block (`|`) so nested quotes remain valid YAML.\n"
             'mcp.call single-tool output shape: `{ status: "ok"|"error", response: <tool-specific JSON> }`\n'
             "Access status via `data.steps.<id>.status` and full result via `data.steps.<id>.response`.\n"
             "Do not assume any field inside `response` unless MCP docs explicitly define it through `output_schema` or `example_response`.\n"
@@ -643,6 +817,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 "version": int(parsed.get("version", 1) or 1),
                 "name": parsed.get("name"),
                 "meta": parsed.get("meta"),
+                "skill": parsed.get("skill"),
                 "entrypoint": "generated",
                 "workflows": {
                     "generated": {
@@ -656,6 +831,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         elif self._looks_like_workflow_body(parsed):
             normalized = {
                 "version": int(parsed.get("version", 1) or 1),
+                "name": parsed.get("name"),
+                "meta": parsed.get("meta"),
+                "skill": parsed.get("skill"),
                 "entrypoint": "generated",
                 "workflows": {
                     "generated": {
@@ -672,6 +850,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 if self._looks_like_workflow_body(value):
                     normalized = {
                         "version": int(parsed.get("version", 1) or 1),
+                        "name": parsed.get("name"),
+                        "meta": parsed.get("meta"),
+                        "skill": parsed.get("skill"),
                         "entrypoint": str(key),
                         "workflows": {str(key): value},
                     }
@@ -697,12 +878,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
     def _validate_generated_workflow_for_plan(
         doc: WorkflowDocument,
         mcp_tool_contracts: list[McpToolOutputContract],
-    ) -> None:
+    ) -> int:
         errors = WorkflowValidator().validate(doc)
         semantic_exception: WorkflowSemanticValidationException | None = None
         compilation_exception: Exception | None = None
+        normalization_count = 0
 
         try:
+            normalization_count = normalize_mcp_call_input_requests(doc, mcp_tool_contracts)
             validate_workflow_semantics(doc, mcp_tool_contracts)
         except WorkflowSemanticValidationException as exc:
             semantic_exception = exc
@@ -714,7 +897,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 compilation_exception = exc
 
         if not errors and semantic_exception is None and compilation_exception is None:
-            return
+            return normalization_count
 
         diagnostics: list[str] = []
         if errors:
@@ -728,6 +911,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             ErrorCodes.TEMPLATE_PLAN,
             "Generated workflow validation failed: " + " | ".join(diagnostics),
         )
+
+    @staticmethod
+    def _dump_workflow_yaml(doc: WorkflowDocument) -> str:
+        data = doc.model_dump(by_alias=True, exclude_none=True, exclude={"raw_yaml"})
+        return yaml.safe_dump(data, sort_keys=False, allow_unicode=False).strip()
 
     @staticmethod
     def _is_fatal_compiler_validation_error(error: ValidationError) -> bool:
@@ -786,6 +974,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         prompt = (
             "Select only MCP servers/capabilities relevant to the task.\n"
             'Return JSON object {"filtered":"..."} where filtered is a markdown subset.\n\n'
+            "When keeping a capability with input_schema, output_schema, or example_response, copy the complete "
+            "fenced ```json block verbatim. Do not summarize, rewrite, or truncate schema blocks/descriptions.\n"
+            "If preserving the selected schema blocks exactly is uncertain, return the full relevant server section.\n\n"
             f"Task:\n{instruction}\n\n"
             f"Available MCP:\n{mcp_doc}\n"
         )
@@ -873,6 +1064,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             )
             if isinstance(response.json_payload, dict) and isinstance(response.json_payload.get("filtered"), str):
                 filtered = response.json_payload["filtered"]
+                if not self._filtered_mcp_doc_preserves_schema_blocks(mcp_doc, filtered):
+                    filtered = mcp_doc
                 prefilter_span.set_attribute("mcp.documentation.filtered_length", len(filtered))
                 ctx.add_telemetry_event(
                     "gnougo-flow.plan.prefilter.capabilities.result",
@@ -889,6 +1082,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 parsed = json.loads(response.text)
                 if isinstance(parsed, dict) and isinstance(parsed.get("filtered"), str):
                     filtered = parsed["filtered"]
+                    if not self._filtered_mcp_doc_preserves_schema_blocks(mcp_doc, filtered):
+                        filtered = mcp_doc
                     prefilter_span.set_attribute("mcp.documentation.filtered_length", len(filtered))
                     ctx.add_telemetry_event(
                         "gnougo-flow.plan.prefilter.capabilities.result",
@@ -917,6 +1112,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
         prefilter_span.end()
         return mcp_doc
+
+    @staticmethod
+    def _filtered_mcp_doc_preserves_schema_blocks(original: str, filtered: str) -> bool:
+        if "```json" not in original:
+            return True
+        if "```json" not in filtered:
+            return False
+        return "…" not in filtered and "... schema truncated" not in filtered.lower()
 
     async def _build_mcp_documentation(
         self,
@@ -966,11 +1169,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
                         section.append(f"- {tool_name}: {tool_description or '(no description)'}")
                         if input_schema is not None:
-                            section.append(f"  input_schema: {self._dump_json(input_schema)}")
+                            self._append_json_block(section, "  ", "input_schema", input_schema)
                         if output_schema is not None:
-                            section.append(f"  output_schema: {self._dump_json(output_schema)}")
+                            self._append_json_block(section, "  ", "output_schema", output_schema)
                         if example_response is not None:
-                            section.append(f"  example_response: {self._dump_json(example_response)}")
+                            self._append_json_block(section, "  ", "example_response", example_response)
                         if mcp_tool_contracts is not None and tool_name:
                             mcp_tool_contracts.append(
                                 McpToolOutputContract(
@@ -1008,7 +1211,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
     def _dump_json(value: Any) -> str:
         if hasattr(value, "model_dump"):
             value = value.model_dump(by_alias=False)
-        return json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
+        return json.dumps(value, ensure_ascii=False, default=str, indent=2)
+
+    @staticmethod
+    def _append_json_block(lines: list[str], indent: str, label: str, value: Any) -> None:
+        lines.append(f"{indent}{label}:")
+        lines.append(f"{indent}```json")
+        lines.append(WorkflowPlanExecutor._dump_json(value))
+        lines.append(f"{indent}```")
 
     def _enforce_plan_policy(self, doc: WorkflowDocument, policy: dict[str, Any], limits: dict[str, Any]) -> None:
         allowed = set(policy.get("allowed_step_types") or [])

@@ -29,6 +29,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\GnOuGo.Workspace\GnOuGo.Workspace.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Update="ClientApp\package.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
     <None Update="ClientApp\package.json;ClientApp\tsconfig.json;ClientApp\tsconfig.*.json;ClientApp\vite.config.*" CopyToPublishDirectory="Never" />
   </ItemGroup>
@@ -44,5 +48,4 @@
     <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; build" />
   </Target>
 </Project>
-
 

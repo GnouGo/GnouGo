@@ -1,4 +1,5 @@
 import pytest
+import yaml
 
 from gnougo_flow_core.compilation import WorkflowCompiler
 from gnougo_flow_core.models import LLMResponse, McpServerMetadata, McpToolInfo
@@ -7,9 +8,27 @@ from gnougo_flow_core.runtime import WorkflowEngine
 from gnougo_flow_core.runtime_steps import SequenceExecutor
 
 
+def ensure_generated_skill(yaml_text: str) -> str:
+    try:
+        parsed = yaml.safe_load(yaml_text)
+    except Exception:
+        return yaml_text
+
+    if not isinstance(parsed, dict) or isinstance(parsed.get("skill"), dict):
+        return yaml_text
+
+    parsed["skill"] = {
+        "description": "Generated workflow.",
+        "tags": ["generated"],
+        "inputs": {},
+        "outputs": {},
+    }
+    return yaml.safe_dump(parsed, sort_keys=False, allow_unicode=False)
+
+
 class CapturePlanLlm:
     def __init__(self, yaml_text: str) -> None:
-        self.yaml_text = yaml_text
+        self.yaml_text = ensure_generated_skill(yaml_text)
         self.prompts: list[str] = []
 
     async def call_async(self, request):
@@ -19,7 +38,7 @@ class CapturePlanLlm:
 
 class SequencePlanLlm:
     def __init__(self, responses: list[str]) -> None:
-        self.responses = responses
+        self.responses = [ensure_generated_skill(response) for response in responses]
         self.prompts: list[str] = []
 
     async def call_async(self, request):
@@ -129,6 +148,8 @@ async def test_workflow_plan_prompt_contains_dotnet_like_sections() -> None:
     assert "Function arguments are evaluated before the function runs" in prompt
     assert "coalesce(data.steps.branch_a.value, data.steps.branch_b.value)" in prompt
     assert "produced only inside `switch` cases" in prompt
+    assert "version, name, skill, workflows" in prompt
+    assert "- skill: required object" in prompt
 
 
 @pytest.mark.asyncio
@@ -479,6 +500,9 @@ async def test_workflow_plan_reprompts_on_validator_diagnostics_not_only_compile
     assert result.success is True
     assert len(llm.prompts) == 2
     assert "[PREVIOUS ERROR]" in llm.prompts[1]
+    assert "[INVALID YAML]" in llm.prompts[1]
+    assert "[DSL REFERENCE]" not in llm.prompts[1]
+    assert "[STEP EXCEPTIONS BY TYPE]" not in llm.prompts[1]
     assert "STEP_TYPE_UNKNOWN" in llm.prompts[1]
 
 
@@ -973,3 +997,244 @@ async def test_workflow_plan_semantic_validation_rejects_invalid_mcp_request_aga
     assert "input.request.method" in result.error.message
     assert "docs/issue_write" in result.error.message
 
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_coerces_string_scalars_for_mcp_request_schema() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "list github pull requests"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: list_prs
+            type: mcp.call
+            input:
+              server: docs
+              method: list_pull_requests
+              request:
+                owner: AxaFrance
+                repo: oidc-client
+                perPage: "100"
+    """
+    tool = McpToolInfo(
+        name="list_pull_requests",
+        description="List pull requests",
+        input_schema={
+            "type": "object",
+            "required": ["owner", "repo"],
+            "properties": {
+                "owner": {"type": "string"},
+                "repo": {"type": "string"},
+                "perPage": {"type": "number"},
+            },
+            "additionalProperties": False,
+        },
+    )
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    yaml_text = result.outputs["plan"]["yaml"]
+    assert "perPage: 100" in yaml_text
+    assert 'perPage: "100"' not in yaml_text
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_coerces_nested_mcp_request_scalars_like_dotnet() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "normalize mcp request"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: call_tool
+            type: mcp.call
+            input:
+              server: docs
+              method: normalize_request
+              request:
+                count: "5"
+                enabled: "true"
+                nested:
+                  threshold: "0.75"
+                flags: ["false", "true"]
+                metadata:
+                  retries: "2"
+                payload:
+                  value: "42"
+    """
+    tool = McpToolInfo(
+        name="normalize_request",
+        description="Normalize request scalar types",
+        input_schema={
+            "type": "object",
+            "required": ["count", "enabled", "nested", "flags", "metadata", "payload"],
+            "properties": {
+                "count": {"type": "integer"},
+                "enabled": {"type": "boolean"},
+                "nested": {
+                    "type": "object",
+                    "required": ["threshold"],
+                    "properties": {"threshold": {"type": "number"}},
+                    "additionalProperties": False,
+                },
+                "flags": {"type": "array", "items": {"type": "boolean"}},
+                "metadata": {"type": "object", "additionalProperties": {"type": "integer"}},
+                "payload": {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "required": ["value"],
+                            "properties": {"value": {"type": "integer"}},
+                            "additionalProperties": False,
+                        },
+                        {"type": "null"},
+                    ]
+                },
+            },
+            "additionalProperties": False,
+        },
+    )
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    request = yaml.safe_load(result.outputs["plan"]["yaml"])["workflows"]["main"]["steps"][0]["input"]["request"]
+    assert request["count"] == 5
+    assert request["enabled"] is True
+    assert request["nested"]["threshold"] == 0.75
+    assert request["flags"] == [False, True]
+    assert request["metadata"]["retries"] == 2
+    assert request["payload"]["value"] == 42
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_dry_run_rejects_freeform_llm_text_used_as_number() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build token workflow"
+                prefilter: false
+              validate:
+                dry_run: true
+              on_invalid:
+                action: stop
+                max_attempts: 1
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: extract
+            type: llm.call
+            input:
+              prompt: "Return a token budget"
+          - id: answer
+            type: llm.call
+            input:
+              prompt: "Answer briefly"
+              max_tokens: "${data.steps.extract.text}"
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "dry_run" in result.error.message
+    assert "Expected number" in result.error.message
+    assert "dry-run text response" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_dry_run_allows_structured_llm_json_used_as_number() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build token workflow"
+                prefilter: false
+              validate:
+                dry_run: true
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: extract
+            type: llm.call
+            input:
+              prompt: "Return a token budget"
+              structured_output:
+                schema_inline:
+                  type: object
+                  properties:
+                    max_tokens:
+                      type: integer
+                  required: [max_tokens]
+                  additionalProperties: false
+          - id: answer
+            type: llm.call
+            input:
+              prompt: "Answer briefly"
+              max_tokens: "${data.steps.extract.json.max_tokens}"
+        outputs:
+          answer:
+            expr: "${data.steps.answer.text}"
+            type: string
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True

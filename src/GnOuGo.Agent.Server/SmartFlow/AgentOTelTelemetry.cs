@@ -117,6 +117,17 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         return new WfSpan(a);
     }
 
+    public IWorkflowSpan WorkflowStart(ITelemetrySpan parentSpan, WorkflowTelemetryInfo info)
+    {
+        var parent = ResolveParentActivity(parentSpan) ?? ResolveImplicitParent();
+        var a = StartActivity("workflow", ActivityKind.Internal, parent);
+        ApplyCorrelationTags(a);
+        a.SetTag("gnougo-flow.workflow.name", info.WorkflowName);
+        if (info.DocumentName is not null) a.SetTag("gnougo-flow.document.name", info.DocumentName);
+        ApplyWorkflowSourceTags(a, info);
+        return new WfSpan(a);
+    }
+
     public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result)
     {
         if (span is not WfSpan ws || ws.Activity is null) return;
@@ -548,4 +559,3 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         public void Dispose() => Activity?.Dispose();
     }
 }
-

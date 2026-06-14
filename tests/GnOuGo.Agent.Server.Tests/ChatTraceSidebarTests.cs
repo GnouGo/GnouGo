@@ -48,6 +48,28 @@ public sealed class ChatTraceSidebarTests : TestContext
     }
 
     [Fact]
+    public void Logs_RenderDuplicateTelemetryRows_WithoutDuplicateBlazorKeys()
+    {
+        var receivedUtc = DateTimeOffset.Parse("2026-06-06T10:00:00+00:00");
+        var logs = new List<TraceLogDto>
+        {
+            CreateDuplicateLog(receivedUtc),
+            CreateDuplicateLog(receivedUtc)
+        };
+
+        var cut = RenderComponent<ChatTraceLogs>(parameters => parameters
+            .Add(p => p.Logs, logs)
+            .Add(p => p.RenderFormatted, true));
+
+        Assert.Equal(2, cut.FindAll("section.gnougo-trace-log").Count);
+
+        var buttons = cut.FindAll("button.gnougo-trace-log__summary");
+        buttons[0].Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Log identifiers", cut.Markup));
+    }
+
+    [Fact]
     public async Task SwitchingToLogs_ThenClosingDuringRefresh_DoesNotThrowAndClosesPanel()
     {
         var settings = new OpenTelemetrySettings
@@ -145,6 +167,19 @@ public sealed class ChatTraceSidebarTests : TestContext
             };
     }
 
+    private static TraceLogDto CreateDuplicateLog(DateTimeOffset receivedUtc)
+        => new(
+            ReceivedUtc: receivedUtc,
+            TraceId: "11111111111111111111111111111111",
+            SpanId: "2222222222222222",
+            SeverityNumber: 9,
+            SeverityText: "Information",
+            Body: "repeated log message",
+            ServiceName: "GnOuGo.Agent.Server",
+            Attributes: new Dictionary<string, object?>(),
+            Resource: new Dictionary<string, object?>(),
+            Scope: new Dictionary<string, object?>());
+
     private sealed class StaticSseHandler(string streamContent) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -158,4 +193,3 @@ public sealed class ChatTraceSidebarTests : TestContext
         }
     }
 }
-

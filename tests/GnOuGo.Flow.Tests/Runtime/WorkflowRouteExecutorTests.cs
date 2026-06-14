@@ -168,6 +168,7 @@ workflows:
                   prompt: { type: string }
                   repository_path: { type: string }
                   base_branch: { type: string }
+                  api_key: { type: string }
           args:
             passthrough: true
             auto_extract:
@@ -185,6 +186,7 @@ workflows:
       prompt: { type: string, required: true }
       repository_path: { type: string, required: true }
       base_branch: { type: string, required: false, default: main }
+      api_key: { type: string, required: false }
     steps:
       - id: render
         type: template.render
@@ -207,18 +209,22 @@ workflows:
             ["arguments"] = new JsonObject
             {
                 ["repository_path"] = "/tmp/repo",
-                ["base_branch"] = "develop"
+                ["base_branch"] = "develop",
+                ["api_key"] = "secret-value"
             }
         });
+        var telemetry = new RecordingTelemetry();
         var workflow = Compile(yaml);
         var engine = new WorkflowEngine
         {
             LLMClient = llm,
+            Telemetry = telemetry,
             LlmDefaults = new LlmRuntimeDefaults
             {
                 Provider = "default-provider",
                 Model = "default-model"
-            }
+            },
+            Limits = new ExecutionLimits { LogStepContent = true }
         };
 
         var result = await engine.ExecuteAsync(workflow, new JsonObject { ["prompt"] = "compare this repo with develop" }, CancellationToken.None);
@@ -230,6 +236,96 @@ workflows:
         Assert.Equal("test-model", request.Model);
         Assert.Equal(0.1, request.Temperature);
         Assert.Contains("repository_path", request.Prompt);
+
+        var routedInputs = Assert.Single(telemetry.Events, static evt => evt.Name == "gnougo-flow.workflow_route.inputs_extracted");
+        Assert.Equal("local:inspect_repo", routedInputs.Attributes["gnougo-flow.workflow_route.candidate.id"]);
+        Assert.Equal("inspect_repo", routedInputs.Attributes["gnougo-flow.workflow_route.workflow.name"]);
+        Assert.Equal(true, routedInputs.Attributes["gnougo-flow.workflow_route.auto_extract.enabled"]);
+        var argumentsJson = Assert.IsType<string>(routedInputs.Attributes["gnougo-flow.workflow_route.arguments"]);
+        var arguments = JsonNode.Parse(argumentsJson)!.AsObject();
+        Assert.Equal("/tmp/repo", arguments["repository_path"]!.GetValue<string>());
+        Assert.Equal("<redacted>", arguments["api_key"]!.GetValue<string>());
+        var resolvedInputsJson = Assert.IsType<string>(routedInputs.Attributes["gnougo-flow.workflow_route.resolved_inputs"]);
+        var resolvedInputs = JsonNode.Parse(resolvedInputsJson)!.AsObject();
+        Assert.Equal("develop", resolvedInputs["base_branch"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowRoute_AutoExtractsArgumentsFromCandidateSkillInputs_WhenWorkflowInputsAreIncomplete()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    inputs:
+      prompt: { type: string, required: true }
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          prompt: "${data.inputs.prompt}"
+          candidates:
+            - ref: { kind: local, name: issue_resolver }
+              description: Resolves GitHub issues.
+              inputs:
+                type: object
+                properties:
+                  task: { type: string }
+                  repo_url: { type: string, default: "https://github.com/AxaFrance/oidc-client" }
+                  max_issues: { type: string, default: "4" }
+          args:
+            passthrough: false
+            auto_extract: true
+          combine:
+            strategy: first
+    outputs:
+      answer:
+        expr: "${data.steps.route.answer}"
+        type: string
+  issue_resolver:
+    inputs:
+      task: { type: string, required: true }
+    steps:
+      - id: render
+        type: template.render
+        input:
+          engine: mustache
+          mode: text
+          template: "{{max_issues}} issues from {{repo_url}} for {{task}}"
+          data:
+            task: "${data.inputs.task}"
+            repo_url: "${data.inputs.repo_url}"
+            max_issues: "${data.inputs.max_issues}"
+    outputs:
+      answer:
+        expr: "${data.steps.render.text}"
+        type: string
+""";
+
+        var llm = new ExtractingLlmClient(new JsonObject
+        {
+            ["arguments"] = new JsonObject
+            {
+                ["task"] = "Resolve open issues",
+                ["repo_url"] = "https://github.com/AxaFrance/axa-fr-oidc",
+                ["max_issues"] = "20"
+            }
+        });
+        var workflow = Compile(yaml);
+        var engine = new WorkflowEngine { LLMClient = llm };
+
+        var result = await engine.ExecuteAsync(
+            workflow,
+            new JsonObject { ["prompt"] = "Resolve the first 20 issues on https://github.com/AxaFrance/axa-fr-oidc/" },
+            CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(
+            "20 issues from https://github.com/AxaFrance/axa-fr-oidc for Resolve open issues",
+            result.Outputs!["answer"]!.GetValue<string>());
+        var request = Assert.Single(llm.Requests);
+        Assert.Contains("repo_url", request.Prompt);
+        Assert.Contains("max_issues", request.Prompt);
     }
 
     [Fact]
@@ -302,6 +398,59 @@ workflows:
         Assert.Equal(2, humanInput.Requests.Select(static request => request.RunId).Distinct(StringComparer.Ordinal).Count());
     }
 
+    [Fact]
+    public async Task WorkflowRoute_ExecutesSelectedWorkflowUnderRouteTelemetrySpan()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    inputs:
+      prompt: { type: string, required: true }
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          prompt: "${data.inputs.prompt}"
+          candidates:
+            - ref: { kind: local, name: child }
+          selection:
+            mode: single
+            min: 1
+            max: 1
+          combine:
+            strategy: first
+  child:
+    inputs:
+      prompt: { type: string, required: true }
+    steps:
+      - id: render
+        type: template.render
+        input:
+          engine: mustache
+          mode: text
+          template: "{{prompt}}"
+          data:
+            prompt: "${data.inputs.prompt}"
+    outputs:
+      answer:
+        expr: "${data.steps.render.text}"
+        type: string
+""";
+
+        var telemetry = new RecordingTelemetry();
+        var workflow = Compile(yaml);
+        var engine = new WorkflowEngine { Telemetry = telemetry };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject { ["prompt"] = "hello" }, CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var childWorkflow = Assert.Single(telemetry.WorkflowSpans, static span => span.Name == "child");
+        Assert.Equal("route", childWorkflow.ParentName);
+        var childStep = Assert.Single(telemetry.StepSpans, static span => span.Name == "render");
+        Assert.Equal("child", childStep.ParentName);
+    }
+
     private static CompiledWorkflow Compile(string yaml)
     {
         var doc = WorkflowParser.Parse(yaml);
@@ -351,6 +500,54 @@ workflows:
             return Task.FromResult<JsonNode?>(new JsonObject { ["response"] = request.Prompt });
         }
     }
+
+    private sealed class RecordingTelemetry : IWorkflowTelemetry
+    {
+        public List<TestSpan> WorkflowSpans { get; } = new();
+        public List<TestSpan> StepSpans { get; } = new();
+        public List<TestTelemetryEvent> Events { get; } = new();
+
+        public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info)
+        {
+            var span = new TestSpan(info.WorkflowName, null, Events);
+            WorkflowSpans.Add(span);
+            return span;
+        }
+
+        public IWorkflowSpan WorkflowStart(ITelemetrySpan parentSpan, WorkflowTelemetryInfo info)
+        {
+            var span = new TestSpan(info.WorkflowName, (parentSpan as TestSpan)?.Name, Events);
+            WorkflowSpans.Add(span);
+            return span;
+        }
+
+        public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result) { }
+
+        public IStepSpan StepStart(ITelemetrySpan parentSpan, StepTelemetryInfo info)
+        {
+            var span = new TestSpan(info.StepId, (parentSpan as TestSpan)?.Name, Events);
+            StepSpans.Add(span);
+            return span;
+        }
+
+        public void StepEnd(IStepSpan span, StepResultInfo result) { }
+    }
+
+    private sealed class TestSpan(string name, string? parentName, List<TestTelemetryEvent> events) : IWorkflowSpan, IStepSpan
+    {
+        public string Name { get; } = name;
+        public string? ParentName { get; } = parentName;
+
+        public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
+            => events.Add(new TestTelemetryEvent(
+                name,
+                attributes?.ToDictionary(static kv => kv.Key, static kv => kv.Value, StringComparer.Ordinal)
+                ?? new Dictionary<string, object?>(StringComparer.Ordinal)));
+
+        public void Dispose() { }
+    }
+
+    private sealed record TestTelemetryEvent(string Name, IReadOnlyDictionary<string, object?> Attributes);
 
     private sealed class ExtractingLlmClient : ILLMClient
     {

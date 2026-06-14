@@ -10,7 +10,7 @@ This library eliminates duplicated code for:
 - **Default working directory** — resolves `Desktop/GnOuGo` (or a configured path) and ensures it exists.
 - **Workspace root discovery** — walks up the directory tree looking for `.sln` or `.git` markers.
 - **Path containment checks** — verifies a path is inside an allowed root directory.
-- **Database path resolution** — maps `data/` prefixed relative paths to the `Desktop/GnOuGo/data/` convention.
+- **Database path resolution** — resolves configured relative paths such as `.GnOuGo/data/app.db` under the default working directory.
 
 ## API
 
@@ -42,13 +42,12 @@ dotnet test tests/GnOuGo.Workspace.Tests/GnOuGo.Workspace.Tests.csproj
 ```csharp
 using GnOuGo.Workspace;
 
-// Resolve Desktop/GnOuGo
+// Resolve Desktop/GnOuGo for generic working-directory scenarios
 var workDir = GnOuGoWorkspace.ResolveDefaultWorkingDirectory();
 
 // Check workspace root
 var root = GnOuGoWorkspace.DiscoverWorkspaceRoot(AppContext.BaseDirectory);
 
-// Resolve a database path
-var dbPath = GnOuGoWorkspace.ResolveDatabasePath(null, baseDir, "data/my-app.db");
+// Resolve a database path under Desktop/GnOuGo/.GnOuGo/data by default
+var dbPath = GnOuGoWorkspace.ResolveDatabasePath(null, baseDir, ".GnOuGo/data/my-app.db");
 ```
-

@@ -39,6 +39,23 @@ public sealed class StreamingWorkflowTelemetry : IWorkflowTelemetry
 		return new StreamingWorkflowSpan(innerSpan);
 	}
 
+	public IWorkflowSpan WorkflowStart(ITelemetrySpan parentSpan, WorkflowTelemetryInfo info)
+	{
+		var innerParentSpan = parentSpan switch
+		{
+			StreamingWorkflowSpan streamingSpan => streamingSpan.Inner,
+			StreamingStepSpan streamingStepSpan => streamingStepSpan.Inner,
+			StreamingTelemetrySpan streamingTelemetrySpan => streamingTelemetrySpan.Inner,
+			_ => parentSpan
+		};
+		var innerSpan = _inner.WorkflowStart(innerParentSpan, info);
+		Emit("workflow.started", new WorkflowStartedStreamData(
+			WorkflowName: info.WorkflowName,
+			DocumentName: info.DocumentName,
+			Inputs: info.Inputs?.DeepClone()));
+		return new StreamingWorkflowSpan(innerSpan);
+	}
+
 	public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result)
 	{
 		var innerSpan = span is StreamingWorkflowSpan streamingSpan ? streamingSpan.Inner : span;
@@ -342,4 +359,3 @@ public sealed class StreamingWorkflowTelemetry : IWorkflowTelemetry
 		public void Dispose() => Inner.Dispose();
 	}
 }
-

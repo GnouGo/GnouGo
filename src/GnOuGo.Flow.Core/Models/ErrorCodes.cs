@@ -27,6 +27,7 @@ public static class ErrorCodes
     public const string ParallelLimit = "PARALLEL_LIMIT";
     public const string ScriptError = "SCRIPT_ERROR";
     public const string StepTypeUnknown = "STEP_TYPE_UNKNOWN";
+    public const string SkillRequired = "SKILL_REQUIRED";
 
 
     // MCP
@@ -37,4 +38,3 @@ public static class ErrorCodes
     public const string McpTimeout = "MCP_TIMEOUT";
     public const string McpServerNotFound = "MCP_SERVER_NOT_FOUND";
 }
-

@@ -416,7 +416,8 @@ public sealed class TraceDebugService
             ServiceName: log.ServiceName,
             Attributes: ToObjectDictionary(log.AttributesJson),
             Resource: ToObjectDictionary(log.ResourceJson),
-            Scope: ToObjectDictionary(log.ScopeJson));
+            Scope: ToObjectDictionary(log.ScopeJson),
+            Id: log.Id);
 
     private static Dictionary<string, object?> ToObjectDictionary(object? value)
     {

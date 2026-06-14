@@ -154,6 +154,7 @@ workflows:
           
           validate:
             compile: true
+            dry_run: true
           
           on_invalid:
             action: reprompt

@@ -128,6 +128,9 @@ Output: `{ text, json?, usage?, raw? }`.
         # When omitted, providers fall back to their own defaults ("auto").
         reasoning_raw = input_obj.get("reasoning")
         reasoning = reasoning_raw.strip() if isinstance(reasoning_raw, str) and reasoning_raw.strip() else None
+        max_tokens = None
+        if "max_tokens" in input_obj and input_obj["max_tokens"] is not None:
+            max_tokens = int(ExpressionEvaluator.get_number(input_obj["max_tokens"]))
         request = LLMRequest(
             provider=provider,
             model=model,
@@ -136,6 +139,7 @@ Output: `{ text, json?, usage?, raw? }`.
             structured_output_schema=(structured.get("schema_inline") or structured.get("schema_ref")) if structured else None,
             structured_output_strict=bool(structured.get("strict")) if structured and "strict" in structured else None,
             reasoning=reasoning,
+            max_tokens=max_tokens,
         )
         request = ctx.engine.sanitize_llm_request(request)
 
@@ -146,6 +150,8 @@ Output: `{ text, json?, usage?, raw? }`.
             ctx.set_telemetry_attribute("gen_ai.request.temperature", request.temperature)
         if request.reasoning is not None:
             ctx.set_telemetry_attribute("gen_ai.request.reasoning_effort", request.reasoning)
+        if request.max_tokens is not None:
+            ctx.set_telemetry_attribute("gen_ai.request.max_tokens", request.max_tokens)
 
         if ctx.limits.log_step_content:
             ctx.add_telemetry_event(

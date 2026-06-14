@@ -1828,7 +1828,7 @@ public sealed class ConfigureProvidersService
             Mode = HumanInputContract.ModeChoice,
             Choices = choices.ToList(),
             Context = context,
-            TimeoutMs = 300_000
+            TimeoutMs = HumanInputContract.DefaultTimeoutMs
         };
 
     private static HumanInputRequest CreateFieldsRequest(string runId, string stepId, string prompt, IReadOnlyList<HumanInputFieldDef> fields, JsonNode? context = null)
@@ -1840,7 +1840,7 @@ public sealed class ConfigureProvidersService
             Mode = HumanInputContract.ModeForm,
             Fields = fields.ToList(),
             Context = context,
-            TimeoutMs = 300_000
+            TimeoutMs = HumanInputContract.DefaultTimeoutMs
         };
 
     private async IAsyncEnumerable<SmartFlowEvent> EmitHumanInputRequestAsync(
@@ -2659,6 +2659,7 @@ public sealed class ConfigureProvidersService
         sb.AppendLine();
         sb.AppendLine("| Command | Description |");
         sb.AppendLine("|---|---|");
+        sb.AppendLine("| `/help` | Show all chat and configuration commands |");
         sb.AppendLine("| `/llm` | Show LLM command documentation |");
         sb.AppendLine("| `/llm list` | List configured LLM providers |");
         sb.AppendLine("| `/llm models <name>` | List available models for a configured LLM provider |");
@@ -2677,6 +2678,12 @@ public sealed class ConfigureProvidersService
         sb.AppendLine("| `/mcp add` | Add a new MCP server |");
         sb.AppendLine("| `/mcp edit <name>` | Edit an existing MCP server |");
         sb.AppendLine("| `/mcp remove <name>` | Remove an MCP server |");
+        sb.AppendLine("| `/gnougo` | Show agent command documentation |");
+        sb.AppendLine("| `/gnougo list` | List configured agents |");
+        sb.AppendLine("| `/gnougo add` | Create a new agent |");
+        sb.AppendLine("| `/gnougo edit <name>` | Edit an existing agent |");
+        sb.AppendLine("| `/gnougo remove <name>` | Remove an agent |");
+        sb.AppendLine("| `/gnougo select <name>` | Set the active chat agent |");
         sb.AppendLine("| `/status` | Display current configuration summary |");
         sb.AppendLine();
         sb.Append("Type a command in the chat to get started.");

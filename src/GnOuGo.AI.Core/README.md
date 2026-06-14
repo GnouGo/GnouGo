@@ -14,6 +14,7 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 | `OpenAi`    | `openai`  | OpenAI, Azure OpenAI, or any compatible endpoint |
 | `Ollama`    | `ollama`  | Local Ollama server                              |
 | `Copilot`   | `copilot` | GitHub Copilot / GitHub Models API               |
+| `Anthropic` | `anthropic` | Anthropic Claude Messages API                  |
 
 ## Model Catalog Behavior
 
@@ -41,7 +42,8 @@ embedded catalog < LLM.ModelMetadataFiles < LLM.ModelOverrides < provider/model 
 ILLMProvider  (interface — one per backend)
   ├── OpenAiLLMProvider
   ├── OllamaLLMProvider
-  └── CopilotLLMProvider
+  ├── CopilotLLMProvider
+  └── AnthropicLLMProvider
 
 RoutingLLMClient  (routes requests to the right ILLMProvider based on config)
 ```
@@ -164,7 +166,7 @@ The Anthropic provider connects to the Anthropic Messages API. Configure it with
 3. `CLAUDE_API_KEY` environment variable
 4. OIDC client credentials, sent as a bearer token when `Issuer`, `ClientId`, and `Scopes` are configured with either `ClientSecret` or `PrivateKeyPem`
 
-Anthropic supports text responses, tool use (`tool_use` blocks), live model discovery via `/v1/models`, and best-effort structured JSON output by appending a strict JSON instruction to the prompt.
+Anthropic supports text responses, tool use (`tool_use` blocks), live model discovery via `/v1/models`, and structured JSON output. When `StructuredOutputSchema` is provided, GnOuGo sends a synthetic `gnougo_structured_output` client tool with the schema as `input_schema` and forces it through `tool_choice`, then maps the returned `tool_use.input` to `LLMClientResponse.Json`. Because Anthropic forced tool use is incompatible with extended thinking, the provider omits `thinking` for these structured-output calls.
 
 ## Reasoning / Thinking effort
 
@@ -182,8 +184,19 @@ Accepted values: `"minimal" | "low" | "medium" | "high" | "max" | "auto"` (or `n
 | `high` / `max`  | `reasoning_effort: "high"`              | `think: true`         | `thinking.budget_tokens=8192/16000` |
 | `none` / `off`  | (treated as `auto`)                     | `think: false`        | field omitted              |
 
+For Claude Opus 4.7 and later Opus models, Anthropic no longer accepts fixed `thinking.budget_tokens`. The provider keeps the same GnOuGo `Reasoning` values and sends `thinking.type=adaptive` with `output_config.effort` instead. For example, `Reasoning="high"` becomes:
+
+```json
+{
+  "thinking": { "type": "adaptive" },
+  "output_config": { "effort": "high" }
+}
+```
+
+These models also reject non-default sampling parameters. GnOuGo marks `temperature`, `top_p`, and `top_k` as unsupported in model metadata and the Anthropic provider omits `temperature` defensively for Opus 4.7+ requests.
+
 Models that don't support thinking have the field removed by `LLMRequestSanitizer` before the provider call.
-Provider-specific mapping lives in `ChatRequestBuilder.NormalizeOpenAiReasoning`, `NormalizeOllamaThink`, and `AnthropicLLMProvider.NormalizeThinkingBudget`.
+Provider-specific mapping lives in `ChatRequestBuilder.NormalizeOpenAiReasoning`, `NormalizeOllamaThink`, `AnthropicLLMProvider.NormalizeThinkingBudget`, and `AnthropicLLMProvider.NormalizeAnthropicEffort`.
 
 ## Build
 

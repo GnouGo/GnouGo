@@ -4,6 +4,7 @@ import uuid
 from typing import Any
 
 from gnougo_flow_core.models import (
+    DEFAULT_HUMAN_INPUT_TIMEOUT_MS,
     HUMAN_INPUT_FIELD_TYPES,
     HUMAN_INPUT_FIELD_TYPES_FOR_DSL,
     HUMAN_INPUT_MODE_CHOICE,
@@ -31,7 +32,7 @@ Common input fields:
   - prompt (string, required): question/instruction shown to the user.
   - mode (string, required for generated DSL): text, choice, form, or confirm.
   - context (any, optional): structured data shown next to the prompt.
-  - timeout_ms (number, optional): milliseconds before HUMAN_INPUT_TIMEOUT. Default: 300000. Use 0 for no timeout.
+  - timeout_ms (number, optional): milliseconds before HUMAN_INPUT_TIMEOUT. Default: 36000000 (10 hours). Use 0 for no timeout.
 
 Mode patterns:
 ```yaml
@@ -50,7 +51,7 @@ Mode patterns:
     mode: choice
     prompt: "Choose the next action."
     choices: [approve, modify, reject]
-    timeout_ms: 300000
+    timeout_ms: 36000000
 ```
 
 ```yaml
@@ -121,7 +122,7 @@ class HumanInputExecutor:
         if not isinstance(prompt, str):
             raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "human.input requires a 'prompt' field")
 
-        timeout_ms = int(input_obj.get("timeout_ms", 300_000))
+        timeout_ms = int(input_obj.get("timeout_ms", DEFAULT_HUMAN_INPUT_TIMEOUT_MS))
         choices = ["" if c is None else str(c) for c in input_obj.get("choices", [])] if isinstance(input_obj.get("choices"), list) else None
         fields = None
         if isinstance(input_obj.get("fields"), list):

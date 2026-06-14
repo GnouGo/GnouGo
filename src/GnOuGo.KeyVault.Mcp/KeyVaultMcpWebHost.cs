@@ -10,6 +10,8 @@ public static class KeyVaultMcpWebHost
     public static WebApplication Build(string[] args, string? urls = null, string routePrefix = KeyVaultMcpHostingExtensions.DefaultRoutePrefix)
     {
         var builder = WebApplication.CreateSlimBuilder(args);
+        if (args.Length > 0)
+            builder.Configuration.AddCommandLine(args);
 
         if (!string.IsNullOrWhiteSpace(urls))
             builder.WebHost.UseUrls(urls);

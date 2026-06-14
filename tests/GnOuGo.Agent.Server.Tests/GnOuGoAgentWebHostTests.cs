@@ -16,6 +16,7 @@ using System.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore;
 using GnOuGo.Agent.Shared;
 using GnOuGo.Agent.Mcp;
+using GnOuGo.Workspace;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -611,10 +612,17 @@ public sealed class GnOuGoAgentWebHostTests
     }
 
     [Fact]
-    public void ResolveDatabasePath_WhenUsingAgentDesktopDefaultTelemetryPath_UsesDesktopGnOuGoDirectory()
+    public void ResolveDatabasePath_WhenUsingAgentDefaultTelemetryPath_UsesDefaultWorkingDirectoryGnOuGoDataDirectory()
     {
-        var expected = Path.Combine(ResolveDesktopDirectory(), "GnOuGo", "data", "gnougo-telemetry.db");
-        var actual = OtlpCollectorHostingExtensions.ResolveDatabasePath("data/gnougo-telemetry.db", AppContext.BaseDirectory);
+        var expected = Path.Combine(
+            GnOuGoWorkspace.ResolveDefaultWorkingDirectory(),
+            ".GnOuGo",
+            "data",
+            "gnougo-telemetry.db");
+
+        var actual = OtlpCollectorHostingExtensions.ResolveDatabasePath(
+            ".GnOuGo/data/gnougo-telemetry.db",
+            AppContext.BaseDirectory);
 
         Assert.Equal(expected, actual);
     }
@@ -667,23 +675,6 @@ public sealed class GnOuGoAgentWebHostTests
         {
             // Best-effort cleanup for a temporary SQLite file.
         }
-    }
-
-    private static string ResolveDesktopDirectory()
-    {
-        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-        if (!string.IsNullOrWhiteSpace(desktopPath))
-            return Path.GetFullPath(desktopPath);
-
-        var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (!string.IsNullOrWhiteSpace(userProfilePath))
-            return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
-
-        var homePath = Environment.GetEnvironmentVariable("HOME");
-        if (!string.IsNullOrWhiteSpace(homePath))
-            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
-
-        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
     }
 
     private static void EnsureBundledToolExists(string bundledToolPath)

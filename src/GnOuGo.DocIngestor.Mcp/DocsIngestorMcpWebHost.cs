@@ -10,6 +10,8 @@ public static class DocsIngestorMcpWebHost
     public static WebApplication Build(string[] args, string? urls = null, string routePrefix = DocsIngestorMcpHostingExtensions.DefaultRoutePrefix)
     {
         var builder = WebApplication.CreateSlimBuilder(args);
+        if (args.Length > 0)
+            builder.Configuration.AddCommandLine(args);
 
         if (!string.IsNullOrWhiteSpace(urls))
             builder.WebHost.UseUrls(urls);
@@ -23,16 +25,16 @@ public static class DocsIngestorMcpWebHost
         // Read individual config values to avoid reflection-based Get<T>() at startup.
         var metadataDbPath = DocsIngestorMcpPathResolver.Resolve(
             builder.Configuration["DocsIngestorMcp:DatabasePath"],
-            AppContext.BaseDirectory, "data/gnougo-docs-ingestor-mcp.db");
+            AppContext.BaseDirectory, ".GnOuGo/data/gnougo-docs-ingestor-mcp.db");
         var vectorDbPath = DocsIngestorMcpPathResolver.Resolve(
             builder.Configuration["DocsIngestorMcp:VectorDatabasePath"],
-            AppContext.BaseDirectory, "data/gnougo-docs-ingestor-vectors.sqlite");
+            AppContext.BaseDirectory, ".GnOuGo/data/gnougo-docs-ingestor-vectors.sqlite");
         var originalsDirectory = DocsIngestorMcpPathResolver.Resolve(
             builder.Configuration["DocsIngestorMcp:OriginalsDirectory"],
-            AppContext.BaseDirectory, "data/docs-ingestor/originals");
+            AppContext.BaseDirectory, ".GnOuGo/data/docs-ingestor/originals");
         var keyVaultDbPath = DocsIngestorMcpPathResolver.Resolve(
             builder.Configuration["KeyVault:DatabasePath"],
-            AppContext.BaseDirectory, "data/gnougo-keyvault.db");
+            AppContext.BaseDirectory, ".GnOuGo/data/gnougo-keyvault.db");
 
         Directory.CreateDirectory(Path.GetDirectoryName(metadataDbPath)!);
         Directory.CreateDirectory(Path.GetDirectoryName(vectorDbPath)!);

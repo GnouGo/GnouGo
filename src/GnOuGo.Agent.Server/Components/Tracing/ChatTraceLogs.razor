@@ -23,44 +23,45 @@ else
     <div class="gnougo-trace-logs" aria-live="polite">
         @foreach (var log in _logs)
         {
-            var logKey = GetLogKey(log);
+            var logKey = log.Key;
+            var logEntry = log.Log;
             var isOpen = _openLogKeys.Contains(logKey);
-            <section class="gnougo-trace-log gnougo-trace-log--@TraceDebugUiHelpers.GetSeverityClass(log)" @key="logKey">
+            <section class="gnougo-trace-log gnougo-trace-log--@TraceDebugUiHelpers.GetSeverityClass(logEntry)" @key="logKey">
                 <button class="gnougo-trace-log__summary"
                         type="button"
                         aria-expanded="@isOpen"
                         @onclick="() => ToggleLog(logKey)">
                     <span class="gnougo-trace-log__chevron" aria-hidden="true">v</span>
-                    <span class="gnougo-trace-log__time">@log.ReceivedUtc.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)</span>
-                    <span class="gnougo-trace-log__severity">@TraceDebugUiHelpers.GetSeverityLabel(log)</span>
-                    <span class="gnougo-trace-log__service">@(log.ServiceName ?? "service n/a")</span>
-                    <span class="gnougo-trace-log__body">@(string.IsNullOrWhiteSpace(log.Body) ? "(empty log body)" : log.Body)</span>
+                    <span class="gnougo-trace-log__time">@logEntry.ReceivedUtc.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)</span>
+                    <span class="gnougo-trace-log__severity">@TraceDebugUiHelpers.GetSeverityLabel(logEntry)</span>
+                    <span class="gnougo-trace-log__service">@(logEntry.ServiceName ?? "service n/a")</span>
+                    <span class="gnougo-trace-log__body">@(string.IsNullOrWhiteSpace(logEntry.Body) ? "(empty log body)" : logEntry.Body)</span>
                 </button>
                 @if (isOpen)
                 {
                     <div class="gnougo-trace-log__content">
-                        @if (!string.IsNullOrWhiteSpace(log.Body))
+                        @if (!string.IsNullOrWhiteSpace(logEntry.Body))
                         {
                             <div class="gnougo-trace-detail__section">
                                 <h4>Body</h4>
-                                @TraceDebugValueRenderer.RenderValue(log.Body, RenderFormatted)
+                                @TraceDebugValueRenderer.RenderValue(logEntry.Body, RenderFormatted)
                             </div>
                         }
                         <div class="gnougo-trace-detail__section">
                             <h4>Log identifiers</h4>
                             <table class="gnougo-trace-detail__table">
                                 <tbody>
-                                    <tr><td>Received</td><td>@log.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</td></tr>
-                                    <tr><td>Severity</td><td>@TraceDebugUiHelpers.GetSeverityLabel(log) (@log.SeverityNumber)</td></tr>
-                                    <tr><td>Service</td><td>@(log.ServiceName ?? "n/a")</td></tr>
-                                    <tr><td>Trace</td><td><code>@(log.TraceId ?? "n/a")</code></td></tr>
-                                    <tr><td>Span</td><td><code>@(log.SpanId ?? "n/a")</code></td></tr>
+                                    <tr><td>Received</td><td>@logEntry.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)</td></tr>
+                                    <tr><td>Severity</td><td>@TraceDebugUiHelpers.GetSeverityLabel(logEntry) (@logEntry.SeverityNumber)</td></tr>
+                                    <tr><td>Service</td><td>@(logEntry.ServiceName ?? "n/a")</td></tr>
+                                    <tr><td>Trace</td><td><code>@(logEntry.TraceId ?? "n/a")</code></td></tr>
+                                    <tr><td>Span</td><td><code>@(logEntry.SpanId ?? "n/a")</code></td></tr>
                                 </tbody>
                             </table>
                         </div>
-                        <TraceAttributeTable Title="Attributes" Attributes="log.Attributes" RenderFormatted="RenderFormatted" />
-                        <TraceAttributeTable Title="Resource" Attributes="log.Resource" RenderFormatted="RenderFormatted" />
-                        <TraceAttributeTable Title="Scope" Attributes="log.Scope" RenderFormatted="RenderFormatted" />
+                        <TraceAttributeTable Title="Attributes" Attributes="logEntry.Attributes" RenderFormatted="RenderFormatted" />
+                        <TraceAttributeTable Title="Resource" Attributes="logEntry.Resource" RenderFormatted="RenderFormatted" />
+                        <TraceAttributeTable Title="Scope" Attributes="logEntry.Scope" RenderFormatted="RenderFormatted" />
                     </div>
                 }
             </section>
@@ -71,13 +72,13 @@ else
     [Parameter] public IReadOnlyList<TraceLogDto> Logs { get; set; } = [];
     [Parameter] public bool IsLoading { get; set; }
     [Parameter] public bool RenderFormatted { get; set; }
-    private List<TraceLogDto> _logs = [];
+    private List<TraceLogItem> _logs = [];
     private readonly HashSet<string> _openLogKeys = new(StringComparer.Ordinal);
 
     protected override void OnParametersSet()
     {
-        _logs = Logs.OrderByDescending(log => log.ReceivedUtc).ToList();
-        var currentKeys = _logs.Select(GetLogKey).ToHashSet(StringComparer.Ordinal);
+        _logs = BuildLogItems(Logs);
+        var currentKeys = _logs.Select(log => log.Key).ToHashSet(StringComparer.Ordinal);
         _openLogKeys.RemoveWhere(key => !currentKeys.Contains(key));
     }
 
@@ -87,11 +88,36 @@ else
             _openLogKeys.Remove(logKey);
     }
 
-    private static string GetLogKey(TraceLogDto log)
-        => string.Join('|',
+    private static List<TraceLogItem> BuildLogItems(IReadOnlyList<TraceLogDto> logs)
+    {
+        var occurrenceCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var items = new List<TraceLogItem>(logs.Count);
+
+        foreach (var log in logs.OrderByDescending(log => log.ReceivedUtc))
+        {
+            var baseKey = GetLogBaseKey(log);
+            var occurrence = occurrenceCounts.GetValueOrDefault(baseKey);
+            occurrenceCounts[baseKey] = occurrence + 1;
+            var key = occurrence == 0 ? baseKey : string.Create(CultureInfo.InvariantCulture, $"{baseKey}|{occurrence}");
+            items.Add(new TraceLogItem(log, key));
+        }
+
+        return items;
+    }
+
+    private static string GetLogBaseKey(TraceLogDto log)
+    {
+        if (log.Id is { } id && id != Guid.Empty)
+            return string.Create(CultureInfo.InvariantCulture, $"id:{id:N}");
+
+        return string.Join('|',
+            "value",
             log.ReceivedUtc.UtcTicks.ToString(CultureInfo.InvariantCulture),
             log.TraceId ?? string.Empty,
             log.SpanId ?? string.Empty,
             log.SeverityNumber.ToString(CultureInfo.InvariantCulture),
             log.Body?.GetHashCode(StringComparison.Ordinal).ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+    }
+
+    private sealed record TraceLogItem(TraceLogDto Log, string Key);
 }

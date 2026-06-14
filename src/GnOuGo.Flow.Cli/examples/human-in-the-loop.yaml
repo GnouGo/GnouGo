@@ -4,6 +4,18 @@
 #   2. Checkpoint/resume — workflow survives restarts
 
 version: 1
+name: human-in-the-loop
+skill:
+  description: Demonstrates human approval, modification, and workflow resume behavior.
+  tags: [example, human-input, approval]
+  inputs:
+    topic:
+      type: string
+      description: Topic to review and process.
+  outputs:
+    status:
+      type: string
+      description: Final approval or modification status.
 
 workflows:
   main:
@@ -25,7 +37,7 @@ workflows:
             - approve
             - reject
             - modify
-          timeout_ms: 300000
+          timeout_ms: 36000000
 
       # Guard: only continue if approved
       - id: check_approval

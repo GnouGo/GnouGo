@@ -37,6 +37,10 @@ public sealed class WorkflowValidator
         if (doc.Workflows.Count == 0)
             errors.Add(new ValidationError { Code = "NO_WORKFLOWS", Message = "Document must have at least one workflow" });
 
+        // Skill metadata is required so generated and cataloged workflows can be routed consistently.
+        if (doc.Skill is null)
+            errors.Add(new ValidationError { Code = ErrorCodes.SkillRequired, Field = "skill", Message = "Document must define a top-level 'skill' block." });
+
         // Entrypoint validation
         if (doc.Entrypoint != null && !doc.Workflows.ContainsKey(doc.Entrypoint))
             errors.Add(new ValidationError { Code = "INVALID_ENTRYPOINT", Message = $"Entrypoint '{doc.Entrypoint}' not found in workflows" });
