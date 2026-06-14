@@ -1828,7 +1828,7 @@ public sealed class ConfigureProvidersService
             Mode = HumanInputContract.ModeChoice,
             Choices = choices.ToList(),
             Context = context,
-            TimeoutMs = 300_000
+            TimeoutMs = HumanInputContract.DefaultTimeoutMs
         };
 
     private static HumanInputRequest CreateFieldsRequest(string runId, string stepId, string prompt, IReadOnlyList<HumanInputFieldDef> fields, JsonNode? context = null)
@@ -1840,7 +1840,7 @@ public sealed class ConfigureProvidersService
             Mode = HumanInputContract.ModeForm,
             Fields = fields.ToList(),
             Context = context,
-            TimeoutMs = 300_000
+            TimeoutMs = HumanInputContract.DefaultTimeoutMs
         };
 
     private async IAsyncEnumerable<SmartFlowEvent> EmitHumanInputRequestAsync(

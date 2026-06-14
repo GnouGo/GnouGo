@@ -208,7 +208,7 @@ workflows:
               type: string
               required: true
               description: "Agent name (e.g. code-reviewer, daily-reporter)"
-          timeout_ms: 300000
+          timeout_ms: 36000000
 
       - id: normalized_name
         type: set
@@ -274,7 +274,7 @@ workflows:
                   type: string
                   required: true
                   description: "Describe the agent's purpose and behavior. This prompt will be used to generate a workflow YAML."
-              timeout_ms: 600000
+              timeout_ms: 36000000
 
           - id: think_generating
             type: emit
@@ -356,7 +356,7 @@ workflows:
               choices:
                 - approve
                 - modify
-              timeout_ms: 600000
+              timeout_ms: 36000000
 
           - id: workflow_branch
             type: switch
@@ -374,7 +374,7 @@ workflows:
                           required: true
                           description: "Modified workflow YAML"
                           default: "${data.steps.generate_workflow.yaml}"
-                      timeout_ms: 600000
+                      timeout_ms: 36000000
                   - id: final_workflow_modified
                     type: set
                     input:
@@ -485,7 +485,7 @@ workflows:
                   required: true
                   description: "Agent name"
                   default: "${data.steps.find_agent.response.agent.name}"
-              timeout_ms: 300000
+              timeout_ms: 36000000
 
           - id: normalized_edit_name
             type: set
@@ -541,7 +541,7 @@ workflows:
                       required: true
                       description: "Workflow YAML"
                       default: "${data.steps.find_agent.response.agent.workflow}"
-                  timeout_ms: 600000
+                  timeout_ms: 36000000
 
               - id: new_workflow
                 type: set
@@ -561,7 +561,7 @@ workflows:
                   choices:
                     - save
                     - discard
-                  timeout_ms: 300000
+                  timeout_ms: 36000000
 
               - id: save_edit_branch
                 type: switch
@@ -643,7 +643,7 @@ workflows:
               choices:
                 - confirm
                 - cancel
-              timeout_ms: 300000
+              timeout_ms: 36000000
 
           - id: remove_branch
             type: switch

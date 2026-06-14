@@ -4,6 +4,7 @@ import uuid
 from typing import Any
 
 from gnougo_flow_core.models import (
+    DEFAULT_HUMAN_INPUT_TIMEOUT_MS,
     HUMAN_INPUT_FIELD_TYPES,
     HUMAN_INPUT_FIELD_TYPES_FOR_DSL,
     HUMAN_INPUT_MODE_CHOICE,
@@ -12,7 +13,6 @@ from gnougo_flow_core.models import (
     HUMAN_INPUT_MODE_TEXT,
     HUMAN_INPUT_MODES,
     HUMAN_INPUT_MODES_FOR_DSL,
-    DEFAULT_HUMAN_INPUT_TIMEOUT_MS,
     HumanInputFieldDef,
     human_input_field_type_requires_options,
 )
