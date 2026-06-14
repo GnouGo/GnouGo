@@ -27,12 +27,12 @@ This MCP surface stays intentionally narrow. Tenant deletion, audit log access, 
 ```json
 {
   "KeyVault": {
-    "DatabasePath": "data/gnougo-keyvault.db"
+    "DatabasePath": ".GnOuGo/data/gnougo-keyvault.db"
   }
 }
 ```
 
-When `KeyVault:DatabasePath` keeps its default logical value (`data/gnougo-keyvault.db`), the actual SQLite file is created under the current user's Desktop in `Desktop/GnOuGo/data/gnougo-keyvault.db`.
+When `KeyVault:DatabasePath` keeps its default logical value (`.GnOuGo/data/gnougo-keyvault.db`), the actual SQLite file is created under the default workspace in `Desktop/GnOuGo/.GnOuGo/data/gnougo-keyvault.db`.
 Explicit absolute paths are still honored.
 
 ## HTTP routes
@@ -94,5 +94,3 @@ dotnet test "C:\github\GnouGo\tests\GnOuGo.KeyVault.Mcp.Tests\GnOuGo.KeyVault.Mc
 ```powershell
 dotnet publish "C:\github\GnouGo\src\GnOuGo.KeyVault.Mcp\GnOuGo.KeyVault.Mcp.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=true
 ```
-
-

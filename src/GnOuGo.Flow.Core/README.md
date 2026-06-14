@@ -629,7 +629,7 @@ Pauses the workflow and prompts the user for input. The workflow resumes when th
       - approve
       - reject
       - modify
-    timeout_ms: 300000        # 5 minutes (default)
+    timeout_ms: 36000000      # 10 hours (default)
 ```
 
 #### Structured form fields
@@ -1129,9 +1129,17 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 - **Full DSL reference injection**: The LLM receives the complete DSL documentation (step types, expressions, error handling) so it can generate valid workflows.
 - **Policy enforcement**: Generated workflows are validated against allowed/denied step types and max step limits.
 - **Full validation before acceptance**: `workflow.plan` runs the validator, compiler, and semantic checks before returning a plan. This catches non-fatal validator diagnostics such as unknown step types, invalid container shapes, future step references, conditional branch/loop mapping errors, and invalid `data.steps.<id>.response.<field>` mappings.
+- **Optional dry-run validation**: Set `validate.dry_run: true` to execute the generated workflow once with deterministic fake LLM, MCP, human-input, and routing providers. This catches runtime input-resolution errors such as free-form `llm.call.text` being used where a number is required. The dry-run never calls real LLMs or MCP tools.
 - **MCP output contracts**: MCP discovery injects complete `input_schema`, `output_schema`, and `example_response` metadata into the planning prompt. `output_schema` / `example_response` define which fields may be read from `mcp.call` single-tool `response` objects.
+- **MCP request normalization**: During `workflow.plan` validation, static `mcp.call.input.request` values are normalized against discovered `input_schema` contracts. Numeric, integer, and boolean YAML strings are converted to typed JSON values when the schema allows it, including nested objects, arrays, additional properties, and matching `oneOf` / `anyOf` object variants.
 - **Self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error, or semantic mapping error), the error is sent back to the LLM for automatic correction.
 - **OpenTelemetry tracing**: Full GenAI convention traces for the planning LLM call, MCP discovery, and pre-filter phases.
+
+Workflow execution traces also include injected workflow inputs on the workflow span:
+
+- `gnougo-flow.workflow.inputs` as a single JSON string with secret-looking keys such as `token`, `password`, `secret`, and `api_key` redacted.
+- `gnougo-flow.workflow.inputs.count`
+- `gnougo-flow.workflow.inputs.keys`
 
 **Semantic mapping guardrails:** generated plans must not read `data.steps.<id>.*` from steps that are produced only inside a `switch` case, an `if`-guarded step, or a loop body unless that value is first mapped into a guaranteed location. Function arguments are evaluated eagerly, so `coalesce(data.steps.fix.value, data.steps.question.value)` is still unsafe when either step may not have executed. Prefer a common workflow-level output alias in every branch, or a guaranteed normalization step with a stable output schema.
 

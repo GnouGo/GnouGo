@@ -26,7 +26,7 @@
   sanitation (`temperature`, `reasoning`, `structured_output`, `tools`).
 - ✅ `LlmCallExecutor` reads `input["reasoning"]` and forwards it; emits
   `gen_ai.request.reasoning_effort` telemetry attribute.
-- ✅ `WorkflowPlanExecutor` defaults `generator.reasoning` to `"high"` and
+- ✅ `WorkflowPlanExecutor` defaults `generator.reasoning` to `"medium"` and
   passes it on every LLM request (main attempt + MCP prefilter).
 - ✅ New helper module `gnougo_flow_core.reasoning` with
   `normalize_openai_reasoning` / `normalize_ollama_think` (mirrors
@@ -207,7 +207,7 @@
 | H39 | ✅ | `mcp.call` — direct call, batch/auto-discover, cache-backed discovery, LLM-assisted selection/finalization prompt parity, prompt argument schemas, unsupported prompt fallback | `McpCallExecutor.cs` |
 | H40 | ✅ | `human.input` — `IHumanInputProvider`, timeout including `timeout_ms: 0`, fields, choices, stable run id, waiting/received telemetry | `HumanInputExecutor.cs` |
 | H41 | ✅ | `workflow.call` — `ref.kind ∈ {local, url}`; remote fetch via `IWorkflowFetcher` constrained by `FetchPolicy` (HTTPS scheme parsed via `urlparse`, `allowed_hostnames` allow-list, `require_integrity`, `max_size_bytes`); export selection (`export → entrypoint → single → first`); cycle/depth checks (`MaxCallDepth`); deep-copy of args/env | `WorkflowCallExecutor.cs` |
-| H42 | ✅ | `workflow.plan` — defaults `reasoning="high"`, passes on main + prefilter calls | `WorkflowPlanExecutor.cs` |
+| H42 | ✅ | `workflow.plan` — defaults `reasoning="medium"`, passes on main + prefilter calls | `WorkflowPlanExecutor.cs` |
 | H43 | ✅ | `workflow.execute` — parse YAML returned by `workflow.plan`, compile, validate args/defaults, run under a sub-workflow telemetry span, propagate outputs/errors | `WorkflowExecuteExecutor.cs` |
 
 ## I. Interfaces / DTOs / integrations
@@ -216,7 +216,7 @@
 |---|:-:|---|---|
 | I44 | ✅ | Mirror `LLMTool` / `LLMToolCall` field names (snake_case `input_schema`) | `Interfaces.cs` |
 | I45 | ✅ | Reasoning normalization helpers (`normalize_openai_reasoning`, `normalize_ollama_think`) | `ChatRequestBuilder.cs` (in `GnOuGo.AI.Core`) |
-| I46 | ✅ | Document `workflow.plan` default `"high"` (README) | — |
+| I46 | ✅ | Document `workflow.plan` default `"medium"` (README) | — |
 | I47 | ✅ | Add `IWorkflowCheckpointer` Protocol (`load_async`, `save_async`, `delete_async`, `list_async`) | `IWorkflowCheckpointer.cs` |
 | I48 | ✅ | Port `JsonSchemaConverter` (`inputs_to_json_schema`, `outputs_to_json_schema`, …) → `gnougo_flow_core/json_schema.py` | `Models/JsonSchemaConverter.cs` |
 | I49 | ✅ | Port `ConfiguredMcpClientFactory`, `InMemoryMcpClientFactory`, `RoutingLLMClientAdapter` → `gnougo_flow_core/integrations/` | corresponding `.cs` files |
@@ -247,7 +247,7 @@
 | L59 | ✅ | Port `ConfiguredMcpClientFactoryTests` → `tests/test_mcp_factory.py` | `tests/.../ConfiguredMcpClientFactoryTests.cs` |
 | L60 | ✅ | Add `tests/test_json_schema.py` covering `JsonSchemaConverter` parity | `tests/.../JsonSchemaConverterTests.cs` |
 | L61 | ✅ | Add `tests/test_resume.py` covering checkpoint save+resume | new |
-| L62 | ✅ | `tests/test_reasoning_field.py` covering reasoning round-trip + `workflow.plan` default `"high"` | new |
+| L62 | ✅ | `tests/test_reasoning_field.py` covering reasoning round-trip + `workflow.plan` default `"medium"` | new |
 
 ---
 
@@ -271,4 +271,3 @@
   guarantees parity.
 - The agent prompt for "scan everything and port what's missing" should always
   start by re-reading this file before re-running a full diff.
-

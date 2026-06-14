@@ -69,6 +69,9 @@ public class WorkflowPlanMcpChatGuidanceTests
         Assert.Contains("put the natural-language instruction in input.prompt", capturedPrompt);
         // Preferred direct-call pattern when tools are discovered
         Assert.Contains("Preferred MCP planning pattern: when tool names and input schemas are listed above, use `mcp.call` directly", capturedPrompt);
+        Assert.Contains("preserve JSON schema scalar types exactly", capturedPrompt);
+        Assert.Contains("numbers/integers/booleans must be unquoted YAML scalars", capturedPrompt);
+        Assert.Contains("prefer a YAML literal block (`|`) so nested quotes remain valid YAML", capturedPrompt);
         // Tool discovered
         Assert.Contains("list_repos", capturedPrompt);
     }

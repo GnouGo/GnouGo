@@ -59,6 +59,17 @@ def validate_workflow_semantics(
         raise WorkflowSemanticValidationException(errors)
 
 
+def normalize_mcp_call_input_requests(
+    document: WorkflowDocument,
+    mcp_tool_contracts: list[McpToolOutputContract] | None = None,
+) -> int:
+    mcp_contracts = {(c.server_name, c.tool_name): c for c in mcp_tool_contracts or []}
+    changes = 0
+    for workflow in document.workflows.values():
+        changes += _normalize_mcp_call_input_requests(workflow.steps, mcp_contracts)
+    return changes
+
+
 def format_semantic_errors(errors: list[WorkflowSemanticValidationError]) -> str:
     return json.dumps(
         {
@@ -109,6 +120,50 @@ def _validate_step_list(
 ) -> None:
     for step in steps:
         _validate_step(step, workflow_name, known_contracts, all_step_ids, mcp_contracts, errors)
+
+
+def _normalize_mcp_call_input_requests(
+    steps: list[StepDef],
+    mcp_contracts: dict[tuple[str, str], McpToolOutputContract],
+) -> int:
+    changes = 0
+    for step in steps:
+        changes += _normalize_mcp_call_input_request(step, mcp_contracts)
+        if step.steps:
+            changes += _normalize_mcp_call_input_requests(step.steps, mcp_contracts)
+        if step.branches:
+            for branch in step.branches:
+                changes += _normalize_mcp_call_input_requests(branch.steps, mcp_contracts)
+        if step.cases:
+            for case in step.cases:
+                changes += _normalize_mcp_call_input_requests(case.steps, mcp_contracts)
+        if step.default:
+            changes += _normalize_mcp_call_input_requests(step.default, mcp_contracts)
+    return changes
+
+
+def _normalize_mcp_call_input_request(
+    step: StepDef,
+    mcp_contracts: dict[tuple[str, str], McpToolOutputContract],
+) -> int:
+    if step.type != "mcp.call" or not isinstance(step.input, dict):
+        return 0
+
+    kind = _try_get_input_string(step, "kind") or "tool"
+    if kind.lower() != "tool":
+        return 0
+
+    server_name = _try_get_input_string(step, "server")
+    method_name = _try_get_input_string(step, "method")
+    if not server_name or not method_name:
+        return 0
+
+    contract = mcp_contracts.get((server_name, method_name))
+    request = step.input.get("request")
+    if contract is None or not isinstance(contract.input_schema, dict) or not isinstance(request, dict):
+        return 0
+
+    return _normalize_json_node_against_schema(request, contract.input_schema)
 
 
 def _validate_step(
@@ -427,6 +482,116 @@ def _validate_primitive_type(value: Any, expected_type: str, path: str, errors: 
         errors.append(_SchemaValidationError(path=path, message=f"expected {expected_type}"))
 
 
+def _normalize_json_node_against_schema(value: Any, schema: Any) -> int:
+    if not isinstance(schema, dict):
+        return 0
+
+    any_of = schema.get("anyOf")
+    if isinstance(any_of, list):
+        return _normalize_against_single_matching_variant(value, any_of)
+
+    one_of = schema.get("oneOf")
+    if isinstance(one_of, list):
+        return _normalize_against_single_matching_variant(value, one_of)
+
+    schema_type = _read_schema_type(schema)
+    if schema_type == "object":
+        return _normalize_object_against_schema(value, schema)
+    if schema_type == "array":
+        return _normalize_array_against_schema(value, schema)
+    return 0
+
+
+def _normalize_against_single_matching_variant(value: Any, variants: list[Any]) -> int:
+    selected_variant: dict[str, Any] | None = None
+    for variant in variants:
+        if not isinstance(variant, dict):
+            continue
+
+        variant_errors: list[_SchemaValidationError] = []
+        _validate_json_node_against_schema(value, variant, "", variant_errors)
+        if not variant_errors:
+            return 0
+
+        clone = copy.deepcopy(value)
+        changes = _normalize_json_node_against_schema(clone, variant)
+        if changes == 0:
+            continue
+
+        variant_errors = []
+        _validate_json_node_against_schema(clone, variant, "", variant_errors)
+        if not variant_errors:
+            if selected_variant is not None:
+                return 0
+            selected_variant = variant
+
+    if selected_variant is None:
+        return 0
+    return _normalize_json_node_against_schema(value, selected_variant)
+
+
+def _normalize_object_against_schema(value: Any, schema: dict[str, Any]) -> int:
+    if _is_dynamic_expression_string(value) or not isinstance(value, dict):
+        return 0
+
+    changes = 0
+    properties = schema.get("properties")
+    additional_schema = schema.get("additionalProperties")
+    for property_name, property_value in list(value.items()):
+        property_schema = properties.get(property_name) if isinstance(properties, dict) else None
+        if property_schema is None and isinstance(additional_schema, dict):
+            property_schema = additional_schema
+        if property_schema is None:
+            continue
+
+        changes += _normalize_json_node_against_schema(property_value, property_schema)
+        coerced, did_coerce = _try_coerce_json_value(property_value, property_schema)
+        if did_coerce:
+            value[property_name] = coerced
+            changes += 1
+
+    return changes
+
+
+def _normalize_array_against_schema(value: Any, schema: dict[str, Any]) -> int:
+    if _is_dynamic_expression_string(value) or not isinstance(value, list) or "items" not in schema:
+        return 0
+
+    item_schema = schema.get("items")
+    changes = 0
+    for index, item in enumerate(list(value)):
+        changes += _normalize_json_node_against_schema(item, item_schema)
+        coerced, did_coerce = _try_coerce_json_value(item, item_schema)
+        if did_coerce:
+            value[index] = coerced
+            changes += 1
+    return changes
+
+
+def _try_coerce_json_value(value: Any, schema: Any) -> tuple[Any, bool]:
+    if _is_dynamic_expression_string(value) or not isinstance(schema, dict) or not isinstance(value, str):
+        return value, False
+
+    schema_type = _read_schema_type(schema)
+    text = value.strip()
+    if schema_type == "number":
+        try:
+            return float(text), True
+        except ValueError:
+            return value, False
+    if schema_type == "integer":
+        try:
+            return int(text, 10), True
+        except ValueError:
+            return value, False
+    if schema_type == "boolean":
+        if text.lower() == "true":
+            return True, True
+        if text.lower() == "false":
+            return False, True
+    return value, False
+
+
 def _is_dynamic_expression_string(value: Any) -> bool:
     return isinstance(value, str) and "${" in value
 
@@ -681,4 +846,3 @@ def _array_schema() -> dict[str, Any]:
 
 def _opaque_schema() -> dict[str, bool]:
     return {"x-gnougo-opaque": True}
-

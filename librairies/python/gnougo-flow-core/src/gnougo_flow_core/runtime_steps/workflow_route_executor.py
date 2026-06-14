@@ -17,6 +17,7 @@ from gnougo_flow_core.models import (
     WorkflowRouteCandidateQuery,
 )
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
+from gnougo_flow_core.runtime import apply_workflow_input_defaults
 from gnougo_flow_core.workflow_call_resolver import (
     DefaultWorkflowCallResolver,
     WorkflowCallResolution,
@@ -329,13 +330,16 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
         config = self._parse_auto_extract_config(args_input)
         if not config.enabled:
             return args
-        if not workflow.source.inputs:
+
+        schema = copy.deepcopy(candidate.inputs) if candidate.inputs is not None else None
+        if schema is None and workflow.source.inputs:
+            schema = inputs_to_json_schema(workflow.source.inputs)
+        if schema is None:
             return args
         if ctx.engine.llm_client is None:
             raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, "workflow.route args.auto_extract requires an LLM client")
 
         provider, model = ctx.engine.resolve_llm_target(config.provider, config.model)
-        schema = inputs_to_json_schema(workflow.source.inputs)
         response = await ctx.engine.call_llm_async(
             LLMRequest(
                 provider=provider,
@@ -438,6 +442,15 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
             resolution.workflow,
             candidate_args,
         )
+        resolved_args = apply_workflow_input_defaults(resolution.workflow.source, candidate_args)
+        self._emit_routed_inputs_telemetry(
+            ctx,
+            candidate,
+            resolution.workflow_name,
+            candidate_args,
+            resolved_args,
+            args_input,
+        )
         result = await child_engine.execute_async(resolution.workflow, candidate_args, ctx.ct)
         return _RouteExecutionResult(
             candidate=candidate,
@@ -467,6 +480,36 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
         child.mcp_cache = ctx.engine.mcp_cache
         child.logger = ctx.engine.logger
         return child
+
+    @staticmethod
+    def _emit_routed_inputs_telemetry(
+        ctx: StepExecutionContext,
+        candidate: _RouteCandidate,
+        workflow_name: str,
+        candidate_args: dict[str, Any],
+        resolved_args: dict[str, Any],
+        args_input: dict[str, Any] | None,
+    ) -> None:
+        if not ctx.limits.log_step_content:
+            return
+
+        auto_extract_enabled = WorkflowRouteExecutor._parse_auto_extract_config(args_input).enabled
+        ctx.add_telemetry_event(
+            "gnougo-flow.workflow_route.inputs_extracted",
+            [
+                ("gnougo-flow.step.id", ctx.step.id),
+                ("gnougo-flow.step.type", ctx.step.type),
+                ("gnougo-flow.step.call_depth", ctx.call_depth),
+                ("gnougo-flow.workflow_route.candidate.id", candidate.id),
+                ("gnougo-flow.workflow_route.candidate.name", candidate.name),
+                ("gnougo-flow.workflow_route.workflow.name", workflow_name),
+                ("gnougo-flow.workflow_route.auto_extract.enabled", auto_extract_enabled),
+                ("gnougo-flow.workflow_route.arguments.keys", ",".join(candidate_args.keys())),
+                ("gnougo-flow.workflow_route.arguments", _format_inputs_for_telemetry(candidate_args)),
+                ("gnougo-flow.workflow_route.resolved_inputs.keys", ",".join(resolved_args.keys())),
+                ("gnougo-flow.workflow_route.resolved_inputs", _format_inputs_for_telemetry(resolved_args)),
+            ],
+        )
 
     async def _combine_async(
         self,
@@ -699,3 +742,40 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
     def _sanitize_run_id_part(value: str) -> str:
         cleaned = re.sub(r"[^A-Za-z0-9_-]", "_", value.strip())[:64]
         return cleaned or "candidate"
+
+
+_SENSITIVE_KEY_FRAGMENTS = (
+    "api_key",
+    "apikey",
+    "authorization",
+    "bearer",
+    "credential",
+    "password",
+    "secret",
+    "token",
+)
+_INPUT_ATTRIBUTE_LIMIT = 4 * 1024
+
+
+def _format_inputs_for_telemetry(value: Any) -> str:
+    redacted = _redact_sensitive_values(value)
+    text = json.dumps(redacted if redacted is not None else {}, ensure_ascii=False, default=str)
+    if len(text) <= _INPUT_ATTRIBUTE_LIMIT:
+        return text
+    return text[:_INPUT_ATTRIBUTE_LIMIT] + "...<truncated>"
+
+
+def _redact_sensitive_values(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): "<redacted>" if _is_sensitive_key(str(key)) else _redact_sensitive_values(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_sensitive_values(item) for item in value]
+    return copy.deepcopy(value)
+
+
+def _is_sensitive_key(key: str) -> bool:
+    lower = key.lower()
+    return any(fragment in lower for fragment in _SENSITIVE_KEY_FRAGMENTS)

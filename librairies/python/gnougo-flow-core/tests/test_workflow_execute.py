@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+import yaml
 
 from gnougo_flow_core.compilation import WorkflowCompiler
 from gnougo_flow_core.errors import ErrorCodes, WorkflowRuntimeException
@@ -9,9 +10,27 @@ from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
 
 
+def _ensure_generated_skill(yaml_text: str) -> str:
+    try:
+        parsed = yaml.safe_load(yaml_text)
+    except Exception:
+        return yaml_text
+
+    if not isinstance(parsed, dict) or isinstance(parsed.get("skill"), dict):
+        return yaml_text
+
+    parsed["skill"] = {
+        "description": "Generated workflow.",
+        "tags": ["generated"],
+        "inputs": {},
+        "outputs": {},
+    }
+    return yaml.safe_dump(parsed, sort_keys=False, allow_unicode=False)
+
+
 class _PlanLlm:
     def __init__(self, *responses) -> None:
-        self._responses = list(responses)
+        self._responses = [_ensure_generated_skill(response) if isinstance(response, str) else response for response in responses]
         self.requests = []
 
     async def call_async(self, request):
@@ -503,5 +522,4 @@ async def test_workflow_execute_starts_dedicated_subworkflow_telemetry_span() ->
     assert telemetry.workflow_starts[1]["source_format"] == "yaml"
     assert "type: set" in telemetry.workflow_starts[1]["source_text"]
     assert len(telemetry.workflow_ends) == 2
-
 

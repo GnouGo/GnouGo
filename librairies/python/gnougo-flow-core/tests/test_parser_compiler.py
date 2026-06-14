@@ -1,6 +1,7 @@
 import pytest
 
-from gnougo_flow_core.compilation import WorkflowCompiler
+from gnougo_flow_core.compilation import WorkflowCompiler, WorkflowValidator
+from gnougo_flow_core.errors import ErrorCodes
 from gnougo_flow_core.errors import WorkflowParseException
 from gnougo_flow_core.parsing import WorkflowParser
 
@@ -9,6 +10,11 @@ def test_parse_and_compile_basic_workflow() -> None:
     yaml_text = """
     version: 1
     name: basic
+    skill:
+      description: Basic test workflow.
+      tags: [test]
+      inputs: {}
+      outputs: {}
     workflows:
       main:
         steps:
@@ -26,6 +32,25 @@ def test_parse_and_compile_basic_workflow() -> None:
     assert compiled.entrypoint == "main"
     assert "main" in compiled.workflows
     assert compiled.workflows["main"].steps[0].id == "init"
+
+
+def test_validate_requires_top_level_skill() -> None:
+    yaml_text = """
+    version: 1
+    name: missing-skill
+    workflows:
+      main:
+        steps:
+          - id: init
+            type: set
+            input:
+              answer: 42
+    """
+
+    doc = WorkflowParser.parse(yaml_text)
+    errors = WorkflowValidator().validate(doc)
+
+    assert any(error.code == ErrorCodes.SKILL_REQUIRED and error.field == "skill" for error in errors)
 
 
 def test_parse_with_skill_sets_top_level_skill_metadata() -> None:
@@ -276,4 +301,3 @@ def test_validator_reports_invalid_input_and_output_types() -> None:
     codes = {err.code for err in errors}
     assert "INVALID_INPUT_TYPE" in codes
     assert "INVALID_OUTPUT_TYPE" in codes
-

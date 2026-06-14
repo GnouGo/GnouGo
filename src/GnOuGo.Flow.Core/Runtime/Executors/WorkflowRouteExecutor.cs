@@ -289,15 +289,17 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         if (!config.Enabled)
             return args;
 
-        var workflowInputs = workflow.Source.Inputs;
-        if (workflowInputs is null || workflowInputs.Count == 0)
+        var schema = candidate.Inputs?.DeepClone()
+            ?? (workflow.Source.Inputs is { Count: > 0 } workflowInputs
+                ? JsonSchemaConverter.InputsToJsonSchema(workflowInputs)
+                : null);
+        if (schema is null)
             return args;
 
         var llm = ctx.Engine.LLMClient
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "workflow.route args.auto_extract requires an LLM client");
 
         var (provider, model) = ctx.Engine.ResolveLlmTarget(config.Provider, config.Model);
-        var schema = JsonSchemaConverter.InputsToJsonSchema(workflowInputs);
         var response = await llm.CallAsync(new LLMRequest
         {
             Provider = provider,
@@ -428,7 +430,18 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         var candidateArgs = args.DeepClone() as JsonObject ?? new JsonObject();
         candidateArgs = await ApplyAutoExtractArgsAsync(ctx, routeInput, argsInput, candidate, resolution.Workflow, candidateArgs, ct);
         var resolvedArgs = WorkflowInputDefaults.Apply(resolution.Workflow.Source, candidateArgs);
-        var result = await childEngine.ExecuteAsync(resolution.Workflow, resolvedArgs, ct);
+        EmitRoutedInputsTelemetry(ctx, candidate, resolution.WorkflowName, candidateArgs, resolvedArgs, argsInput);
+        var newCallStack = new HashSet<string>(ctx.CallStack);
+        if (!string.IsNullOrWhiteSpace(resolution.CallStackKey))
+            newCallStack.Add(resolution.CallStackKey);
+        var result = await childEngine.ExecuteChildWorkflowAsync(
+            resolution.Workflow,
+            resolvedArgs,
+            childEngine.Limits,
+            ctx.CallDepth + 1,
+            newCallStack,
+            ctx.TelemetrySpan,
+            ct);
 
         return new RouteExecutionResult(
             Candidate: candidate,
@@ -437,6 +450,34 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             Outputs: result.Outputs?.DeepClone(),
             Error: result.Error?.Message,
             StepsExecuted: result.StepResults.Count);
+    }
+
+    private static void EmitRoutedInputsTelemetry(
+        StepExecutionContext ctx,
+        RouteCandidate candidate,
+        string workflowName,
+        JsonObject candidateArgs,
+        JsonObject resolvedArgs,
+        JsonObject? argsInput)
+    {
+        if (!ctx.Limits.LogStepContent)
+            return;
+
+        var autoExtractEnabled = ParseAutoExtractConfig(argsInput).Enabled;
+        ctx.AddTelemetryEvent("gnougo-flow.workflow_route.inputs_extracted", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.step.id", ctx.Step.Id),
+            new KeyValuePair<string, object?>("gnougo-flow.step.type", ctx.Step.Type),
+            new KeyValuePair<string, object?>("gnougo-flow.step.call_depth", ctx.CallDepth),
+            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.candidate.id", candidate.Id),
+            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.candidate.name", candidate.Name),
+            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.workflow.name", workflowName),
+            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.auto_extract.enabled", autoExtractEnabled),
+            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.arguments.keys", string.Join(",", candidateArgs.Select(static kv => kv.Key))),
+            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.arguments", WorkflowTelemetryInputAttributes.FormatForTelemetry(candidateArgs)),
+            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.resolved_inputs.keys", string.Join(",", resolvedArgs.Select(static kv => kv.Key))),
+            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.resolved_inputs", WorkflowTelemetryInputAttributes.FormatForTelemetry(resolvedArgs))
+        });
     }
 
     private static async Task<string?> CombineAsync(

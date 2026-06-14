@@ -140,6 +140,9 @@ public sealed class TraceDebugServiceTests
         Assert.Equal(traceIdHex, snapshot.Logs[0].TraceId);
         Assert.Equal(spanIdHex, snapshot.Logs[0].SpanId);
         Assert.Equal("Information", snapshot.Logs[0].SeverityText);
+        Assert.NotNull(snapshot.Logs[0].Id);
+        Assert.NotNull(snapshot.Logs[1].Id);
+        Assert.NotEqual(snapshot.Logs[0].Id, snapshot.Logs[1].Id);
         Assert.Equal(1L, Convert.ToInt64(snapshot.Logs[0].Attributes["sequence"]));
         Assert.Equal(settings.ServiceName, snapshot.Logs[0].Resource["service.name"]);
     }

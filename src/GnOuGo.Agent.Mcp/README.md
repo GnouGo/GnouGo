@@ -28,7 +28,7 @@ KeyVault tools now live in the dedicated HTTP project `GnOuGo.KeyVault.Mcp`.
 ```json
 {
   "Agent": {
-    "DatabasePath": "data/gnougo-agent.db"
+    "DatabasePath": ".GnOuGo/data/gnougo-agent.db"
   }
 }
 ```
@@ -36,10 +36,10 @@ KeyVault tools now live in the dedicated HTTP project `GnOuGo.KeyVault.Mcp`.
 Agent definitions are stored as YAML files in the GnOuGo workspace:
 
 ```text
-<GnOuGo workspace>/agents/{agent-name}.yaml
+<workspace>/{agent-name}.yaml
 ```
 
-The agent list is obtained by enumerating `*.yaml` files from this `agents` directory.
+The agent list is obtained by enumerating `*.yaml` files from the workspace directory.
 Agent names are validated as safe file names; absolute paths and path traversal are not accepted as names.
 
 SQLite is still used for non-agent persisted data:
@@ -49,8 +49,8 @@ SQLite is still used for non-agent persisted data:
 
 User configuration persistence is implemented with **Entity Framework Core** (`AgentMcpDbContext` + `DiffDbContext`).
 
-When `Agent:DatabasePath` keeps its default logical value (`data/gnougo-agent.db`), the actual SQLite file is created under the current user's Desktop in `Desktop/GnOuGo/data/gnougo-agent.db`.
-Agent YAML files are created next to it under `Desktop/GnOuGo/agents/`.
+When `Agent:DatabasePath` keeps its default logical value (`.GnOuGo/data/gnougo-agent.db`), the actual SQLite file is created under the default workspace in `Desktop/GnOuGo/.GnOuGo/data/gnougo-agent.db`.
+Agent YAML files are created directly in the workspace, for example `Desktop/GnOuGo/demo.yaml`.
 Explicit absolute paths are still honored.
 
 ## HTTP routes
@@ -115,4 +115,3 @@ dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Mcp.Tests\GnOuGo.Agent.Mcp.Test
 Set-Location "C:\github\GnouGo"
 dotnet publish "src\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=true -o "artifacts\agent-mcp-win-x64"
 ```
-

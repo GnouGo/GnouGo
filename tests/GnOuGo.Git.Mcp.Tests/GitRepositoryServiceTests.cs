@@ -48,6 +48,25 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void StageAll_ExcludesGnOuGoWorkingDirectoryByDefault()
+    {
+        File.WriteAllText(Path.Combine(_root, "README.md"), "hello\n");
+        var copilotWorkingDirectory = Path.Combine(_root, ".GnOuGo");
+        Directory.CreateDirectory(copilotWorkingDirectory);
+        File.WriteAllText(Path.Combine(copilotWorkingDirectory, "temp.json"), "{}\n");
+        var service = CreateService();
+
+        var result = service.Stage(_root, []);
+        var status = service.GetStatus(_root);
+
+        Assert.True(result.Success);
+        Assert.Contains("Staged 1 pathspec", result.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(status.Entries, entry => entry.Path.Replace('\\', '/') == "README.md" && entry.State.Contains("NewInIndex", StringComparison.Ordinal));
+        Assert.Contains(status.Entries, entry => entry.Path.Replace('\\', '/') == ".GnOuGo/temp.json" && entry.State.Contains("NewInWorkdir", StringComparison.Ordinal));
+        Assert.DoesNotContain(status.Entries, entry => entry.Path.Replace('\\', '/') == ".GnOuGo/temp.json" && entry.State.Contains("NewInIndex", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void CreateBranchCheckoutAndMerge_ReportsConflicts()
     {
         var service = CreateService();
@@ -84,6 +103,135 @@ public sealed class GitRepositoryServiceTests : IDisposable
         var branch = verificationRepository.Branches["release/from-tag"];
         Assert.NotNull(branch);
         Assert.Equal(initialCommit.Sha, branch.Tip?.Sha);
+    }
+
+    [Fact]
+    public void DeleteBranch_RemovesLocalBranch()
+    {
+        var service = CreateService();
+        WriteCommit(service, "README.md", "base\n", "base");
+        service.CreateBranch(_root, "feature/delete-me", checkout: true);
+        WriteCommit(service, "feature.txt", "unmerged\n", "unmerged feature");
+        service.Checkout(_root, "master");
+
+        var result = service.DeleteBranch(_root, "feature/delete-me");
+
+        Assert.True(result.Success);
+        Assert.Contains("Deleted local branch", result.Output, StringComparison.OrdinalIgnoreCase);
+
+        using var repository = new Repository(_root);
+        Assert.Null(repository.Branches["feature/delete-me"]);
+    }
+
+    [Fact]
+    public void DeleteBranch_RejectsCurrentBranch()
+    {
+        var service = CreateService();
+        WriteCommit(service, "README.md", "base\n", "base");
+        service.CreateBranch(_root, "feature/current", checkout: true);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => service.DeleteBranch(_root, "feature/current"));
+
+        Assert.Contains("currently checked-out", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DeleteRemoteBranch_RemovesBranchFromRemote()
+    {
+        var remoteRoot = Path.Combine(_root, "remote.git");
+        Repository.Init(remoteRoot, isBare: true);
+        var service = CreateService(allowNetwork: true);
+        WriteCommit(service, "README.md", "base\n", "base");
+        service.CreateBranch(_root, "feature/remote-delete");
+
+        using (var repository = new Repository(_root))
+        {
+            repository.Network.Remotes.Add("origin", remoteRoot);
+        }
+
+        service.Push(_root, "origin", "feature/remote-delete", setUpstream: false);
+
+        using (var remoteRepository = new Repository(remoteRoot))
+        {
+            Assert.NotNull(remoteRepository.Branches["feature/remote-delete"]);
+        }
+
+        var result = service.DeleteRemoteBranch(_root, "origin", "feature/remote-delete");
+
+        Assert.True(result.Success);
+        Assert.Contains("Deleted remote branch", result.Output, StringComparison.OrdinalIgnoreCase);
+
+        using (var remoteRepository = new Repository(remoteRoot))
+        {
+            Assert.Null(remoteRepository.Branches["feature/remote-delete"]);
+        }
+    }
+
+    [Fact]
+    public void FetchRefSpecAndSwitchBranch_MatchesGitFetchAndSwitchC()
+    {
+        var remoteRoot = Path.Combine(_root, "remote.git");
+        var sourceRoot = Path.Combine(_root, "source");
+        var clientRoot = Path.Combine(_root, "client");
+        Repository.Init(remoteRoot, isBare: true);
+        Directory.CreateDirectory(sourceRoot);
+        Repository.Init(sourceRoot);
+
+        var sourceService = CreateService(sourceRoot, allowNetwork: true);
+        WriteCommit(sourceService, "README.md", "base\n", "base", sourceRoot);
+        using (var sourceRepository = new Repository(sourceRoot))
+        {
+            sourceRepository.Network.Remotes.Add("origin", remoteRoot);
+        }
+
+        sourceService.Push(sourceRoot, "origin", "master", setUpstream: false);
+        sourceService.CreateBranch(sourceRoot, "feature/pr-branch", checkout: true);
+        var featureCommit = WriteCommit(sourceService, "feature.txt", "feature\n", "feature", sourceRoot);
+        sourceService.Push(sourceRoot, "origin", "feature/pr-branch", setUpstream: false);
+
+        Directory.CreateDirectory(clientRoot);
+        Repository.Init(clientRoot);
+        using (var clientRepository = new Repository(clientRoot))
+        {
+            clientRepository.Network.Remotes.Add("origin", remoteRoot);
+        }
+
+        var clientService = CreateService(clientRoot, allowNetwork: true);
+        var fetch = clientService.Fetch(
+            clientRoot,
+            "origin",
+            "refs/heads/feature/pr-branch:refs/remotes/origin/feature/pr-branch");
+        var switchResult = clientService.SwitchBranch(clientRoot, "feature/pr-branch", "origin/feature/pr-branch");
+
+        Assert.True(fetch.Success);
+        Assert.True(switchResult.Success);
+        Assert.Contains("Fetched", fetch.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Switched to branch", switchResult.Output, StringComparison.OrdinalIgnoreCase);
+
+        using var verificationRepository = new Repository(clientRoot);
+        Assert.Equal("feature/pr-branch", verificationRepository.Head.FriendlyName);
+        Assert.Equal(featureCommit.Sha, verificationRepository.Head.Tip.Sha);
+        Assert.NotNull(verificationRepository.Branches["origin/feature/pr-branch"]);
+        Assert.True(File.Exists(Path.Combine(clientRoot, "feature.txt")));
+    }
+
+    [Fact]
+    public void SwitchBranch_ResetsExistingLocalBranchToStartPoint()
+    {
+        var service = CreateService();
+        WriteCommit(service, "README.md", "base\n", "base");
+        service.CreateBranch(_root, "feature/reset", checkout: true);
+        var oldCommit = WriteCommit(service, "feature.txt", "old\n", "old feature");
+        service.Checkout(_root, "master");
+        var newCommit = WriteCommit(service, "README.md", "base\nnew\n", "new master");
+
+        var result = service.SwitchBranch(_root, "feature/reset", "master");
+
+        Assert.True(result.Success);
+        using var repository = new Repository(_root);
+        Assert.Equal("feature/reset", repository.Head.FriendlyName);
+        Assert.Equal(newCommit.Sha, repository.Head.Tip.Sha);
+        Assert.NotEqual(oldCommit.Sha, repository.Head.Tip.Sha);
     }
 
     [Fact]
@@ -174,5 +322,3 @@ public sealed class GitRepositoryServiceTests : IDisposable
         return full;
     }
 }
-
-

@@ -19,7 +19,7 @@ internal static class HumanInputDslReference
           - prompt (string, required): question/instruction shown to the user.
           - mode (string, required for generated DSL): text, choice, form, or confirm.
           - context (any, optional): structured data shown next to the prompt.
-          - timeout_ms (number, optional): milliseconds before HUMAN_INPUT_TIMEOUT. Default: 300000. Use 0 for no timeout.
+          - timeout_ms (number, optional): milliseconds before HUMAN_INPUT_TIMEOUT. Default: 36000000 (10 hours). Use 0 for no timeout.
 
         Mode patterns:
         ```yaml
@@ -38,7 +38,7 @@ internal static class HumanInputDslReference
             mode: choice
             prompt: "Choose the next action."
             choices: [approve, modify, reject]
-            timeout_ms: 300000
+            timeout_ms: 36000000
         ```
 
         ```yaml
@@ -97,7 +97,7 @@ internal static class HumanInputDslReference
 ///   - context  (any, optional)     : Structured data shown alongside the prompt.
 ///   - choices  (array, optional)   : Quick-reply choice strings (e.g. ["approve", "reject"]).
 ///   - fields   (array, optional)   : Array of { name, type, required?, description?, options?, default? }.
-///   - timeout_ms (number, optional): Timeout in milliseconds (default 300 000 = 5 min).
+///   - timeout_ms (number, optional): Timeout in milliseconds (default 36 000 000 = 10 hours).
 ///
 /// Output:
 ///   The user's response as a JSON object (or string).
@@ -129,7 +129,7 @@ public sealed class HumanInputExecutor : IStepExecutor
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
                 "human.input requires a 'prompt' field.");
 
-        var timeoutMs = 300_000;
+        var timeoutMs = HumanInputContract.DefaultTimeoutMs;
         if (input.TryGetPropertyValue("timeout_ms", out var tNode) && tNode != null)
             timeoutMs = (int)ExpressionEvaluator.GetNumber(tNode);
 

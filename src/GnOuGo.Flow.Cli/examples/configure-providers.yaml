@@ -17,6 +17,17 @@
 
 version: 1
 name: configure-providers
+skill:
+  description: Interactive slash-command wizard for configuring LLM providers and MCP servers.
+  tags: [configuration, providers, mcp, llm]
+  inputs:
+    command:
+      type: string
+      description: Slash-command to execute, such as /llm, /mcp, or /status.
+  outputs:
+    status:
+      type: string
+      description: Configuration workflow status.
 meta:
   author: GnOuGo.Flow
   description: >
@@ -174,7 +185,7 @@ workflows:
             - openai
             - ollama
             - copilot
-          timeout_ms: 300000
+          timeout_ms: 36000000
 
       # ── Step 2: Provider-specific defaults ──
       - id: provider_defaults
@@ -237,7 +248,7 @@ workflows:
               required: true
               description: "Default model name"
               default: "${data.steps.resolved_defaults.model}"
-          timeout_ms: 300000
+          timeout_ms: 36000000
 
       # ── Step 4: Auth mode (skip for ollama) ──
       - id: auth_branch
@@ -269,7 +280,7 @@ workflows:
                 - api_key
                 - oidc
                 - copilot_env
-              timeout_ms: 300000
+              timeout_ms: 36000000
 
           - id: auth_mode_branch
             type: switch
@@ -287,7 +298,7 @@ workflows:
                           type: string
                           required: true
                           description: "API key (will be stored encrypted at rest)"
-                      timeout_ms: 600000
+                      timeout_ms: 36000000
                   - id: auth_apikey
                     type: set
                     input:
@@ -328,7 +339,7 @@ workflows:
                           type: string
                           required: false
                           description: "RSA private key PEM content (alternative to client_secret)"
-                      timeout_ms: 600000
+                      timeout_ms: 36000000
                   - id: auth_oidc
                     type: set
                     input:
@@ -419,7 +430,7 @@ workflows:
           choices:
             - save
             - discard
-          timeout_ms: 300000
+          timeout_ms: 36000000
 
       - id: save_result
         type: set
@@ -490,7 +501,7 @@ workflows:
           choices:
             - http
             - stdio
-          timeout_ms: 300000
+          timeout_ms: 36000000
 
       - id: transport_branch
         type: switch
@@ -517,7 +528,7 @@ workflows:
                       required: true
                       description: "HTTP endpoint URL"
                       default: "https://api.githubcopilot.com/mcp/"
-                  timeout_ms: 300000
+                  timeout_ms: 36000000
 
               # Auth for HTTP MCP
               - id: http_auth_choice
@@ -529,7 +540,7 @@ workflows:
                     - api_key
                     - oidc
                     - none
-                  timeout_ms: 300000
+                  timeout_ms: 36000000
 
               - id: http_auth_branch
                 type: switch
@@ -546,7 +557,7 @@ workflows:
                               type: string
                               required: true
                               description: "API key / bearer token"
-                          timeout_ms: 300000
+                          timeout_ms: 36000000
                       - id: http_auth_key
                         type: set
                         input:
@@ -581,7 +592,7 @@ workflows:
                               type: string
                               required: false
                               description: "Client secret (leave empty to use private key)"
-                          timeout_ms: 300000
+                          timeout_ms: 36000000
                       - id: http_auth_oidc
                         type: set
                         input:
@@ -645,7 +656,7 @@ workflows:
                   required: true
                   description: "Arguments (comma-separated)"
                   default: "run,--project,C:/path/to/project.csproj"
-              timeout_ms: 300000
+              timeout_ms: 36000000
 
           - id: stdio_result
             type: set
@@ -735,7 +746,7 @@ workflows:
           choices:
             - save
             - discard
-          timeout_ms: 300000
+          timeout_ms: 36000000
 
       - id: save_result
         type: set

@@ -1,5 +1,16 @@
 version: 1
 name: basic-cli-example
+skill:
+  description: Generates a greeting for a provided name.
+  tags: [example, greeting]
+  inputs:
+    name:
+      type: string
+      description: Name to greet.
+  outputs:
+    greeting:
+      type: string
+      description: Rendered greeting text.
 workflows:
   main:
     inputs:
@@ -22,4 +33,3 @@ workflows:
           level: info
     outputs:
       greeting: "${data.steps.greet.text}"
-

@@ -168,13 +168,18 @@ async def test_llm_call_omits_reasoning_when_not_specified() -> None:
     assert llm.requests[0].reasoning is None
 
 
-# -- workflow.plan defaults reasoning to "high" ---------------------------
+# -- workflow.plan defaults reasoning to "medium" -------------------------
 
 
 @pytest.mark.asyncio
-async def test_workflow_plan_defaults_reasoning_to_high() -> None:
+async def test_workflow_plan_defaults_reasoning_to_medium() -> None:
     plan_yaml = """
     version: 1
+    skill:
+      description: Generated workflow.
+      tags: [generated]
+      inputs: {}
+      outputs: {}
     workflows:
       generated:
         steps:
@@ -213,14 +218,19 @@ async def test_workflow_plan_defaults_reasoning_to_high() -> None:
     result = await engine.execute_async(compiled.workflows["main"], inputs=None)
     assert result.success
     assert llm.requests, "workflow.plan should have called the LLM"
-    # Every LLM call (main attempt + any prefilter) defaults to "high".
-    assert all(r.reasoning == "high" for r in llm.requests), [r.reasoning for r in llm.requests]
+    # Every LLM call (main attempt + any prefilter) defaults to "medium".
+    assert all(r.reasoning == "medium" for r in llm.requests), [r.reasoning for r in llm.requests]
 
 
 @pytest.mark.asyncio
 async def test_workflow_plan_respects_explicit_reasoning_override() -> None:
     plan_yaml = """
     version: 1
+    skill:
+      description: Generated workflow.
+      tags: [generated]
+      inputs: {}
+      outputs: {}
     workflows:
       generated:
         steps:
@@ -259,8 +269,6 @@ async def test_workflow_plan_respects_explicit_reasoning_override() -> None:
     engine.llm_client = llm
     await engine.execute_async(compiled.workflows["main"], inputs=None)
     assert all(r.reasoning == "low" for r in llm.requests), [r.reasoning for r in llm.requests]
-
-
 
 
 

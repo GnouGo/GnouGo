@@ -31,6 +31,13 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     public async Task<LLMClientResponse> CallAsync(
         string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
     {
+        _logger.LogInformation(
+            "OpenAI provider call mode selected. Model={Model}; ProviderType={ProviderType}; UseBackgroundMode={UseBackgroundMode}; EndpointBase={EndpointBase}",
+            model,
+            provider.ResolvedType,
+            request.UseBackgroundMode,
+            provider.Url);
+
         if (request.UseBackgroundMode)
             return await CallResponsesBackgroundAsync(model, provider, request, ct);
 
@@ -122,6 +129,14 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         var url = OpenAiEndpoints.Responses(provider.Url, provider.ApiVersion);
         var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
 
+        _logger.LogInformation(
+            "OpenAI Responses background call starting. ResponsesUrl={ResponsesUrl}; Model={Model}; ProviderType={ProviderType}; HttpTimeout={HttpTimeout}; HttpVersion={HttpVersion}",
+            url,
+            model,
+            provider.ResolvedType,
+            _http.Timeout,
+            _http.DefaultRequestVersion);
+
         byte[] payload = ChatRequestBuilder.OpenAiResponsesBackground(
             model, request.Prompt, request.Temperature, request.Reasoning);
 
@@ -136,7 +151,17 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         if (!resp.IsSuccessStatusCode)
         {
             if (IsBackgroundUnsupported(resp.StatusCode, body))
+            {
+                _logger.LogWarning(
+                    "OpenAI Responses background API not available, falling back to Chat Completions. " +
+                    "ResponsesUrl={ResponsesUrl}; Model={Model}; StatusCode={StatusCode}; ReasonPhrase={ReasonPhrase}; ResponseBody={ResponseBody}",
+                    url,
+                    model,
+                    (int)resp.StatusCode,
+                    resp.ReasonPhrase ?? "",
+                    FormatLogBody(body));
                 return await CallChatCompletionsAsync(model, provider, request, ct);
+            }
 
             throw new HttpRequestException(
                 $"OpenAI background response call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
@@ -163,7 +188,13 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                 : null;
 
             if (string.IsNullOrWhiteSpace(status) || string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation(
+                    "OpenAI Responses background call completed. ResponseId={ResponseId}; Status={Status}",
+                    root.TryGetProperty("id", out var completedId) ? completedId.GetString() : null,
+                    status ?? "completed");
                 return BuildResponsesApiResponse(root, request);
+            }
 
             if (IsTerminalResponsesStatus(status))
                 throw new HttpRequestException($"OpenAI background response ended with status '{status}': {responseBody}");
@@ -175,6 +206,12 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             await Task.Delay(delay, ct);
             if (delay < BackgroundMaxPollDelay)
                 delay = TimeSpan.FromMilliseconds(Math.Min(delay.TotalMilliseconds * 1.5, BackgroundMaxPollDelay.TotalMilliseconds));
+
+            _logger.LogDebug(
+                "OpenAI Responses background polling. ResponseId={ResponseId}; Status={Status}; NextPollDelayMs={NextPollDelayMs}",
+                id,
+                status,
+                delay.TotalMilliseconds);
 
             using var pollReq = HttpRequestHelper.CreateGet(responsesUrl.TrimEnd('/') + "/" + Uri.EscapeDataString(id));
             if (!string.IsNullOrWhiteSpace(bearerToken))
@@ -228,6 +265,22 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                && (body.Contains("background", StringComparison.OrdinalIgnoreCase)
                    || body.Contains("responses", StringComparison.OrdinalIgnoreCase)
                    || body.Contains("unsupported", StringComparison.OrdinalIgnoreCase)));
+
+    internal static string FormatLogBody(string? body, int maxLength = 4096)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return "";
+
+        var sanitized = body
+            .Replace("\r", "\\r", StringComparison.Ordinal)
+            .Replace("\n", "\\n", StringComparison.Ordinal)
+            .Trim();
+
+        if (sanitized.Length <= maxLength)
+            return sanitized;
+
+        return sanitized[..maxLength] + $"... (truncated, {sanitized.Length} chars total)";
+    }
 
     private static List<LLMToolDef>? MapTools(IReadOnlyList<LLMToolDef>? tools)
         => tools is { Count: > 0 } ? tools as List<LLMToolDef> ?? new List<LLMToolDef>(tools) : null;

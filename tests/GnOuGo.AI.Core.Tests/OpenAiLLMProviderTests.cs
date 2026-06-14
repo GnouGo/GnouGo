@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.AI.Core.Tests;
 
@@ -52,7 +53,8 @@ public sealed class OpenAiLlmProviderTests
 
         using var http = new HttpClient(handler);
         http.Timeout = TimeSpan.FromSeconds(30);
-        var provider = new OpenAiLLMProvider(http);
+        var logger = new CapturingLogger<OpenAiLLMProvider>();
+        var provider = new OpenAiLLMProvider(http, logger);
 
         var response = await provider.CallAsync(
             "gpt-4o-mini",
@@ -77,6 +79,14 @@ public sealed class OpenAiLlmProviderTests
         Assert.Equal("gpt-4o-mini", root.GetProperty("model").GetString());
         Assert.Equal("medium", root.GetProperty("reasoning").GetProperty("effort").GetString());
         Assert.Equal("Generate workflow", root.GetProperty("input")[0].GetProperty("content").GetString());
+        Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information
+            && e.Message.Contains("UseBackgroundMode=True", StringComparison.Ordinal));
+        Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information
+            && e.Message.Contains("OpenAI Responses background call starting", StringComparison.Ordinal)
+            && e.Message.Contains("https://api.openai.test/v1/responses", StringComparison.Ordinal));
+        Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information
+            && e.Message.Contains("OpenAI Responses background call completed", StringComparison.Ordinal)
+            && e.Message.Contains("resp_123", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -105,7 +115,8 @@ public sealed class OpenAiLlmProviderTests
         });
 
         using var http = new HttpClient(handler);
-        var provider = new OpenAiLLMProvider(http);
+        var logger = new CapturingLogger<OpenAiLLMProvider>();
+        var provider = new OpenAiLLMProvider(http, logger);
 
         var response = await provider.CallAsync(
             "gpt-4o-mini",
@@ -120,6 +131,11 @@ public sealed class OpenAiLlmProviderTests
         Assert.Equal("fallback ok", response.Text);
         Assert.Equal((HttpMethod.Post, "https://proxy.example/v1/responses"), requests[0]);
         Assert.Equal((HttpMethod.Post, "https://proxy.example/v1/chat/completions"), requests[1]);
+        Assert.Contains(logger.Entries, e => e.Level == LogLevel.Warning
+            && e.Message.Contains("OpenAI Responses background API not available", StringComparison.Ordinal)
+            && e.Message.Contains("falling back to Chat Completions", StringComparison.Ordinal)
+            && e.Message.Contains("StatusCode=404", StringComparison.Ordinal)
+            && e.Message.Contains("responses endpoint not found", StringComparison.Ordinal));
     }
 
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
@@ -139,6 +155,33 @@ public sealed class OpenAiLlmProviderTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => _handler(request);
     }
-}
 
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Entries.Add((logLevel, formatter(state, exception)));
+        }
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+
+            public void Dispose()
+            {
+            }
+        }
+    }
+}
 

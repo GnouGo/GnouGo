@@ -76,6 +76,9 @@ workflows:
             allow_remote_workflow_refs: false
           limits:
             max_steps_total: 20
+          validate:
+            compile: true
+            dry_run: true
           on_invalid:
             action: reprompt
             max_attempts: 3
@@ -102,6 +105,5 @@ workflows:
       approved_approach: "${data.steps.analyze.text}"
       generated_yaml: "${data.steps.generate.yaml}"
       review_iterations: "${data.steps.review_loop.count}"
-
 
 

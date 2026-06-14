@@ -14,8 +14,7 @@ public static class AgentMcpHostingExtensions
     public const string ServerName = "GnOuGo.Agent.Mcp";
     public const string ServerVersion = "1.0.0";
     public const string DefaultRoutePrefix = "/mcp";
-    public const string DefaultDatabasePath = "data/gnougo-agent.db";
-    public const string DefaultAgentsDirectoryName = "agents";
+    public const string DefaultDatabasePath = ".GnOuGo/data/gnougo-agent.db";
 
     public static string ResolveDatabasePath(string? configuredPath, string baseDirectory)
         => GnOuGoWorkspace.ResolveDatabasePath(configuredPath, baseDirectory, DefaultDatabasePath);
@@ -51,7 +50,7 @@ public static class AgentMcpHostingExtensions
                 : Path.GetFullPath(Path.Combine(ResolveWorkspaceRootFromDatabasePath(databasePath), configured));
         }
 
-        return Path.Combine(ResolveWorkspaceRootFromDatabasePath(databasePath), DefaultAgentsDirectoryName);
+        return ResolveWorkspaceRootFromDatabasePath(databasePath);
     }
 
     private static string ResolveWorkspaceRootFromDatabasePath(string databasePath)
@@ -62,7 +61,15 @@ public static class AgentMcpHostingExtensions
 
         var directory = new DirectoryInfo(databaseDirectory);
         if (string.Equals(directory.Name, "data", StringComparison.OrdinalIgnoreCase) && directory.Parent is not null)
+        {
+            if (string.Equals(directory.Parent.Name, GnOuGoWorkspace.WorkspaceDataSubfolder, StringComparison.OrdinalIgnoreCase)
+                && directory.Parent.Parent is not null)
+            {
+                return directory.Parent.Parent.FullName;
+            }
+
             return directory.Parent.FullName;
+        }
 
         return directory.FullName;
     }

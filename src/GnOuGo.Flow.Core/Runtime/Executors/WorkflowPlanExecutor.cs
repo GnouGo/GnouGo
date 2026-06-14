@@ -1,5 +1,7 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
@@ -12,11 +14,15 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// Generates a workflow dynamically via LLM under policy constraints.
 /// Builds a comprehensive prompt from DslReference (common) + each executor's DslSnippet (step-specific).
 /// </summary>
-public sealed class WorkflowPlanExecutor : IStepExecutor
+public sealed partial class WorkflowPlanExecutor : IStepExecutor
 {
     private const int DefaultMcpDiscoveryTimeoutSeconds = 30;
     private const int MinMcpDiscoveryTimeoutSeconds = 1;
     private const int MaxMcpDiscoveryTimeoutSeconds = 300;
+    private static readonly JsonSerializerOptions PromptJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
 
     public string StepType => "workflow.plan";
 
@@ -134,18 +140,23 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine(stepTypesDoc);
         basePrompt.AppendLine();
         basePrompt.AppendLine("[REQUIRED ROOT YAML SHAPE]");
-        basePrompt.AppendLine("The generated YAML MUST include all required root keys exactly once: version, name, workflows.");
-        basePrompt.AppendLine("The generated YAML SHOULD include a top-level `skill` block for routing metadata unless policy or task constraints explicitly forbid it.");
+        basePrompt.AppendLine("The generated YAML MUST include all required root keys exactly once: version, name, skill, workflows.");
+        basePrompt.AppendLine("The generated YAML MUST include a top-level `skill` block for routing metadata.");
         basePrompt.AppendLine("Root key requirements:");
         basePrompt.AppendLine("- version: non-empty string");
         basePrompt.AppendLine("- name: non-empty string");
-        basePrompt.AppendLine("- skill: optional but recommended object with description, tags, inputs, and outputs for routing and argument extraction");
+        basePrompt.AppendLine("- skill: required object with description, tags, inputs, and outputs for routing and argument extraction");
         basePrompt.AppendLine("- workflows: non-empty object");
         basePrompt.AppendLine("Each workflow entry under workflows MUST define a steps array.");
         basePrompt.AppendLine("If any required key is missing or has the wrong shape, the output is invalid.");
         basePrompt.AppendLine("Minimal valid skeleton:");
         basePrompt.AppendLine("version: \"1.0\"");
         basePrompt.AppendLine("name: \"generated-workflow\"");
+        basePrompt.AppendLine("skill:");
+        basePrompt.AppendLine("  description: \"Describe when this generated workflow should be used.\"");
+        basePrompt.AppendLine("  tags: [generated]");
+        basePrompt.AppendLine("  inputs: {}");
+        basePrompt.AppendLine("  outputs: {}");
         basePrompt.AppendLine("workflows:");
         basePrompt.AppendLine("  main:");
         basePrompt.AppendLine("    steps: []");
@@ -167,6 +178,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- NEVER invent properties under `data.steps.<id>.response`. Access `response.<field>` only when an `output_schema` or `example_response` explicitly documents that field.");
         basePrompt.AppendLine("- If an MCP response is opaque, use `json(data.steps.<id>.response)` to pass the whole response to another step.");
         basePrompt.AppendLine("- If precise fields are needed from an opaque response, add an `llm.call` normalization step with `structured_output`, then read fields from `data.steps.<normalizer>.json`.");
+        basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");
         basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
 
         basePrompt.AppendLine();
@@ -258,6 +270,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         var maxAttempts = onInvalid?["max_attempts"]?.GetValue<int>() ?? 3;
         var failAction = onInvalid?["action"]?.GetValue<string>() ?? "fail";
         string? lastError = null;
+        string? lastInvalidYaml = null;
+        string? lastRepairContext = null;
 
         ctx.SetTelemetryAttribute("gen_ai.operation.name", "chat");
         ctx.SetTelemetryAttribute("gen_ai.system", provider ?? "openai");
@@ -272,10 +286,12 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
 
         for (int attempt = 0; attempt < maxAttempts; attempt++)
         {
-            var prompt = new StringBuilder(basePrompt.ToString());
-
-            // On retry, inject the previous error so the LLM can self-correct
-            if (lastError != null)
+            string promptText;
+            if (lastError == null)
+            {
+                promptText = basePrompt.ToString();
+            }
+            else
             {
                 // ── Thinking: signal retry ──
                 ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
@@ -284,13 +300,15 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
                 });
 
-                prompt.AppendLine();
-                prompt.AppendLine("[PREVIOUS ERROR]");
-                prompt.AppendLine(lastError);
-                prompt.AppendLine("Fix the issues above and generate a corrected YAML.");
+                promptText = BuildRepairPrompt(
+                    instruction,
+                    generatorContext,
+                    lastInvalidYaml,
+                    lastError,
+                    lastRepairContext,
+                    constraintsSb.ToString());
             }
 
-            var promptText = prompt.ToString();
             if (ctx.Limits.LogStepContent)
             {
                 ctx.AddTelemetryEvent("gen_ai.content.prompt", new[]
@@ -307,6 +325,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
                 new KeyValuePair<string, object?>("gen_ai.system", provider ?? "openai"),
                 new KeyValuePair<string, object?>("gen_ai.request.model", model),
+                new KeyValuePair<string, object?>("gen_ai.request.background", true),
+                new KeyValuePair<string, object?>("gnougo-flow.plan.background_requested", true),
                 new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1)
             }))
             {
@@ -321,6 +341,14 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
 
                 try
                 {
+                    ctx.Engine.Logger.LogInformation(
+                        "workflow.plan generation request uses background mode. Provider={Provider}; Model={Model}; Attempt={Attempt}/{MaxAttempts}; Reasoning={Reasoning}",
+                        provider ?? "default",
+                        model,
+                        attempt + 1,
+                        maxAttempts,
+                        planReasoning ?? "(provider default)");
+
                     response = await llmClient.CallAsync(new LLMRequest
                     {
                         Provider = provider,
@@ -393,10 +421,21 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                         if (limits != null)
                             EnforceLimits(generatedDoc, limits);
 
-                        // Compile to validate
+                        // Compile + semantic validation
                         if (validate?["compile"]?.GetValue<bool>() ?? true)
                         {
                             ValidateGeneratedWorkflowForPlan(generatedDoc, discovered);
+                        }
+
+                        // Optional runtime dry-run with deterministic fake providers.
+                        if (validate?["dry_run"]?.GetValue<bool>() ?? false)
+                        {
+                            validationSpan.SetAttribute("gnougo-flow.plan.dry_run", true);
+                            await WorkflowPlanDryRunValidator.ValidateAsync(
+                                generatedDoc,
+                                BuildDryRunMcpClientFactory(discovered),
+                                ctx.Engine.Logger,
+                                ct);
                         }
                     }
                     catch (Exception ex)
@@ -430,6 +469,13 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 // Capture the error for injection into the next prompt
                 ctx.Engine.Logger.LogWarning(ex, "workflow.plan: attempt {Attempt}/{MaxAttempts} failed, reprompting", attempt + 1, maxAttempts);
                 lastError = BuildStructuredPlanError(ex, attempt + 1);
+                lastInvalidYaml = StripMarkdownFences(response.Text);
+                lastRepairContext = BuildMinimalRepairContext(
+                    ctx.Engine.Registry,
+                    allowedTypes,
+                    lastInvalidYaml,
+                    ex,
+                    discovered);
             }
         }
 
@@ -1296,26 +1342,11 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                         sb.Append($": {t.Description}");
                     sb.AppendLine();
                     if (t.InputSchema != null)
-                    {
-                        var schemaStr = t.InputSchema.ToJsonString();
-                        if (schemaStr.Length > 500)
-                            schemaStr = schemaStr[..500] + "…";
-                        sb.AppendLine($"      input_schema: {schemaStr}");
-                    }
+                        AppendJsonBlock(sb, "      ", "input_schema", t.InputSchema);
                     if (t.OutputSchema != null)
-                    {
-                        var outputSchemaStr = t.OutputSchema.ToJsonString();
-                        if (outputSchemaStr.Length > 800)
-                            outputSchemaStr = outputSchemaStr[..800] + "…";
-                        sb.AppendLine($"      output_schema: {outputSchemaStr}");
-                    }
+                        AppendJsonBlock(sb, "      ", "output_schema", t.OutputSchema);
                     if (t.ExampleResponse != null)
-                    {
-                        var exampleResponseStr = t.ExampleResponse.ToJsonString();
-                        if (exampleResponseStr.Length > 800)
-                            exampleResponseStr = exampleResponseStr[..800] + "…";
-                        sb.AppendLine($"      example_response: {exampleResponseStr}");
-                    }
+                        AppendJsonBlock(sb, "      ", "example_response", t.ExampleResponse);
                 }
             }
 
@@ -1354,6 +1385,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("If the exact tool or prompt name is unknown, use mcp.list first, then either add an intermediate explicit selection step or use mcp.call with prompt + model (+ optional temperature) and pass the discovered tools/prompts.");
         sb.AppendLine("When using LLM-assisted mcp.call, put the natural-language instruction in input.prompt and pass candidate capabilities through input.tools and/or input.prompts, typically from mcp.list outputs.");
         sb.AppendLine("If a server lists a recommended mcp.call timeout, include at least that value as `input.timeout_ms` for generated calls to that server.");
+        sb.AppendLine("When building `mcp.call.input.request`, preserve JSON schema scalar types exactly: numbers/integers/booleans must be unquoted YAML scalars, while strings may be quoted.");
+        sb.AppendLine("If a string field must contain JSON text, prefer a YAML literal block (`|`) so nested quotes remain valid YAML.");
         sb.AppendLine("For `mcp.call` single-tool outputs, access `data.steps.<id>.response.<field>` only when that field is documented in `output_schema` or `example_response` above. Otherwise the response is opaque: use `json(data.steps.<id>.response)` or normalize it with `llm.call` + `structured_output`.");
         return sb.ToString().TrimEnd();
     }
@@ -1393,10 +1426,13 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         var errors = validator.Validate(generatedDoc);
         WorkflowSemanticValidationException? semanticException = null;
         Exception? compilationException = null;
+        var mcpToolContracts = BuildMcpToolOutputContracts(discovered);
+
+        WorkflowPlanSemanticValidator.NormalizeMcpCallInputRequests(generatedDoc, mcpToolContracts);
 
         try
         {
-            WorkflowPlanSemanticValidator.Validate(generatedDoc, BuildMcpToolOutputContracts(discovered));
+            WorkflowPlanSemanticValidator.Validate(generatedDoc, mcpToolContracts);
         }
         catch (WorkflowSemanticValidationException ex)
         {
@@ -1464,6 +1500,64 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         return contracts;
     }
 
+    private static IMcpClientFactory? BuildDryRunMcpClientFactory(IReadOnlyList<McpServerDiscovery>? discovered)
+    {
+        if (discovered == null || discovered.Count == 0)
+            return null;
+
+        var factory = new InMemoryMcpClientFactory();
+        foreach (var server in discovered)
+        {
+            var config = new MockMcpServerConfig
+            {
+                Description = server.Description,
+                CallTimeoutSeconds = server.CallTimeoutSeconds,
+                Tools = server.Tools.Select(tool => new McpToolInfo
+                {
+                    Name = tool.Name,
+                    Description = tool.Description,
+                    InputSchema = tool.InputSchema?.DeepClone(),
+                    OutputSchema = tool.OutputSchema?.DeepClone(),
+                    ExampleResponse = tool.ExampleResponse?.DeepClone()
+                }).ToList(),
+                Prompts = server.Prompts.Select(prompt => new McpPromptInfo
+                {
+                    Name = prompt.Name,
+                    Description = prompt.Description,
+                    Arguments = prompt.Arguments?.Select(argument => new McpPromptArgument
+                    {
+                        Name = argument.Name,
+                        Description = argument.Description,
+                        Required = argument.Required
+                    }).ToList()
+                }).ToList()
+            };
+
+            foreach (var tool in server.Tools)
+            {
+                var outputSchema = tool.OutputSchema?.DeepClone();
+                var exampleResponse = tool.ExampleResponse?.DeepClone();
+                config.ToolHandlers[tool.Name] = _ => new McpCallResult
+                {
+                    IsError = false,
+                    Content = exampleResponse?.DeepClone()
+                        ?? WorkflowPlanDryRunValidator.CreateSampleFromJsonSchema(outputSchema),
+                    Model = "dry-run-mcp",
+                    Usage = new JsonObject
+                    {
+                        ["prompt_tokens"] = 1,
+                        ["completion_tokens"] = 1,
+                        ["total_tokens"] = 2
+                    }
+                };
+            }
+
+            factory.RegisterServer(server.Name, config);
+        }
+
+        return factory;
+    }
+
     private static string FormatValidationErrors(IReadOnlyList<ValidationError> errors)
     {
         return string.Join("; ", errors.Select(error =>
@@ -1489,6 +1583,348 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         }));
     }
 
+    private static string BuildRepairPrompt(
+        string instruction,
+        string? context,
+        string? invalidYaml,
+        string structuredError,
+        string? repairContext,
+        string? constraints)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("You are repairing a GnOuGo.Flow YAML workflow. Return ONLY corrected YAML, no markdown fences.");
+        sb.AppendLine("Keep the original task intent and change only what is needed to fix the validation errors.");
+        sb.AppendLine();
+        sb.AppendLine("[TASK]");
+        sb.AppendLine($"Instruction: {instruction}");
+        if (!string.IsNullOrWhiteSpace(context))
+            sb.AppendLine($"Context: {context}");
+        if (!string.IsNullOrWhiteSpace(constraints))
+        {
+            sb.AppendLine();
+            sb.AppendLine("[CONSTRAINTS]");
+            sb.Append(constraints);
+        }
+        sb.AppendLine();
+        sb.AppendLine("[INVALID YAML]");
+        sb.AppendLine(string.IsNullOrWhiteSpace(invalidYaml)
+            ? "(previous output was empty)"
+            : RemoveDuplicateTaskPreamble(invalidYaml, instruction, context));
+        sb.AppendLine();
+        sb.AppendLine("[PREVIOUS ERROR]");
+        sb.AppendLine(structuredError);
+        sb.AppendLine();
+        sb.AppendLine("[MINIMUM DSL CONTEXT]");
+        sb.AppendLine("Required root: version, name, skill, workflows. `skill` is a top-level object with description, tags, inputs, and outputs. Each workflow has steps: [] and optional outputs.");
+        sb.AppendLine("Each step requires step-level id and type. Common fields stay at step level: if, input, output, retry, on_error, steps, branches, cases, default.");
+        sb.AppendLine("Executor-specific arguments go inside input only.");
+        sb.AppendLine("Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.");
+        sb.AppendLine("Expressions may read data.inputs.* and earlier data.steps.<id>.* only.");
+        if (!string.IsNullOrWhiteSpace(repairContext))
+            sb.AppendLine(repairContext);
+        sb.AppendLine();
+        sb.AppendLine("Fix the issues above and generate a corrected YAML.");
+        return sb.ToString();
+    }
+
+    private static string RemoveDuplicateTaskPreamble(string invalidYaml, string instruction, string? context)
+    {
+        if (string.IsNullOrWhiteSpace(invalidYaml))
+            return invalidYaml;
+
+        var trimmed = invalidYaml.Trim();
+        var rootMatch = RootYamlKeyRegex().Match(trimmed);
+
+        if (!rootMatch.Success || rootMatch.Index == 0)
+            return trimmed;
+
+        var preamble = trimmed[..rootMatch.Index].Trim();
+        if (!IsDuplicateTaskText(preamble, instruction, context))
+            return trimmed;
+
+        return trimmed[rootMatch.Index..].TrimStart();
+    }
+
+    private static bool IsDuplicateTaskText(string candidate, string instruction, string? context)
+    {
+        var normalizedCandidate = NormalizePromptText(candidate);
+        if (normalizedCandidate.Length < 80)
+            return false;
+
+        var normalizedTask = NormalizePromptText(string.IsNullOrWhiteSpace(context)
+            ? instruction
+            : instruction + "\n" + context);
+
+        if (normalizedTask.Contains(normalizedCandidate, StringComparison.Ordinal))
+            return true;
+
+        var candidateWords = PromptWordRegex()
+            .Matches(normalizedCandidate)
+            .Select(match => match.Value)
+            .ToArray();
+
+        if (candidateWords.Length < 20)
+            return false;
+
+        var taskWords = PromptWordRegex()
+            .Matches(normalizedTask)
+            .Select(match => match.Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (taskWords.Count == 0)
+            return false;
+
+        var matched = candidateWords.Count(taskWords.Contains);
+        return matched / (double)candidateWords.Length >= 0.85;
+    }
+
+    private static string NormalizePromptText(string value)
+    {
+        var normalized = WhitespaceRegex().Replace(value, " ").Trim().ToLowerInvariant();
+        return normalized;
+    }
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespaceRegex();
+
+    [GeneratedRegex(@"[\p{L}\p{N}_-]+")]
+    private static partial Regex PromptWordRegex();
+
+    [GeneratedRegex(@"(?m)^(version|name|skill|workflows|inputs|outputs)\s*:")]
+    private static partial Regex RootYamlKeyRegex();
+
+    private static string BuildMinimalRepairContext(
+        StepExecutorRegistry registry,
+        HashSet<string>? allowedTypes,
+        string? invalidYaml,
+        Exception exception,
+        IReadOnlyList<McpServerDiscovery>? discovered)
+    {
+        var selectedTypes = ExtractRepairStepTypes(registry, invalidYaml, exception.Message);
+        if (selectedTypes.Count == 0)
+            selectedTypes.UnionWith(ExtractKnownStepTypesFromYaml(registry, invalidYaml));
+
+        if (allowedTypes != null)
+            selectedTypes.IntersectWith(allowedTypes);
+
+        var availableTypes = allowedTypes ?? registry.RegisteredTypes.ToHashSet(StringComparer.Ordinal);
+        var sb = new StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine("Available step type names:");
+        sb.AppendLine(string.Join(", ", availableTypes.OrderBy(t => t, StringComparer.Ordinal)));
+
+        if (selectedTypes.Count > 0)
+        {
+            var snippets = registry.GetDslSnippets(selectedTypes).ToList();
+            if (snippets.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("DSL snippets for failed/referenced step types:");
+                sb.AppendLine(string.Join("\n", snippets));
+            }
+        }
+
+        var mcpDoc = BuildMinimalMcpRepairContext(invalidYaml, selectedTypes, discovered);
+        if (!string.IsNullOrWhiteSpace(mcpDoc))
+        {
+            sb.AppendLine();
+            sb.AppendLine("MCP docs for failed/referenced calls:");
+            sb.AppendLine(mcpDoc);
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private sealed record StepRepairInfo(string Type, IReadOnlyList<string> AncestorTypes);
+
+    private static HashSet<string> ExtractRepairStepTypes(StepExecutorRegistry registry, string? invalidYaml, string errorMessage)
+    {
+        var knownSteps = BuildStepRepairLookup(invalidYaml);
+        var selectedTypes = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var stepId in ExtractErrorStepIds(errorMessage))
+        {
+            if (!knownSteps.TryGetValue(stepId, out var info))
+                continue;
+
+            if (registry.Has(info.Type))
+                selectedTypes.Add(info.Type);
+            foreach (var ancestorType in info.AncestorTypes)
+            {
+                if (registry.Has(ancestorType))
+                    selectedTypes.Add(ancestorType);
+            }
+        }
+
+        foreach (var stepType in ExtractQuotedStepTypes(errorMessage))
+        {
+            if (registry.Has(stepType))
+                selectedTypes.Add(stepType);
+        }
+
+        return selectedTypes;
+    }
+
+    private static HashSet<string> ExtractKnownStepTypesFromYaml(StepExecutorRegistry registry, string? invalidYaml)
+    {
+        var selectedTypes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var info in BuildStepRepairLookup(invalidYaml).Values)
+        {
+            if (registry.Has(info.Type))
+                selectedTypes.Add(info.Type);
+        }
+        return selectedTypes;
+    }
+
+    private static Dictionary<string, StepRepairInfo> BuildStepRepairLookup(string? invalidYaml)
+    {
+        var lookup = new Dictionary<string, StepRepairInfo>(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(invalidYaml))
+            return lookup;
+
+        try
+        {
+            var doc = Parsing.WorkflowParser.Parse(invalidYaml);
+            foreach (var workflow in doc.Workflows.Values)
+                AddStepRepairInfo(workflow.Steps, Array.Empty<string>(), lookup);
+        }
+        catch
+        {
+            return lookup;
+        }
+
+        return lookup;
+    }
+
+    private static void AddStepRepairInfo(
+        IEnumerable<StepDef> steps,
+        IReadOnlyList<string> ancestorTypes,
+        Dictionary<string, StepRepairInfo> lookup)
+    {
+        foreach (var step in steps)
+        {
+            if (!string.IsNullOrWhiteSpace(step.Id))
+                lookup[step.Id] = new StepRepairInfo(step.Type, ancestorTypes);
+
+            var childAncestors = ancestorTypes.Concat(new[] { step.Type }).ToArray();
+            if (step.Steps != null)
+                AddStepRepairInfo(step.Steps, childAncestors, lookup);
+            if (step.Branches != null)
+            {
+                foreach (var branch in step.Branches)
+                    AddStepRepairInfo(branch.Steps, childAncestors, lookup);
+            }
+            if (step.Cases != null)
+            {
+                foreach (var @case in step.Cases)
+                    AddStepRepairInfo(@case.Steps, childAncestors, lookup);
+            }
+            if (step.Default != null)
+                AddStepRepairInfo(step.Default, childAncestors, lookup);
+        }
+    }
+
+    private static IEnumerable<string> ExtractErrorStepIds(string errorMessage)
+    {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Match match in Regex.Matches(errorMessage, @"step '([^']+)'", RegexOptions.IgnoreCase))
+            ids.Add(match.Groups[1].Value);
+        foreach (Match match in Regex.Matches(errorMessage, @"""step"":""([^""]+)""", RegexOptions.IgnoreCase))
+            ids.Add(match.Groups[1].Value);
+        foreach (Match match in Regex.Matches(errorMessage, @"\bdata\.steps\.([A-Za-z_][A-Za-z0-9_-]*)", RegexOptions.IgnoreCase))
+            ids.Add(match.Groups[1].Value);
+        return ids;
+    }
+
+    private static IEnumerable<string> ExtractQuotedStepTypes(string errorMessage)
+    {
+        foreach (Match match in Regex.Matches(errorMessage, @"Step type '([^']+)'", RegexOptions.IgnoreCase))
+            yield return match.Groups[1].Value;
+        foreach (Match match in Regex.Matches(errorMessage, @"type '([^']+)'", RegexOptions.IgnoreCase))
+            yield return match.Groups[1].Value;
+    }
+
+    private static string? BuildMinimalMcpRepairContext(
+        string? invalidYaml,
+        HashSet<string> selectedTypes,
+        IReadOnlyList<McpServerDiscovery>? discovered)
+    {
+        if (discovered == null || discovered.Count == 0 || !selectedTypes.Contains("mcp.call") || string.IsNullOrWhiteSpace(invalidYaml))
+            return null;
+
+        WorkflowDocument doc;
+        try
+        {
+            doc = Parsing.WorkflowParser.Parse(invalidYaml);
+        }
+        catch
+        {
+            return null;
+        }
+
+        var calls = doc.Workflows.Values
+            .SelectMany(workflow => EnumerateSteps(workflow.Steps))
+            .Where(step => step.Type == "mcp.call" && step.Input is JsonObject)
+            .Select(step =>
+            {
+                var input = (JsonObject)step.Input!;
+                var server = input["server"]?.GetValue<string>();
+                var method = input["method"]?.GetValue<string>();
+                return (Server: server, Method: method);
+            })
+            .Where(call => !string.IsNullOrWhiteSpace(call.Server))
+            .Distinct()
+            .ToList();
+
+        if (calls.Count == 0)
+            return null;
+
+        var sb = new StringBuilder();
+        foreach (var call in calls)
+        {
+            var server = discovered.FirstOrDefault(s => string.Equals(s.Name, call.Server, StringComparison.Ordinal));
+            if (server == null)
+                continue;
+
+            sb.Append("- ");
+            sb.Append(server.Name);
+            if (!string.IsNullOrWhiteSpace(server.Description))
+                sb.Append($": {server.Description}");
+            sb.AppendLine();
+
+            var tools = server.Tools
+                .Where(tool => string.IsNullOrWhiteSpace(call.Method) || string.Equals(tool.Name, call.Method, StringComparison.Ordinal))
+                .ToList();
+            foreach (var tool in tools)
+            {
+                sb.Append($"  - {tool.Name}");
+                if (!string.IsNullOrWhiteSpace(tool.Description))
+                    sb.Append($": {tool.Description}");
+                sb.AppendLine();
+                if (tool.InputSchema != null)
+                    AppendJsonBlock(sb, "    ", "input_schema", tool.InputSchema);
+                if (tool.OutputSchema != null)
+                    AppendJsonBlock(sb, "    ", "output_schema", tool.OutputSchema);
+                if (tool.ExampleResponse != null)
+                    AppendJsonBlock(sb, "    ", "example_response", tool.ExampleResponse);
+            }
+        }
+
+        return sb.Length == 0 ? null : sb.ToString().TrimEnd();
+    }
+
+    private static void AppendJsonBlock(StringBuilder sb, string indent, string label, JsonNode node)
+    {
+        sb.Append(indent);
+        sb.Append(label);
+        sb.AppendLine(":");
+        sb.Append(indent);
+        sb.AppendLine("```json");
+        sb.AppendLine(node.ToJsonString(PromptJsonOptions));
+        sb.Append(indent);
+        sb.AppendLine("```");
+    }
+
     private static string BuildStructuredPlanError(Exception ex, int attempt)
     {
         var message = ex.Message.Trim();
@@ -1501,6 +1937,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             errorCode = "MISSING_ROOT_KEY_VERSION";
         else if (lower.Contains("missing required field 'name'"))
             errorCode = "MISSING_ROOT_KEY_NAME";
+        else if (lower.Contains("skill_required") || lower.Contains("top-level 'skill'"))
+            errorCode = "MISSING_ROOT_KEY_SKILL";
         else if (lower.Contains("step_type_unknown"))
             errorCode = "UNKNOWN_STEP_TYPE";
         else if (lower.Contains("missing_steps") || lower.Contains("missing_branches") || lower.Contains("missing_cases"))

@@ -233,6 +233,49 @@ public sealed class ModelMetadataCatalogTests
         Assert.Equal(3.0m, metadata.Pricing!.InputPer1MTokens);
     }
 
+    [Theory]
+    [InlineData("claude-opus-4-7")]
+    [InlineData("claude-opus-4-8")]
+    public void Resolve_ReturnsBuiltinMetadataForRecentClaudeOpusModels(string model)
+    {
+        var resolver = new LLMModelMetadataResolver(new LLMOptions());
+
+        var metadata = resolver.Resolve("anthropic", model);
+
+        Assert.Equal(model, metadata.Id);
+        Assert.Equal("anthropic", metadata.ProviderType);
+        Assert.Equal(1000000, metadata.ContextWindowTokens);
+        Assert.Equal(128000, metadata.MaxOutputTokens);
+        Assert.Equal(5.0m, metadata.Pricing!.InputPer1MTokens);
+        Assert.Equal(25.0m, metadata.Pricing.OutputPer1MTokens);
+        Assert.True(metadata.Capabilities.SupportsReasoningEffort);
+        Assert.False(metadata.Capabilities.SupportsTemperature);
+        Assert.True(metadata.Capabilities.SupportsVision);
+        Assert.Contains("temperature", metadata.Capabilities.UnsupportedRequestParameters!);
+        Assert.Contains("top_p", metadata.Capabilities.UnsupportedRequestParameters!);
+        Assert.Contains("top_k", metadata.Capabilities.UnsupportedRequestParameters!);
+        Assert.Contains("xhigh", metadata.Capabilities.SupportedReasoningEfforts!);
+    }
+
+    [Fact]
+    public void Sanitize_RemovesTemperatureForRecentClaudeOpusModels()
+    {
+        var resolver = new LLMModelMetadataResolver(new LLMOptions());
+        var metadata = resolver.Resolve("anthropic", "claude-opus-4-7");
+
+        var sanitized = LLMRequestSanitizer.Sanitize(new LLMClientRequest
+        {
+            Provider = "anthropic",
+            Model = "claude-opus-4-7",
+            Prompt = "Route this request.",
+            Temperature = 0.2,
+            Reasoning = "high"
+        }, metadata);
+
+        Assert.Null(sanitized.Temperature);
+        Assert.Equal("high", sanitized.Reasoning);
+    }
+
     [Fact]
     public void Resolve_DoesNotTreatNonProviderSlashPrefixAsVendorPrefix()
     {
@@ -331,6 +374,3 @@ public sealed class ModelMetadataCatalogTests
         Assert.True(ModelMetadataCatalog.HasCompleteRequiredMetadata(options, "openai", "custom-model"));
     }
 }
-
-
-

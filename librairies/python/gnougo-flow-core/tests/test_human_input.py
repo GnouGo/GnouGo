@@ -4,6 +4,7 @@ import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
 from gnougo_flow_core.errors import ErrorCodes
+from gnougo_flow_core.models import DEFAULT_HUMAN_INPUT_TIMEOUT_MS
 from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
 
@@ -44,6 +45,7 @@ async def test_human_input_step() -> None:
     assert result.success is True
     assert result.outputs["answer"] == "approve"
     assert provider.last_request.mode == "text"
+    assert provider.last_request.timeout_ms == 1000
 
 
 @pytest.mark.asyncio
@@ -74,6 +76,7 @@ async def test_human_input_date_field() -> None:
 
     assert result.success is True
     assert provider.last_request.mode == "form"
+    assert provider.last_request.timeout_ms == DEFAULT_HUMAN_INPUT_TIMEOUT_MS
     assert provider.last_request.fields[0].type == "date"
     assert provider.last_request.fields[0].default == "2026-06-09"
 

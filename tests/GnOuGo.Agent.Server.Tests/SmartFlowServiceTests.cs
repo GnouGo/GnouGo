@@ -13,6 +13,28 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class SmartFlowServiceTests
 {
     [Fact]
+    public async Task ExecuteAsync_Help_ReturnsCommandOverviewWithoutCallingLlm()
+    {
+        var llm = new RecordingLlmClient();
+        var service = SmartFlowTestFactory.CreateSmartFlowService(
+            llm,
+            new FakeMcpClientFactory(),
+            SmartFlowTestFactory.CreateProvidersService(llm),
+            SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory()));
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/help", CancellationToken.None));
+
+        var answer = Assert.Single(events, evt => evt.Type == "answer");
+        Assert.Contains("# GnOuGo Help", answer.Text);
+        Assert.Contains("`/llm add`", answer.Text);
+        Assert.Contains("`/embedding add`", answer.Text);
+        Assert.Contains("`/mcp add`", answer.Text);
+        Assert.Contains("`/gnougo add`", answer.Text);
+        Assert.Contains("`/status`", answer.Text);
+        Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_UsesPersistedDefaultAgentWorkflow_WhenNoAgentNameIsProvided()
     {
         if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)

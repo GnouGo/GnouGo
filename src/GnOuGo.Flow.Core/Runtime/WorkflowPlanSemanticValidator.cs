@@ -68,6 +68,17 @@ internal static class WorkflowPlanSemanticValidator
             throw new WorkflowSemanticValidationException(errors);
     }
 
+    public static int NormalizeMcpCallInputRequests(WorkflowDocument document, IReadOnlyList<McpToolOutputContract>? mcpToolContracts = null)
+    {
+        var mcpContracts = BuildMcpContractLookup(mcpToolContracts);
+        var changes = 0;
+
+        foreach (var workflow in document.Workflows.Values)
+            changes += NormalizeMcpCallInputRequests(workflow.Steps, mcpContracts);
+
+        return changes;
+    }
+
     internal static string FormatErrors(IReadOnlyList<WorkflowSemanticValidationError> errors)
     {
         var root = new JsonObject
@@ -135,6 +146,62 @@ internal static class WorkflowPlanSemanticValidator
     {
         foreach (var step in steps)
             ValidateStep(step, workflowName, knownContracts, allStepIds, mcpContracts, errors);
+    }
+
+    private static int NormalizeMcpCallInputRequests(
+        IReadOnlyList<StepDef> steps,
+        Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts)
+    {
+        var changes = 0;
+        foreach (var step in steps)
+        {
+            changes += NormalizeMcpCallInputRequest(step, mcpContracts);
+
+            if (step.Steps != null)
+                changes += NormalizeMcpCallInputRequests(step.Steps, mcpContracts);
+
+            if (step.Branches != null)
+                foreach (var branch in step.Branches)
+                    changes += NormalizeMcpCallInputRequests(branch.Steps, mcpContracts);
+
+            if (step.Cases != null)
+                foreach (var @case in step.Cases)
+                    changes += NormalizeMcpCallInputRequests(@case.Steps, mcpContracts);
+
+            if (step.Default != null)
+                changes += NormalizeMcpCallInputRequests(step.Default, mcpContracts);
+        }
+
+        return changes;
+    }
+
+    private static int NormalizeMcpCallInputRequest(
+        StepDef step,
+        Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts)
+    {
+        if (!string.Equals(step.Type, "mcp.call", StringComparison.Ordinal)
+            || step.Input is not JsonObject input)
+        {
+            return 0;
+        }
+
+        var kind = TryGetInputString(step, "kind") ?? "tool";
+        if (!string.Equals(kind, "tool", StringComparison.OrdinalIgnoreCase))
+            return 0;
+
+        var serverName = TryGetInputString(step, "server");
+        var methodName = TryGetInputString(step, "method");
+        if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(methodName))
+            return 0;
+
+        if (!mcpContracts.TryGetValue((serverName, methodName), out var contract)
+            || contract.InputSchema is not JsonObject inputSchema
+            || input["request"] is not JsonObject requestObject)
+        {
+            return 0;
+        }
+
+        return NormalizeJsonNodeAgainstSchema(requestObject, inputSchema);
     }
 
     private static void ValidateStep(
@@ -589,7 +656,7 @@ internal static class WorkflowPlanSemanticValidator
         var valid = expectedType switch
         {
             "string" => jsonValue.TryGetValue<string>(out _),
-            "number" => jsonValue.TryGetValue<double>(out _),
+            "number" => IsJsonNumber(jsonValue),
             "integer" => jsonValue.TryGetValue<long>(out _) || jsonValue.TryGetValue<int>(out _),
             "boolean" => jsonValue.TryGetValue<bool>(out _),
             "null" => false,
@@ -598,6 +665,149 @@ internal static class WorkflowPlanSemanticValidator
 
         if (!valid)
             errors.Add(new SchemaValidationError(path, $"expected {expectedType}"));
+    }
+
+    private static bool IsJsonNumber(JsonValue jsonValue) =>
+        jsonValue.TryGetValue<double>(out _)
+        || jsonValue.TryGetValue<float>(out _)
+        || jsonValue.TryGetValue<decimal>(out _)
+        || jsonValue.TryGetValue<long>(out _)
+        || jsonValue.TryGetValue<int>(out _)
+        || jsonValue.TryGetValue<short>(out _)
+        || jsonValue.TryGetValue<byte>(out _);
+
+    private static int NormalizeJsonNodeAgainstSchema(JsonNode? value, JsonNode? schema)
+    {
+        if (schema is not JsonObject schemaObject || value == null)
+            return 0;
+
+        if (schemaObject["anyOf"] is JsonArray anyOf)
+            return NormalizeAgainstSingleMatchingVariant(value, anyOf);
+
+        if (schemaObject["oneOf"] is JsonArray oneOf)
+            return NormalizeAgainstSingleMatchingVariant(value, oneOf);
+
+        var typeName = ReadSchemaType(schemaObject);
+        return typeName switch
+        {
+            "object" => NormalizeObjectAgainstSchema(value, schemaObject),
+            "array" => NormalizeArrayAgainstSchema(value, schemaObject),
+            _ => 0
+        };
+    }
+
+    private static int NormalizeAgainstSingleMatchingVariant(JsonNode value, JsonArray variants)
+    {
+        JsonObject? selectedVariant = null;
+        foreach (var variant in variants)
+        {
+            if (variant is not JsonObject variantObject)
+                continue;
+
+            var errors = new List<SchemaValidationError>();
+            ValidateJsonNodeAgainstSchema(value, variantObject, string.Empty, errors);
+            if (errors.Count == 0)
+                return 0;
+
+            var clone = value.DeepClone();
+            var changes = NormalizeJsonNodeAgainstSchema(clone, variantObject);
+            if (changes == 0)
+                continue;
+
+            errors.Clear();
+            ValidateJsonNodeAgainstSchema(clone, variantObject, string.Empty, errors);
+            if (errors.Count == 0)
+            {
+                if (selectedVariant != null)
+                    return 0;
+
+                selectedVariant = variantObject;
+            }
+        }
+
+        return selectedVariant == null ? 0 : NormalizeJsonNodeAgainstSchema(value, selectedVariant);
+    }
+
+    private static int NormalizeObjectAgainstSchema(JsonNode value, JsonObject schema)
+    {
+        if (IsDynamicExpressionString(value) || value is not JsonObject obj)
+            return 0;
+
+        var changes = 0;
+        var properties = schema["properties"] as JsonObject;
+        foreach (var propertyName in obj.Select(kv => kv.Key).ToArray())
+        {
+            var propertyValue = obj[propertyName];
+            JsonNode? propertySchema = null;
+
+            if (properties != null)
+                properties.TryGetPropertyValue(propertyName, out propertySchema);
+
+            propertySchema ??= schema["additionalProperties"] as JsonObject;
+            if (propertySchema == null)
+                continue;
+
+            changes += NormalizeJsonNodeAgainstSchema(propertyValue, propertySchema);
+            if (TryCoerceJsonValue(propertyValue, propertySchema, out var coerced))
+            {
+                obj[propertyName] = coerced;
+                changes++;
+            }
+        }
+
+        return changes;
+    }
+
+    private static int NormalizeArrayAgainstSchema(JsonNode value, JsonObject schema)
+    {
+        if (IsDynamicExpressionString(value) || value is not JsonArray array || schema["items"] == null)
+            return 0;
+
+        var itemSchema = schema["items"];
+        var changes = 0;
+        for (var i = 0; i < array.Count; i++)
+        {
+            var item = array[i];
+            changes += NormalizeJsonNodeAgainstSchema(item, itemSchema);
+            if (TryCoerceJsonValue(item, itemSchema, out var coerced))
+            {
+                array[i] = coerced;
+                changes++;
+            }
+        }
+
+        return changes;
+    }
+
+    private static bool TryCoerceJsonValue(JsonNode? value, JsonNode? schema, out JsonNode? coerced)
+    {
+        coerced = null;
+        if (schema is not JsonObject schemaObject || value is not JsonValue jsonValue || IsDynamicExpressionString(value))
+            return false;
+
+        var typeName = ReadSchemaType(schemaObject);
+        if (typeName == "number" && jsonValue.TryGetValue<string>(out var numberText)
+            && double.TryParse(numberText, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number))
+        {
+            coerced = JsonValue.Create(number);
+            return true;
+        }
+
+        if (typeName == "integer" && jsonValue.TryGetValue<string>(out var integerText)
+            && long.TryParse(integerText, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var integer))
+        {
+            coerced = JsonValue.Create(integer);
+            return true;
+        }
+
+        if (typeName == "boolean" && jsonValue.TryGetValue<string>(out var booleanText)
+            && bool.TryParse(booleanText, out var boolean))
+        {
+            coerced = JsonValue.Create(boolean);
+            return true;
+        }
+
+        return false;
     }
 
     private static bool IsDynamicExpressionString(JsonNode? value)
@@ -923,4 +1133,3 @@ internal static class WorkflowPlanSemanticValidator
         return true;
     }
 }
-

@@ -70,14 +70,18 @@ public sealed class WorkflowExecuteExecutor : IStepExecutor
         // a proper workflow scope — mirroring the standalone WorkflowEngine.ExecuteAsync
         // path. Without this, the generated sub-workflow's steps become direct children
         // of the "workflow.execute" step span and the OTel tree collapses visually.
-        var subWorkflowSpan = ctx.Engine.Telemetry.WorkflowStart(new WorkflowTelemetryInfo
+        var subWorkflowInfo = new WorkflowTelemetryInfo
         {
             WorkflowName = workflow.Name,
             DocumentName = compiledDoc.Source?.Name,
             Inputs = args.DeepClone(),
             SourceText = yaml,
             SourceFormat = "yaml"
-        });
+        };
+        var subWorkflowSpan = ctx.TelemetrySpan is null
+            ? ctx.Engine.Telemetry.WorkflowStart(subWorkflowInfo)
+            : ctx.Engine.Telemetry.WorkflowStart(ctx.TelemetrySpan, subWorkflowInfo);
+        WorkflowTelemetryInputAttributes.Apply(subWorkflowSpan, subData["inputs"]);
         var subWorkflowSw = System.Diagnostics.Stopwatch.StartNew();
         Exception? subWorkflowError = null;
         try

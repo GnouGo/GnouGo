@@ -19,6 +19,19 @@ public class WorkflowPlanExecutorTests
         return compiled.Workflows[compiled.Entrypoint!];
     }
 
+    private static int CountOccurrences(string value, string needle)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = value.IndexOf(needle, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += needle.Length;
+        }
+
+        return count;
+    }
+
     // ------ DslSnippet tests ------
 
     [Fact]
@@ -166,6 +179,7 @@ workflows:
         var reference = GnOuGo.Flow.Core.Runtime.Executors.DslReference.CommonReference;
         Assert.Contains("skill:", reference);
         Assert.Contains("Skill metadata", reference);
+        Assert.Contains("MUST include a top-level `skill` block", reference);
         Assert.Contains("auto-extract", reference);
     }
 
@@ -222,6 +236,8 @@ workflows:
         Assert.Contains("Function arguments are evaluated before the function runs", capturedPrompt);
         Assert.Contains("coalesce(data.steps.branch_a.value, data.steps.branch_b.value)", capturedPrompt);
         Assert.Contains("produced only inside `switch` cases", capturedPrompt);
+        Assert.Contains("version, name, skill, workflows", capturedPrompt);
+        Assert.Contains("- skill: required object", capturedPrompt);
         // Should contain built-in functions doc
         Assert.Contains("exists(val)", capturedPrompt);
         Assert.Contains("len(val)", capturedPrompt);
@@ -336,6 +352,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated token budget workflow.
+                         tags: [tokens]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -426,7 +447,76 @@ workflows:
         Assert.DoesNotContain("[PREVIOUS ERROR]", prompts[0]);
         // Second prompt SHOULD contain [PREVIOUS ERROR]
         Assert.Contains("[PREVIOUS ERROR]", prompts[1]);
+        Assert.Contains("[INVALID YAML]", prompts[1]);
+        Assert.Contains("version: 1", prompts[1]);
+        Assert.DoesNotContain("[DSL REFERENCE]", prompts[1]);
+        Assert.DoesNotContain("[STEP EXCEPTIONS BY TYPE]", prompts[1]);
         Assert.Contains("Fix the issues", prompts[1]);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_Reprompt_StripsDuplicatedTaskPreambleFromInvalidYaml()
+    {
+        const string uniqueTaskMarker = "UNIQUE_ORIGINAL_USER_PROMPT_TEST12";
+        var prompts = new List<string>();
+        int callCount = 0;
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => prompts.Add(req.Prompt))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    return new LLMResponse
+                    {
+                        Text = $"""
+                                Agent description:
+                                Build an agent for {uniqueTaskMarker} and keep the user request intent.
+                                version: 1
+                                workflows:
+                                  main:
+                                    steps:
+                                      - id: s
+                                """
+                    };
+                }
+
+                return new LLMResponse
+                {
+                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                };
+            });
+
+        var wf = CompileMain($$"""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: |
+              Agent description:
+              Build an agent for {{uniqueTaskMarker}} and keep the user request intent.
+          on_invalid:
+            action: reprompt
+            max_attempts: 3
+          validate:
+            compile: false
+""");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, prompts.Count);
+        Assert.Equal(1, CountOccurrences(prompts[1], uniqueTaskMarker));
+        Assert.Contains("[INVALID YAML]", prompts[1]);
+        Assert.Contains("version: 1", prompts[1]);
     }
 
     [Fact]
@@ -445,13 +535,13 @@ workflows:
                 {
                     return new LLMResponse
                     {
-                        Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: definitely.not.a.step\n"
+                        Text = "version: 1\nskill:\n  description: Generated workflow.\n  tags: [generated]\n  inputs: {}\n  outputs: {}\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: definitely.not.a.step\n"
                     };
                 }
 
                 return new LLMResponse
                 {
-                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                    Text = "version: 1\nskill:\n  description: Generated workflow.\n  tags: [generated]\n  inputs: {}\n  outputs: {}\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
                 };
             });
 
@@ -490,6 +580,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated docs workflow.
+                         tags: [docs]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -552,6 +647,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated token budget workflow.
+                         tags: [tokens]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -619,6 +719,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated token budget workflow.
+                         tags: [tokens]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -678,6 +783,11 @@ workflows:
             {
                 Text = """
                        version: 1
+                       skill:
+                         description: Generated GitHub pull request workflow.
+                         tags: [github, pull-requests]
+                         inputs: {}
+                         outputs: {}
                        workflows:
                          main:
                            steps:
@@ -754,6 +864,220 @@ workflows:
         Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
         Assert.Contains("input.request.method", result.Error.Message);
         Assert.Contains("missing required property", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_DryRun_RejectsFreeformLlmTextUsedAsNumber()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated token budget workflow.
+                         tags: [tokens]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: extract
+                               type: llm.call
+                               input:
+                                 prompt: "Return a token budget"
+                             - id: answer
+                               type: llm.call
+                               input:
+                                 prompt: "Answer briefly"
+                                 max_tokens: "${data.steps.extract.text}"
+                       """
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a workflow that extracts a token budget
+            prefilter: false
+          validate:
+            dry_run: true
+          on_invalid:
+            action: stop
+            max_attempts: 1
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("dry_run", result.Error.Message);
+        Assert.Contains("Expected number", result.Error.Message);
+        Assert.Contains("dry-run text response", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_DryRun_AllowsStructuredLlmJsonUsedAsNumber()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated GitHub pull request workflow.
+                         tags: [github, pull-requests]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: extract
+                               type: llm.call
+                               input:
+                                 prompt: "Return a token budget"
+                                 structured_output:
+                                   schema_inline:
+                                     type: object
+                                     properties:
+                                       max_tokens:
+                                         type: integer
+                                     required: [max_tokens]
+                                     additionalProperties: false
+                             - id: answer
+                               type: llm.call
+                               input:
+                                 prompt: "Answer briefly"
+                                 max_tokens: "${data.steps.extract.json.max_tokens}"
+                           outputs:
+                             answer:
+                               expr: "${data.steps.answer.text}"
+                               type: string
+                       """
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a workflow that extracts a token budget
+            prefilter: false
+          validate:
+            dry_run: true
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public void WorkflowPlan_DryRun_TreatsOnlyInternalErrorAsInconclusive()
+    {
+        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
+            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
+            throwOnError: true)!;
+        var method = validatorType.GetMethod(
+            "IsInconclusiveInternalError",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+        Assert.True((bool)method.Invoke(null, new object?[] { "INTERNAL_ERROR" })!);
+        Assert.False((bool)method.Invoke(null, new object?[] { ErrorCodes.EvalError })!);
+        Assert.False((bool)method.Invoke(null, new object?[] { ErrorCodes.InputValidation })!);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_AllowsIntegerYamlScalarForNumberMcpSchema()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated GitHub pull request workflow.
+                         tags: [github, pull-requests]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: list_prs
+                               type: mcp.call
+                               input:
+                                 server: github
+                                 kind: tool
+                                 method: list_pull_requests
+                                 request:
+                                   owner: AxaFrance
+                                   repo: oidc-client
+                                   perPage: 100
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "list_pull_requests",
+                    Description = "List pull requests",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "owner": { "type": "string" },
+                        "repo": { "type": "string" },
+                        "perPage": { "type": "number" }
+                      },
+                      "required": ["owner", "repo"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: List GitHub pull requests
+            prefilter: false
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
     }
 
     [Fact]
@@ -899,6 +1223,11 @@ workflows:
                     {
                         Text = """
                                version: 1
+                               skill:
+                                 description: Generated docs workflow.
+                                 tags: [docs]
+                                 inputs: {}
+                                 outputs: {}
                                workflows:
                                  main:
                                    steps:
@@ -938,6 +1267,11 @@ workflows:
                 {
                     Text = """
                            version: 1
+                           skill:
+                             description: Generated docs workflow.
+                             tags: [docs]
+                             inputs: {}
+                             outputs: {}
                            workflows:
                              main:
                                steps:
@@ -1040,6 +1374,11 @@ workflows:
                 {
                     Text = """
                            version: 1
+                           skill:
+                             description: Generated docs workflow.
+                             tags: [docs]
+                             inputs: {}
+                             outputs: {}
                            workflows:
                              main:
                                steps:
@@ -1143,6 +1482,7 @@ workflows:
     public async Task WorkflowPlan_PromptContainsAvailableMcpServers()
     {
         string? capturedPrompt = null;
+        var longSchemaDescription = new string('x', 620) + " schema-tail-marker";
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
@@ -1162,7 +1502,19 @@ workflows:
                 {
                     Name = "list_repos",
                     Description = "List repositories for a user",
-                    InputSchema = System.Text.Json.Nodes.JsonNode.Parse("{\"type\":\"object\",\"properties\":{\"user\":{\"type\":\"string\"}},\"required\":[\"user\"]}"),
+                    InputSchema = new JsonObject
+                    {
+                        ["type"] = "object",
+                        ["properties"] = new JsonObject
+                        {
+                            ["user"] = new JsonObject
+                            {
+                                ["type"] = "string",
+                                ["description"] = longSchemaDescription
+                            }
+                        },
+                        ["required"] = new JsonArray("user")
+                    },
                     OutputSchema = JsonNode.Parse("{\"type\":\"object\",\"properties\":{\"repositories\":{\"type\":\"array\"}},\"additionalProperties\":false}"),
                     ExampleResponse = JsonNode.Parse("{\"repositories\":[{\"name\":\"demo\"}]}")
                 },
@@ -1215,6 +1567,10 @@ workflows:
         Assert.Contains("input_schema:", capturedPrompt);
         Assert.Contains("output_schema:", capturedPrompt);
         Assert.Contains("example_response:", capturedPrompt);
+        Assert.Contains("```json", capturedPrompt);
+        Assert.Contains("\"type\": \"string\"", capturedPrompt);
+        Assert.Contains("schema-tail-marker", capturedPrompt);
+        Assert.DoesNotContain("schema-tail-marker…", capturedPrompt);
         Assert.Contains("repositories", capturedPrompt);
         Assert.Contains("- weather: Weather forecasts and city conditions", capturedPrompt);
         Assert.Contains("get_weather", capturedPrompt);

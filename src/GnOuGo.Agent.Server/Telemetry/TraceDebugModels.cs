@@ -21,7 +21,8 @@ public sealed record TraceLogDto(
     string? ServiceName,
     Dictionary<string, object?> Attributes,
     Dictionary<string, object?> Resource,
-    Dictionary<string, object?> Scope);
+    Dictionary<string, object?> Scope,
+    Guid? Id = null);
 
 public sealed record TraceSummaryDto(
     string TraceId,
@@ -57,4 +58,3 @@ public sealed record TraceGroupDto(
     DateTimeOffset StartUtc,
     DateTimeOffset EndUtc,
     List<TraceSpanDto> Spans);
-

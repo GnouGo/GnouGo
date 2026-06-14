@@ -14,9 +14,29 @@ public class WorkflowValidatorTests
     [Fact]
     public void Validate_ValidDocument_NoErrors()
     {
-        var doc = ParseDoc("version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n");
+        var doc = ParseDoc("""
+version: 1
+skill:
+  description: Test workflow.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: s1
+        type: template.render
+""");
         var errors = _validator.Validate(doc);
         Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Validate_MissingSkill_ReportsError()
+    {
+        var doc = ParseDoc("version: 1\nworkflows:\n  main:\n    steps:\n      - id: s1\n        type: template.render\n");
+        var errors = _validator.Validate(doc);
+        Assert.Contains(errors, e => e.Code == ErrorCodes.SkillRequired && e.Field == "skill");
     }
 
     [Fact]

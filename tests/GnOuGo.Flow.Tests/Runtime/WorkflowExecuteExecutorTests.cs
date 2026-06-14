@@ -47,6 +47,23 @@ public class WorkflowExecuteExecutorTests
         return await engine.ExecuteAsync(wf, inputs ?? new JsonObject(), CancellationToken.None);
     }
 
+    private static string WithGeneratedSkill(string yaml)
+    {
+        if (yaml.Contains("\nskill:", StringComparison.Ordinal) || yaml.StartsWith("skill:", StringComparison.Ordinal))
+            return yaml;
+
+        var versionIndex = yaml.IndexOf("version: 1", StringComparison.Ordinal);
+        if (versionIndex < 0)
+            return yaml;
+
+        var lineEnd = yaml.IndexOf('\n', versionIndex);
+        if (lineEnd < 0)
+            lineEnd = yaml.Length - 1;
+
+        const string skillBlock = "\nskill:\n  description: Generated workflow.\n  tags: [generated]\n  inputs: {}\n  outputs: {}";
+        return yaml.Insert(lineEnd, skillBlock);
+    }
+
     // ------ Basic plan ? execute (happy path) ------
 
     [Fact]
@@ -72,7 +89,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -110,7 +127,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -216,7 +233,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -267,7 +284,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -322,7 +339,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -373,7 +390,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
             version: 1
@@ -449,7 +466,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -502,7 +519,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -614,7 +631,7 @@ public class WorkflowExecuteExecutorTests
                 if (callCount == 1)
                 {
                     // First call: workflow.plan LLM call
-                    return new LLMResponse { Text = generatedYaml };
+                    return new LLMResponse { Text = WithGeneratedSkill(generatedYaml) };
                 }
                 // Second call: the generated workflow's llm.call
                 // Simulate a failure
@@ -676,7 +693,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -728,7 +745,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -790,7 +807,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -844,7 +861,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1
@@ -937,7 +954,7 @@ public class WorkflowExecuteExecutorTests
 
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new LLMResponse { Text = generatedYaml });
+            .ReturnsAsync(new LLMResponse { Text = WithGeneratedSkill(generatedYaml) });
 
         var result = await RunMain("""
             version: 1

@@ -23,7 +23,7 @@ By default, files and metadata are stored under:
 The SQLite database defaults to:
 
 ```text
-<Desktop>/GnOuGo/Files/Temp/gnougo-files.db
+<Desktop>/GnOuGo/.GnOuGo/data/gnougo-files.db
 ```
 
 Override these paths with `Files:StorageRootPath` and `Files:DatabasePath`.
@@ -84,4 +84,3 @@ Publish a Windows x64 self-contained trimmed binary:
 ```powershell
 dotnet publish src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj -c Release -r win-x64 --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=true -o artifacts/publish/files-server-win-x64
 ```
-

@@ -8,6 +8,8 @@ public static class AgentMcpWebHost
     public static WebApplication Build(string[] args, string? urls = null, string routePrefix = AgentMcpHostingExtensions.DefaultRoutePrefix)
     {
         var builder = WebApplication.CreateSlimBuilder(args);
+        if (args.Length > 0)
+            builder.Configuration.AddCommandLine(args);
 
         if (!string.IsNullOrWhiteSpace(urls))
             builder.WebHost.UseUrls(urls);
@@ -63,4 +65,3 @@ public static class AgentMcpWebHost
         await context.Response.Body.WriteAsync(payload, context.RequestAborted);
     }
 }
-

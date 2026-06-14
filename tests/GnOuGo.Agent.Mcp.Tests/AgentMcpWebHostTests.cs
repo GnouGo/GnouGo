@@ -4,16 +4,48 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Workspace;
 
 namespace GnOuGo.Agent.Mcp.Tests;
 
 public sealed class AgentMcpWebHostTests
 {
     [Fact]
-    public void ResolveDatabasePath_WhenUsingDefaultPath_UsesDesktopGnOuGoDirectory()
+    public void ResolveDatabasePath_WhenUsingDefaultPath_UsesDefaultWorkingDirectoryGnOuGoDataDirectory()
     {
-        var expected = Path.Combine(ResolveDesktopDirectory(), "GnOuGo", "data", "gnougo-agent.db");
-        var actual = AgentMcpHostingExtensions.ResolveDatabasePath(AgentMcpHostingExtensions.DefaultDatabasePath, AppContext.BaseDirectory);
+        var expected = Path.Combine(
+            GnOuGoWorkspace.ResolveDefaultWorkingDirectory(),
+            ".GnOuGo",
+            "data",
+            "gnougo-agent.db");
+
+        var actual = AgentMcpHostingExtensions.ResolveDatabasePath(
+            AgentMcpHostingExtensions.DefaultDatabasePath,
+            AppContext.BaseDirectory);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ResolveAgentsDirectory_WhenUsingDefaultDatabasePath_UsesWorkspaceGnOuGoDirectory()
+    {
+        var root = CreateWorkspaceRoot();
+        var databasePath = Path.Combine(root, ".GnOuGo", "data", "gnougo-agent.db");
+        var expected = root;
+
+        var actual = AgentMcpHostingExtensions.ResolveAgentsDirectory(databasePath);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ResolveAgentsDirectory_WhenConfiguredRelativePath_ResolvesFromWorkspaceGnOuGoDirectory()
+    {
+        var root = CreateWorkspaceRoot();
+        var databasePath = Path.Combine(root, ".GnOuGo", "data", "gnougo-agent.db");
+        var expected = Path.Combine(root, "custom-agents");
+
+        var actual = AgentMcpHostingExtensions.ResolveAgentsDirectory(databasePath, "custom-agents");
 
         Assert.Equal(expected, actual);
     }
@@ -137,8 +169,11 @@ public sealed class AgentMcpWebHostTests
 
     private sealed record HealthPayload(string Status);
 
-    private static string ResolveDesktopDirectory()
-        => GnOuGo.Workspace.GnOuGoWorkspace.ResolveDesktopDirectory();
+    private static string CreateWorkspaceRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "GnOuGo.Agent.Mcp.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "Test.sln"), "");
+        return root;
+    }
 }
-
-
