@@ -1,9 +1,11 @@
+import json
+
 import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
 from gnougo_flow_core.models import ExecutionLimits, LLMRequest, LLMResponse, WorkflowRouteCandidate
 from gnougo_flow_core.parsing import WorkflowParser
-from gnougo_flow_core.runtime import WorkflowEngine
+from gnougo_flow_core.runtime import ITelemetrySpan, WorkflowEngine
 from gnougo_flow_core.workflow_call_resolver import DefaultWorkflowCallResolver, WorkflowCallResolution
 
 
@@ -69,6 +71,32 @@ class _CapturingHumanInputProvider:
     async def request_input_async(self, request):
         self.requests.append(request)
         return {"response": request.prompt}
+
+
+class _CaptureSpan(ITelemetrySpan):
+    def __init__(self, name: str, events: list[tuple[str, list[tuple[str, object]]]]) -> None:
+        self.name = name
+        self.events = events
+
+    def add_event(self, name: str, attributes=None):
+        self.events.append((name, list(attributes or [])))
+
+
+class _CaptureTelemetry:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, list[tuple[str, object]]]] = []
+
+    def workflow_start(self, info):
+        return _CaptureSpan(str(info.get("workflow_name", "workflow")), self.events)
+
+    def workflow_end(self, span, info):
+        return
+
+    def step_start(self, parent, info):
+        return _CaptureSpan(str(info.get("step_id", "step")), self.events)
+
+    def step_end(self, span, info):
+        return
 
 
 @pytest.mark.asyncio
@@ -218,6 +246,7 @@ async def test_workflow_route_auto_extracts_selected_workflow_arguments_with_con
                       prompt: { type: string }
                       repository_path: { type: string }
                       base_branch: { type: string }
+                      api_key: { type: string }
               args:
                 passthrough: true
                 auto_extract:
@@ -235,6 +264,7 @@ async def test_workflow_route_auto_extracts_selected_workflow_arguments_with_con
           prompt: { type: string, required: true }
           repository_path: { type: string, required: true }
           base_branch: { type: string, required: false, default: main }
+          api_key: { type: string, required: false }
         steps:
           - id: render
             type: template.render
@@ -251,11 +281,22 @@ async def test_workflow_route_auto_extracts_selected_workflow_arguments_with_con
             expr: "${data.steps.render.text}"
             type: string
     """
-    llm = _ExtractingLlmClient({"arguments": {"repository_path": "/tmp/repo", "base_branch": "develop"}})
+    llm = _ExtractingLlmClient(
+        {
+            "arguments": {
+                "repository_path": "/tmp/repo",
+                "base_branch": "develop",
+                "api_key": "secret-value",
+            }
+        }
+    )
+    telemetry = _CaptureTelemetry()
     engine = WorkflowEngine()
     engine.llm_client = llm
+    engine.telemetry = telemetry
     engine.lm_defaults.provider = "default-provider"
     engine.lm_defaults.model = "default-model"
+    engine.limits.log_step_content = True
 
     result = await engine.execute_async(_compile(yaml_text), {"prompt": "compare this repo with develop"})
 
@@ -266,6 +307,21 @@ async def test_workflow_route_auto_extracts_selected_workflow_arguments_with_con
     assert llm.requests[0].model == "test-model"
     assert llm.requests[0].temperature == 0.1
     assert "repository_path" in llm.requests[0].prompt
+    routed_events = [
+        dict(attributes)
+        for name, attributes in telemetry.events
+        if name == "gnougo-flow.workflow_route.inputs_extracted"
+    ]
+    assert len(routed_events) == 1
+    event = routed_events[0]
+    assert event["gnougo-flow.workflow_route.candidate.id"] == "local:inspect_repo"
+    assert event["gnougo-flow.workflow_route.workflow.name"] == "inspect_repo"
+    assert event["gnougo-flow.workflow_route.auto_extract.enabled"] is True
+    arguments = json.loads(event["gnougo-flow.workflow_route.arguments"])
+    assert arguments["repository_path"] == "/tmp/repo"
+    assert arguments["api_key"] == "<redacted>"
+    resolved_inputs = json.loads(event["gnougo-flow.workflow_route.resolved_inputs"])
+    assert resolved_inputs["base_branch"] == "develop"
 
 
 @pytest.mark.asyncio

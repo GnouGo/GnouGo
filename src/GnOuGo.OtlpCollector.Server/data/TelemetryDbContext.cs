@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using OtlpTenantCollector.Models;
 
@@ -5,6 +6,10 @@ namespace OtlpTenantCollector.Data;
 
 public sealed class TelemetryDbContext : DbContext
 {
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026",
+        Justification = "OtlpCollector.Server is published with partial trimming only; EF Core SQLite storage is validated by the collector test suite.")]
     public TelemetryDbContext(DbContextOptions<TelemetryDbContext> options) : base(options) { }
 
     public DbSet<TenantEntity> Tenants => Set<TenantEntity>();

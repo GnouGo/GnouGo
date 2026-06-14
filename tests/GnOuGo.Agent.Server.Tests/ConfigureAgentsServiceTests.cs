@@ -77,7 +77,7 @@ public sealed class ConfigureAgentsServiceTests
             // The workflow already completed; the background request reader can still be awaiting more items.
         }
 
-        Assert.True(result.Success);
+        Assert.True(result.Success, result.Error?.Message);
         Assert.Equal("slimfaas", result.Outputs?["agent_name"]?.GetValue<string>());
         Assert.Contains(events, evt =>
             evt.Type == "thinking:response" &&
@@ -139,7 +139,7 @@ public sealed class ConfigureAgentsServiceTests
         var (result, events) = await ExecuteConfigureAgentsWorkflowByNameAsync(llm, "agent_add", new JsonObject(), humanInput, agentMcp);
         await responder;
 
-        Assert.True(result.Success);
+        Assert.True(result.Success, result.Error?.Message);
         Assert.Equal(string.Empty, result.Outputs?["agent_name"]?.GetValue<string>());
         Assert.Null(unexpectedStepId);
         Assert.Equal(0, llm.CallCount);
@@ -199,7 +199,7 @@ public sealed class ConfigureAgentsServiceTests
             // The workflow already completed; the background request reader can still be awaiting more items.
         }
 
-        Assert.True(result.Success);
+        Assert.True(result.Success, result.Error?.Message);
         Assert.Equal(string.Empty, result.Outputs?["agent_name"]?.GetValue<string>());
         Assert.True(llm.CallCount > 0);
         Assert.Contains(events, evt =>

@@ -19,29 +19,29 @@ internal static class TelemetryQueries
     public static readonly Func<TelemetryDbContext, IAsyncEnumerable<TenantEntity>> GetAllTenants =
         EF.CompileAsyncQuery(
             (TelemetryDbContext db) =>
-                db.Tenants.AsQueryable());
+                db.Tenants);
 
     // ── Spans ────────────────────────────────────────────────────────
 
     public static readonly Func<TelemetryDbContext, Guid?, IAsyncEnumerable<SpanRecordEntity>> GetSpansByTenant =
         EF.CompileAsyncQuery(
             (TelemetryDbContext db, Guid? tenantId) =>
-                db.SpanRecords.Where(s => s.TenantId == tenantId).AsQueryable());
+                db.SpanRecords.Where(s => s.TenantId == tenantId));
 
     public static readonly Func<TelemetryDbContext, Guid?, byte[], IAsyncEnumerable<SpanRecordEntity>> GetSpansByTenantAndTrace =
         EF.CompileAsyncQuery(
             (TelemetryDbContext db, Guid? tenantId, byte[] traceId) =>
-                db.SpanRecords.Where(s => s.TenantId == tenantId && s.TraceId == traceId).AsQueryable());
+                db.SpanRecords.Where(s => s.TenantId == tenantId && s.TraceId == traceId));
 
     // ── Logs ─────────────────────────────────────────────────────────
 
     public static readonly Func<TelemetryDbContext, Guid?, IAsyncEnumerable<LogRecordEntity>> GetLogsByTenant =
         EF.CompileAsyncQuery(
             (TelemetryDbContext db, Guid? tenantId) =>
-                db.LogRecords.Where(l => l.TenantId == tenantId).AsQueryable());
+                db.LogRecords.Where(l => l.TenantId == tenantId));
 
     public static readonly Func<TelemetryDbContext, Guid?, byte[], IAsyncEnumerable<LogRecordEntity>> GetLogsByTenantAndTrace =
         EF.CompileAsyncQuery(
             (TelemetryDbContext db, Guid? tenantId, byte[] traceId) =>
-                db.LogRecords.Where(l => l.TenantId == tenantId && l.TraceId == traceId).AsQueryable());
+                db.LogRecords.Where(l => l.TenantId == tenantId && l.TraceId == traceId));
 }
