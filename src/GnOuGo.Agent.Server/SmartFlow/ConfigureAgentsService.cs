@@ -16,7 +16,7 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 
 /// <summary>
 /// Runs the configure-agents-agent workflow to interactively manage agents
-/// (create, edit, remove, select) via the /agent slash commands.
+/// (create, edit, remove, select) via the /gnougo slash commands.
 /// </summary>
 public sealed class ConfigureAgentsService
 {
@@ -73,7 +73,7 @@ public sealed class ConfigureAgentsService
     /// <summary>
     /// Executes the configure-agents workflow with the given slash command.
     /// Yields <see cref="SmartFlowEvent"/> including a special "agent_selected"
-    /// event when the user runs /agent select.
+    /// event when the user runs /gnougo select.
     /// </summary>
     public async IAsyncEnumerable<SmartFlowEvent> ExecuteAsync(
         string command,
@@ -81,7 +81,7 @@ public sealed class ConfigureAgentsService
     {
         var trimmedCommand = command.Trim();
 
-        // Wrap the whole /agent command in a dedicated trace span so that workflow spans,
+        // Wrap the whole /gnougo command in a dedicated trace span so that workflow spans,
         // GenAI llm.call spans and MCP calls all appear under a single, well-named parent
         // — mirroring what ConfigureProvidersService does for /llm, /mcp, /status.
         var descriptor = DescribeCommand(trimmedCommand);
@@ -98,7 +98,7 @@ public sealed class ConfigureAgentsService
         // (thread-pool threads do not inherit Activity.Current from the calling async flow).
         var parentActivity = commandTrace.Activity;
 
-        if (string.Equals(trimmedCommand, "/agent list", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(trimmedCommand, "/gnougo list", StringComparison.OrdinalIgnoreCase))
         {
             yield return new SmartFlowEvent("answer", await RenderAgentListAsync(ct));
             commandTrace.SetStatus(ActivityStatusCode.Ok);
@@ -119,14 +119,14 @@ public sealed class ConfigureAgentsService
         // Build inputs
         var inputs = new JsonObject { ["command"] = trimmedCommand };
 
-        if (string.Equals(trimmedCommand, "/agent add", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(trimmedCommand, "/gnougo add", StringComparison.OrdinalIgnoreCase))
         {
             var selection = await ResolveAgentLlmSelectionAsync(ct);
             if (selection is null)
             {
                 yield return new SmartFlowEvent(
                     "answer",
-                    "❌ Configure a default LLM provider first. Use `/llm add` to create one, then `/llm default` before retrying `/agent add`." );
+                    "❌ Configure a default LLM provider first. Use `/llm add` to create one, then `/llm default` before retrying `/gnougo add`." );
                 yield break;
             }
 
@@ -179,7 +179,7 @@ public sealed class ConfigureAgentsService
         {
             // Restore the command activity as Activity.Current on the thread-pool thread so that
             // downstream instrumentation (ILLMClient GenAI spans, MCP calls, workflow steps) is
-            // correctly parented to the /agent command span — and therefore to the chat trace.
+            // correctly parented to the /gnougo command span — and therefore to the chat trace.
             var previousTaskActivity = Activity.Current;
             if (parentActivity is not null)
                 Activity.Current = parentActivity;
@@ -247,7 +247,7 @@ public sealed class ConfigureAgentsService
             return new CommandTraceDescriptor("configure.agents.unknown", null, null, "direct");
 
         var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        // parts[0] == "/agent"
+        // parts[0] == "/gnougo"
         var action = parts.Length > 1 ? parts[1].ToLowerInvariant() : "help";
         var argument = parts.Length > 2 ? string.Join(' ', parts.Skip(2)) : null;
         var mode = action is "add" or "edit" or "remove" or "select" ? "interactive" : "direct";
@@ -277,7 +277,7 @@ public sealed class ConfigureAgentsService
 
         var agents = response["agents"] as JsonArray ?? [];
         if (agents.Count == 0)
-            return "# 🤖 Configured Agents\n\nNo agents configured yet. Use `/agent add` to create one.";
+            return "# 🤖 Configured Agents\n\nNo agents configured yet. Use `/gnougo add` to create one.";
 
         var sb = new StringBuilder();
         sb.AppendLine("# 🤖 Configured Agents");

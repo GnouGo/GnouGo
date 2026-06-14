@@ -29,7 +29,7 @@ public sealed class SmartFlowServiceTests
         Assert.Contains("`/llm add`", answer.Text);
         Assert.Contains("`/embedding add`", answer.Text);
         Assert.Contains("`/mcp add`", answer.Text);
-        Assert.Contains("`/agent add`", answer.Text);
+        Assert.Contains("`/gnougo add`", answer.Text);
         Assert.Contains("`/status`", answer.Text);
         Assert.Equal(0, llm.CallCount);
     }

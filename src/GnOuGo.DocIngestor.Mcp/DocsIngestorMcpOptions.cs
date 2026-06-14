@@ -2,9 +2,9 @@ namespace GnOuGo.DocIngestor.Mcp;
 
 public sealed class DocsIngestorMcpOptions
 {
-    public string DatabasePath { get; set; } = "data/gnougo-docs-ingestor-mcp.db";
-    public string VectorDatabasePath { get; set; } = "data/gnougo-docs-ingestor-vectors.sqlite";
-    public string OriginalsDirectory { get; set; } = "data/docs-ingestor/originals";
+    public string DatabasePath { get; set; } = ".GnOuGo/data/gnougo-docs-ingestor-mcp.db";
+    public string VectorDatabasePath { get; set; } = ".GnOuGo/data/gnougo-docs-ingestor-vectors.sqlite";
+    public string OriginalsDirectory { get; set; } = ".GnOuGo/data/docs-ingestor/originals";
     public string DefaultCollection { get; set; } = "default";
     public string DefaultEmbeddingConfigName { get; set; } = string.Empty;
     public string DefaultTenantId { get; set; } = "default";
@@ -32,4 +32,3 @@ public sealed class ImagesOptions
     public string OcrLanguage { get; set; } = "eng";
     public int OcrDpi { get; set; } = 300;
 }
-

@@ -233,8 +233,8 @@ public sealed class SmartFlowService
                 yield break;
             }
 
-            // Route /agent commands to ConfigureAgentsService
-            if (IsCommand(trimmed, "/agent"))
+            // Route /gnougo commands to ConfigureAgentsService
+            if (IsCommand(trimmed, "/gnougo"))
             {
                 await foreach (var evt in _configureAgents.ExecuteAsync(trimmed, ct))
                 {
@@ -415,12 +415,12 @@ public sealed class SmartFlowService
         sb.AppendLine("| `/mcp add` | Add a new MCP server |");
         sb.AppendLine("| `/mcp edit <name>` | Edit an existing MCP server |");
         sb.AppendLine("| `/mcp remove <name>` | Remove an MCP server |");
-        sb.AppendLine("| `/agent` | Show agent management commands |");
-        sb.AppendLine("| `/agent list` | List configured agents |");
-        sb.AppendLine("| `/agent add` | Create a new agent with the interactive wizard |");
-        sb.AppendLine("| `/agent edit <name>` | Edit an existing agent |");
-        sb.AppendLine("| `/agent remove <name>` | Remove an agent |");
-        sb.AppendLine("| `/agent select <name>` | Set the active chat agent |");
+        sb.AppendLine("| `/gnougo` | Show agent management commands |");
+        sb.AppendLine("| `/gnougo list` | List configured agents |");
+        sb.AppendLine("| `/gnougo add` | Create a new agent with the interactive wizard |");
+        sb.AppendLine("| `/gnougo edit <name>` | Edit an existing agent |");
+        sb.AppendLine("| `/gnougo remove <name>` | Remove an agent |");
+        sb.AppendLine("| `/gnougo select <name>` | Set the active chat agent |");
         sb.AppendLine();
         sb.AppendLine("## How GnOuGo Works");
         sb.AppendLine();

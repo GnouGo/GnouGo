@@ -12,28 +12,10 @@ namespace OtlpTenantCollector.Hosting;
 public static class OtlpCollectorHostingExtensions
 {
     public static string ResolveDatabasePath(string? configuredPath, string baseDirectory)
-    {
-        if (!string.IsNullOrWhiteSpace(configuredPath) && Path.IsPathRooted(configuredPath))
-            return configuredPath;
-
-        var defaultPath = new DatabaseOptions().Path;
-        var normalized = string.IsNullOrWhiteSpace(configuredPath)
-            ? defaultPath
-            : configuredPath.Replace('\\', '/').Trim();
-
-        if (string.Equals(normalized, defaultPath, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(normalized, "data/gnougo-telemetry.db", StringComparison.OrdinalIgnoreCase))
-        {
-            var fileName = Path.GetFileName(normalized);
-            return Path.Combine(
-                GnOuGoWorkspace.ResolveDesktopDirectory(),
-                "GnOuGo",
-                "data",
-                fileName);
-        }
-
-        return Path.Combine(baseDirectory, configuredPath!);
-    }
+        => GnOuGoWorkspace.ResolveDatabasePath(
+            configuredPath,
+            baseDirectory,
+            new DatabaseOptions().Path);
 
     public static IServiceCollection AddOtlpCollectorCore(
         this IServiceCollection services,
@@ -116,5 +98,4 @@ public static class OtlpCollectorHostingExtensions
         return endpoints;
     }
 }
-
 

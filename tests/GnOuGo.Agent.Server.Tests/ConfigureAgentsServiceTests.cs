@@ -146,7 +146,7 @@ public sealed class ConfigureAgentsServiceTests
         Assert.Equal(0, agentAddCalls);
         Assert.Contains(events, evt =>
             evt.Type == "thinking:response" &&
-            evt.Text == "❌ Agent 'DailyReporter' already exists. Use `/agent edit DailyReporter` to update it or choose another name.");
+            evt.Text == "❌ Agent 'DailyReporter' already exists. Use `/gnougo edit DailyReporter` to update it or choose another name.");
     }
 
     [Fact]
@@ -221,7 +221,7 @@ public sealed class ConfigureAgentsServiceTests
                     "2026-04-01T12:35:00+00:00")
             });
 
-        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/agent select slimfaas", null, agentMcp);
+        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/gnougo select slimfaas", null, agentMcp);
 
         Assert.True(result.Success);
         Assert.Equal("slimfaas", result.Outputs?["agent_selected"]?.GetValue<string>());
@@ -287,7 +287,7 @@ public sealed class ConfigureAgentsServiceTests
                 NullLogger<ConfigureAgentsService>.Instance,
                 userConfigClient);
 
-            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/agent select slimfaas", CancellationToken.None));
+            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo select slimfaas", CancellationToken.None));
 
             Assert.Contains(events, evt => evt.Type == "agent_selected" && evt.Text == "slimfaas");
 
@@ -334,13 +334,13 @@ public sealed class ConfigureAgentsServiceTests
                 ["error_message"] = "Agent 'slimfaas' not found."
             });
 
-        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/agent select slimfaas", null, agentMcp);
+        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/gnougo select slimfaas", null, agentMcp);
 
         Assert.True(result.Success);
         Assert.Equal(string.Empty, result.Outputs?["agent_selected"]?.GetValue<string>());
         Assert.Contains(events, evt =>
             evt.Type == "thinking:response" &&
-            evt.Text == "❌ Agent 'slimfaas' not found. Use `/agent list` to see available agents.");
+            evt.Text == "❌ Agent 'slimfaas' not found. Use `/gnougo list` to see available agents.");
         Assert.Equal(0, llm.CallCount);
     }
 
@@ -424,7 +424,7 @@ public sealed class ConfigureAgentsServiceTests
             }
         }, token);
 
-        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/agent edit slimfaas", humanInput, agentMcp);
+        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/gnougo edit slimfaas", humanInput, agentMcp);
         await responder;
 
         Assert.True(result.Success);
@@ -509,7 +509,7 @@ public sealed class ConfigureAgentsServiceTests
             }
         }, token);
 
-        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/agent edit slimfaas", humanInput, agentMcp);
+        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/gnougo edit slimfaas", humanInput, agentMcp);
         try
         {
             await responder;
@@ -525,7 +525,7 @@ public sealed class ConfigureAgentsServiceTests
         Assert.Null(unexpectedStepId);
         Assert.Contains(events, evt =>
             evt.Type == "thinking:response" &&
-            evt.Text == "❌ Agent 'DailyReporter' already exists. Use `/agent edit DailyReporter` to update it or choose another name.");
+            evt.Text == "❌ Agent 'DailyReporter' already exists. Use `/gnougo edit DailyReporter` to update it or choose another name.");
     }
 
     [Fact]
@@ -545,7 +545,7 @@ public sealed class ConfigureAgentsServiceTests
 
         var service = SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory(agentMcp));
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/agent list", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/GnOuGo list", CancellationToken.None));
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
@@ -574,11 +574,11 @@ public sealed class ConfigureAgentsServiceTests
                 Models = new Dictionary<string, ModelProviderOptions>()
             });
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/agent add", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", CancellationToken.None));
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
-        Assert.Equal("❌ Configure a default LLM provider first. Use `/llm add` to create one, then `/llm default` before retrying `/agent add`.", answer.Text);
+        Assert.Equal("❌ Configure a default LLM provider first. Use `/llm add` to create one, then `/llm default` before retrying `/gnougo add`.", answer.Text);
         Assert.Equal(0, llm.CallCount);
     }
 
@@ -603,11 +603,11 @@ public sealed class ConfigureAgentsServiceTests
             },
             keyVaultStore);
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/agent add", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", CancellationToken.None));
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
-        Assert.Equal("❌ Configure a default LLM provider first. Use `/llm add` to create one, then `/llm default` before retrying `/agent add`.", answer.Text);
+        Assert.Equal("❌ Configure a default LLM provider first. Use `/llm add` to create one, then `/llm default` before retrying `/gnougo add`.", answer.Text);
         Assert.Equal(0, llm.CallCount);
     }
 

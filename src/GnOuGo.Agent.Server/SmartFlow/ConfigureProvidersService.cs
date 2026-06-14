@@ -2678,12 +2678,12 @@ public sealed class ConfigureProvidersService
         sb.AppendLine("| `/mcp add` | Add a new MCP server |");
         sb.AppendLine("| `/mcp edit <name>` | Edit an existing MCP server |");
         sb.AppendLine("| `/mcp remove <name>` | Remove an MCP server |");
-        sb.AppendLine("| `/agent` | Show agent command documentation |");
-        sb.AppendLine("| `/agent list` | List configured agents |");
-        sb.AppendLine("| `/agent add` | Create a new agent |");
-        sb.AppendLine("| `/agent edit <name>` | Edit an existing agent |");
-        sb.AppendLine("| `/agent remove <name>` | Remove an agent |");
-        sb.AppendLine("| `/agent select <name>` | Set the active chat agent |");
+        sb.AppendLine("| `/gnougo` | Show agent command documentation |");
+        sb.AppendLine("| `/gnougo list` | List configured agents |");
+        sb.AppendLine("| `/gnougo add` | Create a new agent |");
+        sb.AppendLine("| `/gnougo edit <name>` | Edit an existing agent |");
+        sb.AppendLine("| `/gnougo remove <name>` | Remove an agent |");
+        sb.AppendLine("| `/gnougo select <name>` | Set the active chat agent |");
         sb.AppendLine("| `/status` | Display current configuration summary |");
         sb.AppendLine();
         sb.Append("Type a command in the chat to get started.");

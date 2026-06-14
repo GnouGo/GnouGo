@@ -1,19 +1,19 @@
 ﻿# Configure Agents — Agent Edition
 #
 # Commands:
-#   /agent             — Show agent command documentation
-#   /agent list        — List all configured agents
-#   /agent add         — Interactive agent creation flow
-#   /agent edit <name> — Edit an existing agent
-#   /agent remove <name> — Remove an agent
-#   /agent select <name> — Set as current chat agent
+#   /gnougo             — Show agent command documentation
+#   /gnougo list        — List all configured agents
+#   /gnougo add         — Interactive agent creation flow
+#   /gnougo edit <name> — Edit an existing agent
+#   /gnougo remove <name> — Remove an agent
+#   /gnougo select <name> — Set as current chat agent
 
 version: 1
 name: configure-agents-agent
 meta:
   author: GnOuGo.Agent
   description: >
-    Interactive agent management wizard triggered by /agent slash-commands.
+    Interactive agent management wizard triggered by /gnougo slash-commands.
     Agents are stored as YAML files in the GnOuGo workspace with workflow YAML
     and original prompts.
 
@@ -25,7 +25,7 @@ workflows:
         required: false
         default: ""
         description: >
-          Full slash-command, e.g. /agent, /agent list, /agent add, /agent select mybot.
+          Full slash-command, e.g. /gnougo, /gnougo list, /gnougo add, /gnougo select mybot.
 
     steps:
       - id: parse_cmd
@@ -37,9 +37,9 @@ workflows:
       - id: parsed
         type: set
         input:
-          remainder: "${length(data.steps.parse_cmd.lower) > 6 ? trim(substring(data.steps.parse_cmd.lower, 6)) : ''}"
+          remainder: "${length(data.steps.parse_cmd.lower) > 7 ? trim(substring(data.steps.parse_cmd.lower, 7)) : ''}"
           # Keep original case for the argument (agent names are case-sensitive)
-          remainder_original: "${length(data.steps.parse_cmd.raw) > 6 ? trim(substring(data.steps.parse_cmd.raw, 6)) : ''}"
+          remainder_original: "${length(data.steps.parse_cmd.raw) > 7 ? trim(substring(data.steps.parse_cmd.raw, 7)) : ''}"
 
       - id: action_parts
         type: set
@@ -110,11 +110,11 @@ workflows:
 
                 | Command                 | Description                                    |
                 |-------------------------|------------------------------------------------|
-                | `/agent list`           | List all configured agents                     |
-                | `/agent add`            | Create a new agent (interactive wizard)        |
-                | `/agent edit <name>`    | Edit an existing agent                         |
-                | `/agent remove <name>`  | Remove an agent                                |
-                | `/agent select <name>`  | Set as current agent for this chat             |
+                | `/gnougo list`           | List all configured agents                     |
+                | `/gnougo add`            | Create a new agent (interactive wizard)        |
+                | `/gnougo edit <name>`    | Edit an existing agent                         |
+                | `/gnougo remove <name>`  | Remove an agent                                |
+                | `/gnougo select <name>`  | Set as current agent for this chat             |
 
                 **Creating an agent:**
                 - Requires a configured default LLM provider (`/llm add`, then `/llm default`)
@@ -137,10 +137,10 @@ workflows:
       agent_selected:
         expr: "${data.steps.agent_select?.outputs?.agent_name ?? data.steps.agent_add?.outputs?.agent_name ?? null}"
         type: string
-        description: "Name of the selected agent after /agent add or /agent select"
+        description: "Name of the selected agent after /gnougo add or /gnougo select"
 
   # ══════════════════════════════════════════════════════════════════
-  # /agent list
+  # /gnougo list
   # ══════════════════════════════════════════════════════════════════
   agent_list:
     inputs: {}
@@ -174,7 +174,7 @@ workflows:
             |------|----|---------|---------|
 
             For each agent, show the name, a short ID (first 8 chars), and formatted dates.
-            If no agents found, say "No agents configured yet. Use `/agent add` to create one."
+            If no agents found, say "No agents configured yet. Use `/gnougo add` to create one."
 
       - id: emit_list
         type: emit
@@ -185,7 +185,7 @@ workflows:
     outputs: {}
 
   # ══════════════════════════════════════════════════════════════════
-  # /agent add — Interactive agent creation with workflow generation
+  # /gnougo add — Interactive agent creation with workflow generation
   # ══════════════════════════════════════════════════════════════════
   agent_add:
     inputs: {}
@@ -231,7 +231,7 @@ workflows:
               - id: emit_invalid_name
                 type: emit
                 input:
-                  message: "❌ Agent name cannot be empty. Please retry `/agent add` with a non-empty name."
+                  message: "❌ Agent name cannot be empty. Please retry `/gnougo add` with a non-empty name."
                   level: response
               - id: invalid_name_result
                 type: set
@@ -243,7 +243,7 @@ workflows:
               - id: emit_duplicate_name
                 type: emit
                 input:
-                  message: "❌ Agent '${data.steps.check_name_available.response.agent.name}' already exists. Use `/agent edit ${data.steps.check_name_available.response.agent.name}` to update it or choose another name."
+                  message: "❌ Agent '${data.steps.check_name_available.response.agent.name}' already exists. Use `/gnougo edit ${data.steps.check_name_available.response.agent.name}` to update it or choose another name."
                   level: response
               - id: duplicate_name_result
                 type: set
@@ -433,7 +433,7 @@ workflows:
         description: "Name of the newly created agent when creation succeeds"
 
   # ══════════════════════════════════════════════════════════════════
-  # /agent edit <name>
+  # /gnougo edit <name>
   # ══════════════════════════════════════════════════════════════════
   agent_edit:
     inputs:
@@ -464,7 +464,7 @@ workflows:
               - id: not_found
                 type: emit
                 input:
-                  message: "❌ Agent '${data.inputs.name}' not found. Use `/agent list` to see available agents."
+                  message: "❌ Agent '${data.inputs.name}' not found. Use `/gnougo list` to see available agents."
                   level: response
 
         default:
@@ -510,7 +510,7 @@ workflows:
                   - id: emit_invalid_edit_name
                     type: emit
                     input:
-                      message: "❌ Agent name cannot be empty. Please retry `/agent edit ${data.inputs.name}` with a non-empty name."
+                      message: "❌ Agent name cannot be empty. Please retry `/gnougo edit ${data.inputs.name}` with a non-empty name."
                       level: response
 
               - when: "${data.steps.normalized_edit_name.name_changed == true && data.steps.check_edited_name_available.response.success == true}"
@@ -518,7 +518,7 @@ workflows:
                   - id: emit_duplicate_edit_name
                     type: emit
                     input:
-                      message: "❌ Agent '${data.steps.check_edited_name_available.response.agent.name}' already exists. Use `/agent edit ${data.steps.check_edited_name_available.response.agent.name}` to update it or choose another name."
+                      message: "❌ Agent '${data.steps.check_edited_name_available.response.agent.name}' already exists. Use `/gnougo edit ${data.steps.check_edited_name_available.response.agent.name}` to update it or choose another name."
                       level: response
 
               - when: "${data.steps.normalized_edit_name.name_changed == true && data.steps.check_edited_name_available.response.success != true && data.steps.check_edited_name_available.response.error_code != 'NOT_FOUND'}"
@@ -606,7 +606,7 @@ workflows:
     outputs: {}
 
   # ══════════════════════════════════════════════════════════════════
-  # /agent remove <name>
+  # /gnougo remove <name>
   # ══════════════════════════════════════════════════════════════════
   agent_remove:
     inputs:
@@ -686,7 +686,7 @@ workflows:
     outputs: {}
 
   # ══════════════════════════════════════════════════════════════════
-  # /agent select <name> — Set as current chat agent
+  # /gnougo select <name> — Set as current chat agent
   # ══════════════════════════════════════════════════════════════════
   agent_select:
     inputs:
@@ -711,7 +711,7 @@ workflows:
               - id: not_found
                 type: emit
                 input:
-                  message: "❌ Agent '${data.inputs.name}' not found. Use `/agent list` to see available agents."
+                  message: "❌ Agent '${data.inputs.name}' not found. Use `/gnougo list` to see available agents."
                   level: response
               - id: not_found_result
                 type: set

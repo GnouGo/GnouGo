@@ -188,7 +188,7 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("answer", answer.Type);
         Assert.Contains("# 🔧 GnOuGo Configuration Wizard", answer.Text);
         Assert.Contains("`/help`", answer.Text);
-        Assert.Contains("`/agent add`", answer.Text);
+        Assert.Contains("`/gnougo add`", answer.Text);
         Assert.Equal(0, llm.CallCount);
     }
 

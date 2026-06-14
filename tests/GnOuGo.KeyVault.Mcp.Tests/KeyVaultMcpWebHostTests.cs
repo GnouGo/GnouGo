@@ -4,16 +4,24 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.KeyVault.Core;
+using GnOuGo.Workspace;
 
 namespace GnOuGo.KeyVault.Mcp.Tests;
 
 public sealed class KeyVaultMcpWebHostTests
 {
     [Fact]
-    public void ResolveDatabasePath_WhenUsingDefaultPath_UsesDesktopGnOuGoDirectory()
+    public void ResolveDatabasePath_WhenUsingDefaultPath_UsesDefaultWorkingDirectoryGnOuGoDataDirectory()
     {
-        var expected = Path.Combine(ResolveDesktopDirectory(), "GnOuGo", "data", "gnougo-keyvault.db");
-        var actual = KeyVaultDatabasePathResolver.Resolve(KeyVaultDatabasePathResolver.DefaultRelativePath, AppContext.BaseDirectory);
+        var expected = Path.Combine(
+            GnOuGoWorkspace.ResolveDefaultWorkingDirectory(),
+            ".GnOuGo",
+            "data",
+            "gnougo-keyvault.db");
+
+        var actual = KeyVaultDatabasePathResolver.Resolve(
+            KeyVaultDatabasePathResolver.DefaultRelativePath,
+            AppContext.BaseDirectory);
 
         Assert.Equal(expected, actual);
     }
@@ -95,23 +103,4 @@ public sealed class KeyVaultMcpWebHostTests
     }
 
     private sealed record HealthPayload(string Status);
-
-    private static string ResolveDesktopDirectory()
-    {
-        var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-        if (!string.IsNullOrWhiteSpace(desktopPath))
-            return Path.GetFullPath(desktopPath);
-
-        var userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (!string.IsNullOrWhiteSpace(userProfilePath))
-            return Path.GetFullPath(Path.Combine(userProfilePath, "Desktop"));
-
-        var homePath = Environment.GetEnvironmentVariable("HOME");
-        if (!string.IsNullOrWhiteSpace(homePath))
-            return Path.GetFullPath(Path.Combine(homePath, "Desktop"));
-
-        throw new InvalidOperationException("Unable to resolve the current user's Desktop directory.");
-    }
 }
-
-

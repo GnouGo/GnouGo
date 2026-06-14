@@ -324,7 +324,7 @@ public static class GnOuGoAgentWebHost
             ?? AgentMcpHostingExtensions.DefaultDatabasePath;
         var agentDbPath = AgentMcpHostingExtensions.ResolveDatabasePath(agentDbRelativePath, applicationBasePath);
         var keyVaultDbRelativePath = builder.Configuration.GetValue<string>("KeyVault:DatabasePath")
-            ?? "data/gnougo-keyvault.db";
+            ?? ".GnOuGo/data/gnougo-keyvault.db";
         var keyVaultDbPath = KeyVaultDatabasePathResolver.Resolve(keyVaultDbRelativePath, applicationBasePath);
         Directory.CreateDirectory(Path.GetDirectoryName(agentDbPath)!);
         Directory.CreateDirectory(Path.GetDirectoryName(keyVaultDbPath)!);
