@@ -158,7 +158,8 @@ class McpCallExecutor:
     dsl_snippet = """
 ### mcp.call - Execute MCP tool or prompt
 Direct MCP call pattern (preferred when tool names are known): use `mcp.call` directly with explicit `method` and `request`.
-MCP errors raise workflow `on_error` by default. Set `raise_on_error: false` only when the workflow intentionally wants to inspect `status: error` as normal output.
+MCP errors raise workflow `on_error` by default. Set `raise_on_error: false` only when the workflow intentionally wants
+to inspect `status: error` as normal output.
 Set `error_policy.detect_result_errors: true` to treat common structured failure envelopes like `{ success: false, error_code, error_message }` as MCP errors.
 ```yaml
 - id: browse
@@ -282,7 +283,17 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
 
                 async def single(call_method: str, req: Any) -> dict[str, Any]:
                     item_correlation = _build_mcp_correlation_context(ctx, server, kind, call_method)
-                    return await self._call_single(ctx, session, kind, call_method, req, item_correlation, realtime_progress_fingerprints, timeout, error_policy["detect_result_errors"])
+                    return await self._call_single(
+                        ctx,
+                        session,
+                        kind,
+                        call_method,
+                        req,
+                        item_correlation,
+                        realtime_progress_fingerprints,
+                        timeout,
+                        error_policy["detect_result_errors"],
+                    )
 
                 if methods is not None:
                     target = ", ".join(methods)
@@ -576,8 +587,23 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                 err = ErrorCodes.MCP_PROMPT_ERROR if default_kind == "prompt" else ErrorCodes.MCP_CALL_ERROR
                 raise WorkflowRuntimeException(err, f"mcp.call prompt mode selected unknown MCP capability '{tc.name}'")
 
-            correlation = _build_mcp_correlation_context(ctx, getattr(session, "server_name", input_obj.get("server", "")), cap["kind"], cap["method"])
-            result_item = await self._call_single(ctx, session, cap["kind"], cap["method"], tc.arguments, correlation, realtime_progress_fingerprints, timeout, error_policy["detect_result_errors"])
+            correlation = _build_mcp_correlation_context(
+                ctx,
+                getattr(session, "server_name", input_obj.get("server", "")),
+                cap["kind"],
+                cap["method"],
+            )
+            result_item = await self._call_single(
+                ctx,
+                session,
+                cap["kind"],
+                cap["method"],
+                tc.arguments,
+                correlation,
+                realtime_progress_fingerprints,
+                timeout,
+                error_policy["detect_result_errors"],
+            )
             result_item["method"] = cap["method"]
             result_item["kind"] = cap["kind"]
             if tc.id:

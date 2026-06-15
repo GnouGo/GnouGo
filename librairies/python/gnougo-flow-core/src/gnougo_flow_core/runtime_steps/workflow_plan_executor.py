@@ -228,8 +228,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 "</invalid_yaml>",
                 "",
                 "[MINIMUM DSL CONTEXT]",
-                "Required root: version, name, skill, workflows. `skill` is a top-level object with description, tags, inputs, and outputs. Each workflow has steps: [] and optional outputs.",
-                "Each step requires step-level id and type. Common fields stay at step level: if, input, output, retry, on_error, steps, branches, cases, default.",
+                "Required root: version, name, skill, workflows. `skill` is a top-level object with description, tags, "
+                "inputs, and outputs. Each workflow has steps: [] and optional outputs.",
+                "Each step requires step-level id and type. Common fields stay at step level: if, input, output, retry, "
+                "on_error, steps, branches, cases, default.",
                 "Executor-specific arguments go inside input only.",
                 "Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.",
                 "Expressions may read data.inputs.* and earlier data.steps.<id>.* only.",

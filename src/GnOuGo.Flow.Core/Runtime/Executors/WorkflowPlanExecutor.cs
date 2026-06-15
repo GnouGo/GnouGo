@@ -109,21 +109,47 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             prefilterTemperature = pfObj["temperature"]?.GetValue<double>();
         }
 
+        var requiredMcpServerNames = ExtractRequiredMcpServerNames(
+            instruction,
+            generatorContext,
+            ctx.Engine.McpClientFactory?.ServerMetadata);
+
         var candidateMcpServers = shouldPrefilter
             ? await PrefilterMcpServerMetadataAsync(
                 llmClient, ctx.Engine.McpClientFactory, instruction, generatorContext,
                 prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, ct)
             : null;
 
-        var discovered = await DiscoverMcpServersAsync(
+        candidateMcpServers = MergeRequiredMcpServerMetadata(
+            candidateMcpServers,
+            ctx.Engine.McpClientFactory?.ServerMetadata,
+            requiredMcpServerNames,
+            ctx);
+
+        var validateDryRun = validate?["dry_run"]?.GetValue<bool>() ?? false;
+        var validationDiscovered = validateDryRun
+            ? await DiscoverMcpServersAsync(
+                ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateServers: null, ct)
+            : null;
+
+        var discovered = SelectDiscoveredServers(validationDiscovered, candidateMcpServers)
+            ?? await DiscoverMcpServersAsync(
             ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateMcpServers, ct);
 
         if (shouldPrefilter && discovered != null && discovered.Count > 0)
         {
+            var prefilterSource = discovered;
             discovered = await PrefilterMcpServersAsync(
                 llmClient, discovered, instruction, generatorContext,
                 prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, ct);
+            discovered = MergeRequiredMcpServerDiscovery(
+                discovered,
+                prefilterSource,
+                requiredMcpServerNames,
+                ctx);
         }
+
+        validationDiscovered ??= discovered;
 
         var mcpServersDoc = discovered != null && discovered.Count > 0
             ? FormatMcpServersDoc(discovered)
@@ -265,6 +291,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string? lastError = null;
         string? lastInvalidYaml = null;
         string? lastRepairContext = null;
+        var forcedMcpServerNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         ctx.SetTelemetryAttribute("gen_ai.operation.name", "chat");
         ctx.SetTelemetryAttribute("gen_ai.system", provider ?? "openai");
@@ -417,7 +444,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         // Compile + semantic validation
                         if (validate?["compile"]?.GetValue<bool>() ?? true)
                         {
-                            ValidateGeneratedWorkflowForPlan(generatedDoc, discovered);
+                            ValidateGeneratedWorkflowForPlan(generatedDoc, validationDiscovered);
                         }
 
                         // Optional runtime dry-run with deterministic fake providers.
@@ -426,7 +453,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             validationSpan.SetAttribute("gnougo-flow.plan.dry_run", true);
                             await WorkflowPlanDryRunValidator.ValidateAsync(
                                 generatedDoc,
-                                BuildDryRunMcpClientFactory(discovered),
+                                BuildDryRunMcpClientFactory(validationDiscovered),
                                 ctx.Engine.Logger,
                                 ct);
                         }
@@ -461,6 +488,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 // Capture the error for injection into the next prompt
                 ctx.Engine.Logger.LogWarning(ex, "workflow.plan: attempt {Attempt}/{MaxAttempts} failed, reprompting", attempt + 1, maxAttempts);
+                var missingMcpServerName = TryExtractMissingMcpServerName(ex.Message);
+                if (!string.IsNullOrWhiteSpace(missingMcpServerName))
+                    forcedMcpServerNames.Add(missingMcpServerName);
+
+                var repairDiscovered = forcedMcpServerNames.Count == 0
+                    ? validationDiscovered
+                    : MergeRequiredMcpServerDiscovery(
+                        discovered ?? new List<McpServerDiscovery>(),
+                        validationDiscovered,
+                        forcedMcpServerNames,
+                        ctx);
+
                 lastError = BuildStructuredPlanError(ex, attempt + 1);
                 lastInvalidYaml = StripMarkdownFences(response.Text);
                 lastRepairContext = BuildMinimalRepairContext(
@@ -468,7 +507,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     allowedTypes,
                     lastInvalidYaml,
                     ex,
-                    discovered);
+                    repairDiscovered);
             }
         }
 
@@ -491,6 +530,116 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         public IReadOnlyList<McpPromptInfo> Prompts { get; init; } = Array.Empty<McpPromptInfo>();
         /// <summary>True when the server was reachable and listing succeeded.</summary>
         public bool Discovered { get; init; }
+    }
+
+    private static HashSet<string> ExtractRequiredMcpServerNames(
+        string instruction,
+        string? context,
+        IReadOnlyList<McpServerMetadata>? configuredServers)
+    {
+        var required = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (configuredServers == null || configuredServers.Count == 0)
+            return required;
+
+        var configuredByName = configuredServers.ToDictionary(server => server.Name, StringComparer.OrdinalIgnoreCase);
+        var text = string.IsNullOrWhiteSpace(context)
+            ? instruction
+            : instruction + "\n" + context;
+
+        foreach (Match match in Regex.Matches(text, @"(?im)^\s*server\s*:\s*[""']?([^""'\r\n#]+)"))
+        {
+            var candidate = match.Groups[1].Value.Trim().TrimEnd(',', ']');
+            if (configuredByName.TryGetValue(candidate, out var server))
+                required.Add(server.Name);
+        }
+
+        foreach (Match match in Regex.Matches(text, @"(?im)^\s*servers\s*:\s*\[([^\]\r\n#]+)\]"))
+        {
+            foreach (var raw in match.Groups[1].Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var candidate = raw.Trim().Trim('"', '\'');
+                if (configuredByName.TryGetValue(candidate, out var server))
+                    required.Add(server.Name);
+            }
+        }
+
+        return required;
+    }
+
+    private static IReadOnlyList<McpServerMetadata>? MergeRequiredMcpServerMetadata(
+        IReadOnlyList<McpServerMetadata>? selected,
+        IReadOnlyList<McpServerMetadata>? allServers,
+        IReadOnlySet<string> requiredServerNames,
+        StepExecutionContext ctx)
+    {
+        if (requiredServerNames.Count == 0 || allServers == null || allServers.Count == 0 || selected == null)
+            return selected;
+
+        var merged = selected.ToList();
+        var seen = merged.Select(server => server.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var server in allServers)
+        {
+            if (requiredServerNames.Contains(server.Name) && seen.Add(server.Name))
+                merged.Add(server);
+        }
+
+        if (merged.Count != selected.Count)
+        {
+            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.required_servers", new[]
+            {
+                new KeyValuePair<string, object?>("mcp.server.names", string.Join(",", requiredServerNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase))),
+                new KeyValuePair<string, object?>("mcp.servers_selected", merged.Count)
+            });
+        }
+
+        return merged;
+    }
+
+    private static List<McpServerDiscovery>? SelectDiscoveredServers(
+        IReadOnlyList<McpServerDiscovery>? source,
+        IReadOnlyList<McpServerMetadata>? selectedServers)
+    {
+        if (source == null)
+            return null;
+        if (selectedServers == null)
+            return source.ToList();
+        if (selectedServers.Count == 0)
+            return new List<McpServerDiscovery>();
+
+        var selectedNames = selectedServers.Select(server => server.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return source.Where(server => selectedNames.Contains(server.Name)).ToList();
+    }
+
+    private static List<McpServerDiscovery>? MergeRequiredMcpServerDiscovery(
+        IReadOnlyList<McpServerDiscovery>? selected,
+        IReadOnlyList<McpServerDiscovery>? allServers,
+        IReadOnlySet<string> requiredServerNames,
+        StepExecutionContext ctx)
+    {
+        if (selected == null || requiredServerNames.Count == 0)
+            return selected?.ToList();
+
+        var merged = selected.ToList();
+        if (allServers == null || allServers.Count == 0)
+            return merged;
+
+        var seen = merged.Select(server => server.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var server in allServers)
+        {
+            if (requiredServerNames.Contains(server.Name) && seen.Add(server.Name))
+                merged.Add(server);
+        }
+
+        if (merged.Count != selected.Count)
+        {
+            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.required_servers", new[]
+            {
+                new KeyValuePair<string, object?>("mcp.server.names", string.Join(",", requiredServerNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase))),
+                new KeyValuePair<string, object?>("mcp.servers_selected", merged.Count)
+            });
+        }
+
+        return merged;
     }
 
     /// <summary>
@@ -1955,7 +2104,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var lower = message.ToLowerInvariant();
 
         var errorCode = "VALIDATION_ERROR";
-        if (lower.Contains("missing required field 'workflows'"))
+        if (lower.Contains("mcp_server_not_found") || lower.Contains("mcp server") && lower.Contains("not found"))
+            errorCode = ErrorCodes.McpServerNotFound;
+        else if (lower.Contains("missing required field 'workflows'"))
             errorCode = "MISSING_ROOT_KEY_WORKFLOWS";
         else if (lower.Contains("missing required field 'version'"))
             errorCode = "MISSING_ROOT_KEY_VERSION";
@@ -1981,6 +2132,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             errorCode = "LIMIT_ERROR";
 
         return $"attempt={attempt}; code={errorCode}; message={message}";
+    }
+
+    private static string? TryExtractMissingMcpServerName(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return null;
+
+        var match = Regex.Match(message, @"MCP server '([^']+)' not found", RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value : null;
     }
 
     private static void EnforcePolicy(WorkflowDocument doc, JsonObject policy)
