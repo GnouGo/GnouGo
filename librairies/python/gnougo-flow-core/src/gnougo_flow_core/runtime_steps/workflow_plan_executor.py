@@ -79,9 +79,16 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         on_invalid = input_obj.get("on_invalid") if isinstance(input_obj.get("on_invalid"), dict) else {}
         max_attempts = max(1, int(on_invalid.get("max_attempts", 3)))
         on_invalid_action = str(on_invalid.get("action", "fail"))
-
-        mcp_tool_contracts: list[McpToolOutputContract] = []
         context_text = str(generator.get("context", ""))
+
+        prompt_mcp_tool_contracts: list[McpToolOutputContract] = []
+        validation_mcp_tool_contracts: list[McpToolOutputContract] = []
+        validation_mcp_server_metadata = self._get_configured_mcp_server_metadata(ctx)
+        forced_mcp_server_names = self._extract_required_mcp_server_names(instruction, context_text, validation_mcp_server_metadata)
+        needs_mcp_validation_contracts = bool(validate.get("compile", True)) or bool(validate.get("dry_run", False))
+        if needs_mcp_validation_contracts and validation_mcp_server_metadata:
+            validation_mcp_tool_contracts = await self._collect_mcp_tool_contracts(ctx, validation_mcp_server_metadata)
+
         base_prompt = await self._build_planning_prompt(
             ctx,
             instruction,
@@ -90,7 +97,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             limits,
             generator,
             plan_reasoning,
-            mcp_tool_contracts,
+            prompt_mcp_tool_contracts,
+            forced_mcp_server_names,
         )
         prompt = base_prompt
         last_error: Exception | None = None
@@ -153,12 +161,16 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     validation_span.set_attribute("gnougo-flow.plan.workflow_count", len(doc.workflows))
                     self._enforce_plan_policy(doc, policy, limits)
                     if bool(validate.get("compile", True)):
-                        normalization_count = self._validate_generated_workflow_for_plan(doc, mcp_tool_contracts)
+                        normalization_count = self._validate_generated_workflow_for_plan(doc, validation_mcp_tool_contracts)
                         if normalization_count > 0:
                             yaml_text = self._dump_workflow_yaml(doc)
                     if bool(validate.get("dry_run", False)):
                         validation_span.set_attribute("gnougo-flow.plan.dry_run", True)
-                        await validate_workflow_plan_dry_run(doc, mcp_tool_contracts)
+                        await validate_workflow_plan_dry_run(
+                            doc,
+                            validation_mcp_tool_contracts,
+                            validation_mcp_server_metadata,
+                        )
                 return {
                     "yaml": yaml_text,
                     "workflow": {
@@ -174,13 +186,13 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     raise
                 last_error = exc
                 last_invalid_yaml = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
-                last_repair_context = self._build_minimal_repair_context(ctx, policy, last_invalid_yaml, exc)
+                last_repair_context = await self._build_repair_context_with_mcp_docs(ctx, policy, last_invalid_yaml, exc, forced_mcp_server_names)
             except Exception as exc:
                 last_error = exc
                 if on_invalid_action != "reprompt" or attempt >= max_attempts:
                     break
                 last_invalid_yaml = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
-                last_repair_context = self._build_minimal_repair_context(ctx, policy, last_invalid_yaml, exc)
+                last_repair_context = await self._build_repair_context_with_mcp_docs(ctx, policy, last_invalid_yaml, exc, forced_mcp_server_names)
 
         raise WorkflowRuntimeException(
             ErrorCodes.TEMPLATE_PLAN,
@@ -256,6 +268,128 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             return value
         normalized = value.replace("\r\n", "\n").replace("\r", "\n")
         return "\n".join(line for line in normalized.split("\n") if not line.lstrip().startswith("```"))
+
+    @staticmethod
+    def _get_configured_mcp_server_metadata(ctx: StepExecutionContext) -> list[McpServerMetadata]:
+        factory = ctx.engine.mcp_client_factory
+        if factory is None:
+            return []
+        return list(getattr(factory, "server_metadata", []) or [])
+
+    @staticmethod
+    def _extract_required_mcp_server_names(
+        instruction: str,
+        context_text: str | None,
+        configured_servers: list[McpServerMetadata],
+    ) -> set[str]:
+        by_lower = {str(meta.name).lower(): str(meta.name) for meta in configured_servers if meta.name}
+        if not by_lower:
+            return set()
+
+        candidates: set[str] = set()
+        combined = "\n".join(part for part in (instruction, context_text or "") if part)
+        for match in re.findall(r"(?im)^\s*server\s*:\s*['\"]?([^'\"\r\n#]+)", combined):
+            candidates.add(match.strip().strip(",] "))
+        for match in re.findall(r"(?im)^\s*servers\s*:\s*\[([^\]\r\n]+)\]", combined):
+            for item in match.split(","):
+                candidates.add(item.strip().strip("'\" "))
+
+        required: set[str] = set()
+        for candidate in candidates:
+            configured_name = by_lower.get(candidate.lower())
+            if configured_name:
+                required.add(configured_name)
+        return required
+
+    @staticmethod
+    def _include_required_mcp_servers(
+        selected_servers: list[McpServerMetadata] | None,
+        configured_servers: list[McpServerMetadata],
+        required_server_names: set[str],
+    ) -> list[McpServerMetadata] | None:
+        if selected_servers is None or not required_server_names:
+            return selected_servers
+
+        selected = list(selected_servers)
+        selected_names = {str(meta.name).lower() for meta in selected if meta.name}
+        configured_by_lower = {str(meta.name).lower(): meta for meta in configured_servers if meta.name}
+        for server_name in sorted(required_server_names):
+            key = server_name.lower()
+            if key not in selected_names and key in configured_by_lower:
+                selected.append(configured_by_lower[key])
+                selected_names.add(key)
+        return selected
+
+    async def _collect_mcp_tool_contracts(
+        self,
+        ctx: StepExecutionContext,
+        server_metadata: list[McpServerMetadata],
+    ) -> list[McpToolOutputContract]:
+        factory = ctx.engine.mcp_client_factory
+        if factory is None or not server_metadata:
+            return []
+
+        contracts: list[McpToolOutputContract] = []
+        for meta in server_metadata:
+            name = getattr(meta, "name", None) or str(meta)
+            try:
+                session = await factory.get_client_async(name)
+                tools = await session.list_tools_async()
+            except Exception:
+                continue
+
+            for tool in tools:
+                tool_name = self._get_mcp_field(tool, "name")
+                if not tool_name:
+                    continue
+                contracts.append(
+                    McpToolOutputContract(
+                        server_name=str(name),
+                        tool_name=str(tool_name),
+                        input_schema=copy.deepcopy(self._get_mcp_field(tool, "input_schema") or self._get_mcp_field(tool, "inputSchema")),
+                        output_schema=copy.deepcopy(self._get_mcp_field(tool, "output_schema") or self._get_mcp_field(tool, "outputSchema")),
+                        example_response=copy.deepcopy(self._get_mcp_field(tool, "example_response") or self._get_mcp_field(tool, "exampleResponse")),
+                    )
+                )
+        return contracts
+
+    async def _build_repair_context_with_mcp_docs(
+        self,
+        ctx: StepExecutionContext,
+        policy: dict[str, Any],
+        invalid_yaml: str | None,
+        exc: Exception,
+        forced_mcp_server_names: set[str],
+    ) -> str:
+        context = self._build_minimal_repair_context(ctx, policy, invalid_yaml, exc)
+        missing_server_name = self._try_extract_missing_mcp_server_name(str(exc))
+        if not missing_server_name:
+            return context
+
+        forced_mcp_server_names.add(missing_server_name)
+        configured_servers = self._get_configured_mcp_server_metadata(ctx)
+        missing_server = self._find_mcp_server_metadata(configured_servers, missing_server_name)
+        if missing_server is None:
+            available = ", ".join(meta.name for meta in configured_servers if meta.name) or "(none)"
+            return f"{context}\n\nMCP server '{missing_server_name}' is not configured. Available MCP servers: {available}".rstrip()
+
+        mcp_doc = await self._build_mcp_documentation(ctx, [missing_server], [])
+        return f"{context}\n\nMCP server context required by the failed workflow:\n{mcp_doc}".rstrip()
+
+    @staticmethod
+    def _find_mcp_server_metadata(
+        configured_servers: list[McpServerMetadata],
+        server_name: str,
+    ) -> McpServerMetadata | None:
+        for meta in configured_servers:
+            if meta.name and meta.name.lower() == server_name.lower():
+                return meta
+        return None
+
+    @staticmethod
+    def _try_extract_missing_mcp_server_name(error_message: str) -> str | None:
+        match = re.search(r"MCP server '([^']+)' not found", error_message, flags=re.IGNORECASE)
+        return match.group(1) if match else None
 
     @staticmethod
     def _build_minimal_repair_context(
@@ -377,6 +511,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             error_code = "OPAQUE_RESPONSE_DEEP_ACCESS"
         elif "step_output_property_unknown" in lower:
             error_code = "STEP_OUTPUT_PROPERTY_UNKNOWN"
+        elif "mcp_server_not_found" in lower or ("mcp server" in lower and "not found" in lower):
+            error_code = "MCP_SERVER_NOT_FOUND"
         elif "yaml" in lower:
             error_code = "YAML_PARSE_ERROR"
         elif "not allowed by policy" in lower or "denied by policy" in lower:
@@ -396,9 +532,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         generator: dict[str, Any],
         plan_reasoning: str | None = None,
         mcp_tool_contracts: list[McpToolOutputContract] | None = None,
+        forced_mcp_server_names: set[str] | None = None,
     ) -> str:
         allowed_types = set(policy.get("allowed_step_types") or []) or None
+        configured_mcp_servers = self._get_configured_mcp_server_metadata(ctx)
         candidate_mcp_servers = await self._maybe_prefilter_mcp_server_metadata(ctx, generator, instruction, context_text, plan_reasoning)
+        required_mcp_server_names = set(forced_mcp_server_names or set())
+        required_mcp_server_names.update(self._extract_required_mcp_server_names(instruction, context_text, configured_mcp_servers))
+        candidate_mcp_servers = self._include_required_mcp_servers(candidate_mcp_servers, configured_mcp_servers, required_mcp_server_names)
         mcp_doc = await self._build_mcp_documentation(ctx, candidate_mcp_servers, mcp_tool_contracts)
         mcp_doc = await self._maybe_prefilter_mcp_documentation(ctx, generator, instruction, context_text, mcp_doc, plan_reasoning)
         steps_doc = self._remove_markdown_fence_lines("\n\n".join(ctx.engine.registry.get_dsl_snippets(allowed_types)))

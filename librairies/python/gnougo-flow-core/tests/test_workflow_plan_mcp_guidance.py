@@ -110,6 +110,66 @@ class _TruncatingPrefilterLlm:
         return LLMResponse(text=_VALID_PLAN_YAML)
 
 
+class _DryRunWithFilteredPromptLlm:
+    def __init__(self) -> None:
+        self.requests = []
+
+    async def call_async(self, request):
+        self.requests.append(request)
+        if len(self.requests) == 1:
+            return LLMResponse(
+                text='{"servers":[{"name":"github","reason":"repository task"}]}',
+                json_payload={"servers": [{"name": "github", "reason": "repository task"}]},
+            )
+        if len(self.requests) == 2:
+            return LLMResponse(
+                text='{"filtered":"## Server: github\\nTools (1):\\n- list_repos: List repos"}',
+                json_payload={"filtered": "## Server: github\nTools (1):\n- list_repos: List repos"},
+            )
+        return LLMResponse(
+            text="""
+version: 1
+name: generated-weather
+skill:
+  description: Generated weather workflow.
+  tags: [generated]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: call_weather
+        type: mcp.call
+        input:
+          server: weather
+          kind: tool
+          method: get_weather
+          request:
+            city: Paris
+"""
+        )
+
+
+class _ForceWeatherServerPrefilterLlm:
+    def __init__(self) -> None:
+        self.requests = []
+
+    async def call_async(self, request):
+        self.requests.append(request)
+        if len(self.requests) == 1:
+            return LLMResponse(
+                text='{"servers":[{"name":"github","reason":"repository task"}]}',
+                json_payload={"servers": [{"name": "github", "reason": "repository task"}]},
+            )
+        if len(self.requests) == 2:
+            filtered = "## Server: github\nTools (1):\n- list_repos: List repos\n\n## Server: weather\nTools (1):\n- get_weather: Get weather"
+            return LLMResponse(
+                text='{"filtered":"' + filtered.replace("\n", "\\n") + '"}',
+                json_payload={"filtered": filtered},
+            )
+        return LLMResponse(text=_VALID_PLAN_YAML)
+
+
 class _NamedToolSession:
     def __init__(self, server_name: str) -> None:
         self.server_name = server_name
@@ -318,6 +378,70 @@ async def test_workflow_plan_capability_prefilter_falls_back_when_schema_is_trun
     assert "input_schema_json:" in final_prompt
     assert "```" not in final_prompt
     assert 'input_schema_json: {"type":"object"}…' not in final_prompt
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_dry_run_keeps_all_configured_mcp_servers_available() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: gpt-4
+                instruction: Build a workflow that lists GitHub repositories
+              validate:
+                dry_run: true
+    """
+    llm = _DryRunWithFilteredPromptLlm()
+    factory = _TwoServerFactory()
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = factory
+
+    result = await engine.execute_async(_compile_main(source), {})
+
+    assert result.success
+    assert "get_weather" not in llm.requests[2].prompt
+    assert "weather" in factory.opened_servers
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_server_prefilter_force_includes_servers_referenced_by_context() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: gpt-4
+                instruction: Build a workflow from the existing MCP call.
+                context: |
+                  - id: existing
+                    type: mcp.call
+                    input:
+                      server: weather
+                      method: get_weather
+              validate:
+                compile: false
+    """
+    llm = _ForceWeatherServerPrefilterLlm()
+    factory = _TwoServerFactory()
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = factory
+
+    result = await engine.execute_async(_compile_main(source), {})
+
+    assert result.success
+    assert factory.opened_servers == ["github", "weather"]
+    assert "get_weather" in llm.requests[2].prompt
 
 
 @pytest.mark.asyncio
