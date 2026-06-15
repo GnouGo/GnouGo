@@ -51,7 +51,9 @@ public static class AgentMcpHostingExtensions
                 : Path.GetFullPath(Path.Combine(ResolveWorkspaceRootFromDatabasePath(databasePath), configured));
         }
 
-        return ResolveWorkspaceRootFromDatabasePath(databasePath);
+        return Path.Combine(
+            ResolveWorkspaceRootFromDatabasePath(databasePath),
+            GnOuGoWorkspace.WorkspaceDataSubfolder);
     }
 
     private static string ResolveWorkspaceRootFromDatabasePath(string databasePath)

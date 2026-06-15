@@ -27,11 +27,11 @@ public sealed class AgentMcpWebHostTests
     }
 
     [Fact]
-    public void ResolveAgentsDirectory_WhenUsingDefaultDatabasePath_UsesWorkspaceGnOuGoDirectory()
+    public void ResolveAgentsDirectory_WhenUsingDefaultDatabasePath_UsesWorkspaceGnOuGoDataDirectory()
     {
         var root = CreateWorkspaceRoot();
         var databasePath = Path.Combine(root, ".GnOuGo", "data", "gnougo-agent.db");
-        var expected = root;
+        var expected = Path.Combine(root, ".GnOuGo");
 
         var actual = AgentMcpHostingExtensions.ResolveAgentsDirectory(databasePath);
 

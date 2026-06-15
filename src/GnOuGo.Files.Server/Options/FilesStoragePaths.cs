@@ -11,7 +11,7 @@ public sealed class FilesStoragePaths
     {
         var value = options.Value;
         var workspaceRoot = GnOuGoWorkspace.ResolveDefaultWorkingDirectorySafe(contentRootPath: AppContext.BaseDirectory);
-        StorageRootPath = ResolvePath(value.StorageRootPath, Path.Combine(workspaceRoot, "Files", "Temp"));
+        StorageRootPath = ResolvePath(value.StorageRootPath, Path.Combine(workspaceRoot, GnOuGoWorkspace.WorkspaceDataSubfolder, "Files"));
 
         DatabasePath = GnOuGoWorkspace.ResolveDatabasePath(
             value.DatabasePath,
