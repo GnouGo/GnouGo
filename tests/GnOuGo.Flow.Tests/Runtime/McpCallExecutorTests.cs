@@ -311,6 +311,7 @@ workflows:
           server: srv
           method: lookup
           request: {}
+          raise_on_error: false
     outputs:
       status: "${data.steps.call.status}"
 """, mcpFactory: mockFactory.Object);
@@ -320,7 +321,7 @@ workflows:
     }
 
     [Fact]
-    public async Task McpCall_RaiseOnError_TriggersOnErrorWithMcpDetails()
+    public async Task McpCall_DefaultRaiseOnError_TriggersOnErrorWithMcpDetails()
     {
         var mockSession = new Mock<IMcpSession>();
         mockSession.Setup(s => s.ServerName).Returns("srv");
@@ -351,7 +352,6 @@ workflows:
           server: srv
           method: lookup
           request: {}
-          raise_on_error: true
         on_error:
           cases:
             - if: '${error.code == "MCP_CALL_ERROR"}'
@@ -376,7 +376,7 @@ workflows:
     }
 
     [Fact]
-    public async Task McpCall_RaiseOnError_DetectsStructuredFailureEnvelopeWhenTransportDoesNotSetIsError()
+    public async Task McpCall_DefaultRaiseOnError_DetectsStructuredFailureEnvelopeWhenTransportDoesNotSetIsError()
     {
         var mockSession = new Mock<IMcpSession>();
         mockSession.Setup(s => s.ServerName).Returns("srv");
@@ -408,7 +408,6 @@ workflows:
           server: srv
           method: lookup
           request: {}
-          raise_on_error: true
         on_error:
           cases:
             - action: continue
@@ -1559,6 +1558,7 @@ workflows:
           methods:
             - good
             - bad
+          raise_on_error: false
     outputs:
       status: "${data.steps.batch.status}"
 """, mcpFactory: mockFactory.Object);
@@ -1755,6 +1755,7 @@ workflows:
         type: mcp.call
         input:
           server: srv
+          raise_on_error: false
     outputs:
       status: "${data.steps.auto.status}"
 """, mcpFactory: mockFactory.Object);

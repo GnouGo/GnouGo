@@ -147,7 +147,7 @@ async def test_runtime_llm_mcp_and_plan_execute() -> None:
 
 
 @pytest.mark.asyncio
-async def test_mcp_call_raise_on_error_triggers_on_error_with_mcp_details() -> None:
+async def test_mcp_call_default_raise_on_error_triggers_on_error_with_mcp_details() -> None:
     yaml_text = """
     version: 1
     workflows:
@@ -159,7 +159,6 @@ async def test_mcp_call_raise_on_error_triggers_on_error_with_mcp_details() -> N
               server: demo
               method: search
               request: {}
-              raise_on_error: true
             on_error:
               cases:
                 - if: '${error.code == "MCP_CALL_ERROR"}'
@@ -195,7 +194,7 @@ async def test_mcp_call_raise_on_error_triggers_on_error_with_mcp_details() -> N
 
 
 @pytest.mark.asyncio
-async def test_mcp_call_raise_on_error_detects_structured_failure_envelope() -> None:
+async def test_mcp_call_default_raise_on_error_detects_structured_failure_envelope() -> None:
     yaml_text = """
     version: 1
     workflows:
@@ -207,7 +206,6 @@ async def test_mcp_call_raise_on_error_detects_structured_failure_envelope() -> 
               server: demo
               method: search
               request: {}
-              raise_on_error: true
             on_error:
               cases:
                 - action: continue

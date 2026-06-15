@@ -158,7 +158,7 @@ class McpCallExecutor:
     dsl_snippet = """
 ### mcp.call - Execute MCP tool or prompt
 Direct MCP call pattern (preferred when tool names are known): use `mcp.call` directly with explicit `method` and `request`.
-Set `raise_on_error: true` when an MCP error should trigger workflow `on_error` instead of only returning `status: error`.
+MCP errors raise workflow `on_error` by default. Set `raise_on_error: false` only when the workflow intentionally wants to inspect `status: error` as normal output.
 Set `error_policy.detect_result_errors: true` to treat common structured failure envelopes like `{ success: false, error_code, error_message }` as MCP errors.
 ```yaml
 - id: browse
@@ -832,7 +832,7 @@ def _resolve_mcp_error_policy(input_obj: dict[str, Any]) -> dict[str, bool]:
     raise_on_error = _optional_bool(_get_case_insensitive(input_obj, "raise_on_error"))
     if raise_on_error is None:
         raise_on_error = _optional_bool(_get_case_insensitive(input_obj, "raiseOnError"))
-    raise_on_error = bool(raise_on_error)
+    raise_on_error = True if raise_on_error is None else bool(raise_on_error)
 
     detect_result_errors = raise_on_error
     policy = _get_case_insensitive(input_obj, "error_policy")
