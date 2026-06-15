@@ -122,6 +122,34 @@ workflows:
     }
 
     [Fact]
+    public void Compile_WithDuplicateStepIds_Throws()
+    {
+        var yaml = @"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: duplicate
+        type: set
+        input:
+          value: one
+      - id: branch
+        type: switch
+        cases:
+          - when: ""${true}""
+            steps:
+              - id: duplicate
+                type: set
+                input:
+                  value: two
+";
+
+        var ex = Assert.Throws<WorkflowCompilationException>(() => _compiler.Compile(WorkflowParser.Parse(yaml)));
+
+        Assert.Contains(ex.Errors, e => e.Code == "DUPLICATE_STEP_ID" && e.StepId == "duplicate");
+    }
+
+    [Fact]
     public void Compile_WithCycle_Throws()
     {
         var yaml = @"

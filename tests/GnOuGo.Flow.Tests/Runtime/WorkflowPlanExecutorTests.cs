@@ -990,6 +990,126 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_DryRun_AllowsNumericInputDefaultParsedFromYamlScalar()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated issue triage workflow.
+                         tags: [issues]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           inputs:
+                             issue_limit:
+                               type: number
+                               required: false
+                               default: "5"
+                           steps:
+                             - id: echo
+                               type: set
+                               input:
+                                 limit: "${data.inputs.issue_limit}"
+                           outputs:
+                             limit:
+                               expr: "${data.steps.echo.limit}"
+                               type: number
+                       """
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a workflow with a numeric issue limit
+            prefilter: false
+          validate:
+            dry_run: true
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_CompileValidation_RejectsDuplicateStepIdsBeforeDryRun()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated workflow with duplicate ids.
+                         tags: [test]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: need_summary
+                               type: set
+                               input:
+                                 value: one
+                             - id: branch
+                               type: switch
+                               cases:
+                                 - when: "${true}"
+                                   steps:
+                                     - id: need_summary
+                                       type: set
+                                       input:
+                                         value: two
+                       """
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a workflow with duplicate ids
+            prefilter: false
+          validate:
+            compile: true
+            dry_run: true
+          on_invalid:
+            action: stop
+            max_attempts: 1
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("DUPLICATE_STEP_ID", result.Error.Message);
+        Assert.Contains("need_summary", result.Error.Message);
+        Assert.DoesNotContain("same key", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void WorkflowPlan_DryRun_TreatsOnlyInternalErrorAsInconclusive()
     {
         var validatorType = typeof(WorkflowEngine).Assembly.GetType(

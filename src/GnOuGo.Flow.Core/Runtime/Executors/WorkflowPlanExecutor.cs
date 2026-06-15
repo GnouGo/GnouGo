@@ -1476,7 +1476,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             or "DSL_VERSION"
             or "NO_WORKFLOWS"
             or ErrorCodes.WorkflowCycleDetected
-            or "INVALID_ENTRYPOINT";
+            or "INVALID_ENTRYPOINT"
+            or "DUPLICATE_STEP_ID";
 
     private static IReadOnlyList<McpToolOutputContract> BuildMcpToolOutputContracts(IReadOnlyList<McpServerDiscovery>? discovered)
     {

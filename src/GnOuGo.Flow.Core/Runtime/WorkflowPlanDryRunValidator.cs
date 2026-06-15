@@ -143,7 +143,7 @@ internal static class WorkflowPlanDryRunValidator
             return JsonValue.Create("dry-run");
 
         if (def.Default != null)
-            return ConvertDefaultToNode(def.Default);
+            return InputDefaultValueConverter.ConvertToNode(def.Default, def);
 
         return (def.Type ?? "any").Trim().ToLowerInvariant() switch
         {
@@ -169,44 +169,6 @@ internal static class WorkflowPlanDryRunValidator
             obj[name] = CreateSampleFromInputDef(propertyDef);
 
         return obj;
-    }
-
-    private static JsonNode? ConvertDefaultToNode(object value)
-    {
-        return value switch
-        {
-            JsonNode node => node.DeepClone(),
-            string s => JsonValue.Create(s),
-            bool b => JsonValue.Create(b),
-            int i => JsonValue.Create(i),
-            long l => JsonValue.Create(l),
-            float f => JsonValue.Create(f),
-            double d => JsonValue.Create(d),
-            decimal m => JsonValue.Create(m),
-            System.Collections.IDictionary dict => ConvertDictionary(dict),
-            System.Collections.IEnumerable enumerable when value is not string => ConvertArray(enumerable),
-            _ => JsonValue.Create(value.ToString())
-        };
-    }
-
-    private static JsonObject ConvertDictionary(System.Collections.IDictionary dict)
-    {
-        var obj = new JsonObject();
-        foreach (System.Collections.DictionaryEntry entry in dict)
-        {
-            var key = entry.Key.ToString();
-            if (!string.IsNullOrWhiteSpace(key))
-                obj[key] = entry.Value == null ? null : ConvertDefaultToNode(entry.Value);
-        }
-        return obj;
-    }
-
-    private static JsonArray ConvertArray(System.Collections.IEnumerable enumerable)
-    {
-        var array = new JsonArray();
-        foreach (var item in enumerable)
-            array.Add(item == null ? null : ConvertDefaultToNode(item));
-        return array;
     }
 
     private static bool TryGetFirstSchema(JsonObject obj, string keyword, out JsonNode? sample)
