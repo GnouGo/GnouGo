@@ -167,6 +167,64 @@ public sealed class AgentMcpWebHostTests
         }
     }
 
+    [Fact]
+    public async Task Build_McpHttp_NormalizesStructuredToolFailureToIsError()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-mcp-error-{Guid.NewGuid():N}.db");
+        var app = AgentMcpWebHost.Build([
+            $"--Agent:DatabasePath={dbPath}"
+        ], urls: "http://127.0.0.1:0");
+
+        try
+        {
+            await app.StartAsync();
+
+            var address = app.Services
+                .GetRequiredService<IServer>()
+                .Features
+                .Get<IServerAddressesFeature>()!
+                .Addresses
+                .First();
+
+            await using var factory = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["GnOuGo.Agent.Mcp"] = new()
+                {
+                    Type = "http",
+                    Url = $"{address.TrimEnd('/')}/mcp",
+                    Description = "Standalone Agent MCP test host"
+                }
+            });
+
+            await using var session = await factory.GetClientAsync("GnOuGo.Agent.Mcp", CancellationToken.None);
+            var result = await session.CallToolAsync("agent_get_by_name", new System.Text.Json.Nodes.JsonObject
+            {
+                ["name"] = "missing-agent"
+            }, CancellationToken.None);
+
+            Assert.True(result.IsError);
+
+            var payload = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Content);
+            Assert.False(payload["success"]!.GetValue<bool>());
+            Assert.Equal("NOT_FOUND", payload["error_code"]!.GetValue<string>());
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+
+            try
+            {
+                if (File.Exists(dbPath))
+                    File.Delete(dbPath);
+            }
+            catch (IOException)
+            {
+                // Best-effort cleanup for a temporary SQLite file.
+            }
+        }
+    }
+
     private sealed record HealthPayload(string Status);
 
     private static string CreateWorkspaceRoot()

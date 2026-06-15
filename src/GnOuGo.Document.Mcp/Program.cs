@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using GnOuGo.Document.Mcp;
+using GnOuGo.Mcp.Core;
 using GnOuGo.Observability.Core;
 
 var builder = DocumentHostBootstrap.CreateBuilder(args);
@@ -27,6 +28,7 @@ builder.Services
             Name = "GnOuGo.Document.Mcp",
             Version = "1.0.0"
         };
+        options.AddGnOuGoToolErrorNormalizer();
     })
     .WithStdioServerTransport()
     .WithTools<DocumentTools>(DocumentMcpJson.SerializerOptions);
@@ -44,4 +46,3 @@ startupLogger.LogInformation(
     policyInfo.MaxFileSizeBytes);
 
 await host.RunAsync();
-

@@ -1,4 +1,5 @@
 ﻿using GnOuGo.GithubCopilot.Mcp;
+using GnOuGo.Mcp.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -36,6 +37,7 @@ builder.Services
             Name = "GnOuGo.GithubCopilot.Mcp",
             Version = "1.0.0"
         };
+        options.AddGnOuGoToolErrorNormalizer();
         options.Filters.Request.CallToolFilters.Add(next => async (request, cancellationToken) =>
         {
             var accessor = request.Services is null ? null : request.Services.GetService<CodeMcpTraceContextAccessor>();
@@ -73,6 +75,5 @@ logger.LogInformation(
     settings.Copilot.RequestTimeoutSeconds);
 
 await host.RunAsync();
-
 
 

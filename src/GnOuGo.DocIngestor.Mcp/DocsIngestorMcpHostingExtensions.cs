@@ -8,6 +8,7 @@ using DocIngestor.Core.Tokenization;
 using GnOuGo.DocIngestor.Mcp.Data;
 using GnOuGo.DocIngestor.Mcp.Models;
 using GnOuGo.DocIngestor.Mcp.Services;
+using GnOuGo.Mcp.Core;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -80,6 +81,7 @@ public static class DocsIngestorMcpHostingExtensions
                     Name = ServerName,
                     Version = ServerVersion
                 };
+                options.AddGnOuGoToolErrorNormalizer();
             })
             .WithHttpTransport()
             .WithTools<DocsIngestorTools>(DocsIngestorMcpJson.SerializerOptions);
@@ -107,4 +109,3 @@ public static class DocsIngestorMcpHostingExtensions
         return endpoints.MapMcp(pattern).DisableAntiforgery();
     }
 }
-

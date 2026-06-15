@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Protocol;
+using GnOuGo.Mcp.Core;
 using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Core.Services;
 
@@ -39,6 +40,7 @@ public static class KeyVaultMcpHostingExtensions
                     Name = ServerName,
                     Version = ServerVersion
                 };
+                options.AddGnOuGoToolErrorNormalizer();
             })
             .WithHttpTransport()
             .WithTools<KeyVaultTools>(KeyVaultMcpJson.SerializerOptions);
