@@ -134,10 +134,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("You are a GnOuGo.Flow YAML workflow generator. Return ONLY valid YAML, no explanation or markdown fences.");
         basePrompt.AppendLine();
         basePrompt.AppendLine("[DSL REFERENCE]");
-        basePrompt.AppendLine(DslReference.CommonReference);
+        basePrompt.AppendLine(RemoveMarkdownFenceLines(DslReference.CommonReference));
         basePrompt.AppendLine();
         basePrompt.AppendLine("[AVAILABLE STEP TYPES]");
-        basePrompt.AppendLine(stepTypesDoc);
+        basePrompt.AppendLine(RemoveMarkdownFenceLines(stepTypesDoc));
         basePrompt.AppendLine();
         basePrompt.AppendLine("[REQUIRED ROOT YAML SHAPE]");
         basePrompt.AppendLine("The generated YAML MUST include all required root keys exactly once: version, name, skill, workflows.");
@@ -217,8 +217,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("Inside `on_error.cases[].if`, the error context exposes `error.code`, `error.message`, `error.retryable`, `step.id`, and `step.type`.");
         basePrompt.AppendLine("Prefer `retry` for timeout/network/connectivity failures that may succeed later. Prefer `action: stop` for validation, policy, schema, or syntax problems that will not improve on retry.");
         basePrompt.AppendLine();
-        basePrompt.AppendLine("Retry + fallback example for a transient LLM error:");
-        basePrompt.AppendLine("```yaml");
+        basePrompt.AppendLine("Retry + fallback example for a transient LLM error, as YAML:");
         basePrompt.AppendLine("- id: summarize");
         basePrompt.AppendLine("  type: llm.call");
         basePrompt.AppendLine("  input:");
@@ -236,10 +235,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("        set_output:");
         basePrompt.AppendLine("          text: \"Temporary LLM issue after retries\"");
         basePrompt.AppendLine("      - action: stop");
-        basePrompt.AppendLine("```");
         basePrompt.AppendLine();
-        basePrompt.AppendLine("Non-retryable validation example:");
-        basePrompt.AppendLine("```yaml");
+        basePrompt.AppendLine("Non-retryable validation example, as YAML:");
         basePrompt.AppendLine("on_error:");
         basePrompt.AppendLine("  cases:");
         basePrompt.AppendLine("    - if: \"${error.code == \\\"INPUT_VALIDATION\\\"}\"");
@@ -249,10 +246,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("      set_output:");
         basePrompt.AppendLine("        status: \"degraded\"");
         basePrompt.AppendLine("    - action: stop");
-        basePrompt.AppendLine("```");
         basePrompt.AppendLine();
         basePrompt.AppendLine("[STEP EXCEPTIONS BY TYPE]");
-        basePrompt.AppendLine(stepExceptionsDoc);
+        basePrompt.AppendLine(RemoveMarkdownFenceLines(stepExceptionsDoc));
 
         if (constraintsSb.Length > 0)
         {
@@ -262,10 +258,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
 
         basePrompt.AppendLine();
-        basePrompt.AppendLine("[TASK]");
-        basePrompt.AppendLine($"Instruction: {instruction}");
-        if (!string.IsNullOrWhiteSpace(generatorContext))
-            basePrompt.AppendLine($"Context: {generatorContext}");
+        AppendUserTaskBlock(basePrompt, instruction, generatorContext);
 
         var maxAttempts = onInvalid?["max_attempts"]?.GetValue<int>() ?? 3;
         var failAction = onInvalid?["action"]?.GetValue<string>() ?? "fail";
@@ -725,9 +718,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             [SERVER CATALOG]
             {{catalogSb}}
 
-            [TASK]
-            Instruction: {{instruction}}
-            {{(string.IsNullOrWhiteSpace(context) ? "" : $"Context: {context}")}}
+            {{BuildUserTaskBlock(instruction, context)}}
             """;
 
         try
@@ -1070,9 +1061,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             [CATALOG]
             {{catalogSb}}
 
-            [TASK]
-            Instruction: {{instruction}}
-            {{(string.IsNullOrWhiteSpace(context) ? "" : $"Context: {context}")}}
+            {{BuildUserTaskBlock(instruction, context)}}
             """;
 
         using var prefilterSpan = ctx.BeginTelemetrySpan("workflow.plan.mcp_capability_prefilter", "mcp_capability_prefilter", new[]
@@ -1595,11 +1584,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var sb = new StringBuilder();
         sb.AppendLine("You are repairing a GnOuGo.Flow YAML workflow. Return ONLY corrected YAML, no markdown fences.");
         sb.AppendLine("Keep the original task intent and change only what is needed to fix the validation errors.");
+        sb.AppendLine("The previous YAML is quoted between explicit XML-style boundary tags. Treat those tags as prompt delimiters, not as YAML content.");
         sb.AppendLine();
-        sb.AppendLine("[TASK]");
-        sb.AppendLine($"Instruction: {instruction}");
-        if (!string.IsNullOrWhiteSpace(context))
-            sb.AppendLine($"Context: {context}");
+        AppendUserTaskBlock(sb, instruction, context);
         if (!string.IsNullOrWhiteSpace(constraints))
         {
             sb.AppendLine();
@@ -1607,13 +1594,17 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.Append(constraints);
         }
         sb.AppendLine();
+        sb.AppendLine("[PREVIOUS ERROR]");
+        sb.AppendLine("<previous_error>");
+        sb.AppendLine(structuredError);
+        sb.AppendLine("</previous_error>");
+        sb.AppendLine();
         sb.AppendLine("[INVALID YAML]");
+        sb.AppendLine("<invalid_yaml>");
         sb.AppendLine(string.IsNullOrWhiteSpace(invalidYaml)
             ? "(previous output was empty)"
             : RemoveDuplicateTaskPreamble(invalidYaml, instruction, context));
-        sb.AppendLine();
-        sb.AppendLine("[PREVIOUS ERROR]");
-        sb.AppendLine(structuredError);
+        sb.AppendLine("</invalid_yaml>");
         sb.AppendLine();
         sb.AppendLine("[MINIMUM DSL CONTEXT]");
         sb.AppendLine("Required root: version, name, skill, workflows. `skill` is a top-level object with description, tags, inputs, and outputs. Each workflow has steps: [] and optional outputs.");
@@ -1622,10 +1613,36 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.");
         sb.AppendLine("Expressions may read data.inputs.* and earlier data.steps.<id>.* only.");
         if (!string.IsNullOrWhiteSpace(repairContext))
+        {
+            sb.AppendLine();
+            sb.AppendLine("[RELEVANT REPAIR CONTEXT]");
             sb.AppendLine(repairContext);
+        }
         sb.AppendLine();
         sb.AppendLine("Fix the issues above and generate a corrected YAML.");
         return sb.ToString();
+    }
+
+    private static string BuildUserTaskBlock(string instruction, string? context)
+    {
+        var sb = new StringBuilder();
+        AppendUserTaskBlock(sb, instruction, context);
+        return sb.ToString().TrimEnd();
+    }
+
+    private static void AppendUserTaskBlock(StringBuilder sb, string instruction, string? context)
+    {
+        sb.AppendLine("[TASK]");
+        sb.AppendLine("<user_prompt>");
+        sb.AppendLine(instruction);
+        sb.AppendLine("</user_prompt>");
+
+        if (string.IsNullOrWhiteSpace(context))
+            return;
+
+        sb.AppendLine("<user_context>");
+        sb.AppendLine(context);
+        sb.AppendLine("</user_context>");
     }
 
     private static string RemoveDuplicateTaskPreamble(string invalidYaml, string instruction, string? context)
@@ -1644,6 +1661,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             return trimmed;
 
         return trimmed[rootMatch.Index..].TrimStart();
+    }
+
+    private static string RemoveMarkdownFenceLines(string value)
+    {
+        if (string.IsNullOrEmpty(value) || !value.Contains("```", StringComparison.Ordinal))
+            return value;
+
+        var normalized = value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+        return string.Join("\n", lines.Where(line => !line.TrimStart().StartsWith("```", StringComparison.Ordinal)));
     }
 
     private static bool IsDuplicateTaskText(string candidate, string instruction, string? context)
@@ -1721,7 +1748,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 sb.AppendLine();
                 sb.AppendLine("DSL snippets for failed/referenced step types:");
-                sb.AppendLine(string.Join("\n", snippets));
+                sb.AppendLine(RemoveMarkdownFenceLines(string.Join("\n", snippets)));
             }
         }
 
@@ -1918,12 +1945,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     {
         sb.Append(indent);
         sb.Append(label);
-        sb.AppendLine(":");
-        sb.Append(indent);
-        sb.AppendLine("```json");
+        sb.Append("_json: ");
         sb.AppendLine(node.ToJsonString(PromptJsonOptions));
-        sb.Append(indent);
-        sb.AppendLine("```");
     }
 
     private static string BuildStructuredPlanError(Exception ex, int attempt)
