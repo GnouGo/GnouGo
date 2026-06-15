@@ -75,6 +75,24 @@ class FakeMcpFactory:
         return FakeMcpSession()
 
 
+class ErrorMcpSession(FakeMcpSession):
+    def __init__(self, *, is_error: bool, content):
+        self._is_error = is_error
+        self._content = content
+
+    async def call_tool_async(self, tool_name, arguments):
+        return McpCallResult(is_error=self._is_error, content=self._content)
+
+
+class ErrorMcpFactory:
+    def __init__(self, session):
+        self.session = session
+        self.server_metadata = []
+
+    async def get_client_async(self, server_name):
+        return self.session
+
+
 @pytest.mark.asyncio
 async def test_runtime_llm_mcp_and_plan_execute() -> None:
     yaml_text = """
@@ -129,6 +147,95 @@ async def test_runtime_llm_mcp_and_plan_execute() -> None:
 
 
 @pytest.mark.asyncio
+async def test_mcp_call_raise_on_error_triggers_on_error_with_mcp_details() -> None:
+    yaml_text = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: call
+            type: mcp.call
+            input:
+              server: demo
+              method: search
+              request: {}
+              raise_on_error: true
+            on_error:
+              cases:
+                - if: '${error.code == "MCP_CALL_ERROR"}'
+                  action: continue
+                  set_output:
+                    recovered: true
+                    code: "${error.code}"
+                    mcp_code: "${error.details.mcp_error_code}"
+                    mcp_message: "${error.details.mcp_error_message}"
+        outputs:
+          recovered: "${data.steps.call.recovered}"
+          code: "${data.steps.call.code}"
+          mcp_code: "${data.steps.call.mcp_code}"
+          mcp_message: "${data.steps.call.mcp_message}"
+    """
+
+    compiled = WorkflowCompiler().compile(WorkflowParser.parse(yaml_text))
+    engine = WorkflowEngine()
+    engine.mcp_client_factory = ErrorMcpFactory(
+        ErrorMcpSession(
+            is_error=True,
+            content={"error_code": "NOT_FOUND", "error_message": "Thing was not found."},
+        )
+    )
+
+    result = await engine.execute_async(compiled.workflows["main"], {})
+
+    assert result.success is True
+    assert result.outputs["recovered"] is True
+    assert result.outputs["code"] == "MCP_CALL_ERROR"
+    assert result.outputs["mcp_code"] == "NOT_FOUND"
+    assert result.outputs["mcp_message"] == "Thing was not found."
+
+
+@pytest.mark.asyncio
+async def test_mcp_call_raise_on_error_detects_structured_failure_envelope() -> None:
+    yaml_text = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: call
+            type: mcp.call
+            input:
+              server: demo
+              method: search
+              request: {}
+              raise_on_error: true
+            on_error:
+              cases:
+                - action: continue
+                  set_output:
+                    recovered: true
+                    mcp_code: "${error.details.mcp_error_code}"
+        outputs:
+          recovered: "${data.steps.call.recovered}"
+          mcp_code: "${data.steps.call.mcp_code}"
+    """
+
+    compiled = WorkflowCompiler().compile(WorkflowParser.parse(yaml_text))
+    engine = WorkflowEngine()
+    engine.mcp_client_factory = ErrorMcpFactory(
+        ErrorMcpSession(
+            is_error=False,
+            content={"success": False, "error_code": "ALREADY_EXISTS", "error_message": "Already exists."},
+        )
+    )
+
+    result = await engine.execute_async(compiled.workflows["main"], {})
+
+    assert result.success is True
+    assert result.outputs["recovered"] is True
+    assert result.outputs["mcp_code"] == "ALREADY_EXISTS"
+
+
+@pytest.mark.asyncio
 async def test_runtime_execute_supports_to_json_alias_in_generated_workflow_outputs() -> None:
     yaml_text = """
     version: 1
@@ -178,4 +285,3 @@ class CaptureFixedPlanLlm:
 
     async def call_async(self, request):
         return LLMResponse(text=self._yaml_text)
-

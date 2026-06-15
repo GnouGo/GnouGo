@@ -42,6 +42,15 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 ///
 /// Output (batch/auto — methods or auto-discover):
 ///   { status: "ok"|"error", results: [ { method, status, response|description|messages|text } ] }
+///
+/// Error handling:
+///   - raise_on_error (bool, optional, default true): when true, an MCP result
+///     with status=error raises MCP_CALL_ERROR/MCP_PROMPT_ERROR so workflow
+///     on_error handlers can run. Set false to inspect status=error as output.
+///   - error_policy.detect_result_errors (bool, optional): when true, common
+///     structured failure envelopes such as { success: false }, { ok: false },
+///     { status: "error" }, error_code, error_message, or error are treated
+///     as MCP tool errors even if the transport did not set IsError.
 /// </summary>
 public sealed class McpCallExecutor : IStepExecutor
 {
@@ -73,6 +82,8 @@ public sealed class McpCallExecutor : IStepExecutor
         Direct mode keeps the generic `request` object contract for both tools and prompts. Even when `kind: prompt`, `request` contains the named prompt arguments expected by the MCP server; it is not a free-form text alias.
         In LLM-assisted mode, top-level `prompt`/`model`/`temperature` are used for the selection model, while the selected MCP tool/prompt still receives named arguments.
         Optional `structured_output` works like `llm.call`, but is applied after the MCP capability has been executed so the final answer can be returned as strict JSON.
+        By default, MCP tool errors raise MCP_CALL_ERROR/MCP_PROMPT_ERROR runtime exceptions so `on_error` handlers can run. Set `raise_on_error: false` only when the workflow intentionally wants to inspect `data.steps.<id>.status == "error"` as normal output.
+        Optional `error_policy.detect_result_errors: true` treats common structured failure envelopes like `{ success: false, error_code, error_message }` as MCP errors even when the transport did not set IsError.
         For generated plans, do NOT use `mcp.call` with only `server` as the default next step after `mcp.list` unless calling everything is the explicit goal.
 
         Output access patterns:
@@ -234,6 +245,12 @@ public sealed class McpCallExecutor : IStepExecutor
         if (timeoutMs.HasValue)
             ctx.SetTelemetryAttribute("mcp.timeout_ms", timeoutMs.Value);
 
+        var errorPolicy = ResolveMcpErrorPolicy(input);
+        if (errorPolicy.RaiseOnError)
+            ctx.SetTelemetryAttribute("mcp.raise_on_error", true);
+        if (errorPolicy.DetectResultErrors)
+            ctx.SetTelemetryAttribute("mcp.detect_result_errors", true);
+
         try
         {
             using var timeoutCts = timeoutMs.HasValue
@@ -259,7 +276,7 @@ public sealed class McpCallExecutor : IStepExecutor
 
             if (hasPromptSelection)
             {
-                return await ExecuteLlmAssistedAsync(session, input, kind, singleMethod, batchMethods, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                return await ExecuteLlmAssistedAsync(session, input, kind, singleMethod, batchMethods, errorPolicy, ctx, realtimeProgressFingerprints, linkedCts.Token);
             }
 
             // Auto-discover: list all tools or prompts from the server
@@ -311,7 +328,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 foreach (var methodName in batchMethods!)
                 {
                     var itemCorrelation = correlation with { MethodName = methodName };
-                    var itemResult = await CallSingleAsync(session, kind, methodName, requestArgs?.DeepClone(), itemCorrelation, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                    var itemResult = await CallSingleAsync(session, kind, methodName, requestArgs?.DeepClone(), itemCorrelation, errorPolicy.DetectResultErrors, ctx, realtimeProgressFingerprints, linkedCts.Token);
                     var itemObj = (JsonObject)itemResult!;
                     itemObj["method"] = methodName;
                     if (itemObj["status"]?.GetValue<string>() == "error")
@@ -320,19 +337,24 @@ public sealed class McpCallExecutor : IStepExecutor
                 }
 
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", hasError ? "error" : "stop");
-                return new JsonObject
+                var batchResult = new JsonObject
                 {
                     ["status"] = hasError ? "error" : "ok",
                     ["results"] = resultsArr
                 };
+                if (errorPolicy.RaiseOnError && hasError)
+                    ThrowMcpBatchError(kind, serverName, batchMethods!, batchResult);
+                return batchResult;
             }
             else
             {
                 // ── Single mode (backward compatible) ──
                 var singleCorrelation = correlation with { MethodName = singleMethod };
-                var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, errorPolicy.DetectResultErrors, ctx, realtimeProgressFingerprints, linkedCts.Token);
                 var statusStr = (singleResult as JsonObject)?["status"]?.GetValue<string>();
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", statusStr == "error" ? "error" : "stop");
+                if (errorPolicy.RaiseOnError && statusStr == "error")
+                    ThrowMcpSingleError(kind, serverName, singleMethod!, (JsonObject)singleResult!);
                 return singleResult;
             }
         }
@@ -369,6 +391,34 @@ public sealed class McpCallExecutor : IStepExecutor
         return requestedTimeoutMs ?? configuredTimeoutMs;
     }
 
+    private sealed record McpErrorPolicy(bool RaiseOnError, bool DetectResultErrors);
+
+    private static McpErrorPolicy ResolveMcpErrorPolicy(JsonObject input)
+    {
+        var raiseOnError = GetBoolProperty(input, "raise_on_error", "raiseOnError") ?? true;
+        var detectResultErrors = raiseOnError;
+
+        if (input["error_policy"] is JsonObject errorPolicy)
+            detectResultErrors = GetBoolProperty(errorPolicy, "detect_result_errors", "detectResultErrors") ?? detectResultErrors;
+        else
+            detectResultErrors = GetBoolProperty(input, "detect_result_errors", "detectResultErrors") ?? detectResultErrors;
+
+        return new McpErrorPolicy(raiseOnError, detectResultErrors);
+    }
+
+    private static bool? GetBoolProperty(JsonObject obj, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (!obj.TryGetPropertyValue(name, out var node) || node == null)
+                continue;
+
+            return ExpressionEvaluator.GetBool(node);
+        }
+
+        return null;
+    }
+
     private static int? ResolveConfiguredCallTimeoutMs(IMcpClientFactory factory, string serverName)
     {
         var metadata = factory.ServerMetadata?
@@ -387,6 +437,7 @@ public sealed class McpCallExecutor : IStepExecutor
         string defaultKind,
         string? singleMethod,
         List<string>? batchMethods,
+        McpErrorPolicy errorPolicy,
         StepExecutionContext ctx,
         ConcurrentDictionary<string, byte>? realtimeProgressFingerprints,
         CancellationToken ct)
@@ -489,7 +540,7 @@ public sealed class McpCallExecutor : IStepExecutor
                     $"mcp.call prompt mode selected unknown MCP capability '{toolCall.Name}'", retryable: false);
 
             var correlation = BuildCorrelationContext(ctx, session.ServerName, capability.Kind, capability.MethodName, null);
-            var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, ctx, realtimeProgressFingerprints, ct);
+            var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, errorPolicy.DetectResultErrors, ctx, realtimeProgressFingerprints, ct);
             var itemObj = (JsonObject)itemResult!;
             itemObj["method"] = capability.MethodName;
             itemObj["kind"] = capability.Kind;
@@ -525,6 +576,9 @@ public sealed class McpCallExecutor : IStepExecutor
             ["tool_calls"] = toolCallsArr,
             ["results"] = resultsArr
         };
+
+        if (errorPolicy.RaiseOnError && hasError)
+            ThrowMcpLlmAssistedError(defaultKind, session.ServerName, response);
 
         if (structuredOutputSchema != null)
         {
@@ -904,7 +958,7 @@ Produce the final answer strictly from the executed MCP results.
     /// <summary>Calls a single tool or prompt and returns the result JsonObject.</summary>
     private static async Task<JsonNode?> CallSingleAsync(
         IMcpSession session, string kind, string method, JsonNode? requestArgs,
-        McpCorrelationContext correlation, StepExecutionContext ctx, ConcurrentDictionary<string, byte>? realtimeProgressFingerprints, CancellationToken ct)
+        McpCorrelationContext correlation, bool detectResultErrors, StepExecutionContext ctx, ConcurrentDictionary<string, byte>? realtimeProgressFingerprints, CancellationToken ct)
     {
         if (kind == "prompt")
         {
@@ -943,12 +997,13 @@ Produce the final answer strictly from the executed MCP results.
 
             // Strip verbose progress event arrays from the output (already emitted as telemetry)
             var cleanedContent = StripProgressEvents(callResult.Content);
+            var isError = callResult.IsError || (detectResultErrors && IsMcpResultErrorEnvelope(cleanedContent));
 
             return new JsonObject
             {
-                ["status"] = callResult.IsError ? "error" : "ok",
+                ["status"] = isError ? "error" : "ok",
                 ["response"] = cleanedContent,
-                ["error"] = callResult.IsError ? BuildMcpErrorObject(callResult.Content, correlation) : null,
+                ["error"] = isError ? BuildMcpErrorObject(cleanedContent, correlation) : null,
                 ["correlation_id"] = correlation.CorrelationId,
                 ["trace_id"] = correlation.TraceId
             };
@@ -1154,9 +1209,12 @@ Produce the final answer strictly from the executed MCP results.
 
     private static JsonObject BuildMcpErrorObject(JsonNode? content, McpCorrelationContext correlation)
     {
+        var message = ExtractErrorMessage(content);
         return new JsonObject
         {
-            ["message"] = ExtractErrorMessage(content),
+            ["message"] = message,
+            ["mcp_error_code"] = ExtractErrorCode(content),
+            ["mcp_error_message"] = message,
             ["content"] = content?.DeepClone(),
             ["correlation_id"] = correlation.CorrelationId,
             ["run_id"] = correlation.RunId,
@@ -1167,6 +1225,151 @@ Produce the final answer strictly from the executed MCP results.
             ["method"] = correlation.MethodName,
             ["kind"] = correlation.Kind
         };
+    }
+
+    private static void ThrowMcpSingleError(string kind, string serverName, string method, JsonObject result)
+    {
+        var details = BuildMcpExceptionDetails(kind, serverName, method, result);
+        var message = GetStringProperty(details, "message")
+            ?? $"mcp.call ({kind}) to '{serverName}/{method}' returned an MCP error.";
+        throw new WorkflowRuntimeException(
+            kind == "prompt" ? ErrorCodes.McpPromptError : ErrorCodes.McpCallError,
+            $"mcp.call ({kind}) to '{serverName}/{method}' returned an MCP error: {message}",
+            retryable: false,
+            details: details);
+    }
+
+    private static void ThrowMcpBatchError(string kind, string serverName, IReadOnlyList<string> methods, JsonObject batchResult)
+    {
+        var methodText = string.Join(", ", methods);
+        var details = BuildMcpAggregateExceptionDetails(kind, serverName, methodText, batchResult);
+        var message = GetStringProperty(details, "message")
+            ?? $"mcp.call ({kind}) to '{serverName}/{methodText}' returned one or more MCP errors.";
+        throw new WorkflowRuntimeException(
+            kind == "prompt" ? ErrorCodes.McpPromptError : ErrorCodes.McpCallError,
+            $"mcp.call ({kind}) to '{serverName}/{methodText}' returned one or more MCP errors: {message}",
+            retryable: false,
+            details: details);
+    }
+
+    private static void ThrowMcpLlmAssistedError(string defaultKind, string serverName, JsonObject response)
+    {
+        var details = BuildMcpAggregateExceptionDetails(defaultKind, serverName, "(llm-selection)", response);
+        var message = GetStringProperty(details, "message")
+            ?? $"mcp.call prompt mode on '{serverName}' returned one or more MCP errors.";
+        throw new WorkflowRuntimeException(
+            defaultKind == "prompt" ? ErrorCodes.McpPromptError : ErrorCodes.McpCallError,
+            $"mcp.call prompt mode on '{serverName}' returned one or more MCP errors: {message}",
+            retryable: false,
+            details: details);
+    }
+
+    private static JsonObject BuildMcpExceptionDetails(string kind, string serverName, string method, JsonObject result)
+    {
+        var error = result["error"]?.DeepClone() as JsonObject;
+        var details = error ?? new JsonObject
+        {
+            ["message"] = ExtractErrorMessage(result["response"]),
+            ["mcp_error_code"] = ExtractErrorCode(result["response"]),
+            ["mcp_error_message"] = ExtractErrorMessage(result["response"]),
+            ["content"] = result["response"]?.DeepClone()
+        };
+        details["server"] = GetStringProperty(details, "server") ?? serverName;
+        details["method"] = GetStringProperty(details, "method") ?? method;
+        details["kind"] = GetStringProperty(details, "kind") ?? kind;
+        details["status"] = result["status"]?.DeepClone();
+        details["response"] = result["response"]?.DeepClone();
+        return details;
+    }
+
+    private static JsonObject BuildMcpAggregateExceptionDetails(string kind, string serverName, string method, JsonObject aggregateResult)
+    {
+        var firstError = FindFirstErrorResult(aggregateResult);
+        var details = firstError != null
+            ? BuildMcpExceptionDetails(
+                GetStringProperty(firstError, "kind") ?? kind,
+                serverName,
+                GetStringProperty(firstError, "method") ?? method,
+                firstError)
+            : new JsonObject { ["message"] = "MCP call returned one or more errors." };
+
+        details["server"] = GetStringProperty(details, "server") ?? serverName;
+        details["method"] = method;
+        details["kind"] = kind;
+        details["results"] = aggregateResult["results"]?.DeepClone();
+        details["content"] = aggregateResult.DeepClone();
+        return details;
+    }
+
+    private static JsonObject? FindFirstErrorResult(JsonObject aggregateResult)
+    {
+        if (aggregateResult["results"] is not JsonArray results)
+            return null;
+
+        foreach (var item in results)
+        {
+            if (item is JsonObject obj && string.Equals(GetStringProperty(obj, "status"), "error", StringComparison.OrdinalIgnoreCase))
+                return obj;
+        }
+
+        return null;
+    }
+
+    private static bool IsMcpResultErrorEnvelope(JsonNode? content)
+    {
+        if (content is not JsonObject obj)
+            return false;
+
+        if (GetBoolProperty(obj, "success", "Success") == false)
+            return true;
+
+        if (GetBoolProperty(obj, "ok", "Ok") == false)
+            return true;
+
+        var status = GetStringProperty(obj, "status");
+        if (status is "error" or "failed" or "failure")
+            return true;
+
+        if (!string.IsNullOrWhiteSpace(ExtractErrorCode(content)))
+            return true;
+
+        if (HasNonEmptyStringProperty(obj, "error_message") || HasNonEmptyStringProperty(obj, "errorMessage"))
+            return true;
+
+        if (obj.TryGetPropertyValue("error", out var error) && error != null)
+        {
+            if (error is not JsonValue value || !value.TryGetValue<string>(out var text) || !string.IsNullOrWhiteSpace(text))
+                return true;
+        }
+
+        return LooksLikeCodeMessageError(obj);
+    }
+
+    private static bool LooksLikeCodeMessageError(JsonObject obj)
+    {
+        return HasNonEmptyStringProperty(obj, "code")
+            && HasNonEmptyStringProperty(obj, "message")
+            && obj.Count <= 3;
+    }
+
+    private static bool HasNonEmptyStringProperty(JsonObject obj, string key)
+        => obj.TryGetPropertyValue(key, out var node)
+            && node is JsonValue value
+            && value.TryGetValue<string>(out var text)
+            && !string.IsNullOrWhiteSpace(text);
+
+    private static string? ExtractErrorCode(JsonNode? content)
+    {
+        if (content is JsonObject obj)
+        {
+            foreach (var key in new[] { "error_code", "errorCode", "code" })
+            {
+                if (obj.TryGetPropertyValue(key, out var node) && node is JsonValue nodeValue && nodeValue.TryGetValue<string>(out var code))
+                    return code;
+            }
+        }
+
+        return null;
     }
 
     private static string ExtractErrorMessage(JsonNode? content)
@@ -1367,4 +1570,3 @@ Produce the final answer strictly from the executed MCP results.
         return capabilities.Select(c => c.Tool).ToList();
     }
 }
-

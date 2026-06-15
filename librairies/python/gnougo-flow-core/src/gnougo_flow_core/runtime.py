@@ -911,6 +911,7 @@ class WorkflowEngine:
                 "type": exc.code,
                 "message": str(exc),
                 "retryable": exc.retryable,
+                "details": exc.details,
             },
             "step": {"id": step.id, "type": step.type},
         }
