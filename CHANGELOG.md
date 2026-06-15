@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.10.4 - 2026-06-15
+
+- fix: plan was very slow  (#54) (release) (cb3dd17)
+
 ## v0.10.3 - 2026-06-14
 
 - fix: workflow.route loosing telemetry (#53) (release) (183ed03)
