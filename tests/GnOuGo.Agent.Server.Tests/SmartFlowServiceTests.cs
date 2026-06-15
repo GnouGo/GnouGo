@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Hosting.Server;
+﻿using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -6,6 +7,7 @@ using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.AI.Core;
+using GnOuGo.Flow.Core.Runtime;
 using OtlpTenantCollector.Models;
 
 namespace GnOuGo.Agent.Server.Tests;
@@ -108,6 +110,288 @@ public sealed class SmartFlowServiceTests
             {
             }
         }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenPersistedAgentExecutionFailsAndUserApprovesRepair_UpdatesAgentThroughAgentMcp()
+    {
+        const string agentId = "8d8871b7-01cf-4a42-a95a-391d633d7d37";
+        const string agentName = "broken-agent";
+        var brokenWorkflow = """
+            version: 1
+            name: broken-agent
+            workflows:
+              main:
+                inputs:
+                  task:
+                    type: string
+                    required: true
+                steps:
+                  - id: failing_lookup
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.Agent.Mcp
+                      method: agent_get_by_name
+                      request:
+                        name: missing-agent
+                outputs:
+                  answer:
+                    expr: "${data.steps.failing_lookup.response.agent.name}"
+                    type: string
+            """;
+        var repairedWorkflow = """
+            version: 1
+            name: broken-agent
+            skill:
+              description: Repaired test agent.
+              tags: [test]
+              inputs:
+                task:
+                  type: string
+                  description: User task.
+              outputs:
+                answer:
+                  type: string
+                  description: Final answer.
+            workflows:
+              main:
+                inputs:
+                  task:
+                    type: string
+                    required: true
+                steps:
+                  - id: final_answer
+                    type: set
+                    input:
+                      answer: "${'REPAIRED: ' + data.inputs.task}"
+                outputs:
+                  answer:
+                    expr: "${data.steps.final_answer.answer}"
+                    type: string
+            """;
+
+        string? persistedWorkflow = null;
+        var agentMcp = new FakeMcpSession(AgentMcpHostingExtensions.ServerName)
+            .OnTool("agent_get_by_name", (arguments, _) =>
+            {
+                var name = arguments?["name"]?.GetValue<string>() ?? "";
+                if (string.Equals(name, agentName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Task.FromResult(new McpCallResult
+                    {
+                        IsError = false,
+                        Content = new JsonObject
+                        {
+                            ["success"] = true,
+                            ["agent"] = new JsonObject
+                            {
+                                ["id"] = agentId,
+                                ["name"] = agentName,
+                                ["workflow"] = brokenWorkflow,
+                                ["original_prompt"] = "answer test prompts",
+                                ["created_at"] = "2026-06-15T00:00:00Z",
+                                ["updated_at"] = "2026-06-15T00:00:00Z"
+                            }
+                        }
+                    });
+                }
+
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = true,
+                    Content = new JsonObject
+                    {
+                        ["success"] = false,
+                        ["error_code"] = "NOT_FOUND",
+                        ["error_message"] = $"Agent '{name}' not found."
+                    }
+                });
+            })
+            .OnTool("agent_update", (arguments, _) =>
+            {
+                persistedWorkflow = arguments?["workflow"]?.GetValue<string>();
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject
+                    {
+                        ["success"] = true,
+                        ["agent"] = new JsonObject
+                        {
+                            ["id"] = agentId,
+                            ["name"] = agentName,
+                            ["workflow"] = persistedWorkflow,
+                            ["original_prompt"] = arguments?["originalPrompt"]?.GetValue<string>() ?? "",
+                            ["created_at"] = "2026-06-15T00:00:00Z",
+                            ["updated_at"] = "2026-06-15T00:01:00Z"
+                        }
+                    }
+                });
+            });
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(cts.Token))
+            {
+                if (request.StepId == "agent_workflow_repair")
+                {
+                    humanInput.TrySubmitResponse(
+                        request.RunId,
+                        request.StepId,
+                        new JsonObject { ["response"] = "improve" });
+                    break;
+                }
+            }
+        }, cts.Token);
+
+        var options = new LLMOptions
+        {
+            DefaultProvider = "test",
+            DefaultModel = "repair-model"
+        };
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(options);
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(
+            runtimeStore,
+            keyVaultStore,
+            llmClientOverride: new FixedWorkflowPlanLlmClient(repairedWorkflow),
+            mcpClientFactoryOverride: new FakeMcpClientFactory(agentMcp));
+
+        var smartFlow = new SmartFlowService(
+            new RecordingLlmClient(),
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
+            runtimeFactory,
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            humanInput,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<SmartFlowService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            smartFlow.ExecuteAsync("please answer", correlationId: "corr-repair", agentName: agentName, CancellationToken.None));
+
+        await responder;
+
+        Assert.Equal(repairedWorkflow, persistedWorkflow);
+        Assert.Contains(events, evt => evt.Type == "human_input_request" && evt.Text?.Contains("agent_workflow_repair", StringComparison.Ordinal) == true);
+        Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("improved and saved", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.DoesNotContain(events, evt => evt.Type == "error");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WorkflowRepair_KeepsPrefilteredPromptButDryRunCanUseAllConfiguredServers()
+    {
+        const string agentId = "8d8871b7-01cf-4a42-a95a-391d633d7d37";
+        const string agentName = "document-agent";
+        var brokenWorkflow = """
+            version: 1
+            name: document-agent
+            workflows:
+              main:
+                inputs:
+                  task:
+                    type: string
+                    required: true
+                steps:
+                  - id: failing_lookup
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.Agent.Mcp
+                      method: agent_get_by_name
+                      request:
+                        name: missing-agent
+                outputs:
+                  answer:
+                    expr: "${data.steps.failing_lookup.response.agent.name}"
+                    type: string
+            """;
+        var repairedWorkflow = """
+            version: 1
+            name: document-agent
+            skill:
+              description: Repaired document workflow.
+              tags: [document]
+              inputs:
+                task:
+                  type: string
+                  description: User task.
+              outputs:
+                answer:
+                  type: string
+                  description: Final answer.
+            workflows:
+              main:
+                inputs:
+                  task:
+                    type: string
+                    required: true
+                steps:
+                  - id: create_doc
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.Document.Mcp
+                      method: document_create
+                      request:
+                        title: "${data.inputs.task}"
+                  - id: final_answer
+                    type: set
+                    input:
+                      answer: "${data.steps.create_doc.response.path}"
+                outputs:
+                  answer:
+                    expr: "${data.steps.final_answer.answer}"
+                    type: string
+            """;
+
+        string? persistedWorkflow = null;
+        var agentMcp = BuildAgentMcpForRepair(agentId, agentName, brokenWorkflow, value => persistedWorkflow = value);
+        var githubMcp = new FakeMcpSession("Github")
+            .WithTool("github_issue_search", "Search Github issues.");
+        var documentMcp = new FakeMcpSession("GnOuGo.Document.Mcp")
+            .WithTool(
+                "document_create",
+                "Create a document and return its path.",
+                JsonNode.Parse("""{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}"""),
+                JsonNode.Parse("""{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"""),
+                JsonNode.Parse("""{"path":"exports/generated.md"}"""));
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var responder = AutoApproveRepairAsync(humanInput, cts.Token);
+
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = "test",
+            DefaultModel = "repair-model"
+        });
+        var llm = new PrefilterTrapWorkflowPlanLlmClient(repairedWorkflow);
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(
+            runtimeStore,
+            new FakeKeyVaultRuntimeConfigStore(),
+            llmClientOverride: llm,
+            mcpClientFactoryOverride: new FakeMcpClientFactory(agentMcp, githubMcp, documentMcp));
+
+        var smartFlow = new SmartFlowService(
+            new RecordingLlmClient(),
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
+            runtimeFactory,
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            humanInput,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<SmartFlowService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            smartFlow.ExecuteAsync("create a document from this issue", correlationId: "corr-repair-prefilter", agentName: agentName, CancellationToken.None));
+
+        await responder;
+
+        Assert.Equal(repairedWorkflow, persistedWorkflow);
+        Assert.True(llm.PrefilterCallCount > 0);
+        Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("improved and saved", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.DoesNotContain(events, evt => evt.Type == "error");
     }
 
     [Fact]
@@ -454,6 +738,136 @@ public sealed class SmartFlowServiceTests
                    expr: "${data.steps.final_answer.answer}"
                    type: string
            """;
+
+    private static FakeMcpSession BuildAgentMcpForRepair(
+        string agentId,
+        string agentName,
+        string brokenWorkflow,
+        Action<string?> captureUpdatedWorkflow)
+        => new FakeMcpSession(AgentMcpHostingExtensions.ServerName)
+            .OnTool("agent_get_by_name", (arguments, _) =>
+            {
+                var name = arguments?["name"]?.GetValue<string>() ?? "";
+                if (string.Equals(name, agentName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Task.FromResult(new McpCallResult
+                    {
+                        IsError = false,
+                        Content = new JsonObject
+                        {
+                            ["success"] = true,
+                            ["agent"] = new JsonObject
+                            {
+                                ["id"] = agentId,
+                                ["name"] = agentName,
+                                ["workflow"] = brokenWorkflow,
+                                ["original_prompt"] = "repair test prompts",
+                                ["created_at"] = "2026-06-15T00:00:00Z",
+                                ["updated_at"] = "2026-06-15T00:00:00Z"
+                            }
+                        }
+                    });
+                }
+
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = true,
+                    Content = new JsonObject
+                    {
+                        ["success"] = false,
+                        ["error_code"] = "NOT_FOUND",
+                        ["error_message"] = $"Agent '{name}' not found."
+                    }
+                });
+            })
+            .OnTool("agent_update", (arguments, _) =>
+            {
+                var workflow = arguments?["workflow"]?.GetValue<string>();
+                captureUpdatedWorkflow(workflow);
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject
+                    {
+                        ["success"] = true,
+                        ["agent"] = new JsonObject
+                        {
+                            ["id"] = agentId,
+                            ["name"] = agentName,
+                            ["workflow"] = workflow,
+                            ["original_prompt"] = arguments?["originalPrompt"]?.GetValue<string>() ?? "",
+                            ["created_at"] = "2026-06-15T00:00:00Z",
+                            ["updated_at"] = "2026-06-15T00:01:00Z"
+                        }
+                    }
+                });
+            });
+
+    private static Task AutoApproveRepairAsync(AgentHumanInputProvider humanInput, CancellationToken ct)
+        => Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(ct))
+            {
+                if (request.StepId == "agent_workflow_repair")
+                {
+                    humanInput.TrySubmitResponse(
+                        request.RunId,
+                        request.StepId,
+                        new JsonObject { ["response"] = "improve" });
+                    break;
+                }
+            }
+        }, ct);
+
+    private sealed class FixedWorkflowPlanLlmClient : ILLMClient
+    {
+        private readonly string _workflowYaml;
+
+        public FixedWorkflowPlanLlmClient(string workflowYaml)
+        {
+            _workflowYaml = workflowYaml;
+        }
+
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+            => Task.FromResult(new LLMResponse { Text = _workflowYaml });
+    }
+
+    private sealed class PrefilterTrapWorkflowPlanLlmClient : ILLMClient
+    {
+        private readonly string _workflowYaml;
+
+        public PrefilterTrapWorkflowPlanLlmClient(string workflowYaml)
+        {
+            _workflowYaml = workflowYaml;
+        }
+
+        public int PrefilterCallCount { get; private set; }
+
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            if (request.Prompt.Contains("MCP server-selection assistant", StringComparison.OrdinalIgnoreCase))
+            {
+                PrefilterCallCount++;
+                return Task.FromResult(new LLMResponse
+                {
+                    Text = """{"servers":[{"name":"Github","reason":"The failure mentions an issue."}]}""",
+                    Json = JsonNode.Parse("""{"servers":[{"name":"Github","reason":"The failure mentions an issue."}]}""")
+                });
+            }
+
+            if (request.Prompt.Contains("tool-selection assistant", StringComparison.OrdinalIgnoreCase))
+            {
+                PrefilterCallCount++;
+                return Task.FromResult(new LLMResponse
+                {
+                    Text = """{"servers":[{"name":"Github","tools":[],"prompts":[]}]}""",
+                    Json = JsonNode.Parse("""{"servers":[{"name":"Github","tools":[],"prompts":[]}]}""")
+                });
+            }
+
+            return Task.FromResult(new LLMResponse { Text = _workflowYaml });
+        }
+    }
 
     private static List<SpanRow> DrainPersistedSpans(OtlpTenantCollector.Services.TelemetryIngestQueue queue)
     {

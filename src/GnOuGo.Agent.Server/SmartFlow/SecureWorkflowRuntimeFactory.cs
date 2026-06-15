@@ -10,15 +10,21 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly LLMRuntimeOptionsStore _optionsStore;
     private readonly IKeyVaultRuntimeConfigStore _keyVaultStore;
     private readonly ILoggerFactory _loggerFactory;
+    private readonly ILLMClient? _llmClientOverride;
+    private readonly IMcpClientFactory? _mcpClientFactoryOverride;
 
     public SecureWorkflowRuntimeFactory(
         LLMRuntimeOptionsStore optionsStore,
         IKeyVaultRuntimeConfigStore keyVaultStore,
-        ILoggerFactory? loggerFactory = null)
+        ILoggerFactory? loggerFactory = null,
+        ILLMClient? llmClientOverride = null,
+        IMcpClientFactory? mcpClientFactoryOverride = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
         _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
+        _llmClientOverride = llmClientOverride;
+        _mcpClientFactoryOverride = mcpClientFactoryOverride;
     }
 
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
@@ -26,12 +32,15 @@ public sealed class SecureWorkflowRuntimeFactory
         var options = await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, ct);
         var sslLogger = _loggerFactory.CreateLogger("GnOuGo.AI.Core.SSL");
         var http = LLMHttpClientFactory.Create(options.DangerousAcceptAnyServerCertificate, LLMHttpClientDefaults.MinimumTimeout, sslLogger);
-        IMcpClientFactory mcpFactory = options.McpServers.Count > 0
+        IMcpClientFactory mcpFactory = _mcpClientFactoryOverride ?? (options.McpServers.Count > 0
             ? new ConfiguredMcpClientFactory(options.McpServers)
-            : new InMemoryMcpClientFactory();
+            : new InMemoryMcpClientFactory());
+
+        var llmClient = _llmClientOverride
+            ?? new SnapshotRoutingLlmClientAdapter(http, options, _loggerFactory);
 
         return new SecureWorkflowRuntimeSession(
-            new SnapshotRoutingLlmClientAdapter(http, options, _loggerFactory),
+            llmClient,
             mcpFactory,
             options,
             http);
@@ -129,6 +138,5 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
         return response;
     }
 }
-
 
 

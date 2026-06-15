@@ -109,21 +109,47 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             prefilterTemperature = pfObj["temperature"]?.GetValue<double>();
         }
 
+        var requiredMcpServerNames = ExtractRequiredMcpServerNames(
+            instruction,
+            generatorContext,
+            ctx.Engine.McpClientFactory?.ServerMetadata);
+
         var candidateMcpServers = shouldPrefilter
             ? await PrefilterMcpServerMetadataAsync(
                 llmClient, ctx.Engine.McpClientFactory, instruction, generatorContext,
                 prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, ct)
             : null;
 
-        var discovered = await DiscoverMcpServersAsync(
+        candidateMcpServers = MergeRequiredMcpServerMetadata(
+            candidateMcpServers,
+            ctx.Engine.McpClientFactory?.ServerMetadata,
+            requiredMcpServerNames,
+            ctx);
+
+        var validateDryRun = validate?["dry_run"]?.GetValue<bool>() ?? false;
+        var validationDiscovered = validateDryRun
+            ? await DiscoverMcpServersAsync(
+                ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateServers: null, ct)
+            : null;
+
+        var discovered = SelectDiscoveredServers(validationDiscovered, candidateMcpServers)
+            ?? await DiscoverMcpServersAsync(
             ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateMcpServers, ct);
 
         if (shouldPrefilter && discovered != null && discovered.Count > 0)
         {
+            var prefilterSource = discovered;
             discovered = await PrefilterMcpServersAsync(
                 llmClient, discovered, instruction, generatorContext,
                 prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, ct);
+            discovered = MergeRequiredMcpServerDiscovery(
+                discovered,
+                prefilterSource,
+                requiredMcpServerNames,
+                ctx);
         }
+
+        validationDiscovered ??= discovered;
 
         var mcpServersDoc = discovered != null && discovered.Count > 0
             ? FormatMcpServersDoc(discovered)
@@ -134,10 +160,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("You are a GnOuGo.Flow YAML workflow generator. Return ONLY valid YAML, no explanation or markdown fences.");
         basePrompt.AppendLine();
         basePrompt.AppendLine("[DSL REFERENCE]");
-        basePrompt.AppendLine(DslReference.CommonReference);
+        basePrompt.AppendLine(RemoveMarkdownFenceLines(DslReference.CommonReference));
         basePrompt.AppendLine();
         basePrompt.AppendLine("[AVAILABLE STEP TYPES]");
-        basePrompt.AppendLine(stepTypesDoc);
+        basePrompt.AppendLine(RemoveMarkdownFenceLines(stepTypesDoc));
         basePrompt.AppendLine();
         basePrompt.AppendLine("[REQUIRED ROOT YAML SHAPE]");
         basePrompt.AppendLine("The generated YAML MUST include all required root keys exactly once: version, name, skill, workflows.");
@@ -217,8 +243,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("Inside `on_error.cases[].if`, the error context exposes `error.code`, `error.message`, `error.retryable`, `step.id`, and `step.type`.");
         basePrompt.AppendLine("Prefer `retry` for timeout/network/connectivity failures that may succeed later. Prefer `action: stop` for validation, policy, schema, or syntax problems that will not improve on retry.");
         basePrompt.AppendLine();
-        basePrompt.AppendLine("Retry + fallback example for a transient LLM error:");
-        basePrompt.AppendLine("```yaml");
+        basePrompt.AppendLine("Retry + fallback example for a transient LLM error, as YAML:");
         basePrompt.AppendLine("- id: summarize");
         basePrompt.AppendLine("  type: llm.call");
         basePrompt.AppendLine("  input:");
@@ -236,10 +261,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("        set_output:");
         basePrompt.AppendLine("          text: \"Temporary LLM issue after retries\"");
         basePrompt.AppendLine("      - action: stop");
-        basePrompt.AppendLine("```");
         basePrompt.AppendLine();
-        basePrompt.AppendLine("Non-retryable validation example:");
-        basePrompt.AppendLine("```yaml");
+        basePrompt.AppendLine("Non-retryable validation example, as YAML:");
         basePrompt.AppendLine("on_error:");
         basePrompt.AppendLine("  cases:");
         basePrompt.AppendLine("    - if: \"${error.code == \\\"INPUT_VALIDATION\\\"}\"");
@@ -249,10 +272,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("      set_output:");
         basePrompt.AppendLine("        status: \"degraded\"");
         basePrompt.AppendLine("    - action: stop");
-        basePrompt.AppendLine("```");
         basePrompt.AppendLine();
         basePrompt.AppendLine("[STEP EXCEPTIONS BY TYPE]");
-        basePrompt.AppendLine(stepExceptionsDoc);
+        basePrompt.AppendLine(RemoveMarkdownFenceLines(stepExceptionsDoc));
 
         if (constraintsSb.Length > 0)
         {
@@ -262,16 +284,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
 
         basePrompt.AppendLine();
-        basePrompt.AppendLine("[TASK]");
-        basePrompt.AppendLine($"Instruction: {instruction}");
-        if (!string.IsNullOrWhiteSpace(generatorContext))
-            basePrompt.AppendLine($"Context: {generatorContext}");
+        AppendUserTaskBlock(basePrompt, instruction, generatorContext);
 
         var maxAttempts = onInvalid?["max_attempts"]?.GetValue<int>() ?? 3;
         var failAction = onInvalid?["action"]?.GetValue<string>() ?? "fail";
         string? lastError = null;
         string? lastInvalidYaml = null;
         string? lastRepairContext = null;
+        var forcedMcpServerNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         ctx.SetTelemetryAttribute("gen_ai.operation.name", "chat");
         ctx.SetTelemetryAttribute("gen_ai.system", provider ?? "openai");
@@ -424,7 +444,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         // Compile + semantic validation
                         if (validate?["compile"]?.GetValue<bool>() ?? true)
                         {
-                            ValidateGeneratedWorkflowForPlan(generatedDoc, discovered);
+                            ValidateGeneratedWorkflowForPlan(generatedDoc, validationDiscovered);
                         }
 
                         // Optional runtime dry-run with deterministic fake providers.
@@ -433,7 +453,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             validationSpan.SetAttribute("gnougo-flow.plan.dry_run", true);
                             await WorkflowPlanDryRunValidator.ValidateAsync(
                                 generatedDoc,
-                                BuildDryRunMcpClientFactory(discovered),
+                                BuildDryRunMcpClientFactory(validationDiscovered),
                                 ctx.Engine.Logger,
                                 ct);
                         }
@@ -468,6 +488,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 // Capture the error for injection into the next prompt
                 ctx.Engine.Logger.LogWarning(ex, "workflow.plan: attempt {Attempt}/{MaxAttempts} failed, reprompting", attempt + 1, maxAttempts);
+                var missingMcpServerName = TryExtractMissingMcpServerName(ex.Message);
+                if (!string.IsNullOrWhiteSpace(missingMcpServerName))
+                    forcedMcpServerNames.Add(missingMcpServerName);
+
+                var repairDiscovered = forcedMcpServerNames.Count == 0
+                    ? validationDiscovered
+                    : MergeRequiredMcpServerDiscovery(
+                        discovered ?? new List<McpServerDiscovery>(),
+                        validationDiscovered,
+                        forcedMcpServerNames,
+                        ctx);
+
                 lastError = BuildStructuredPlanError(ex, attempt + 1);
                 lastInvalidYaml = StripMarkdownFences(response.Text);
                 lastRepairContext = BuildMinimalRepairContext(
@@ -475,7 +507,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     allowedTypes,
                     lastInvalidYaml,
                     ex,
-                    discovered);
+                    repairDiscovered);
             }
         }
 
@@ -498,6 +530,116 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         public IReadOnlyList<McpPromptInfo> Prompts { get; init; } = Array.Empty<McpPromptInfo>();
         /// <summary>True when the server was reachable and listing succeeded.</summary>
         public bool Discovered { get; init; }
+    }
+
+    private static HashSet<string> ExtractRequiredMcpServerNames(
+        string instruction,
+        string? context,
+        IReadOnlyList<McpServerMetadata>? configuredServers)
+    {
+        var required = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (configuredServers == null || configuredServers.Count == 0)
+            return required;
+
+        var configuredByName = configuredServers.ToDictionary(server => server.Name, StringComparer.OrdinalIgnoreCase);
+        var text = string.IsNullOrWhiteSpace(context)
+            ? instruction
+            : instruction + "\n" + context;
+
+        foreach (Match match in Regex.Matches(text, @"(?im)^\s*server\s*:\s*[""']?([^""'\r\n#]+)"))
+        {
+            var candidate = match.Groups[1].Value.Trim().TrimEnd(',', ']');
+            if (configuredByName.TryGetValue(candidate, out var server))
+                required.Add(server.Name);
+        }
+
+        foreach (Match match in Regex.Matches(text, @"(?im)^\s*servers\s*:\s*\[([^\]\r\n#]+)\]"))
+        {
+            foreach (var raw in match.Groups[1].Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var candidate = raw.Trim().Trim('"', '\'');
+                if (configuredByName.TryGetValue(candidate, out var server))
+                    required.Add(server.Name);
+            }
+        }
+
+        return required;
+    }
+
+    private static IReadOnlyList<McpServerMetadata>? MergeRequiredMcpServerMetadata(
+        IReadOnlyList<McpServerMetadata>? selected,
+        IReadOnlyList<McpServerMetadata>? allServers,
+        IReadOnlySet<string> requiredServerNames,
+        StepExecutionContext ctx)
+    {
+        if (requiredServerNames.Count == 0 || allServers == null || allServers.Count == 0 || selected == null)
+            return selected;
+
+        var merged = selected.ToList();
+        var seen = merged.Select(server => server.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var server in allServers)
+        {
+            if (requiredServerNames.Contains(server.Name) && seen.Add(server.Name))
+                merged.Add(server);
+        }
+
+        if (merged.Count != selected.Count)
+        {
+            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.required_servers", new[]
+            {
+                new KeyValuePair<string, object?>("mcp.server.names", string.Join(",", requiredServerNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase))),
+                new KeyValuePair<string, object?>("mcp.servers_selected", merged.Count)
+            });
+        }
+
+        return merged;
+    }
+
+    private static List<McpServerDiscovery>? SelectDiscoveredServers(
+        IReadOnlyList<McpServerDiscovery>? source,
+        IReadOnlyList<McpServerMetadata>? selectedServers)
+    {
+        if (source == null)
+            return null;
+        if (selectedServers == null)
+            return source.ToList();
+        if (selectedServers.Count == 0)
+            return new List<McpServerDiscovery>();
+
+        var selectedNames = selectedServers.Select(server => server.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return source.Where(server => selectedNames.Contains(server.Name)).ToList();
+    }
+
+    private static List<McpServerDiscovery>? MergeRequiredMcpServerDiscovery(
+        IReadOnlyList<McpServerDiscovery>? selected,
+        IReadOnlyList<McpServerDiscovery>? allServers,
+        IReadOnlySet<string> requiredServerNames,
+        StepExecutionContext ctx)
+    {
+        if (selected == null || requiredServerNames.Count == 0)
+            return selected?.ToList();
+
+        var merged = selected.ToList();
+        if (allServers == null || allServers.Count == 0)
+            return merged;
+
+        var seen = merged.Select(server => server.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var server in allServers)
+        {
+            if (requiredServerNames.Contains(server.Name) && seen.Add(server.Name))
+                merged.Add(server);
+        }
+
+        if (merged.Count != selected.Count)
+        {
+            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.required_servers", new[]
+            {
+                new KeyValuePair<string, object?>("mcp.server.names", string.Join(",", requiredServerNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase))),
+                new KeyValuePair<string, object?>("mcp.servers_selected", merged.Count)
+            });
+        }
+
+        return merged;
     }
 
     /// <summary>
@@ -725,9 +867,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             [SERVER CATALOG]
             {{catalogSb}}
 
-            [TASK]
-            Instruction: {{instruction}}
-            {{(string.IsNullOrWhiteSpace(context) ? "" : $"Context: {context}")}}
+            {{BuildUserTaskBlock(instruction, context)}}
             """;
 
         try
@@ -1070,9 +1210,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             [CATALOG]
             {{catalogSb}}
 
-            [TASK]
-            Instruction: {{instruction}}
-            {{(string.IsNullOrWhiteSpace(context) ? "" : $"Context: {context}")}}
+            {{BuildUserTaskBlock(instruction, context)}}
             """;
 
         using var prefilterSpan = ctx.BeginTelemetrySpan("workflow.plan.mcp_capability_prefilter", "mcp_capability_prefilter", new[]
@@ -1476,7 +1614,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             or "DSL_VERSION"
             or "NO_WORKFLOWS"
             or ErrorCodes.WorkflowCycleDetected
-            or "INVALID_ENTRYPOINT";
+            or "INVALID_ENTRYPOINT"
+            or "DUPLICATE_STEP_ID";
 
     private static IReadOnlyList<McpToolOutputContract> BuildMcpToolOutputContracts(IReadOnlyList<McpServerDiscovery>? discovered)
     {
@@ -1594,11 +1733,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var sb = new StringBuilder();
         sb.AppendLine("You are repairing a GnOuGo.Flow YAML workflow. Return ONLY corrected YAML, no markdown fences.");
         sb.AppendLine("Keep the original task intent and change only what is needed to fix the validation errors.");
+        sb.AppendLine("The previous YAML is quoted between explicit XML-style boundary tags. Treat those tags as prompt delimiters, not as YAML content.");
         sb.AppendLine();
-        sb.AppendLine("[TASK]");
-        sb.AppendLine($"Instruction: {instruction}");
-        if (!string.IsNullOrWhiteSpace(context))
-            sb.AppendLine($"Context: {context}");
+        AppendUserTaskBlock(sb, instruction, context);
         if (!string.IsNullOrWhiteSpace(constraints))
         {
             sb.AppendLine();
@@ -1606,13 +1743,17 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.Append(constraints);
         }
         sb.AppendLine();
+        sb.AppendLine("[PREVIOUS ERROR]");
+        sb.AppendLine("<previous_error>");
+        sb.AppendLine(structuredError);
+        sb.AppendLine("</previous_error>");
+        sb.AppendLine();
         sb.AppendLine("[INVALID YAML]");
+        sb.AppendLine("<invalid_yaml>");
         sb.AppendLine(string.IsNullOrWhiteSpace(invalidYaml)
             ? "(previous output was empty)"
             : RemoveDuplicateTaskPreamble(invalidYaml, instruction, context));
-        sb.AppendLine();
-        sb.AppendLine("[PREVIOUS ERROR]");
-        sb.AppendLine(structuredError);
+        sb.AppendLine("</invalid_yaml>");
         sb.AppendLine();
         sb.AppendLine("[MINIMUM DSL CONTEXT]");
         sb.AppendLine("Required root: version, name, skill, workflows. `skill` is a top-level object with description, tags, inputs, and outputs. Each workflow has steps: [] and optional outputs.");
@@ -1621,10 +1762,36 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.");
         sb.AppendLine("Expressions may read data.inputs.* and earlier data.steps.<id>.* only.");
         if (!string.IsNullOrWhiteSpace(repairContext))
+        {
+            sb.AppendLine();
+            sb.AppendLine("[RELEVANT REPAIR CONTEXT]");
             sb.AppendLine(repairContext);
+        }
         sb.AppendLine();
         sb.AppendLine("Fix the issues above and generate a corrected YAML.");
         return sb.ToString();
+    }
+
+    private static string BuildUserTaskBlock(string instruction, string? context)
+    {
+        var sb = new StringBuilder();
+        AppendUserTaskBlock(sb, instruction, context);
+        return sb.ToString().TrimEnd();
+    }
+
+    private static void AppendUserTaskBlock(StringBuilder sb, string instruction, string? context)
+    {
+        sb.AppendLine("[TASK]");
+        sb.AppendLine("<user_prompt>");
+        sb.AppendLine(instruction);
+        sb.AppendLine("</user_prompt>");
+
+        if (string.IsNullOrWhiteSpace(context))
+            return;
+
+        sb.AppendLine("<user_context>");
+        sb.AppendLine(context);
+        sb.AppendLine("</user_context>");
     }
 
     private static string RemoveDuplicateTaskPreamble(string invalidYaml, string instruction, string? context)
@@ -1643,6 +1810,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             return trimmed;
 
         return trimmed[rootMatch.Index..].TrimStart();
+    }
+
+    private static string RemoveMarkdownFenceLines(string value)
+    {
+        if (string.IsNullOrEmpty(value) || !value.Contains("```", StringComparison.Ordinal))
+            return value;
+
+        var normalized = value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+        return string.Join("\n", lines.Where(line => !line.TrimStart().StartsWith("```", StringComparison.Ordinal)));
     }
 
     private static bool IsDuplicateTaskText(string candidate, string instruction, string? context)
@@ -1720,7 +1897,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 sb.AppendLine();
                 sb.AppendLine("DSL snippets for failed/referenced step types:");
-                sb.AppendLine(string.Join("\n", snippets));
+                sb.AppendLine(RemoveMarkdownFenceLines(string.Join("\n", snippets)));
             }
         }
 
@@ -1917,12 +2094,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     {
         sb.Append(indent);
         sb.Append(label);
-        sb.AppendLine(":");
-        sb.Append(indent);
-        sb.AppendLine("```json");
+        sb.Append("_json: ");
         sb.AppendLine(node.ToJsonString(PromptJsonOptions));
-        sb.Append(indent);
-        sb.AppendLine("```");
     }
 
     private static string BuildStructuredPlanError(Exception ex, int attempt)
@@ -1931,7 +2104,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var lower = message.ToLowerInvariant();
 
         var errorCode = "VALIDATION_ERROR";
-        if (lower.Contains("missing required field 'workflows'"))
+        if (lower.Contains("mcp_server_not_found") || lower.Contains("mcp server") && lower.Contains("not found"))
+            errorCode = ErrorCodes.McpServerNotFound;
+        else if (lower.Contains("missing required field 'workflows'"))
             errorCode = "MISSING_ROOT_KEY_WORKFLOWS";
         else if (lower.Contains("missing required field 'version'"))
             errorCode = "MISSING_ROOT_KEY_VERSION";
@@ -1957,6 +2132,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             errorCode = "LIMIT_ERROR";
 
         return $"attempt={attempt}; code={errorCode}; message={message}";
+    }
+
+    private static string? TryExtractMissingMcpServerName(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return null;
+
+        var match = Regex.Match(message, @"MCP server '([^']+)' not found", RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value : null;
     }
 
     private static void EnforcePolicy(WorkflowDocument doc, JsonObject policy)

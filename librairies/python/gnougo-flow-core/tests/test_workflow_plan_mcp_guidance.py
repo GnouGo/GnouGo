@@ -104,8 +104,68 @@ class _TruncatingPrefilterLlm:
             )
         if len(self.requests) == 2:
             return LLMResponse(
-                text='{"filtered":"## Server: github\\nTools (1):\\n- list_repos: List repos\\n  input_schema: {\\"type\\":\\"object\\"}…"}',
-                json_payload={"filtered": '## Server: github\nTools (1):\n- list_repos: List repos\n  input_schema: {"type":"object"}…'},
+                text='{"filtered":"## Server: github\\nTools (1):\\n- list_repos: List repos\\n  input_schema_json: {\\"type\\":\\"object\\"}…"}',
+                json_payload={"filtered": '## Server: github\nTools (1):\n- list_repos: List repos\n  input_schema_json: {"type":"object"}…'},
+            )
+        return LLMResponse(text=_VALID_PLAN_YAML)
+
+
+class _DryRunWithFilteredPromptLlm:
+    def __init__(self) -> None:
+        self.requests = []
+
+    async def call_async(self, request):
+        self.requests.append(request)
+        if len(self.requests) == 1:
+            return LLMResponse(
+                text='{"servers":[{"name":"github","reason":"repository task"}]}',
+                json_payload={"servers": [{"name": "github", "reason": "repository task"}]},
+            )
+        if len(self.requests) == 2:
+            return LLMResponse(
+                text='{"filtered":"## Server: github\\nTools (1):\\n- list_repos: List repos"}',
+                json_payload={"filtered": "## Server: github\nTools (1):\n- list_repos: List repos"},
+            )
+        return LLMResponse(
+            text="""
+version: 1
+name: generated-weather
+skill:
+  description: Generated weather workflow.
+  tags: [generated]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: call_weather
+        type: mcp.call
+        input:
+          server: weather
+          kind: tool
+          method: get_weather
+          request:
+            city: Paris
+"""
+        )
+
+
+class _ForceWeatherServerPrefilterLlm:
+    def __init__(self) -> None:
+        self.requests = []
+
+    async def call_async(self, request):
+        self.requests.append(request)
+        if len(self.requests) == 1:
+            return LLMResponse(
+                text='{"servers":[{"name":"github","reason":"repository task"}]}',
+                json_payload={"servers": [{"name": "github", "reason": "repository task"}]},
+            )
+        if len(self.requests) == 2:
+            filtered = "## Server: github\nTools (1):\n- list_repos: List repos\n\n## Server: weather\nTools (1):\n- get_weather: Get weather"
+            return LLMResponse(
+                text='{"filtered":"' + filtered.replace("\n", "\\n") + '"}',
+                json_payload={"filtered": filtered},
             )
         return LLMResponse(text=_VALID_PLAN_YAML)
 
@@ -192,10 +252,14 @@ async def test_workflow_plan_prompt_mentions_llm_assisted_and_direct_mcp_call() 
     assert "numbers/integers/booleans must be unquoted YAML scalars" in prompt
     assert "prefer a YAML literal block (`|`) so nested quotes remain valid YAML" in prompt
     assert "list_repos" in prompt
-    assert "input_schema:" in prompt
-    assert "output_schema:" in prompt
-    assert "example_response:" in prompt
-    assert "```json" in prompt
+    assert "input_schema_json:" in prompt
+    assert "output_schema_json:" in prompt
+    assert "example_response_json:" in prompt
+    assert "```" not in prompt
+    assert "<user_prompt>" in prompt
+    assert "Build an MCP workflow" in prompt
+    assert "</user_prompt>" in prompt
+    assert "Instruction: Build an MCP workflow" not in prompt
     assert '"type": "string"' in prompt
     assert "schema-tail-marker" in prompt
     assert "schema-tail-marker…" not in prompt
@@ -237,8 +301,16 @@ async def test_workflow_plan_server_prefilter_uses_descriptions_before_capabilit
     assert "GitHub repository automation" in llm.requests[0].prompt
     assert "Weather forecasts" in llm.requests[0].prompt
     assert "list_repos" not in llm.requests[0].prompt
+    assert "<user_prompt>" in llm.requests[0].prompt
+    assert "Build a workflow that lists GitHub repositories" in llm.requests[0].prompt
+    assert "</user_prompt>" in llm.requests[0].prompt
+    assert "Instruction: Build a workflow that lists GitHub repositories" not in llm.requests[0].prompt
     assert llm.requests[1].structured_output_schema is not None
     assert llm.requests[1].temperature is None
+    assert "<user_prompt>" in llm.requests[1].prompt
+    assert "Build a workflow that lists GitHub repositories" in llm.requests[1].prompt
+    assert "</user_prompt>" in llm.requests[1].prompt
+    assert "Instruction: Build a workflow that lists GitHub repositories" not in llm.requests[1].prompt
     assert "list_repos" in llm.requests[2].prompt
     assert "get_weather" not in llm.requests[2].prompt
 
@@ -303,8 +375,73 @@ async def test_workflow_plan_capability_prefilter_falls_back_when_schema_is_trun
     assert len(llm.requests) == 3
     final_prompt = llm.requests[2].prompt
     assert "schema-tail-marker" in final_prompt
-    assert "```json" in final_prompt
-    assert 'input_schema: {"type":"object"}…' not in final_prompt
+    assert "input_schema_json:" in final_prompt
+    assert "```" not in final_prompt
+    assert 'input_schema_json: {"type":"object"}…' not in final_prompt
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_dry_run_keeps_all_configured_mcp_servers_available() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: gpt-4
+                instruction: Build a workflow that lists GitHub repositories
+              validate:
+                dry_run: true
+    """
+    llm = _DryRunWithFilteredPromptLlm()
+    factory = _TwoServerFactory()
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = factory
+
+    result = await engine.execute_async(_compile_main(source), {})
+
+    assert result.success
+    assert "get_weather" not in llm.requests[2].prompt
+    assert "weather" in factory.opened_servers
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_server_prefilter_force_includes_servers_referenced_by_context() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: gpt-4
+                instruction: Build a workflow from the existing MCP call.
+                context: |
+                  - id: existing
+                    type: mcp.call
+                    input:
+                      server: weather
+                      method: get_weather
+              validate:
+                compile: false
+    """
+    llm = _ForceWeatherServerPrefilterLlm()
+    factory = _TwoServerFactory()
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = factory
+
+    result = await engine.execute_async(_compile_main(source), {})
+
+    assert result.success
+    assert factory.opened_servers == ["github", "weather"]
+    assert "get_weather" in llm.requests[2].prompt
 
 
 @pytest.mark.asyncio

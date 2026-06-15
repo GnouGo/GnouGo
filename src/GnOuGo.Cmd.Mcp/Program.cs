@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using GnOuGo.Cmd.Mcp;
+using GnOuGo.Mcp.Core;
 using GnOuGo.Observability.Core;
 
 try
@@ -33,11 +34,12 @@ try
         .AddMcpServer(options =>
         {
             options.ServerInfo = new Implementation
-            {
-                Name = "GnOuGo.Cmd.Mcp",
-                Version = "1.0.0"
-            };
-        })
+                {
+                    Name = "GnOuGo.Cmd.Mcp",
+                    Version = "1.0.0"
+                };
+                options.AddGnOuGoToolErrorNormalizer();
+            })
         .WithStdioServerTransport()
         .WithTools<CmdTools>(CmdMcpJson.SerializerOptions);
 
@@ -70,4 +72,3 @@ catch (Exception ex)
     Console.Error.WriteLine(ex.ToString());
     Environment.Exit(1);
 }
-

@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using ModelContextProtocol.Protocol;
+using GnOuGo.Mcp.Core;
 using GnOuGo.Agent.Mcp.Data;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Diff.Core.Data;
@@ -50,7 +51,9 @@ public static class AgentMcpHostingExtensions
                 : Path.GetFullPath(Path.Combine(ResolveWorkspaceRootFromDatabasePath(databasePath), configured));
         }
 
-        return ResolveWorkspaceRootFromDatabasePath(databasePath);
+        return Path.Combine(
+            ResolveWorkspaceRootFromDatabasePath(databasePath),
+            GnOuGoWorkspace.WorkspaceDataSubfolder);
     }
 
     private static string ResolveWorkspaceRootFromDatabasePath(string databasePath)
@@ -88,6 +91,7 @@ public static class AgentMcpHostingExtensions
                     Name = ServerName,
                     Version = ServerVersion
                 };
+                options.AddGnOuGoToolErrorNormalizer();
             })
             .WithHttpTransport()
             .WithTools<DataTools>(AgentMcpJson.SerializerOptions)

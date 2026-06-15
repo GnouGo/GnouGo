@@ -221,18 +221,23 @@ workflows:
         Assert.Contains("[DSL REFERENCE]", capturedPrompt);
         Assert.Contains("[AVAILABLE STEP TYPES]", capturedPrompt);
         Assert.Contains("[TASK]", capturedPrompt);
+        Assert.Contains("<user_prompt>", capturedPrompt);
+        Assert.Contains("Build a simple greeting workflow", capturedPrompt);
+        Assert.Contains("</user_prompt>", capturedPrompt);
+        Assert.DoesNotContain("Instruction: Build a simple greeting workflow", capturedPrompt);
         Assert.Contains("[ERROR HANDLING AND RETRIES]", capturedPrompt);
         Assert.DoesNotContain("[STRUCTURED OUTPUT STRICT SCHEMAS]", capturedPrompt);
         Assert.Contains("Use `retry` only for transient errors that are explicitly marked retryable by the runtime.", capturedPrompt);
         Assert.Contains("Retries run before `on_error` is evaluated.", capturedPrompt);
         Assert.Contains("Inside `on_error.cases[].if`, the error context exposes `error.code`, `error.message`, `error.retryable`, `step.id`, and `step.type`.", capturedPrompt);
-        Assert.Contains("Retry + fallback example for a transient LLM error:", capturedPrompt);
-        Assert.Contains("Non-retryable validation example:", capturedPrompt);
+        Assert.Contains("Retry + fallback example for a transient LLM error, as YAML:", capturedPrompt);
+        Assert.Contains("Non-retryable validation example, as YAML:", capturedPrompt);
         Assert.Contains("[STEP EXCEPTIONS BY TYPE]", capturedPrompt);
         Assert.Contains("- llm.call", capturedPrompt);
         Assert.Contains("LLM_TIMEOUT (retryable)", capturedPrompt);
         Assert.Contains("- template.render", capturedPrompt);
         Assert.Contains("JSON_PARSE (non-retryable)", capturedPrompt);
+        Assert.DoesNotContain("```", capturedPrompt);
         Assert.Contains("Function arguments are evaluated before the function runs", capturedPrompt);
         Assert.Contains("coalesce(data.steps.branch_a.value, data.steps.branch_b.value)", capturedPrompt);
         Assert.Contains("produced only inside `switch` cases", capturedPrompt);
@@ -448,6 +453,14 @@ workflows:
         // Second prompt SHOULD contain [PREVIOUS ERROR]
         Assert.Contains("[PREVIOUS ERROR]", prompts[1]);
         Assert.Contains("[INVALID YAML]", prompts[1]);
+        Assert.Contains("<user_prompt>", prompts[1]);
+        Assert.Contains("Build something", prompts[1]);
+        Assert.Contains("</user_prompt>", prompts[1]);
+        Assert.DoesNotContain("Instruction: Build something", prompts[1]);
+        Assert.Contains("<previous_error>", prompts[1]);
+        Assert.Contains("</previous_error>", prompts[1]);
+        Assert.Contains("<invalid_yaml>", prompts[1]);
+        Assert.Contains("</invalid_yaml>", prompts[1]);
         Assert.Contains("version: 1", prompts[1]);
         Assert.DoesNotContain("[DSL REFERENCE]", prompts[1]);
         Assert.DoesNotContain("[STEP EXCEPTIONS BY TYPE]", prompts[1]);
@@ -987,6 +1000,126 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_DryRun_AllowsNumericInputDefaultParsedFromYamlScalar()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated issue triage workflow.
+                         tags: [issues]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           inputs:
+                             issue_limit:
+                               type: number
+                               required: false
+                               default: "5"
+                           steps:
+                             - id: echo
+                               type: set
+                               input:
+                                 limit: "${data.inputs.issue_limit}"
+                           outputs:
+                             limit:
+                               expr: "${data.steps.echo.limit}"
+                               type: number
+                       """
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a workflow with a numeric issue limit
+            prefilter: false
+          validate:
+            dry_run: true
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_CompileValidation_RejectsDuplicateStepIdsBeforeDryRun()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated workflow with duplicate ids.
+                         tags: [test]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: need_summary
+                               type: set
+                               input:
+                                 value: one
+                             - id: branch
+                               type: switch
+                               cases:
+                                 - when: "${true}"
+                                   steps:
+                                     - id: need_summary
+                                       type: set
+                                       input:
+                                         value: two
+                       """
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a workflow with duplicate ids
+            prefilter: false
+          validate:
+            compile: true
+            dry_run: true
+          on_invalid:
+            action: stop
+            max_attempts: 1
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("DUPLICATE_STEP_ID", result.Error.Message);
+        Assert.Contains("need_summary", result.Error.Message);
+        Assert.DoesNotContain("same key", result.Error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -1564,10 +1697,10 @@ workflows:
         Assert.Contains("list_repos", capturedPrompt);
         Assert.Contains("List repositories for a user", capturedPrompt);
         Assert.Contains("get_file", capturedPrompt);
-        Assert.Contains("input_schema:", capturedPrompt);
-        Assert.Contains("output_schema:", capturedPrompt);
-        Assert.Contains("example_response:", capturedPrompt);
-        Assert.Contains("```json", capturedPrompt);
+        Assert.Contains("input_schema_json:", capturedPrompt);
+        Assert.Contains("output_schema_json:", capturedPrompt);
+        Assert.Contains("example_response_json:", capturedPrompt);
+        Assert.DoesNotContain("```", capturedPrompt);
         Assert.Contains("\"type\": \"string\"", capturedPrompt);
         Assert.Contains("schema-tail-marker", capturedPrompt);
         Assert.DoesNotContain("schema-tail-marker…", capturedPrompt);
@@ -1727,14 +1860,122 @@ workflows:
         Assert.Contains("GitHub repository automation", requests[0].Prompt);
         Assert.Contains("Weather forecasts", requests[0].Prompt);
         Assert.DoesNotContain("list_repos", requests[0].Prompt);
+        Assert.Contains("<user_prompt>", requests[0].Prompt);
+        Assert.Contains("Build a workflow that lists GitHub repositories", requests[0].Prompt);
+        Assert.Contains("</user_prompt>", requests[0].Prompt);
+        Assert.DoesNotContain("Instruction: Build a workflow that lists GitHub repositories", requests[0].Prompt);
         Assert.NotNull(requests[1].StructuredOutputSchema);
         Assert.Null(requests[1].Temperature);
+        Assert.Contains("<user_prompt>", requests[1].Prompt);
+        Assert.Contains("Build a workflow that lists GitHub repositories", requests[1].Prompt);
+        Assert.Contains("</user_prompt>", requests[1].Prompt);
+        Assert.DoesNotContain("Instruction: Build a workflow that lists GitHub repositories", requests[1].Prompt);
         var mcpSectionStart = requests[2].Prompt.LastIndexOf("[AVAILABLE MCP SERVERS]", StringComparison.Ordinal);
         var mcpSectionEnd = requests[2].Prompt.IndexOf("[MCP OUTPUT ACCESS]", mcpSectionStart, StringComparison.Ordinal);
         var mcpSection = requests[2].Prompt[mcpSectionStart..mcpSectionEnd];
         Assert.Contains("list_repos", mcpSection);
         Assert.DoesNotContain("get_weather", mcpSection);
         Assert.DoesNotContain("delete_repo", mcpSection);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_ServerPrefilter_ForceIncludesServersReferencedByCurrentWorkflowText()
+    {
+        var requests = new List<LLMRequest>();
+        var callIndex = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => requests.Add(req))
+            .ReturnsAsync(() => (++callIndex) switch
+            {
+                1 => new LLMResponse
+                {
+                    Text = "{\"servers\":[{\"name\":\"Github\",\"reason\":\"issue context\"}]}",
+                    Json = JsonNode.Parse("{\"servers\":[{\"name\":\"Github\",\"reason\":\"issue context\"}]}")
+                },
+                2 => new LLMResponse
+                {
+                    Text = "{\"servers\":[{\"name\":\"Github\",\"tools\":[\"github_issue_search\"],\"prompts\":[]}]}",
+                    Json = JsonNode.Parse("{\"servers\":[{\"name\":\"Github\",\"tools\":[\"github_issue_search\"],\"prompts\":[]}]}")
+                },
+                _ => new LLMResponse
+                {
+                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                }
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("Github", new MockMcpServerConfig
+        {
+            Description = "GitHub repository automation",
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "github_issue_search", Description = "Search GitHub issues" }
+            }
+        });
+        mcpFactory.RegisterServer("GnOuGo.Document.Mcp", new MockMcpServerConfig
+        {
+            Description = "Document generation",
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "document_create", Description = "Create a document" }
+            }
+        });
+        mcpFactory.RegisterServer("Weather", new MockMcpServerConfig
+        {
+            Description = "Weather forecasts",
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "get_weather", Description = "Get weather" }
+            }
+        });
+
+        var wf = CompileMain("""
+ version: 1
+ workflows:
+   main:
+     steps:
+       - id: plan
+         type: workflow.plan
+         input:
+           generator:
+             model: gpt-4
+             instruction: |
+               Repair this workflow after a GitHub issue run failed.
+               <current_workflow_yaml>
+               version: 1
+               workflows:
+                 main:
+                   steps:
+                     - id: create_doc
+                       type: mcp.call
+                       input:
+                         server: GnOuGo.Document.Mcp
+                         method: document_create
+                         request: {}
+               </current_workflow_yaml>
+           validate:
+             compile: false
+ """);
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            McpClientFactory = mcpFactory
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(3, requests.Count);
+        var mcpSectionStart = requests[2].Prompt.LastIndexOf("[AVAILABLE MCP SERVERS]", StringComparison.Ordinal);
+        var mcpSectionEnd = requests[2].Prompt.IndexOf("[MCP OUTPUT ACCESS]", mcpSectionStart, StringComparison.Ordinal);
+        var mcpSection = requests[2].Prompt[mcpSectionStart..mcpSectionEnd];
+        Assert.Contains("Github", mcpSection);
+        Assert.Contains("github_issue_search", mcpSection);
+        Assert.Contains("GnOuGo.Document.Mcp", mcpSection);
+        Assert.Contains("document_create", mcpSection);
+        Assert.DoesNotContain("Weather", mcpSection);
+        Assert.DoesNotContain("get_weather", mcpSection);
     }
 
     [Fact]

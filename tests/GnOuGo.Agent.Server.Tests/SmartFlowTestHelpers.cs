@@ -159,6 +159,7 @@ internal sealed class FakeMcpSession : IMcpSession
 {
     private readonly Dictionary<string, Func<JsonNode?, CancellationToken, Task<McpCallResult>>> _toolHandlers =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<McpToolInfo> _tools = [];
 
     public FakeMcpSession(string serverName)
     {
@@ -176,8 +177,26 @@ internal sealed class FakeMcpSession : IMcpSession
         return this;
     }
 
+    public FakeMcpSession WithTool(
+        string toolName,
+        string? description = null,
+        JsonNode? inputSchema = null,
+        JsonNode? outputSchema = null,
+        JsonNode? exampleResponse = null)
+    {
+        _tools.Add(new McpToolInfo
+        {
+            Name = toolName,
+            Description = description,
+            InputSchema = inputSchema?.DeepClone(),
+            OutputSchema = outputSchema?.DeepClone(),
+            ExampleResponse = exampleResponse?.DeepClone()
+        });
+        return this;
+    }
+
     public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct)
-        => Task.FromResult<IReadOnlyList<McpToolInfo>>([]);
+        => Task.FromResult<IReadOnlyList<McpToolInfo>>(_tools);
 
     public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct)
         => Task.FromResult<IReadOnlyList<McpResourceInfo>>([]);

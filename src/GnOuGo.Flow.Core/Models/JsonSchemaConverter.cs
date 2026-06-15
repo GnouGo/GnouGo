@@ -46,7 +46,7 @@ public static class JsonSchemaConverter
         if (def.Description != null)
             schema["description"] = def.Description;
         if (def.Default != null)
-            schema["default"] = JsonValue.Create(def.Default.ToString());
+            schema["default"] = InputDefaultValueConverter.ConvertToNode(def.Default, def);
 
         // Array items
         if (def.Items != null)
@@ -171,4 +171,3 @@ public static class JsonSchemaConverter
         }
     }
 }
-

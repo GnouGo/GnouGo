@@ -292,19 +292,20 @@ public sealed class SmartFlowService
             };
 
             RunResult? result = null;
-            CompiledWorkflow workflow;
+            ResolvedWorkflow resolvedWorkflow;
             string? selectedAgentName;
             Exception? resolveError = null;
 
             try
             {
-                (workflow, selectedAgentName) = await ResolveWorkflowAsync(runtime, requestedAgentName, ct);
+                resolvedWorkflow = await ResolveWorkflowAsync(runtime, requestedAgentName, ct);
+                selectedAgentName = resolvedWorkflow.AgentName;
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Could not resolve workflow for chat execution.");
                 resolveError = ex;
-                workflow = null!;
+                resolvedWorkflow = null!;
                 selectedAgentName = null;
             }
 
@@ -314,6 +315,7 @@ public sealed class SmartFlowService
                 yield break;
             }
 
+            var workflow = resolvedWorkflow.Workflow;
             var inputs = BuildWorkflowInputs(task, selectedAgentName, correlationId, filesIds, workflowInputs);
             var resolvedInputs = WorkflowInputDefaults.Apply(workflow.Source, inputs);
 
@@ -350,6 +352,22 @@ public sealed class SmartFlowService
 
             if (error is not null)
             {
+                var repaired = false;
+                await foreach (var evt in OfferWorkflowRepairAsync(
+                                   runtime,
+                                   resolvedWorkflow,
+                                   task,
+                                   new WorkflowFailure("INTERNAL_ERROR", error.Message, error.GetType().FullName, null),
+                                   parentActivity,
+                                   repairedValue => repaired = repairedValue,
+                                   ct))
+                {
+                    yield return evt;
+                }
+
+                if (repaired)
+                    yield break;
+
                 yield return new SmartFlowEvent("error", error.Message);
                 yield break;
             }
@@ -371,6 +389,22 @@ public sealed class SmartFlowService
             else if (result is { Success: false })
             {
                 var errMsg = result.Error?.Message ?? "Workflow execution failed";
+                var repaired = false;
+                await foreach (var evt in OfferWorkflowRepairAsync(
+                                   runtime,
+                                   resolvedWorkflow,
+                                   task,
+                                   WorkflowFailure.FromResult(result),
+                                   parentActivity,
+                                   repairedValue => repaired = repairedValue,
+                                   ct))
+                {
+                    yield return evt;
+                }
+
+                if (repaired)
+                    yield break;
+
                 yield return new SmartFlowEvent("error", errMsg);
             }
         }
@@ -484,8 +518,8 @@ public sealed class SmartFlowService
 
         try
         {
-            var (workflow, selectedAgentName) = await ResolveWorkflowAsync(runtime, agentName, ct);
-            return WorkflowInputComposer.FromWorkflow(selectedAgentName, workflow.Source);
+            var resolved = await ResolveWorkflowAsync(runtime, agentName, ct);
+            return WorkflowInputComposer.FromWorkflow(resolved.AgentName, resolved.Workflow.Source);
         }
         catch (Exception ex)
         {
@@ -527,7 +561,7 @@ public sealed class SmartFlowService
         }
     }
 
-    private async Task<(CompiledWorkflow Workflow, string? AgentName)> ResolveWorkflowAsync(
+    private async Task<ResolvedWorkflow> ResolveWorkflowAsync(
         SecureWorkflowRuntimeSession runtime,
         string? requestedAgentName,
         CancellationToken ct)
@@ -537,14 +571,14 @@ public sealed class SmartFlowService
         {
             var workflowResult = await LoadAgentWorkflowAsync(runtime, selectedAgentName, ct);
             if (workflowResult.Workflow is not null)
-                return (workflowResult.Workflow, selectedAgentName);
+                return new ResolvedWorkflow(workflowResult.Workflow, selectedAgentName, workflowResult.Agent);
 
             throw new InvalidOperationException(
                 workflowResult.ErrorMessage
                 ?? $"Selected agent '{selectedAgentName}' could not be loaded from {AgentMcpHostingExtensions.ServerName}.");
         }
 
-        return (CompileRoutingWorkflow(), null);
+        return new ResolvedWorkflow(CompileRoutingWorkflow(), null, null);
     }
 
     private async Task<string?> ResolveAgentNameAsync(string? requestedAgentName, CancellationToken ct)
@@ -653,12 +687,21 @@ public sealed class SmartFlowService
                 $"The selected agent '{agentName}' could not be loaded from {AgentMcpHostingExtensions.ServerName}. {detail}");
         }
 
-        var workflowText = payload["agent"]?["workflow"]?.GetValue<string>();
+        var agentObject = payload["agent"] as JsonObject;
+        var workflowText = agentObject?["workflow"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(workflowText))
         {
             return AgentWorkflowLoadResult.Fail(
                 $"The selected agent '{agentName}' does not contain a workflow definition in {AgentMcpHostingExtensions.ServerName}.");
         }
+
+        var agent = new AgentDto(
+            agentObject?["id"]?.GetValue<string>() ?? "",
+            agentObject?["name"]?.GetValue<string>() ?? agentName,
+            workflowText,
+            agentObject?["original_prompt"]?.GetValue<string>(),
+            agentObject?["created_at"]?.GetValue<string>() ?? "",
+            agentObject?["updated_at"]?.GetValue<string>() ?? "");
 
         try
         {
@@ -668,7 +711,7 @@ public sealed class SmartFlowService
             if (entrypoint is null || !compiled.Workflows.TryGetValue(entrypoint, out var workflow))
                 throw new InvalidOperationException($"Agent '{agentName}' does not expose a valid entrypoint workflow.");
 
-            return AgentWorkflowLoadResult.Success(workflow);
+            return AgentWorkflowLoadResult.Success(workflow, agent);
         }
         catch (Exception ex)
         {
@@ -677,6 +720,344 @@ public sealed class SmartFlowService
                 $"The selected agent '{agentName}' has an invalid workflow definition. {ex.Message}");
         }
     }
+
+    private async IAsyncEnumerable<SmartFlowEvent> OfferWorkflowRepairAsync(
+        SecureWorkflowRuntimeSession runtime,
+        ResolvedWorkflow resolvedWorkflow,
+        string task,
+        WorkflowFailure failure,
+        Activity? parentActivity,
+        Action<bool> setRepaired,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        setRepaired(false);
+
+        var agent = resolvedWorkflow.Agent;
+        if (agent is null || string.IsNullOrWhiteSpace(agent.Id) || string.IsNullOrWhiteSpace(agent.Workflow))
+            yield break;
+
+        var request = new HumanInputRequest
+        {
+            RunId = $"repair-{Guid.NewGuid():N}",
+            StepId = "agent_workflow_repair",
+            Mode = HumanInputContract.ModeChoice,
+            Prompt = $"The selected agent '{agent.Name}' failed while running. Do you want GnOuGo to improve and save this workflow using the error details?",
+            Choices = ["improve", "skip"],
+            TimeoutMs = HumanInputContract.DefaultTimeoutMs,
+            Context = new JsonObject
+            {
+                ["agent"] = agent.Name,
+                ["error_code"] = failure.Code,
+                ["error_message"] = failure.Message,
+                ["error_type"] = failure.Type,
+                ["details"] = failure.Details?.DeepClone()
+            }
+        };
+
+        JsonNode? decision = null;
+        await foreach (var evt in EmitHumanInputRequestAsync(request, response => decision = response, ct))
+            yield return evt;
+
+        if (!IsImproveDecision(decision))
+            yield break;
+
+        yield return new SmartFlowEvent("thinking:info", $"Improving workflow for agent '{agent.Name}' from the latest execution error...");
+
+        var repairWorkflow = CompileEmbeddedWorkflow(BuildRepairWorkflowYaml(), "agent-workflow-repair.yaml");
+        var repairInputs = new JsonObject
+        {
+            ["agent_id"] = agent.Id,
+            ["agent_name"] = agent.Name,
+            ["original_prompt"] = agent.OriginalPrompt ?? "",
+            ["current_workflow"] = agent.Workflow,
+            ["user_prompt"] = task,
+            ["error_code"] = failure.Code,
+            ["error_type"] = failure.Type ?? "",
+            ["error_message"] = failure.Message,
+            ["error_details"] = failure.Details?.DeepClone()
+        };
+
+        var channel = Channel.CreateUnbounded<SmartFlowEvent>(new UnboundedChannelOptions
+        {
+            SingleReader = true,
+            SingleWriter = false
+        });
+
+        var telemetry = new CompositeWorkflowTelemetry(
+            new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt)),
+            _otel);
+
+        var repairEngine = new WorkflowEngine
+        {
+            LLMClient = runtime.LlmClient,
+            LlmDefaults = new LlmRuntimeDefaults
+            {
+                Provider = runtime.Options.DefaultProvider,
+                Model = runtime.Options.DefaultModel
+            },
+            McpClientFactory = runtime.McpClientFactory,
+            McpCache = _mcpCache,
+            HumanInputProvider = _humanInput,
+            WorkflowCallResolver = CreateWorkflowCallResolver(),
+            WorkflowCandidateProvider = _candidateProvider,
+            Telemetry = telemetry,
+            Logger = _logger,
+            Limits = new ExecutionLimits
+            {
+                LogStepContent = true,
+                RunId = $"repair-{Guid.NewGuid():N}"
+            }
+        };
+
+        RunResult? repairResult = null;
+        Exception? repairError = null;
+        var executionTask = Task.Run(async () =>
+        {
+            var previousTaskActivity = Activity.Current;
+            if (parentActivity is not null)
+                Activity.Current = parentActivity;
+
+            try
+            {
+                repairResult = await repairEngine.ExecuteAsync(repairWorkflow, repairInputs, ct);
+            }
+            catch (Exception ex)
+            {
+                repairError = ex;
+            }
+            finally
+            {
+                Activity.Current = previousTaskActivity;
+                channel.Writer.TryComplete();
+            }
+        }, ct);
+
+        await foreach (var evt in channel.Reader.ReadAllAsync(ct))
+            yield return evt;
+
+        await executionTask;
+
+        if (repairError is not null)
+        {
+            _logger.LogWarning(repairError, "Could not repair workflow for agent '{AgentName}'.", agent.Name);
+            yield return new SmartFlowEvent(
+                "error",
+                $"Workflow execution failed, and the automatic repair could not be saved. Original error: {failure.Message}. Repair error: {repairError.Message}");
+            yield break;
+        }
+
+        if (repairResult is not { Success: true })
+        {
+            var repairMessage = repairResult?.Error?.Message ?? "Unknown repair error.";
+            yield return new SmartFlowEvent(
+                "error",
+                $"Workflow execution failed, and the automatic repair could not be saved. Original error: {failure.Message}. Repair error: {repairMessage}");
+            yield break;
+        }
+
+        var attempts = repairResult.Outputs?["attempt"]?.GetValue<int>() ?? 1;
+        setRepaired(true);
+        yield return new SmartFlowEvent(
+            "answer",
+            $"The workflow for agent '{agent.Name}' failed on this run, but I improved and saved the agent workflow through {AgentMcpHostingExtensions.ServerName}. Please retry the request. Repair planning attempts: {attempts}.");
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> EmitHumanInputRequestAsync(
+        HumanInputRequest request,
+        Action<JsonNode?> captureResponse,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        yield return new SmartFlowEvent("human_input_request", BuildHumanInputPayload(request).ToJsonString());
+        var response = await _humanInput.RequestInputAsync(request, ct);
+        captureResponse(response);
+    }
+
+    private static JsonObject BuildHumanInputPayload(HumanInputRequest request)
+    {
+        var payload = new JsonObject
+        {
+            ["prompt"] = request.Prompt,
+            ["mode"] = request.Mode,
+            ["run_id"] = request.RunId,
+            ["step_id"] = request.StepId,
+            ["timeout_ms"] = request.TimeoutMs
+        };
+
+        if (request.Context is not null)
+            payload["context"] = request.Context.DeepClone();
+
+        if (request.Choices is not null)
+            payload["choices"] = new JsonArray(request.Choices.Select(choice => (JsonNode?)JsonValue.Create(choice)).ToArray());
+
+        if (request.Fields is not null)
+        {
+            payload["fields"] = new JsonArray(request.Fields.Select(field =>
+            {
+                var fieldObject = new JsonObject
+                {
+                    ["name"] = field.Name,
+                    ["type"] = field.Type,
+                    ["required"] = field.Required
+                };
+                if (!string.IsNullOrWhiteSpace(field.Description))
+                    fieldObject["description"] = field.Description;
+                if (field.Options is not null)
+                    fieldObject["options"] = new JsonArray(field.Options.Select(option => (JsonNode?)JsonValue.Create(option)).ToArray());
+                if (!string.IsNullOrWhiteSpace(field.Default))
+                    fieldObject["default"] = field.Default;
+                return (JsonNode?)fieldObject;
+            }).ToArray());
+        }
+
+        return payload;
+    }
+
+    private static bool IsImproveDecision(JsonNode? response)
+    {
+        var value = response switch
+        {
+            JsonObject obj => obj["response"]?.GetValue<string>(),
+            JsonValue jsonValue when jsonValue.TryGetValue<string>(out var text) => text,
+            _ => null
+        };
+
+        return string.Equals(value, "improve", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "approve", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildRepairWorkflowYaml() => """
+        version: 1
+        name: agent-workflow-repair
+        workflows:
+          main:
+            inputs:
+              agent_id:
+                type: string
+                required: true
+              agent_name:
+                type: string
+                required: true
+              original_prompt:
+                type: string
+                required: false
+                default: ""
+              current_workflow:
+                type: string
+                required: true
+              user_prompt:
+                type: string
+                required: true
+              error_code:
+                type: string
+                required: false
+                default: ""
+              error_type:
+                type: string
+                required: false
+                default: ""
+              error_message:
+                type: string
+                required: true
+              error_details:
+                type: object
+                required: false
+
+            steps:
+              - id: plan_repair
+                type: workflow.plan
+                input:
+                  generator:
+                    reasoning: medium
+                    instruction: |
+                      Repair an existing persisted GnOuGo.Flow chat-agent workflow.
+                      Return a complete replacement workflow YAML document only.
+
+                      Keep the same agent name and preserve the chat-agent contract:
+                      - It must be executable by GnOuGo.Agent.Server for a user chat message.
+                      - It must accept a user task/prompt input such as `task`.
+                      - It must expose an `answer` output string.
+                      - It must remain self-contained and must not ask the user to review its own YAML.
+                      - Prefer fixing the smallest root cause that explains the latest runtime error.
+                      - For MCP failures, update the MCP request shape, output access, error handling, or tool choice based on the error details.
+                      - `mcp.call` raises workflow errors by default; use `on_error` only when the workflow can recover intentionally.
+
+                      <agent_name>
+                      ${data.inputs.agent_name}
+                      </agent_name>
+
+                      <original_agent_prompt>
+                      ${data.inputs.original_prompt}
+                      </original_agent_prompt>
+
+                      <user_prompt_that_failed>
+                      ${data.inputs.user_prompt}
+                      </user_prompt_that_failed>
+
+                      <runtime_error>
+                      code: ${data.inputs.error_code}
+                      type: ${data.inputs.error_type}
+                      message: ${data.inputs.error_message}
+                      details: ${json(data.inputs.error_details)}
+                      </runtime_error>
+
+                      <current_workflow_yaml>
+                      ${data.inputs.current_workflow}
+                      </current_workflow_yaml>
+                    context: |
+                      This repair is being triggered after a real execution failure in GnOuGo.Agent.Server.
+                      The replacement YAML will be persisted through GnOuGo.Agent.Mcp `agent_update`.
+                      Keep the generated workflow compatible with the available DSL and MCP tool contracts.
+                  policy:
+                    allowed_step_types:
+                      - emit
+                      - set
+                      - template.render
+                      - llm.call
+                      - mcp.list
+                      - mcp.call
+                      - sequence
+                      - parallel
+                      - loop.sequential
+                      - loop.parallel
+                      - switch
+                      - human.input
+                    denied_step_types:
+                      - workflow.plan
+                      - workflow.execute
+                      - workflow.call
+                    allow_remote_workflow_refs: false
+                  limits:
+                    max_steps_total: 100
+                  validate:
+                    compile: true
+                    dry_run: true
+                  on_invalid:
+                    action: reprompt
+                    max_attempts: 10
+
+              - id: save_repaired_agent
+                type: mcp.call
+                input:
+                  server: GnOuGo.Agent.Mcp
+                  method: agent_update
+                  request:
+                    id: "${data.inputs.agent_id}"
+                    name: "${data.inputs.agent_name}"
+                    workflow: "${data.steps.plan_repair.yaml}"
+                    originalPrompt: "${data.inputs.original_prompt}"
+
+            outputs:
+              answer:
+                expr: "${'Updated workflow for agent ' + data.inputs.agent_name}"
+                type: string
+              attempt:
+                expr: "${data.steps.plan_repair.meta.attempt}"
+                type: number
+              updated_yaml:
+                expr: "${data.steps.plan_repair.yaml}"
+                type: string
+        """;
 
     private CompiledWorkflow CompileRoutingWorkflow()
         => CompileEmbeddedWorkflow(_routingWorkflowYaml, "main-routing-agent.yaml");
@@ -891,9 +1272,21 @@ public sealed class SmartFlowService
         return raw;
     }
 
-    private sealed record AgentWorkflowLoadResult(CompiledWorkflow? Workflow, string? ErrorMessage)
+    private sealed record ResolvedWorkflow(CompiledWorkflow Workflow, string? AgentName, AgentDto? Agent);
+
+    private sealed record WorkflowFailure(string Code, string Message, string? Type, JsonNode? Details)
     {
-        public static AgentWorkflowLoadResult Success(CompiledWorkflow workflow) => new(workflow, null);
-        public static AgentWorkflowLoadResult Fail(string errorMessage) => new(null, errorMessage);
+        public static WorkflowFailure FromResult(RunResult result)
+            => new(
+                result.Error?.Code ?? "WORKFLOW_EXECUTION_ERROR",
+                result.Error?.Message ?? "Workflow execution failed.",
+                result.Error?.Type,
+                result.Error?.Details?.DeepClone());
+    }
+
+    private sealed record AgentWorkflowLoadResult(CompiledWorkflow? Workflow, AgentDto? Agent, string? ErrorMessage)
+    {
+        public static AgentWorkflowLoadResult Success(CompiledWorkflow workflow, AgentDto agent) => new(workflow, agent, null);
+        public static AgentWorkflowLoadResult Fail(string errorMessage) => new(null, null, errorMessage);
     }
 }

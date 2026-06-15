@@ -1,4 +1,5 @@
 ﻿using GnOuGo.Git.Mcp;
+using GnOuGo.Mcp.Core;
 using GnOuGo.Observability.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -28,6 +29,7 @@ builder.Services
             Name = "GnOuGo.Git.Mcp",
             Version = "1.0.0"
         };
+        options.AddGnOuGoToolErrorNormalizer();
     })
     .WithStdioServerTransport()
     .WithTools<GitTools>(GitMcpJson.SerializerOptions);
@@ -54,4 +56,3 @@ logger.LogInformation(
     info.HasConfiguredToken);
 
 await host.RunAsync();
-

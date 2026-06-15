@@ -158,6 +158,9 @@ class McpCallExecutor:
     dsl_snippet = """
 ### mcp.call - Execute MCP tool or prompt
 Direct MCP call pattern (preferred when tool names are known): use `mcp.call` directly with explicit `method` and `request`.
+MCP errors raise workflow `on_error` by default. Set `raise_on_error: false` only when the workflow intentionally wants
+to inspect `status: error` as normal output.
+Set `error_policy.detect_result_errors: true` to treat common structured failure envelopes like `{ success: false, error_code, error_message }` as MCP errors.
 ```yaml
 - id: browse
   type: mcp.call
@@ -245,6 +248,11 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
         timeout = float(timeout_ms) / 1000.0 if timeout_ms is not None else None
         if timeout_ms is not None:
             ctx.set_telemetry_attribute("mcp.timeout_ms", timeout_ms)
+        error_policy = _resolve_mcp_error_policy(input_obj)
+        if error_policy["raise_on_error"]:
+            ctx.set_telemetry_attribute("mcp.raise_on_error", True)
+        if error_policy["detect_result_errors"]:
+            ctx.set_telemetry_attribute("mcp.detect_result_errors", True)
         target = "(llm-selection)" if has_prompt_selection else "(auto)"
         try:
             correlation = _build_mcp_correlation_context(ctx, server, kind, method if isinstance(method, str) else (",".join(methods) if methods else None))
@@ -268,13 +276,24 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                         kind,
                         method if isinstance(method, str) else None,
                         methods,
+                        error_policy,
                         timeout,
                         realtime_progress_fingerprints,
                     )
 
                 async def single(call_method: str, req: Any) -> dict[str, Any]:
                     item_correlation = _build_mcp_correlation_context(ctx, server, kind, call_method)
-                    return await self._call_single(ctx, session, kind, call_method, req, item_correlation, realtime_progress_fingerprints, timeout)
+                    return await self._call_single(
+                        ctx,
+                        session,
+                        kind,
+                        call_method,
+                        req,
+                        item_correlation,
+                        realtime_progress_fingerprints,
+                        timeout,
+                        error_policy["detect_result_errors"],
+                    )
 
                 if methods is not None:
                     target = ", ".join(methods)
@@ -287,7 +306,10 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                         results.append(item)
                     ctx.set_telemetry_attribute("mcp.methods_count", len(methods))
                     ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if has_error else "stop")
-                    return {"status": "error" if has_error else "ok", "results": results}
+                    batch_result = {"status": "error" if has_error else "ok", "results": results}
+                    if error_policy["raise_on_error"] and has_error:
+                        _raise_mcp_batch_error(kind, server, methods, batch_result)
+                    return batch_result
 
                 if not method:
                     cache = ctx.engine.mcp_cache
@@ -317,12 +339,17 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                         has_error = has_error or item.get("status") == "error"
                         batch.append(item)
                     ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if has_error else "stop")
-                    return {"status": "error" if has_error else "ok", "results": batch}
+                    batch_result = {"status": "error" if has_error else "ok", "results": batch}
+                    if error_policy["raise_on_error"] and has_error:
+                        _raise_mcp_batch_error(kind, server, methods, batch_result)
+                    return batch_result
 
                 target = method
                 ctx.set_telemetry_attribute("mcp.method.name", method)
                 single_result = await single(method, request)
                 ctx.set_telemetry_attribute("gen_ai.response.finish_reason", "error" if single_result.get("status") == "error" else "stop")
+                if error_policy["raise_on_error"] and single_result.get("status") == "error":
+                    _raise_mcp_single_error(kind, server, method, single_result)
                 return single_result
         except WorkflowRuntimeException:
             raise
@@ -342,6 +369,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
         correlation: McpCorrelationContext,
         realtime_progress_fingerprints: set[str] | None,
         timeout: float | None,
+        detect_result_errors: bool,
     ) -> dict[str, Any]:
         if kind == "prompt":
             op = session.get_prompt_async(method, request_args)
@@ -355,14 +383,16 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
         result = await (asyncio.wait_for(op, timeout=timeout) if timeout is not None else op)
         _runtime._extract_usage_telemetry(ctx, result.usage, result.model)
         _emit_mcp_progress_events_as_thinking(ctx, result.content, correlation, realtime_progress_fingerprints)
+        cleaned_content = _strip_progress_events(copy.deepcopy(result.content))
+        is_error = bool(result.is_error) or (detect_result_errors and _is_mcp_result_error_envelope(cleaned_content))
         output: dict[str, Any] = {
-            "status": "error" if result.is_error else "ok",
-            "response": _strip_progress_events(copy.deepcopy(result.content)),
+            "status": "error" if is_error else "ok",
+            "response": cleaned_content,
             "correlation_id": correlation.correlation_id,
             "trace_id": correlation.trace_id,
         }
-        if result.is_error:
-            output["error"] = {"message": _extract_error_message(result.content), "content": copy.deepcopy(result.content)}
+        if is_error:
+            output["error"] = _build_mcp_error_object(cleaned_content, correlation)
         return output
 
     def _build_request_args(self, input_obj: dict[str, Any], ctx: StepExecutionContext) -> Any:
@@ -396,6 +426,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
         default_kind: str,
         single_method: str | None,
         batch_methods: list[Any] | None,
+        error_policy: dict[str, bool],
         timeout: float | None,
         realtime_progress_fingerprints: set[str] | None,
     ) -> dict[str, Any]:
@@ -556,8 +587,23 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                 err = ErrorCodes.MCP_PROMPT_ERROR if default_kind == "prompt" else ErrorCodes.MCP_CALL_ERROR
                 raise WorkflowRuntimeException(err, f"mcp.call prompt mode selected unknown MCP capability '{tc.name}'")
 
-            correlation = _build_mcp_correlation_context(ctx, getattr(session, "server_name", input_obj.get("server", "")), cap["kind"], cap["method"])
-            result_item = await self._call_single(ctx, session, cap["kind"], cap["method"], tc.arguments, correlation, realtime_progress_fingerprints, timeout)
+            correlation = _build_mcp_correlation_context(
+                ctx,
+                getattr(session, "server_name", input_obj.get("server", "")),
+                cap["kind"],
+                cap["method"],
+            )
+            result_item = await self._call_single(
+                ctx,
+                session,
+                cap["kind"],
+                cap["method"],
+                tc.arguments,
+                correlation,
+                realtime_progress_fingerprints,
+                timeout,
+                error_policy["detect_result_errors"],
+            )
             result_item["method"] = cap["method"]
             result_item["kind"] = cap["kind"]
             if tc.id:
@@ -583,6 +629,9 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
             "tool_calls": tool_calls_out,
             "results": results_out,
         }
+
+        if error_policy["raise_on_error"] and has_error:
+            _raise_mcp_llm_assisted_error(default_kind, getattr(session, "server_name", input_obj.get("server", "")), response)
 
         structured = input_obj.get("structured_output") if isinstance(input_obj.get("structured_output"), dict) else None
         schema = structured.get("schema_inline") or structured.get("schema_ref") if structured else None
@@ -777,6 +826,191 @@ def _extract_error_message(content: Any) -> str:
     return json.dumps(content, ensure_ascii=False, default=str)
 
 
+def _extract_error_code(content: Any) -> str | None:
+    if not isinstance(content, dict):
+        return None
+    for key in ("error_code", "errorCode", "code"):
+        value = _get_case_insensitive(content, key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return None
+
+
+def _build_mcp_error_object(content: Any, correlation: McpCorrelationContext) -> dict[str, Any]:
+    message = _extract_error_message(content)
+    return {
+        "message": message,
+        "mcp_error_code": _extract_error_code(content),
+        "mcp_error_message": message,
+        "content": copy.deepcopy(content),
+        "correlation_id": correlation.correlation_id,
+        "run_id": correlation.run_id,
+        "trace_id": correlation.trace_id,
+        "span_id": correlation.span_id,
+        "traceparent": correlation.traceparent,
+        "server": correlation.mcp_server,
+        "method": correlation.mcp_method,
+        "kind": correlation.mcp_kind,
+    }
+
+
+def _resolve_mcp_error_policy(input_obj: dict[str, Any]) -> dict[str, bool]:
+    raise_on_error = _optional_bool(_get_case_insensitive(input_obj, "raise_on_error"))
+    if raise_on_error is None:
+        raise_on_error = _optional_bool(_get_case_insensitive(input_obj, "raiseOnError"))
+    raise_on_error = True if raise_on_error is None else bool(raise_on_error)
+
+    detect_result_errors = raise_on_error
+    policy = _get_case_insensitive(input_obj, "error_policy")
+    if isinstance(policy, dict):
+        configured = _optional_bool(_get_case_insensitive(policy, "detect_result_errors"))
+        if configured is None:
+            configured = _optional_bool(_get_case_insensitive(policy, "detectResultErrors"))
+        if configured is not None:
+            detect_result_errors = configured
+    else:
+        configured = _optional_bool(_get_case_insensitive(input_obj, "detect_result_errors"))
+        if configured is None:
+            configured = _optional_bool(_get_case_insensitive(input_obj, "detectResultErrors"))
+        if configured is not None:
+            detect_result_errors = configured
+
+    return {"raise_on_error": raise_on_error, "detect_result_errors": bool(detect_result_errors)}
+
+
+def _optional_bool(value: Any) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized == "true":
+            return True
+        if normalized == "false":
+            return False
+    return None
+
+
+def _is_mcp_result_error_envelope(content: Any) -> bool:
+    if not isinstance(content, dict):
+        return False
+
+    success = _get_case_insensitive(content, "success")
+    if success is False:
+        return True
+
+    ok = _get_case_insensitive(content, "ok")
+    if ok is False:
+        return True
+
+    status = _get_case_insensitive(content, "status")
+    if isinstance(status, str) and status.strip().lower() in {"error", "failed", "failure"}:
+        return True
+
+    if _extract_error_code(content):
+        return True
+
+    for key in ("error_message", "errorMessage"):
+        value = _get_case_insensitive(content, key)
+        if isinstance(value, str) and value.strip():
+            return True
+
+    error = _get_case_insensitive(content, "error")
+    if error is not None and (not isinstance(error, str) or bool(error.strip())):
+        return True
+
+    code = _get_case_insensitive(content, "code")
+    message = _get_case_insensitive(content, "message")
+    return isinstance(code, str) and bool(code.strip()) and isinstance(message, str) and bool(message.strip()) and len(content) <= 3
+
+
+def _raise_mcp_single_error(kind: str, server: str, method: str, result: dict[str, Any]) -> None:
+    details = _build_mcp_exception_details(kind, server, method, result)
+    message = str(details.get("message") or f"mcp.call ({kind}) to '{server}/{method}' returned an MCP error.")
+    code = ErrorCodes.MCP_PROMPT_ERROR if kind == "prompt" else ErrorCodes.MCP_CALL_ERROR
+    raise WorkflowRuntimeException(
+        code,
+        f"mcp.call ({kind}) to '{server}/{method}' returned an MCP error: {message}",
+        retryable=False,
+        details=details,
+    )
+
+
+def _raise_mcp_batch_error(kind: str, server: str, methods: list[Any], result: dict[str, Any]) -> None:
+    method_text = ", ".join(str(m) for m in methods)
+    details = _build_mcp_aggregate_exception_details(kind, server, method_text, result)
+    message = str(details.get("message") or f"mcp.call ({kind}) to '{server}/{method_text}' returned one or more MCP errors.")
+    code = ErrorCodes.MCP_PROMPT_ERROR if kind == "prompt" else ErrorCodes.MCP_CALL_ERROR
+    raise WorkflowRuntimeException(
+        code,
+        f"mcp.call ({kind}) to '{server}/{method_text}' returned one or more MCP errors: {message}",
+        retryable=False,
+        details=details,
+    )
+
+
+def _raise_mcp_llm_assisted_error(kind: str, server: str, result: dict[str, Any]) -> None:
+    details = _build_mcp_aggregate_exception_details(kind, server, "(llm-selection)", result)
+    message = str(details.get("message") or f"mcp.call prompt mode on '{server}' returned one or more MCP errors.")
+    code = ErrorCodes.MCP_PROMPT_ERROR if kind == "prompt" else ErrorCodes.MCP_CALL_ERROR
+    raise WorkflowRuntimeException(
+        code,
+        f"mcp.call prompt mode on '{server}' returned one or more MCP errors: {message}",
+        retryable=False,
+        details=details,
+    )
+
+
+def _build_mcp_exception_details(kind: str, server: str, method: str, result: dict[str, Any]) -> dict[str, Any]:
+    error = result.get("error")
+    if isinstance(error, dict):
+        details = copy.deepcopy(error)
+    else:
+        response = result.get("response")
+        details = {
+            "message": _extract_error_message(response),
+            "mcp_error_code": _extract_error_code(response),
+            "mcp_error_message": _extract_error_message(response),
+            "content": copy.deepcopy(response),
+        }
+    details["server"] = details.get("server") or server
+    details["method"] = details.get("method") or method
+    details["kind"] = details.get("kind") or kind
+    details["status"] = result.get("status")
+    details["response"] = copy.deepcopy(result.get("response"))
+    return details
+
+
+def _build_mcp_aggregate_exception_details(kind: str, server: str, method: str, result: dict[str, Any]) -> dict[str, Any]:
+    first_error = _find_first_error_result(result)
+    if first_error is not None:
+        details = _build_mcp_exception_details(
+            str(first_error.get("kind") or kind),
+            server,
+            str(first_error.get("method") or method),
+            first_error,
+        )
+    else:
+        details = {"message": "MCP call returned one or more errors."}
+    details["server"] = details.get("server") or server
+    details["method"] = method
+    details["kind"] = kind
+    details["results"] = copy.deepcopy(result.get("results"))
+    details["content"] = copy.deepcopy(result)
+    return details
+
+
+def _find_first_error_result(result: dict[str, Any]) -> dict[str, Any] | None:
+    results = result.get("results")
+    if not isinstance(results, list):
+        return None
+    for item in results:
+        if isinstance(item, dict) and str(item.get("status", "")).lower() == "error":
+            return item
+    return None
+
+
 def _string_or_none(value: Any) -> str | None:
     if value is None:
         return None
@@ -922,4 +1156,3 @@ async def _call_tool_with_optional_meta(
 def _add_if_present(values: dict[str, Any], key: str, value: Any) -> None:
     if value is not None and str(value).strip():
         values[key] = value
-

@@ -31,6 +31,36 @@ public class WorkflowInputDefaultsTests
     }
 
     [Fact]
+    public void Apply_CoercesYamlScalarDefaultsToDeclaredTypes()
+    {
+        var workflow = new WorkflowDef
+        {
+            Inputs = new Dictionary<string, InputDef>
+            {
+                ["count"] = new() { Type = "number", Required = false, Default = "10" },
+                ["enabled"] = new() { Type = "boolean", Required = false, Default = "true" },
+                ["config"] = new()
+                {
+                    Type = "object",
+                    Required = false,
+                    Default = new Dictionary<string, object?> { ["port"] = "8080" },
+                    Properties = new Dictionary<string, InputDef>
+                    {
+                        ["port"] = new() { Type = "number", Required = false }
+                    }
+                }
+            }
+        };
+
+        var merged = WorkflowInputDefaults.Apply(workflow, new JsonObject());
+
+        Assert.Equal(10d, merged["count"]!.GetValue<double>());
+        Assert.True(merged["enabled"]!.GetValue<bool>());
+        var config = Assert.IsType<JsonObject>(merged["config"]);
+        Assert.Equal(8080d, config["port"]!.GetValue<double>());
+    }
+
+    [Fact]
     public void Apply_DoesNotOverrideExplicitInputs()
     {
         var workflow = new WorkflowDef
@@ -48,4 +78,3 @@ public class WorkflowInputDefaultsTests
         Assert.Equal("https://www.iana.org/", merged["site"]!.GetValue<string>());
     }
 }
-

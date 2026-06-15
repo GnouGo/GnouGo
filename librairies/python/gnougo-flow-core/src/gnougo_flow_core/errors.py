@@ -45,10 +45,11 @@ class WorkflowError:
 
 
 class WorkflowRuntimeException(Exception):
-    def __init__(self, code: str, message: str, retryable: bool = False) -> None:
+    def __init__(self, code: str, message: str, retryable: bool = False, details: Any = None) -> None:
         super().__init__(message)
         self.code = code
         self.retryable = retryable
+        self.details = details
 
     def to_workflow_error(self) -> WorkflowError:
         return WorkflowError(
@@ -56,6 +57,7 @@ class WorkflowRuntimeException(Exception):
             type=self.code,
             message=str(self),
             retryable=self.retryable,
+            details=self.details,
         )
 
 

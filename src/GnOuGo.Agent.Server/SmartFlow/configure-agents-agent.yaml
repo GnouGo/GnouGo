@@ -220,6 +220,7 @@ workflows:
         input:
           server: GnOuGo.Agent.Mcp
           method: agent_get_by_name
+          raise_on_error: false
           request:
             name: "${data.steps.normalized_name.agent_name}"
 
@@ -296,18 +297,6 @@ workflows:
                   Agent name: ${data.steps.normalized_name.agent_name}
                   Agent description: ${data.steps.input_prompt.description}
 
-                  Requirements:
-                  - Use workflow version 1.
-                  - The root workflow document name must be "${data.steps.normalized_name.agent_name}".
-                  - The main workflow MUST declare a required string input named "task".
-                  - The workflow must use data.inputs.task as the main user request text.
-                  - Include an "answer" output with the final result as a string.
-                  - Use available MCP tools when applicable, especially Browser/Document/Cmd tools for web and file tasks.
-                  - For Browser MCP browser_get_content on search/e-commerce pages such as Amazon, prefer waitUntil="domcontentloaded" or "load"; avoid "networkidle" unless the page is known to become idle.
-                  - For llm.call steps, omit provider/model so runtime defaults are used automatically; set temperature 0.7 unless a lower temperature is needed for deterministic formatting.
-                  - Keep the workflow concise and under 100 total steps.
-                  - Add the original agent description as a YAML comment at the top.
-                  - Return only a complete workflow YAML document.
                 context: >
                   This YAML will be stored by GnOuGo.Agent.Mcp and later executed by GnOuGo.Agent.Server for each user chat message.
                   The stored agent workflow must be self-contained and should not ask the user to review its own YAML.
@@ -338,7 +327,7 @@ workflows:
                 dry_run: true
               on_invalid:
                 action: reprompt
-                max_attempts: 6
+                max_attempts: 10
 
           - id: emit_workflow
             type: emit
@@ -403,6 +392,7 @@ workflows:
             input:
               server: GnOuGo.Agent.Mcp
               method: agent_add
+              raise_on_error: false
               request:
                 name: "${data.steps.normalized_name.agent_name}"
                 workflow: "${data.steps.final_workflow.workflow}"
@@ -453,6 +443,7 @@ workflows:
         input:
           server: GnOuGo.Agent.Mcp
           method: agent_get_by_name
+          raise_on_error: false
           request:
             name: "${data.inputs.name}"
 
@@ -499,6 +490,7 @@ workflows:
             input:
               server: GnOuGo.Agent.Mcp
               method: agent_get_by_name
+              raise_on_error: false
               request:
                 name: "${data.steps.normalized_edit_name.agent_name}"
 
@@ -573,6 +565,7 @@ workflows:
                         input:
                           server: GnOuGo.Agent.Mcp
                           method: agent_update
+                          raise_on_error: false
                           request:
                             id: "${data.steps.find_agent.response.agent.id}"
                             name: "${data.steps.normalized_edit_name.agent_name}"
@@ -620,6 +613,7 @@ workflows:
         input:
           server: GnOuGo.Agent.Mcp
           method: agent_get_by_name
+          raise_on_error: false
           request:
             name: "${data.inputs.name}"
 
@@ -655,6 +649,7 @@ workflows:
                     input:
                       server: GnOuGo.Agent.Mcp
                       method: agent_delete
+                      raise_on_error: false
                       request:
                         id: "${data.steps.find_agent.response.agent.id}"
 
@@ -700,6 +695,7 @@ workflows:
         input:
           server: GnOuGo.Agent.Mcp
           method: agent_get_by_name
+          raise_on_error: false
           request:
             name: "${data.inputs.name}"
 

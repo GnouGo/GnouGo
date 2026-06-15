@@ -17,7 +17,8 @@ public sealed class WorkflowCompiler
         // 1. Validate
         var errors = _validator.Validate(doc);
         if (errors.Any(e => e.Code is ErrorCodes.ExprParse or "DSL_VERSION" or "NO_WORKFLOWS"
-            or ErrorCodes.InputValidation or ErrorCodes.WorkflowCycleDetected or "INVALID_ENTRYPOINT"))
+            or ErrorCodes.InputValidation or ErrorCodes.WorkflowCycleDetected or "INVALID_ENTRYPOINT"
+            or "DUPLICATE_STEP_ID"))
         {
             throw new WorkflowCompilationException(errors);
         }

@@ -24,6 +24,7 @@ public class JsonSchemaConverterTests
         Assert.Equal("string", props!["name"]!["type"]!.GetValue<string>());
         Assert.Equal("User name", props["name"]!["description"]!.GetValue<string>());
         Assert.Equal("number", props["count"]!["type"]!.GetValue<string>());
+        Assert.Equal(10d, props["count"]!["default"]!.GetValue<double>());
 
         var required = schema["required"] as JsonArray;
         Assert.NotNull(required);
@@ -172,4 +173,3 @@ public class JsonSchemaConverterTests
         Assert.Equal("Arbitrary data", dataSchema["description"]!.GetValue<string>());
     }
 }
-

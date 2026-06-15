@@ -1,8 +1,7 @@
 import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler, WorkflowValidator
-from gnougo_flow_core.errors import ErrorCodes
-from gnougo_flow_core.errors import WorkflowParseException
+from gnougo_flow_core.errors import ErrorCodes, WorkflowParseException
 from gnougo_flow_core.parsing import WorkflowParser
 
 

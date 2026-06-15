@@ -21,6 +21,18 @@ public sealed class FilesStoragePathsTests
     }
 
     [Fact]
+    public void StorageRootPath_WhenDefault_UsesWorkspaceGnOuGoFilesDirectory()
+    {
+        var paths = new FilesStoragePaths(Microsoft.Extensions.Options.Options.Create(new FilesServerOptions()));
+        var expected = Path.Combine(
+            GnOuGoWorkspace.ResolveDefaultWorkingDirectory(),
+            ".GnOuGo",
+            "Files");
+
+        Assert.Equal(expected, paths.StorageRootPath);
+    }
+
+    [Fact]
     public void DatabasePath_WhenAbsoluteOverride_PreservesOverride()
     {
         var databasePath = Path.Combine(Path.GetTempPath(), $"gnougo-files-{Guid.NewGuid():N}.db");

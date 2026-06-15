@@ -311,12 +311,117 @@ workflows:
           server: srv
           method: lookup
           request: {}
+          raise_on_error: false
     outputs:
       status: "${data.steps.call.status}"
 """, mcpFactory: mockFactory.Object);
 
         Assert.True(result.Success);
         Assert.Equal("error", result.Outputs!["status"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task McpCall_DefaultRaiseOnError_TriggersOnErrorWithMcpDetails()
+    {
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("srv");
+        mockSession.Setup(s => s.CallToolAsync("lookup", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new McpCallResult
+            {
+                IsError = true,
+                Content = new JsonObject
+                {
+                    ["error_code"] = "NOT_FOUND",
+                    ["error_message"] = "Thing was not found."
+                }
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("srv", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: srv
+          method: lookup
+          request: {}
+        on_error:
+          cases:
+            - if: '${error.code == "MCP_CALL_ERROR"}'
+              action: continue
+              set_output:
+                recovered: true
+                code: "${error.code}"
+                mcp_code: "${error.details.mcp_error_code}"
+                mcp_message: "${error.details.mcp_error_message}"
+    outputs:
+      recovered: "${data.steps.call.recovered}"
+      code: "${data.steps.call.code}"
+      mcp_code: "${data.steps.call.mcp_code}"
+      mcp_message: "${data.steps.call.mcp_message}"
+""", mcpFactory: mockFactory.Object);
+
+        Assert.True(result.Success);
+        Assert.True(result.Outputs!["recovered"]!.GetValue<bool>());
+        Assert.Equal("MCP_CALL_ERROR", result.Outputs["code"]!.GetValue<string>());
+        Assert.Equal("NOT_FOUND", result.Outputs["mcp_code"]!.GetValue<string>());
+        Assert.Equal("Thing was not found.", result.Outputs["mcp_message"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task McpCall_DefaultRaiseOnError_DetectsStructuredFailureEnvelopeWhenTransportDoesNotSetIsError()
+    {
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("srv");
+        mockSession.Setup(s => s.CallToolAsync("lookup", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new McpCallResult
+            {
+                IsError = false,
+                Content = new JsonObject
+                {
+                    ["success"] = false,
+                    ["error_code"] = "ALREADY_EXISTS",
+                    ["error_message"] = "Already exists."
+                }
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("srv", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: srv
+          method: lookup
+          request: {}
+        on_error:
+          cases:
+            - action: continue
+              set_output:
+                recovered: true
+                mcp_code: "${error.details.mcp_error_code}"
+    outputs:
+      recovered: "${data.steps.call.recovered}"
+      mcp_code: "${data.steps.call.mcp_code}"
+""", mcpFactory: mockFactory.Object);
+
+        Assert.True(result.Success);
+        Assert.True(result.Outputs!["recovered"]!.GetValue<bool>());
+        Assert.Equal("ALREADY_EXISTS", result.Outputs["mcp_code"]!.GetValue<string>());
     }
 
     [Fact]
@@ -1453,6 +1558,7 @@ workflows:
           methods:
             - good
             - bad
+          raise_on_error: false
     outputs:
       status: "${data.steps.batch.status}"
 """, mcpFactory: mockFactory.Object);
@@ -1649,6 +1755,7 @@ workflows:
         type: mcp.call
         input:
           server: srv
+          raise_on_error: false
     outputs:
       status: "${data.steps.auto.status}"
 """, mcpFactory: mockFactory.Object);
@@ -1895,4 +2002,3 @@ workflows:
         Assert.Equal("summarize", promptsResults[0]!["method"]!.GetValue<string>());
     }
 }
-

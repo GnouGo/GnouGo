@@ -17,7 +17,7 @@ Temporary streamed file upload/download API for GnOuGo.
 By default, files and metadata are stored under:
 
 ```text
-<Desktop>/GnOuGo/Files/Temp
+<Desktop>/GnOuGo/.GnOuGo/Files
 ```
 
 The SQLite database defaults to:

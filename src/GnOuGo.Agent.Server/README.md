@@ -181,10 +181,11 @@ The desktop workflow publishes a trimmed self-contained `GnOuGo.Agent.Desktop` (
 ## Default Local Data Locations
 
 By default, the GnOuGo workspace remains `Desktop/GnOuGo`.
-Persisted agent workflow YAML files are saved directly in `Desktop/GnOuGo/`, and SQLite databases are saved in `Desktop/GnOuGo/.GnOuGo/data/`.
+Persisted agent workflow YAML files are saved in `Desktop/GnOuGo/.GnOuGo/`, uploaded files are saved in `Desktop/GnOuGo/.GnOuGo/Files/`, and SQLite databases are saved in `Desktop/GnOuGo/.GnOuGo/data/`.
 The default settings carry these relative paths explicitly:
 
-- agent workflows → `./{agent-name}.yaml`
+- agent workflows → `./.GnOuGo/{agent-name}.yaml`
+- uploaded files → `./.GnOuGo/Files/`
 - `Agent:DatabasePath` → `./.GnOuGo/data/gnougo-agent.db`
 - `KeyVault:DatabasePath` → `./.GnOuGo/data/gnougo-keyvault.db`
 - `DocsIngestorMcp:DatabasePath` → `./.GnOuGo/data/gnougo-docs-ingestor-mcp.db`

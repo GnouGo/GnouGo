@@ -27,11 +27,11 @@ public sealed class AgentMcpWebHostTests
     }
 
     [Fact]
-    public void ResolveAgentsDirectory_WhenUsingDefaultDatabasePath_UsesWorkspaceGnOuGoDirectory()
+    public void ResolveAgentsDirectory_WhenUsingDefaultDatabasePath_UsesWorkspaceGnOuGoDataDirectory()
     {
         var root = CreateWorkspaceRoot();
         var databasePath = Path.Combine(root, ".GnOuGo", "data", "gnougo-agent.db");
-        var expected = root;
+        var expected = Path.Combine(root, ".GnOuGo");
 
         var actual = AgentMcpHostingExtensions.ResolveAgentsDirectory(databasePath);
 
@@ -149,6 +149,64 @@ public sealed class AgentMcpWebHostTests
             Assert.Equal("ollama", config["default_llm_provider"]!.GetValue<string>());
             Assert.Equal("llama3:8b", config["default_llm_model"]!.GetValue<string>());
             Assert.Equal("slimfaas", config["default_agent"]!.GetValue<string>());
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+
+            try
+            {
+                if (File.Exists(dbPath))
+                    File.Delete(dbPath);
+            }
+            catch (IOException)
+            {
+                // Best-effort cleanup for a temporary SQLite file.
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Build_McpHttp_NormalizesStructuredToolFailureToIsError()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-mcp-error-{Guid.NewGuid():N}.db");
+        var app = AgentMcpWebHost.Build([
+            $"--Agent:DatabasePath={dbPath}"
+        ], urls: "http://127.0.0.1:0");
+
+        try
+        {
+            await app.StartAsync();
+
+            var address = app.Services
+                .GetRequiredService<IServer>()
+                .Features
+                .Get<IServerAddressesFeature>()!
+                .Addresses
+                .First();
+
+            await using var factory = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["GnOuGo.Agent.Mcp"] = new()
+                {
+                    Type = "http",
+                    Url = $"{address.TrimEnd('/')}/mcp",
+                    Description = "Standalone Agent MCP test host"
+                }
+            });
+
+            await using var session = await factory.GetClientAsync("GnOuGo.Agent.Mcp", CancellationToken.None);
+            var result = await session.CallToolAsync("agent_get_by_name", new System.Text.Json.Nodes.JsonObject
+            {
+                ["name"] = "missing-agent"
+            }, CancellationToken.None);
+
+            Assert.True(result.IsError);
+
+            var payload = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Content);
+            Assert.False(payload["success"]!.GetValue<bool>());
+            Assert.Equal("NOT_FOUND", payload["error_code"]!.GetValue<string>());
         }
         finally
         {

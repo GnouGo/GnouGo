@@ -675,13 +675,16 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     {
         // Build error context
         var errorContext = data.DeepClone() as JsonObject ?? new JsonObject();
-        errorContext["error"] = new JsonObject
+        var errorObject = new JsonObject
         {
             ["code"] = ex.Code,
             ["type"] = ex.Code,
             ["message"] = ex.Message,
             ["retryable"] = ex.Retryable
         };
+        if (ex.Details != null)
+            errorObject["details"] = ex.Details.DeepClone();
+        errorContext["error"] = errorObject;
         errorContext["step"] = new JsonObject
         {
             ["id"] = step.Id,

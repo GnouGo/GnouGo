@@ -16,6 +16,7 @@ from gnougo_flow_core.models import (
     LLMResponse,
     LlmRuntimeDefaults,
     McpCallResult,
+    McpServerMetadata,
     McpToolInfo,
     WorkflowDocument,
     WorkflowRouteCandidate,
@@ -28,6 +29,7 @@ from gnougo_flow_core.workflow_plan_semantic_validator import McpToolOutputContr
 async def validate_workflow_plan_dry_run(
     generated_doc: WorkflowDocument,
     mcp_tool_contracts: list[McpToolOutputContract] | None = None,
+    mcp_server_metadata: list[McpServerMetadata] | None = None,
 ) -> None:
     try:
         compiled = WorkflowCompiler().compile(generated_doc)
@@ -47,7 +49,7 @@ async def validate_workflow_plan_dry_run(
 
     engine = WorkflowEngine()
     engine.llm_client = _DryRunLlmClient()
-    engine.mcp_client_factory = _build_dry_run_mcp_factory(mcp_tool_contracts or [])
+    engine.mcp_client_factory = _build_dry_run_mcp_factory(mcp_tool_contracts or [], mcp_server_metadata or [])
     engine.human_input_provider = _DryRunHumanInputProvider()
     engine.workflow_candidate_provider = _DryRunWorkflowCandidateProvider()
     engine.lm_defaults = LlmRuntimeDefaults(model="dry-run-model")
@@ -157,8 +159,11 @@ def _create_sample_from_input_def(definition: InputDef | None) -> Any:
     return "dry-run"
 
 
-def _build_dry_run_mcp_factory(contracts: list[McpToolOutputContract]) -> InMemoryMcpClientFactory | None:
-    if not contracts:
+def _build_dry_run_mcp_factory(
+    contracts: list[McpToolOutputContract],
+    server_metadata: list[McpServerMetadata],
+) -> InMemoryMcpClientFactory | None:
+    if not contracts and not server_metadata:
         return None
 
     factory = InMemoryMcpClientFactory()
@@ -166,9 +171,23 @@ def _build_dry_run_mcp_factory(contracts: list[McpToolOutputContract]) -> InMemo
     for contract in contracts:
         by_server.setdefault(contract.server_name, []).append(contract)
 
-    for server_name, server_contracts in by_server.items():
+    server_names: list[str] = []
+    seen_server_names: set[str] = set()
+    for meta in server_metadata:
+        if not meta.name or meta.name in seen_server_names:
+            continue
+        server_names.append(meta.name)
+        seen_server_names.add(meta.name)
+    for server_name in by_server:
+        if server_name not in seen_server_names:
+            server_names.append(server_name)
+            seen_server_names.add(server_name)
+
+    descriptions = {meta.name: meta.description for meta in server_metadata}
+    for server_name in server_names:
+        server_contracts = by_server.get(server_name, [])
         config = MockMcpServerConfig(
-            description="Dry-run MCP server",
+            description=descriptions.get(server_name) or "Dry-run MCP server",
             tools=[
                 McpToolInfo(
                     name=contract.tool_name,
