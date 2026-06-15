@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.Agent.Mcp;
+using GnOuGo.Agent.Mcp.Models;
 using GnOuGo.Agent.Mcp.Services;
 
 namespace GnOuGo.Agent.Server.Tests;
@@ -31,6 +32,17 @@ internal static class AgentMcpTestPersistence
         return snapshot!;
     }
 
+    public static async Task<AgentDefinition?> GetAgentByNameAsync(string dbPath, string name, CancellationToken ct = default)
+    {
+        AgentDefinition? agent = null;
+        await WithAgentMcpServicesAsync(dbPath, async scope =>
+        {
+            var agents = scope.ServiceProvider.GetRequiredService<IAgentRepository>();
+            agent = await agents.GetByNameAsync(name, ct);
+        }, ct);
+        return agent;
+    }
+
     private static async Task WithAgentMcpServicesAsync(
         string dbPath,
         Func<AsyncServiceScope, Task> action,
@@ -46,4 +58,3 @@ internal static class AgentMcpTestPersistence
         await action(scope);
     }
 }
-

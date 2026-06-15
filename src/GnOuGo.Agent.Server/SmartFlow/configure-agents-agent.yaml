@@ -220,6 +220,7 @@ workflows:
         input:
           server: GnOuGo.Agent.Mcp
           method: agent_get_by_name
+          raise_on_error: false
           request:
             name: "${data.steps.normalized_name.agent_name}"
 
@@ -391,6 +392,7 @@ workflows:
             input:
               server: GnOuGo.Agent.Mcp
               method: agent_add
+              raise_on_error: false
               request:
                 name: "${data.steps.normalized_name.agent_name}"
                 workflow: "${data.steps.final_workflow.workflow}"
@@ -441,6 +443,7 @@ workflows:
         input:
           server: GnOuGo.Agent.Mcp
           method: agent_get_by_name
+          raise_on_error: false
           request:
             name: "${data.inputs.name}"
 
@@ -487,6 +490,7 @@ workflows:
             input:
               server: GnOuGo.Agent.Mcp
               method: agent_get_by_name
+              raise_on_error: false
               request:
                 name: "${data.steps.normalized_edit_name.agent_name}"
 
@@ -561,6 +565,7 @@ workflows:
                         input:
                           server: GnOuGo.Agent.Mcp
                           method: agent_update
+                          raise_on_error: false
                           request:
                             id: "${data.steps.find_agent.response.agent.id}"
                             name: "${data.steps.normalized_edit_name.agent_name}"
@@ -608,6 +613,7 @@ workflows:
         input:
           server: GnOuGo.Agent.Mcp
           method: agent_get_by_name
+          raise_on_error: false
           request:
             name: "${data.inputs.name}"
 
@@ -643,6 +649,7 @@ workflows:
                     input:
                       server: GnOuGo.Agent.Mcp
                       method: agent_delete
+                      raise_on_error: false
                       request:
                         id: "${data.steps.find_agent.response.agent.id}"
 
@@ -688,6 +695,7 @@ workflows:
         input:
           server: GnOuGo.Agent.Mcp
           method: agent_get_by_name
+          raise_on_error: false
           request:
             name: "${data.inputs.name}"
 
