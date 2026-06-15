@@ -104,8 +104,8 @@ class _TruncatingPrefilterLlm:
             )
         if len(self.requests) == 2:
             return LLMResponse(
-                text='{"filtered":"## Server: github\\nTools (1):\\n- list_repos: List repos\\n  input_schema: {\\"type\\":\\"object\\"}…"}',
-                json_payload={"filtered": '## Server: github\nTools (1):\n- list_repos: List repos\n  input_schema: {"type":"object"}…'},
+                text='{"filtered":"## Server: github\\nTools (1):\\n- list_repos: List repos\\n  input_schema_json: {\\"type\\":\\"object\\"}…"}',
+                json_payload={"filtered": '## Server: github\nTools (1):\n- list_repos: List repos\n  input_schema_json: {"type":"object"}…'},
             )
         return LLMResponse(text=_VALID_PLAN_YAML)
 
@@ -192,10 +192,14 @@ async def test_workflow_plan_prompt_mentions_llm_assisted_and_direct_mcp_call() 
     assert "numbers/integers/booleans must be unquoted YAML scalars" in prompt
     assert "prefer a YAML literal block (`|`) so nested quotes remain valid YAML" in prompt
     assert "list_repos" in prompt
-    assert "input_schema:" in prompt
-    assert "output_schema:" in prompt
-    assert "example_response:" in prompt
-    assert "```json" in prompt
+    assert "input_schema_json:" in prompt
+    assert "output_schema_json:" in prompt
+    assert "example_response_json:" in prompt
+    assert "```" not in prompt
+    assert "<user_prompt>" in prompt
+    assert "Build an MCP workflow" in prompt
+    assert "</user_prompt>" in prompt
+    assert "Instruction: Build an MCP workflow" not in prompt
     assert '"type": "string"' in prompt
     assert "schema-tail-marker" in prompt
     assert "schema-tail-marker…" not in prompt
@@ -237,8 +241,16 @@ async def test_workflow_plan_server_prefilter_uses_descriptions_before_capabilit
     assert "GitHub repository automation" in llm.requests[0].prompt
     assert "Weather forecasts" in llm.requests[0].prompt
     assert "list_repos" not in llm.requests[0].prompt
+    assert "<user_prompt>" in llm.requests[0].prompt
+    assert "Build a workflow that lists GitHub repositories" in llm.requests[0].prompt
+    assert "</user_prompt>" in llm.requests[0].prompt
+    assert "Instruction: Build a workflow that lists GitHub repositories" not in llm.requests[0].prompt
     assert llm.requests[1].structured_output_schema is not None
     assert llm.requests[1].temperature is None
+    assert "<user_prompt>" in llm.requests[1].prompt
+    assert "Build a workflow that lists GitHub repositories" in llm.requests[1].prompt
+    assert "</user_prompt>" in llm.requests[1].prompt
+    assert "Instruction: Build a workflow that lists GitHub repositories" not in llm.requests[1].prompt
     assert "list_repos" in llm.requests[2].prompt
     assert "get_weather" not in llm.requests[2].prompt
 
@@ -303,8 +315,9 @@ async def test_workflow_plan_capability_prefilter_falls_back_when_schema_is_trun
     assert len(llm.requests) == 3
     final_prompt = llm.requests[2].prompt
     assert "schema-tail-marker" in final_prompt
-    assert "```json" in final_prompt
-    assert 'input_schema: {"type":"object"}…' not in final_prompt
+    assert "input_schema_json:" in final_prompt
+    assert "```" not in final_prompt
+    assert 'input_schema_json: {"type":"object"}…' not in final_prompt
 
 
 @pytest.mark.asyncio

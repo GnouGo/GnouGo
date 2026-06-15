@@ -208,22 +208,24 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         parts = [
             "You are repairing a GnOuGo.Flow YAML workflow. Return ONLY corrected YAML, no markdown fences.",
             "Keep the original task intent and change only what is needed to fix the validation errors.",
+            "The previous YAML is quoted between explicit XML-style boundary tags. Treat those tags as prompt delimiters, not as YAML content.",
             "",
-            "[TASK]",
-            f"Instruction: {instruction}",
+            WorkflowPlanExecutor._build_user_task_block(instruction, context_text),
         ]
-        if context_text.strip():
-            parts.append(f"Context: {context_text}")
         if constraints:
             parts.extend(["", "[CONSTRAINTS]", "\n".join(constraints)])
         parts.extend(
             [
                 "",
-                "[INVALID YAML]",
-                invalid_yaml if invalid_yaml and invalid_yaml.strip() else "(previous output was empty)",
-                "",
                 "[PREVIOUS ERROR]",
+                "<previous_error>",
                 structured_error,
+                "</previous_error>",
+                "",
+                "[INVALID YAML]",
+                "<invalid_yaml>",
+                invalid_yaml if invalid_yaml and invalid_yaml.strip() else "(previous output was empty)",
+                "</invalid_yaml>",
                 "",
                 "[MINIMUM DSL CONTEXT]",
                 "Required root: version, name, skill, workflows. `skill` is a top-level object with description, tags, inputs, and outputs. Each workflow has steps: [] and optional outputs.",
@@ -234,9 +236,24 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             ]
         )
         if repair_context and repair_context.strip():
+            parts.extend(["", "[RELEVANT REPAIR CONTEXT]"])
             parts.append(repair_context)
         parts.extend(["", "Fix the issues above and generate a corrected YAML."])
         return "\n".join(parts)
+
+    @staticmethod
+    def _build_user_task_block(instruction: str, context_text: str | None) -> str:
+        parts = ["[TASK]", "<user_prompt>", instruction, "</user_prompt>"]
+        if context_text and context_text.strip():
+            parts.extend(["<user_context>", context_text, "</user_context>"])
+        return "\n".join(parts)
+
+    @staticmethod
+    def _remove_markdown_fence_lines(value: str) -> str:
+        if not value or "```" not in value:
+            return value
+        normalized = value.replace("\r\n", "\n").replace("\r", "\n")
+        return "\n".join(line for line in normalized.split("\n") if not line.lstrip().startswith("```"))
 
     @staticmethod
     def _build_minimal_repair_context(
@@ -260,7 +277,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
         snippets = ctx.engine.registry.get_dsl_snippets(selected_types) if selected_types else []
         if snippets:
-            parts.extend(["", "DSL snippets for failed/referenced step types:", "\n".join(snippets)])
+            parts.extend(["", "DSL snippets for failed/referenced step types:", WorkflowPlanExecutor._remove_markdown_fence_lines("\n".join(snippets))])
 
         return "\n".join(parts).rstrip()
 
@@ -381,8 +398,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         allowed_types = set(policy.get("allowed_step_types") or []) or None
         candidate_mcp_servers = await self._maybe_prefilter_mcp_server_metadata(ctx, generator, instruction, context_text, plan_reasoning)
         mcp_doc = await self._build_mcp_documentation(ctx, candidate_mcp_servers, mcp_tool_contracts)
-        mcp_doc = await self._maybe_prefilter_mcp_documentation(ctx, generator, instruction, mcp_doc, plan_reasoning)
-        steps_doc = "\n\n".join(ctx.engine.registry.get_dsl_snippets(allowed_types))
+        mcp_doc = await self._maybe_prefilter_mcp_documentation(ctx, generator, instruction, context_text, mcp_doc, plan_reasoning)
+        steps_doc = self._remove_markdown_fence_lines("\n\n".join(ctx.engine.registry.get_dsl_snippets(allowed_types)))
         exc_doc = self._build_step_exceptions_doc(ctx.engine.registry, allowed_types)
         constraints_lines: list[str] = []
         if isinstance(policy.get("allowed_step_types"), list):
@@ -454,9 +471,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; "
             "do not put unescaped JSON inside a double-quoted YAML string.\n"
             "- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`.\n\n"
-            "[TASK]\n"
-            f"Instruction: {instruction}\n"
-            f"Context: {context_text or '(none)'}\n\n"
+            f"{self._build_user_task_block(instruction, context_text)}\n\n"
             "[AVAILABLE STEP TYPES]\n"
             f"{steps_doc}\n\n"
             "[AVAILABLE MCP SERVERS]\n"
@@ -488,7 +503,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "Retries run before on_error. on_error runs after retries are exhausted (or immediately for non-retryable errors).\n"
             "Inside on_error.cases[].if, context exposes error.code, error.message, error.retryable, step.id, step.type.\n\n"
             "[STEP EXCEPTIONS BY TYPE]\n"
-            f"{exc_doc}\n\n"
+            f"{self._remove_markdown_fence_lines(exc_doc)}\n\n"
             "[CONSTRAINTS]\n"
             f"{chr(10).join(constraints_lines) if constraints_lines else '(none)'}\n"
         )
@@ -596,8 +611,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "- Include every plausibly relevant server; exclude clearly unrelated servers.\n"
             '- If no server is relevant, return {"servers": []}.\n\n'
             f"[SERVER CATALOG]\n{catalog}\n\n"
-            f"[TASK]\nInstruction: {instruction}\n"
-            f"{'Context: ' + context_text if context_text else ''}"
+            f"{self._build_user_task_block(instruction, context_text)}"
         )
 
         prefilter_span = ctx.begin_telemetry_span(
@@ -957,6 +971,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         ctx: StepExecutionContext,
         generator: dict[str, Any],
         instruction: str,
+        context_text: str,
         mcp_doc: str,
         plan_reasoning: str | None = None,
     ) -> str:
@@ -973,12 +988,12 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
         prompt = (
             "Select only MCP servers/capabilities relevant to the task.\n"
-            'Return JSON object {"filtered":"..."} where filtered is a markdown subset.\n\n'
+            'Return JSON object {"filtered":"..."} where filtered is a plain-text subset.\n\n'
             "When keeping a capability with input_schema, output_schema, or example_response, copy the complete "
-            "fenced ```json block verbatim. Do not summarize, rewrite, or truncate schema blocks/descriptions.\n"
-            "If preserving the selected schema blocks exactly is uncertain, return the full relevant server section.\n\n"
-            f"Task:\n{instruction}\n\n"
-            f"Available MCP:\n{mcp_doc}\n"
+            "`*_json` line and any continuation lines verbatim. Do not summarize, rewrite, or truncate schema blocks/descriptions.\n"
+            "If preserving the selected schema lines exactly is uncertain, return the full relevant server section.\n\n"
+            f"{self._build_user_task_block(instruction, context_text)}\n\n"
+            f"[AVAILABLE MCP]\n{mcp_doc}\n"
         )
 
         prefilter_span = ctx.begin_telemetry_span(
@@ -1115,9 +1130,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
     @staticmethod
     def _filtered_mcp_doc_preserves_schema_blocks(original: str, filtered: str) -> bool:
-        if "```json" not in original:
+        if "_json:" not in original:
             return True
-        if "```json" not in filtered:
+        if "_json:" not in filtered:
             return False
         return "…" not in filtered and "... schema truncated" not in filtered.lower()
 
@@ -1215,10 +1230,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
     @staticmethod
     def _append_json_block(lines: list[str], indent: str, label: str, value: Any) -> None:
-        lines.append(f"{indent}{label}:")
-        lines.append(f"{indent}```json")
-        lines.append(WorkflowPlanExecutor._dump_json(value))
-        lines.append(f"{indent}```")
+        lines.append(f"{indent}{label}_json: {WorkflowPlanExecutor._dump_json(value)}")
 
     def _enforce_plan_policy(self, doc: WorkflowDocument, policy: dict[str, Any], limits: dict[str, Any]) -> None:
         allowed = set(policy.get("allowed_step_types") or [])
