@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.10.5 - 2026-06-16
+
+- fix: enhance reprompt (#55) (release) (b5a27b8)
+
 ## v0.10.4 - 2026-06-15
 
 - fix: plan was very slow  (#54) (release) (cb3dd17)
