@@ -19,7 +19,25 @@ MCP (Model Context Protocol) stdio server for reading and writing document files
 | `document_get_policy` | Returns active policy (roots, extensions, limits) |
 | `document_list` | Lists allowed files in a directory |
 | `document_read` | Reads a document, returns structured sections (markdown or plain) |
-| `document_write` | Writes content to a file (generates DOCX/XLSX for Office formats) |
+| `document_write` | Writes or appends content to a file (generates DOCX/XLSX for Office formats) |
+
+### Incremental writes for LLM workflows
+
+`document_write` has an `append` parameter. The default is `false`, which preserves the existing overwrite/create behavior. For long MCP workflows, prefer this pattern:
+
+1. Call `document_write` once with `append=false` to initialize the target document.
+2. Call `document_write` repeatedly with `append=true` as each section is produced.
+
+This avoids asking the LLM to hold and resend one large final document payload, which can exceed the model context window. `append=true` requires the file to already exist so workflow mistakes fail early.
+
+Append support by format:
+
+| Format | Append behavior |
+|--------|-----------------|
+| DOCX | Appends new Markdown/plain-text content to the existing document body |
+| XLSX | Appends parsed rows to the first worksheet |
+| PDF | Regenerates a readable PDF from existing extracted text plus new content |
+| TXT, MD, CSV, JSON, XML, YAML | Appends text exactly as provided |
 
 ## DOCX Markdown Output
 

@@ -449,6 +449,10 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             Success: result.Success,
             Outputs: result.Outputs?.DeepClone(),
             Error: result.Error?.Message,
+            ErrorCode: result.Error?.Code,
+            ErrorType: result.Error?.Type,
+            ErrorDetails: result.Error?.Details?.DeepClone(),
+            HandledErrors: BuildHandledErrorsArray(result.StepResults),
             StepsExecuted: result.StepResults.Count);
     }
 
@@ -681,21 +685,51 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         var array = new JsonArray();
         foreach (var result in results)
         {
-            array.Add((JsonNode)new JsonObject
+            var item = new JsonObject
             {
                 ["id"] = result.Candidate.Id,
                 ["name"] = result.Candidate.Name,
+                ["ref"] = result.Candidate.Ref.DeepClone(),
                 ["workflow"] = result.WorkflowName,
                 ["success"] = result.Success,
                 ["outputs"] = result.Outputs?.DeepClone(),
                 ["error"] = result.Error,
+                ["error_code"] = result.ErrorCode,
+                ["error_type"] = result.ErrorType,
+                ["error_details"] = result.ErrorDetails?.DeepClone(),
+                ["handled_errors"] = result.HandledErrors?.DeepClone(),
                 ["run"] = new JsonObject
                 {
                     ["steps_executed"] = result.StepsExecuted
                 }
-            });
+            };
+            array.Add((JsonNode)item);
         }
         return array;
+    }
+
+    private static JsonArray? BuildHandledErrorsArray(IEnumerable<StepResult> stepResults)
+    {
+        var array = new JsonArray();
+        foreach (var stepResult in stepResults)
+        {
+            var error = stepResult.Error;
+            if (error is null)
+                continue;
+
+            array.Add((JsonNode)new JsonObject
+            {
+                ["step_id"] = stepResult.StepId,
+                ["step_type"] = stepResult.StepType,
+                ["status"] = stepResult.Status.ToString(),
+                ["code"] = error.Code,
+                ["type"] = error.Type,
+                ["message"] = error.Message,
+                ["details"] = error.Details?.DeepClone()
+            });
+        }
+
+        return array.Count == 0 ? null : array;
     }
 
     private static JsonArray ToJsonArray(IEnumerable<string> values)
@@ -807,6 +841,10 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         bool Success,
         JsonNode? Outputs,
         string? Error,
+        string? ErrorCode,
+        string? ErrorType,
+        JsonNode? ErrorDetails,
+        JsonArray? HandledErrors,
         int StepsExecuted);
 
     private sealed record AutoExtractConfig(

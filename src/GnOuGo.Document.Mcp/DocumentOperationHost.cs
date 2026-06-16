@@ -103,7 +103,7 @@ public sealed class DocumentOperationHost
     /// <summary>
     /// Write text content to a file. Supports plain text, markdown, and simple DOCX generation.
     /// </summary>
-    public DocumentWriteResult Write(string filePath, string content, string? encoding)
+    public DocumentWriteResult Write(string filePath, string content, string? encoding, bool append = false)
     {
         var resolved = _policy.ResolveFilePath(filePath);
 
@@ -112,6 +112,9 @@ public sealed class DocumentOperationHost
                 $"Extension '{Path.GetExtension(resolved)}' is not in the allowed list.");
 
         var ext = Path.GetExtension(resolved).ToLowerInvariant();
+        if (append && !File.Exists(resolved))
+            return DocumentWriteResult.Error("FILE_NOT_FOUND",
+                $"File not found: {resolved}. Initialize the document first with append=false, then append incrementally.");
 
         try
         {
@@ -124,21 +127,30 @@ public sealed class DocumentOperationHost
             switch (ext)
             {
                 case ".pdf":
-                    PdfWriter.WriteSimplePdf(resolved, content);
+                    WritePdf(resolved, content, append);
                     break;
                 case ".docx":
-                    DocxWriter.WriteSimpleDocx(resolved, content);
+                    if (append)
+                        DocxWriter.AppendSimpleDocx(resolved, content);
+                    else
+                        DocxWriter.WriteSimpleDocx(resolved, content);
                     break;
                 case ".xlsx":
-                    XlsxWriter.WriteSimpleXlsx(resolved, content);
+                    if (append)
+                        XlsxWriter.AppendSimpleXlsx(resolved, content);
+                    else
+                        XlsxWriter.WriteSimpleXlsx(resolved, content);
                     break;
                 default:
-                    File.WriteAllText(resolved, content, enc);
+                    if (append)
+                        File.AppendAllText(resolved, content, enc);
+                    else
+                        File.WriteAllText(resolved, content, enc);
                     break;
             }
 
             var info = new FileInfo(resolved);
-            _logger.LogInformation("Wrote {Bytes} bytes to {Path}", info.Length, resolved);
+            _logger.LogInformation("{Operation} {Bytes} bytes to {Path}", append ? "Appended" : "Wrote", info.Length, resolved);
 
             return new DocumentWriteResult(true, resolved, info.Length, null, null);
         }
@@ -147,6 +159,38 @@ public sealed class DocumentOperationHost
             _logger.LogError(ex, "Failed to write {FilePath}", resolved);
             return DocumentWriteResult.Error("WRITE_FAILED", $"{ex.GetType().Name}: {ex.Message}");
         }
+    }
+
+    private DocumentWriteResult? TryReadExistingPdfContent(string path, out string content)
+    {
+        var readResult = ReadPdf(path, "plain");
+        if (!readResult.Success)
+        {
+            content = string.Empty;
+            return DocumentWriteResult.Error(readResult.ErrorCode ?? "READ_FAILED",
+                readResult.ErrorMessage ?? "Failed to read existing PDF before append.");
+        }
+
+        content = string.Join("\n\n", readResult.Sections.Select(section => section.Content));
+        return null;
+    }
+
+    private void WritePdf(string resolved, string content, bool append)
+    {
+        if (!append)
+        {
+            PdfWriter.WriteSimplePdf(resolved, content);
+            return;
+        }
+
+        var existingReadError = TryReadExistingPdfContent(resolved, out var existing);
+        if (existingReadError is not null)
+            throw new InvalidOperationException(existingReadError.ErrorMessage);
+
+        var combined = string.IsNullOrWhiteSpace(existing)
+            ? content
+            : existing.TrimEnd() + "\n\n" + content;
+        PdfWriter.WriteSimplePdf(resolved, combined);
     }
 
     // ────────────────────────────── READERS ───────────────────────────────────
@@ -444,6 +488,3 @@ public sealed class DocumentOperationHost
         };
     }
 }
-
-
-

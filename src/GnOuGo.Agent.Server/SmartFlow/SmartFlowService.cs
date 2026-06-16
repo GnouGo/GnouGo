@@ -375,6 +375,48 @@ public sealed class SmartFlowService
             // Extract the final answer from workflow outputs
             if (result is { Success: true, Outputs: not null })
             {
+                var handledFailure = FindRepairableHandledFailure(result);
+                if (handledFailure is not null && resolvedWorkflow.Agent is not null)
+                {
+                    var repaired = false;
+                    await foreach (var evt in OfferWorkflowRepairAsync(
+                                       runtime,
+                                       resolvedWorkflow,
+                                       task,
+                                       handledFailure,
+                                       parentActivity,
+                                       repairedValue => repaired = repairedValue,
+                                       ct,
+                                       handledFailure: true))
+                    {
+                        yield return evt;
+                    }
+
+                    if (repaired)
+                        yield break;
+                }
+
+                var routedRepair = await TryResolveRoutedWorkflowRepairAsync(runtime, result, ct);
+                if (routedRepair is not null)
+                {
+                    var repaired = false;
+                    await foreach (var evt in OfferWorkflowRepairAsync(
+                                       runtime,
+                                       routedRepair.ResolvedWorkflow,
+                                       task,
+                                       routedRepair.Failure,
+                                       parentActivity,
+                                       repairedValue => repaired = repairedValue,
+                                       ct,
+                                       handledFailure: routedRepair.HandledFailure))
+                    {
+                        yield return evt;
+                    }
+
+                    if (repaired)
+                        yield break;
+                }
+
                 var answer = result.Outputs["answer"]?.GetValue<string>();
                 if (!string.IsNullOrWhiteSpace(answer))
                 {
@@ -453,6 +495,7 @@ public sealed class SmartFlowService
         sb.AppendLine("| `/gnougo list` | List configured agents |");
         sb.AppendLine("| `/gnougo add` | Create a new agent with the interactive wizard |");
         sb.AppendLine("| `/gnougo edit <name>` | Edit an existing agent |");
+        sb.AppendLine("| `/gnougo reprompt <name>` | Improve an existing agent workflow from a prompt |");
         sb.AppendLine("| `/gnougo remove <name>` | Remove an agent |");
         sb.AppendLine("| `/gnougo select <name>` | Set the active chat agent |");
         sb.AppendLine();
@@ -728,7 +771,8 @@ public sealed class SmartFlowService
         WorkflowFailure failure,
         Activity? parentActivity,
         Action<bool> setRepaired,
-        [EnumeratorCancellation] CancellationToken ct)
+        [EnumeratorCancellation] CancellationToken ct,
+        bool handledFailure = false)
     {
         setRepaired(false);
 
@@ -741,12 +785,15 @@ public sealed class SmartFlowService
             RunId = $"repair-{Guid.NewGuid():N}",
             StepId = "agent_workflow_repair",
             Mode = HumanInputContract.ModeChoice,
-            Prompt = $"The selected agent '{agent.Name}' failed while running. Do you want GnOuGo to improve and save this workflow using the error details?",
+            Prompt = handledFailure
+                ? $"The selected agent '{agent.Name}' handled an MCP error while running. Do you want GnOuGo to improve and save this workflow using the error details?"
+                : $"The selected agent '{agent.Name}' failed while running. Do you want GnOuGo to improve and save this workflow using the error details?",
             Choices = ["improve", "skip"],
             TimeoutMs = HumanInputContract.DefaultTimeoutMs,
             Context = new JsonObject
             {
                 ["agent"] = agent.Name,
+                ["handled"] = handledFailure,
                 ["error_code"] = failure.Code,
                 ["error_message"] = failure.Message,
                 ["error_type"] = failure.Type,
@@ -859,7 +906,9 @@ public sealed class SmartFlowService
         setRepaired(true);
         yield return new SmartFlowEvent(
             "answer",
-            $"The workflow for agent '{agent.Name}' failed on this run, but I improved and saved the agent workflow through {AgentMcpHostingExtensions.ServerName}. Please retry the request. Repair planning attempts: {attempts}.");
+            handledFailure
+                ? $"The workflow for agent '{agent.Name}' handled an MCP error on this run, and I improved and saved the agent workflow through {AgentMcpHostingExtensions.ServerName}. Please retry the request. Repair planning attempts: {attempts}."
+                : $"The workflow for agent '{agent.Name}' failed on this run, but I improved and saved the agent workflow through {AgentMcpHostingExtensions.ServerName}. Please retry the request. Repair planning attempts: {attempts}.");
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> EmitHumanInputRequestAsync(
@@ -925,6 +974,175 @@ public sealed class SmartFlowService
                || string.Equals(value, "approve", StringComparison.OrdinalIgnoreCase)
                || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
     }
+
+    private async Task<RoutedWorkflowRepair?> TryResolveRoutedWorkflowRepairAsync(
+        SecureWorkflowRuntimeSession runtime,
+        RunResult result,
+        CancellationToken ct)
+    {
+        foreach (var stepResult in result.StepResults)
+        {
+            if (!string.Equals(stepResult.StepType, "workflow.route", StringComparison.OrdinalIgnoreCase)
+                || stepResult.Output is not JsonObject routeOutput
+                || routeOutput["results"] is not JsonArray routeResults)
+            {
+                continue;
+            }
+
+            foreach (var routeResultNode in routeResults)
+            {
+                if (routeResultNode is not JsonObject routeResult)
+                    continue;
+
+                var agentName = ExtractRoutedDatabaseAgentName(routeResult);
+                if (string.IsNullOrWhiteSpace(agentName))
+                    continue;
+
+                var failure = ExtractRoutedWorkflowFailure(routeResult, out var handledFailure);
+                if (failure is null)
+                    continue;
+
+                var workflowResult = await LoadAgentWorkflowAsync(runtime, agentName, ct);
+                if (workflowResult.Workflow is null || workflowResult.Agent is null)
+                {
+                    _logger.LogWarning(
+                        "Could not load routed agent '{AgentName}' for workflow repair. {Error}",
+                        agentName,
+                        workflowResult.ErrorMessage);
+                    continue;
+                }
+
+                return new RoutedWorkflowRepair(
+                    new ResolvedWorkflow(workflowResult.Workflow, agentName, workflowResult.Agent),
+                    failure,
+                    handledFailure);
+            }
+        }
+
+        return null;
+    }
+
+    private static WorkflowFailure? ExtractRoutedWorkflowFailure(JsonObject routeResult, out bool handledFailure)
+    {
+        handledFailure = false;
+
+        if (TryGetBoolean(routeResult["success"]) == false)
+        {
+            var errorCode = GetString(routeResult["error_code"]);
+            if (IsRepairableMcpErrorCode(errorCode))
+            {
+                return new WorkflowFailure(
+                    errorCode!,
+                    GetString(routeResult["error"]) ?? "Routed workflow execution failed.",
+                    GetString(routeResult["error_type"]),
+                    EnrichRoutedFailureDetails(routeResult, routeResult["error_details"]));
+            }
+        }
+
+        if (routeResult["handled_errors"] is not JsonArray handledErrors)
+            return null;
+
+        foreach (var handledErrorNode in handledErrors)
+        {
+            if (handledErrorNode is not JsonObject handledError)
+                continue;
+
+            var errorCode = GetString(handledError["code"]);
+            if (!IsRepairableMcpErrorCode(errorCode))
+                continue;
+
+            handledFailure = true;
+            return new WorkflowFailure(
+                errorCode!,
+                GetString(handledError["message"]) ?? "Routed workflow handled an MCP error.",
+                GetString(handledError["type"]),
+                EnrichRoutedFailureDetails(routeResult, handledError["details"], handledError));
+        }
+
+        return null;
+    }
+
+    private static JsonNode? EnrichRoutedFailureDetails(
+        JsonObject routeResult,
+        JsonNode? details,
+        JsonObject? handledError = null)
+    {
+        var enriched = details?.DeepClone() as JsonObject ?? new JsonObject();
+        enriched["routed"] = true;
+        enriched["route_result_id"] = GetString(routeResult["id"]);
+        enriched["route_result_name"] = GetString(routeResult["name"]);
+        enriched["workflow"] = GetString(routeResult["workflow"]);
+
+        if (handledError is not null)
+        {
+            enriched["handled"] = true;
+            enriched["step_id"] = GetString(handledError["step_id"]);
+            enriched["step_type"] = GetString(handledError["step_type"]);
+            enriched["step_status"] = GetString(handledError["status"]);
+        }
+
+        return enriched;
+    }
+
+    private static string? ExtractRoutedDatabaseAgentName(JsonObject routeResult)
+    {
+        if (routeResult["ref"] is JsonObject refObj
+            && string.Equals(GetString(refObj["kind"]), "database", StringComparison.OrdinalIgnoreCase))
+        {
+            return GetString(refObj["agent"])
+                   ?? GetString(refObj["name"])
+                   ?? GetString(routeResult["name"]);
+        }
+
+        var id = GetString(routeResult["id"]);
+        if (id is not null && id.StartsWith("database:", StringComparison.OrdinalIgnoreCase))
+            return GetString(routeResult["name"]) ?? id["database:".Length..];
+
+        return null;
+    }
+
+    private static WorkflowFailure? FindRepairableHandledFailure(RunResult result)
+    {
+        foreach (var stepResult in result.StepResults)
+        {
+            var error = stepResult.Error;
+            if (error is null || !IsRepairableHandledError(error))
+                continue;
+
+            var details = error.Details?.DeepClone() as JsonObject ?? new JsonObject();
+            details["step_id"] = stepResult.StepId;
+            details["step_type"] = stepResult.StepType;
+            details["handled"] = true;
+
+            return new WorkflowFailure(
+                error.Code,
+                error.Message,
+                string.IsNullOrWhiteSpace(error.Type) ? stepResult.StepType : error.Type,
+                details);
+        }
+
+        return null;
+    }
+
+    private static bool IsRepairableHandledError(WorkflowError error)
+        => IsRepairableMcpErrorCode(error.Code);
+
+    private static bool IsRepairableMcpErrorCode(string? errorCode)
+        => errorCode is ErrorCodes.McpCallError
+            or ErrorCodes.McpPromptError
+            or ErrorCodes.McpConnectionError
+            or ErrorCodes.McpServerNotFound
+            or ErrorCodes.McpTimeout;
+
+    private static string? GetString(JsonNode? node)
+        => node is JsonValue value && value.TryGetValue<string>(out var text)
+            ? string.IsNullOrWhiteSpace(text) ? null : text
+            : null;
+
+    private static bool? TryGetBoolean(JsonNode? node)
+        => node is JsonValue value && value.TryGetValue<bool>(out var boolean)
+            ? boolean
+            : null;
 
     private static string BuildRepairWorkflowYaml() => """
         version: 1
@@ -1273,6 +1491,8 @@ public sealed class SmartFlowService
     }
 
     private sealed record ResolvedWorkflow(CompiledWorkflow Workflow, string? AgentName, AgentDto? Agent);
+
+    private sealed record RoutedWorkflowRepair(ResolvedWorkflow ResolvedWorkflow, WorkflowFailure Failure, bool HandledFailure);
 
     private sealed record WorkflowFailure(string Code, string Message, string? Type, JsonNode? Details)
     {

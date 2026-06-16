@@ -2682,6 +2682,7 @@ public sealed class ConfigureProvidersService
         sb.AppendLine("| `/gnougo list` | List configured agents |");
         sb.AppendLine("| `/gnougo add` | Create a new agent |");
         sb.AppendLine("| `/gnougo edit <name>` | Edit an existing agent |");
+        sb.AppendLine("| `/gnougo reprompt <name>` | Improve an existing agent workflow from a prompt |");
         sb.AppendLine("| `/gnougo remove <name>` | Remove an agent |");
         sb.AppendLine("| `/gnougo select <name>` | Set the active chat agent |");
         sb.AppendLine("| `/status` | Display current configuration summary |");
