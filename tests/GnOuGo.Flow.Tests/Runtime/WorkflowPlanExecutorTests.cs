@@ -218,21 +218,29 @@ workflows:
 
         Assert.NotNull(capturedPrompt);
         // Prompt should contain the DSL reference
-        Assert.Contains("[DSL REFERENCE]", capturedPrompt);
-        Assert.Contains("[AVAILABLE STEP TYPES]", capturedPrompt);
-        Assert.Contains("[TASK]", capturedPrompt);
+        Assert.Contains("<dsl_reference>", capturedPrompt);
+        Assert.Contains("</dsl_reference>", capturedPrompt);
+        Assert.DoesNotContain("[DSL REFERENCE]", capturedPrompt);
+        Assert.Contains("<available_step_types>", capturedPrompt);
+        Assert.Contains("</available_step_types>", capturedPrompt);
+        Assert.DoesNotContain("[AVAILABLE STEP TYPES]", capturedPrompt);
+        Assert.Contains("<task>", capturedPrompt);
+        Assert.Contains("</task>", capturedPrompt);
+        Assert.DoesNotContain("[TASK]", capturedPrompt);
         Assert.Contains("<user_prompt>", capturedPrompt);
         Assert.Contains("Build a simple greeting workflow", capturedPrompt);
         Assert.Contains("</user_prompt>", capturedPrompt);
         Assert.DoesNotContain("Instruction: Build a simple greeting workflow", capturedPrompt);
-        Assert.Contains("[ERROR HANDLING AND RETRIES]", capturedPrompt);
+        Assert.Contains("<error_handling_and_retries>", capturedPrompt);
+        Assert.Contains("</error_handling_and_retries>", capturedPrompt);
         Assert.DoesNotContain("[STRUCTURED OUTPUT STRICT SCHEMAS]", capturedPrompt);
         Assert.Contains("Use `retry` only for transient errors that are explicitly marked retryable by the runtime.", capturedPrompt);
         Assert.Contains("Retries run before `on_error` is evaluated.", capturedPrompt);
         Assert.Contains("Inside `on_error.cases[].if`, the error context exposes `error.code`, `error.message`, `error.retryable`, `step.id`, and `step.type`.", capturedPrompt);
         Assert.Contains("Retry + fallback example for a transient LLM error, as YAML:", capturedPrompt);
         Assert.Contains("Non-retryable validation example, as YAML:", capturedPrompt);
-        Assert.Contains("[STEP EXCEPTIONS BY TYPE]", capturedPrompt);
+        Assert.Contains("<step_exceptions_by_type>", capturedPrompt);
+        Assert.Contains("</step_exceptions_by_type>", capturedPrompt);
         Assert.Contains("- llm.call", capturedPrompt);
         Assert.Contains("LLM_TIMEOUT (retryable)", capturedPrompt);
         Assert.Contains("- template.render", capturedPrompt);
@@ -338,12 +346,12 @@ workflows:
         // Should NOT contain snippets for non-allowed types
         Assert.DoesNotContain("### mcp.call", capturedPrompt);
         Assert.DoesNotContain("### sequence", capturedPrompt);
-        Assert.Contains("[STEP EXCEPTIONS BY TYPE]", capturedPrompt);
+        Assert.Contains("<step_exceptions_by_type>", capturedPrompt);
         Assert.Contains("- template.render", capturedPrompt);
         Assert.Contains("- llm.call", capturedPrompt);
         Assert.DoesNotContain("- mcp.call", capturedPrompt);
         Assert.DoesNotContain("- sequence", capturedPrompt);
-        Assert.Contains("[CONSTRAINTS]", capturedPrompt);
+        Assert.Contains("<constraints>", capturedPrompt);
         Assert.Contains("Allowed step types:", capturedPrompt);
     }
 
@@ -448,11 +456,11 @@ workflows:
 
         Assert.True(result.Success);
         Assert.Equal(2, prompts.Count);
-        // First prompt should NOT contain [PREVIOUS ERROR]
-        Assert.DoesNotContain("[PREVIOUS ERROR]", prompts[0]);
-        // Second prompt SHOULD contain [PREVIOUS ERROR]
-        Assert.Contains("[PREVIOUS ERROR]", prompts[1]);
-        Assert.Contains("[INVALID YAML]", prompts[1]);
+        // First prompt should NOT contain a previous-error block.
+        Assert.DoesNotContain("<previous_error>", prompts[0]);
+        // Second prompt SHOULD contain previous-error and invalid-YAML blocks.
+        Assert.Contains("<previous_error>", prompts[1]);
+        Assert.Contains("<invalid_yaml>", prompts[1]);
         Assert.Contains("<user_prompt>", prompts[1]);
         Assert.Contains("Build something", prompts[1]);
         Assert.Contains("</user_prompt>", prompts[1]);
@@ -462,8 +470,8 @@ workflows:
         Assert.Contains("<invalid_yaml>", prompts[1]);
         Assert.Contains("</invalid_yaml>", prompts[1]);
         Assert.Contains("version: 1", prompts[1]);
-        Assert.DoesNotContain("[DSL REFERENCE]", prompts[1]);
-        Assert.DoesNotContain("[STEP EXCEPTIONS BY TYPE]", prompts[1]);
+        Assert.DoesNotContain("<dsl_reference>", prompts[1]);
+        Assert.DoesNotContain("<step_exceptions_by_type>", prompts[1]);
         Assert.Contains("Fix the issues", prompts[1]);
     }
 
@@ -528,7 +536,7 @@ workflows:
         Assert.True(result.Success);
         Assert.Equal(2, prompts.Count);
         Assert.Equal(1, CountOccurrences(prompts[1], uniqueTaskMarker));
-        Assert.Contains("[INVALID YAML]", prompts[1]);
+        Assert.Contains("<invalid_yaml>", prompts[1]);
         Assert.Contains("version: 1", prompts[1]);
     }
 
@@ -579,7 +587,7 @@ workflows:
 
         Assert.True(result.Success);
         Assert.Equal(2, prompts.Count);
-        Assert.Contains("[PREVIOUS ERROR]", prompts[1]);
+        Assert.Contains("<previous_error>", prompts[1]);
         Assert.Contains("UNKNOWN_STEP_TYPE", prompts[1]);
         Assert.Contains("STEP_TYPE_UNKNOWN", prompts[1]);
     }
@@ -1689,7 +1697,8 @@ workflows:
         await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.NotNull(capturedPrompt);
-        Assert.Contains("[AVAILABLE MCP SERVERS]", capturedPrompt);
+        Assert.Contains("<available_mcp_servers>", capturedPrompt);
+        Assert.Contains("</available_mcp_servers>", capturedPrompt);
         Assert.Contains("Use the exact server name in mcp.call input.server and in mcp.list input.servers.", capturedPrompt);
 
         // Tool discovery: tool names and descriptions should appear
@@ -1716,7 +1725,8 @@ workflows:
         Assert.Contains("Preferred MCP planning pattern: when tool names and input schemas are listed above, use `mcp.call` directly with explicit `method` and `request`", capturedPrompt);
 
         // MCP output access guidance
-        Assert.Contains("[MCP OUTPUT ACCESS]", capturedPrompt);
+        Assert.Contains("<mcp_output_access>", capturedPrompt);
+        Assert.Contains("</mcp_output_access>", capturedPrompt);
         Assert.Contains("data.steps.<id>.status", capturedPrompt);
         Assert.Contains("data.steps.<id>.response", capturedPrompt);
         Assert.Contains("`response` value is opaque, tool-specific JSON", capturedPrompt);
@@ -1772,9 +1782,9 @@ workflows:
         await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.NotNull(capturedPrompt);
-        Assert.Contains("[MCP OUTPUT ACCESS]", capturedPrompt);
+        Assert.Contains("<mcp_output_access>", capturedPrompt);
         Assert.Contains("mcp.call single-tool output shape:", capturedPrompt);
-        Assert.Contains("status: \"ok\"|\"error\", response: <tool-specific JSON>", capturedPrompt);
+        Assert.Contains("status: \"ok\"|\"error\", response: tool-specific JSON", capturedPrompt);
         Assert.Contains("data.steps.<id>.status", capturedPrompt);
         Assert.Contains("data.steps.<id>.response", capturedPrompt);
         Assert.Contains("Do NOT assume field names inside `response`", capturedPrompt);
@@ -1856,7 +1866,8 @@ workflows:
         Assert.NotNull(requests[0].StructuredOutputSchema);
         Assert.True(requests[0].StructuredOutputStrict);
         Assert.Null(requests[0].Temperature);
-        Assert.Contains("[SERVER CATALOG]", requests[0].Prompt);
+        Assert.Contains("<server_catalog>", requests[0].Prompt);
+        Assert.Contains("</server_catalog>", requests[0].Prompt);
         Assert.Contains("GitHub repository automation", requests[0].Prompt);
         Assert.Contains("Weather forecasts", requests[0].Prompt);
         Assert.DoesNotContain("list_repos", requests[0].Prompt);
@@ -1870,8 +1881,8 @@ workflows:
         Assert.Contains("Build a workflow that lists GitHub repositories", requests[1].Prompt);
         Assert.Contains("</user_prompt>", requests[1].Prompt);
         Assert.DoesNotContain("Instruction: Build a workflow that lists GitHub repositories", requests[1].Prompt);
-        var mcpSectionStart = requests[2].Prompt.LastIndexOf("[AVAILABLE MCP SERVERS]", StringComparison.Ordinal);
-        var mcpSectionEnd = requests[2].Prompt.IndexOf("[MCP OUTPUT ACCESS]", mcpSectionStart, StringComparison.Ordinal);
+        var mcpSectionStart = requests[2].Prompt.LastIndexOf("<available_mcp_servers>", StringComparison.Ordinal);
+        var mcpSectionEnd = requests[2].Prompt.IndexOf("<mcp_output_access>", mcpSectionStart, StringComparison.Ordinal);
         var mcpSection = requests[2].Prompt[mcpSectionStart..mcpSectionEnd];
         Assert.Contains("list_repos", mcpSection);
         Assert.DoesNotContain("get_weather", mcpSection);
@@ -1967,8 +1978,8 @@ workflows:
 
         Assert.True(result.Success);
         Assert.Equal(3, requests.Count);
-        var mcpSectionStart = requests[2].Prompt.LastIndexOf("[AVAILABLE MCP SERVERS]", StringComparison.Ordinal);
-        var mcpSectionEnd = requests[2].Prompt.IndexOf("[MCP OUTPUT ACCESS]", mcpSectionStart, StringComparison.Ordinal);
+        var mcpSectionStart = requests[2].Prompt.LastIndexOf("<available_mcp_servers>", StringComparison.Ordinal);
+        var mcpSectionEnd = requests[2].Prompt.IndexOf("<mcp_output_access>", mcpSectionStart, StringComparison.Ordinal);
         var mcpSection = requests[2].Prompt[mcpSectionStart..mcpSectionEnd];
         Assert.Contains("Github", mcpSection);
         Assert.Contains("github_issue_search", mcpSection);

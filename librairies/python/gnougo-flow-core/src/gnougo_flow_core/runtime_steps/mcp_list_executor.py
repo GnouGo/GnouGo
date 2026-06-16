@@ -278,6 +278,7 @@ class McpListExecutor:
     step_description = "Discover MCP tools/resources/prompts for selected servers."
     dsl_snippet = """
 ### mcp.list - Discover MCP capabilities
+When workflow.plan provides an `<available_mcp_servers>` section, pick those exact configured server names.
 ```yaml
 - id: discover_mcp
   type: mcp.list

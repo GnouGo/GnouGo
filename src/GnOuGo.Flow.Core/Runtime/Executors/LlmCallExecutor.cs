@@ -33,7 +33,7 @@ public sealed class LlmCallExecutor : IStepExecutor
           input:
             model: gpt-4                        # optional when runtime defaults are configured
             prompt: "Summarize: ${data.steps.prev.text}"  # required — plain string
-            system: "You are a helpful assistant."  # optional
+            system: "You are a helpful assistant." # required — plain string
             temperature: 0.7                     # optional override; omit by default
             reasoning: high                      # optional override; omit by default
             max_tokens: 2048                     # optional
@@ -50,6 +50,7 @@ public sealed class LlmCallExecutor : IStepExecutor
           input:
             model: gpt-4
             prompt: "Classify this ticket and return JSON"
+            system: "You are a helpful assistant."
             structured_output:
               schema_inline:
                 type: object

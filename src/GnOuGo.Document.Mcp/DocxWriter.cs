@@ -17,15 +17,45 @@ internal static class DocxWriter
         mainPart.Document = new DocumentFormat.OpenXml.Wordprocessing.Document();
         var body = mainPart.Document.AppendChild(new Body());
 
+        AppendContent(mainPart, body, content, ensureFormattingParts: true);
+        mainPart.Document.Save();
+    }
+
+    public static void AppendSimpleDocx(string path, string content)
+    {
+        using var doc = WordprocessingDocument.Open(path, true);
+        var mainPart = doc.MainDocumentPart ?? doc.AddMainDocumentPart();
+        mainPart.Document ??= new DocumentFormat.OpenXml.Wordprocessing.Document();
+        var body = mainPart.Document.Body ?? mainPart.Document.AppendChild(new Body());
+
+        var sectionProperties = body.Elements<SectionProperties>().LastOrDefault();
+        sectionProperties?.Remove();
+
+        AppendContent(mainPart, body, content, ensureFormattingParts: false);
+
+        if (sectionProperties is not null)
+            body.AppendChild(sectionProperties);
+
+        mainPart.Document.Save();
+    }
+
+    private static void AppendContent(MainDocumentPart mainPart, Body body, string content, bool ensureFormattingParts)
+    {
         if (LooksLikeMarkdown(content))
         {
-            AddDefaultStyles(mainPart);
-            AddDefaultNumbering(mainPart);
+            if (ensureFormattingParts || mainPart.StyleDefinitionsPart is null)
+                EnsureDefaultStyles(mainPart);
+            if (ensureFormattingParts || mainPart.NumberingDefinitionsPart is null)
+                EnsureDefaultNumbering(mainPart);
             WriteMarkdownBody(mainPart, body, content);
-            mainPart.Document.Save();
             return;
         }
 
+        AppendPlainTextBody(body, content);
+    }
+
+    private static void AppendPlainTextBody(Body body, string content)
+    {
         var lines = content.Split('\n');
         foreach (var line in lines)
         {
@@ -33,8 +63,6 @@ internal static class DocxWriter
             var run = para.AppendChild(new Run());
             run.AppendChild(new Text(line.TrimEnd('\r')) { Space = SpaceProcessingModeValues.Preserve });
         }
-
-        mainPart.Document.Save();
     }
 
     private static bool LooksLikeMarkdown(string content)
@@ -464,22 +492,38 @@ internal static class DocxWriter
                 new Underline { Val = UnderlineValues.Single }),
             new Text(text) { Space = SpaceProcessingModeValues.Preserve });
 
-    private static void AddDefaultStyles(MainDocumentPart mainPart)
+    private static void EnsureDefaultStyles(MainDocumentPart mainPart)
     {
-        var stylesPart = mainPart.AddNewPart<StyleDefinitionsPart>();
-        var styles = new Styles();
+        var stylesPart = mainPart.StyleDefinitionsPart ?? mainPart.AddNewPart<StyleDefinitionsPart>();
+        var styles = stylesPart.Styles;
+        if (styles is null)
+        {
+            styles = new Styles();
+            stylesPart.Styles = styles;
+        }
 
-        styles.AppendChild(CreateParagraphStyle("Heading1", "heading 1", 32, bold: true));
-        styles.AppendChild(CreateParagraphStyle("Heading2", "heading 2", 28, bold: true));
-        styles.AppendChild(CreateParagraphStyle("Heading3", "heading 3", 24, bold: true));
-        styles.AppendChild(CreateParagraphStyle("Heading4", "heading 4", 22, bold: true));
-        styles.AppendChild(CreateParagraphStyle("Heading5", "heading 5", 20, bold: true));
-        styles.AppendChild(CreateParagraphStyle("Heading6", "heading 6", 18, bold: true));
-        styles.AppendChild(CreateParagraphStyle("Quote", "Quote", 22, italic: true, leftIndent: "360"));
-        styles.AppendChild(CreateParagraphStyle("CodeBlock", "Code Block", 20, font: "Consolas"));
+        UpsertParagraphStyle(styles, CreateParagraphStyle("Heading1", "heading 1", 32, bold: true));
+        UpsertParagraphStyle(styles, CreateParagraphStyle("Heading2", "heading 2", 28, bold: true));
+        UpsertParagraphStyle(styles, CreateParagraphStyle("Heading3", "heading 3", 24, bold: true));
+        UpsertParagraphStyle(styles, CreateParagraphStyle("Heading4", "heading 4", 22, bold: true));
+        UpsertParagraphStyle(styles, CreateParagraphStyle("Heading5", "heading 5", 20, bold: true));
+        UpsertParagraphStyle(styles, CreateParagraphStyle("Heading6", "heading 6", 18, bold: true));
+        UpsertParagraphStyle(styles, CreateParagraphStyle("Quote", "Quote", 22, italic: true, leftIndent: "360"));
+        UpsertParagraphStyle(styles, CreateParagraphStyle("CodeBlock", "Code Block", 20, font: "Consolas"));
 
-        stylesPart.Styles = styles;
-        stylesPart.Styles.Save();
+        styles.Save();
+    }
+
+    private static void UpsertParagraphStyle(Styles styles, Style style)
+    {
+        foreach (var existing in styles.Elements<Style>()
+                     .Where(existing => existing.StyleId?.Value == style.StyleId?.Value)
+                     .ToArray())
+        {
+            existing.Remove();
+        }
+
+        styles.AppendChild(style);
     }
 
     private static Style CreateParagraphStyle(
@@ -513,10 +557,25 @@ internal static class DocxWriter
         return style;
     }
 
-    private static void AddDefaultNumbering(MainDocumentPart mainPart)
+    private static void EnsureDefaultNumbering(MainDocumentPart mainPart)
     {
-        var numberingPart = mainPart.AddNewPart<NumberingDefinitionsPart>();
-        numberingPart.Numbering = new Numbering(
+        var numberingPart = mainPart.NumberingDefinitionsPart ?? mainPart.AddNewPart<NumberingDefinitionsPart>();
+        if (numberingPart.Numbering is null)
+        {
+            numberingPart.Numbering = CreateDefaultNumbering();
+        }
+        else
+        {
+            numberingPart.Numbering.RemoveAllChildren();
+            foreach (var child in CreateDefaultNumbering().ChildElements)
+                numberingPart.Numbering.AppendChild(child.CloneNode(true));
+        }
+
+        numberingPart.Numbering.Save();
+    }
+
+    private static Numbering CreateDefaultNumbering()
+        => new(
             new AbstractNum(
                 new Level(
                     new NumberingFormat { Val = NumberFormatValues.Bullet },
@@ -533,6 +592,4 @@ internal static class DocxWriter
             { AbstractNumberId = 2 },
             new NumberingInstance(new AbstractNumId { Val = 1 }) { NumberID = 1 },
             new NumberingInstance(new AbstractNumId { Val = 2 }) { NumberID = 2 });
-        numberingPart.Numbering.Save();
-    }
 }

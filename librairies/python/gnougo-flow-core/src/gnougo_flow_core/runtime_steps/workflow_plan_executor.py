@@ -225,21 +225,19 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             WorkflowPlanExecutor._build_user_task_block(instruction, context_text),
         ]
         if constraints:
-            parts.extend(["", "[CONSTRAINTS]", "\n".join(constraints)])
+            parts.extend(["", WorkflowPlanExecutor._prompt_section("constraints", "\n".join(constraints))])
         parts.extend(
             [
                 "",
-                "[PREVIOUS ERROR]",
                 "<previous_error>",
                 structured_error,
                 "</previous_error>",
                 "",
-                "[INVALID YAML]",
                 "<invalid_yaml>",
                 invalid_yaml if invalid_yaml and invalid_yaml.strip() else "(previous output was empty)",
                 "</invalid_yaml>",
                 "",
-                "[MINIMUM DSL CONTEXT]",
+                "<minimum_dsl_context>",
                 "Required root: version, name, skill, workflows. `skill` is a top-level object with description, tags, "
                 "inputs, and outputs. Each workflow has steps: [] and optional outputs.",
                 "Each step requires step-level id and type. Common fields stay at step level: if, input, output, retry, "
@@ -247,20 +245,26 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 "Executor-specific arguments go inside input only.",
                 "Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.",
                 "Expressions may read data.inputs.* and earlier data.steps.<id>.* only.",
+                "</minimum_dsl_context>",
             ]
         )
         if repair_context and repair_context.strip():
-            parts.extend(["", "[RELEVANT REPAIR CONTEXT]"])
-            parts.append(repair_context)
+            parts.extend(["", WorkflowPlanExecutor._prompt_section("relevant_repair_context", repair_context)])
         parts.extend(["", "Fix the issues above and generate a corrected YAML."])
         return "\n".join(parts)
 
     @staticmethod
     def _build_user_task_block(instruction: str, context_text: str | None) -> str:
-        parts = ["[TASK]", "<user_prompt>", instruction, "</user_prompt>"]
+        parts = ["<task>", "<user_prompt>", instruction, "</user_prompt>"]
         if context_text and context_text.strip():
             parts.extend(["<user_context>", context_text, "</user_context>"])
+        parts.append("</task>")
         return "\n".join(parts)
+
+    @staticmethod
+    def _prompt_section(tag_name: str, content: str | None) -> str:
+        body = (content or "").rstrip()
+        return f"<{tag_name}>\n{body}\n</{tag_name}>"
 
     @staticmethod
     def _remove_markdown_fence_lines(value: str) -> str:
@@ -557,12 +561,13 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         return (
             "Generate a valid GnOuGo.Flow YAML document (version: 1).\n"
             "You are a GnOuGo.Flow YAML workflow generator. Return ONLY valid YAML, no explanation or markdown fences.\n\n"
-            "[DSL REFERENCE]\n"
+            "<dsl_reference>\n"
             "Use GnOuGo.Flow DSL v1. Root document must contain `version: 1`, `name`, `skill`, and `workflows` map.\n"
             "Step fields: id, type, if, input, output, retry, on_error, steps, branches, cases, expr, default, item_var, index_var.\n"
             "Retry fields: max, backoff_ms, backoff_mult, jitter_ms.\n"
-            "on_error cases: if, action (continue|stop), set_output.\n\n"
-            "[REQUIRED ROOT YAML SHAPE]\n"
+            "on_error cases: if, action (continue|stop), set_output.\n"
+            "</dsl_reference>\n\n"
+            "<required_root_yaml_shape>\n"
             "The generated YAML MUST include all required root keys exactly once: version, name, skill, workflows.\n"
             "Root key requirements:\n"
             "- version: non-empty string or number 1\n"
@@ -580,10 +585,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "  outputs: {}\n"
             "workflows:\n"
             "  main:\n"
-            "    steps: []\n\n"
-            "[GENERATION VALIDATION CHECKLIST]\n"
+            "    steps: []\n"
+            "</required_root_yaml_shape>\n\n"
+            "<generation_validation_checklist>\n"
             "Before returning YAML, self-check these rules and fix the YAML silently:\n"
-            "- Use only exact step types listed in [AVAILABLE STEP TYPES]. Do not invent aliases or legacy names.\n"
+            "- Use only exact step types listed in <available_step_types>. Do not invent aliases or legacy names.\n"
             "- Every step has a unique non-empty `id` and a non-empty `type`.\n"
             "- Put common step fields (`id`, `type`, `if`, `input`, `output`, `retry`, `on_error`) at the step level, not inside `input`.\n"
             "- Put executor-specific arguments inside `input` only. For example `llm.call.input.prompt`, "
@@ -613,13 +619,16 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "`structured_output`, then read fields from `data.steps.<normalizer>.json`.\n"
             "- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; "
             "do not put unescaped JSON inside a double-quoted YAML string.\n"
-            "- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`.\n\n"
+            "- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`.\n"
+            "</generation_validation_checklist>\n\n"
             f"{self._build_user_task_block(instruction, context_text)}\n\n"
-            "[AVAILABLE STEP TYPES]\n"
-            f"{steps_doc}\n\n"
-            "[AVAILABLE MCP SERVERS]\n"
-            f"{mcp_doc}\n\n"
-            "[MCP OUTPUT ACCESS]\n"
+            "<available_step_types>\n"
+            f"{steps_doc}\n"
+            "</available_step_types>\n\n"
+            "<available_mcp_servers>\n"
+            f"{mcp_doc}\n"
+            "</available_mcp_servers>\n\n"
+            "<mcp_output_access>\n"
             "Preferred MCP planning pattern: when tool names and input schemas are listed above, use `mcp.call` directly "
             "with explicit `server`, `kind`, `method`, and `request`.\n"
             "Required MCP planning pattern: discover candidate servers with `mcp.list`, then use mcp.call with prompt + model (+ optional temperature) "
@@ -628,27 +637,32 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "When building `mcp.call.input.request`, preserve JSON schema scalar types exactly: "
             "numbers/integers/booleans must be unquoted YAML scalars, while strings may be quoted.\n"
             "If a string field must contain JSON text, prefer a YAML literal block (`|`) so nested quotes remain valid YAML.\n"
-            'mcp.call single-tool output shape: `{ status: "ok"|"error", response: <tool-specific JSON> }`\n'
+            'mcp.call single-tool output shape: `{ status: "ok"|"error", response: tool-specific JSON }`\n'
             "Access status via `data.steps.<id>.status` and full result via `data.steps.<id>.response`.\n"
             "Do not assume any field inside `response` unless MCP docs explicitly define it through `output_schema` or `example_response`.\n"
             "If the response is opaque, use `json(data.steps.<id>.response)` or add an `llm.call` normalization step with `structured_output`.\n"
             "When `response` is an array, access items directly (`response[0]...`) or through `response.content[0]...` compatibility alias.\n"
             "For batch output: `{ status, results: [{ method, status, response }] }`.\n"
-            'For LLM-assisted output: `{ status, selection_mode: "llm", text, tool_calls, results, json? }`.\n\n'
-            "[LLM MODEL PARAMETERS]\n"
+            'For LLM-assisted output: `{ status, selection_mode: "llm", text, tool_calls, results, json? }`.\n'
+            "</mcp_output_access>\n\n"
+            "<llm_model_parameters>\n"
             "The runtime owns model metadata (token limits, pricing, and capabilities) "
             "and removes unsupported optional request parameters before provider calls.\n"
             "Prefer omitting provider/model when runtime defaults should apply. "
             "Do NOT add `temperature` or `reasoning` by habit; include them only for explicit overrides.\n"
-            "If a generated workflow includes unsupported optional LLM parameters, the runtime may omit them automatically based on model capabilities.\n\n"
-            "[ERROR HANDLING AND RETRIES]\n"
+            "If a generated workflow includes unsupported optional LLM parameters, the runtime may omit them automatically based on model capabilities.\n"
+            "</llm_model_parameters>\n\n"
+            "<error_handling_and_retries>\n"
             "Use retry only for transient errors explicitly marked retryable.\n"
             "Retries run before on_error. on_error runs after retries are exhausted (or immediately for non-retryable errors).\n"
-            "Inside on_error.cases[].if, context exposes error.code, error.message, error.retryable, step.id, step.type.\n\n"
-            "[STEP EXCEPTIONS BY TYPE]\n"
-            f"{self._remove_markdown_fence_lines(exc_doc)}\n\n"
-            "[CONSTRAINTS]\n"
+            "Inside on_error.cases[].if, context exposes error.code, error.message, error.retryable, step.id, step.type.\n"
+            "</error_handling_and_retries>\n\n"
+            "<step_exceptions_by_type>\n"
+            f"{self._remove_markdown_fence_lines(exc_doc)}\n"
+            "</step_exceptions_by_type>\n\n"
+            "<constraints>\n"
             f"{chr(10).join(constraints_lines) if constraints_lines else '(none)'}\n"
+            "</constraints>\n"
         )
 
     @staticmethod
@@ -753,7 +767,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "- Base the decision only on server descriptions, not on imagined tools.\n"
             "- Include every plausibly relevant server; exclude clearly unrelated servers.\n"
             '- If no server is relevant, return {"servers": []}.\n\n'
-            f"[SERVER CATALOG]\n{catalog}\n\n"
+            f"<server_catalog>\n{catalog}\n</server_catalog>\n\n"
             f"{self._build_user_task_block(instruction, context_text)}"
         )
 
@@ -1136,7 +1150,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "`*_json` line and any continuation lines verbatim. Do not summarize, rewrite, or truncate schema blocks/descriptions.\n"
             "If preserving the selected schema lines exactly is uncertain, return the full relevant server section.\n\n"
             f"{self._build_user_task_block(instruction, context_text)}\n\n"
-            f"[AVAILABLE MCP]\n{mcp_doc}\n"
+            f"<available_mcp>\n{mcp_doc}\n</available_mcp>\n"
         )
 
         prefilter_span = ctx.begin_telemetry_span(

@@ -250,7 +250,7 @@ public sealed class ConfigureAgentsService
         // parts[0] == "/gnougo"
         var action = parts.Length > 1 ? parts[1].ToLowerInvariant() : "help";
         var argument = parts.Length > 2 ? string.Join(' ', parts.Skip(2)) : null;
-        var mode = action is "add" or "edit" or "remove" or "select" ? "interactive" : "direct";
+        var mode = action is "add" or "edit" or "reprompt" or "remove" or "select" ? "interactive" : "direct";
         var spanName = $"configure.agents.{action}";
         return new CommandTraceDescriptor(spanName, action, argument, mode);
     }
@@ -372,4 +372,3 @@ public sealed class ConfigureAgentsService
 
     private sealed record AgentLlmSelection(string Provider, string Model, string SecretKey);
 }
-

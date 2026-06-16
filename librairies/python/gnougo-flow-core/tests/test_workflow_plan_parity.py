@@ -140,10 +140,14 @@ async def test_workflow_plan_prompt_contains_dotnet_like_sections() -> None:
 
     assert result.success is True
     assert llm.prompts
-    prompt = next((p for p in llm.prompts if "[AVAILABLE STEP TYPES]" in p), llm.prompts[-1])
-    assert "[AVAILABLE STEP TYPES]" in prompt
-    assert "[AVAILABLE MCP SERVERS]" in prompt
-    assert "[STEP EXCEPTIONS BY TYPE]" in prompt
+    prompt = next((p for p in llm.prompts if "<available_step_types>" in p), llm.prompts[-1])
+    assert "<available_step_types>" in prompt
+    assert "</available_step_types>" in prompt
+    assert "[AVAILABLE STEP TYPES]" not in prompt
+    assert "<available_mcp_servers>" in prompt
+    assert "</available_mcp_servers>" in prompt
+    assert "<step_exceptions_by_type>" in prompt
+    assert "</step_exceptions_by_type>" in prompt
     assert "## Server: demo" in prompt
     assert "Function arguments are evaluated before the function runs" in prompt
     assert "coalesce(data.steps.branch_a.value, data.steps.branch_b.value)" in prompt
@@ -447,7 +451,7 @@ async def test_workflow_plan_uses_prompt_snippet_from_executor_class() -> None:
         compiled = WorkflowCompiler().compile(WorkflowParser.parse(source))
         result = await engine.execute_async(compiled.workflows["main"], {})
         assert result.success is True
-        prompt = next((p for p in llm.prompts if "[AVAILABLE STEP TYPES]" in p), "")
+        prompt = next((p for p in llm.prompts if "<available_step_types>" in p), "")
         assert "Sequence test snippet from class" in prompt
     finally:
         SequenceExecutor.dsl_snippet = old
@@ -499,8 +503,8 @@ async def test_workflow_plan_reprompts_on_validator_diagnostics_not_only_compile
 
     assert result.success is True
     assert len(llm.prompts) == 2
-    assert "[PREVIOUS ERROR]" in llm.prompts[1]
-    assert "[INVALID YAML]" in llm.prompts[1]
+    assert "<previous_error>" in llm.prompts[1]
+    assert "<invalid_yaml>" in llm.prompts[1]
     assert "<user_prompt>" in llm.prompts[1]
     assert "build something" in llm.prompts[1]
     assert "</user_prompt>" in llm.prompts[1]
@@ -509,8 +513,8 @@ async def test_workflow_plan_reprompts_on_validator_diagnostics_not_only_compile
     assert "</previous_error>" in llm.prompts[1]
     assert "<invalid_yaml>" in llm.prompts[1]
     assert "</invalid_yaml>" in llm.prompts[1]
-    assert "[DSL REFERENCE]" not in llm.prompts[1]
-    assert "[STEP EXCEPTIONS BY TYPE]" not in llm.prompts[1]
+    assert "<dsl_reference>" not in llm.prompts[1]
+    assert "<step_exceptions_by_type>" not in llm.prompts[1]
     assert "STEP_TYPE_UNKNOWN" in llm.prompts[1]
 
 

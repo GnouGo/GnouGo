@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using GnOuGo.Agent.Mcp;
+using GnOuGo.Agent.Mcp.Models;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.AI.Core;
@@ -391,6 +392,304 @@ public sealed class SmartFlowServiceTests
         Assert.Equal(repairedWorkflow, persistedWorkflow);
         Assert.True(llm.PrefilterCallCount > 0);
         Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("improved and saved", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.DoesNotContain(events, evt => evt.Type == "error");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenPersistedAgentHandlesMcpError_OffersWorkflowRepair()
+    {
+        const string agentId = "8d8871b7-01cf-4a42-a95a-391d633d7d37";
+        const string agentName = "git-agent";
+        var handledErrorWorkflow = """
+            version: 1
+            name: git-agent
+            workflows:
+              main:
+                inputs:
+                  task:
+                    type: string
+                    required: true
+                steps:
+                  - id: clone_repo
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.Git.Mcp
+                      method: git_clone
+                      request:
+                        remoteUrl: https://github.com/AxaFrance/oidc-client
+                        targetDirectory: repos/AxaFrance-oidc-client-issue-1679
+                      timeout_ms: 1200000
+                    on_error:
+                      cases:
+                        - if: '${error.code == "MCP_CALL_ERROR"}'
+                          action: continue
+                          set_output:
+                            status: handled
+                            message: "${error.message}"
+                            mcp_message: "${error.details.mcp_error_message}"
+                  - id: final_answer
+                    type: set
+                    input:
+                      answer: "${'Clone issue handled: ' + data.steps.clone_repo.mcp_message}"
+                outputs:
+                  answer:
+                    expr: "${data.steps.final_answer.answer}"
+                    type: string
+            """;
+        var repairedWorkflow = """
+            version: 1
+            name: git-agent
+            skill:
+              description: Repaired git agent.
+              tags: [git]
+              inputs:
+                task:
+                  type: string
+                  description: User task.
+              outputs:
+                answer:
+                  type: string
+                  description: Final answer.
+            workflows:
+              main:
+                inputs:
+                  task:
+                    type: string
+                    required: true
+                steps:
+                  - id: final_answer
+                    type: set
+                    input:
+                      answer: "${'REPAIRED GIT: ' + data.inputs.task}"
+                outputs:
+                  answer:
+                    expr: "${data.steps.final_answer.answer}"
+                    type: string
+            """;
+
+        string? persistedWorkflow = null;
+        var agentMcp = BuildAgentMcpForRepair(agentId, agentName, handledErrorWorkflow, value => persistedWorkflow = value);
+        var gitMcp = new FakeMcpSession("GnOuGo.Git.Mcp")
+            .WithTool(
+                "git_clone",
+                "Clone a git repository into a workspace directory.",
+                JsonNode.Parse("""{"type":"object","properties":{"remoteUrl":{"type":"string"},"targetDirectory":{"type":"string"}},"required":["remoteUrl","targetDirectory"]}"""))
+            .OnTool("git_clone", (_, _) => Task.FromResult(new McpCallResult
+            {
+                IsError = true,
+                Content = new JsonObject
+                {
+                    ["error_code"] = "TARGET_EXISTS",
+                    ["error_message"] = "Clone target directory '/Users/a115vc/Desktop/GnOuGo/repos/AxaFrance-oidc-client-issue-1679' already exists and is not empty."
+                }
+            }));
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var responder = AutoApproveRepairAsync(humanInput, cts.Token);
+
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = "test",
+            DefaultModel = "repair-model"
+        });
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(
+            runtimeStore,
+            new FakeKeyVaultRuntimeConfigStore(),
+            llmClientOverride: new FixedWorkflowPlanLlmClient(repairedWorkflow),
+            mcpClientFactoryOverride: new FakeMcpClientFactory(agentMcp, gitMcp));
+
+        var smartFlow = new SmartFlowService(
+            new RecordingLlmClient(),
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
+            runtimeFactory,
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            humanInput,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<SmartFlowService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            smartFlow.ExecuteAsync("clone and fix issue 1679", correlationId: "corr-handled-mcp-repair", agentName: agentName, CancellationToken.None));
+
+        await responder;
+
+        Assert.Equal(repairedWorkflow, persistedWorkflow);
+        Assert.Contains(events, evt =>
+            evt.Type == "human_input_request" &&
+            evt.Text?.Contains("handled an MCP error", StringComparison.OrdinalIgnoreCase) == true &&
+            evt.Text.Contains("TARGET_EXISTS", StringComparison.Ordinal));
+        Assert.Contains(events, evt =>
+            evt.Type == "answer" &&
+            evt.Text?.Contains("handled an MCP error", StringComparison.OrdinalIgnoreCase) == true &&
+            evt.Text.Contains("improved and saved", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(events, evt => evt.Type == "error");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenRoutedPersistedAgentHandlesMcpError_OffersWorkflowRepair()
+    {
+        const string agentId = "8d8871b7-01cf-4a42-a95a-391d633d7d37";
+        const string agentName = "git-agent";
+        var handledErrorWorkflow = """
+            version: 1
+            name: git-agent
+            skill:
+              description: Works with git repositories.
+              tags: [git]
+              inputs:
+                task:
+                  type: string
+                  description: User task.
+              outputs:
+                answer:
+                  type: string
+                  description: Final answer.
+            workflows:
+              main:
+                inputs:
+                  task:
+                    type: string
+                    required: true
+                steps:
+                  - id: clone_repo
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.Git.Mcp
+                      method: git_clone
+                      request:
+                        remoteUrl: https://github.com/AxaFrance/oidc-client
+                        targetDirectory: repos/AxaFrance-oidc-client-issue-1679
+                      timeout_ms: 1200000
+                    on_error:
+                      cases:
+                        - if: '${error.code == "MCP_CALL_ERROR"}'
+                          action: continue
+                          set_output:
+                            status: handled
+                            message: "${error.message}"
+                            mcp_message: "${error.details.mcp_error_message}"
+                  - id: final_answer
+                    type: set
+                    input:
+                      answer: "${'Clone issue handled: ' + data.steps.clone_repo.mcp_message}"
+                outputs:
+                  answer:
+                    expr: "${data.steps.final_answer.answer}"
+                    type: string
+            """;
+        var repairedWorkflow = """
+            version: 1
+            name: git-agent
+            skill:
+              description: Repaired routed git agent.
+              tags: [git]
+              inputs:
+                task:
+                  type: string
+                  description: User task.
+              outputs:
+                answer:
+                  type: string
+                  description: Final answer.
+            workflows:
+              main:
+                inputs:
+                  task:
+                    type: string
+                    required: true
+                steps:
+                  - id: final_answer
+                    type: set
+                    input:
+                      answer: "${'REPAIRED ROUTED GIT: ' + data.inputs.task}"
+                outputs:
+                  answer:
+                    expr: "${data.steps.final_answer.answer}"
+                    type: string
+            """;
+
+        string? persistedWorkflow = null;
+        var agentMcp = BuildAgentMcpForRepair(agentId, agentName, handledErrorWorkflow, value => persistedWorkflow = value);
+        var gitMcp = new FakeMcpSession("GnOuGo.Git.Mcp")
+            .WithTool(
+                "git_clone",
+                "Clone a git repository into a workspace directory.",
+                JsonNode.Parse("""{"type":"object","properties":{"remoteUrl":{"type":"string"},"targetDirectory":{"type":"string"}},"required":["remoteUrl","targetDirectory"]}"""))
+            .OnTool("git_clone", (_, _) => Task.FromResult(new McpCallResult
+            {
+                IsError = true,
+                Content = new JsonObject
+                {
+                    ["error_code"] = "TARGET_EXISTS",
+                    ["error_message"] = "Clone target directory '/Users/a115vc/Desktop/GnOuGo/repos/AxaFrance-oidc-client-issue-1679' already exists and is not empty."
+                }
+            }));
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var responder = AutoApproveRepairAsync(humanInput, cts.Token);
+
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = "test",
+            DefaultModel = "repair-model"
+        });
+        var llm = new RoutedWorkflowRepairLlmClient(agentName, repairedWorkflow);
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(
+            runtimeStore,
+            new FakeKeyVaultRuntimeConfigStore(),
+            llmClientOverride: llm,
+            mcpClientFactoryOverride: new FakeMcpClientFactory(agentMcp, gitMcp));
+        using var services = new ServiceCollection()
+            .AddSingleton<IAgentRepository>(new SmartFlowFakeAgentRepository(new AgentDefinition
+            {
+                Id = Guid.Parse(agentId),
+                Name = agentName,
+                Workflow = handledErrorWorkflow,
+                OriginalPrompt = "work with git repositories",
+                CreatedAt = DateTimeOffset.Parse("2026-06-15T00:00:00Z"),
+                UpdatedAt = DateTimeOffset.Parse("2026-06-15T00:00:00Z")
+            }))
+            .BuildServiceProvider();
+
+        var smartFlow = new SmartFlowService(
+            new RecordingLlmClient(),
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
+            runtimeFactory,
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            humanInput,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<SmartFlowService>.Instance,
+            candidateProvider: new SingleWorkflowCandidateProvider(new WorkflowRouteCandidate
+            {
+                Id = $"database:{agentName}",
+                Name = agentName,
+                Ref = new JsonObject
+                {
+                    ["kind"] = "database",
+                    ["agent"] = agentName
+                },
+                Description = "Works with git repositories.",
+                Tags = ["git"]
+            }),
+            scopeFactory: services.GetRequiredService<IServiceScopeFactory>());
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            smartFlow.ExecuteAsync("clone and fix issue 1679", correlationId: "corr-routed-handled-mcp-repair", agentName: null, CancellationToken.None));
+
+        await responder;
+
+        Assert.Equal(repairedWorkflow, persistedWorkflow);
+        Assert.Contains(events, evt =>
+            evt.Type == "human_input_request" &&
+            evt.Text?.Contains("handled an MCP error", StringComparison.OrdinalIgnoreCase) == true &&
+            evt.Text.Contains("TARGET_EXISTS", StringComparison.Ordinal));
+        Assert.Contains(events, evt =>
+            evt.Type == "answer" &&
+            evt.Text?.Contains("handled an MCP error", StringComparison.OrdinalIgnoreCase) == true &&
+            evt.Text.Contains("improved and saved", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(events, evt => evt.Type == "error");
     }
 
@@ -867,6 +1166,119 @@ public sealed class SmartFlowServiceTests
 
             return Task.FromResult(new LLMResponse { Text = _workflowYaml });
         }
+    }
+
+    private sealed class RoutedWorkflowRepairLlmClient : ILLMClient
+    {
+        private readonly string _agentName;
+        private readonly string _workflowYaml;
+
+        public RoutedWorkflowRepairLlmClient(string agentName, string workflowYaml)
+        {
+            _agentName = agentName;
+            _workflowYaml = workflowYaml;
+        }
+
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            if (request.Prompt.Contains("You are a workflow router", StringComparison.OrdinalIgnoreCase))
+            {
+                var json = JsonNode.Parse($$"""
+                    {
+                      "selected": [
+                        {
+                          "id": "database:{{_agentName}}",
+                          "reason": "The prompt asks for git repository work.",
+                          "confidence": 1.0
+                        }
+                      ]
+                    }
+                    """);
+                return Task.FromResult(new LLMResponse
+                {
+                    Text = json!.ToJsonString(),
+                    Json = json
+                });
+            }
+
+            if (request.Prompt.Contains("You extract workflow input arguments", StringComparison.OrdinalIgnoreCase))
+            {
+                var json = JsonNode.Parse("""
+                    {
+                      "arguments": {
+                        "task": "clone and fix issue 1679"
+                      }
+                    }
+                    """);
+                return Task.FromResult(new LLMResponse
+                {
+                    Text = json!.ToJsonString(),
+                    Json = json
+                });
+            }
+
+            if (request.Prompt.Contains("MCP server-selection assistant", StringComparison.OrdinalIgnoreCase))
+            {
+                var json = JsonNode.Parse("""{"servers":[{"name":"GnOuGo.Git.Mcp","reason":"The failing step uses git_clone."}]}""");
+                return Task.FromResult(new LLMResponse
+                {
+                    Text = json!.ToJsonString(),
+                    Json = json
+                });
+            }
+
+            if (request.Prompt.Contains("tool-selection assistant", StringComparison.OrdinalIgnoreCase))
+            {
+                var json = JsonNode.Parse("""{"servers":[{"name":"GnOuGo.Git.Mcp","tools":["git_clone"],"prompts":[]}]}""");
+                return Task.FromResult(new LLMResponse
+                {
+                    Text = json!.ToJsonString(),
+                    Json = json
+                });
+            }
+
+            return Task.FromResult(new LLMResponse { Text = _workflowYaml });
+        }
+    }
+
+    private sealed class SingleWorkflowCandidateProvider : IWorkflowCandidateProvider
+    {
+        private readonly WorkflowRouteCandidate _candidate;
+
+        public SingleWorkflowCandidateProvider(WorkflowRouteCandidate candidate)
+        {
+            _candidate = candidate;
+        }
+
+        public Task<IReadOnlyList<WorkflowRouteCandidate>> GetCandidatesAsync(
+            WorkflowRouteCandidateQuery query,
+            CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<WorkflowRouteCandidate>>([_candidate]);
+    }
+
+    private sealed class SmartFlowFakeAgentRepository : IAgentRepository
+    {
+        private readonly List<AgentDefinition> _agents;
+
+        public SmartFlowFakeAgentRepository(params AgentDefinition[] agents)
+        {
+            _agents = agents.ToList();
+        }
+
+        public Task<AgentDefinition> AddAgentAsync(string name, string workflow, string? originalPrompt = null, CancellationToken ct = default)
+            => throw new NotSupportedException();
+
+        public Task<AgentDefinition> UpdateAgentAsync(Guid id, string name, string workflow, string? originalPrompt = null, CancellationToken ct = default)
+            => throw new NotSupportedException();
+
+        public Task<List<AgentDefinition>> ListAgentsAsync(CancellationToken ct = default)
+            => Task.FromResult(_agents.ToList());
+
+        public Task<AgentDefinition?> GetByNameAsync(string name, CancellationToken ct = default)
+            => Task.FromResult(_agents.FirstOrDefault(agent => string.Equals(agent.Name, name, StringComparison.OrdinalIgnoreCase)));
+
+        public Task DeleteAgentAsync(Guid id, CancellationToken ct = default)
+            => throw new NotSupportedException();
     }
 
     private static List<SpanRow> DrainPersistedSpans(OtlpTenantCollector.Services.TelemetryIngestQueue queue)

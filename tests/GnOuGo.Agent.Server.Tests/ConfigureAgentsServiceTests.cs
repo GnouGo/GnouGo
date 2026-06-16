@@ -529,6 +529,146 @@ public sealed class ConfigureAgentsServiceTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_AgentReprompt_WhenApproved_UpdatesAgentWorkflow()
+    {
+        var llm = new RecordingLlmClient();
+        var updateCalls = 0;
+        string? savedWorkflow = null;
+        string? savedOriginalPrompt = null;
+
+        var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_get_by_name", (arguments, _) =>
+            {
+                Assert.Equal("slimfaas", arguments?["name"]?.GetValue<string>());
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject
+                    {
+                        ["success"] = true,
+                        ["agent"] = new JsonObject
+                        {
+                            ["id"] = "12345678-1234-1234-1234-1234567890ab",
+                            ["name"] = "slimfaas",
+                            ["workflow"] = "version: 1\nname: slimfaas\nworkflows:\n  main:\n    steps: []",
+                            ["original_prompt"] = "Explain SlimFaas",
+                            ["updated_at"] = "2026-04-01T12:35:00+00:00"
+                        }
+                    }
+                });
+            })
+            .OnTool("agent_update", (arguments, _) =>
+            {
+                updateCalls++;
+                Assert.Equal("12345678-1234-1234-1234-1234567890ab", arguments?["id"]?.GetValue<string>());
+                Assert.Equal("slimfaas", arguments?["name"]?.GetValue<string>());
+                savedWorkflow = arguments?["workflow"]?.GetValue<string>();
+                savedOriginalPrompt = arguments?["originalPrompt"]?.GetValue<string>();
+
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject { ["success"] = true }
+                });
+            });
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId.EndsWith("reprompt_improvement", StringComparison.Ordinal)
+                    ? new JsonObject { ["prompt"] = "Add robust error handling and clearer answer formatting." }
+                    : request.StepId.EndsWith("review_reprompt_workflow", StringComparison.Ordinal)
+                        ? new JsonObject { ["response"] = "save" }
+                        : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId.EndsWith("review_reprompt_workflow", StringComparison.Ordinal))
+                    break;
+            }
+        }, token);
+
+        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/gnougo reprompt slimfaas", humanInput, agentMcp);
+        await responder;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, updateCalls);
+        Assert.NotNull(savedWorkflow);
+        Assert.Contains("name: generated-agent", savedWorkflow);
+        Assert.Equal("Explain SlimFaas", savedOriginalPrompt);
+        Assert.Contains(events, evt =>
+            evt.Type == "thinking:response" &&
+            evt.Text is not null &&
+            evt.Text.Contains("Current workflow for 'slimfaas'", StringComparison.Ordinal));
+        Assert.Contains(events, evt =>
+            evt.Type == "thinking:response" &&
+            evt.Text == "✅ Workflow 'slimfaas' improved and saved.");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AgentReprompt_WhenDiscarded_DoesNotUpdateAgent()
+    {
+        var llm = new RecordingLlmClient();
+        var updateCalls = 0;
+
+        var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_get_by_name", new JsonObject
+            {
+                ["success"] = true,
+                ["agent"] = new JsonObject
+                {
+                    ["id"] = "12345678-1234-1234-1234-1234567890ab",
+                    ["name"] = "slimfaas",
+                    ["workflow"] = "version: 1\nname: slimfaas\nworkflows:\n  main:\n    steps: []",
+                    ["original_prompt"] = "Explain SlimFaas",
+                    ["updated_at"] = "2026-04-01T12:35:00+00:00"
+                }
+            })
+            .OnTool("agent_update", (_, _) =>
+            {
+                updateCalls++;
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject { ["success"] = true }
+                });
+            });
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId.EndsWith("reprompt_improvement", StringComparison.Ordinal)
+                    ? new JsonObject { ["prompt"] = "Make the answer concise." }
+                    : request.StepId.EndsWith("review_reprompt_workflow", StringComparison.Ordinal)
+                        ? new JsonObject { ["response"] = "discard" }
+                        : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId.EndsWith("review_reprompt_workflow", StringComparison.Ordinal))
+                    break;
+            }
+        }, token);
+
+        var (result, events) = await ExecuteConfigureAgentsWorkflowAsync(llm, "/gnougo reprompt slimfaas", humanInput, agentMcp);
+        await responder;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(0, updateCalls);
+        Assert.Contains(events, evt =>
+            evt.Type == "thinking:response" &&
+            evt.Text == "❌ Workflow improvement discarded.");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_AgentList_ReturnsDeterministicMarkdownWithoutCallingLlm()
     {
         var llm = new RecordingLlmClient();

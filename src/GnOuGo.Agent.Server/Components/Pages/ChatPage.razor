@@ -540,8 +540,11 @@
     /// into a single message at the end of the flow.</summary>
     private readonly List<(string Question, string Answer)> _hitlLog = new();
 
-    /// <summary>Typewriter delay in ms between characters.</summary>
+    /// <summary>Default typewriter pause in ms after natural text breaks.</summary>
     private const int TypewriterDelayMs = 12;
+
+    /// <summary>Maximum accumulated typewriter delay per appended text block.</summary>
+    private const int TypewriterMaxTotalDelayMs = 3_000;
 
     private bool HasBlockingUploads => _composerUploads.Any(static upload => !upload.IsCompleted);
 
@@ -1134,6 +1137,10 @@
     /// </summary>
     private async Task TypewriterAppendAsync(string text, ChatMessageDto targetMsg, CancellationToken ct)
     {
+        var pausePoints = CountTypewriterPausePoints(text);
+        var pauseEvery = CalculateTypewriterPauseInterval(pausePoints);
+        var seenPausePoints = 0;
+
         foreach (var ch in text)
         {
             ct.ThrowIfCancellationRequested();
@@ -1146,10 +1153,31 @@
             // Only delay every few characters for performance
             if (ch is ' ' or '\n' or '.' or ',' or '!' or '?')
             {
-                await Task.Delay(TypewriterDelayMs, ct);
-                await ScrollToBottomAsync();
+                seenPausePoints++;
+                if (seenPausePoints % pauseEvery == 0)
+                {
+                    await Task.Delay(TypewriterDelayMs, ct);
+                    await ScrollToBottomAsync();
+                }
             }
         }
+
+        await ScrollToBottomAsync();
+    }
+
+    private static int CountTypewriterPausePoints(string text)
+        => text.Count(static ch => ch is ' ' or '\n' or '.' or ',' or '!' or '?');
+
+    private static int CalculateTypewriterPauseInterval(int pausePoints)
+    {
+        if (pausePoints <= 0)
+            return 1;
+
+        var naturalDurationMs = pausePoints * TypewriterDelayMs;
+        if (naturalDurationMs <= TypewriterMaxTotalDelayMs)
+            return 1;
+
+        return (int)Math.Ceiling(naturalDurationMs / (double)TypewriterMaxTotalDelayMs);
     }
 
     private async Task<bool> TryInitializeChatStateAsync()

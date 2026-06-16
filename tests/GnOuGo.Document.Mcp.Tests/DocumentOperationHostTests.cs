@@ -89,6 +89,32 @@ public class DocumentOperationHostTests
     }
 
     [Fact]
+    public void Write_PlainTextFile_WithAppendTrue_AppendsToExistingFile()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+
+        var initial = host.Write("output.md", "# Report\n\n", null);
+        var appended = host.Write("output.md", "## Section\n\nDetails", null, append: true);
+
+        Assert.True(initial.Success, $"{initial.ErrorCode}: {initial.ErrorMessage}");
+        Assert.True(appended.Success, $"{appended.ErrorCode}: {appended.ErrorMessage}");
+        Assert.Equal("# Report\n\n## Section\n\nDetails", File.ReadAllText(appended.FilePath!));
+    }
+
+    [Fact]
+    public void Write_WithAppendTrue_WhenFileDoesNotExist_ReturnsFileNotFound()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+
+        var result = host.Write("missing.md", "content", null, append: true);
+
+        Assert.False(result.Success);
+        Assert.Equal("FILE_NOT_FOUND", result.ErrorCode);
+    }
+
+    [Fact]
     public void Write_DisallowedExtension_ReturnsError()
     {
         var root = CreateTempDir();
@@ -116,6 +142,35 @@ public class DocumentOperationHostTests
         Assert.True(readResult.Success);
         Assert.Contains("Line 1", readResult.Sections[0].Content);
         Assert.Contains("Line 2", readResult.Sections[0].Content);
+    }
+
+    [Fact]
+    public void Write_DocxFile_WithAppendTrue_AppendsMarkdownContent()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+
+        var initial = host.Write("append.docx", "# Report\n\nIntro", null);
+        var appended = host.Write("append.docx", "## Findings\n\n- One\n- Two", null, append: true);
+
+        Assert.True(initial.Success, $"{initial.ErrorCode}: {initial.ErrorMessage}");
+        Assert.True(appended.Success, $"{appended.ErrorCode}: {appended.ErrorMessage}");
+        using var doc = WordprocessingDocument.Open(appended.FilePath!, false);
+        var mainPart = doc.MainDocumentPart;
+        Assert.NotNull(mainPart);
+        var document = mainPart!.Document;
+        Assert.NotNull(document);
+        var body = document.Body;
+        Assert.NotNull(body);
+        Assert.Contains(body!.Elements<Paragraph>(), paragraph =>
+            paragraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value == "Heading1"
+            && paragraph.InnerText.Contains("Report", StringComparison.Ordinal));
+        Assert.Contains(body.Elements<Paragraph>(), paragraph =>
+            paragraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value == "Heading2"
+            && paragraph.InnerText.Contains("Findings", StringComparison.Ordinal));
+        Assert.Contains(body.Elements<Paragraph>(), paragraph =>
+            paragraph.ParagraphProperties?.NumberingProperties?.NumberingId?.Val?.Value == 1
+            && paragraph.InnerText.Contains("One", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -370,6 +425,26 @@ public class DocumentOperationHostTests
     }
 
     [Fact]
+    public void Write_PdfFile_WithAppendTrue_RegeneratesReadablePdfWithAppendedContent()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+
+        var initial = host.Write("append.pdf", "# Report\n\nIntro", null);
+        var appended = host.Write("append.pdf", "## Findings\n\nDetails", null, append: true);
+
+        Assert.True(initial.Success);
+        Assert.True(appended.Success);
+
+        var readResult = host.Read("append.pdf", "plain");
+        Assert.True(readResult.Success);
+        var content = string.Join("\n", readResult.Sections.Select(section => section.Content));
+        Assert.Contains("Report", content, StringComparison.Ordinal);
+        Assert.Contains("Findings", content, StringComparison.Ordinal);
+        Assert.Contains("Details", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Write_PdfFile_WhenContentLooksLikeMarkdown_RendersReadableMarkdownContent()
     {
         var root = CreateTempDir();
@@ -418,6 +493,25 @@ public class DocumentOperationHostTests
         Assert.True(readResult.Success);
         Assert.NotEmpty(readResult.Sections);
         Assert.Contains("Alice", readResult.Sections[0].Content);
+    }
+
+    [Fact]
+    public void Write_XlsxFile_WithAppendTrue_AppendsRowsToExistingSheet()
+    {
+        var root = CreateTempDir();
+        var host = CreateHost(root);
+
+        var initial = host.Write("append.xlsx", "Name\tAge\nAlice\t30", null);
+        var appended = host.Write("append.xlsx", "Bob\t25", null, append: true);
+
+        Assert.True(initial.Success);
+        Assert.True(appended.Success);
+
+        var readResult = host.Read("append.xlsx", "markdown");
+        Assert.True(readResult.Success);
+        var content = string.Join("\n", readResult.Sections.Select(section => section.Content));
+        Assert.Contains("Alice", content, StringComparison.Ordinal);
+        Assert.Contains("Bob", content, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -5,6 +5,7 @@
 #   /gnougo list        — List all configured agents
 #   /gnougo add         — Interactive agent creation flow
 #   /gnougo edit <name> — Edit an existing agent
+#   /gnougo reprompt <name> — Improve an existing agent workflow from a user prompt
 #   /gnougo remove <name> — Remove an agent
 #   /gnougo select <name> — Set as current chat agent
 
@@ -44,8 +45,8 @@ workflows:
       - id: action_parts
         type: set
         input:
-          action: "${data.steps.parsed.remainder == '' ? 'help' : startsWith(data.steps.parsed.remainder, 'list') ? 'list' : startsWith(data.steps.parsed.remainder, 'add') ? 'add' : startsWith(data.steps.parsed.remainder, 'edit') ? 'edit' : startsWith(data.steps.parsed.remainder, 'remove') ? 'remove' : startsWith(data.steps.parsed.remainder, 'select') ? 'select' : 'help'}"
-          argument: "${startsWith(data.steps.parsed.remainder, 'edit ') ? trim(substring(data.steps.parsed.remainder_original, 5)) : startsWith(data.steps.parsed.remainder, 'remove ') ? trim(substring(data.steps.parsed.remainder_original, 7)) : startsWith(data.steps.parsed.remainder, 'select ') ? trim(substring(data.steps.parsed.remainder_original, 7)) : ''}"
+          action: "${data.steps.parsed.remainder == '' ? 'help' : startsWith(data.steps.parsed.remainder, 'list') ? 'list' : startsWith(data.steps.parsed.remainder, 'add') ? 'add' : startsWith(data.steps.parsed.remainder, 'edit') ? 'edit' : startsWith(data.steps.parsed.remainder, 'reprompt') ? 'reprompt' : startsWith(data.steps.parsed.remainder, 'remove') ? 'remove' : startsWith(data.steps.parsed.remainder, 'select') ? 'select' : 'help'}"
+          argument: "${startsWith(data.steps.parsed.remainder, 'edit ') ? trim(substring(data.steps.parsed.remainder_original, 5)) : startsWith(data.steps.parsed.remainder, 'reprompt ') ? trim(substring(data.steps.parsed.remainder_original, 9)) : startsWith(data.steps.parsed.remainder, 'remove ') ? trim(substring(data.steps.parsed.remainder_original, 7)) : startsWith(data.steps.parsed.remainder, 'select ') ? trim(substring(data.steps.parsed.remainder_original, 7)) : ''}"
 
       - id: debug_parsed
         type: emit
@@ -82,6 +83,15 @@ workflows:
                   args:
                     name: "${data.steps.action_parts.argument}"
 
+          - value: "reprompt"
+            steps:
+              - id: agent_reprompt
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: agent_reprompt }
+                  args:
+                    name: "${data.steps.action_parts.argument}"
+
           - value: "remove"
             steps:
               - id: agent_remove
@@ -113,6 +123,7 @@ workflows:
                 | `/gnougo list`           | List all configured agents                     |
                 | `/gnougo add`            | Create a new agent (interactive wizard)        |
                 | `/gnougo edit <name>`    | Edit an existing agent                         |
+                | `/gnougo reprompt <name>`| Improve an existing agent workflow by prompt   |
                 | `/gnougo remove <name>`  | Remove an agent                                |
                 | `/gnougo select <name>`  | Set as current agent for this chat             |
 
@@ -595,6 +606,214 @@ workflows:
                     input:
                       message: "❌ Edit discarded."
                       level: thinking
+
+    outputs: {}
+
+  # ══════════════════════════════════════════════════════════════════
+  # /gnougo reprompt <name>
+  # ══════════════════════════════════════════════════════════════════
+  agent_reprompt:
+    inputs:
+      name:
+        type: string
+        required: true
+
+    steps:
+      - id: think_loading
+        type: emit
+        input:
+          message: "🔍 Loading workflow '${data.inputs.name}'…"
+          level: thinking
+
+      - id: find_agent
+        type: mcp.call
+        input:
+          server: GnOuGo.Agent.Mcp
+          method: agent_get_by_name
+          raise_on_error: false
+          request:
+            name: "${data.inputs.name}"
+
+      - id: check_found
+        type: switch
+        cases:
+          - when: "${data.steps.find_agent.response.success != true}"
+            steps:
+              - id: not_found
+                type: emit
+                input:
+                  message: "❌ Agent '${data.inputs.name}' not found. Use `/gnougo list` to see available agents."
+                  level: response
+
+        default:
+          - id: show_current
+            type: emit
+            input:
+              message: "📝 Current workflow for '${data.steps.find_agent.response.agent.name}':\n\n```yaml\n${data.steps.find_agent.response.agent.workflow}\n```"
+              level: response
+
+          - id: reprompt_improvement
+            type: human.input
+            input:
+              mode: form
+              prompt: "Describe how GnOuGo should improve this workflow:"
+              context: "${data.steps.find_agent.response.agent.workflow}"
+              fields:
+                - name: prompt
+                  type: string
+                  required: true
+                  description: "Improvement prompt, for example: add error handling, change MCP tool arguments, or return a richer answer."
+              timeout_ms: 36000000
+
+          - id: normalized_reprompt
+            type: set
+            input:
+              prompt: "${trim(data.steps.reprompt_improvement.prompt ?? '')}"
+
+          - id: reprompt_branch
+            type: switch
+            cases:
+              - when: "${data.steps.normalized_reprompt.prompt == ''}"
+                steps:
+                  - id: emit_empty_reprompt
+                    type: emit
+                    input:
+                      message: "❌ Improvement prompt cannot be empty. Please retry `/gnougo reprompt ${data.steps.find_agent.response.agent.name}` with a concrete request."
+                      level: response
+
+            default:
+              - id: think_reprompting
+                type: emit
+                input:
+                  message: "⚙️ Improving workflow '${data.steps.find_agent.response.agent.name}' from your prompt…"
+                  level: thinking
+
+              - id: plan_reprompt
+                type: workflow.plan
+                input:
+                  generator:
+                    prefilter: true
+                    reasoning: medium
+                    instruction: |
+                      Repair and improve an existing persisted GnOuGo.Flow chat-agent workflow.
+                      Return only a complete workflow YAML document, no markdown fences.
+
+                      Keep the same agent identity unless the user explicitly asks otherwise:
+                      - agent name: ${data.steps.find_agent.response.agent.name}
+                      - persisted agent id: ${data.steps.find_agent.response.agent.id}
+
+                      Preserve the chat-agent contract:
+                      - The workflow must be executable by GnOuGo.Agent.Server for a user chat message.
+                      - It must accept a user task/prompt input such as `task`.
+                      - It must expose an `answer` output string.
+                      - It must remain self-contained and must not ask the user to review its own YAML.
+
+                      Apply this user improvement request:
+                      <user_reprompt>
+                      ${data.steps.normalized_reprompt.prompt}
+                      </user_reprompt>
+
+                      Existing original agent prompt:
+                      <original_agent_prompt>
+                      ${data.steps.find_agent.response.agent.original_prompt ?? ''}
+                      </original_agent_prompt>
+
+                      Current workflow YAML:
+                      <current_workflow_yaml>
+                      ${data.steps.find_agent.response.agent.workflow}
+                      </current_workflow_yaml>
+                    context: |
+                      This is a manual `/gnougo reprompt` operation.
+                      Treat the current workflow as the previous version and produce the corrected replacement.
+                      Keep changes focused on the user's improvement prompt.
+                      The replacement YAML will be persisted through GnOuGo.Agent.Mcp `agent_update`.
+                      Keep the generated workflow compatible with the available DSL and MCP tool contracts.
+                  policy:
+                    allowed_step_types:
+                      - emit
+                      - set
+                      - template.render
+                      - llm.call
+                      - mcp.list
+                      - mcp.call
+                      - sequence
+                      - parallel
+                      - loop.sequential
+                      - loop.parallel
+                      - switch
+                      - human.input
+                    denied_step_types:
+                      - workflow.plan
+                      - workflow.execute
+                      - workflow.call
+                    allow_remote_workflow_refs: false
+                  limits:
+                    max_steps_total: 100
+                  validate:
+                    compile: true
+                    dry_run: true
+                  on_invalid:
+                    action: reprompt
+                    max_attempts: 10
+
+              - id: emit_reprompted_workflow
+                type: emit
+                input:
+                  message: "📝 Proposed improved workflow:\n\n```yaml\n${data.steps.plan_reprompt.yaml}\n```"
+                  level: response
+
+              - id: review_reprompt_workflow
+                type: human.input
+                input:
+                  mode: choice
+                  prompt: "Save this improved workflow for '${data.steps.find_agent.response.agent.name}'?"
+                  context: "${data.steps.plan_reprompt.yaml}"
+                  choices:
+                    - save
+                    - discard
+                  timeout_ms: 36000000
+
+              - id: save_reprompt_branch
+                type: switch
+                cases:
+                  - when: "${data.steps.review_reprompt_workflow.response == 'save'}"
+                    steps:
+                      - id: save_reprompted_agent
+                        type: mcp.call
+                        input:
+                          server: GnOuGo.Agent.Mcp
+                          method: agent_update
+                          raise_on_error: false
+                          request:
+                            id: "${data.steps.find_agent.response.agent.id}"
+                            name: "${data.steps.find_agent.response.agent.name}"
+                            workflow: "${data.steps.plan_reprompt.yaml}"
+                            originalPrompt: "${data.steps.find_agent.response.agent.original_prompt ?? ''}"
+
+                      - id: save_reprompt_result
+                        type: switch
+                        cases:
+                          - when: "${data.steps.save_reprompted_agent.response.success != true}"
+                            steps:
+                              - id: emit_reprompt_save_failed
+                                type: emit
+                                input:
+                                  message: "❌ Failed to update workflow '${data.steps.find_agent.response.agent.name}'. ${data.steps.save_reprompted_agent.response.error_message ?? 'Unknown error.'}"
+                                  level: response
+
+                        default:
+                          - id: emit_reprompt_saved
+                            type: emit
+                            input:
+                              message: "✅ Workflow '${data.steps.find_agent.response.agent.name}' improved and saved."
+                              level: response
+
+                default:
+                  - id: emit_reprompt_discarded
+                    type: emit
+                    input:
+                      message: "❌ Workflow improvement discarded."
+                      level: response
 
     outputs: {}
 
