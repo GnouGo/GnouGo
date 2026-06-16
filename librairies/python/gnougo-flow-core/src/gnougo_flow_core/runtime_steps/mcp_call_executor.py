@@ -157,6 +157,7 @@ class McpCallExecutor:
     step_description = "Call MCP tool/prompt directly or via LLM-assisted selection."
     dsl_snippet = """
 ### mcp.call - Execute MCP tool or prompt
+When workflow.plan provides an `<available_mcp_servers>` section, pick one of those exact configured server names.
 Direct MCP call pattern (preferred when tool names are known): use `mcp.call` directly with explicit `method` and `request`.
 MCP errors raise workflow `on_error` by default. Set `raise_on_error: false` only when the workflow intentionally wants
 to inspect `status: error` as normal output.

@@ -70,10 +70,10 @@ public sealed class McpCallExecutor : IStepExecutor
 
     public string DslSnippet => """
         ### mcp.call — Call MCP tool(s) or prompt(s)
-        Use a configured MCP server name for `input.server`. When workflow.plan provides an `[AVAILABLE MCP SERVERS]` section, pick one of those exact names.
+        Use a configured MCP server name for `input.server`. When workflow.plan provides an `<available_mcp_servers>` section, pick one of those exact names.
 
-        Direct MCP call pattern (preferred when tool names are known from `[AVAILABLE MCP SERVERS]`):
-        When tool names and input schemas are listed in the planner's `[AVAILABLE MCP SERVERS]` section, use `mcp.call` directly with explicit `method` and `request` — no `mcp.list` step needed.
+        Direct MCP call pattern (preferred when tool names are known from `<available_mcp_servers>`):
+        When tool names and input schemas are listed in the planner's `<available_mcp_servers>` section, use `mcp.call` directly with explicit `method` and `request` — no `mcp.list` step needed.
         Fallback: discover candidate servers -> choose one server -> use `mcp.list` -> choose the exact tool/prompt -> build `request` -> use `mcp.call` with explicit `method`/`methods`.
 
         LLM-assisted MCP call pattern:

@@ -40,7 +40,7 @@ public sealed class McpListExecutor : IStepExecutor
     public string DslSnippet => """
         ### mcp.list — List MCP capabilities across servers
         Use configured MCP server names in `input.servers`. Use `servers: ["*"]` to inspect every configured MCP server.
-        When workflow.plan provides an `[AVAILABLE MCP SERVERS]` section, pick those exact names.
+        When workflow.plan provides an `<available_mcp_servers>` section, pick those exact names.
         Required MCP planning pattern: discover candidate servers from descriptions -> use `mcp.list` to inspect tools/prompts/resources -> select the exact tool/prompt -> build the request arguments -> use `mcp.call`.
         Prefer `mcp.list` first when the exact tool or prompt name is not known in advance.
         The output of `mcp.list` can be passed directly into `mcp.call.input.tools` and/or `mcp.call.input.prompts` when you want an LLM-guided MCP selection step.

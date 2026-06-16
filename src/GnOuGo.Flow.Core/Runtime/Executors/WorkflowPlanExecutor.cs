@@ -159,13 +159,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var basePrompt = new StringBuilder();
         basePrompt.AppendLine("You are a GnOuGo.Flow YAML workflow generator. Return ONLY valid YAML, no explanation or markdown fences.");
         basePrompt.AppendLine();
-        basePrompt.AppendLine("[DSL REFERENCE]");
-        basePrompt.AppendLine(RemoveMarkdownFenceLines(DslReference.CommonReference));
+        AppendPromptSection(basePrompt, "dsl_reference", RemoveMarkdownFenceLines(DslReference.CommonReference));
         basePrompt.AppendLine();
-        basePrompt.AppendLine("[AVAILABLE STEP TYPES]");
-        basePrompt.AppendLine(RemoveMarkdownFenceLines(stepTypesDoc));
+        AppendPromptSection(basePrompt, "available_step_types", RemoveMarkdownFenceLines(stepTypesDoc));
         basePrompt.AppendLine();
-        basePrompt.AppendLine("[REQUIRED ROOT YAML SHAPE]");
+        AppendPromptSectionStart(basePrompt, "required_root_yaml_shape");
         basePrompt.AppendLine("The generated YAML MUST include all required root keys exactly once: version, name, skill, workflows.");
         basePrompt.AppendLine("The generated YAML MUST include a top-level `skill` block for routing metadata.");
         basePrompt.AppendLine("Root key requirements:");
@@ -186,11 +184,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("workflows:");
         basePrompt.AppendLine("  main:");
         basePrompt.AppendLine("    steps: []");
+        AppendPromptSectionEnd(basePrompt, "required_root_yaml_shape");
 
         basePrompt.AppendLine();
-        basePrompt.AppendLine("[GENERATION VALIDATION CHECKLIST]");
+        AppendPromptSectionStart(basePrompt, "generation_validation_checklist");
         basePrompt.AppendLine("Before returning YAML, self-check these rules and fix the YAML silently:");
-        basePrompt.AppendLine("- Use only exact step types listed in [AVAILABLE STEP TYPES]. Do not invent aliases or legacy names.");
+        basePrompt.AppendLine("- Use only exact step types listed in <available_step_types>. Do not invent aliases or legacy names.");
         basePrompt.AppendLine("- Every step has a unique non-empty `id` and a non-empty `type`.");
         basePrompt.AppendLine("- Put common step fields (`id`, `type`, `if`, `input`, `output`, `retry`, `on_error`) at the step level, not inside `input`.");
         basePrompt.AppendLine("- Put executor-specific arguments inside `input` only. For example `llm.call.input.prompt`, `mcp.call.input.server`, `template.render.input.template`.");
@@ -206,9 +205,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- If precise fields are needed from an opaque response, add an `llm.call` normalization step with `structured_output`, then read fields from `data.steps.<normalizer>.json`.");
         basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");
         basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
+        AppendPromptSectionEnd(basePrompt, "generation_validation_checklist");
 
         basePrompt.AppendLine();
-        basePrompt.AppendLine("[LLM MODEL PARAMETERS]");
+        AppendPromptSectionStart(basePrompt, "llm_model_parameters");
         basePrompt.AppendLine("The runtime resolves default provider/model values for LLM-capable steps when they are omitted.");
         basePrompt.AppendLine("The runtime also owns model metadata (token limits, pricing, and capabilities) and removes unsupported optional request parameters before provider calls.");
         basePrompt.AppendLine("When generating `llm.call` or LLM-assisted `mcp.call` steps:");
@@ -216,26 +216,27 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- Do NOT add `temperature` by habit. Include it only when the task explicitly needs a sampling override.");
         basePrompt.AppendLine("- Do NOT add `reasoning` by habit. Include it only when the task explicitly needs a reasoning-effort override.");
         basePrompt.AppendLine("- If a generated workflow includes unsupported optional LLM parameters, the runtime may omit them automatically based on model capabilities.");
+        AppendPromptSectionEnd(basePrompt, "llm_model_parameters");
 
 
         if (mcpServersDoc != null)
         {
             basePrompt.AppendLine();
-            basePrompt.AppendLine("[AVAILABLE MCP SERVERS]");
-            basePrompt.AppendLine(mcpServersDoc);
+            AppendPromptSection(basePrompt, "available_mcp_servers", mcpServersDoc);
 
             basePrompt.AppendLine();
-            basePrompt.AppendLine("[MCP OUTPUT ACCESS]");
-            basePrompt.AppendLine("mcp.call single-tool output shape: `{ status: \"ok\"|\"error\", response: <tool-specific JSON> }`");
+            AppendPromptSectionStart(basePrompt, "mcp_output_access");
+            basePrompt.AppendLine("mcp.call single-tool output shape: `{ status: \"ok\"|\"error\", response: tool-specific JSON }`");
             basePrompt.AppendLine("Access status via `data.steps.<id>.status` and the full tool result via `data.steps.<id>.response`.");
             basePrompt.AppendLine("The `response` value is opaque, tool-specific JSON. Do NOT assume field names inside `response` unless the tool description explicitly documents them.");
             basePrompt.AppendLine("When passing the tool result to a subsequent step, prefer `data.steps.<id>.response` (the whole object) or `json(data.steps.<id>.response)` to serialize it.");
             basePrompt.AppendLine("For batch/auto-discover output: `{ status, results: [{ method, status, response }] }` — access via `data.steps.<id>.results`.");
             basePrompt.AppendLine("For LLM-assisted output: `{ status, selection_mode: \"llm\", text, tool_calls, results, json? }` — structured content is in `data.steps.<id>.json` when `structured_output` is used, or `data.steps.<id>.text` for free-form text.");
+            AppendPromptSectionEnd(basePrompt, "mcp_output_access");
         }
 
         basePrompt.AppendLine();
-        basePrompt.AppendLine("[ERROR HANDLING AND RETRIES]");
+        AppendPromptSectionStart(basePrompt, "error_handling_and_retries");
         basePrompt.AppendLine("Use `retry` only for transient errors that are explicitly marked retryable by the runtime.");
         basePrompt.AppendLine("Retries run before `on_error` is evaluated.");
         basePrompt.AppendLine("`on_error` is evaluated only after retries are exhausted, or immediately for non-retryable errors.");
@@ -272,15 +273,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("      set_output:");
         basePrompt.AppendLine("        status: \"degraded\"");
         basePrompt.AppendLine("    - action: stop");
+        AppendPromptSectionEnd(basePrompt, "error_handling_and_retries");
         basePrompt.AppendLine();
-        basePrompt.AppendLine("[STEP EXCEPTIONS BY TYPE]");
-        basePrompt.AppendLine(RemoveMarkdownFenceLines(stepExceptionsDoc));
+        AppendPromptSection(basePrompt, "step_exceptions_by_type", RemoveMarkdownFenceLines(stepExceptionsDoc));
 
         if (constraintsSb.Length > 0)
         {
             basePrompt.AppendLine();
-            basePrompt.AppendLine("[CONSTRAINTS]");
-            basePrompt.Append(constraintsSb);
+            AppendPromptSection(basePrompt, "constraints", constraintsSb.ToString());
         }
 
         basePrompt.AppendLine();
@@ -864,8 +864,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - Include every plausibly relevant server; exclude clearly unrelated servers.
             - If no server is relevant, return {"servers": []}.
 
-            [SERVER CATALOG]
+            <server_catalog>
             {{catalogSb}}
+            </server_catalog>
 
             {{BuildUserTaskBlock(instruction, context)}}
             """;
@@ -1207,8 +1208,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - If a server has "(discovery unavailable)", include it if its description seems relevant (with empty tools/prompts arrays).
             - If no server is relevant, return {"servers": []}.
 
-            [CATALOG]
+            <catalog>
             {{catalogSb}}
+            </catalog>
 
             {{BuildUserTaskBlock(instruction, context)}}
             """;
@@ -1440,7 +1442,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     }
 
     /// <summary>
-    /// Formats MCP server discovery results into the prompt text for [AVAILABLE MCP SERVERS].
+    /// Formats MCP server discovery results into the prompt text for <available_mcp_servers>.
     /// </summary>
     private static string FormatMcpServersDoc(List<McpServerDiscovery> servers)
     {
@@ -1739,33 +1741,30 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (!string.IsNullOrWhiteSpace(constraints))
         {
             sb.AppendLine();
-            sb.AppendLine("[CONSTRAINTS]");
-            sb.Append(constraints);
+            AppendPromptSection(sb, "constraints", constraints);
         }
         sb.AppendLine();
-        sb.AppendLine("[PREVIOUS ERROR]");
         sb.AppendLine("<previous_error>");
         sb.AppendLine(structuredError);
         sb.AppendLine("</previous_error>");
         sb.AppendLine();
-        sb.AppendLine("[INVALID YAML]");
         sb.AppendLine("<invalid_yaml>");
         sb.AppendLine(string.IsNullOrWhiteSpace(invalidYaml)
             ? "(previous output was empty)"
             : RemoveDuplicateTaskPreamble(invalidYaml, instruction, context));
         sb.AppendLine("</invalid_yaml>");
         sb.AppendLine();
-        sb.AppendLine("[MINIMUM DSL CONTEXT]");
+        AppendPromptSectionStart(sb, "minimum_dsl_context");
         sb.AppendLine("Required root: version, name, skill, workflows. `skill` is a top-level object with description, tags, inputs, and outputs. Each workflow has steps: [] and optional outputs.");
         sb.AppendLine("Each step requires step-level id and type. Common fields stay at step level: if, input, output, retry, on_error, steps, branches, cases, default.");
         sb.AppendLine("Executor-specific arguments go inside input only.");
         sb.AppendLine("Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.");
         sb.AppendLine("Expressions may read data.inputs.* and earlier data.steps.<id>.* only.");
+        AppendPromptSectionEnd(sb, "minimum_dsl_context");
         if (!string.IsNullOrWhiteSpace(repairContext))
         {
             sb.AppendLine();
-            sb.AppendLine("[RELEVANT REPAIR CONTEXT]");
-            sb.AppendLine(repairContext);
+            AppendPromptSection(sb, "relevant_repair_context", repairContext);
         }
         sb.AppendLine();
         sb.AppendLine("Fix the issues above and generate a corrected YAML.");
@@ -1781,18 +1780,36 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static void AppendUserTaskBlock(StringBuilder sb, string instruction, string? context)
     {
-        sb.AppendLine("[TASK]");
+        AppendPromptSectionStart(sb, "task");
         sb.AppendLine("<user_prompt>");
         sb.AppendLine(instruction);
         sb.AppendLine("</user_prompt>");
 
-        if (string.IsNullOrWhiteSpace(context))
-            return;
+        if (!string.IsNullOrWhiteSpace(context))
+        {
+            sb.AppendLine("<user_context>");
+            sb.AppendLine(context);
+            sb.AppendLine("</user_context>");
+        }
 
-        sb.AppendLine("<user_context>");
-        sb.AppendLine(context);
-        sb.AppendLine("</user_context>");
+        AppendPromptSectionEnd(sb, "task");
     }
+
+    private static void AppendPromptSection(StringBuilder sb, string tagName, string? content)
+    {
+        AppendPromptSectionStart(sb, tagName);
+
+        if (!string.IsNullOrEmpty(content))
+            sb.AppendLine(content.TrimEnd());
+
+        AppendPromptSectionEnd(sb, tagName);
+    }
+
+    private static void AppendPromptSectionStart(StringBuilder sb, string tagName)
+        => sb.AppendLine($"<{tagName}>");
+
+    private static void AppendPromptSectionEnd(StringBuilder sb, string tagName)
+        => sb.AppendLine($"</{tagName}>");
 
     private static string RemoveDuplicateTaskPreamble(string invalidYaml, string instruction, string? context)
     {

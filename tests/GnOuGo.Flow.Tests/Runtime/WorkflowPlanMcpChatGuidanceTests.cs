@@ -121,7 +121,7 @@ public class WorkflowPlanMcpChatGuidanceTests
         await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.NotNull(capturedPrompt);
-        Assert.Contains("[AVAILABLE MCP SERVERS]", capturedPrompt);
+        Assert.Contains("<available_mcp_servers>", capturedPrompt);
         Assert.Contains("- broken-server: A server that fails to connect", capturedPrompt);
         Assert.Contains("(tool discovery unavailable)", capturedPrompt);
         // Falls back to old discovery pattern when no tools were discovered

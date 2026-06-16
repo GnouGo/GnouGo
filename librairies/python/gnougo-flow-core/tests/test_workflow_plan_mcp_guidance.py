@@ -238,7 +238,7 @@ async def _run_plan(factory):
     engine.mcp_client_factory = factory
     result = await engine.execute_async(_compile_main(source), {})
     assert result.success
-    return next(prompt for prompt in llm.prompts if "[AVAILABLE STEP TYPES]" in prompt)
+    return next(prompt for prompt in llm.prompts if "<available_step_types>" in prompt)
 
 
 @pytest.mark.asyncio
@@ -297,7 +297,8 @@ async def test_workflow_plan_server_prefilter_uses_descriptions_before_capabilit
     assert llm.requests[0].structured_output_schema is not None
     assert llm.requests[0].structured_output_strict is True
     assert llm.requests[0].temperature is None
-    assert "[SERVER CATALOG]" in llm.requests[0].prompt
+    assert "<server_catalog>" in llm.requests[0].prompt
+    assert "</server_catalog>" in llm.requests[0].prompt
     assert "GitHub repository automation" in llm.requests[0].prompt
     assert "Weather forecasts" in llm.requests[0].prompt
     assert "list_repos" not in llm.requests[0].prompt
@@ -448,7 +449,7 @@ async def test_workflow_plan_server_prefilter_force_includes_servers_referenced_
 async def test_workflow_plan_prompt_falls_back_when_mcp_discovery_fails() -> None:
     prompt = await _run_plan(_BrokenFactory())
 
-    assert "[AVAILABLE MCP SERVERS]" in prompt
+    assert "<available_mcp_servers>" in prompt
     assert "- broken-server: A server that fails to connect" in prompt
     assert "(tool discovery unavailable)" in prompt
     assert "Required MCP planning pattern: discover candidate servers" in prompt
