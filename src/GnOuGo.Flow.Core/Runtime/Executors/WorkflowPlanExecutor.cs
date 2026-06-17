@@ -2121,7 +2121,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var lower = message.ToLowerInvariant();
 
         var errorCode = "VALIDATION_ERROR";
-        if (lower.Contains("mcp_server_not_found") || lower.Contains("mcp server") && lower.Contains("not found"))
+        if (lower.Contains("mcp_server_unknown"))
+            errorCode = "MCP_SERVER_UNKNOWN";
+        else if (lower.Contains("mcp_method_unknown"))
+            errorCode = "MCP_METHOD_UNKNOWN";
+        else if (lower.Contains("mcp_server_not_found") || lower.Contains("mcp server") && lower.Contains("not found"))
             errorCode = ErrorCodes.McpServerNotFound;
         else if (lower.Contains("missing required field 'workflows'"))
             errorCode = "MISSING_ROOT_KEY_WORKFLOWS";

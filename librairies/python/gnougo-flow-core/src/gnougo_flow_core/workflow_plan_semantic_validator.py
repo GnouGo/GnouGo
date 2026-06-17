@@ -345,6 +345,9 @@ def _validate_mcp_call_input_request(
     if not server_name or not method_name:
         return
 
+    if not _validate_mcp_call_target_exists(step, workflow_name, server_name, method_name, mcp_contracts, errors):
+        return
+
     contract = mcp_contracts.get((server_name, method_name))
     if contract is None or not isinstance(contract.input_schema, dict):
         return
@@ -371,6 +374,52 @@ def _validate_mcp_call_input_request(
                 message=f"mcp.call request for '{server_name}/{method_name}' is invalid: {schema_error.message}",
             )
         )
+
+
+def _validate_mcp_call_target_exists(
+    step: StepDef,
+    workflow_name: str,
+    server_name: str,
+    method_name: str,
+    mcp_contracts: dict[tuple[str, str], McpToolOutputContract],
+    errors: list[WorkflowSemanticValidationError],
+) -> bool:
+    if not mcp_contracts:
+        return True
+
+    known_servers = sorted({server for server, _method in mcp_contracts})
+    if server_name not in known_servers:
+        errors.append(
+            WorkflowSemanticValidationError(
+                code="MCP_SERVER_UNKNOWN",
+                workflow_name=workflow_name,
+                step_id=step.id,
+                field="input.server",
+                invalid_path=f"input.server:{server_name}",
+                allowed_paths=[f"mcp.server:{server}" for server in known_servers],
+                suggestion="Use one of the MCP servers discovered for this plan, or add an `mcp.list` discovery step before calling it.",
+                message=f"mcp.call references unknown MCP server '{server_name}'.",
+            )
+        )
+        return False
+
+    if (server_name, method_name) in mcp_contracts:
+        return True
+
+    known_methods = sorted({method for server, method in mcp_contracts if server == server_name})
+    errors.append(
+        WorkflowSemanticValidationError(
+            code="MCP_METHOD_UNKNOWN",
+            workflow_name=workflow_name,
+            step_id=step.id,
+            field="input.method",
+            invalid_path=f"input.method:{method_name}",
+            allowed_paths=[f"mcp.server:{server_name}.method:{method}" for method in known_methods],
+            suggestion=f"Use one of the tools discovered for MCP server '{server_name}', or inspect the server with `mcp.list` before calling it.",
+            message=f"mcp.call references unknown MCP method '{method_name}' on server '{server_name}'.",
+        )
+    )
+    return False
 
 
 def _validate_json_node_against_schema(value: Any, schema: Any, path: str, errors: list[_SchemaValidationError]) -> None:

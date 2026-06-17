@@ -664,6 +664,92 @@ async def test_workflow_plan_semantic_validation_rejects_unknown_mcp_response_pr
 
 
 @pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_rejects_unknown_mcp_server() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: missing_docs
+              method: get_doc
+              request:
+                id: intro
+    """
+    tool = McpToolInfo(name="get_doc", description="Get a document")
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "MCP_SERVER_UNKNOWN" in result.error.message
+    assert "missing_docs" in result.error.message
+    assert "mcp.server:docs" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_rejects_unknown_mcp_method() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: missing_doc
+              request:
+                id: intro
+    """
+    tool = McpToolInfo(name="get_doc", description="Get a document")
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "MCP_METHOD_UNKNOWN" in result.error.message
+    assert "missing_doc" in result.error.message
+    assert "mcp.server:docs.method:get_doc" in result.error.message
+
+
+@pytest.mark.asyncio
 async def test_workflow_plan_semantic_validation_rejects_deep_access_into_opaque_mcp_response() -> None:
     source = """
     version: 1

@@ -660,6 +660,120 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsUnknownMcpServer()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated docs workflow.
+                         tags: [docs]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: fetch
+                               type: mcp.call
+                               input:
+                                 server: missing_docs
+                                 method: get_doc
+                                 request: { id: "intro" }
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("docs", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo> { new() { Name = "get_doc", Description = "Get a document" } }
+        });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a docs workflow
+            prefilter: false
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_SERVER_UNKNOWN", result.Error.Message);
+        Assert.Contains("missing_docs", result.Error.Message);
+        Assert.Contains("mcp.server:docs", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsUnknownMcpMethod()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated docs workflow.
+                         tags: [docs]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: fetch
+                               type: mcp.call
+                               input:
+                                 server: docs
+                                 method: missing_doc
+                                 request: { id: "intro" }
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("docs", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo> { new() { Name = "get_doc", Description = "Get a document" } }
+        });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a docs workflow
+            prefilter: false
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_METHOD_UNKNOWN", result.Error.Message);
+        Assert.Contains("missing_doc", result.Error.Message);
+        Assert.Contains("mcp.server:docs.method:get_doc", result.Error.Message);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_SemanticValidation_RejectsUnknownMcpResponseProperty()
     {
         var mockLlm = new Mock<ILLMClient>();

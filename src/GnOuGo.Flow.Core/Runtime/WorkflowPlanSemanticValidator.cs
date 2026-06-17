@@ -445,6 +445,9 @@ internal static class WorkflowPlanSemanticValidator
         if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(methodName))
             return;
 
+        if (!ValidateMcpCallTargetExists(step, workflowName, serverName, methodName, mcpContracts, errors))
+            return;
+
         if (!mcpContracts.TryGetValue((serverName, methodName), out var contract)
             || contract.InputSchema is not JsonObject inputSchema)
         {
@@ -476,6 +479,63 @@ internal static class WorkflowPlanSemanticValidator
                 Message = $"mcp.call request for '{serverName}/{methodName}' is invalid: {schemaError.Message}"
             });
         }
+    }
+
+    private static bool ValidateMcpCallTargetExists(
+        StepDef step,
+        string workflowName,
+        string serverName,
+        string methodName,
+        Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        if (mcpContracts.Count == 0)
+            return true;
+
+        var knownServers = mcpContracts.Keys
+            .Select(key => key.ServerName)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        if (!knownServers.Contains(serverName, StringComparer.Ordinal))
+        {
+            errors.Add(new WorkflowSemanticValidationError
+            {
+                Code = "MCP_SERVER_UNKNOWN",
+                WorkflowName = workflowName,
+                StepId = step.Id,
+                Field = "input.server",
+                InvalidPath = $"input.server:{serverName}",
+                AllowedPaths = knownServers.Select(name => $"mcp.server:{name}").ToArray(),
+                Suggestion = "Use one of the MCP servers discovered for this plan, or add an `mcp.list` discovery step before calling it.",
+                Message = $"mcp.call references unknown MCP server '{serverName}'."
+            });
+            return false;
+        }
+
+        if (mcpContracts.ContainsKey((serverName, methodName)))
+            return true;
+
+        var knownMethods = mcpContracts.Keys
+            .Where(key => string.Equals(key.ServerName, serverName, StringComparison.Ordinal))
+            .Select(key => key.ToolName)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        errors.Add(new WorkflowSemanticValidationError
+        {
+            Code = "MCP_METHOD_UNKNOWN",
+            WorkflowName = workflowName,
+            StepId = step.Id,
+            Field = "input.method",
+            InvalidPath = $"input.method:{methodName}",
+            AllowedPaths = knownMethods.Select(name => $"mcp.server:{serverName}.method:{name}").ToArray(),
+            Suggestion = $"Use one of the tools discovered for MCP server '{serverName}', or inspect the server with `mcp.list` before calling it.",
+            Message = $"mcp.call references unknown MCP method '{methodName}' on server '{serverName}'."
+        });
+        return false;
     }
 
     private sealed record SchemaValidationError(string Path, string Message);

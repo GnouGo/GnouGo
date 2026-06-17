@@ -497,7 +497,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         lower = message.lower()
 
         error_code = "VALIDATION_ERROR"
-        if "missing required field 'workflows'" in lower:
+        if "mcp_server_unknown" in lower:
+            error_code = "MCP_SERVER_UNKNOWN"
+        elif "mcp_method_unknown" in lower:
+            error_code = "MCP_METHOD_UNKNOWN"
+        elif "missing required field 'workflows'" in lower:
             error_code = "MISSING_ROOT_KEY_WORKFLOWS"
         elif "missing required field 'version'" in lower:
             error_code = "MISSING_ROOT_KEY_VERSION"
