@@ -458,6 +458,7 @@ internal static class WorkflowPlanSemanticValidator
         var requestObject = requestNode as JsonObject ?? new JsonObject();
         var schemaErrors = new List<SchemaValidationError>();
         ValidateJsonNodeAgainstSchema(requestObject, inputSchema, "", schemaErrors);
+        ValidateMcpRequestCompatibilityConventions(requestObject, inputSchema, "", schemaErrors);
         if (schemaErrors.Count == 0)
             return;
 
@@ -539,6 +540,47 @@ internal static class WorkflowPlanSemanticValidator
     }
 
     private sealed record SchemaValidationError(string Path, string Message);
+
+    private static void ValidateMcpRequestCompatibilityConventions(
+        JsonObject request,
+        JsonObject inputSchema,
+        string path,
+        List<SchemaValidationError> errors)
+    {
+        if (inputSchema["properties"] is not JsonObject properties)
+            return;
+
+        foreach (var (propertyName, propertySchema) in properties)
+        {
+            if (!IsExplicitPaginationNumberProperty(propertyName, propertySchema))
+                continue;
+
+            var propertyPath = string.IsNullOrEmpty(path) ? propertyName : $"{path}.{propertyName}";
+            if (!request.TryGetPropertyValue(propertyName, out var value) || value is null)
+            {
+                errors.Add(new SchemaValidationError(
+                    propertyPath,
+                    "missing explicit numeric pagination property; send an unquoted number such as 30 instead of omitting it"));
+                continue;
+            }
+
+            if (value is JsonObject childObject && propertySchema is JsonObject childSchema)
+                ValidateMcpRequestCompatibilityConventions(childObject, childSchema, propertyPath, errors);
+        }
+    }
+
+    private static bool IsExplicitPaginationNumberProperty(string propertyName, JsonNode? propertySchema)
+    {
+        if (!string.Equals(propertyName, "perPage", StringComparison.Ordinal))
+            return false;
+
+        if (propertySchema is not JsonObject schemaObject)
+            return false;
+
+        var typeName = ReadSchemaType(schemaObject);
+        return string.Equals(typeName, "number", StringComparison.Ordinal)
+            || string.Equals(typeName, "integer", StringComparison.Ordinal);
+    }
 
     private static void ValidateJsonNodeAgainstSchema(
         JsonNode? value,

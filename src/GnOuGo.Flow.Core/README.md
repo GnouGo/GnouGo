@@ -550,6 +550,8 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 | LLM-assisted | `data.steps.<id>.text`, `data.steps.<id>.json` |
 
 > **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises `OutputSchema` or `ExampleResponse`. Access `data.steps.<id>.response.<field>` only for documented fields. Otherwise pass the whole response with `json(data.steps.<id>.response)` or add an `llm.call` normalization step with `structured_output`.
+>
+> When an MCP server returns protocol `structuredContent`, `mcp.call` uses that value as `response`. `workflow.plan` can include and validate fields inside that response only when the same tool is discoverable with an `OutputSchema` or representative `ExampleResponse`.
 
 #### MCP progress events → thinking telemetry
 

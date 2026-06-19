@@ -1002,6 +1002,85 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RequiresExplicitNumericPerPageWhenAdvertised()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated GitHub issue workflow.
+                         tags: [github, issues]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: issues
+                               type: mcp.call
+                               input:
+                                 server: Github
+                                 kind: tool
+                                 method: list_issues
+                                 request:
+                                   owner: AxaFrance
+                                   repo: oidc-client
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("Github", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "list_issues",
+                    Description = "List GitHub issues",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "owner": { "type": "string" },
+                        "repo": { "type": "string" },
+                        "perPage": { "type": "number" }
+                      },
+                      "required": ["owner", "repo"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: List GitHub issues
+            prefilter: false
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
+        Assert.Contains("input.request.perPage", result.Error.Message);
+        Assert.Contains("missing explicit numeric pagination property", result.Error.Message);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_DryRun_RejectsFreeformLlmTextUsedAsNumber()
     {
         var mockLlm = new Mock<ILLMClient>();
@@ -1849,6 +1928,8 @@ workflows:
         Assert.Contains("If the exact tool or prompt name is unknown, use mcp.list first", capturedPrompt);
         Assert.Contains("When using LLM-assisted mcp.call, put the natural-language instruction in input.prompt", capturedPrompt);
         Assert.Contains("Do NOT generate mcp.call with only input.server as the default plan.", capturedPrompt);
+        Assert.Contains("output_schema_json", capturedPrompt);
+        Assert.Contains("\"repositories\"", capturedPrompt);
     }
 
     [Fact]

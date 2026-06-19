@@ -811,6 +811,12 @@ internal sealed class McpSessionAdapter : IMcpSession
 
     private static JsonNode? BuildContent(CallToolResult result)
     {
+        if (result.StructuredContent is JsonElement structuredContent
+            && structuredContent.ValueKind is not JsonValueKind.Undefined and not JsonValueKind.Null)
+        {
+            return JsonNode.Parse(structuredContent.GetRawText());
+        }
+
         if (result.Content is not { Count: > 0 })
             return null;
 
