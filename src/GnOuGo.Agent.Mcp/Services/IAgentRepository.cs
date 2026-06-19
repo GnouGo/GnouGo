@@ -10,6 +10,14 @@ public interface IAgentRepository
     /// <summary>Create a new agent with the given name, workflow, and optional metadata.</summary>
     Task<AgentDefinition> AddAgentAsync(string name, string workflow, string? originalPrompt = null, CancellationToken ct = default);
 
+    /// <summary>Create a new agent and persist any bundled workflow files at safe workspace-relative paths.</summary>
+    Task<AgentDefinition> AddAgentBundleAsync(
+        string name,
+        string workflow,
+        IReadOnlyDictionary<string, string>? workflows,
+        string? originalPrompt = null,
+        CancellationToken ct = default);
+
     /// <summary>Update an existing agent (name, workflow, metadata).</summary>
     Task<AgentDefinition> UpdateAgentAsync(Guid id, string name, string workflow, string? originalPrompt = null, CancellationToken ct = default);
 
@@ -22,4 +30,3 @@ public interface IAgentRepository
     /// <summary>Delete an agent by its identifier.</summary>
     Task DeleteAgentAsync(Guid id, CancellationToken ct = default);
 }
-

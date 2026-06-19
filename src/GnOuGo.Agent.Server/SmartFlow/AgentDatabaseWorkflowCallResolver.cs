@@ -39,6 +39,20 @@ public sealed class AgentDatabaseWorkflowCallResolver : DefaultWorkflowCallResol
             return await base.ResolveAsync(context, ct);
         }
 
+        if ((context.Ref["path"] is not null || context.Ref["name"] is not null)
+            && context.Ref["agent"] is null
+            && GetString(context.Ref, "path") is not null)
+        {
+            return await base.ResolveAsync(new WorkflowCallResolutionContext
+            {
+                Engine = context.Engine,
+                Ref = context.Ref,
+                Kind = "workspace",
+                CallDepth = context.CallDepth,
+                CallStack = context.CallStack
+            }, ct);
+        }
+
         var agentName = GetString(context.Ref, "agent") ?? GetString(context.Ref, "name")
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Database workflow.call requires 'agent' or 'name'");
 
@@ -48,7 +62,7 @@ public sealed class AgentDatabaseWorkflowCallResolver : DefaultWorkflowCallResol
                 $"Cycle detected: agent workflow '{agentName}' already in call stack");
 
         var workflowYaml = await LoadAgentWorkflowAsync(agentName, ct);
-        var resolution = CompileDocumentReference(workflowYaml, context.Ref, $"database:{agentName}");
+        var resolution = CompileDocumentReference(workflowYaml, context.Ref, $"database:{agentName}", "database", agentName);
 
         return new WorkflowCallResolution
         {
@@ -82,4 +96,3 @@ public sealed class AgentDatabaseWorkflowCallResolver : DefaultWorkflowCallResol
         return agent.Workflow;
     }
 }
-

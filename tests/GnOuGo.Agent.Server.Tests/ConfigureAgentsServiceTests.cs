@@ -36,7 +36,7 @@ public sealed class ConfigureAgentsServiceTests
                     }
                 });
             })
-            .OnTool("agent_add", new JsonObject
+            .OnTool("agent_add_bundle", new JsonObject
             {
                 ["success"] = true,
                 ["agent"] = SmartFlowTestFactory.AgentSummary(
@@ -108,7 +108,7 @@ public sealed class ConfigureAgentsServiceTests
                     }
                 });
             })
-            .OnTool("agent_add", (_, _) =>
+            .OnTool("agent_add_bundle", (_, _) =>
             {
                 agentAddCalls++;
                 return Task.FromResult(new McpCallResult
@@ -160,7 +160,7 @@ public sealed class ConfigureAgentsServiceTests
                 ["error_code"] = "NOT_FOUND",
                 ["error_message"] = "Agent 'slimfaas' not found."
             })
-            .OnTool("agent_add", new JsonObject
+            .OnTool("agent_add_bundle", new JsonObject
             {
                 ["success"] = false,
                 ["error_code"] = "ALREADY_EXISTS",

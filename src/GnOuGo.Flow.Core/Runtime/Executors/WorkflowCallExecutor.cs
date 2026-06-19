@@ -44,7 +44,13 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         var refObj = input["ref"] as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.call requires 'ref'");
 
-        var kind = refObj["kind"]?.GetValue<string>() ?? "local";
+        var kind = refObj["kind"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            kind = refObj["path"] is not null && !string.IsNullOrWhiteSpace(ctx.Engine.CompiledDocument?.Source?.SourceKind)
+                ? ctx.Engine.CompiledDocument.Source.SourceKind
+                : "local";
+        }
         var args = input["args"] ?? new JsonObject();
 
         // Check call depth
@@ -126,7 +132,6 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         };
     }
 }
-
 
 
 

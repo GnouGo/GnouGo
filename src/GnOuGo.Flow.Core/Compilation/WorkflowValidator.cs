@@ -263,6 +263,9 @@ public sealed class WorkflowValidator
         if (step.Expr != null)
             ValidateExpression(step.Expr, wfName, step.Id, "expr", errors);
 
+        if (step.Input != null)
+            ValidateJsonExpressions(step.Input, wfName, step.Id, "input", errors);
+
         // Type-specific validation
         switch (step.Type)
         {
@@ -364,6 +367,30 @@ public sealed class WorkflowValidator
         }
     }
 
+    private static void ValidateJsonExpressions(JsonNode node, string wfName, string? stepId, string field, List<ValidationError> errors)
+    {
+        switch (node)
+        {
+            case JsonValue value when value.TryGetValue<string>(out var text):
+                ValidateExpression(text, wfName, stepId, field, errors);
+                break;
+            case JsonObject obj:
+                foreach (var (key, child) in obj)
+                {
+                    if (child != null)
+                        ValidateJsonExpressions(child, wfName, stepId, $"{field}.{key}", errors);
+                }
+                break;
+            case JsonArray arr:
+                for (var i = 0; i < arr.Count; i++)
+                {
+                    if (arr[i] != null)
+                        ValidateJsonExpressions(arr[i]!, wfName, stepId, $"{field}[{i}]", errors);
+                }
+                break;
+        }
+    }
+
     private static void DetectCycles(WorkflowDocument doc, List<ValidationError> errors)
     {
         // Build call graph
@@ -377,19 +404,12 @@ public sealed class WorkflowValidator
 
         // DFS for cycles
         var visited = new HashSet<string>();
-        var stack = new HashSet<string>();
+        var visiting = new HashSet<string>();
+        var path = new List<string>();
+        var reportedCycles = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var name in graph.Keys)
-        {
-            if (DetectCycleDfs(name, graph, visited, stack))
-            {
-                errors.Add(new ValidationError
-                {
-                    Code = ErrorCodes.WorkflowCycleDetected,
-                    Message = $"Cycle detected involving workflow '{name}'"
-                });
-            }
-        }
+            DetectCycleDfs(name, graph, visited, visiting, path, reportedCycles, errors);
     }
 
     private static void CollectLocalCalls(List<StepDef> steps, HashSet<string> called)
@@ -416,26 +436,53 @@ public sealed class WorkflowValidator
         }
     }
 
-    private static bool DetectCycleDfs(string node, Dictionary<string, HashSet<string>> graph,
-        HashSet<string> visited, HashSet<string> stack)
+    private static void DetectCycleDfs(
+        string node,
+        Dictionary<string, HashSet<string>> graph,
+        HashSet<string> visited,
+        HashSet<string> visiting,
+        List<string> path,
+        HashSet<string> reportedCycles,
+        List<ValidationError> errors)
     {
-        if (stack.Contains(node)) return true;
-        if (visited.Contains(node)) return false;
+        if (visited.Contains(node))
+            return;
 
         visited.Add(node);
-        stack.Add(node);
+        visiting.Add(node);
+        path.Add(node);
 
         if (graph.TryGetValue(node, out var neighbors))
         {
             foreach (var neighbor in neighbors)
             {
-                if (DetectCycleDfs(neighbor, graph, visited, stack))
-                    return true;
+                if (!graph.ContainsKey(neighbor))
+                    continue;
+
+                if (visiting.Contains(neighbor))
+                {
+                    var cycleStart = path.IndexOf(neighbor);
+                    var cycle = cycleStart >= 0
+                        ? path.Skip(cycleStart).Concat([neighbor]).ToArray()
+                        : [neighbor, neighbor];
+                    var cycleKey = string.Join(" -> ", cycle);
+                    if (reportedCycles.Add(cycleKey))
+                    {
+                        errors.Add(new ValidationError
+                        {
+                            Code = ErrorCodes.WorkflowCycleDetected,
+                            Message = $"Cycle detected: {cycleKey}"
+                        });
+                    }
+                    continue;
+                }
+
+                DetectCycleDfs(neighbor, graph, visited, visiting, path, reportedCycles, errors);
             }
         }
 
-        stack.Remove(node);
-        return false;
+        path.RemoveAt(path.Count - 1);
+        visiting.Remove(node);
     }
 
     private static readonly HashSet<string> KnownInputTypes = new(StringComparer.OrdinalIgnoreCase)

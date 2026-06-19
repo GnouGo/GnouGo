@@ -70,6 +70,81 @@ internal sealed class RecordingLlmClient : ILLMClient
 
     private static string BuildResponseText(LLMRequest request)
     {
+        if (request.Prompt.Contains("split-planning assistant", StringComparison.OrdinalIgnoreCase))
+        {
+            return """
+                name: generated-agent
+                description: Answers the user task.
+                inputs:
+                  task:
+                    type: string
+                    required: true
+                outputs:
+                  answer: "${data.steps.call_answer.outputs.answer}"
+                subplans:
+                  - id: answer
+                    responsibility: Answer the user task.
+                algorithm:
+                  type: workflow.call
+                  id: call_answer
+                  plan: answer
+                """;
+        }
+
+        if (request.Prompt.Contains("Generate only the sub-workflow", StringComparison.OrdinalIgnoreCase))
+        {
+            return """
+                version: 1
+                name: generated-agent-answer
+                skill:
+                  description: Generated chat agent sub-workflow.
+                  tags: [agent, generated]
+                  inputs:
+                    task:
+                      type: string
+                      description: User request to answer.
+                  outputs:
+                    answer:
+                      type: string
+                      description: Final answer for the user.
+                workflows:
+                  main:
+                    inputs:
+                      task:
+                        type: string
+                        required: true
+                    steps:
+                      - id: capture_task
+                        type: set
+                        input:
+                          task: "${data.inputs.task}"
+                      - id: prepare_answer
+                        type: set
+                        input:
+                          task: "${data.steps.capture_task.task}"
+                      - id: render_answer
+                        type: template.render
+                        input:
+                          engine: mustache
+                          template: "{{task}}"
+                          data:
+                            task: "${data.steps.prepare_answer.task}"
+                          mode: text
+                      - id: normalize_answer
+                        type: set
+                        input:
+                          answer: "${data.steps.render_answer.text}"
+                      - id: final_answer
+                        type: set
+                        input:
+                          answer: "${data.steps.normalize_answer.answer}"
+                    outputs:
+                      answer:
+                        expr: "${data.steps.final_answer.answer}"
+                        type: string
+                """;
+        }
+
         if (request.Prompt.Contains("Generate a valid GnOuGo.Flow YAML workflow", StringComparison.OrdinalIgnoreCase)
             || request.Prompt.Contains("Return only a complete workflow YAML document", StringComparison.OrdinalIgnoreCase))
         {

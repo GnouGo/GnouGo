@@ -42,9 +42,16 @@ public class DefaultWorkflowCallResolver : IWorkflowCallResolver
     protected static string? GetString(JsonObject obj, string propertyName)
         => obj[propertyName]?.GetValue<string>();
 
-    protected static WorkflowCallResolution CompileDocumentReference(string yaml, JsonObject refObj, string sourceDescription)
+    protected static WorkflowCallResolution CompileDocumentReference(
+        string yaml,
+        JsonObject refObj,
+        string sourceDescription,
+        string? sourceKind = null,
+        string? sourcePath = null)
     {
         var document = WorkflowParser.Parse(yaml);
+        document.SourceKind = sourceKind;
+        document.SourcePath = sourcePath;
         var compiled = new WorkflowCompiler().Compile(document);
         var workflow = SelectWorkflow(document, compiled, refObj, sourceDescription);
 
@@ -92,7 +99,7 @@ public class DefaultWorkflowCallResolver : IWorkflowCallResolver
         var yaml = await fetcher.FetchAsync(url, integrity, ct);
         EnforceMaxSize(yaml, context.Engine.FetchPolicy);
 
-        return CompileDocumentReference(yaml, context.Ref, url);
+        return CompileDocumentReference(yaml, context.Ref, url, "url", url);
     }
 
     private async Task<WorkflowCallResolution> ResolveWorkspaceAsync(WorkflowCallResolutionContext context, CancellationToken ct)
@@ -103,14 +110,15 @@ public class DefaultWorkflowCallResolver : IWorkflowCallResolver
         var relativePath = GetString(context.Ref, "path") ?? GetString(context.Ref, "name")
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "Workspace workflow.call requires 'path'");
 
-        var fullPath = ResolveWorkspacePath(relativePath);
+        var fullPath = ResolveWorkspacePath(relativePath, context);
         if (!File.Exists(fullPath))
             throw new WorkflowRuntimeException(ErrorCodes.WorkflowFetchNetwork, $"Workspace workflow '{relativePath}' not found");
 
         var yaml = await File.ReadAllTextAsync(fullPath, ct);
         EnforceMaxSize(yaml, context.Engine.FetchPolicy);
 
-        return CompileDocumentReference(yaml, context.Ref, $"workspace:{relativePath.Replace('\\', '/')}");
+        var sourcePath = Path.GetRelativePath(_workspaceRoot!, fullPath).Replace('\\', '/');
+        return CompileDocumentReference(yaml, context.Ref, $"workspace:{sourcePath}", "workspace", sourcePath);
     }
 
     private void EnforceFetchPolicy(string url, string? integrity, FetchPolicy? policy)
@@ -143,16 +151,36 @@ public class DefaultWorkflowCallResolver : IWorkflowCallResolver
                 $"Remote workflow ({size} bytes) exceeds max_size_bytes ({policy.MaxSizeBytes})");
     }
 
-    private string ResolveWorkspacePath(string relativePath)
+    private string ResolveWorkspacePath(string relativePath, WorkflowCallResolutionContext context)
     {
         if (Path.IsPathRooted(relativePath))
             throw new WorkflowRuntimeException(ErrorCodes.WorkflowFetchPolicy, "Workspace workflow path must be relative");
 
         var normalized = relativePath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
-        var fullPath = Path.GetFullPath(Path.Combine(_workspaceRoot!, normalized));
+        var currentSource = context.Engine.CompiledDocument?.Source;
+        if (relativePath.StartsWith("./", StringComparison.Ordinal)
+            && currentSource is not null
+            && string.Equals(currentSource.SourceKind, "workspace", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(currentSource.SourcePath))
+        {
+            var parentSourcePath = currentSource.SourcePath!;
+            var parentDirectory = Path.GetDirectoryName(parentSourcePath.Replace('/', Path.DirectorySeparatorChar));
+            if (!string.IsNullOrWhiteSpace(parentDirectory))
+            {
+                var sourceRelativePath = ResolveWorkspacePathCore(Path.Combine(parentDirectory, normalized));
+                if (File.Exists(sourceRelativePath))
+                    return sourceRelativePath;
+            }
+        }
+
+        return ResolveWorkspacePathCore(normalized);
+    }
+
+    private string ResolveWorkspacePathCore(string relativePath)
+    {
+        var fullPath = Path.GetFullPath(Path.Combine(_workspaceRoot!, relativePath));
         if (!IsPathWithinRoot(fullPath, _workspaceRoot!))
             throw new WorkflowRuntimeException(ErrorCodes.WorkflowFetchPolicy, "Workspace workflow path traversal is not allowed");
-
         return fullPath;
     }
 
@@ -201,5 +229,3 @@ public class DefaultWorkflowCallResolver : IWorkflowCallResolver
             $"Could not resolve target workflow from {sourceDescription}");
     }
 }
-
-

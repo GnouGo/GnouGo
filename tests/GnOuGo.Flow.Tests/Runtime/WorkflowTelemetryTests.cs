@@ -459,6 +459,146 @@ workflows:
     }
 
     [Fact]
+    public async Task LogStepContent_WorkflowPlanSplitManifest_EmitsGenAiPromptAndCompletionEvents()
+    {
+        var recording = new RecordingTelemetry();
+        var manifestYaml = """
+name: split-telemetry
+description: Collects information for the requested topic.
+inputs:
+  topic: { type: string, required: true }
+outputs:
+  final: "${data.steps.call_collect.outputs.result}"
+subplans:
+  - id: collect
+    path: ./split-telemetry/collect.yaml
+    responsibility: Collect information for the topic.
+    inputs:
+      topic: { type: string, required: true }
+    outputs:
+      result: { type: string }
+algorithm:
+  type: workflow.call
+  id: call_collect
+  plan: collect
+  args: { topic: "${data.inputs.topic}" }
+""";
+        var subPlanYaml = """
+version: 1
+name: collect
+skill:
+  description: Collect information.
+  tags: [generated]
+  inputs:
+    topic: { type: string, required: true }
+  outputs:
+    result: { type: string }
+workflows:
+  main:
+    inputs:
+      topic: { type: string, required: true }
+    steps:
+      - id: init
+        type: set
+        input:
+          topic: "${data.inputs.topic}"
+      - id: prepare
+        type: set
+        input:
+          topic: "${data.steps.init.topic}"
+      - id: render
+        type: template.render
+        input:
+          engine: mustache
+          template: "ok"
+          data:
+            topic: "${data.steps.prepare.topic}"
+          mode: text
+      - id: normalize
+        type: set
+        input:
+          result: "${data.steps.render.text}"
+      - id: complete
+        type: set
+        input:
+          result: "${data.steps.normalize.result}"
+    outputs:
+      result: "${data.steps.complete.result}"
+""";
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Returns<LLMRequest, CancellationToken>((req, _) => Task.FromResult(new LLMResponse
+            {
+                Text = req.Prompt.Contains("split-planning assistant", StringComparison.Ordinal)
+                    ? manifestYaml
+                    : subPlanYaml,
+                Usage = new JsonObject
+                {
+                    ["prompt_tokens"] = 7,
+                    ["completion_tokens"] = 11,
+                    ["total_tokens"] = 18
+                }
+            }));
+
+        var wf = CompileMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            mode: split
+            provider: openai
+            model: gpt-4.1
+            instruction: Build a split workflow
+          validate:
+            compile: false
+""");
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            Telemetry = recording,
+            Limits = new ExecutionLimits { LogStepContent = true }
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject { ["topic"] = "otel" }, CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+
+        var planSpan = recording.StepSpans.Single(s => s.Name == "plan");
+        Assert.Contains(planSpan.SpanEvents, e => e.Name == "gen_ai.content.prompt"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.phase" && (string?)kv.Value == "split_manifest")
+            && e.Attributes.Any(kv => kv.Key == "gen_ai.prompt" && ((string?)kv.Value)!.Contains("split-planning assistant", StringComparison.Ordinal)));
+        Assert.Contains(planSpan.SpanEvents, e => e.Name == "gen_ai.content.completion"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.phase" && (string?)kv.Value == "split_manifest")
+            && e.Attributes.Any(kv => kv.Key == "gen_ai.completion" && ((string?)kv.Value)!.Contains("split-telemetry", StringComparison.Ordinal)));
+        Assert.Contains(planSpan.SpanEvents, e => e.Name == "gnougo-flow.step.thinking"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.diagram.format" && (string?)kv.Value == "mermaid")
+            && e.Attributes.Any(kv => kv.Key == "gnougo-flow.thinking.message" && ((string?)kv.Value)!.Contains("sequenceDiagram", StringComparison.Ordinal)));
+
+        var manifestSpan = recording.ChildSpans.Single(s => s.Name == "workflow.plan.split_manifest");
+        Assert.Equal("chat", manifestSpan.Attributes["gen_ai.operation.name"]);
+        Assert.Equal("openai", manifestSpan.Attributes["gen_ai.system"]);
+        Assert.Equal("gpt-4.1", manifestSpan.Attributes["gen_ai.request.model"]);
+        Assert.Equal(true, manifestSpan.Attributes["gen_ai.request.background"]);
+        Assert.Equal("gpt-4.1", manifestSpan.Attributes["gen_ai.response.model"]);
+        Assert.Equal("stop", manifestSpan.Attributes["gen_ai.response.finish_reason"]);
+        Assert.Equal(18L, manifestSpan.Attributes["gen_ai.usage.total_tokens"]);
+        Assert.Contains(manifestSpan.SpanEvents, e => e.Name == "gen_ai.content.prompt"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.phase" && (string?)kv.Value == "split_manifest"));
+        Assert.Contains(manifestSpan.SpanEvents, e => e.Name == "gen_ai.content.completion"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.phase" && (string?)kv.Value == "split_manifest"));
+    }
+
+    [Fact]
     public async Task CustomTelemetry_McpCall_HasMcpAttributes()
     {
         var recording = new RecordingTelemetry();

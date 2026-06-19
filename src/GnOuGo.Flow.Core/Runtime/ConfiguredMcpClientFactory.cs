@@ -706,9 +706,8 @@ internal sealed class McpSessionAdapter : IMcpSession
         {
             Name = t.Name,
             Description = t.Description,
-            InputSchema = t.JsonSchema.ValueKind != JsonValueKind.Undefined
-                ? JsonNode.Parse(t.JsonSchema.GetRawText())
-                : null
+            InputSchema = JsonElementToNode(t.JsonSchema),
+            OutputSchema = JsonElementToNode(t.ReturnJsonSchema)
         }).ToList().AsReadOnly();
     }
 
@@ -811,6 +810,9 @@ internal sealed class McpSessionAdapter : IMcpSession
 
     private static JsonNode? BuildContent(CallToolResult result)
     {
+        if (result.StructuredContent is { } structuredContent)
+            return JsonElementToNode(structuredContent);
+
         if (result.Content is not { Count: > 0 })
             return null;
 
@@ -832,4 +834,12 @@ internal sealed class McpSessionAdapter : IMcpSession
         }
         return arr;
     }
+
+    private static JsonNode? JsonElementToNode(JsonElement? element)
+        => element.HasValue ? JsonElementToNode(element.Value) : null;
+
+    private static JsonNode? JsonElementToNode(JsonElement element)
+        => element.ValueKind != JsonValueKind.Undefined
+            ? JsonNode.Parse(element.GetRawText())
+            : null;
 }

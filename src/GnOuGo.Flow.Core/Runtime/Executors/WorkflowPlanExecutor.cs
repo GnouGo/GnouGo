@@ -35,11 +35,23 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
     {
-        var llmClient = ctx.Engine.LLMClient
-            ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "No LLM client configured");
-
         var input = ctx.Engine.GetResolvedInput(ctx) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan input must be object");
+
+        var generator = input["generator"] as JsonObject
+            ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan requires 'generator'");
+
+        var mode = generator["mode"]?.GetValue<string>();
+        if (string.Equals(mode, "split", StringComparison.OrdinalIgnoreCase))
+            return await ExecuteSplitAsync(ctx, input, ct);
+
+        return await ExecuteSingleWorkflowPlanAsync(ctx, input, ct);
+    }
+
+    private static async Task<JsonNode?> ExecuteSingleWorkflowPlanAsync(StepExecutionContext ctx, JsonObject input, CancellationToken ct)
+    {
+        var llmClient = ctx.Engine.LLMClient
+            ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "No LLM client configured");
 
         var generator = input["generator"] as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan requires 'generator'");
@@ -197,6 +209,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- Do not reference future steps. Expressions may read `data.inputs.*` and outputs from earlier `data.steps.<id>.*` only.");
         basePrompt.AppendLine("- Do not reference `data.steps.<id>.*` produced only inside `switch` cases, `if`-guarded steps, or loop bodies from later steps unless you first map every possible path to a guaranteed value.");
         basePrompt.AppendLine("- Function arguments are evaluated before the function runs: `coalesce(data.steps.branch_a.value, data.steps.branch_b.value)` is invalid if either branch step may not exist.");
+        basePrompt.AppendLine("- Use `coalesce(value, fallback)` for fallback values. Do not use JavaScript `||` as a fallback operator in generated expressions.");
+        basePrompt.AppendLine("- Never put raw newline characters inside a `${...}` JavaScript string literal. For multi-line text, use `template.render`, a YAML block scalar outside the expression with small `${...}` interpolations, or concatenate precomputed one-line parts.");
         basePrompt.AppendLine("- After a `switch`, prefer writing a common result object via the same workflow-level output alias in every case/default branch, or add one guaranteed normalization step that receives the whole switch/branch context and emits a stable schema.");
         basePrompt.AppendLine("- Use documented output shapes exactly: `template.render` text is `data.steps.<id>.text`; `llm.call` text is `data.steps.<id>.text` and structured JSON is `data.steps.<id>.json`; `mcp.call` single-tool response is `data.steps.<id>.response`.");
         basePrompt.AppendLine("- Do not assume nested fields inside opaque MCP `response` unless the tool schema/description explicitly documents them; pass the whole response onward when uncertain.");

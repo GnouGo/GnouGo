@@ -1,16 +1,22 @@
 ﻿using GnOuGo.Agent.Mcp.Models;
+using GnOuGo.Workspace;
 
 namespace GnOuGo.Agent.Mcp.Services;
 
 public sealed class AgentRepository : IAgentRepository
 {
     private readonly string _agentsDirectory;
+    private readonly string _workspaceRoot;
 
-    public AgentRepository(string agentsDirectory)
+    public AgentRepository(string agentsDirectory, string? workspaceRoot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentsDirectory);
         _agentsDirectory = Path.GetFullPath(agentsDirectory);
+        _workspaceRoot = string.IsNullOrWhiteSpace(workspaceRoot)
+            ? InferWorkspaceRoot(_agentsDirectory)
+            : Path.GetFullPath(workspaceRoot);
         Directory.CreateDirectory(_agentsDirectory);
+        Directory.CreateDirectory(_workspaceRoot);
     }
 
     public async Task<AgentDefinition> AddAgentAsync(string name, string workflow, string? originalPrompt = null, CancellationToken ct = default)
@@ -34,6 +40,22 @@ public sealed class AgentRepository : IAgentRepository
         };
 
         await SaveAgentFileAsync(agent, ct);
+        return agent;
+    }
+
+    public async Task<AgentDefinition> AddAgentBundleAsync(
+        string name,
+        string workflow,
+        IReadOnlyDictionary<string, string>? workflows,
+        string? originalPrompt = null,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(workflow);
+
+        var bundleFiles = NormalizeBundleFiles(workflows, workflow);
+        var agent = await AddAgentAsync(name, workflow, originalPrompt, ct);
+        await SaveBundleFilesAsync(bundleFiles, ct);
         return agent;
     }
 
@@ -146,6 +168,94 @@ public sealed class AgentRepository : IAgentRepository
 
     private string GetAgentPath(string name)
         => Path.Combine(_agentsDirectory, NormalizeName(name) + ".yaml");
+
+    private static string InferWorkspaceRoot(string agentsDirectory)
+    {
+        var directory = new DirectoryInfo(Path.GetFullPath(agentsDirectory));
+        if (string.Equals(directory.Name, GnOuGoWorkspace.WorkspaceDataSubfolder, StringComparison.OrdinalIgnoreCase)
+            && directory.Parent is not null)
+        {
+            return directory.Parent.FullName;
+        }
+
+        return directory.Parent?.FullName ?? directory.FullName;
+    }
+
+    private static Dictionary<string, string> NormalizeBundleFiles(IReadOnlyDictionary<string, string>? workflows, string mainWorkflow)
+    {
+        var files = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (workflows is null || workflows.Count == 0)
+            return files;
+
+        foreach (var (path, content) in workflows)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+                throw new ArgumentException($"Bundled workflow '{path}' cannot be empty.", nameof(workflows));
+
+            var normalizedPath = NormalizeBundleRelativePath(path);
+            if (!normalizedPath.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase)
+                && !normalizedPath.EndsWith(".yml", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException($"Bundled workflow path '{path}' must be a YAML file.", nameof(workflows));
+            }
+
+            files[normalizedPath] = content;
+        }
+
+        var mainPath = SelectMainBundlePath(files.Keys);
+        if (mainPath != null)
+            files[mainPath] = mainWorkflow;
+
+        return files;
+    }
+
+    private static string? SelectMainBundlePath(IEnumerable<string> paths)
+    {
+        return paths
+            .Where(static path => path.EndsWith("/workflow.yaml", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(static path => path.Count(static ch => ch == '/'))
+            .ThenBy(static path => path, StringComparer.Ordinal)
+            .FirstOrDefault();
+    }
+
+    private static string NormalizeBundleRelativePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            throw new ArgumentException("Bundled workflow path cannot be empty.", nameof(path));
+
+        var normalized = path.Trim().Replace('\\', '/');
+        if (normalized.StartsWith("./", StringComparison.Ordinal))
+            normalized = normalized[2..];
+
+        if (Path.IsPathRooted(normalized)
+            || normalized is "." or ".."
+            || normalized.StartsWith("../", StringComparison.Ordinal)
+            || normalized.Contains("/../", StringComparison.Ordinal)
+            || normalized.EndsWith("/..", StringComparison.Ordinal)
+            || normalized.Contains("//", StringComparison.Ordinal))
+        {
+            throw new ArgumentException($"Bundled workflow path '{path}' must be a safe relative path.", nameof(path));
+        }
+
+        return normalized;
+    }
+
+    private async Task SaveBundleFilesAsync(IReadOnlyDictionary<string, string> files, CancellationToken ct)
+    {
+        foreach (var (relativePath, content) in files)
+        {
+            var fullPath = Path.GetFullPath(Path.Combine(
+                _workspaceRoot,
+                relativePath.Replace('/', Path.DirectorySeparatorChar)));
+            if (!GnOuGoWorkspace.IsPathWithinRoot(fullPath, _workspaceRoot))
+                throw new ArgumentException($"Bundled workflow path '{relativePath}' escapes the workspace root.");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+            var tempPath = fullPath + ".tmp." + Guid.NewGuid().ToString("N");
+            await File.WriteAllTextAsync(tempPath, content, ct);
+            File.Move(tempPath, fullPath, overwrite: true);
+        }
+    }
 
     private static AgentDefinition DeserializeAgentYaml(string yaml, string fallbackName)
     {

@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Diagnostics;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using GnOuGo.AI.Core;
@@ -177,6 +178,35 @@ public class ConfiguredMcpClientFactoryTests
     }
 
     [Fact]
+    public void JsonElementToNode_ConvertsNullableSdkReturnJsonSchema()
+    {
+        using var document = JsonDocument.Parse("""
+        {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+        """);
+
+        var result = InvokeJsonElementToNode(document.RootElement);
+
+        Assert.NotNull(result);
+        var obj = Assert.IsType<JsonObject>(result);
+        Assert.Equal("object", obj["type"]!.GetValue<string>());
+        Assert.NotNull(obj["properties"]!["title"]);
+    }
+
+    [Fact]
+    public void JsonElementToNode_ReturnsNullForUndefinedSdkSchema()
+    {
+        var result = InvokeJsonElementToNode(default(JsonElement));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void BuildCurrentCorrelationMeta_IncludesTraceParentAndParentSpanId()
     {
         using var activity = new Activity("test-mcp-call");
@@ -252,6 +282,22 @@ public class ConfiguredMcpClientFactoryTests
         return Assert.IsType<Dictionary<string, object?>>(value);
     }
 
+    private static JsonNode? InvokeJsonElementToNode(JsonElement element)
+    {
+        var adapterType = typeof(ConfiguredMcpClientFactory).Assembly.GetType("GnOuGo.Flow.Core.Runtime.McpSessionAdapter");
+        Assert.NotNull(adapterType);
+
+        var method = adapterType.GetMethod(
+            "JsonElementToNode",
+            BindingFlags.Static | BindingFlags.NonPublic,
+            binder: null,
+            types: [typeof(JsonElement)],
+            modifiers: null);
+
+        Assert.NotNull(method);
+        return method.Invoke(null, [element]) as JsonNode;
+    }
+
     private static JsonObject? InvokeBuildCurrentCorrelationMeta()
     {
         var method = typeof(ConfiguredMcpClientFactory).GetMethod(
@@ -322,4 +368,3 @@ public class ConfiguredMcpClientFactoryTests
         return Assert.IsType<string>(value);
     }
 }
-

@@ -2212,6 +2212,1268 @@ workflows:
         Assert.Contains("structured_output.schema_ref", llmCallSnippet);
     }
 
+    [Fact]
+    public void WorkflowPlanSplitManifest_ParsesAndValidates()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse(SplitManifestYaml());
+
+        WorkflowPlanManifestValidator.Validate(manifest);
+
+        Assert.Equal("split-demo", manifest.Name);
+        Assert.Equal(2, manifest.SubPlans.Count);
+        Assert.Equal("collect", manifest.SubPlans[0].Id);
+        Assert.Equal("sequence", manifest.Algorithm.Type);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_AllowsSubPlansWithoutInputsOrOutputs()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse("""
+name: contract-free-subplans
+description: Keeps contracts only on the main workflow manifest.
+inputs:
+  topic: { type: string, required: true }
+outputs:
+  result: "${data.steps.call_leaf.outputs.result}"
+subplans:
+  - id: leaf
+    responsibility: Generate a useful answer for the topic.
+    inputs:
+      topic: { type: string, required: true }
+    outputs:
+      result: { type: string }
+    constraints:
+      implementation_detail: should_be_removed
+algorithm:
+  type: workflow.call
+  id: call_leaf
+  plan: leaf
+  args:
+    topic: "${data.inputs.topic}"
+""");
+
+        manifest = WorkflowPlanManifestNormalizer.Normalize(manifest, null, null);
+        WorkflowPlanManifestValidator.Validate(manifest);
+        var normalizedYaml = WorkflowPlanManifestCompiler.CompileManifestYaml(manifest);
+        var compactYaml = WorkflowPlanManifestCompiler.CompileManifestYaml(manifest, includeRuntimePaths: false);
+
+        Assert.Contains("inputs:", normalizedYaml);
+        Assert.Contains("outputs:", normalizedYaml);
+        Assert.Contains("path: \"./contract-free-subplans/leaf.yaml\"", normalizedYaml);
+        Assert.DoesNotContain("    inputs:", normalizedYaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("    outputs:", normalizedYaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("constraints:", normalizedYaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("path:", compactYaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("constraints:", compactYaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_AcceptsPromptAliasForSubPlanResponsibility()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse("""
+name: prompt-alias
+description: Demonstrates prompt-based sub-plan descriptions.
+subplans:
+  - id: answer_issue
+    prompt: |
+      Answer the GitHub issue in English.
+      Never modify an existing issue comment.
+algorithm:
+  type: workflow.call
+  plan: answer_issue
+""");
+
+        manifest = WorkflowPlanManifestNormalizer.Normalize(manifest, null, null);
+
+        WorkflowPlanManifestValidator.Validate(manifest);
+        Assert.Contains("Answer the GitHub issue in English.", manifest.SubPlans.Single().Responsibility);
+        Assert.Contains("Never modify an existing issue comment.", manifest.SubPlans.Single().Responsibility);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifestPrompt_TreatsSubPlanResponsibilityAsGenerationPrompt()
+    {
+        var method = typeof(WorkflowPlanExecutor).GetMethod(
+            "BuildSplitManifestPrompt",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+        var prompt = (string)method.Invoke(null, ["Build an issue workflow", null])!;
+
+        Assert.Contains("The subplan responsibility is not a label", prompt);
+        Assert.Contains("generation prompt for that sub-workflow", prompt);
+        Assert.Contains("preserves the exact user-requested behavior", prompt);
+        Assert.Contains("Do not invent details, weaken constraints", prompt);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_AllowsInlineTasksInMainAlgorithm()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse("""
+name: inline-task-demo
+description: Uses inline orchestration tasks for simple work.
+inputs:
+  issue_count: { type: number, required: true }
+subplans:
+  - id: process_issue_lifecycle
+    responsibility: Process one issue through classification, action, logging, and cleanup.
+algorithm:
+  type: sequence
+  id: orchestrate
+  steps:
+    - type: task
+      id: list_recent_open_issues
+      task: List the most recent open issues and keep only the requested count.
+    - type: task
+      id: filter_already_handled_issues
+      responsibility: Remove issues already handled by GnOuGo.
+    - type: foreach.sequential
+      id: each_issue
+      items: remaining_issues
+      item_var: issue
+      steps:
+        - type: workflow.call
+          id: call_process_issue_lifecycle
+          plan: process_issue_lifecycle
+""");
+
+        manifest = WorkflowPlanManifestNormalizer.Normalize(manifest, null, null);
+        WorkflowPlanManifestValidator.Validate(manifest);
+
+        var manifestYaml = WorkflowPlanManifestCompiler.CompileManifestYaml(manifest, includeRuntimePaths: false);
+        var mermaid = WorkflowPlanManifestCompiler.CompileMermaid(manifest);
+        var mainYaml = WorkflowPlanManifestCompiler.CompileMainYaml(manifest);
+        var doc = WorkflowParser.Parse(mainYaml);
+        var errors = new WorkflowValidator().Validate(doc);
+        var steps = doc.Workflows["main"].Steps;
+
+        Assert.Empty(errors);
+        Assert.Contains("type: \"task\"", manifestYaml);
+        Assert.Contains("task: \"List the most recent open issues", manifestYaml);
+        Assert.Contains("Note over Main: List the most recent open issues", mermaid);
+        Assert.Equal("set", steps[0].Type);
+        Assert.Equal("list_recent_open_issues", steps[0].Id);
+        Assert.Equal("set", steps[1].Type);
+        Assert.IsType<JsonArray>(steps[1].Input!["remaining_issues"]);
+        Assert.Equal("loop.sequential", steps[2].Type);
+        Assert.Equal("${data.steps.filter_already_handled_issues.remaining_issues}", steps[2].Input!["items"]!.GetValue<string>());
+        Assert.Contains("type: \"workflow.call\"", mainYaml);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_InfersAlgorithmTypesWhenLlmOmitsType()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse("""
+name: inferred-types
+description: Handles issue processing with omitted algorithm node types.
+subplans:
+  - id: handle_single_issue_lifecycle
+    responsibility: Handle one issue lifecycle.
+    algorithm:
+      type: sequence
+      steps:
+        - id: classify_issue
+          task: Classify the issue.
+        - id: route_action
+          cases:
+            - when: "${data.steps.classify_issue.kind == 'question'}"
+              steps:
+                - id: answer_question
+                  task: Answer and close the question issue.
+          default:
+            steps:
+              - id: implement_change
+                plan: implement_change_and_pr
+        - id: summarize_issue
+          description: Summarize the issue result.
+  - id: implement_change_and_pr
+    responsibility: Implement a code change and open a pull request.
+algorithm:
+  type: sequence
+  steps:
+    - id: list_recent_open_issues
+      task: List recent open issues.
+    - id: each_issue
+      items: "${data.steps.list_recent_open_issues.issues}"
+      item_var: issue
+      steps:
+        - id: call_single_issue
+          plan: handle_single_issue_lifecycle
+""");
+
+        manifest = WorkflowPlanManifestNormalizer.Normalize(manifest, null, null);
+
+        WorkflowPlanManifestValidator.Validate(manifest);
+        var lifecycle = manifest.SubPlans.Single(plan => plan.Id == "handle_single_issue_lifecycle");
+        var mainYaml = WorkflowPlanManifestCompiler.CompileMainYaml(manifest);
+        var doc = WorkflowParser.Parse(mainYaml);
+        var errors = new WorkflowValidator().Validate(doc);
+
+        Assert.Empty(errors);
+        Assert.Equal("task", manifest.Algorithm.Steps[0].Type);
+        Assert.Equal("foreach.sequential", manifest.Algorithm.Steps[1].Type);
+        Assert.Equal("workflow.call", manifest.Algorithm.Steps[1].Steps[0].Type);
+        Assert.Equal("task", lifecycle.Algorithm!.Steps[0].Type);
+        Assert.Equal("switch", lifecycle.Algorithm.Steps[1].Type);
+        Assert.Equal("task", lifecycle.Algorithm.Steps[1].Cases[0].Step.Steps[0].Type);
+        Assert.Equal("workflow.call", lifecycle.Algorithm.Steps[1].Default!.Steps[0].Type);
+        Assert.Equal("task", lifecycle.Algorithm.Steps[2].Type);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_RejectsDuplicateIdsUnsafePathsAndUnknownPlan()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse("""
+name: bad
+inputs: { topic: { type: string, required: true } }
+outputs: { final: "${data.steps.call.outputs.result}" }
+subplans:
+  - id: same
+    path: ../bad/workflow.yaml
+    responsibility: one
+    inputs: { topic: { type: string } }
+    outputs: { result: { type: string } }
+  - id: same
+    path: ./bad/two/workflow.yaml
+    responsibility: two
+    inputs: { topic: { type: string } }
+    outputs: { result: { type: string } }
+algorithm:
+  type: workflow.call
+  plan: missing
+""");
+
+        var ex = Assert.Throws<WorkflowPlanManifestValidationException>(() => WorkflowPlanManifestValidator.Validate(manifest));
+
+        Assert.Contains(ex.Errors, error => error.Contains("duplicate subplan id", StringComparison.Ordinal));
+        Assert.Contains(ex.Errors, error => error.Contains("path must be safe", StringComparison.Ordinal));
+        Assert.Contains(ex.Errors, error => error.Contains("undeclared subplan", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_CompilesMainWorkflowWithRelativeWorkspaceCalls()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse(SplitManifestYaml());
+        WorkflowPlanManifestValidator.Validate(manifest);
+
+        var mainYaml = WorkflowPlanManifestCompiler.CompileMainYaml(manifest);
+        var doc = WorkflowParser.Parse(mainYaml);
+        var errors = new WorkflowValidator().Validate(doc);
+
+        Assert.Empty(errors);
+        Assert.Contains("kind: \"workspace\"", mainYaml);
+        Assert.Contains("name: \"split-demo\"", mainYaml);
+        Assert.Contains("description: \"Researches a topic and summarizes the result.\"", mainYaml);
+        Assert.Contains("path: \"./split-demo/collect.yaml\"", mainYaml);
+        Assert.Contains("path: \"./split-demo/summarize.yaml\"", mainYaml);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_CompilesForeachParallelAndSwitch()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse("""
+name: split-control
+description: Processes each item and routes fallback work by mode.
+inputs:
+  items: { type: array, required: true }
+  mode: { type: string, required: true }
+outputs:
+  final: "${data.steps.route}"
+subplans:
+  - id: item_worker
+    path: ./split-control/item_worker.yaml
+    responsibility: Process one item.
+    inputs: { item: { type: any } }
+    outputs: { result: { type: any } }
+  - id: fallback
+    path: ./split-control/fallback.yaml
+    responsibility: Fallback work.
+    inputs: { mode: { type: string } }
+    outputs: { result: { type: any } }
+algorithm:
+  type: switch
+  id: route
+  expr: "${data.inputs.mode}"
+  cases:
+    - value: batch
+      step:
+        type: parallel
+        id: both
+        branches:
+          - type: foreach.sequential
+            id: each_seq
+            items: "${data.inputs.items}"
+            item_var: item
+            steps:
+              - type: workflow.call
+                id: call_item_seq
+                plan: item_worker
+                args: { item: "${data.item}" }
+          - type: foreach.parallel
+            id: each_par
+            items: "${data.inputs.items}"
+            item_var: item
+            steps:
+              - type: workflow.call
+                id: call_item_par
+                plan: item_worker
+                args: { item: "${data.item}" }
+  default:
+    type: workflow.call
+    id: call_fallback
+    plan: fallback
+    args: { mode: "${data.inputs.mode}" }
+""");
+
+        WorkflowPlanManifestValidator.Validate(manifest);
+        var mainYaml = WorkflowPlanManifestCompiler.CompileMainYaml(manifest);
+        var doc = WorkflowParser.Parse(mainYaml);
+        var compiled = new WorkflowCompiler().Compile(doc);
+        var route = doc.Workflows["main"].Steps.Single();
+        var parallel = route.Cases![0].Steps.Single();
+        var sequentialLoop = parallel.Branches![0].Steps.Single();
+        var parallelLoop = parallel.Branches![1].Steps.Single();
+
+        Assert.NotNull(compiled);
+        Assert.Equal("switch", route.Type);
+        Assert.Equal("parallel", parallel.Type);
+        Assert.Equal("loop.sequential", sequentialLoop.Type);
+        Assert.Equal("loop.parallel", parallelLoop.Type);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_CompilesCompositeSubPlanWorkflowCalls()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse(CompositeSplitManifestYaml());
+
+        WorkflowPlanManifestValidator.Validate(manifest);
+        var reportPlan = manifest.SubPlans.Single(plan => plan.Id == "report");
+        var reportYaml = WorkflowPlanManifestCompiler.CompileSubPlanYaml(manifest, reportPlan);
+        var doc = WorkflowParser.Parse(reportYaml);
+        var errors = new WorkflowValidator().Validate(doc);
+
+        Assert.Empty(errors);
+        Assert.Contains("name: \"split-composite-report\"", reportYaml);
+        Assert.Contains("path: \"./split-composite/collect.yaml\"", reportYaml);
+        Assert.Contains("path: \"./split-composite/summarize.yaml\"", reportYaml);
+        Assert.Contains("expr: \"${data.steps.call_summarize.outputs.result}\"", reportYaml);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_BuildsDependencyGenerationBatches()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse(CompositeSplitManifestYaml());
+        WorkflowPlanManifestValidator.Validate(manifest);
+
+        var batches = WorkflowPlanManifestDependencyPlanner.BuildGenerationBatches(manifest);
+
+        Assert.Equal(2, batches.Count);
+        Assert.Equal(["collect", "summarize"], batches[0].Select(static plan => plan.Id).ToArray());
+        Assert.Equal(["report"], batches[1].Select(static plan => plan.Id).ToArray());
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_BuildsTransitiveDependencyGenerationBatches()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse("""
+name: transitive
+description: Demonstrates transitive sub-plan generation order.
+inputs:
+  topic: { type: string, required: true }
+outputs:
+  result: "${data.steps.call_parent.outputs.result}"
+subplans:
+  - id: leaf
+    path: ./transitive/leaf.yaml
+    responsibility: Leaf work.
+    inputs: { topic: { type: string } }
+    outputs: { result: { type: string } }
+  - id: parent
+    path: ./transitive/parent.yaml
+    responsibility: Parent work.
+    inputs: { topic: { type: string } }
+    outputs: { result: { type: string } }
+    algorithm:
+      type: workflow.call
+      id: call_leaf
+      plan: leaf
+      args: { topic: "${data.inputs.topic}" }
+  - id: grandparent
+    path: ./transitive/grandparent.yaml
+    responsibility: Grandparent work.
+    inputs: { topic: { type: string } }
+    outputs: { result: { type: string } }
+    algorithm:
+      type: workflow.call
+      id: call_parent
+      plan: parent
+      args: { topic: "${data.inputs.topic}" }
+algorithm:
+  type: workflow.call
+  id: call_parent
+  plan: grandparent
+  args: { topic: "${data.inputs.topic}" }
+""");
+        WorkflowPlanManifestValidator.Validate(manifest);
+
+        var batches = WorkflowPlanManifestDependencyPlanner.BuildGenerationBatches(manifest);
+
+        Assert.Equal(3, batches.Count);
+        Assert.Equal(["leaf"], batches[0].Select(static plan => plan.Id).ToArray());
+        Assert.Equal(["parent"], batches[1].Select(static plan => plan.Id).ToArray());
+        Assert.Equal(["grandparent"], batches[2].Select(static plan => plan.Id).ToArray());
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_NormalizesEmptySubPlanAlgorithmsToLeafSubPlans()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse("""
+name: empty-subplan-algorithm
+description: Handles empty sub-plan algorithm placeholders.
+inputs:
+  topic: { type: string, required: true }
+outputs:
+  result: "${data.steps.call_leaf.outputs.result}"
+subplans:
+  - id: leaf
+    path: ./empty-subplan-algorithm/leaf.yaml
+    responsibility: Generate this leaf workflow with the normal workflow planner.
+    inputs: { topic: { type: string } }
+    outputs: { result: { type: string } }
+    algorithm:
+      type: sequence
+algorithm:
+  type: workflow.call
+  id: call_leaf
+  plan: leaf
+  args: { topic: "${data.inputs.topic}" }
+""");
+
+        manifest = WorkflowPlanManifestNormalizer.Normalize(manifest, null, null);
+
+        WorkflowPlanManifestValidator.Validate(manifest);
+        Assert.Null(manifest.SubPlans.Single().Algorithm);
+
+        var normalizedManifestYaml = WorkflowPlanManifestCompiler.CompileManifestYaml(manifest);
+        Assert.DoesNotContain("    algorithm:", normalizedManifestYaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_NormalizesEmptySwitchBranchesAndRemovesManifestArgs()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse("""
+name: empty-switch-branches
+description: Handles empty branches produced by the split manifest LLM.
+inputs:
+  repo_url: { type: string, required: false }
+outputs:
+  results: "${data.steps.run.outputs.results}"
+subplans:
+  - id: classify
+    path: ./empty-switch-branches/classify.yaml
+    responsibility: Classify one issue.
+  - id: fix
+    path: ./empty-switch-branches/fix.yaml
+    responsibility: Fix one issue when needed.
+  - id: process-single-issue
+    path: ./empty-switch-branches/process-single-issue.yaml
+    responsibility: Process one issue and call children when needed.
+    algorithm:
+      type: sequence
+      steps:
+        - type: workflow.call
+          id: classify_issue
+          plan: classify
+          args:
+            issue: "${inputs.issue}"
+        - type: switch
+          id: route_issue
+          expr: "${data.steps.classify_issue.outputs.category}"
+          cases:
+            - when: bug
+              steps:
+                - type: switch
+                  expr: "${data.steps.classify_issue.outputs.feasibility}"
+                  cases:
+                    - when: simple
+                      steps:
+                        - type: workflow.call
+                          id: handle_bug
+                          plan: fix
+                          args:
+                            issue: "${inputs.issue}"
+                  default:
+                    steps:
+            - when: question
+              steps:
+            - when: already_resolved
+              steps:
+          default:
+            steps:
+algorithm:
+  type: workflow.call
+  id: run
+  plan: process-single-issue
+  args:
+    repo_url: "${inputs.repo_url}"
+""");
+
+        manifest = WorkflowPlanManifestNormalizer.Normalize(manifest, null, null);
+
+        WorkflowPlanManifestValidator.Validate(manifest);
+        var process = manifest.SubPlans.Single(plan => plan.Id == "process-single-issue");
+        var route = process.Algorithm!.Steps[1];
+        Assert.Equal("switch", route.Type);
+        Assert.Single(route.Cases);
+        Assert.Null(route.Default);
+
+        var normalizedManifestYaml = WorkflowPlanManifestCompiler.CompileManifestYaml(manifest);
+        var algorithmYaml = WorkflowPlanManifestCompiler.CompileAlgorithmYaml(process.Algorithm);
+        Assert.DoesNotContain("args:", normalizedManifestYaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("args:", algorithmYaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_ParsesSwitchDefaultStepsAsSequence()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse("""
+name: default-steps
+description: Handles switch default shorthand.
+inputs:
+  kind: { type: string, required: true }
+outputs:
+  result: "${data.steps.call_router.outputs.result}"
+subplans:
+  - id: router
+    path: ./default-steps/router.yaml
+    responsibility: Route work by kind.
+    inputs: { kind: { type: string } }
+    outputs: { result: { type: string } }
+    algorithm:
+      type: switch
+      expr: "${data.inputs.kind}"
+      cases:
+        - value: known
+          steps:
+            - type: workflow.call
+              id: call_known
+              plan: known
+              args: { kind: "${data.inputs.kind}" }
+      default:
+        steps:
+          - type: workflow.call
+            id: call_unknown
+            plan: unknown
+            args: { kind: "${data.inputs.kind}" }
+  - id: known
+    path: ./default-steps/known.yaml
+    responsibility: Handle known work.
+    inputs: { kind: { type: string } }
+    outputs: { result: { type: string } }
+  - id: unknown
+    path: ./default-steps/unknown.yaml
+    responsibility: Handle unknown work.
+    inputs: { kind: { type: string } }
+    outputs: { result: { type: string } }
+algorithm:
+  type: workflow.call
+  id: call_router
+  plan: router
+  args: { kind: "${data.inputs.kind}" }
+""");
+
+        WorkflowPlanManifestValidator.Validate(manifest);
+        var router = manifest.SubPlans.Single(plan => plan.Id == "router");
+        Assert.Equal("sequence", router.Algorithm!.Default!.Type);
+
+        var yaml = WorkflowPlanManifestCompiler.CompileSubPlanYaml(manifest, router);
+        Assert.Contains("default:", yaml);
+        Assert.Contains("id: \"call_unknown\"", yaml);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_CompilesSwitchCaseOutputsWithoutChildSteps()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse("""
+name: case-outputs
+description: Handles switch cases that only publish outputs.
+inputs:
+  items: { type: array, required: true }
+outputs:
+  result: "${data.steps.call_loop.outputs.result}"
+subplans:
+  - id: loop
+    path: ./case-outputs/loop.yaml
+    responsibility: Process items and publish aggregate outputs.
+    inputs: { items: { type: array } }
+    outputs:
+      result: { type: string }
+    algorithm:
+      type: sequence
+      steps:
+        - type: foreach.sequential
+          id: each_item
+          items: "${data.inputs.items}"
+          item_var: item
+          steps:
+            - type: workflow.call
+              id: process_item
+              plan: leaf
+              args: { item: "${data.item}" }
+            - type: switch
+              id: update_context
+              cases:
+                - when: "true"
+                  steps:
+                  outputs:
+                    result:
+                      expr: "${data.steps.process_item.outputs.result}"
+        - type: switch
+          id: finalize
+          cases:
+            - when: "true"
+              steps:
+              outputs:
+                result:
+                  expr: "${data.steps.each_item.outputs.result}"
+  - id: leaf
+    path: ./case-outputs/leaf.yaml
+    responsibility: Process one item.
+    inputs: { item: { type: any } }
+    outputs:
+      result: { type: string }
+algorithm:
+  type: workflow.call
+  id: call_loop
+  plan: loop
+  args: { items: "${data.inputs.items}" }
+""");
+
+        WorkflowPlanManifestValidator.Validate(manifest);
+        var loop = manifest.SubPlans.Single(plan => plan.Id == "loop");
+        var yaml = WorkflowPlanManifestCompiler.CompileSubPlanYaml(manifest, loop);
+
+        Assert.True(yaml.Split("type: \"set\"", StringSplitOptions.None).Length >= 3, yaml);
+        Assert.Contains("id: \"set_outputs_", yaml);
+        Assert.Contains("expr: \"${data.steps.set_outputs_", yaml);
+        Assert.Contains(".result}\"", yaml);
+    }
+
+    [Fact]
+    public void WorkflowPlanSplitManifest_RejectsCompositeSubPlanCallCycles()
+    {
+        var manifest = WorkflowPlanManifestParser.Parse("""
+name: cyclic
+description: Demonstrates invalid cyclic sub-plan calls.
+inputs:
+  topic: { type: string, required: true }
+outputs:
+  final: "${data.steps.call_a.outputs.result}"
+subplans:
+  - id: a
+    path: ./cyclic/a.yaml
+    responsibility: Call B.
+    inputs: { topic: { type: string } }
+    outputs: { result: { type: string } }
+    algorithm:
+      type: workflow.call
+      id: call_b
+      plan: b
+      args: { topic: "${data.inputs.topic}" }
+  - id: b
+    path: ./cyclic/b.yaml
+    responsibility: Call A.
+    inputs: { topic: { type: string } }
+    outputs: { result: { type: string } }
+    algorithm:
+      type: workflow.call
+      id: call_a
+      plan: a
+      args: { topic: "${data.inputs.topic}" }
+algorithm:
+  type: workflow.call
+  id: call_a
+  plan: a
+  args: { topic: "${data.inputs.topic}" }
+""");
+
+        var ex = Assert.Throws<WorkflowPlanManifestValidationException>(() => WorkflowPlanManifestValidator.Validate(manifest));
+
+        Assert.Contains(ex.Errors, error => error.Contains("cycle", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task WorkflowPlanSplit_GeneratesBundleAndSubPlansInParallel()
+    {
+        var activeSubPlanCalls = 0;
+        var maxConcurrentSubPlanCalls = 0;
+        var requests = new System.Collections.Concurrent.ConcurrentBag<LLMRequest>();
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Returns<LLMRequest, CancellationToken>(async (req, ct) =>
+            {
+                requests.Add(req);
+                if (req.Prompt.Contains("split-planning assistant", StringComparison.Ordinal))
+                    return new LLMResponse { Text = SplitManifestYaml() };
+
+                var current = Interlocked.Increment(ref activeSubPlanCalls);
+                maxConcurrentSubPlanCalls = Math.Max(maxConcurrentSubPlanCalls, current);
+                try
+                {
+                    await Task.Delay(50, ct);
+                    return new LLMResponse { Text = SubPlanYaml(req.Prompt.Contains("'collect'", StringComparison.Ordinal) ? "collect" : "summarize") };
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref activeSubPlanCalls);
+                }
+            });
+
+        var wf = CompileMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            mode: split
+            workflow_name: Test2
+            description: Answers product questions for customers.
+            model: gpt-4
+            instruction: Build a large research workflow
+          validate:
+            compile: true
+            dry_run: true
+""");
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var planOutput = result.Outputs!["plan"] as JsonObject;
+        Assert.NotNull(planOutput);
+        Assert.NotNull(planOutput!["manifest"]);
+        Assert.Contains("kind: \"local\"", planOutput["main.yaml"]!.GetValue<string>());
+        Assert.DoesNotContain("kind: \"workspace\"", planOutput["main.yaml"]!.GetValue<string>());
+        var workflows = planOutput["workflows"] as JsonObject;
+        Assert.NotNull(workflows);
+        Assert.Contains("name: \"Test2\"", planOutput["main.yaml"]!.GetValue<string>());
+        Assert.Contains("description: \"Answers product questions for customers.\"", planOutput["main.yaml"]!.GetValue<string>());
+        Assert.Contains("  \"collect\":", planOutput["main.yaml"]!.GetValue<string>());
+        Assert.Contains("  \"summarize\":", planOutput["main.yaml"]!.GetValue<string>());
+        Assert.True(workflows!.ContainsKey("./Test2/workflow.yaml"));
+        Assert.True(workflows.ContainsKey("./Test2/collect.yaml"));
+        Assert.True(workflows.ContainsKey("./Test2/summarize.yaml"));
+        Assert.Equal(3, requests.Count);
+        Assert.True(maxConcurrentSubPlanCalls > 1);
+    }
+
+    [Fact]
+    public async Task WorkflowPlanSplit_SubPlanPromptPreservesOriginalUserLogic()
+    {
+        var requests = new System.Collections.Concurrent.ConcurrentBag<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Returns<LLMRequest, CancellationToken>((req, _) =>
+            {
+                requests.Add(req);
+                if (req.Prompt.Contains("split-planning assistant", StringComparison.Ordinal))
+                {
+                    return Task.FromResult(new LLMResponse
+                    {
+                        Text = """
+name: issue-agent
+description: Answers GitHub issues with the requested policy.
+subplans:
+  - id: answer_issue
+    responsibility: |
+      Generate the workflow that answers a GitHub issue.
+      Always answer in English, never modify an existing issue comment, add a new comment, and use the anthropic provider when asking Copilot.
+algorithm:
+  type: workflow.call
+  id: call_answer_issue
+  plan: answer_issue
+"""
+                    });
+                }
+
+                return Task.FromResult(new LLMResponse { Text = SubPlanYaml("answer_issue") });
+            });
+
+        var wf = CompileMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            mode: split
+            model: gpt-4
+            instruction: |
+              Build a GitHub issue workflow.
+              Always answer in English.
+              Never modify an existing issue comment.
+              Use the anthropic provider for Copilot Ask.
+          validate:
+            compile: true
+""");
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var subPlanRequest = requests.Single(request =>
+            !request.Prompt.Contains("split-planning assistant", StringComparison.Ordinal));
+        Assert.Contains("Sub-workflow generation prompt:", subPlanRequest.Prompt);
+        Assert.Contains("Always answer in English, never modify an existing issue comment", subPlanRequest.Prompt);
+        Assert.Contains("Original user request:", subPlanRequest.Prompt);
+        Assert.Contains("Never modify an existing issue comment.", subPlanRequest.Prompt);
+        Assert.Contains("Use the original request only to preserve the exact rules relevant to this sub-workflow.", subPlanRequest.Prompt);
+    }
+
+    [Fact]
+    public async Task WorkflowPlanSplit_GeneratesParentSubPlansWithChildContracts()
+    {
+        var requests = new System.Collections.Concurrent.ConcurrentBag<LLMRequest>();
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Returns<LLMRequest, CancellationToken>((req, _) =>
+            {
+                requests.Add(req);
+                if (req.Prompt.Contains("split-planning assistant", StringComparison.Ordinal))
+                    return Task.FromResult(new LLMResponse { Text = CompositeSplitManifestYaml() });
+
+                if (req.Prompt.Contains("'report'", StringComparison.Ordinal))
+                    return Task.FromResult(new LLMResponse { Text = ParentSubPlanYaml() });
+
+                var name = req.Prompt.Contains("'collect'", StringComparison.Ordinal) ? "collect" : "summarize";
+                return Task.FromResult(new LLMResponse { Text = SubPlanYaml(name) });
+            });
+
+        var wf = CompileMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            mode: split
+            model: gpt-4
+            instruction: Build a composite workflow
+          validate:
+            compile: true
+            dry_run: true
+""");
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var planOutput = result.Outputs!["plan"] as JsonObject;
+        Assert.NotNull(planOutput);
+        var workflows = planOutput!["workflows"] as JsonObject;
+        Assert.NotNull(workflows);
+        Assert.True(workflows!.ContainsKey("./split-composite/report.yaml"));
+        Assert.Contains("name: collect", workflows["./split-composite/report.yaml"]!.GetValue<string>());
+        Assert.DoesNotContain("kind: workspace", workflows["./split-composite/report.yaml"]!.GetValue<string>());
+        Assert.Contains("workflow.call", workflows["./split-composite/report.yaml"]!.GetValue<string>());
+        Assert.Contains(requests, request =>
+            request.Prompt.Contains("'report'", StringComparison.Ordinal)
+            && request.Prompt.Contains("\"inputs\"", StringComparison.Ordinal)
+            && request.Prompt.Contains("\"outputs\"", StringComparison.Ordinal));
+        Assert.DoesNotContain(requests, request =>
+            request.Prompt.Contains("'report'", StringComparison.Ordinal)
+            && request.Prompt.Contains("./split-composite/collect.yaml", StringComparison.Ordinal));
+        var meta = planOutput["meta"] as JsonObject;
+        Assert.NotNull(meta);
+        Assert.Equal("collect", meta!["generation_batches"]![0]![0]!.GetValue<string>());
+        Assert.Equal("report", meta["generation_batches"]![1]![0]!.GetValue<string>());
+        Assert.Equal(4, requests.Count);
+    }
+
+    [Fact]
+    public async Task WorkflowPlanSplit_MainDryRunUsesGeneratedRootChildArrayInputs()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Returns<LLMRequest, CancellationToken>((req, _) =>
+            {
+                if (req.Prompt.Contains("split-planning assistant", StringComparison.Ordinal))
+                    return Task.FromResult(new LLMResponse { Text = ArrayRootSplitManifestYaml() });
+
+                return Task.FromResult(new LLMResponse { Text = ArrayLoopSubPlanYaml() });
+            });
+
+        var wf = CompileMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            mode: split
+            model: gpt-4
+            instruction: Build an issue processor
+          validate:
+            compile: true
+            dry_run: true
+""");
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var planOutput = Assert.IsType<JsonObject>(result.Outputs!["plan"]);
+        var mainYaml = planOutput["main.yaml"]!.GetValue<string>();
+        Assert.Contains("issues:", mainYaml);
+        Assert.Contains("type: \"array\"", mainYaml);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_DefaultMode_RemainsSinglePlan()
+    {
+        var callCount = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback(() => callCount++)
+            .ReturnsAsync(new LLMResponse { Text = SubPlanYaml("single") });
+
+        var wf = CompileMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          generator:
+            model: gpt-4
+            instruction: Build a normal workflow
+          validate:
+            compile: true
+""");
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, callCount);
+        var planOutput = result.Outputs!["plan"] as JsonObject;
+        Assert.NotNull(planOutput);
+        Assert.NotNull(planOutput!["yaml"]);
+        Assert.Null(planOutput["main.yaml"]);
+    }
+
+    private static string SplitManifestYaml() => """
+name: split-demo
+description: Researches a topic and summarizes the result.
+inputs:
+  topic: { type: string, required: true }
+outputs:
+  final: "${data.steps.call_summarize.outputs.result}"
+subplans:
+  - id: collect
+    path: ./split-demo/collect.yaml
+    responsibility: Collect source material for the topic.
+    inputs:
+      topic: { type: string, required: true }
+    outputs:
+      result: { type: string }
+  - id: summarize
+    path: ./split-demo/summarize.yaml
+    responsibility: Summarize collected material.
+    inputs:
+      topic: { type: string, required: true }
+    outputs:
+      result: { type: string }
+algorithm:
+  type: sequence
+  id: orchestrate
+  steps:
+    - type: workflow.call
+      id: call_collect
+      plan: collect
+      args: { topic: "${data.inputs.topic}" }
+    - type: workflow.call
+      id: call_summarize
+      plan: summarize
+      args: { topic: "${data.inputs.topic}" }
+""";
+
+    private static string CompositeSplitManifestYaml() => """
+name: split-composite
+description: Collects information and produces a final report.
+inputs:
+  topic: { type: string, required: true }
+outputs:
+  final: "${data.steps.call_report.outputs.result}"
+subplans:
+  - id: collect
+    path: ./split-composite/collect.yaml
+    responsibility: Collect source material for the topic.
+    inputs:
+      topic: { type: string, required: true }
+    outputs:
+      result: { type: string }
+  - id: summarize
+    path: ./split-composite/summarize.yaml
+    responsibility: Summarize collected material.
+    inputs:
+      topic: { type: string, required: true }
+    outputs:
+      result: { type: string }
+  - id: report
+    path: ./split-composite/report.yaml
+    responsibility: Coordinate collection and summarization for a final report.
+    inputs:
+      topic: { type: string, required: true }
+    outputs:
+      result: { type: string }
+    algorithm:
+      type: sequence
+      id: build_report
+      steps:
+        - type: workflow.call
+          id: call_collect
+          plan: collect
+          args: { topic: "${data.inputs.topic}" }
+        - type: workflow.call
+          id: call_summarize
+          plan: summarize
+          args: { topic: "${data.inputs.topic}" }
+algorithm:
+  type: workflow.call
+  id: call_report
+  plan: report
+  args: { topic: "${data.inputs.topic}" }
+""";
+
+    private static string ArrayRootSplitManifestYaml() => """
+name: split-array-root
+description: Processes a list of issues.
+subplans:
+  - id: process_many
+    responsibility: Process issues one by one.
+algorithm:
+  type: workflow.call
+  id: call_process_many
+  plan: process_many
+""";
+
+    private static string ArrayLoopSubPlanYaml() => """
+version: 1
+name: process_many
+skill:
+  description: Process issues one by one.
+  tags: [generated]
+  inputs:
+    issues:
+      type: array
+      required: true
+      items: { type: string }
+  outputs:
+    result: { type: number }
+workflows:
+  main:
+    inputs:
+      issues:
+        type: array
+        required: true
+        items: { type: string }
+    steps:
+      - id: init
+        type: set
+        input:
+          issues: "${data.inputs.issues}"
+      - id: each_issue
+        type: loop.sequential
+        item_var: issue
+        input:
+          items: "${data.steps.init.issues}"
+        steps:
+          - id: render_issue
+            type: template.render
+            input:
+              engine: mustache
+              template: "{{issue}}"
+              data:
+                issue: "${data.issue}"
+              mode: text
+      - id: summarize
+        type: set
+        input:
+          count: "${data.steps.each_issue.count}"
+      - id: normalize
+        type: set
+        input:
+          result: "${data.steps.summarize.count}"
+      - id: complete
+        type: set
+        input:
+          result: "${data.steps.normalize.result}"
+    outputs:
+      result: "${data.steps.complete.result}"
+""";
+
+    private static string ParentSubPlanYaml() => """
+version: 1
+name: report
+skill:
+  description: Coordinate collection and summarization for a final report.
+  tags: [generated]
+  inputs:
+    topic: { type: string, required: true }
+  outputs:
+    result: { type: string }
+workflows:
+  report:
+    inputs:
+      topic: { type: string, required: true }
+    steps:
+      - id: init
+        type: set
+        input:
+          topic: "${data.inputs.topic}"
+      - id: call_collect
+        type: workflow.call
+        input:
+          ref:
+            kind: local
+            name: collect
+          args:
+            topic: "${data.steps.init.topic}"
+      - id: call_summarize
+        type: workflow.call
+        input:
+          ref:
+            kind: local
+            name: summarize
+          args:
+            topic: "${data.steps.init.topic}"
+      - id: compose
+        type: set
+        input:
+          result: "${data.steps.call_summarize.outputs.result}"
+      - id: complete
+        type: set
+        input:
+          result: "${data.steps.compose.result}"
+    outputs:
+      result: "${data.steps.complete.result}"
+  collect:
+    inputs:
+      topic: { type: string, required: true }
+    steps:
+      - id: init
+        type: set
+        input:
+          topic: "${data.inputs.topic}"
+      - id: prepare
+        type: set
+        input:
+          topic: "${data.steps.init.topic}"
+      - id: render
+        type: template.render
+        input:
+          engine: mustache
+          template: "collect"
+          data:
+            topic: "${data.steps.prepare.topic}"
+          mode: text
+      - id: normalize
+        type: set
+        input:
+          result: "${data.steps.render.text}"
+      - id: complete
+        type: set
+        input:
+          result: "${data.steps.normalize.result}"
+    outputs:
+      result: "${data.steps.complete.result}"
+  summarize:
+    inputs:
+      topic: { type: string, required: true }
+    steps:
+      - id: init
+        type: set
+        input:
+          topic: "${data.inputs.topic}"
+      - id: prepare
+        type: set
+        input:
+          topic: "${data.steps.init.topic}"
+      - id: render
+        type: template.render
+        input:
+          engine: mustache
+          template: "summarize"
+          data:
+            topic: "${data.steps.prepare.topic}"
+          mode: text
+      - id: normalize
+        type: set
+        input:
+          result: "${data.steps.render.text}"
+      - id: complete
+        type: set
+        input:
+          result: "${data.steps.normalize.result}"
+    outputs:
+      result: "${data.steps.complete.result}"
+""";
+
+    private static string SubPlanYaml(string name) => $$"""
+version: 1
+name: {{name}}
+skill:
+  description: Generated {{name}} sub-plan.
+  tags: [generated]
+  inputs:
+    topic: { type: string, required: true }
+  outputs:
+    result: { type: string }
+workflows:
+  main:
+    inputs:
+      topic: { type: string, required: true }
+    steps:
+      - id: init
+        type: set
+        input:
+          topic: "${data.inputs.topic}"
+      - id: prepare
+        type: set
+        input:
+          topic: "${data.steps.init.topic}"
+      - id: render
+        type: template.render
+        input:
+          engine: mustache
+          template: "{{name}}"
+          data:
+            topic: "${data.steps.prepare.topic}"
+          mode: text
+      - id: normalize
+        type: set
+        input:
+          result: "${data.steps.render.text}"
+      - id: complete
+        type: set
+        input:
+          result: "${data.steps.normalize.result}"
+    outputs:
+      result: "${data.steps.complete.result}"
+""";
+
     // ------ Removed step types ------
 
     [Fact]

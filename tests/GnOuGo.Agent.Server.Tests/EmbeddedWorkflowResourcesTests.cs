@@ -39,7 +39,12 @@ public sealed class EmbeddedWorkflowResourcesTests
 
         Assert.Contains("- id: generate_workflow", yaml, StringComparison.Ordinal);
         Assert.Contains("type: workflow.plan", yaml, StringComparison.Ordinal);
-        Assert.Contains("${data.steps.generate_workflow.yaml}", yaml, StringComparison.Ordinal);
+        Assert.Contains("mode: split", yaml, StringComparison.Ordinal);
+        Assert.Contains("workflow_name: \"${data.steps.normalized_name.agent_name}\"", yaml, StringComparison.Ordinal);
+        Assert.Contains("description: \"${data.steps.input_prompt.description}\"", yaml, StringComparison.Ordinal);
+        Assert.Contains("data.steps.generate_workflow[\\\"main.yaml\\\"]", yaml, StringComparison.Ordinal);
+        Assert.Contains("data.steps.generate_workflow.workflows", yaml, StringComparison.Ordinal);
+        Assert.Contains("method: agent_add_bundle", yaml, StringComparison.Ordinal);
         Assert.DoesNotContain("You are a GnOuGo.Flow workflow YAML expert. Generate a valid workflow YAML", yaml, StringComparison.Ordinal);
         Assert.DoesNotContain("${data.steps.generate_workflow.text}", yaml, StringComparison.Ordinal);
     }

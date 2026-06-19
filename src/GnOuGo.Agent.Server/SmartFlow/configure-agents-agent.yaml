@@ -302,6 +302,8 @@ workflows:
               generator:
                 prefilter: true
                 reasoning: low
+                workflow_name: "${data.steps.normalized_name.agent_name}"
+                description: "${data.steps.input_prompt.description}"
                 instruction: >
                   Generate a valid GnOuGo.Flow YAML workflow for a persisted chat agent.
 
@@ -326,10 +328,10 @@ workflows:
                   - loop.parallel
                   - switch
                   - human.input
+                  - workflow.call
                 denied_step_types:
                   - workflow.plan
                   - workflow.execute
-                  - workflow.call
                 allow_remote_workflow_refs: false
               limits:
                 max_steps_total: 100
@@ -343,7 +345,7 @@ workflows:
           - id: emit_workflow
             type: emit
             input:
-              message: "📝 Generated workflow:\n\n```yaml\n${data.steps.generate_workflow.yaml}\n```"
+              message: "📝 Generated main workflow:\n\n```yaml\n${data.steps.generate_workflow[\"main.yaml\"]}\n```\n\nBundle files: ${json(data.steps.generate_workflow.workflows)}"
               level: thinking
 
           # Step 4: Review workflow
@@ -352,7 +354,7 @@ workflows:
             input:
               mode: choice
               prompt: "Review the generated workflow. You can approve it or modify it by pasting corrected YAML."
-              context: "${data.steps.generate_workflow.yaml}"
+              context: "${data.steps.generate_workflow[\"main.yaml\"]}"
               choices:
                 - approve
                 - modify
@@ -373,23 +375,26 @@ workflows:
                           type: yaml
                           required: true
                           description: "Modified workflow YAML"
-                          default: "${data.steps.generate_workflow.yaml}"
+                          default: "${data.steps.generate_workflow[\"main.yaml\"]}"
                       timeout_ms: 36000000
                   - id: final_workflow_modified
                     type: set
                     input:
                       workflow: "${data.steps.custom_workflow.yaml}"
+                      workflows: "${data.steps.generate_workflow.workflows}"
 
             default:
               - id: final_workflow_approved
                 type: set
                 input:
-                  workflow: "${data.steps.generate_workflow.yaml}"
+                  workflow: "${data.steps.generate_workflow[\"main.yaml\"]}"
+                  workflows: "${data.steps.generate_workflow.workflows}"
 
           - id: final_workflow
             type: set
             input:
-              workflow: "${data.steps.final_workflow_modified?.workflow ?? data.steps.final_workflow_approved?.workflow ?? data.steps.generate_workflow.yaml}"
+              workflow: "${data.steps.final_workflow_modified?.workflow ?? data.steps.final_workflow_approved?.workflow ?? data.steps.generate_workflow[\"main.yaml\"]}"
+              workflows: "${data.steps.final_workflow_modified?.workflows ?? data.steps.final_workflow_approved?.workflows ?? data.steps.generate_workflow.workflows}"
 
           # Step 5: Save agent via MCP
           - id: think_saving
@@ -402,11 +407,12 @@ workflows:
             type: mcp.call
             input:
               server: GnOuGo.Agent.Mcp
-              method: agent_add
+              method: agent_add_bundle
               raise_on_error: false
               request:
                 name: "${data.steps.normalized_name.agent_name}"
                 workflow: "${data.steps.final_workflow.workflow}"
+                workflows: "${data.steps.final_workflow.workflows}"
                 originalPrompt: "${data.steps.input_prompt.description}"
 
           - id: save_agent_branch

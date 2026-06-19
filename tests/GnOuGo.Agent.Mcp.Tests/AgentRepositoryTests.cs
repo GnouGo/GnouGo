@@ -35,6 +35,39 @@ public class AgentRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task AddAgentBundle_CreatesAgentAndWorkflowFilesUnderWorkspaceRoot()
+    {
+        var workflows = new Dictionary<string, string>
+        {
+            ["./TestAgent/workflow.yaml"] = "old main",
+            ["./TestAgent/collect/workflow.yaml"] = "collect workflow"
+        };
+
+        var agent = await _repo.AddAgentBundleAsync("TestAgent", "approved main", workflows, "original prompt");
+
+        Assert.Equal("TestAgent", agent.Name);
+        Assert.Equal("approved main", agent.Workflow);
+        Assert.Equal("original prompt", agent.OriginalPrompt);
+        Assert.Equal("approved main", await File.ReadAllTextAsync(Path.Combine(_database.WorkspaceRoot, "TestAgent", "workflow.yaml")));
+        Assert.Equal("collect workflow", await File.ReadAllTextAsync(Path.Combine(_database.WorkspaceRoot, "TestAgent", "collect", "workflow.yaml")));
+    }
+
+    [Theory]
+    [InlineData("../outside/workflow.yaml")]
+    [InlineData("/tmp/outside/workflow.yaml")]
+    [InlineData("./safe/../outside/workflow.yaml")]
+    public async Task AddAgentBundle_RejectsUnsafeWorkflowPaths(string relativePath)
+    {
+        var workflows = new Dictionary<string, string>
+        {
+            [relativePath] = "wf"
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _repo.AddAgentBundleAsync("TestAgent", "main", workflows));
+    }
+
+    [Fact]
     public async Task AddAgent_ThrowsOnEmptyName()
     {
         await Assert.ThrowsAsync<ArgumentException>(

@@ -28,6 +28,39 @@ public class AgentToolsTests : IDisposable
     }
 
     [Fact]
+    public async Task AgentAddBundle_CreatesAgentAndPersistsWorkflowFiles()
+    {
+        var result = await _tools.AgentAddBundle(
+            "MyAgent",
+            "approved main",
+            new Dictionary<string, string>
+            {
+                ["./MyAgent/workflow.yaml"] = "generated main",
+                ["./MyAgent/sub/workflow.yaml"] = "sub workflow"
+            },
+            "original prompt");
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.NotNull(result.Agent);
+        Assert.Equal("MyAgent", result.Agent.Name);
+        Assert.Equal("approved main", result.Agent.Workflow);
+        Assert.Equal("approved main", await File.ReadAllTextAsync(Path.Combine(_database.WorkspaceRoot, "MyAgent", "workflow.yaml")));
+        Assert.Equal("sub workflow", await File.ReadAllTextAsync(Path.Combine(_database.WorkspaceRoot, "MyAgent", "sub", "workflow.yaml")));
+    }
+
+    [Fact]
+    public async Task AgentAddBundle_ReturnsInvalidInputForUnsafeWorkflowPath()
+    {
+        var result = await _tools.AgentAddBundle(
+            "MyAgent",
+            "main",
+            new Dictionary<string, string> { ["../outside/workflow.yaml"] = "wf" });
+
+        Assert.False(result.Success);
+        Assert.Equal("INVALID_INPUT", result.ErrorCode);
+    }
+
+    [Fact]
     public async Task AgentAdd_ReturnsError_WhenNameIsEmpty()
     {
         var result = await _tools.AgentAdd("", "wf");

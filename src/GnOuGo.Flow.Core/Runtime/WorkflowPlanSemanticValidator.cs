@@ -408,12 +408,23 @@ internal static class WorkflowPlanSemanticValidator
                     InvalidPath = invalidPath,
                     AllowedPaths = EnumerateAllowedPaths("data.steps." + referencedStepId, schema).ToArray(),
                     Suggestion = validation.IsOpaqueResponse
-                        ? $"Do not invent fields under '{invalidPath[..invalidPath.IndexOf(".response", StringComparison.Ordinal)]}.response'. Use json(data.steps.{referencedStepId}.response), or add an llm.call normalization step with structured_output before accessing named fields."
+                        ? BuildOpaquePathSuggestion(invalidPath, referencedStepId)
                         : $"Use one of the allowed paths for step '{referencedStepId}', or add a normalization step that produces the desired property with structured_output.",
                     Message = validation.Message
                 });
             }
         }
+    }
+
+    private static string BuildOpaquePathSuggestion(string invalidPath, string referencedStepId)
+    {
+        var responseIndex = invalidPath.IndexOf(".response", StringComparison.Ordinal);
+        if (responseIndex >= 0)
+        {
+            return $"Do not invent fields under '{invalidPath[..responseIndex]}.response'. Use json(data.steps.{referencedStepId}.response), or add an llm.call normalization step with structured_output before accessing named fields.";
+        }
+
+        return $"Do not invent fields under opaque output path '{invalidPath}'. Pass the whole value onward, or add an llm.call normalization step with structured_output before accessing named fields.";
     }
 
     private static IReadOnlyList<string> SplitPath(string path)
@@ -979,6 +990,7 @@ internal static class WorkflowPlanSemanticValidator
             "llm.call" => BuildLlmCallOutputSchema(step),
             "mcp.call" => BuildMcpCallOutputSchema(step, mcpContracts),
             "mcp.list" => ObjectSchema(("status", StringSchema()), ("text", StringSchema()), ("servers", ArraySchema()), ("tools", ArraySchema()), ("resources", ArraySchema()), ("prompts", ArraySchema())),
+            "workflow.call" => ObjectSchema(("outputs", OpenObjectSchema()), ("workflow", StringSchema())),
             "workflow.plan" => ObjectSchema(("workflow", ObjectSchema()), ("yaml", StringSchema()), ("meta", ObjectSchema()), ("diagnostics", ArraySchema())),
             "workflow.execute" => ObjectSchema(("outputs", OpaqueSchema()), ("workflow", StringSchema()), ("run", ObjectSchema(("steps_executed", NumberSchema()), ("success", BooleanSchema())))),
             "sequence" => ObjectSchema(("steps", ObjectSchema()), ("count", NumberSchema())),
@@ -1173,6 +1185,13 @@ internal static class WorkflowPlanSemanticValidator
             ["additionalProperties"] = false
         };
     }
+
+    private static JsonObject OpenObjectSchema() => new()
+    {
+        ["type"] = "object",
+        ["properties"] = new JsonObject(),
+        ["additionalProperties"] = true
+    };
 
     private static JsonObject StringSchema() => new() { ["type"] = "string" };
     private static JsonObject NumberSchema() => new() { ["type"] = "number" };

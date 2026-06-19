@@ -81,6 +81,39 @@ workflows:
     }
 
     [Fact]
+    public void Validate_InvalidExpressionInsideNestedStepInput_ReportsExprParse()
+    {
+        var doc = ParseDoc("""
+version: 1
+skill:
+  description: Test workflow.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: comment
+        type: mcp.call
+        input:
+          server: Github
+          kind: tool
+          method: add_issue_comment
+          request:
+            body: |-
+              ${'This generated expression has a raw newline
+              inside a JavaScript string literal.'}
+""");
+
+        var errors = _validator.Validate(doc);
+
+        Assert.Contains(errors, error =>
+            error.Code == ErrorCodes.ExprParse
+            && error.StepId == "comment"
+            && error.Field == "input.request.body");
+    }
+
+    [Fact]
     public void Validate_InvalidLocalWorkflowRef_ReportsError()
     {
         var yaml = @"
@@ -200,7 +233,9 @@ workflows:
 ";
         var doc = ParseDoc(yaml);
         var errors = _validator.Validate(doc);
-        Assert.Contains(errors, e => e.Code == ErrorCodes.WorkflowCycleDetected);
+        var cycleErrors = errors.Where(e => e.Code == ErrorCodes.WorkflowCycleDetected).ToArray();
+        Assert.Single(cycleErrors);
+        Assert.Contains("main -> helper -> main", cycleErrors[0].Message);
     }
 
     [Fact]

@@ -47,6 +47,8 @@ internal sealed class AgentMcpTestDatabase : IDisposable
 
     public string DatabasePath { get; }
 
+    public string WorkspaceRoot => _directory;
+
     public string AgentsDirectory { get; }
 
     public AgentMcpDbContext AgentDb { get; }
@@ -76,4 +78,3 @@ internal sealed class AgentMcpTestDatabase : IDisposable
         }
     }
 }
-

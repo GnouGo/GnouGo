@@ -56,6 +56,7 @@ workflows:
         type: workflow.plan
         input:
           generator:
+            mode: split
             instruction: >
               Create a workflow that accomplishes the following task:
               ${coalesce(data.inputs.task, "no task provided")}
@@ -202,6 +203,13 @@ workflows:
             task: "${data.inputs.task}"
             answer: "${data.steps.format.text}"
 
+      - id: markdown_file_parameters
+        type: set
+        if: "${data.steps.ask_markdown_export.response == 'save'}"
+        input:
+          path: "${data.steps.ask_markdown_path.file_path}"
+          contentBase64: "${base64(data.steps.render_markdown_export.text)}"
+
       - id: save_markdown_file
         type: mcp.call
         if: "${data.steps.ask_markdown_export.response == 'save'}"
@@ -210,7 +218,7 @@ workflows:
           method: cmd_run
           request:
             commandName: write_markdown_file
-            parametersJson: "${json({ path: data.steps.ask_markdown_path.file_path, contentBase64: base64(data.steps.render_markdown_export.text) })}"
+            parametersJson: "${json(data.steps.markdown_file_parameters)}"
             timeoutMs: 30000
     
     outputs:

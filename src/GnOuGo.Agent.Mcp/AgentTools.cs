@@ -54,6 +54,42 @@ public sealed class AgentTools
         }
     }
 
+    [McpServerTool(Name = "agent_add_bundle"), Description(
+        "Create a new agent with a main workflow and persist bundled workflow files at safe workspace-relative paths. " +
+        "Returns { success, agent } or { success: false, error_code, error_message }.")]
+    public async Task<AgentToolResult> AgentAddBundle(
+        [Description("Agent name (required).")]
+        string name,
+        [Description("Main workflow definition text (required).")]
+        string workflow,
+        [Description("Map of safe relative workflow file paths to YAML content.")]
+        Dictionary<string, string>? workflows = null,
+        [Description("Original natural-language prompt used to generate the workflow.")]
+        string? originalPrompt = null)
+    {
+        try
+        {
+            var agent = await _repo.AddAgentBundleAsync(name, workflow, workflows, originalPrompt);
+
+            return new AgentToolResult(true, SerializeAgent(agent));
+        }
+        catch (DuplicateAgentNameException ex)
+        {
+            _logger.LogWarning(ex, "agent_add_bundle duplicate name");
+            return ErrorResult("ALREADY_EXISTS", ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "agent_add_bundle validation error");
+            return ErrorResult("INVALID_INPUT", ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "agent_add_bundle unexpected error");
+            return ErrorResult("INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
     // ── Update Agent ─────────────────────────────────────────────────
 
     [McpServerTool(Name = "agent_update"), Description(
@@ -199,4 +235,3 @@ public sealed class AgentTools
     private static AgentDeleteToolResult DeleteErrorResult(string errorCode, string errorMessage)
         => new(false, ErrorCode: errorCode, ErrorMessage: errorMessage);
 }
-

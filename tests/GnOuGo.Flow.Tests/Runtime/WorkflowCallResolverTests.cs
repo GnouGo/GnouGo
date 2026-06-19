@@ -84,6 +84,80 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowCall_Workspace_ResolvesDotPathRelativeToCurrentWorkspaceSource()
+    {
+        var workspaceRoot = CreateTempDirectory();
+        var parentDir = Directory.CreateDirectory(Path.Combine(workspaceRoot, "agents", "writer"));
+        await File.WriteAllTextAsync(Path.Combine(parentDir.FullName, "helper.yaml"), """
+version: 1
+workflows:
+  helper:
+    steps:
+      - id: out
+        type: set
+        input: { value: "from source directory" }
+    outputs:
+      value: "${data.steps.out.value}"
+""");
+
+        var compiled = CompileDoc("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: workflow.call
+        input:
+          ref: { path: ./helper.yaml }
+    outputs:
+      value: "${data.steps.call.outputs.value}"
+""", sourceKind: "workspace", sourcePath: "agents/writer/workflow.yaml");
+
+        var engine = new WorkflowEngine { WorkflowCallResolver = new DefaultWorkflowCallResolver(workspaceRoot) };
+        var result = await engine.ExecuteAsync(compiled.Workflows["main"], new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("from source directory", result.Outputs!["value"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowCall_Workspace_DotPathFallsBackToWorkspaceRootBundlePath()
+    {
+        var workspaceRoot = CreateTempDirectory();
+        var bundleDir = Directory.CreateDirectory(Path.Combine(workspaceRoot, "Test2"));
+        await File.WriteAllTextAsync(Path.Combine(bundleDir.FullName, "answer.yaml"), """
+version: 1
+workflows:
+  helper:
+    steps:
+      - id: out
+        type: set
+        input: { value: "from bundle root" }
+    outputs:
+      value: "${data.steps.out.value}"
+""");
+
+        var compiled = CompileDoc("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: workflow.call
+        input:
+          ref: { kind: workspace, path: ./Test2/answer.yaml }
+    outputs:
+      value: "${data.steps.call.outputs.value}"
+""", sourceKind: "workspace", sourcePath: "Test2/workflow.yaml");
+
+        var engine = new WorkflowEngine { WorkflowCallResolver = new DefaultWorkflowCallResolver(workspaceRoot) };
+        var result = await engine.ExecuteAsync(compiled.Workflows["main"], new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("from bundle root", result.Outputs!["value"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task WorkflowCall_Workspace_RejectsAbsolutePath()
     {
         var workspaceRoot = CreateTempDirectory();
@@ -157,8 +231,13 @@ workflows:
         Assert.Contains("allow-list", result.Error.Message);
     }
 
-    private static CompiledDocument CompileDoc(string yaml)
-        => new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+    private static CompiledDocument CompileDoc(string yaml, string? sourceKind = null, string? sourcePath = null)
+    {
+        var doc = WorkflowParser.Parse(yaml);
+        doc.SourceKind = sourceKind;
+        doc.SourcePath = sourcePath;
+        return new WorkflowCompiler().Compile(doc);
+    }
 
     private static string CreateTempDirectory()
     {

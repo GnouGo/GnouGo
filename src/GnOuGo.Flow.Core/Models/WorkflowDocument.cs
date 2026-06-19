@@ -31,6 +31,12 @@ public sealed class WorkflowDocument
 
     /// <summary>Original YAML source text (preserved for checkpoint/resume).</summary>
     public string? RawYaml { get; set; }
+
+    /// <summary>Logical source kind used when this document was loaded, such as workspace, url, or database.</summary>
+    public string? SourceKind { get; set; }
+
+    /// <summary>Source path or identifier within <see cref="SourceKind"/>, when available.</summary>
+    public string? SourcePath { get; set; }
 }
 
 /// <summary>

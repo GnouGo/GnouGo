@@ -104,6 +104,9 @@ workflows:
         public Task<AgentDefinition> AddAgentAsync(string name, string workflow, string? originalPrompt = null, CancellationToken ct = default)
             => throw new NotSupportedException();
 
+        public Task<AgentDefinition> AddAgentBundleAsync(string name, string workflow, IReadOnlyDictionary<string, string>? workflows, string? originalPrompt = null, CancellationToken ct = default)
+            => throw new NotSupportedException();
+
         public Task<AgentDefinition> UpdateAgentAsync(Guid id, string name, string workflow, string? originalPrompt = null, CancellationToken ct = default)
             => throw new NotSupportedException();
 
