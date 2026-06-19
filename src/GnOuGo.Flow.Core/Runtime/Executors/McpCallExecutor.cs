@@ -960,6 +960,9 @@ Produce the final answer strictly from the executed MCP results.
         IMcpSession session, string kind, string method, JsonNode? requestArgs,
         McpCorrelationContext correlation, bool detectResultErrors, StepExecutionContext ctx, ConcurrentDictionary<string, byte>? realtimeProgressFingerprints, CancellationToken ct)
     {
+        EmitMcpContentEvent(ctx, "gen_ai.content.prompt", "gen_ai.prompt",
+            BuildMcpContentEnvelope(session.ServerName, kind, method, requestArgs), correlation);
+
         if (kind == "prompt")
         {
             var promptResult = await session.GetPromptAsync(method, requestArgs, ct);
@@ -979,13 +982,17 @@ Produce the final answer strictly from the executed MCP results.
                 textParts.AppendLine($"[{msg.Role}] {msg.Content}");
             }
 
-            return new JsonObject
+            var result = new JsonObject
             {
                 ["status"] = "ok",
                 ["description"] = promptResult.Description,
                 ["messages"] = messagesArr,
                 ["text"] = textParts.ToString().TrimEnd()
             };
+
+            EmitMcpContentEvent(ctx, "gen_ai.content.completion", "gen_ai.completion",
+                result, correlation);
+            return result;
         }
         else
         {
@@ -999,7 +1006,7 @@ Produce the final answer strictly from the executed MCP results.
             var cleanedContent = StripProgressEvents(callResult.Content);
             var isError = callResult.IsError || (detectResultErrors && IsMcpResultErrorEnvelope(cleanedContent));
 
-            return new JsonObject
+            var result = new JsonObject
             {
                 ["status"] = isError ? "error" : "ok",
                 ["response"] = cleanedContent,
@@ -1007,7 +1014,51 @@ Produce the final answer strictly from the executed MCP results.
                 ["correlation_id"] = correlation.CorrelationId,
                 ["trace_id"] = correlation.TraceId
             };
+
+            EmitMcpContentEvent(ctx, "gen_ai.content.completion", "gen_ai.completion",
+                result, correlation);
+            return result;
         }
+    }
+
+    private static JsonObject BuildMcpContentEnvelope(string serverName, string kind, string method, JsonNode? requestArgs)
+    {
+        return new JsonObject
+        {
+            ["server"] = serverName,
+            ["kind"] = kind,
+            ["method"] = method,
+            ["request"] = requestArgs?.DeepClone()
+        };
+    }
+
+    private static void EmitMcpContentEvent(
+        StepExecutionContext ctx,
+        string eventName,
+        string contentAttributeName,
+        JsonNode content,
+        McpCorrelationContext correlation)
+    {
+        if (!ctx.Limits.LogStepContent)
+            return;
+
+        var attributes = new List<KeyValuePair<string, object?>>
+        {
+            new(contentAttributeName, content.ToJsonString()),
+            new("gen_ai.operation.name", ctx.TelemetryAttributes.TryGetValue("gen_ai.operation.name", out var operationName) ? operationName : null),
+            new("mcp.server.name", correlation.ServerName),
+            new("mcp.method.name", correlation.MethodName),
+            new("mcp.kind", correlation.Kind),
+            new("gnougo-flow.step.id", ctx.Step.Id),
+            new("gnougo-flow.step.type", ctx.Step.Type)
+        };
+
+        if (string.Equals(eventName, "gen_ai.content.prompt", StringComparison.Ordinal))
+            attributes.Add(new("prompt.role", "user"));
+        else if (string.Equals(eventName, "gen_ai.content.completion", StringComparison.Ordinal))
+            attributes.Add(new("completion.role", "assistant"));
+
+        ctx.AddTelemetryEvent(eventName, attributes);
     }
 
     private static void EmitMcpProgressEventsAsThinking(

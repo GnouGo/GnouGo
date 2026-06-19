@@ -523,6 +523,71 @@ workflows:
     }
 
     [Fact]
+    public async Task LogStepContent_McpCall_EmitsStandardContentEvents()
+    {
+        var recording = new RecordingTelemetry();
+
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo> { new() { Name = "list_issues" } },
+            ToolHandlers = new()
+            {
+                ["list_issues"] = _ => new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject
+                    {
+                        ["items"] = new JsonArray(
+                            new JsonObject { ["number"] = 1, ["title"] = "Fix tracing" })
+                    }
+                }
+            }
+        });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: issues
+        type: mcp.call
+        input:
+          server: github
+          method: list_issues
+          request:
+            owner: GnouGo
+            repo: GnouGo
+            perPage: 30
+");
+        var engine = new WorkflowEngine
+        {
+            McpClientFactory = factory,
+            Telemetry = recording,
+            Limits = new ExecutionLimits { LogStepContent = true }
+        };
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        var mcpSpan = recording.StepSpans.Single(s => s.Name == "issues");
+        Assert.Contains(mcpSpan.SpanEvents, e =>
+        {
+            var attributes = e.Attributes ?? Array.Empty<KeyValuePair<string, object?>>();
+            return e.Name == "gen_ai.content.prompt"
+                && attributes.Any(kv => kv.Key == "gen_ai.prompt" && kv.Value?.ToString()?.Contains("\"perPage\":30", StringComparison.Ordinal) == true)
+                && attributes.Any(kv => kv.Key == "mcp.server.name" && (string?)kv.Value == "github")
+                && attributes.Any(kv => kv.Key == "mcp.method.name" && (string?)kv.Value == "list_issues");
+        });
+        Assert.Contains(mcpSpan.SpanEvents, e =>
+        {
+            var attributes = e.Attributes ?? Array.Empty<KeyValuePair<string, object?>>();
+            return e.Name == "gen_ai.content.completion"
+                && attributes.Any(kv => kv.Key == "gen_ai.completion" && kv.Value?.ToString()?.Contains("Fix tracing", StringComparison.Ordinal) == true)
+                && attributes.Any(kv => kv.Key == "mcp.kind" && (string?)kv.Value == "tool");
+        });
+    }
+
+    [Fact]
     public async Task CustomTelemetry_McpCallPrompt_HasPromptAttributes()
     {
         var recording = new RecordingTelemetry();
