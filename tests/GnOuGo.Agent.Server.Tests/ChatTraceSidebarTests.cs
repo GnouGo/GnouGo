@@ -12,7 +12,7 @@ using OtlpTenantCollector.Services;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class ChatTraceSidebarTests : TestContext
+public sealed class ChatTraceSidebarTests : BunitContext
 {
     [Fact]
     public void Logs_RenderDetailsLazily_AndKeepParentActionsClickable()
@@ -32,7 +32,7 @@ public sealed class ChatTraceSidebarTests : TestContext
                 Scope: new Dictionary<string, object?> { ["name"] = "tests" })
         };
 
-        var cut = RenderComponent<ChatTraceLogs>(parameters => parameters
+        var cut = Render<ChatTraceLogs>(parameters => parameters
             .Add(p => p.Logs, logs)
             .Add(p => p.RenderFormatted, true));
 
@@ -57,7 +57,7 @@ public sealed class ChatTraceSidebarTests : TestContext
             CreateDuplicateLog(receivedUtc)
         };
 
-        var cut = RenderComponent<ChatTraceLogs>(parameters => parameters
+        var cut = Render<ChatTraceLogs>(parameters => parameters
             .Add(p => p.Logs, logs)
             .Add(p => p.RenderFormatted, true));
 
@@ -111,7 +111,7 @@ public sealed class ChatTraceSidebarTests : TestContext
             TraceId: traceId.ToHexString());
 
         var closed = false;
-        var cut = RenderComponent<ChatTraceSidebar>(parameters => parameters
+        var cut = Render<ChatTraceSidebar>(parameters => parameters
             .Add(p => p.Message, message)
             .Add(p => p.IsOpen, true)
             .Add(p => p.OnClose, EventCallback.Factory.Create(this, () => closed = true)));
@@ -142,7 +142,7 @@ public sealed class ChatTraceSidebarTests : TestContext
 
         Assert.True(closed);
 
-        cut.SetParametersAndRender(parameters => parameters
+        cut.Render(parameters => parameters
             .Add(p => p.Message, null)
             .Add(p => p.IsOpen, false)
             .Add(p => p.OnClose, EventCallback.Factory.Create(this, () => closed = true)));

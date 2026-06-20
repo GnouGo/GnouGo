@@ -489,30 +489,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         generatedDoc = ParseAndValidateGeneratedWorkflow(yaml);
                         validationSpan.SetAttribute("gnougo-flow.plan.workflow_count", generatedDoc.Workflows.Count);
 
-                        // Policy enforcement
-                        if (policy != null)
-                            EnforcePolicy(generatedDoc, policy);
-
-                        // Limits enforcement
-                        if (limits != null)
-                            EnforceLimits(generatedDoc, limits);
-
-                        // Compile + semantic validation
-                        if (validate?["compile"]?.GetValue<bool>() ?? true)
-                        {
-                            ValidateGeneratedWorkflowForPlan(generatedDoc, validationDiscovered);
-                        }
-
-                        // Optional runtime dry-run with deterministic fake providers.
-                        if (validate?["dry_run"]?.GetValue<bool>() ?? false)
-                        {
-                            validationSpan.SetAttribute("gnougo-flow.plan.dry_run", true);
-                            await WorkflowPlanDryRunValidator.ValidateAsync(
-                                generatedDoc,
-                                BuildDryRunMcpClientFactory(validationDiscovered),
-                                ctx.Engine.Logger,
-                                ct);
-                        }
+                        await RunStandardPlanValidationSequenceAsync(
+                            generatedDoc,
+                            policy,
+                            limits,
+                            validate,
+                            validationDiscovered,
+                            ctx,
+                            validationSpan.Span,
+                            ct);
                     }
                     catch (Exception ex)
                     {

@@ -3,7 +3,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
-using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
@@ -116,6 +115,19 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 var baseMainAssemblyPrompt = BuildMainAssemblyPrompt(
                     input, generator, normalizedMarkdown, extraction, generatedLeaves, configuredMainInputs, inferredLeafInputs);
                 var maxAssemblyAttempts = GetPipelineGenerationMaxAttempts(input);
+                var validate = input["validate"] as JsonObject;
+                var requiresMcpValidationContracts = (validate?["compile"]?.GetValue<bool>() ?? true)
+                    || (validate?["dry_run"]?.GetValue<bool>() ?? false);
+                var validationDiscovered = requiresMcpValidationContracts
+                    ? await DiscoverMcpServersAsync(
+                        ctx.Engine.McpClientFactory,
+                        ctx.Engine.McpCache,
+                        ctx.Engine.Logger,
+                        ctx,
+                        candidateServers: null,
+                        mainSpan.Span,
+                        ct)
+                    : null;
                 string? previousAssemblyResponse = null;
                 string? previousAssemblyError = null;
                 Exception? lastAssemblyException = null;
@@ -217,11 +229,45 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         ValidateDeclaredMainInputReferences(assembly.MainWorkflowNode, mainInputs);
 
                         assembledYaml = ComposePipelineWorkflowYaml(input, generator, extraction, generatedLeaves, assembly, mainInputs);
-                        assembledDocument = ParseAndValidateGeneratedWorkflow(assembledYaml);
-                        EnforcePipelineWorkflowHierarchy(assembledDocument, generatedLeaves.Select(static leaf => leaf.Name).ToHashSet(StringComparer.Ordinal));
-                        if (input["policy"] is JsonObject policy)
-                            EnforcePolicy(assembledDocument, policy);
-                        ValidatePipelineFinalWorkflow(assembledDocument);
+                        using (var validationSpan = ctx.BeginTelemetrySpan(
+                            attemptSpan.Span,
+                            "workflow.plan.validate",
+                            "validation",
+                            new[]
+                            {
+                                new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt),
+                                new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "assemble_main_workflow"),
+                                new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.final_validation", true)
+                            }))
+                        {
+                            try
+                            {
+                                validationSpan.SetAttribute("gnougo-flow.plan.yaml_length", assembledYaml.Length);
+                                assembledDocument = ParseAndValidateGeneratedWorkflow(assembledYaml);
+                                validationSpan.SetAttribute("gnougo-flow.plan.workflow_count", assembledDocument.Workflows.Count);
+                                EnforcePipelineWorkflowHierarchy(
+                                    assembledDocument,
+                                    generatedLeaves.Select(static leaf => leaf.Name).ToHashSet(StringComparer.Ordinal));
+                                await RunStandardPlanValidationSequenceAsync(
+                                    assembledDocument,
+                                    input["policy"] as JsonObject,
+                                    input["limits"] as JsonObject,
+                                    validate,
+                                    validationDiscovered,
+                                    ctx,
+                                    validationSpan.Span,
+                                    ct);
+                            }
+                            catch (Exception ex)
+                            {
+                                var enriched = AttachGeneratedYamlToPlanException(ex, assembledYaml);
+                                validationSpan.AddEvent(
+                                    "gnougo-flow.plan.validation.error",
+                                    BuildPlanErrorTelemetryAttributes(enriched, attempt, "validation"));
+                                validationSpan.Fail(enriched);
+                                throw enriched;
+                            }
+                        }
                         attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "succeeded");
                         break;
                     }
@@ -1706,38 +1752,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy, $"Pipeline main workflow calls unknown leaf workflow '{targetName}'.");
                 }
             }
-        }
-    }
-
-    private static void ValidatePipelineFinalWorkflow(WorkflowDocument doc)
-    {
-        var validator = new WorkflowValidator();
-        var errors = validator.Validate(doc);
-        if (errors.Count > 0)
-        {
-            throw new WorkflowRuntimeException(
-                ErrorCodes.TemplatePlan,
-                "Pipeline final workflow validation failed: " + FormatValidationErrors(errors));
-        }
-
-        try
-        {
-            var compiler = new WorkflowCompiler();
-            compiler.Compile(doc);
-        }
-        catch (WorkflowCompilationException ex)
-        {
-            throw new WorkflowRuntimeException(
-                ErrorCodes.TemplatePlan,
-                "Pipeline final workflow compilation failed: " + FormatValidationErrors(ex.Errors),
-                inner: ex);
-        }
-        catch (Exception ex)
-        {
-            throw new WorkflowRuntimeException(
-                ErrorCodes.TemplatePlan,
-                "Pipeline final workflow compilation failed: " + ex.Message,
-                inner: ex);
         }
     }
 

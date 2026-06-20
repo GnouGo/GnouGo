@@ -92,6 +92,39 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             "Generated workflow validation failed: " + string.Join(" | ", diagnostics));
     }
 
+    private static async Task RunStandardPlanValidationSequenceAsync(
+        WorkflowDocument generatedDoc,
+        JsonObject? policy,
+        JsonObject? limits,
+        JsonObject? validate,
+        IReadOnlyList<McpServerDiscovery>? validationDiscovered,
+        StepExecutionContext ctx,
+        ITelemetrySpan validationSpan,
+        CancellationToken ct)
+    {
+        if (policy != null)
+            EnforcePolicy(generatedDoc, policy);
+
+        if (limits != null)
+            EnforceLimits(generatedDoc, limits);
+
+        if (validate?["compile"]?.GetValue<bool>() ?? true)
+        {
+            validationSpan.SetAttribute("gnougo-flow.plan.compile_validation", true);
+            ValidateGeneratedWorkflowForPlan(generatedDoc, validationDiscovered);
+        }
+
+        if (validate?["dry_run"]?.GetValue<bool>() ?? false)
+        {
+            validationSpan.SetAttribute("gnougo-flow.plan.dry_run", true);
+            await WorkflowPlanDryRunValidator.ValidateAsync(
+                generatedDoc,
+                BuildDryRunMcpClientFactory(validationDiscovered),
+                ctx.Engine.Logger,
+                ct);
+        }
+    }
+
     private static bool IsFatalCompilerValidationError(ValidationError error) =>
         error.Code is ErrorCodes.ExprParse
             or "DSL_VERSION"

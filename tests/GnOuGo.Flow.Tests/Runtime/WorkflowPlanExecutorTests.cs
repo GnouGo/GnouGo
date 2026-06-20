@@ -1044,6 +1044,137 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_PipelineMode_FinalDryRunFailureRepromptsMainAssembly()
+    {
+        var assemblyRequests = new List<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nProcess the configured name." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="prepare_name"
+                        goal: Prepare the configured name.
+                        inputs:
+                          name: string
+                        outputs:
+                          prepared_name: string
+                        extract_reason: This is a reusable preparation operation.
+                        content:
+                          Return the configured name.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call prepare_name, then use the prepared name.
+                        """
+                    };
+                }
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `prepare_name`.", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: prepare-name-leaf
+                        skill:
+                          description: Prepare a name.
+                          tags: [generated, leaf]
+                          inputs:
+                            name: string
+                          outputs:
+                            prepared_name: string
+                        workflows:
+                          main:
+                            inputs:
+                              name: string
+                            steps:
+                              - id: prepare
+                                type: set
+                                input:
+                                  prepared_name: "${data.inputs.name}"
+                            outputs:
+                              prepared_name: "${data.steps.prepare.prepared_name}"
+                        """
+                    };
+                }
+
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    assemblyRequests.Add(request);
+                    var transformExpression = assemblyRequests.Count == 1
+                        ? "\"${functions.missing(data.inputs.name)}\""
+                        : "\"${data.inputs.name}\"";
+                    return new LLMResponse
+                    {
+                        Text = """
+                        main:
+                          inputs:
+                            name: string
+                          steps:
+                            - id: call_prepare_name
+                              type: workflow.call
+                              input:
+                                ref: { kind: local, name: prepare_name }
+                                args:
+                                  name: "${data.inputs.name}"
+                            - id: transform
+                              type: set
+                              input:
+                                prepared_name: __TRANSFORM_EXPRESSION__
+                          outputs:
+                            prepared_name: "${data.steps.transform.prepared_name}"
+                        """.Replace("__TRANSFORM_EXPRESSION__", transformExpression, StringComparison.Ordinal)
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  skill:
+                    description: Process a configured name.
+                    inputs:
+                      name: string
+                  raw_prompt: "Process a configured name."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: true
+                    dry_run: true
+                  on_invalid:
+                    max_attempts: 2
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, assemblyRequests.Count);
+        Assert.Contains("Generated workflow dry_run failed", assemblyRequests[1].Prompt);
+        Assert.Contains("missing", assemblyRequests[1].Prompt);
+        Assert.Contains("functions.missing", assemblyRequests[1].Prompt);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_PipelineMode_AllowsWorkflowCallForMainWhenPolicyDeniedIt()
     {
         var mockLlm = new Mock<ILLMClient>();

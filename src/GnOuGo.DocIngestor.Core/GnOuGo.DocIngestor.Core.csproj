@@ -27,15 +27,16 @@
     <!-- Token counting (optional but helpful for chunking policies) -->
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
     <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.0.0" />
-    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
       <!-- SQLite store (MIT) -->
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <PackageReference Include="PdfPig.Rendering.Skia" Version="0.1.14.2" />
-    <PackageReference Include="SkiaSharp" Version="3.119.2" />
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
 
     <!-- OpenTelemetry for GenAI instrumentation -->
-    <PackageReference Include="OpenTelemetry.Api" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry.Api" Version="1.16.0" />
   </ItemGroup>
 
   <!-- Reco Linux (surtout en container/minimal images) -->

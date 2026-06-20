@@ -1174,6 +1174,8 @@ Configured `name`, `skill`, and public input schemas are authoritative and are p
 
 `on_invalid.max_attempts` is applied to both each leaf generation and the final main-workflow assembly. If final parsing, policy, hierarchy, compilation, or semantic validation fails, the next assembly attempt receives the previous YAML response and structured validation error so it can repair the complete `document` and `main` mapping.
 
+The final composed pipeline document uses the same validation sequence as standard `workflow.plan`: policy and limits are enforced, `validate.compile` enables compiler and MCP-contract-aware semantic validation, and `validate.dry_run` executes the complete entrypoint with deterministic fake LLM, MCP, and human-input providers. MCP discovery contracts are collected once for final validation, and every assembly attempt emits its own `workflow.plan.validate` telemetry span.
+
 **Output:** `{ workflow: { version, name, workflows: [...] }, yaml: "...", meta: { model, attempt?, mode? }, diagnostics: [...], pipeline? }`
 
 **Features:**

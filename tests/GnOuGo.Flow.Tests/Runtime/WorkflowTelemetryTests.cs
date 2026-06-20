@@ -667,7 +667,8 @@ workflows:
                     model: gpt-4
                     prefilter: false
                   validate:
-                    compile: false
+                    compile: true
+                    dry_run: true
         """);
         var engine = new WorkflowEngine
         {
@@ -698,6 +699,13 @@ workflows:
             && e.Attributes != null
             && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.yaml"
                 && ((string?)kv.Value)?.Contains("workflow.call", StringComparison.Ordinal) == true));
+        var finalValidationSpan = Assert.Single(recording.ChildSpans, span =>
+            span.Name == "workflow.plan.validate"
+            && span.Attributes.TryGetValue("gnougo-flow.plan.pipeline.final_validation", out var isFinal)
+            && Equals(isFinal, true));
+        Assert.Equal("assemble_main_workflow", finalValidationSpan.Attributes["gnougo-flow.plan.phase"]);
+        Assert.Equal(true, finalValidationSpan.Attributes["gnougo-flow.plan.compile_validation"]);
+        Assert.Equal(true, finalValidationSpan.Attributes["gnougo-flow.plan.dry_run"]);
     }
 
     [Fact]
