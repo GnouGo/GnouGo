@@ -226,6 +226,26 @@ Configuration lives in `appsettings.json`:
 
 When the embedded collector is enabled, the OpenTelemetry exporters are automatically repointed to the local telemetry listener.
 
+## Per-workflow trace files
+
+`SmartFlowService` can save the complete OpenTelemetry activity tree associated with each execution after its root chat span has stopped. Enable the typed setting in `appsettings.json`:
+
+```json
+{
+  "WorkflowTraceExport": {
+    "Enabled": true
+  }
+}
+```
+
+Each execution produces an indented JSON document under the workspace data directory:
+
+```text
+<GnOuGo workspace>/.GnOuGo/traces/DD-MM-YY-HH-mm-ss.json
+```
+
+JSON is used instead of plain text so an LLM or another diagnostic tool can reliably inspect the trace metadata, summary, spans, parent/child relationships, semantic attributes, baggage, events, and links. If concurrent workflows finish during the same second, the later filename receives a short trace-id suffix so no trace is overwritten. Capture remains available when OTLP export is disabled; setting `WorkflowTraceExport:Enabled` to `false` disables both capture and file creation.
+
 ## OpenTelemetry HTTP visibility
 
 The server already enables both inbound and outbound HTTP span capture when OpenTelemetry is enabled:

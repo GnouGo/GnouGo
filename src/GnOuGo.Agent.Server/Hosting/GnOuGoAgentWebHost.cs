@@ -213,6 +213,8 @@ public static class GnOuGoAgentWebHost
             builder.Configuration.GetSection(OpenTelemetrySettings.SectionName));
         builder.Services.Configure<TraceDebugSettings>(
             builder.Configuration.GetSection(TraceDebugSettings.SectionName));
+        builder.Services.Configure<WorkflowTraceExportSettings>(
+            builder.Configuration.GetSection(WorkflowTraceExportSettings.SectionName));
         builder.Services.Configure<OtlpCollectorEndpointSettings>(
             builder.Configuration.GetSection(OtlpCollectorEndpointSettings.SectionName));
 
@@ -338,6 +340,7 @@ public static class GnOuGoAgentWebHost
         });
         builder.Services.AddSingleton<AppVersionInfo>();
         builder.Services.AddSingleton<LocalTraceDebugStore>();
+        builder.Services.AddSingleton<IWorkflowTraceFileExporter, WorkflowTraceFileExporter>();
         builder.Services.AddSingleton<LLMRuntimeOptionsStore>(sp =>
         {
             var initialOptions = sp.GetRequiredService<IOptions<LLMOptions>>();

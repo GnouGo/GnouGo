@@ -7,6 +7,7 @@ using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Models;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
 using OtlpTenantCollector.Models;
@@ -35,6 +36,43 @@ public sealed class SmartFlowServiceTests
         Assert.Contains("`/gnougo add`", answer.Text);
         Assert.Contains("`/status`", answer.Text);
         Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AfterCompletion_ExportsAssociatedTrace()
+    {
+        var llm = new RecordingLlmClient();
+        var exporter = new RecordingWorkflowTraceFileExporter();
+        var service = SmartFlowTestFactory.CreateSmartFlowService(
+            llm,
+            new FakeMcpClientFactory(),
+            SmartFlowTestFactory.CreateProvidersService(llm),
+            SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory()),
+            traceFileExporter: exporter);
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            service.ExecuteAsync("/help", correlationId: "corr-export", agentName: null, CancellationToken.None));
+
+        var started = Assert.Single(events, evt => evt.Type == "trace.started");
+        var exported = Assert.Single(exporter.Exports);
+        Assert.Equal(started.TraceId, Assert.Single(exporter.StartedTraceIds));
+        Assert.Equal(started.TraceId, exported.TraceId);
+        Assert.Equal("corr-export", exported.CorrelationId);
+    }
+
+    private sealed class RecordingWorkflowTraceFileExporter : IWorkflowTraceFileExporter
+    {
+        public List<string> StartedTraceIds { get; } = [];
+        public List<(string TraceId, string CorrelationId)> Exports { get; } = [];
+
+        public void BeginCapture(string traceId)
+            => StartedTraceIds.Add(traceId);
+
+        public Task ExportAsync(string traceId, string correlationId, CancellationToken cancellationToken)
+        {
+            Exports.Add((traceId, correlationId));
+            return Task.CompletedTask;
+        }
     }
 
     [Fact]

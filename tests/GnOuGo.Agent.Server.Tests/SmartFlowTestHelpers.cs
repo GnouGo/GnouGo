@@ -266,7 +266,8 @@ internal static class SmartFlowTestFactory
         ConfigureProvidersService configureProviders,
         ConfigureAgentsService configureAgents,
         LLMOptions? options = null,
-        IKeyVaultRuntimeConfigStore? keyVaultStore = null)
+        IKeyVaultRuntimeConfigStore? keyVaultStore = null,
+        IWorkflowTraceFileExporter? traceFileExporter = null)
     {
         var runtimeStore = CreateRuntimeOptionsStore(options);
         var effectiveKeyVaultStore = keyVaultStore ?? new FakeKeyVaultRuntimeConfigStore();
@@ -280,7 +281,8 @@ internal static class SmartFlowTestFactory
             configureAgents,
             new AgentHumanInputProvider(),
             CreateTelemetry(),
-            NullLogger<SmartFlowService>.Instance);
+            NullLogger<SmartFlowService>.Instance,
+            traceFileExporter: traceFileExporter);
     }
 
     private static AgentOTelTelemetry CreateTelemetry()
