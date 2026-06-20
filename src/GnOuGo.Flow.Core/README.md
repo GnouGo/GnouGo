@@ -1122,7 +1122,57 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
       max_attempts: 3               # Number of attempts before giving up
 ```
 
-**Output:** `{ workflow: { dsl, name, workflows: [...] }, yaml: "...", meta: { model, attempt } }`
+#### Pipeline mode
+
+Use `mode: pipeline` when the input is a raw user automation prompt that should be cleaned up, segmented into leaf subworkflows, and assembled into one local YAML document.
+
+```yaml
+- id: plan_pipeline
+  type: workflow.plan
+  input:
+    mode: pipeline
+    name: repository-issue-report
+    skill:
+      description: Build a report from repository issues.
+      tags: [github, issues]
+      inputs:
+        target_repository_url:
+          type: string
+          required: false
+          default: https://github.com/AxaFrance/oidc-client
+        number_of_issues_to_process:
+          type: number
+          required: false
+          default: 20
+      outputs:
+        report_path: string
+    raw_prompt: "${data.inputs.prompt}"
+    generator:
+      model: gpt-4o
+      provider: openai
+      reasoning: medium
+      prefilter: false
+    validate:
+      compile: true
+    on_invalid:
+      action: reprompt
+      max_attempts: 3
+```
+
+Pipeline mode runs four traced phases:
+
+1. `normalize_user_prompt` rewrites the raw prompt as clean Markdown without changing meaning.
+2. `mark_extractable_blocks` wraps only significant algorithmic sections in `:::subworkflow name="..."` blocks and adds a `## Main workflow orchestration` section.
+3. `extract_subworkflow_specs` parses those blocks as-is, builds generation prompts, and reports validation errors for nested blocks or subworkflow-call mentions.
+4. `generate_subworkflows` runs the normal `workflow.plan` generator for each leaf workflow in parallel. Each leaf prompt contains only that leaf's goal, input/output contract, and content; leaf generation forbids `workflow.call` and `workflow.plan`, preserves the configured MCP prefilter behavior, forces validation, retries failed leaf generation up to the parent `on_invalid.max_attempts`, and rejects bare `type: object` schemas unless they define non-empty `properties`.
+
+The final YAML has exactly one hierarchy level: `main` may call local leaf workflows with `workflow.call`, while leaf workflows must never contain `workflow.call` or `workflow.plan`. The returned `pipeline` object includes `normalized_markdown`, `annotated_markdown`, and parsed `specs`.
+
+Configured `name`, `skill`, and public input schemas are authoritative and are preserved exactly in the root skill and `main` workflow. Leaf inputs are call arguments and are not automatically promoted to public inputs; the main assembler maps public names to leaf argument names and derives internal values in workflow steps. When no structured contract is configured, the final assembly phase infers the public contract from the normalized user request. Composition rejects any `data.inputs.<name>` reference that is not declared by the resolved main input contract.
+
+`on_invalid.max_attempts` is applied to both each leaf generation and the final main-workflow assembly. If final parsing, policy, hierarchy, compilation, or semantic validation fails, the next assembly attempt receives the previous YAML response and structured validation error so it can repair the complete `document` and `main` mapping.
+
+**Output:** `{ workflow: { version, name, workflows: [...] }, yaml: "...", meta: { model, attempt?, mode? }, diagnostics: [...], pipeline? }`
 
 **Features:**
 

@@ -127,4 +127,31 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         return null;
     }
+
+    private static IReadOnlyList<KeyValuePair<string, object?>> BuildPlanErrorTelemetryAttributes(
+        Exception ex,
+        int attempt,
+        string phase,
+        string? leafName = null)
+    {
+        var attrs = new List<KeyValuePair<string, object?>>
+        {
+            new("gnougo-flow.plan.phase", phase),
+            new("gnougo-flow.plan.attempt", attempt),
+            new("error.type", ex.GetType().Name),
+            new("error.message", ex.Message)
+        };
+
+        if (!string.IsNullOrWhiteSpace(leafName))
+            attrs.Add(new("gnougo-flow.plan.pipeline.leaf_name", leafName));
+
+        if (ex is WorkflowRuntimeException workflowEx)
+        {
+            attrs.Add(new("error.code", workflowEx.Code));
+            if (workflowEx.Details != null)
+                attrs.Add(new("error.details", workflowEx.Details.ToJsonString()));
+        }
+
+        return attrs;
+    }
 }

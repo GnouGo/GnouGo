@@ -1228,7 +1228,8 @@ html, body {
 .gnougo-trace-panel__close:focus-visible,
 .gnougo-trace-panel__tab:focus-visible,
 .gnougo-trace-split__summary-button:focus-visible,
-.gnougo-trace-timeline__item:focus-visible,
+.gnougo-trace-timeline__expander:focus-visible,
+.gnougo-trace-timeline__main:focus-visible,
 .gnougo-trace-log__summary:focus-visible {
   outline: 2px solid rgba(147, 197, 253, 0.9);
   outline-offset: 2px;
@@ -1516,31 +1517,133 @@ html, body {
 }
 
 .gnougo-trace-timeline__item {
-  appearance: none;
-  font-family: inherit;
   width: 100%;
-  text-align: left;
   border-radius: 16px;
   padding: 12px;
   color: #e2e8f0;
+  background:
+    linear-gradient(90deg,
+      rgba(14, 165, 233, var(--trace-depth-alpha, 0)) 0,
+      rgba(14, 165, 233, calc(var(--trace-depth-alpha, 0) * 0.65)) var(--trace-depth-offset, 18px),
+      rgba(15, 23, 42, 0) calc(var(--trace-depth-offset, 18px) + 52px)),
+    rgba(15, 23, 42, 0.82);
+}
+
+.gnougo-trace-timeline__item--child {
+  border-color: rgba(14, 165, 233, calc(0.12 + var(--trace-depth-alpha, 0)));
+}
+
+.gnougo-trace-timeline__item--collapsed {
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.gnougo-trace-timeline__row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.gnougo-trace-timeline__expander,
+.gnougo-trace-timeline__main {
+  appearance: none;
+  font-family: inherit;
+  color: inherit;
   cursor: pointer;
+}
+
+.gnougo-trace-timeline__expander {
+  align-self: start;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.68);
+  color: #cbd5e1;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.gnougo-trace-timeline__expander:hover {
+  border-color: rgba(59, 130, 246, 0.55);
+  background: rgba(30, 64, 175, 0.28);
+  color: #dbeafe;
+}
+
+.gnougo-trace-timeline__expander-spacer {
+  width: 24px;
+  height: 24px;
+}
+
+.gnougo-trace-timeline__main {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
 }
 
 .gnougo-trace-timeline__item--active {
   border-color: rgba(59, 130, 246, 0.45);
-  background: rgba(30, 64, 175, 0.24);
+  background:
+    linear-gradient(90deg,
+      rgba(96, 165, 250, calc(0.12 + var(--trace-depth-alpha, 0))) 0,
+      rgba(96, 165, 250, calc(0.08 + var(--trace-depth-alpha, 0) * 0.7)) var(--trace-depth-offset, 18px),
+      rgba(30, 64, 175, 0.12) calc(var(--trace-depth-offset, 18px) + 56px)),
+    rgba(30, 64, 175, 0.24);
+}
+
+.gnougo-trace-timeline__item--active-descendant {
+  border-color: rgba(96, 165, 250, 0.24);
+  color: #cbd5e1;
+  background:
+    linear-gradient(90deg,
+      rgba(96, 165, 250, calc(0.045 + var(--trace-depth-alpha, 0) * 0.35)) 0,
+      rgba(96, 165, 250, calc(0.03 + var(--trace-depth-alpha, 0) * 0.25)) var(--trace-depth-offset, 18px),
+      rgba(15, 23, 42, 0) calc(var(--trace-depth-offset, 18px) + 56px)),
+    rgba(15, 23, 42, 0.66);
+}
+
+.gnougo-trace-timeline__item--active-descendant .gnougo-trace-timeline__branch,
+.gnougo-trace-timeline__item--active-descendant .gnougo-trace-timeline__duration {
+  color: #7c8da6;
+}
+
+.gnougo-trace-timeline__item--active-descendant .gnougo-trace-timeline__name {
+  color: #dbeafe;
+  font-weight: 650;
 }
 
 .gnougo-trace-timeline__item--error {
   border-color: rgba(239, 68, 68, 0.35);
+  background:
+    linear-gradient(90deg,
+      rgba(239, 68, 68, calc(0.1 + var(--trace-depth-alpha, 0) * 0.45)) 0,
+      rgba(239, 68, 68, 0.08) var(--trace-depth-offset, 18px),
+      rgba(15, 23, 42, 0) calc(var(--trace-depth-offset, 18px) + 52px)),
+    rgba(15, 23, 42, 0.82);
 }
 
 .gnougo-trace-timeline__label {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 14px auto 1fr auto;
   gap: 8px;
   align-items: center;
   min-width: 0;
+}
+
+.gnougo-trace-timeline__label--child {
+  color: #cbd5e1;
+}
+
+.gnougo-trace-timeline__branch {
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
 }
 
 .gnougo-trace-timeline__name {

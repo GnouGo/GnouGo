@@ -35,11 +35,26 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
     {
-        var llmClient = ctx.Engine.LLMClient
-            ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "No LLM client configured");
-
         var input = ctx.Engine.GetResolvedInput(ctx) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan input must be object");
+
+        var mode = input["mode"]?.GetValue<string>()
+            ?? (input["generator"] as JsonObject)?["mode"]?.GetValue<string>();
+
+        if (string.Equals(mode, "pipeline", StringComparison.OrdinalIgnoreCase))
+            return await ExecutePipelineAsync(ctx, input, ct);
+
+        return await ExecuteSinglePlanAsync(ctx, input, ct);
+    }
+
+    private async Task<JsonNode?> ExecuteSinglePlanAsync(
+        StepExecutionContext ctx,
+        JsonObject input,
+        CancellationToken ct,
+        ITelemetrySpan? parentSpan = null)
+    {
+        var llmClient = ctx.Engine.LLMClient
+            ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "No LLM client configured");
 
         var generator = input["generator"] as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan requires 'generator'");
@@ -55,6 +70,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         model ??= "gpt-4";
         var instruction = generator["instruction"]?.GetValue<string>() ?? "";
         var generatorContext = generator["context"]?.GetValue<string>() ?? "";
+        var pipelineLeafName = generator["pipeline_leaf_name"]?.GetValue<string>();
 
         // Reasoning effort: workflow planning is reasoning-heavy, default to "medium".
         // Authors can override via `generator.reasoning: auto|minimal|low|medium|high|max`.
@@ -114,10 +130,25 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             generatorContext,
             ctx.Engine.McpClientFactory?.ServerMetadata);
 
+        var generationAttributes = new List<KeyValuePair<string, object?>>
+        {
+            new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+            new KeyValuePair<string, object?>("gen_ai.system", provider ?? "openai"),
+            new KeyValuePair<string, object?>("gen_ai.request.model", model),
+            new KeyValuePair<string, object?>("gen_ai.request.background", true),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.background_requested", true)
+        };
+        if (!string.IsNullOrWhiteSpace(pipelineLeafName))
+            generationAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.leaf_name", pipelineLeafName));
+
+        using var generationSpan = parentSpan == null
+            ? ctx.BeginTelemetrySpan("workflow.plan.generate", "generation", generationAttributes)
+            : ctx.BeginTelemetrySpan(parentSpan, "workflow.plan.generate", "generation", generationAttributes);
+
         var candidateMcpServers = shouldPrefilter
             ? await PrefilterMcpServerMetadataAsync(
                 llmClient, ctx.Engine.McpClientFactory, instruction, generatorContext,
-                prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, ct)
+                prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, generationSpan.Span, ct)
             : null;
 
         candidateMcpServers = MergeRequiredMcpServerMetadata(
@@ -129,19 +160,19 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var validateDryRun = validate?["dry_run"]?.GetValue<bool>() ?? false;
         var validationDiscovered = validateDryRun
             ? await DiscoverMcpServersAsync(
-                ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateServers: null, ct)
+                ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateServers: null, generationSpan.Span, ct)
             : null;
 
         var discovered = SelectDiscoveredServers(validationDiscovered, candidateMcpServers)
             ?? await DiscoverMcpServersAsync(
-            ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateMcpServers, ct);
+            ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateMcpServers, generationSpan.Span, ct);
 
         if (shouldPrefilter && discovered != null && discovered.Count > 0)
         {
             var prefilterSource = discovered;
             discovered = await PrefilterMcpServersAsync(
                 llmClient, discovered, instruction, generatorContext,
-                prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, ct);
+                prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, generationSpan.Span, ct);
             discovered = MergeRequiredMcpServerDiscovery(
                 discovered,
                 prefilterSource,
@@ -205,6 +236,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- If precise fields are needed from an opaque response, add an `llm.call` normalization step with `structured_output`, then read fields from `data.steps.<normalizer>.json`.");
         basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");
         basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
+        basePrompt.AppendLine("- For input/output object schemas, never duplicate the YAML key `required`. Use input-level `required: true|false` only as a boolean. Use `required_properties: [field_name]` for required object property names.");
         AppendPromptSectionEnd(basePrompt, "generation_validation_checklist");
 
         basePrompt.AppendLine();
@@ -340,7 +372,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
 
             LLMResponse response;
-            using (var generationSpan = ctx.BeginTelemetrySpan("workflow.plan.generate", "generation", new[]
+            generationSpan.SetAttribute("gnougo-flow.plan.attempt", attempt + 1);
+            var llmCallAttributes = new List<KeyValuePair<string, object?>>
             {
                 new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
                 new KeyValuePair<string, object?>("gen_ai.system", provider ?? "openai"),
@@ -348,10 +381,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 new KeyValuePair<string, object?>("gen_ai.request.background", true),
                 new KeyValuePair<string, object?>("gnougo-flow.plan.background_requested", true),
                 new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1)
-            }))
+            };
+            if (!string.IsNullOrWhiteSpace(pipelineLeafName))
+                llmCallAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.leaf_name", pipelineLeafName));
+
+            using (var llmCallSpan = ctx.BeginTelemetrySpan(generationSpan.Span, "workflow.plan.generate.llm_call", "generation_llm", llmCallAttributes))
             {
                 if (ctx.Limits.LogStepContent)
-                    generationSpan.AddEvent("gen_ai.content.prompt", new[]
+                    llmCallSpan.AddEvent("gen_ai.content.prompt", new[]
                     {
                         new KeyValuePair<string, object?>("gen_ai.prompt", promptText),
                         new KeyValuePair<string, object?>("prompt.role", "user"),
@@ -391,10 +428,27 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "generation")
                         });
                     }
+
+                    llmCallSpan.SetAttribute("gen_ai.response.model", model);
+                    llmCallSpan.SetAttribute("gen_ai.response.finish_reason", "stop");
+                    AddUsageAttributes(llmCallSpan, response.Usage, model, provider);
+                    llmCallSpan.SetAttribute("gnougo-flow.plan.generated_yaml_length", response.Text?.Length ?? 0);
+                    if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
+                    {
+                        llmCallSpan.AddEvent("gen_ai.content.completion", new[]
+                        {
+                            new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
+                            new KeyValuePair<string, object?>("completion.role", "assistant"),
+                            new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
+                            new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1),
+                            new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "generation")
+                        });
+                    }
                 }
                 catch (Exception ex)
                 {
                     generationSpan.Fail(ex);
+                    llmCallSpan.Fail(ex);
                     throw;
                 }
             }
@@ -416,17 +470,19 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             try
             {
-                string yaml;
+                var yaml = StripMarkdownFences(response.Text ?? string.Empty);
                 WorkflowDocument generatedDoc;
-                using (var validationSpan = ctx.BeginTelemetrySpan("workflow.plan.validate", "validation", new[]
+                var validationAttributes = new List<KeyValuePair<string, object?>>
                 {
                     new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1)
-                }))
+                };
+                if (!string.IsNullOrWhiteSpace(pipelineLeafName))
+                    validationAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.leaf_name", pipelineLeafName));
+
+                using (var validationSpan = ctx.BeginTelemetrySpan(generationSpan.Span, "workflow.plan.validate", "validation", validationAttributes))
                 {
                     try
                     {
-                        // Strip markdown fences if the LLM wrapped the YAML
-                        yaml = StripMarkdownFences(response.Text);
                         validationSpan.SetAttribute("gnougo-flow.plan.yaml_length", yaml.Length);
 
                         // Parse + validate minimal required shape before policy/limits/compile checks.
@@ -460,8 +516,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     }
                     catch (Exception ex)
                     {
-                        validationSpan.Fail(ex);
-                        throw;
+                        var enriched = AttachGeneratedYamlToPlanException(ex, yaml);
+                        validationSpan.AddEvent(
+                            "gnougo-flow.plan.validation.error",
+                            BuildPlanErrorTelemetryAttributes(enriched, attempt + 1, "validation", pipelineLeafName));
+                        validationSpan.Fail(enriched);
+                        generationSpan.Fail(enriched);
+                        throw enriched;
                     }
                 }
 
@@ -476,6 +537,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     wfNames.Add((JsonNode)JsonValue.Create(wfName)!);
                 workflowInfo["workflows"] = wfNames;
 
+                generationSpan.Complete();
                 return new JsonObject
                 {
                     ["workflow"] = workflowInfo,
@@ -501,7 +563,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         ctx);
 
                 lastError = BuildStructuredPlanError(ex, attempt + 1);
-                lastInvalidYaml = StripMarkdownFences(response.Text);
+                lastInvalidYaml = StripMarkdownFences(response.Text ?? string.Empty);
                 lastRepairContext = BuildMinimalRepairContext(
                     ctx.Engine.Registry,
                     allowedTypes,
@@ -512,7 +574,50 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
 
         ctx.Engine.Logger.LogError("workflow.plan: failed to generate valid workflow after {MaxAttempts} attempts", maxAttempts);
-        throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan,
+        var finalException = new WorkflowRuntimeException(ErrorCodes.TemplatePlan,
             $"Failed to generate valid workflow after {maxAttempts} attempts");
+        generationSpan.Fail(finalException);
+        throw finalException;
+    }
+
+    private static Exception AttachGeneratedYamlToPlanException(Exception ex, string? yaml)
+    {
+        if (string.IsNullOrWhiteSpace(yaml))
+            return ex;
+
+        var details = new JsonObject
+        {
+            ["generated_yaml"] = yaml,
+            ["invalid_yaml"] = yaml
+        };
+
+        if (ex is WorkflowRuntimeException workflowEx)
+        {
+            if (workflowEx.Details is JsonObject existingDetails)
+            {
+                foreach (var (key, value) in existingDetails)
+                {
+                    if (!details.ContainsKey(key))
+                        details[key] = value?.DeepClone();
+                }
+            }
+            else if (workflowEx.Details != null)
+            {
+                details["details"] = workflowEx.Details.DeepClone();
+            }
+
+            return new WorkflowRuntimeException(
+                workflowEx.Code,
+                workflowEx.Message,
+                workflowEx.Retryable,
+                workflowEx,
+                details);
+        }
+
+        return new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            ex.Message,
+            inner: ex,
+            details: details);
     }
 }

@@ -443,11 +443,12 @@ workflows:
             && e.Attributes.Any(kv => kv.Key == "mcp.servers_selected" && (int)kv.Value! == 1));
 
         var childSpans = recording.ChildSpans.ToDictionary(s => s.Name, StringComparer.Ordinal);
-        Assert.Equal("plan", childSpans["workflow.plan.mcp_server_prefilter"].ParentName);
-        Assert.Equal("plan", childSpans["workflow.plan.mcp_discovery"].ParentName);
-        Assert.Equal("plan", childSpans["workflow.plan.mcp_capability_prefilter"].ParentName);
         Assert.Equal("plan", childSpans["workflow.plan.generate"].ParentName);
-        Assert.Equal("plan", childSpans["workflow.plan.validate"].ParentName);
+        Assert.Equal("workflow.plan.generate", childSpans["workflow.plan.mcp_server_prefilter"].ParentName);
+        Assert.Equal("workflow.plan.generate", childSpans["workflow.plan.mcp_discovery"].ParentName);
+        Assert.Equal("workflow.plan.generate", childSpans["workflow.plan.mcp_capability_prefilter"].ParentName);
+        Assert.Equal("workflow.plan.generate", childSpans["workflow.plan.generate.llm_call"].ParentName);
+        Assert.Equal("workflow.plan.generate", childSpans["workflow.plan.validate"].ParentName);
         Assert.Equal("chat", childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.operation.name"]);
         Assert.Equal(5L, childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.usage.total_tokens"]);
         Assert.Equal(ExpectedCost("gpt-5.5", 3, 2, "openai"), Assert.IsType<double>(childSpans["workflow.plan.mcp_server_prefilter"].Attributes["gen_ai.usage.cost"]), precision: 8);
@@ -456,6 +457,247 @@ workflows:
         Assert.Equal(true, childSpans["workflow.plan.generate"].Attributes["gnougo-flow.plan.background_requested"]);
         Assert.Equal(ExpectedCost("gpt-5.5", 10, 20, "openai"), Assert.IsType<double>(childSpans["workflow.plan.generate"].Attributes["gen_ai.usage.cost"]), precision: 8);
         Assert.Equal(ExpectedCost("gpt-5.5", 10, 20, "openai"), Assert.IsType<double>(planSpan.Attributes["gen_ai.usage.cost"]), precision: 8);
+    }
+
+    [Fact]
+    public async Task CustomTelemetry_WorkflowPlanPipelineLeafValidationFailure_AnnotatesLeafSpans()
+    {
+        var recording = new RecordingTelemetry();
+        var callCount = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                return callCount switch
+                {
+                    1 => new LLMResponse { Text = "# Automation\n\nFetch an issue and summarize it." },
+                    2 => new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="fetch_issue_summary"
+                        goal: Fetch an issue and summarize it.
+                        inputs:
+                          issue_number: integer
+                        outputs:
+                          summary: string
+                        extract_reason: This is a multi-step technical operation with tool orchestration.
+                        content:
+                          Fetch the issue identified by issue_number and produce a short summary.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call fetch_issue_summary.
+                        """
+                    },
+                    _ => new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: invalid-leaf
+                        skill:
+                          description: Fetch an issue and summarize it.
+                          tags: [generated, leaf]
+                          inputs:
+                            issue_number: integer
+                          outputs:
+                            summary: string
+                        workflows:
+                          main:
+                            inputs:
+                              issue_number: integer
+                            steps:
+                              - id: fetch_issue
+                                type: not.a.real.step
+                                input: {}
+                            outputs:
+                              summary: ""
+                        """
+                    }
+                };
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Fetch an issue and summarize it."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: true
+                  on_invalid:
+                    action: fail
+                    max_attempts: 1
+        """);
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            Telemetry = recording
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+
+        var validationSpan = Assert.Single(recording.ChildSpans, s =>
+            s.Name == "workflow.plan.validate"
+            && s.Attributes.TryGetValue("gnougo-flow.plan.pipeline.leaf_name", out var leafName)
+            && (string?)leafName == "fetch_issue_summary");
+        Assert.Equal("workflow.plan.generate", validationSpan.ParentName);
+        var validationError = Assert.Single(validationSpan.SpanEvents, e => e.Name == "gnougo-flow.plan.validation.error");
+        Assert.NotNull(validationError.Attributes);
+        Assert.Contains(validationError.Attributes!, kv => kv.Key == "gnougo-flow.plan.phase" && (string?)kv.Value == "validation");
+        Assert.Contains(validationError.Attributes!, kv => kv.Key == "gnougo-flow.plan.pipeline.leaf_name" && (string?)kv.Value == "fetch_issue_summary");
+        Assert.Contains(validationError.Attributes!, kv => kv.Key == "error.message" && ((string?)kv.Value)?.Length > 0);
+
+        var leafAttemptSpan = Assert.Single(recording.ChildSpans, s =>
+            s.Name == "workflow.plan.pipeline.generate_leaf"
+            && s.Attributes.TryGetValue("gnougo-flow.plan.pipeline.leaf_name", out var leafName)
+            && (string?)leafName == "fetch_issue_summary");
+        var leafGenerationSpan = Assert.Single(recording.ChildSpans, s =>
+            s.Name == "workflow.plan.generate"
+            && s.Attributes.TryGetValue("gnougo-flow.plan.pipeline.leaf_name", out var leafName)
+            && (string?)leafName == "fetch_issue_summary");
+        Assert.Equal("workflow.plan.pipeline.generate_leaf", leafGenerationSpan.ParentName);
+        var leafError = Assert.Single(leafAttemptSpan.SpanEvents, e => e.Name == "gnougo-flow.plan.pipeline.leaf_generation.error");
+        Assert.NotNull(leafError.Attributes);
+        Assert.Contains(leafError.Attributes!, kv => kv.Key == "gnougo-flow.plan.phase" && (string?)kv.Value == "generate_leaf");
+        Assert.Contains(leafError.Attributes!, kv => kv.Key == "gnougo-flow.plan.pipeline.leaf_name" && (string?)kv.Value == "fetch_issue_summary");
+    }
+
+    [Fact]
+    public async Task CustomTelemetry_WorkflowPlanPipelineAssembly_EmitsDeterministicInputAndOutput()
+    {
+        var recording = new RecordingTelemetry();
+        var callCount = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                return callCount switch
+                {
+                    1 => new LLMResponse { Text = "# Automation\n\nCollect records." },
+                    2 => new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="collect_data"
+                        goal: Collect source records.
+                        inputs:
+                          query: string
+                        outputs:
+                          records: array
+                        extract_reason: This is a reusable multi-step data collection operation.
+                        content:
+                          Collect records for the provided query.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call collect_data.
+                        """
+                    },
+                    3 => new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: collect-data-leaf
+                        skill:
+                          description: Collect source records.
+                          tags: [generated, leaf]
+                          inputs:
+                            query: string
+                          outputs:
+                            records: array
+                        workflows:
+                          main:
+                            inputs:
+                              query: string
+                            steps:
+                              - id: collect
+                                type: set
+                                input:
+                                  value: ["one", "two"]
+                            outputs:
+                              records: "${data.steps.collect.value}"
+                        """
+                    },
+                    _ => new LLMResponse
+                    {
+                        Text = """
+                        inputs:
+                          query: string
+                        steps:
+                          - id: call_collect_data
+                            type: workflow.call
+                            input:
+                              ref: { kind: local, name: collect_data }
+                              args:
+                                query: ${data.inputs.query}
+                        outputs:
+                          collect_data_outputs: ${data.steps.call_collect_data.outputs}
+                        """
+                    }
+                };
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Collect records."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+        """);
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            Telemetry = recording,
+            Limits = new ExecutionLimits { LogStepContent = true }
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var assemblySpan = Assert.Single(recording.ChildSpans, span => span.Name == "workflow.plan.pipeline.assemble_main_workflow");
+        Assert.Equal("llm_main_workflow", assemblySpan.Attributes["gnougo-flow.plan.pipeline.assembly.kind"]);
+        Assert.Contains(assemblySpan.SpanEvents, e => e.Name == "gnougo-flow.plan.pipeline.assembly.input"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.pipeline.main_workflow_prompt")
+            && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.pipeline.main_inputs")
+            && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.pipeline.assembly.note"));
+        Assert.Contains(assemblySpan.SpanEvents, e => e.Name == "gen_ai.content.prompt"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "gen_ai.prompt"
+                && ((string?)kv.Value)?.Contains("assembling the parent `main` workflow", StringComparison.Ordinal) == true));
+        Assert.Contains(assemblySpan.SpanEvents, e => e.Name == "gen_ai.content.completion"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "gen_ai.completion"
+                && ((string?)kv.Value)?.Contains("call_collect_data", StringComparison.Ordinal) == true));
+        Assert.Contains(assemblySpan.SpanEvents, e => e.Name == "gnougo-flow.plan.pipeline.assembly.output"
+            && e.Attributes != null
+            && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.yaml"
+                && ((string?)kv.Value)?.Contains("workflow.call", StringComparison.Ordinal) == true));
     }
 
     [Fact]

@@ -91,6 +91,20 @@ public sealed class StepExecutionContext
         string? phase = null,
         IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
     {
+        var parent = TelemetrySpan ?? NullTelemetrySpan.Instance;
+        return BeginTelemetrySpan(parent, name, phase, attributes);
+    }
+
+    /// <summary>
+    /// Starts an internal child span under an explicit parent span. This is useful when an
+    /// executor has nested phases that should be grouped under one logical operation span.
+    /// </summary>
+    public TelemetrySpanScope BeginTelemetrySpan(
+        ITelemetrySpan parent,
+        string name,
+        string? phase = null,
+        IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
+    {
         var allAttributes = new List<KeyValuePair<string, object?>>
         {
             new("gnougo-flow.step.id", Step.Id),
@@ -102,7 +116,6 @@ public sealed class StepExecutionContext
         if (attributes != null)
             allAttributes.AddRange(attributes);
 
-        var parent = TelemetrySpan ?? NullTelemetrySpan.Instance;
         var span = Engine.Telemetry.SpanStart(parent, new TelemetrySpanInfo
         {
             Name = name,
@@ -139,6 +152,8 @@ public sealed class TelemetrySpanScope : IDisposable
 
     public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
         => _span.AddEvent(name, attributes);
+
+    internal ITelemetrySpan Span => _span;
 
     public void Fail(Exception ex)
     {

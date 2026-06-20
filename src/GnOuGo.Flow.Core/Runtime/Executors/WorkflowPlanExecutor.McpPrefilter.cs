@@ -27,6 +27,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         double? temperature,
         string? planReasoning,
         StepExecutionContext ctx,
+        ITelemetrySpan? parentSpan,
         CancellationToken ct)
     {
         // Build a compact catalog for the pre-filter prompt
@@ -87,7 +88,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {{BuildUserTaskBlock(instruction, context)}}
             """;
 
-        using var prefilterSpan = ctx.BeginTelemetrySpan("workflow.plan.mcp_capability_prefilter", "mcp_capability_prefilter", new[]
+        using var prefilterSpan = parentSpan == null
+            ? ctx.BeginTelemetrySpan("workflow.plan.mcp_capability_prefilter", "mcp_capability_prefilter", new[]
+            {
+                new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+                new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unknown"),
+                new KeyValuePair<string, object?>("gen_ai.request.model", model),
+                new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count),
+                new KeyValuePair<string, object?>("mcp.tools_total", allServers.Sum(s => s.Tools.Count))
+            })
+            : ctx.BeginTelemetrySpan(parentSpan, "workflow.plan.mcp_capability_prefilter", "mcp_capability_prefilter", new[]
         {
             new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
             new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unknown"),

@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging;
 using Moq;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
@@ -30,6 +31,126 @@ public class WorkflowPlanExecutorTests
         }
 
         return count;
+    }
+
+    private static LLMResponse? TryRespondToPipelineMainAssembly(LLMRequest req)
+    {
+        if (!req.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+            return null;
+
+        if (req.Prompt.Contains("collect_data", StringComparison.Ordinal)
+            && req.Prompt.Contains("generate_report", StringComparison.Ordinal))
+        {
+            return new LLMResponse
+            {
+                Text = """
+                inputs:
+                  query: string
+                steps:
+                  - id: call_collect_data
+                    type: workflow.call
+                    input:
+                      ref: { kind: local, name: collect_data }
+                      args:
+                        query: ${data.inputs.query}
+                  - id: call_generate_report
+                    type: workflow.call
+                    input:
+                      ref: { kind: local, name: generate_report }
+                      args:
+                        query: ${data.inputs.query}
+                        records: ${data.steps.call_collect_data.outputs.records}
+                outputs:
+                  collect_data_outputs: ${data.steps.call_collect_data.outputs}
+                  generate_report_outputs: ${data.steps.call_generate_report.outputs}
+                """
+            };
+        }
+
+        if (req.Prompt.Contains("send_report", StringComparison.Ordinal))
+        {
+            return new LLMResponse
+            {
+                Text = """
+                inputs:
+                  report_title: string
+                  recipient: string
+                  dry_run: boolean
+                  priority: string
+                steps:
+                  - id: call_send_report
+                    type: workflow.call
+                    input:
+                      ref: { kind: local, name: send_report }
+                      args:
+                        report_title: ${data.inputs.report_title}
+                        recipient: ${data.inputs.recipient}
+                        dry_run: ${data.inputs.dry_run}
+                        priority: normal
+                outputs:
+                  send_report_outputs: ${data.steps.call_send_report.outputs}
+                """
+            };
+        }
+
+        var (leafName, inputName) = req.Prompt.Contains("list_repositories", StringComparison.Ordinal)
+            ? ("list_repositories", "owner")
+            : req.Prompt.Contains("build_profile", StringComparison.Ordinal)
+                ? ("build_profile", "name")
+                : req.Prompt.Contains("build_token_workflow", StringComparison.Ordinal)
+                    ? ("build_token_workflow", "name")
+                    : req.Prompt.Contains("collect_data", StringComparison.Ordinal)
+                        ? ("collect_data", "query")
+                        : ("leaf", "input");
+
+        return new LLMResponse
+        {
+            Text = $$"""
+            inputs:
+              {{inputName}}: string
+            steps:
+              - id: call_{{leafName}}
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: {{leafName}} }
+                  args:
+                    {{inputName}}: ${data.inputs.{{inputName}}}
+            outputs:
+              {{leafName}}_outputs: ${data.steps.call_{{leafName}}.outputs}
+            """
+        };
+    }
+
+    private static IEnumerable<StepDef> EnumerateSteps(IEnumerable<StepDef> steps)
+    {
+        foreach (var step in steps)
+        {
+            yield return step;
+
+            if (step.Steps != null)
+            {
+                foreach (var child in EnumerateSteps(step.Steps))
+                    yield return child;
+            }
+
+            if (step.Branches != null)
+            {
+                foreach (var child in step.Branches.SelectMany(branch => EnumerateSteps(branch.Steps)))
+                    yield return child;
+            }
+
+            if (step.Cases != null)
+            {
+                foreach (var child in step.Cases.SelectMany(@case => EnumerateSteps(@case.Steps)))
+                    yield return child;
+            }
+
+            if (step.Default != null)
+            {
+                foreach (var child in EnumerateSteps(step.Default))
+                    yield return child;
+            }
+        }
     }
 
     // ------ DslSnippet tests ------
@@ -251,6 +372,8 @@ workflows:
         Assert.Contains("produced only inside `switch` cases", capturedPrompt);
         Assert.Contains("version, name, skill, workflows", capturedPrompt);
         Assert.Contains("- skill: required object", capturedPrompt);
+        Assert.Contains("Use input-level `required: true|false` only as a boolean", capturedPrompt);
+        Assert.Contains("required_properties: [field_name]", capturedPrompt);
         // Should contain built-in functions doc
         Assert.Contains("exists(val)", capturedPrompt);
         Assert.Contains("len(val)", capturedPrompt);
@@ -305,6 +428,1371 @@ workflows:
         Assert.Equal("gpt-4o-mini", capturedRequest.Model);
         Assert.Equal("medium", capturedRequest.Reasoning);
         Assert.True(capturedRequest.UseBackgroundMode);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_ComposesMainAndLeafSubworkflows()
+    {
+        var requests = new List<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) =>
+            {
+                lock (requests)
+                    requests.Add(req);
+            })
+            .ReturnsAsync((LLMRequest req, CancellationToken _) =>
+            {
+                if (req.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nCollect records, then generate a report." };
+
+                if (req.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="collect_data"
+                        goal: Collect source records.
+                        inputs:
+                          query: string
+                        outputs:
+                          records: array
+                        extract_reason: This is a reusable multi-step data collection operation.
+                        content:
+                          Collect records for the provided query.
+                          Return the records as an array.
+                        :::
+
+                        :::subworkflow name="generate_report"
+                        goal: Generate the final report.
+                        inputs:
+                          query: string
+                          records: array
+                        outputs:
+                          text: string
+                        extract_reason: This produces a report artifact.
+                        content:
+                          Generate a concise report for the provided query and collected records.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call collect_data, then generate_report.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `collect_data`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: collect-data-leaf
+                        skill:
+                          description: Collect source records.
+                          tags: [generated, leaf]
+                          inputs:
+                            query: string
+                          outputs:
+                            records: array
+                        workflows:
+                          main:
+                            inputs:
+                              query: string
+                            steps:
+                              - id: collect
+                                type: set
+                                input:
+                                  records: ["one", "two"]
+                            outputs:
+                              records: "${data.steps.collect.records}"
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `generate_report`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: generate-report-leaf
+                        skill:
+                          description: Generate a report.
+                          tags: [generated, leaf]
+                          inputs:
+                            query: string
+                          outputs:
+                            text: string
+                        workflows:
+                          main:
+                            inputs:
+                              query: string
+                              records: array
+                            steps:
+                              - id: report
+                                type: template.render
+                                input:
+                                  engine: mustache
+                                  template: "Report for {{query}}: {{records}}"
+                                  mode: text
+                                  data:
+                                    query: "${data.inputs.query}"
+                                    records: "${data.inputs.records}"
+                            outputs:
+                              text: "${data.steps.report.text}"
+                        """
+                    };
+
+                return TryRespondToPipelineMainAssembly(req)
+                    ?? throw new InvalidOperationException("Unexpected LLM prompt: " + req.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Collect records, then generate a report."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+        """);
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(5, requests.Count);
+        Assert.Contains("Correct spelling and grammar.", requests[0].Prompt);
+        Assert.Contains(":::subworkflow name=\"snake_case_name\"", requests[1].Prompt);
+        Assert.Contains("Avoid blocks with high cyclomatic complexity", requests[1].Prompt);
+        Assert.Contains("Do not create one large block that mixes several responsibilities", requests[1].Prompt);
+        var collectRequest = Assert.Single(requests, request => request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `collect_data`.", StringComparison.Ordinal));
+        var reportRequest = Assert.Single(requests, request => request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `generate_report`.", StringComparison.Ordinal));
+        Assert.Contains("Do not use workflow.call.", collectRequest.Prompt);
+        Assert.Contains("Do not use workflow.plan.", collectRequest.Prompt);
+        Assert.Contains("Any schema with `type: object` MUST be strongly typed with a non-empty `properties` mapping.", collectRequest.Prompt);
+        Assert.Contains("required_properties: [field_name]", collectRequest.Prompt);
+        Assert.DoesNotContain("Normalized prompt:", collectRequest.Prompt);
+        Assert.DoesNotContain("Annotated prompt:", collectRequest.Prompt);
+        Assert.DoesNotContain("generate_report", collectRequest.Prompt);
+        Assert.DoesNotContain("collect_data", reportRequest.Prompt);
+
+        var planOutput = Assert.IsType<JsonObject>(result.Outputs!["plan"]);
+        Assert.Equal("pipeline", planOutput["meta"]!["mode"]!.GetValue<string>());
+        Assert.Equal(2, planOutput["meta"]!["leaf_subworkflow_count"]!.GetValue<int>());
+
+        var yaml = planOutput["yaml"]!.GetValue<string>();
+        var generatedDoc = WorkflowParser.Parse(yaml);
+        Assert.Contains("main", generatedDoc.Workflows.Keys);
+        Assert.Contains("collect_data", generatedDoc.Workflows.Keys);
+        Assert.Contains("generate_report", generatedDoc.Workflows.Keys);
+
+        var mainSteps = generatedDoc.Workflows["main"].Steps;
+        Assert.All(mainSteps, step => Assert.Equal("workflow.call", step.Type));
+        Assert.Contains("name: collect_data", yaml);
+        Assert.Contains("name: generate_report", yaml);
+        Assert.Contains("records: ${data.steps.call_collect_data.outputs.records}", yaml);
+        Assert.DoesNotContain("records", generatedDoc.Workflows["main"].Inputs!.Keys);
+        Assert.DoesNotContain("workflow.call", EnumerateSteps(generatedDoc.Workflows["collect_data"].Steps).Select(step => step.Type));
+        Assert.DoesNotContain("workflow.plan", EnumerateSteps(generatedDoc.Workflows["collect_data"].Steps).Select(step => step.Type));
+        Assert.DoesNotContain("workflow.call", EnumerateSteps(generatedDoc.Workflows["generate_report"].Steps).Select(step => step.Type));
+        Assert.DoesNotContain("workflow.plan", EnumerateSteps(generatedDoc.Workflows["generate_report"].Steps).Select(step => step.Type));
+
+        var specs = planOutput["pipeline"]!["specs"]!;
+        Assert.Equal(2, specs["subworkflows"]!.AsArray().Count);
+        Assert.Empty(specs["validation"]!["errors"]!.AsArray());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_PreservesConfiguredMainMetadataAndInputs()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest req, CancellationToken _) =>
+            {
+                if (req.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nSend a report." };
+
+                if (req.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="send_report"
+                        goal: Send the configured report.
+                        inputs:
+                          report_title: string
+                          recipient: string
+                          dry_run: boolean
+                          priority: string
+                        outputs:
+                          sent: boolean
+                        extract_reason: This is a reusable technical operation with tool orchestration.
+                        content:
+                          Send the report to the configured recipient.
+                          Honor dry_run and priority.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call send_report.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `send_report`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: send-report-leaf
+                        skill:
+                          description: Send the configured report.
+                          tags: [generated, leaf]
+                          inputs:
+                            report_title: string
+                            recipient: string
+                            dry_run: boolean
+                            priority: string
+                          outputs:
+                            sent: boolean
+                        workflows:
+                          main:
+                            inputs:
+                              report_title: string
+                              recipient: string
+                              dry_run: boolean
+                              priority: string
+                            steps:
+                              - id: send
+                                type: set
+                                input:
+                                  sent: true
+                            outputs:
+                              sent: "${data.steps.send.sent}"
+                        """
+                    };
+
+                return TryRespondToPipelineMainAssembly(req)
+                    ?? throw new InvalidOperationException("Unexpected LLM prompt: " + req.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  name: configured-report-workflow
+                  skill:
+                    description: Configured report sender.
+                    tags: [configured, reports]
+                    inputs:
+                      report_title: string
+                      recipient:
+                        type: string
+                        description: Email recipient.
+                      dry_run:
+                        type: boolean
+                        required: false
+                        default: false
+                    outputs:
+                      sent: boolean
+                  raw_prompt: "Send a report."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+        """);
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var planOutput = Assert.IsType<JsonObject>(result.Outputs!["plan"]);
+        var yaml = planOutput["yaml"]!.GetValue<string>();
+        var generatedDoc = WorkflowParser.Parse(yaml);
+
+        Assert.Equal("configured-report-workflow", generatedDoc.Name);
+        Assert.Equal("Configured report sender.", generatedDoc.Skill!.Description);
+        Assert.Equal(new[] { "configured", "reports" }, generatedDoc.Skill.Tags);
+        Assert.Contains("report_title", generatedDoc.Skill.Inputs!.Keys);
+        Assert.Contains("recipient", generatedDoc.Skill.Inputs.Keys);
+        Assert.Contains("dry_run", generatedDoc.Skill.Inputs.Keys);
+        Assert.DoesNotContain("priority", generatedDoc.Skill.Inputs.Keys);
+        Assert.False(generatedDoc.Skill.Inputs["dry_run"].Required);
+        Assert.Equal("false", generatedDoc.Skill.Inputs["dry_run"].Default);
+        Assert.Equal("Email recipient.", generatedDoc.Skill.Inputs["recipient"].Description);
+        Assert.Contains("sent", generatedDoc.Skill.Outputs!.Keys);
+
+        var mainInputs = generatedDoc.Workflows["main"].Inputs!;
+        Assert.Contains("report_title", mainInputs.Keys);
+        Assert.Contains("recipient", mainInputs.Keys);
+        Assert.Contains("dry_run", mainInputs.Keys);
+        Assert.DoesNotContain("priority", mainInputs.Keys);
+        Assert.Contains("priority: normal", yaml);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_UsesGeneratedPublicContractWithoutPromotingLeafInputs()
+    {
+        var requests = new List<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((request, _) => requests.Add(request))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = "# Repository issue report\n\nUse target_repository_url and number_of_issues_to_process."
+                    };
+                }
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Repository issue report
+
+                        :::subworkflow name="list_issues"
+                        goal: List repository issues.
+                        inputs:
+                          repository_url: string
+                          max_issues: number
+                          working_directory_base: string
+                        outputs:
+                          issues: array
+                        extract_reason: This is a reusable tool operation.
+                        content:
+                          List issues for the repository.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Map target_repository_url to repository_url and number_of_issues_to_process to max_issues.
+                        Derive working_directory_base internally.
+                        """
+                    };
+                }
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `list_issues`.", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: list-issues-leaf
+                        skill:
+                          description: List repository issues.
+                          tags: [github, leaf]
+                          inputs:
+                            repository_url: string
+                            max_issues: number
+                            working_directory_base: string
+                          outputs:
+                            issues: array
+                        workflows:
+                          main:
+                            inputs:
+                              repository_url: string
+                              max_issues: number
+                              working_directory_base: string
+                            steps:
+                              - id: result
+                                type: set
+                                input:
+                                  issues: []
+                            outputs:
+                              issues: ${data.steps.result.issues}
+                        """
+                    };
+                }
+
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        document:
+                          name: repository_issue_report
+                          skill:
+                            description: Build a repository issue report.
+                            tags: [github, issues]
+                            inputs:
+                              target_repository_url:
+                                type: string
+                                required: false
+                                default: https://github.com/AxaFrance/oidc-client
+                              number_of_issues_to_process:
+                                type: number
+                                required: false
+                                default: 20
+                            outputs:
+                              issues: array
+                        main:
+                          inputs:
+                            target_repository_url:
+                              type: string
+                              required: false
+                              default: https://github.com/AxaFrance/oidc-client
+                            number_of_issues_to_process:
+                              type: number
+                              required: false
+                              default: 20
+                          steps:
+                            - id: derive_working_directory
+                              type: set
+                              input:
+                                value: .GnOuGo/work
+                            - id: call_list_issues
+                              type: workflow.call
+                              input:
+                                ref: { kind: local, name: list_issues }
+                                args:
+                                  repository_url: ${data.inputs.target_repository_url}
+                                  max_issues: ${data.inputs.number_of_issues_to_process}
+                                  working_directory_base: ${data.steps.derive_working_directory.value}
+                          outputs:
+                            issues: ${data.steps.call_list_issues.outputs.issues}
+                        """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Build a repository issue report."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+        """);
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        var generatedDoc = WorkflowParser.Parse(yaml);
+        var mainInputs = generatedDoc.Workflows["main"].Inputs!;
+
+        Assert.Equal("repository_issue_report", generatedDoc.Name);
+        Assert.Equal("Build a repository issue report.", generatedDoc.Skill!.Description);
+        Assert.Equal(new[] { "github", "issues" }, generatedDoc.Skill.Tags);
+        Assert.Equal(new[] { "target_repository_url", "number_of_issues_to_process" }, mainInputs.Keys);
+        Assert.DoesNotContain("repository_url", mainInputs.Keys);
+        Assert.DoesNotContain("working_directory_base", mainInputs.Keys);
+        Assert.Contains("repository_url: ${data.inputs.target_repository_url}", yaml);
+        Assert.Contains("max_issues: ${data.inputs.number_of_issues_to_process}", yaml);
+
+        var assemblyPrompt = Assert.Single(requests, request =>
+            request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal)).Prompt;
+        Assert.Contains("leaf_input_candidates_yaml", assemblyPrompt);
+        Assert.Contains("Leaf input names are call arguments, not automatically public main inputs.", assemblyPrompt);
+        Assert.Contains("Every `data.inputs.<name>` reference MUST have an identically named declaration", assemblyPrompt);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_RetriesFinalAssemblyUsingConfiguredAttemptBudget()
+    {
+        var assemblyRequests = new List<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nCollect records for the configured query." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="collect_data"
+                        goal: Collect records.
+                        inputs:
+                          query: string
+                        outputs:
+                          records: array
+                        extract_reason: This is a reusable operation.
+                        content:
+                          Collect records for the query.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call collect_data with the configured query.
+                        """
+                    };
+                }
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `collect_data`.", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: collect-data-leaf
+                        skill:
+                          description: Collect records.
+                          tags: [generated, leaf]
+                          inputs:
+                            query: string
+                          outputs:
+                            records: array
+                        workflows:
+                          main:
+                            inputs:
+                              query: string
+                            steps:
+                              - id: collect
+                                type: set
+                                input:
+                                  records: []
+                            outputs:
+                              records: ${data.steps.collect.records}
+                        """
+                    };
+                }
+
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    assemblyRequests.Add(request);
+                    var inputReference = assemblyRequests.Count == 1 ? "undeclared_query" : "query";
+                    return new LLMResponse
+                    {
+                        Text = $$"""
+                        main:
+                          inputs:
+                            query: string
+                          steps:
+                            - id: call_collect_data
+                              type: workflow.call
+                              input:
+                                ref: { kind: local, name: collect_data }
+                                args:
+                                  query: ${data.inputs.{{inputReference}}}
+                          outputs:
+                            records: ${data.steps.call_collect_data.outputs.records}
+                        """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  skill:
+                    description: Collect configured records.
+                    inputs:
+                      query: string
+                  raw_prompt: "Collect records."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+                  on_invalid:
+                    max_attempts: 2
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, assemblyRequests.Count);
+        Assert.Contains("previous main workflow assembly failed final validation", assemblyRequests[1].Prompt);
+        Assert.Contains("invalid_main_assembly_yaml", assemblyRequests[1].Prompt);
+        Assert.Contains("undeclared_query", assemblyRequests[1].Prompt);
+        Assert.Contains("main_assembly_validation_error", assemblyRequests[1].Prompt);
+
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        Assert.Contains("query: ${data.inputs.query}", yaml);
+        Assert.DoesNotContain("undeclared_query", yaml);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_AllowsWorkflowCallForMainWhenPolicyDeniedIt()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest req, CancellationToken _) =>
+            {
+                if (req.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nCollect records." };
+
+                if (req.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="collect_data"
+                        goal: Collect source records.
+                        inputs:
+                          query: string
+                        outputs:
+                          records: array
+                        extract_reason: This is a reusable multi-step data collection operation.
+                        content:
+                          Collect records for the provided query.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call collect_data.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `collect_data`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: collect-data-leaf
+                        skill:
+                          description: Collect source records.
+                          tags: [generated, leaf]
+                          inputs:
+                            query: string
+                          outputs:
+                            records: array
+                        workflows:
+                          main:
+                            inputs:
+                              query: string
+                            steps:
+                              - id: collect
+                                type: set
+                                input:
+                                  value: ["one", "two"]
+                            outputs:
+                              records: "${data.steps.collect.value}"
+                        """
+                    };
+
+                return TryRespondToPipelineMainAssembly(req)
+                    ?? throw new InvalidOperationException("Unexpected LLM prompt: " + req.Prompt);
+            });
+        var logger = new Mock<ILogger>();
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Collect records."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  policy:
+                    allowed_step_types: [set]
+                    denied_step_types: [workflow.call]
+                  validate:
+                    compile: false
+        """);
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            Logger = logger.Object
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var planOutput = Assert.IsType<JsonObject>(result.Outputs!["plan"]);
+        var yaml = planOutput["yaml"]!.GetValue<string>();
+        var generatedDoc = WorkflowParser.Parse(yaml);
+        Assert.Contains(generatedDoc.Workflows["main"].Steps, step => step.Type == "workflow.call");
+        Assert.DoesNotContain(EnumerateSteps(generatedDoc.Workflows["collect_data"].Steps), step => step.Type == "workflow.call");
+        logger.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((value, _) => value.ToString()!.Contains("workflow.call", StringComparison.Ordinal)),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_RespectsLeafMcpPrefilter()
+    {
+        var requests = new List<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) =>
+            {
+                lock (requests)
+                    requests.Add(req);
+            })
+            .ReturnsAsync((LLMRequest req, CancellationToken _) =>
+            {
+                if (req.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nList repositories." };
+
+                if (req.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="list_repositories"
+                        goal: List repositories.
+                        inputs:
+                          owner: string
+                        outputs:
+                          repositories: array
+                        extract_reason: This orchestrates an external tool to collect repository data.
+                        content:
+                          List repositories for the provided owner.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call list_repositories.
+                        """
+                    };
+
+                if (req.Prompt.Contains("MCP server-selection assistant", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Json = JsonNode.Parse("{\"servers\":[{\"name\":\"github\",\"reason\":\"repository task\"}]}")!,
+                        Text = "{\"servers\":[{\"name\":\"github\",\"reason\":\"repository task\"}]}"
+                    };
+
+                if (req.Prompt.Contains("tool-selection assistant", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Json = JsonNode.Parse("{\"servers\":[{\"name\":\"github\",\"tools\":[\"list_repos\"],\"prompts\":[]}]}")!,
+                        Text = "{\"servers\":[{\"name\":\"github\",\"tools\":[\"list_repos\"],\"prompts\":[]}]}"
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `list_repositories`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: list-repositories-leaf
+                        skill:
+                          description: List repositories.
+                          tags: [generated, leaf]
+                          inputs:
+                            owner: string
+                          outputs:
+                            repositories: array
+                        workflows:
+                          main:
+                            inputs:
+                              owner: string
+                            steps:
+                              - id: repos
+                                type: set
+                                input:
+                                  repositories: []
+                            outputs:
+                              repositories: "${data.steps.repos.repositories}"
+                        """
+                    };
+
+                return TryRespondToPipelineMainAssembly(req)
+                    ?? throw new InvalidOperationException("Unexpected LLM prompt: " + req.Prompt);
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Description = "GitHub repository operations",
+            Tools =
+            {
+                new McpToolInfo { Name = "list_repos", Description = "List repositories for an owner" }
+            }
+        });
+        mcpFactory.RegisterServer("weather", new MockMcpServerConfig
+        {
+            Description = "Weather forecast operations",
+            Tools =
+            {
+                new McpToolInfo { Name = "get_weather", Description = "Get weather for a city" }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "List repositories."
+                  generator:
+                    model: gpt-4
+                    prefilter: true
+                  validate:
+                    compile: false
+        """);
+        var engine = new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            McpClientFactory = mcpFactory
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Contains(requests, request => request.Prompt.Contains("MCP server-selection assistant", StringComparison.Ordinal));
+        Assert.Contains(requests, request => request.Prompt.Contains("tool-selection assistant", StringComparison.Ordinal));
+        var generationRequest = Assert.Single(requests, request =>
+            request.Prompt.StartsWith("You are a GnOuGo.Flow YAML workflow generator.", StringComparison.Ordinal)
+            && request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `list_repositories`.", StringComparison.Ordinal));
+        var availableMcpStart = generationRequest.Prompt.LastIndexOf("<available_mcp_servers>", StringComparison.Ordinal);
+        var availableMcpEnd = generationRequest.Prompt.LastIndexOf("</available_mcp_servers>", StringComparison.Ordinal);
+        Assert.True(availableMcpStart >= 0, "Expected available MCP server section in generation prompt.");
+        Assert.True(availableMcpEnd > availableMcpStart, "Expected closing available MCP server section in generation prompt.");
+        var availableMcpServers = generationRequest.Prompt[availableMcpStart..availableMcpEnd];
+        Assert.Contains("list_repos", availableMcpServers);
+        Assert.DoesNotContain("get_weather", availableMcpServers);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_ReportsExtractionValidationErrors()
+    {
+        var callCount = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                return callCount == 1
+                    ? new LLMResponse { Text = "# Automation\n\nDo nested work." }
+                    : new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="parent_task"
+                        goal: Do parent task.
+                        inputs:
+                          prompt: string
+                        outputs:
+                          result: string
+                        extract_reason: This has branching logic.
+                        content:
+                          Use workflow.call to invoke a child subworkflow.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call parent_task.
+                        """
+                    };
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Do nested work."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+        """);
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("appears to call another subworkflow", result.Error.Message);
+        Assert.NotNull(result.Error.Details);
+        Assert.Contains("appears to call another subworkflow", result.Error.Details.ToJsonString());
+        Assert.Equal(2, callCount);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_RejectsGeneratedLeafWorkflowCalls()
+    {
+        var callCount = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                return callCount switch
+                {
+                    1 => new LLMResponse { Text = "# Automation\n\nCollect data." },
+                    2 => new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="collect_data"
+                        goal: Collect source records.
+                        inputs:
+                          query: string
+                        outputs:
+                          records: array
+                        extract_reason: This is a reusable technical operation.
+                        content:
+                          Collect records for the provided query.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call collect_data.
+                        """
+                    },
+                    _ => new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: bad-leaf
+                        workflows:
+                          main:
+                            steps:
+                              - id: child
+                                type: workflow.call
+                                input:
+                                  ref: { kind: local, name: child_workflow }
+                        """
+                    }
+                };
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Collect data."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+        """);
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePolicy, result.Error!.Code);
+        Assert.Contains("workflow.call", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_RejectsBareObjectSchemasInLeafWorkflows()
+    {
+        var callCount = 0;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                return callCount switch
+                {
+                    1 => new LLMResponse { Text = "# Automation\n\nBuild a profile object." },
+                    2 => new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="build_profile"
+                        goal: Build a profile object.
+                        inputs:
+                          name: string
+                        outputs:
+                          profile: object
+                        extract_reason: This creates structured output with state.
+                        content:
+                          Build a profile object for the provided name.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call build_profile.
+                        """
+                    },
+                    _ => new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: build-profile-leaf
+                        skill:
+                          description: Build a profile object.
+                          tags: [generated, leaf]
+                          inputs:
+                            name: string
+                          outputs:
+                            profile:
+                              type: object
+                        workflows:
+                          main:
+                            inputs:
+                              name: string
+                            steps:
+                              - id: profile
+                                type: set
+                                input:
+                                  value:
+                                    name: "${data.inputs.name}"
+                            outputs:
+                              profile:
+                                expr: "${data.steps.profile.value}"
+                                type: object
+                        """
+                    }
+                };
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Build a profile object."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+        """);
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("weak object schemas", result.Error.Message);
+        Assert.Contains("type object without properties", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_RegeneratesLeafWorkflowsUpToParentMaxAttempts()
+    {
+        var requests = new List<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) =>
+            {
+                lock (requests)
+                    requests.Add(req);
+            })
+            .ReturnsAsync((LLMRequest req, CancellationToken _) =>
+            {
+                if (req.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nBuild a profile object." };
+
+                if (req.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="build_profile"
+                        goal: Build a profile object.
+                        inputs:
+                          name: string
+                        outputs:
+                          profile: object
+                        extract_reason: This creates structured output with state.
+                        content:
+                          Build a profile object for the provided name.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call build_profile.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Previous generated YAML for this leaf workflow failed validation", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: build-profile-leaf
+                        skill:
+                          description: Build a profile object.
+                          tags: [generated, leaf]
+                          inputs:
+                            name: string
+                          outputs:
+                            profile:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                        workflows:
+                          main:
+                            inputs:
+                              name: string
+                            steps:
+                              - id: profile
+                                type: set
+                                input:
+                                  value:
+                                    name: "${data.inputs.name}"
+                            outputs:
+                              profile:
+                                expr: "${data.steps.profile.value}"
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `build_profile`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: build-profile-leaf
+                        skill:
+                          description: Build a profile object.
+                          tags: [generated, leaf]
+                          inputs:
+                            name: string
+                          outputs:
+                            profile:
+                              type: object
+                        workflows:
+                          main:
+                            inputs:
+                              name: string
+                            steps:
+                              - id: profile
+                                type: set
+                                input:
+                                  value:
+                                    name: "${data.inputs.name}"
+                            outputs:
+                              profile:
+                                expr: "${data.steps.profile.value}"
+                                type: object
+                        """
+                    };
+
+                return TryRespondToPipelineMainAssembly(req)
+                    ?? throw new InvalidOperationException("Unexpected LLM prompt: " + req.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Build a profile object."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+                  on_invalid:
+                    max_attempts: 2
+        """);
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(5, requests.Count);
+        Assert.Contains(requests, request =>
+            request.Prompt.Contains("Previous generated YAML for this leaf workflow failed validation", StringComparison.Ordinal)
+            && request.Prompt.Contains("weak object schemas", StringComparison.Ordinal)
+            && request.Prompt.Contains("<user_prompt>", StringComparison.Ordinal)
+            && request.Prompt.Contains("</user_prompt>", StringComparison.Ordinal)
+            && request.Prompt.Contains("<previous_prompt>", StringComparison.Ordinal)
+            && request.Prompt.Contains("</previous_prompt>", StringComparison.Ordinal)
+            && request.Prompt.Contains("<invalid_yaml>", StringComparison.Ordinal)
+            && request.Prompt.Contains("name: build-profile-leaf", StringComparison.Ordinal)
+            && request.Prompt.Contains("type: object", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_LeafRetryIncludesYamlFromChildPlanValidationFailure()
+    {
+        var requests = new List<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) =>
+            {
+                lock (requests)
+                    requests.Add(req);
+            })
+            .ReturnsAsync((LLMRequest req, CancellationToken _) =>
+            {
+                if (req.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nBuild a token workflow." };
+
+                if (req.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="build_token_workflow"
+                        goal: Build a token workflow.
+                        inputs:
+                          name: string
+                        outputs:
+                          text: string
+                        extract_reason: This orchestrates an LLM call and validates runtime arguments.
+                        content:
+                          Use the provided name in an LLM call.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call build_token_workflow.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Previous generated YAML for this leaf workflow failed validation", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: build-token-workflow-leaf
+                        skill:
+                          description: Build a token workflow.
+                          tags: [generated, leaf]
+                          inputs:
+                            name: string
+                          outputs:
+                            text: string
+                        workflows:
+                          main:
+                            inputs:
+                              name: string
+                            steps:
+                              - id: answer
+                                type: llm.call
+                                input:
+                                  prompt: "Hello ${data.inputs.name}"
+                            outputs:
+                              text: "${data.steps.answer.text}"
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `build_token_workflow`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: build-token-workflow-leaf
+                        skill:
+                          description: Build a token workflow.
+                          tags: [generated, leaf]
+                          inputs:
+                            name: string
+                          outputs:
+                            text: string
+                        workflows:
+                          main:
+                            inputs:
+                              name: string
+                            steps:
+                              - id: answer
+                                type: llm.call
+                                input:
+                                  prompt: "Hello ${data.inputs.name}"
+                                  max_tokens: "${data.inputs.name}"
+                            outputs:
+                              text: "${data.steps.answer.text}"
+                        """
+                    };
+
+                return TryRespondToPipelineMainAssembly(req)
+                    ?? throw new InvalidOperationException("Unexpected LLM prompt: " + req.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Build a token workflow."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: true
+                    dry_run: true
+                  on_invalid:
+                    max_attempts: 2
+        """);
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Contains(requests, request =>
+            request.Prompt.Contains("Previous generated YAML for this leaf workflow failed validation", StringComparison.Ordinal)
+            && request.Prompt.Contains("Generated workflow dry_run failed", StringComparison.Ordinal)
+            && request.Prompt.Contains("<invalid_yaml>", StringComparison.Ordinal)
+            && request.Prompt.Contains("max_tokens: \"${data.inputs.name}\"", StringComparison.Ordinal)
+            && request.Prompt.Contains("</invalid_yaml>", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -472,7 +1960,113 @@ workflows:
         Assert.Contains("version: 1", prompts[1]);
         Assert.DoesNotContain("<dsl_reference>", prompts[1]);
         Assert.DoesNotContain("<step_exceptions_by_type>", prompts[1]);
+        Assert.Contains("required_properties", prompts[1]);
+        Assert.Contains("Input-level `required` is only a boolean", prompts[1]);
         Assert.Contains("Fix the issues", prompts[1]);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_Reprompt_ExplainsDuplicateRequiredKey()
+    {
+        var prompts = new List<string>();
+        int callCount = 0;
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => prompts.Add(req.Prompt))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        skill:
+                          description: Duplicate required test.
+                          tags: [test]
+                          inputs:
+                            payload:
+                              type: object
+                              required: true
+                              properties:
+                                title:
+                                  type: string
+                              required: [title]
+                          outputs: {}
+                        workflows:
+                          main:
+                            inputs:
+                              payload:
+                                type: object
+                                required: true
+                                properties:
+                                  title:
+                                    type: string
+                                required: [title]
+                            steps: []
+                        """
+                    };
+                }
+
+                return new LLMResponse
+                {
+                    Text = """
+                    version: 1
+                    skill:
+                      description: Duplicate required test.
+                      tags: [test]
+                      inputs:
+                        payload:
+                          type: object
+                          required: true
+                          properties:
+                            title:
+                              type: string
+                          required_properties: [title]
+                      outputs: {}
+                    workflows:
+                      main:
+                        inputs:
+                          payload:
+                            type: object
+                            required: true
+                            properties:
+                              title:
+                                type: string
+                            required_properties: [title]
+                        steps: []
+                    """
+                };
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build an object schema workflow
+                  on_invalid:
+                    action: reprompt
+                    max_attempts: 2
+                  validate:
+                    compile: false
+        """);
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, prompts.Count);
+        Assert.Contains("<duplicate_required_key_fix>", prompts[1]);
+        Assert.Contains("Move required object property names to `required_properties:`", prompts[1]);
+        Assert.Contains("required_properties: [name]", prompts[1]);
     }
 
     [Fact]

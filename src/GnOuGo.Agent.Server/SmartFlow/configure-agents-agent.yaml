@@ -301,6 +301,7 @@ workflows:
             input:
               generator:
                 prefilter: true
+                mode: pipeline
                 reasoning: low
                 instruction: >
                   Generate a valid GnOuGo.Flow YAML workflow for a persisted chat agent.
@@ -326,10 +327,10 @@ workflows:
                   - loop.parallel
                   - switch
                   - human.input
+                  - workflow.call
                 denied_step_types:
                   - workflow.plan
                   - workflow.execute
-                  - workflow.call
                 allow_remote_workflow_refs: false
               limits:
                 max_steps_total: 100
@@ -742,10 +743,10 @@ workflows:
                       - loop.parallel
                       - switch
                       - human.input
+                      - workflow.call
                     denied_step_types:
                       - workflow.plan
                       - workflow.execute
-                      - workflow.call
                     allow_remote_workflow_refs: false
                   limits:
                     max_steps_total: 100

@@ -1021,6 +1021,7 @@ internal static class WorkflowPlanSemanticValidator
             "llm.call" => BuildLlmCallOutputSchema(step),
             "mcp.call" => BuildMcpCallOutputSchema(step, mcpContracts),
             "mcp.list" => ObjectSchema(("status", StringSchema()), ("text", StringSchema()), ("servers", ArraySchema()), ("tools", ArraySchema()), ("resources", ArraySchema()), ("prompts", ArraySchema())),
+            "workflow.call" => ObjectSchema(("outputs", OpaqueSchema()), ("workflow", StringSchema())),
             "workflow.plan" => ObjectSchema(("workflow", ObjectSchema()), ("yaml", StringSchema()), ("meta", ObjectSchema()), ("diagnostics", ArraySchema())),
             "workflow.execute" => ObjectSchema(("outputs", OpaqueSchema()), ("workflow", StringSchema()), ("run", ObjectSchema(("steps_executed", NumberSchema()), ("success", BooleanSchema())))),
             "sequence" => ObjectSchema(("steps", ObjectSchema()), ("count", NumberSchema())),

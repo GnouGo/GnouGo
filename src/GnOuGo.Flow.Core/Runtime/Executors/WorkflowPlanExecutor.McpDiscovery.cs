@@ -148,6 +148,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         ILogger logger,
         StepExecutionContext ctx,
         IReadOnlyList<McpServerMetadata>? candidateServers,
+        ITelemetrySpan? parentSpan,
         CancellationToken ct)
     {
         if (factory?.ServerMetadata == null || factory.ServerMetadata.Count == 0)
@@ -159,7 +160,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         var serverCount = serverMetadata.Count;
 
-        using var discoverySpan = ctx.BeginTelemetrySpan("workflow.plan.mcp_discovery", "mcp_discovery", new[]
+        using var discoverySpan = parentSpan == null
+            ? ctx.BeginTelemetrySpan("workflow.plan.mcp_discovery", "mcp_discovery", new[]
+            {
+                new KeyValuePair<string, object?>("mcp.servers_total", serverCount)
+            })
+            : ctx.BeginTelemetrySpan(parentSpan, "workflow.plan.mcp_discovery", "mcp_discovery", new[]
         {
             new KeyValuePair<string, object?>("mcp.servers_total", serverCount)
         });
@@ -327,13 +333,22 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         double? temperature,
         string? planReasoning,
         StepExecutionContext ctx,
+        ITelemetrySpan? parentSpan,
         CancellationToken ct)
     {
         if (factory?.ServerMetadata == null || factory.ServerMetadata.Count == 0)
             return null;
 
         var allServers = factory.ServerMetadata;
-        using var prefilterSpan = ctx.BeginTelemetrySpan("workflow.plan.mcp_server_prefilter", "mcp_server_prefilter", new[]
+        using var prefilterSpan = parentSpan == null
+            ? ctx.BeginTelemetrySpan("workflow.plan.mcp_server_prefilter", "mcp_server_prefilter", new[]
+            {
+                new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+                new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unknown"),
+                new KeyValuePair<string, object?>("gen_ai.request.model", model),
+                new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count)
+            })
+            : ctx.BeginTelemetrySpan(parentSpan, "workflow.plan.mcp_server_prefilter", "mcp_server_prefilter", new[]
         {
             new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
             new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unknown"),

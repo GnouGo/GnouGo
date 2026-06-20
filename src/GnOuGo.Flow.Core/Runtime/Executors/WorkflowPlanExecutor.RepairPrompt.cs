@@ -48,7 +48,19 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Executor-specific arguments go inside input only.");
         sb.AppendLine("Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.");
         sb.AppendLine("Expressions may read data.inputs.* and earlier data.steps.<id>.* only.");
+        sb.AppendLine("Object schemas: never duplicate the YAML key `required`. Input-level `required` is only a boolean. Required object property names must use `required_properties`, not a second `required` key.");
         AppendPromptSectionEnd(sb, "minimum_dsl_context");
+        if (structuredError.Contains("Duplicate key required", StringComparison.OrdinalIgnoreCase))
+        {
+            sb.AppendLine();
+            AppendPromptSectionStart(sb, "duplicate_required_key_fix");
+            sb.AppendLine("The parser error `Duplicate key required` means the same YAML mapping contains two `required:` keys.");
+            sb.AppendLine("Keep at most one input-level `required: true|false` boolean.");
+            sb.AppendLine("Move required object property names to `required_properties:`.");
+            sb.AppendLine("Invalid: type: object + required: true + properties: ... + required: [name]");
+            sb.AppendLine("Valid: type: object + required: true + properties: ... + required_properties: [name]");
+            AppendPromptSectionEnd(sb, "duplicate_required_key_fix");
+        }
         if (!string.IsNullOrWhiteSpace(repairContext))
         {
             sb.AppendLine();
