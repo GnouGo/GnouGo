@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Scripting;
 using Xunit;
 
@@ -169,6 +170,37 @@ public class JintSandboxTests
     }
 
     [Fact]
+    public void JsonToJsValue_Decimal_ConvertsToNumber()
+    {
+        var engine = new Jint.Engine();
+        var jsValue = JintSandbox.JsonToJsValue(engine, JsonValue.Create(2.5m));
+        var roundTrip = JintSandbox.JsValueToJson(jsValue);
+
+        Assert.Equal(2.5, roundTrip!.GetValue<double>());
+    }
+
+    public static TheoryData<JsonNode, double> AdditionalNumericValues => new()
+    {
+        { JsonValue.Create((byte)8)!, 8 },
+        { JsonValue.Create((sbyte)-8)!, -8 },
+        { JsonValue.Create((short)-16)!, -16 },
+        { JsonValue.Create((ushort)16)!, 16 },
+        { JsonValue.Create((uint)32)!, 32 },
+        { JsonValue.Create((ulong)64)!, 64 }
+    };
+
+    [Theory]
+    [MemberData(nameof(AdditionalNumericValues))]
+    public void JsonToJsValue_AdditionalNumericTypes_ConvertToNumber(JsonNode value, double expected)
+    {
+        var engine = new Jint.Engine();
+        var jsValue = JintSandbox.JsonToJsValue(engine, value);
+        var roundTrip = JintSandbox.JsValueToJson(jsValue);
+
+        Assert.Equal(expected, ExpressionEvaluator.GetNumber(roundTrip));
+    }
+
+    [Fact]
     public void JsValueToJson_Null_ReturnsNull()
     {
         // Test via round-trip: null JSON → JsValue → JSON
@@ -186,5 +218,3 @@ public class JintSandboxTests
         Assert.Null(result);
     }
 }
-
-

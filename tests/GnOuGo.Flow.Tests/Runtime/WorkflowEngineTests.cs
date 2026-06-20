@@ -527,6 +527,118 @@ workflows:
         Assert.Equal("got: hello", result.Outputs!["result"]!.GetValue<string>());
     }
 
+    [Fact]
+    public async Task Execute_WorkflowCall_Local_PreservesDecimalInputAsChildNumber()
+    {
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            inputs:
+              number_of_issues_to_process: number
+            steps:
+              - id: list_and_filter_issues
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: list_and_filter_issues }
+                  args:
+                    max_issues_to_process: ${data.inputs.number_of_issues_to_process}
+            outputs:
+              limit: ${data.steps.list_and_filter_issues.outputs.limit}
+          list_and_filter_issues:
+            inputs:
+              max_issues_to_process:
+                type: number
+                required: true
+            steps:
+              - id: compute_limit
+                type: set
+                input:
+                  limit: ${data.inputs.max_issues_to_process}
+            outputs:
+              limit: ${data.steps.compute_limit.limit}
+        """);
+
+        var result = await CreateEngine().ExecuteAsync(
+            wf,
+            new JsonObject { ["number_of_issues_to_process"] = 2m },
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, result.Outputs!["limit"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task Execute_WorkflowCall_Local_AppliesDefaultsAndValidatesChildInputs()
+    {
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: call_helper
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: helper }
+                  args: {}
+            outputs:
+              count: ${data.steps.call_helper.outputs.count}
+          helper:
+            inputs:
+              count:
+                type: number
+                required: false
+                default: 3
+            steps:
+              - id: result
+                type: set
+                input:
+                  count: ${data.inputs.count}
+            outputs:
+              count: ${data.steps.result.count}
+        """);
+
+        var result = await CreateEngine().ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(3, result.Outputs!["count"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task Execute_WorkflowCall_Local_RejectsMissingRequiredChildInput()
+    {
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: call_helper
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: helper }
+                  args: {}
+          helper:
+            inputs:
+              count:
+                type: number
+                required: true
+            steps:
+              - id: result
+                type: set
+                input:
+                  count: ${data.inputs.count}
+        """);
+
+        var result = await CreateEngine().ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+        var error = Assert.IsType<WorkflowError>(result.Error);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, error.Code);
+        Assert.Contains("called workflow 'helper'", error.Message);
+        Assert.Contains("Input 'count' is required", error.Message);
+        Assert.Equal("helper", error.Details!["workflow"]!.GetValue<string>());
+    }
+
     // === WFScript (Jint) Integration Tests ===
 
     [Fact]

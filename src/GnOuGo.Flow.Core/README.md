@@ -894,6 +894,8 @@ Resolution is delegated to `WorkflowEngine.WorkflowCallResolver` (`DefaultWorkfl
 
 If the called workflow has no `outputs` block, the engine returns the called workflow step outputs instead. Prefer defining explicit `outputs` so the contract stays stable.
 
+Before executing the called workflow, the runtime applies defaults declared by its `inputs` schema and validates all resolved arguments. Missing required values or type mismatches fail immediately with `INPUT_VALIDATION` and identify the called workflow.
+
 #### Complete local example
 
 This example defines three workflows in the same file:

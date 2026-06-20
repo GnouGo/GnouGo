@@ -281,6 +281,42 @@ public class ExpressionEvaluatorTests
         Assert.Equal(3.14, ExpressionEvaluator.GetNumber(JsonValue.Create("3.14")));
     }
     [Fact]
+    public void Evaluate_DecimalInput_PreservesNumericValue()
+    {
+        var context = new JsonObject { ["inputs"] = new JsonObject { ["count"] = 2m } };
+
+        var result = _evaluator.Evaluate("data.inputs.count", context);
+
+        Assert.Equal(2, result!.GetValue<int>());
+        Assert.Equal(2.5, ExpressionEvaluator.GetNumber(JsonValue.Create(2.5m)));
+    }
+    [Theory]
+    [InlineData("byte", 8)]
+    [InlineData("sbyte", -8)]
+    [InlineData("short", -16)]
+    [InlineData("ushort", 16)]
+    [InlineData("uint", 32)]
+    [InlineData("ulong", 64)]
+    public void Evaluate_AdditionalNumericInput_PreservesValue(string type, double expected)
+    {
+        JsonNode value = type switch
+        {
+            "byte" => JsonValue.Create((byte)8)!,
+            "sbyte" => JsonValue.Create((sbyte)-8)!,
+            "short" => JsonValue.Create((short)-16)!,
+            "ushort" => JsonValue.Create((ushort)16)!,
+            "uint" => JsonValue.Create((uint)32)!,
+            "ulong" => JsonValue.Create((ulong)64)!,
+            _ => throw new ArgumentOutOfRangeException(nameof(type))
+        };
+        var context = new JsonObject { ["inputs"] = new JsonObject { ["value"] = value } };
+
+        var result = _evaluator.Evaluate("data.inputs.value", context);
+
+        Assert.Equal(expected, ExpressionEvaluator.GetNumber(result));
+        Assert.Equal(expected, ExpressionEvaluator.GetNumber(value));
+    }
+    [Fact]
     public void GetNumber_FromNonNumericString_Throws()
     {
         Assert.Throws<WorkflowRuntimeException>(() => ExpressionEvaluator.GetNumber(JsonValue.Create("abc")));
@@ -313,7 +349,15 @@ public class ExpressionEvaluatorTests
         Assert.Null(ExpressionEvaluator.ToJsonNode(null));
         Assert.True(ExpressionEvaluator.ToJsonNode(true)!.GetValue<bool>());
         Assert.Equal(42.0, ExpressionEvaluator.ToJsonNode(42.0)!.GetValue<double>());
+        Assert.Equal(42.5m, ExpressionEvaluator.ToJsonNode(42.5m)!.GetValue<decimal>());
+        Assert.Equal((byte)8, ExpressionEvaluator.ToJsonNode((byte)8)!.GetValue<byte>());
+        Assert.Equal((sbyte)-8, ExpressionEvaluator.ToJsonNode((sbyte)-8)!.GetValue<sbyte>());
+        Assert.Equal((short)-16, ExpressionEvaluator.ToJsonNode((short)-16)!.GetValue<short>());
+        Assert.Equal((ushort)16, ExpressionEvaluator.ToJsonNode((ushort)16)!.GetValue<ushort>());
         Assert.Equal(7, ExpressionEvaluator.ToJsonNode(7)!.GetValue<int>());
+        Assert.Equal((uint)32, ExpressionEvaluator.ToJsonNode((uint)32)!.GetValue<uint>());
+        Assert.Equal(64L, ExpressionEvaluator.ToJsonNode(64L)!.GetValue<long>());
+        Assert.Equal((ulong)64, ExpressionEvaluator.ToJsonNode((ulong)64)!.GetValue<ulong>());
         Assert.Equal("hi", ExpressionEvaluator.ToJsonNode("hi")!.GetValue<string>());
     }
     [Fact]

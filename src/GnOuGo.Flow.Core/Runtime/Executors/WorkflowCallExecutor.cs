@@ -85,10 +85,24 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         if (!string.IsNullOrWhiteSpace(resolution.CallStackKey))
             newCallStack.Add(resolution.CallStackKey);
 
+        var resolvedArgs = WorkflowInputDefaults.Apply(subWorkflow.Source, args);
+        var inputErrors = InputTypeValidator.Validate(subWorkflow.Source, resolvedArgs);
+        if (inputErrors.Count > 0)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                $"Input validation failed for called workflow '{resolution.WorkflowName}': {string.Join("; ", inputErrors)}",
+                details: new JsonObject
+                {
+                    ["workflow"] = resolution.WorkflowName,
+                    ["validation_errors"] = new JsonArray(inputErrors.Select(static error => (JsonNode)JsonValue.Create(error)!).ToArray())
+                });
+        }
+
         var result = new RunResult { Success = true };
         var subData = new JsonObject
         {
-            ["inputs"] = args?.DeepClone() ?? new JsonObject(),
+            ["inputs"] = resolvedArgs,
             ["steps"] = new JsonObject(),
             ["env"] = ctx.Data["env"]?.DeepClone() ?? new JsonObject()
         };
@@ -126,7 +140,6 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         };
     }
 }
-
 
 
 
