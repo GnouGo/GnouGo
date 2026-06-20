@@ -2499,6 +2499,63 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsUnknownMcpBatchMethod()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated docs workflow.
+                         tags: [docs]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: fetch
+                               type: mcp.call
+                               input:
+                                 server: docs
+                                 methods: [get_doc, missing_doc]
+                                 request: { id: "intro" }
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("docs", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo> { new() { Name = "get_doc", Description = "Get a document" } }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build a docs workflow
+                    prefilter: false
+        """);
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_METHOD_UNKNOWN", result.Error.Message);
+        Assert.Contains("input.methods[1]:missing_doc", result.Error.Message);
+        Assert.Contains("mcp.server:docs.method:get_doc", result.Error.Message);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_SemanticValidation_RejectsUnknownMcpResponseProperty()
     {
         var mockLlm = new Mock<ILLMClient>();
@@ -2632,6 +2689,59 @@ workflows:
         Assert.Contains("OPAQUE_RESPONSE_DEEP_ACCESS", result.Error.Message);
         Assert.Contains("json(data.steps.fetch.response)", result.Error.Message);
         Assert.Contains("structured_output", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_ReportsOpaqueNonResponsePathWithoutCrashing()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated workflow with an invalid opaque mapping.
+                         tags: [generated]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: generate
+                               type: llm.call
+                               input:
+                                 prompt: Generate a value.
+                             - id: map
+                               type: set
+                               input:
+                                 value: "${data.steps.generate.raw.missing}"
+                       """
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build a generated workflow
+                    prefilter: false
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("OPAQUE_RESPONSE_DEEP_ACCESS", result.Error.Message);
+        Assert.Contains("data.steps.generate.raw.missing", result.Error.Message);
+        Assert.Contains("opaque output", result.Error.Message);
+        Assert.DoesNotContain("length ('-1')", result.Error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -3535,6 +3645,77 @@ workflows:
         var yaml = planOutput!["yaml"]?.GetValue<string>();
         Assert.NotNull(yaml);
         Assert.DoesNotContain("```", yaml);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_McpDiscovery_RetriesThreeTimesWithBackoff()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated docs workflow.
+                         tags: [docs]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: fetch
+                               type: mcp.call
+                               input:
+                                 server: docs
+                                 method: get_doc
+                                 request: { id: "intro" }
+                       """
+            });
+
+        var session = new Mock<IMcpSession>();
+        session.SetupGet(s => s.ServerName).Returns("docs");
+        session.SetupSequence(s => s.ListToolsAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("transient discovery failure 1"))
+            .ThrowsAsync(new InvalidOperationException("transient discovery failure 2"))
+            .ReturnsAsync(new List<McpToolInfo>
+            {
+                new() { Name = "get_doc", Description = "Get a document" }
+            });
+        session.Setup(s => s.ListPromptsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<McpPromptInfo>());
+
+        var factory = new Mock<IMcpClientFactory>();
+        factory.SetupGet(f => f.ServerMetadata).Returns(new List<McpServerMetadata>
+        {
+            new() { Name = "docs", Description = "Document operations" }
+        });
+        factory.Setup(f => f.GetClientAsync("docs", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(session.Object);
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build a docs workflow
+                    prefilter: false
+        """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            McpClientFactory = factory.Object
+        }.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        factory.Verify(f => f.GetClientAsync("docs", It.IsAny<CancellationToken>()), Times.Exactly(3));
+        session.Verify(s => s.ListToolsAsync(It.IsAny<CancellationToken>()), Times.Exactly(3));
     }
 
     [Fact]

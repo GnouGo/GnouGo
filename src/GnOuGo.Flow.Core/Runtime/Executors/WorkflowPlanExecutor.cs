@@ -19,6 +19,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private const int DefaultMcpDiscoveryTimeoutSeconds = 30;
     private const int MinMcpDiscoveryTimeoutSeconds = 1;
     private const int MaxMcpDiscoveryTimeoutSeconds = 300;
+    private const int McpDiscoveryMaxAttempts = 3;
+    private const int McpDiscoveryRetryBaseDelayMilliseconds = 500;
     private static readonly JsonSerializerOptions PromptJsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true

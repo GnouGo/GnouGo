@@ -208,57 +208,95 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 continue;
             }
 
-            try
+            Exception? lastDiscoveryError = null;
+            var discovered = false;
+            for (var attempt = 1; attempt <= McpDiscoveryMaxAttempts; attempt++)
             {
-                var discoveryTimeout = GetMcpDiscoveryTimeout(server);
-                using var discoveryCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                discoveryCts.CancelAfter(discoveryTimeout);
-
-                await using var session = await factory.GetClientAsync(server.Name, discoveryCts.Token);
-
-                var tools = cachedTools ?? await session.ListToolsAsync(discoveryCts.Token);
-                McpCacheHelper.CacheTools(cache, server.Name, tools);
-
-                IReadOnlyList<McpPromptInfo> prompts;
-                if (cachedPrompts != null)
+                try
                 {
-                    prompts = cachedPrompts;
-                }
-                else
-                {
-                    try { prompts = await session.ListPromptsAsync(discoveryCts.Token); }
-                    catch (Exception ex)
+                    var discoveryTimeout = GetMcpDiscoveryTimeout(server);
+                    using var discoveryCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    discoveryCts.CancelAfter(discoveryTimeout);
+
+                    await using var session = await factory.GetClientAsync(server.Name, discoveryCts.Token);
+
+                    var tools = cachedTools ?? await session.ListToolsAsync(discoveryCts.Token);
+                    McpCacheHelper.CacheTools(cache, server.Name, tools);
+
+                    IReadOnlyList<McpPromptInfo> prompts;
+                    if (cachedPrompts != null)
                     {
-                        logger.LogWarning(ex, "workflow.plan: prompts/list not supported on MCP server '{ServerName}'", server.Name);
-                        prompts = Array.Empty<McpPromptInfo>();
+                        prompts = cachedPrompts;
                     }
-                    McpCacheHelper.CachePrompts(cache, server.Name, prompts);
+                    else
+                    {
+                        try { prompts = await session.ListPromptsAsync(discoveryCts.Token); }
+                        catch (Exception ex)
+                        {
+                            logger.LogWarning(ex, "workflow.plan: prompts/list not supported on MCP server '{ServerName}'", server.Name);
+                            prompts = Array.Empty<McpPromptInfo>();
+                        }
+                        McpCacheHelper.CachePrompts(cache, server.Name, prompts);
+                    }
+
+                    results.Add(new McpServerDiscovery
+                    {
+                        Name = server.Name,
+                        Description = server.Description,
+                        CallTimeoutSeconds = server.CallTimeoutSeconds,
+                        Tools = tools,
+                        Prompts = prompts,
+                        Discovered = true
+                    });
+                    discovered = true;
+
+                    ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+                    {
+                        new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
+                            $"MCP '{server.Name}': {tools.Count} tool(s), {prompts.Count} prompt(s) (attempt {attempt}/{McpDiscoveryMaxAttempts})"),
+                        new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
+                    });
+                    break;
+                }
+                catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+                {
+                    lastDiscoveryError = ex;
+                    logger.LogWarning(ex,
+                        "workflow.plan: MCP server '{ServerName}' discovery attempt {Attempt}/{MaxAttempts} timed out after {TimeoutSeconds}s",
+                        server.Name,
+                        attempt,
+                        McpDiscoveryMaxAttempts,
+                        GetMcpDiscoveryTimeout(server).TotalSeconds);
+                }
+                catch (Exception ex)
+                {
+                    lastDiscoveryError = ex;
+                    logger.LogWarning(ex,
+                        "workflow.plan: MCP server '{ServerName}' discovery attempt {Attempt}/{MaxAttempts} failed",
+                        server.Name,
+                        attempt,
+                        McpDiscoveryMaxAttempts);
                 }
 
-                results.Add(new McpServerDiscovery
-                {
-                    Name = server.Name,
-                    Description = server.Description,
-                    CallTimeoutSeconds = server.CallTimeoutSeconds,
-                    Tools = tools,
-                    Prompts = prompts,
-                    Discovered = true
-                });
+                if (attempt >= McpDiscoveryMaxAttempts)
+                    break;
 
+                var retryDelay = GetMcpDiscoveryRetryDelay(attempt);
                 ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
                 {
                     new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                        $"MCP '{server.Name}': {tools.Count} tool(s), {prompts.Count} prompt(s)"),
+                        $"MCP '{server.Name}': discovery attempt {attempt}/{McpDiscoveryMaxAttempts} failed; retrying in {retryDelay.TotalMilliseconds:0}ms"),
                     new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
                 });
+                await Task.Delay(retryDelay, ct);
             }
-            catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+
+            if (!discovered)
             {
-                var discoveryTimeout = GetMcpDiscoveryTimeout(server);
-                logger.LogWarning(ex,
-                    "workflow.plan: MCP server '{ServerName}' discovery timed out after {TimeoutSeconds}s",
+                logger.LogError(lastDiscoveryError,
+                    "workflow.plan: failed to discover MCP server '{ServerName}' after {MaxAttempts} attempts",
                     server.Name,
-                    discoveryTimeout.TotalSeconds);
+                    McpDiscoveryMaxAttempts);
                 results.Add(new McpServerDiscovery
                 {
                     Name = server.Name,
@@ -270,25 +308,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
                 {
                     new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                        $"MCP '{server.Name}': discovery timed out after {discoveryTimeout.TotalSeconds:0.#}s"),
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-                });
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "workflow.plan: failed to discover MCP server '{ServerName}'", server.Name);
-                results.Add(new McpServerDiscovery
-                {
-                    Name = server.Name,
-                    Description = server.Description,
-                    CallTimeoutSeconds = server.CallTimeoutSeconds,
-                    Discovered = false
-                });
-
-                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-                {
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                        $"MCP '{server.Name}': discovery failed — {ex.Message}"),
+                        $"MCP '{server.Name}': discovery failed after {McpDiscoveryMaxAttempts} attempts — {lastDiscoveryError?.Message ?? "unknown error"}"),
                     new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
                 });
             }
@@ -316,6 +336,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var seconds = server.DiscoveryTimeoutSeconds ?? DefaultMcpDiscoveryTimeoutSeconds;
         seconds = Math.Clamp(seconds, MinMcpDiscoveryTimeoutSeconds, MaxMcpDiscoveryTimeoutSeconds);
         return TimeSpan.FromSeconds(seconds);
+    }
+
+    private static TimeSpan GetMcpDiscoveryRetryDelay(int failedAttempt)
+    {
+        var multiplier = 1 << Math.Clamp(failedAttempt - 1, 0, 10);
+        return TimeSpan.FromMilliseconds(McpDiscoveryRetryBaseDelayMilliseconds * multiplier);
     }
 
     /// <summary>

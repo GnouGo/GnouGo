@@ -408,7 +408,7 @@ internal static class WorkflowPlanSemanticValidator
                     InvalidPath = invalidPath,
                     AllowedPaths = EnumerateAllowedPaths("data.steps." + referencedStepId, schema).ToArray(),
                     Suggestion = validation.IsOpaqueResponse
-                        ? $"Do not invent fields under '{invalidPath[..invalidPath.IndexOf(".response", StringComparison.Ordinal)]}.response'. Use json(data.steps.{referencedStepId}.response), or add an llm.call normalization step with structured_output before accessing named fields."
+                        ? BuildOpaqueOutputSuggestion(invalidPath, referencedStepId)
                         : $"Use one of the allowed paths for step '{referencedStepId}', or add a normalization step that produces the desired property with structured_output.",
                     Message = validation.Message
                 });
@@ -422,6 +422,19 @@ internal static class WorkflowPlanSemanticValidator
             return Array.Empty<string>();
 
         return path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    private static string BuildOpaqueOutputSuggestion(string invalidPath, string referencedStepId)
+    {
+        var responseIndex = invalidPath.IndexOf(".response", StringComparison.Ordinal);
+        if (responseIndex >= 0)
+        {
+            var responsePath = invalidPath[..responseIndex] + ".response";
+            return $"Do not invent fields under '{responsePath}'. Use json({responsePath}), or add an llm.call normalization step with structured_output before accessing named fields.";
+        }
+
+        var stepPath = $"data.steps.{referencedStepId}";
+        return $"Do not invent fields under opaque output '{stepPath}'. Pass the whole value onward, or add an llm.call normalization step with structured_output before accessing named fields.";
     }
 
     private static void ValidateMcpCallInputRequest(
@@ -441,45 +454,80 @@ internal static class WorkflowPlanSemanticValidator
             return;
 
         var serverName = TryGetInputString(step, "server");
-        var methodName = TryGetInputString(step, "method");
-        if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(methodName))
+        if (string.IsNullOrWhiteSpace(serverName))
             return;
 
-        if (!ValidateMcpCallTargetExists(step, workflowName, serverName, methodName, mcpContracts, errors))
-            return;
-
-        if (!mcpContracts.TryGetValue((serverName, methodName), out var contract)
-            || contract.InputSchema is not JsonObject inputSchema)
+        var methodTargets = GetLiteralMcpMethodTargets(step);
+        foreach (var (methodName, methodField) in methodTargets)
         {
-            return;
-        }
+            if (!ValidateMcpCallTargetExists(step, workflowName, serverName, methodName, methodField, mcpContracts, errors))
+                continue;
 
-        var requestNode = input["request"];
-        var requestObject = requestNode as JsonObject ?? new JsonObject();
-        var schemaErrors = new List<SchemaValidationError>();
-        ValidateJsonNodeAgainstSchema(requestObject, inputSchema, "", schemaErrors);
-        ValidateMcpRequestCompatibilityConventions(requestObject, inputSchema, "", schemaErrors);
-        if (schemaErrors.Count == 0)
-            return;
-
-        foreach (var schemaError in schemaErrors)
-        {
-            var invalidPath = string.IsNullOrEmpty(schemaError.Path)
-                ? "input.request"
-                : $"input.request.{schemaError.Path}";
-
-            errors.Add(new WorkflowSemanticValidationError
+            if (!mcpContracts.TryGetValue((serverName, methodName), out var contract)
+                || contract.InputSchema is not JsonObject inputSchema)
             {
-                Code = "MCP_REQUEST_SCHEMA_INVALID",
-                WorkflowName = workflowName,
-                StepId = step.Id,
-                Field = "input.request",
-                InvalidPath = invalidPath,
-                AllowedPaths = EnumerateAllowedPaths("input.request", inputSchema).Take(64).ToArray(),
-                Suggestion = $"Align `mcp.call` request with MCP tool schema for server '{serverName}' method '{methodName}'.",
-                Message = $"mcp.call request for '{serverName}/{methodName}' is invalid: {schemaError.Message}"
-            });
+                continue;
+            }
+
+            var requestNode = input["request"];
+            var requestObject = requestNode as JsonObject ?? new JsonObject();
+            var schemaErrors = new List<SchemaValidationError>();
+            ValidateJsonNodeAgainstSchema(requestObject, inputSchema, "", schemaErrors);
+            ValidateMcpRequestCompatibilityConventions(requestObject, inputSchema, "", schemaErrors);
+            if (schemaErrors.Count == 0)
+                continue;
+
+            foreach (var schemaError in schemaErrors)
+            {
+                var invalidPath = string.IsNullOrEmpty(schemaError.Path)
+                    ? "input.request"
+                    : $"input.request.{schemaError.Path}";
+
+                errors.Add(new WorkflowSemanticValidationError
+                {
+                    Code = "MCP_REQUEST_SCHEMA_INVALID",
+                    WorkflowName = workflowName,
+                    StepId = step.Id,
+                    Field = "input.request",
+                    InvalidPath = invalidPath,
+                    AllowedPaths = EnumerateAllowedPaths("input.request", inputSchema).Take(64).ToArray(),
+                    Suggestion = $"Align `mcp.call` request with MCP tool schema for server '{serverName}' method '{methodName}'.",
+                    Message = $"mcp.call request for '{serverName}/{methodName}' is invalid: {schemaError.Message}"
+                });
+            }
         }
+    }
+
+    private static IReadOnlyList<(string MethodName, string Field)> GetLiteralMcpMethodTargets(StepDef step)
+    {
+        if (step.Input is not JsonObject input)
+            return Array.Empty<(string, string)>();
+
+        // Runtime batch selection takes precedence whenever `methods` is present.
+        if (input.ContainsKey("methods"))
+        {
+            if (input["methods"] is not JsonArray methods)
+                return Array.Empty<(string, string)>();
+
+            var targets = new List<(string, string)>();
+            for (var i = 0; i < methods.Count; i++)
+            {
+                if (methods[i] is JsonValue value
+                    && value.TryGetValue<string>(out var methodName)
+                    && !string.IsNullOrWhiteSpace(methodName)
+                    && !methodName.Contains("${", StringComparison.Ordinal))
+                {
+                    targets.Add((methodName, $"input.methods[{i}]"));
+                }
+            }
+
+            return targets;
+        }
+
+        var singleMethod = TryGetInputString(step, "method");
+        return string.IsNullOrWhiteSpace(singleMethod)
+            ? Array.Empty<(string, string)>()
+            : new[] { (singleMethod, "input.method") };
     }
 
     private static bool ValidateMcpCallTargetExists(
@@ -487,6 +535,7 @@ internal static class WorkflowPlanSemanticValidator
         string workflowName,
         string serverName,
         string methodName,
+        string methodField,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
         List<WorkflowSemanticValidationError> errors)
     {
@@ -530,8 +579,8 @@ internal static class WorkflowPlanSemanticValidator
             Code = "MCP_METHOD_UNKNOWN",
             WorkflowName = workflowName,
             StepId = step.Id,
-            Field = "input.method",
-            InvalidPath = $"input.method:{methodName}",
+            Field = methodField,
+            InvalidPath = $"{methodField}:{methodName}",
             AllowedPaths = knownMethods.Select(name => $"mcp.server:{serverName}.method:{name}").ToArray(),
             Suggestion = $"Use one of the tools discovered for MCP server '{serverName}', or inspect the server with `mcp.list` before calling it.",
             Message = $"mcp.call references unknown MCP method '{methodName}' on server '{serverName}'."
