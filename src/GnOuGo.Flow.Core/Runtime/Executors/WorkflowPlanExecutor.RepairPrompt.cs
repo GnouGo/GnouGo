@@ -364,31 +364,64 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 var input = (JsonObject)step.Input!;
                 var server = input["server"]?.GetValue<string>();
                 var method = input["method"]?.GetValue<string>();
-                return (Server: server, Method: method);
+                var methods = new List<string>();
+                if (!string.IsNullOrWhiteSpace(method) && !method.Contains("${", StringComparison.Ordinal))
+                    methods.Add(method);
+                if (input["methods"] is JsonArray methodArray)
+                {
+                    foreach (var item in methodArray)
+                    {
+                        var methodName = item?.GetValue<string>();
+                        if (!string.IsNullOrWhiteSpace(methodName) && !methodName.Contains("${", StringComparison.Ordinal))
+                            methods.Add(methodName);
+                    }
+                }
+                return (StepId: step.Id, Server: server, Methods: methods.Distinct(StringComparer.Ordinal).ToArray(), Request: input["request"]?.DeepClone());
             })
             .Where(call => !string.IsNullOrWhiteSpace(call.Server))
-            .Distinct()
+            .DistinctBy(call => (call.StepId, call.Server, Methods: string.Join('\u001f', call.Methods)))
             .ToList();
 
         if (calls.Count == 0)
             return null;
 
         var sb = new StringBuilder();
+        sb.AppendLine("Use exact MCP server and method names. Tool arguments must be nested under `input.request`.");
+        sb.AppendLine("Correct direct tool call shape:");
+        sb.AppendLine("  type: mcp.call");
+        sb.AppendLine("  input: { server: <exact-server>, kind: tool, method: <exact-tool>, request: { ... } }");
+        sb.AppendLine("Available MCP servers: " + string.Join(", ", discovered.Select(static server => server.Name).OrderBy(static name => name, StringComparer.Ordinal)));
         foreach (var call in calls)
         {
             var server = discovered.FirstOrDefault(s => string.Equals(s.Name, call.Server, StringComparison.Ordinal));
             if (server == null)
                 continue;
 
+            sb.AppendLine();
             sb.Append("- ");
+            if (!string.IsNullOrWhiteSpace(call.StepId))
+                sb.Append($"Step `{call.StepId}` references ");
             sb.Append(server.Name);
             if (!string.IsNullOrWhiteSpace(server.Description))
                 sb.Append($": {server.Description}");
             sb.AppendLine();
 
-            var tools = server.Tools
-                .Where(tool => string.IsNullOrWhiteSpace(call.Method) || string.Equals(tool.Name, call.Method, StringComparison.Ordinal))
-                .ToList();
+            var availableToolNames = server.Tools.Select(static tool => tool.Name).ToArray();
+            sb.AppendLine($"  Available tools on `{server.Name}`: {string.Join(", ", availableToolNames)}");
+
+            var unknownMethods = call.Methods
+                .Where(method => !availableToolNames.Contains(method, StringComparer.Ordinal))
+                .ToArray();
+            if (unknownMethods.Length > 0)
+                sb.AppendLine($"  Unknown requested method(s): {string.Join(", ", unknownMethods)}");
+
+            if (call.Request != null)
+                AppendJsonBlock(sb, "  ", "invalid_request", call.Request);
+
+            var tools = unknownMethods.Length > 0 || call.Methods.Length == 0
+                ? server.Tools.ToList()
+                : server.Tools.Where(tool => call.Methods.Contains(tool.Name, StringComparer.Ordinal)).ToList();
+
             foreach (var tool in tools)
             {
                 sb.Append($"  - {tool.Name}");

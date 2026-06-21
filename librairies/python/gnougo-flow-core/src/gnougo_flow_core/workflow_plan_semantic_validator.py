@@ -15,6 +15,7 @@ from .models import InputDef, OutputDef, StepDef, WorkflowDocument
 class McpToolOutputContract:
     server_name: str
     tool_name: str
+    description: str | None = None
     input_schema: Any = None
     output_schema: Any = None
     example_response: Any = None

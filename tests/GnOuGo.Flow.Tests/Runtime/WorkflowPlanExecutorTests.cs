@@ -2683,6 +2683,107 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_RepromptIncludesTargetedMcpToolDefinitionsForUnknownMethod()
+    {
+        var requests = new List<LLMRequest>();
+        var responses = new Queue<string>(new[]
+        {
+            """
+            version: 1
+            skill:
+              description: Generated docs workflow.
+              tags: [docs]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: fetch
+                    type: mcp.call
+                    input:
+                      server: docs
+                      method: missing_doc
+                      request: { id: "intro" }
+            """,
+            """
+            version: 1
+            skill:
+              description: Generated docs workflow.
+              tags: [docs]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: fetch
+                    type: mcp.call
+                    input:
+                      server: docs
+                      method: get_doc
+                      request: { id: "intro" }
+            """
+        });
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((request, _) => requests.Add(request))
+            .ReturnsAsync(() => new LLMResponse { Text = responses.Dequeue() });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("docs", new MockMcpServerConfig
+        {
+            Description = "Document operations",
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "get_doc",
+                    Description = "Get a document by id",
+                    InputSchema = JsonNode.Parse("""
+                    { "type": "object", "required": ["id"], "properties": { "id": { "type": "string" } }, "additionalProperties": false }
+                    """),
+                    OutputSchema = JsonNode.Parse("""
+                    { "type": "object", "properties": { "title": { "type": "string" } }, "additionalProperties": false }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build a docs workflow
+                    prefilter: false
+                  on_invalid:
+                    action: reprompt
+                    max_attempts: 2
+        """);
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, requests.Count);
+        var retryPrompt = requests[1].Prompt;
+        Assert.Contains("MCP docs for failed/referenced calls", retryPrompt);
+        Assert.Contains("Available MCP servers: docs", retryPrompt);
+        Assert.Contains("Available tools on `docs`: get_doc", retryPrompt);
+        Assert.Contains("Unknown requested method(s): missing_doc", retryPrompt);
+        Assert.Contains("- get_doc: Get a document by id", retryPrompt);
+        Assert.Contains("input_schema_json", retryPrompt);
+        Assert.Contains("output_schema_json", retryPrompt);
+        Assert.Contains("method: <exact-tool>", retryPrompt);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_Validation_FailsClosedWhenMcpDiscoveryIsUnavailable()
     {
         var mockLlm = new Mock<ILLMClient>();

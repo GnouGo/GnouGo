@@ -1775,3 +1775,150 @@ async def test_workflow_plan_mcp_discovery_retries_before_validation() -> None:
 
     assert result.success is True
     assert factory.calls >= 3
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_retry_prompt_includes_targeted_mcp_tools_for_unknown_method() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+              on_invalid:
+                action: reprompt
+                max_attempts: 2
+    """
+    invalid_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: missing_doc
+              request:
+                id: intro
+    """
+    valid_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: get_doc
+              request:
+                id: intro
+    """
+    tool = McpToolInfo(
+        name="get_doc",
+        description="Get a document by id",
+        input_schema={
+            "type": "object",
+            "required": ["id"],
+            "properties": {"id": {"type": "string"}},
+            "additionalProperties": False,
+        },
+        output_schema={"type": "object", "properties": {"title": {"type": "string"}}, "additionalProperties": False},
+    )
+    llm = SequencePlanLlm([invalid_yaml, valid_yaml])
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    assert len(llm.prompts) == 2
+    retry_prompt = llm.prompts[1]
+    assert "MCP docs for failed/referenced calls" in retry_prompt
+    assert "Available MCP servers: docs" in retry_prompt
+    assert "Step `fetch` references MCP server `docs`" in retry_prompt
+    assert "Available tools on `docs`: get_doc" in retry_prompt
+    assert "Unknown requested method(s): missing_doc" in retry_prompt
+    assert "- get_doc: Get a document by id" in retry_prompt
+    assert "input_schema_json" in retry_prompt
+    assert "output_schema_json" in retry_prompt
+    assert "method: <exact-tool>" in retry_prompt
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_retry_prompt_includes_invalid_mcp_request_and_schema() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+              on_invalid:
+                action: reprompt
+                max_attempts: 2
+    """
+    invalid_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: get_doc
+              request:
+                title: intro
+    """
+    valid_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: get_doc
+              request:
+                id: intro
+    """
+    tool = McpToolInfo(
+        name="get_doc",
+        description="Get a document by id",
+        input_schema={
+            "type": "object",
+            "required": ["id"],
+            "properties": {"id": {"type": "string"}},
+            "additionalProperties": False,
+        },
+    )
+    llm = SequencePlanLlm([invalid_yaml, valid_yaml])
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    retry_prompt = llm.prompts[1]
+    assert "MCP_REQUEST_SCHEMA_INVALID" in retry_prompt
+    assert "invalid_request_yaml" in retry_prompt
+    assert "title: intro" in retry_prompt
+    assert "input_schema_json" in retry_prompt
+    assert '"required": [' in retry_prompt
+    assert '"id"' in retry_prompt

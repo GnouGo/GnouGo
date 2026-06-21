@@ -251,13 +251,27 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     raise
                 last_error = exc
                 last_invalid_yaml = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
-                last_repair_context = await self._build_repair_context_with_mcp_docs(ctx, policy, last_invalid_yaml, exc, forced_mcp_server_names)
+                last_repair_context = await self._build_repair_context_with_mcp_docs(
+                    ctx,
+                    policy,
+                    last_invalid_yaml,
+                    exc,
+                    forced_mcp_server_names,
+                    validation_mcp_tool_contracts,
+                )
             except Exception as exc:
                 last_error = exc
                 if on_invalid_action != "reprompt" or attempt >= max_attempts:
                     break
                 last_invalid_yaml = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
-                last_repair_context = await self._build_repair_context_with_mcp_docs(ctx, policy, last_invalid_yaml, exc, forced_mcp_server_names)
+                last_repair_context = await self._build_repair_context_with_mcp_docs(
+                    ctx,
+                    policy,
+                    last_invalid_yaml,
+                    exc,
+                    forced_mcp_server_names,
+                    validation_mcp_tool_contracts,
+                )
 
         raise WorkflowRuntimeException(
             ErrorCodes.TEMPLATE_PLAN,
@@ -1203,6 +1217,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     McpToolOutputContract(
                         server_name=str(name),
                         tool_name=str(tool_name),
+                        description=self._get_mcp_field(tool, "description"),
                         input_schema=copy.deepcopy(self._get_mcp_field(tool, "input_schema") or self._get_mcp_field(tool, "inputSchema")),
                         output_schema=copy.deepcopy(self._get_mcp_field(tool, "output_schema") or self._get_mcp_field(tool, "outputSchema")),
                         example_response=copy.deepcopy(self._get_mcp_field(tool, "example_response") or self._get_mcp_field(tool, "exampleResponse")),
@@ -1237,8 +1252,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         invalid_yaml: str | None,
         exc: Exception,
         forced_mcp_server_names: set[str],
+        mcp_tool_contracts: list[McpToolOutputContract] | None = None,
     ) -> str:
-        context = self._build_minimal_repair_context(ctx, policy, invalid_yaml, exc)
+        context = self._build_minimal_repair_context(ctx, policy, invalid_yaml, exc, mcp_tool_contracts)
         missing_server_name = self._try_extract_missing_mcp_server_name(str(exc))
         if not missing_server_name:
             return context
@@ -1274,6 +1290,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         policy: dict[str, Any],
         invalid_yaml: str | None,
         exc: Exception,
+        mcp_tool_contracts: list[McpToolOutputContract] | None = None,
     ) -> str:
         selected_types = WorkflowPlanExecutor._extract_repair_step_types(ctx, invalid_yaml, str(exc))
         if not selected_types:
@@ -1292,7 +1309,124 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         if snippets:
             parts.extend(["", "DSL snippets for failed/referenced step types:", WorkflowPlanExecutor._remove_markdown_fence_lines("\n".join(snippets))])
 
+        mcp_repair_context = WorkflowPlanExecutor._build_minimal_mcp_repair_context(
+            ctx,
+            invalid_yaml,
+            selected_types,
+            mcp_tool_contracts,
+        )
+        if mcp_repair_context:
+            parts.extend(["", "MCP docs for failed/referenced calls:", mcp_repair_context])
+
         return "\n".join(parts).rstrip()
+
+    @staticmethod
+    def _build_minimal_mcp_repair_context(
+        ctx: StepExecutionContext,
+        invalid_yaml: str | None,
+        selected_types: set[str],
+        mcp_tool_contracts: list[McpToolOutputContract] | None,
+    ) -> str | None:
+        if "mcp.call" not in selected_types or not invalid_yaml or not invalid_yaml.strip():
+            return None
+
+        contracts = list(mcp_tool_contracts or [])
+        if not contracts:
+            return None
+
+        try:
+            doc = WorkflowParser.parse(invalid_yaml)
+        except Exception:
+            return None
+
+        calls: list[tuple[str, str, list[str], Any]] = []
+        for workflow in doc.workflows.values():
+            for step in WorkflowPlanExecutor._enumerate_steps(workflow.steps):
+                if step.type != "mcp.call" or not isinstance(step.input, dict):
+                    continue
+                server = step.input.get("server")
+                if not isinstance(server, str) or not server.strip() or "${" in server:
+                    continue
+                methods: list[str] = []
+                method = step.input.get("method")
+                if isinstance(method, str) and method.strip() and "${" not in method:
+                    methods.append(method.strip())
+                raw_methods = step.input.get("methods")
+                if isinstance(raw_methods, list):
+                    for item in raw_methods:
+                        if isinstance(item, str) and item.strip() and "${" not in item:
+                            methods.append(item.strip())
+                calls.append((step.id, server.strip(), methods, step.input.get("request")))
+
+        if not calls:
+            return None
+
+        configured_metadata = {
+            str(meta.name): meta
+            for meta in WorkflowPlanExecutor._get_configured_mcp_server_metadata(ctx)
+            if getattr(meta, "name", None)
+        }
+        contracts_by_server: dict[str, list[McpToolOutputContract]] = {}
+        for contract in contracts:
+            contracts_by_server.setdefault(contract.server_name, []).append(contract)
+
+        available_servers = sorted(set(configured_metadata) | set(contracts_by_server))
+        lines = [
+            "Use exact MCP server and method names. Tool arguments must be nested under `input.request`.",
+            "Correct direct tool call shape:",
+            "  type: mcp.call",
+            "  input: { server: <exact-server>, kind: tool, method: <exact-tool>, request: { ... } }",
+            f"Available MCP servers: {', '.join(available_servers) if available_servers else '(none)'}",
+        ]
+
+        seen: set[tuple[str, str, tuple[str, ...]]] = set()
+        for step_id, server_name, methods, request in calls:
+            key = (step_id, server_name, tuple(methods))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            lines.append("")
+            lines.append(f"- Step `{step_id}` references MCP server `{server_name}`.")
+            server_description = getattr(configured_metadata.get(server_name), "description", None)
+            if server_description:
+                lines.append(f"  Server description: {server_description}")
+
+            server_contracts = contracts_by_server.get(server_name, [])
+            if not server_contracts:
+                lines.append("  This server was not found in the discovered MCP tool catalog.")
+                continue
+
+            available_tools = [contract.tool_name for contract in server_contracts]
+            lines.append(f"  Available tools on `{server_name}`: {', '.join(available_tools)}")
+
+            unknown_methods = [method for method in methods if method not in available_tools]
+            if unknown_methods:
+                lines.append(f"  Unknown requested method(s): {', '.join(unknown_methods)}")
+                selected_contracts = server_contracts
+            elif methods:
+                selected_contracts = [contract for contract in server_contracts if contract.tool_name in methods]
+            else:
+                lines.append("  No literal method was selected; use one exact tool name when the request schema is known.")
+                selected_contracts = server_contracts
+
+            if request is not None:
+                lines.append("  invalid_request_yaml:")
+                lines.extend("    " + line for line in WorkflowPlanExecutor._serialize_yaml_value(request).splitlines())
+
+            for contract in selected_contracts[:12]:
+                description = f": {contract.description}" if contract.description else ""
+                lines.append(f"  - {contract.tool_name}{description}")
+                if contract.input_schema is not None:
+                    lines.append("    input_schema_json: " + WorkflowPlanExecutor._dump_json(contract.input_schema))
+                if contract.output_schema is not None:
+                    lines.append("    output_schema_json: " + WorkflowPlanExecutor._dump_json(contract.output_schema))
+                if contract.example_response is not None:
+                    lines.append("    example_response_json: " + WorkflowPlanExecutor._dump_json(contract.example_response))
+            if len(selected_contracts) > 12:
+                lines.append(f"  ... {len(selected_contracts) - 12} additional tool(s) omitted from repair context.")
+
+        return "\n".join(lines).rstrip()
 
     @staticmethod
     def _extract_repair_step_types(ctx: StepExecutionContext, invalid_yaml: str | None, error_message: str) -> set[str]:
@@ -2288,6 +2422,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                                 McpToolOutputContract(
                                     server_name=str(name),
                                     tool_name=str(tool_name),
+                                    description=tool_description,
                                     input_schema=copy.deepcopy(input_schema),
                                     output_schema=copy.deepcopy(output_schema),
                                     example_response=copy.deepcopy(example_response),
