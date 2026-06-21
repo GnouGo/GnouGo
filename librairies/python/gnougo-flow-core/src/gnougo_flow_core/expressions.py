@@ -117,6 +117,8 @@ class BuiltInFunctions:
             ),
             "substring": BuiltInFunctions.substring,
             "toNumber": BuiltInFunctions.to_number,
+            "string": ExpressionEvaluator.get_string,
+            "toString": ExpressionEvaluator.get_string,
             "json": lambda v: json.dumps(v, default=_json_default),
             "toJson": lambda v: json.dumps(v, default=_json_default),
             "pick": BuiltInFunctions.pick,
@@ -443,6 +445,5 @@ class StringInterpolator:
         if isinstance(node, list):
             return [self.resolve_deep(v, context) for v in node]
         return node
-
 
 

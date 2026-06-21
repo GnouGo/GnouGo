@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from .expressions import _scan_expressions
-from .models import OutputDef, StepDef, WorkflowDocument
+from .json_schema_contract_validator import validate_instance, validate_structured_output
+from .models import InputDef, OutputDef, StepDef, WorkflowDocument
 
 
 @dataclass(slots=True)
@@ -38,6 +39,27 @@ class WorkflowSemanticValidationException(Exception):
 
 
 _DATA_STEPS_PATH_RE = re.compile(r"\bdata\.steps\.([A-Za-z_][A-Za-z0-9_-]*)(?P<path>(?:\.[A-Za-z_][A-Za-z0-9_]*)*)")
+_KNOWN_MCP_CALL_INPUT_FIELDS = {
+    "server",
+    "kind",
+    "method",
+    "methods",
+    "request",
+    "request_template",
+    "template_data",
+    "timeout_ms",
+    "prompt",
+    "model",
+    "provider",
+    "temperature",
+    "tools",
+    "prompts",
+    "resources",
+    "structured_output",
+    "raise_on_error",
+    "raiseOnError",
+    "error_policy",
+}
 
 
 def validate_workflow_semantics(
@@ -46,11 +68,12 @@ def validate_workflow_semantics(
 ) -> None:
     errors: list[WorkflowSemanticValidationError] = []
     mcp_contracts = {(c.server_name, c.tool_name): c for c in mcp_tool_contracts or []}
+    workflow_contracts = document.workflows
 
     for workflow_name, workflow in document.workflows.items():
         all_step_ids = set(_collect_step_ids(workflow.steps))
         known_contracts: dict[str, Any] = {}
-        _validate_step_list(workflow.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, errors)
+        _validate_step_list(workflow.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, workflow_contracts, errors)
         if workflow.outputs:
             for output_name, output_def in workflow.outputs.items():
                 _validate_output_def(output_def, workflow_name, f"outputs.{output_name}", known_contracts, all_step_ids, errors)
@@ -116,10 +139,11 @@ def _validate_step_list(
     known_contracts: dict[str, Any],
     all_step_ids: set[str],
     mcp_contracts: dict[tuple[str, str], McpToolOutputContract],
+    workflow_contracts: dict[str, Any],
     errors: list[WorkflowSemanticValidationError],
 ) -> None:
     for step in steps:
-        _validate_step(step, workflow_name, known_contracts, all_step_ids, mcp_contracts, errors)
+        _validate_step(step, workflow_name, known_contracts, all_step_ids, mcp_contracts, workflow_contracts, errors)
 
 
 def _normalize_mcp_call_input_requests(
@@ -172,12 +196,15 @@ def _validate_step(
     known_contracts: dict[str, Any],
     all_step_ids: set[str],
     mcp_contracts: dict[tuple[str, str], McpToolOutputContract],
+    workflow_contracts: dict[str, Any],
     errors: list[WorkflowSemanticValidationError],
 ) -> None:
     _validate_string(step.if_, workflow_name, step.id, "if", known_contracts, all_step_ids, errors)
     _validate_string(step.expr, workflow_name, step.id, "expr", known_contracts, all_step_ids, errors)
     _validate_json(step.input, workflow_name, step.id, "input", known_contracts, all_step_ids, errors)
     _validate_mcp_call_input_request(step, workflow_name, mcp_contracts, errors)
+    _validate_llm_call_structured_output(step, workflow_name, errors)
+    _validate_local_workflow_call_args(step, workflow_name, workflow_contracts, errors)
     step_is_conditional = bool(step.if_ and str(step.if_).strip())
 
     if step.on_error:
@@ -189,7 +216,7 @@ def _validate_step(
         produced: dict[str, Any] = {}
         for branch in step.branches:
             branch_known = copy.deepcopy(known_contracts)
-            _validate_step_list(branch.steps, workflow_name, branch_known, all_step_ids, mcp_contracts, errors)
+            _validate_step_list(branch.steps, workflow_name, branch_known, all_step_ids, mcp_contracts, workflow_contracts, errors)
             for key, value in branch_known.items():
                 if key not in known_contracts:
                     produced[key] = copy.deepcopy(value)
@@ -202,26 +229,26 @@ def _validate_step(
 
                 # Only one switch branch runs, so case-local outputs are not guaranteed after the switch.
                 case_known = copy.deepcopy(known_contracts)
-                _validate_step_list(case.steps, workflow_name, case_known, all_step_ids, mcp_contracts, errors)
+                _validate_step_list(case.steps, workflow_name, case_known, all_step_ids, mcp_contracts, workflow_contracts, errors)
 
         if step.default:
             default_known = copy.deepcopy(known_contracts)
-            _validate_step_list(step.default, workflow_name, default_known, all_step_ids, mcp_contracts, errors)
+            _validate_step_list(step.default, workflow_name, default_known, all_step_ids, mcp_contracts, workflow_contracts, errors)
     elif step.type in {"loop.sequential", "loop.parallel"}:
         if step.steps:
             # Loop body outputs are not guaranteed after the loop because iterations may be zero.
             loop_known = copy.deepcopy(known_contracts)
-            _validate_step_list(step.steps, workflow_name, loop_known, all_step_ids, mcp_contracts, errors)
+            _validate_step_list(step.steps, workflow_name, loop_known, all_step_ids, mcp_contracts, workflow_contracts, errors)
     else:
         if step.steps:
             if step_is_conditional:
                 conditional_known = copy.deepcopy(known_contracts)
-                _validate_step_list(step.steps, workflow_name, conditional_known, all_step_ids, mcp_contracts, errors)
+                _validate_step_list(step.steps, workflow_name, conditional_known, all_step_ids, mcp_contracts, workflow_contracts, errors)
             else:
-                _validate_step_list(step.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, errors)
+                _validate_step_list(step.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, workflow_contracts, errors)
 
     if step.id and not step_is_conditional:
-        known_contracts[step.id] = _build_step_output_schema(step, mcp_contracts)
+        known_contracts[step.id] = _build_step_output_schema(step, mcp_contracts, workflow_contracts)
 
 
 def _validate_output_def(
@@ -336,44 +363,133 @@ def _validate_mcp_call_input_request(
     if step.type != "mcp.call" or not isinstance(step.input, dict):
         return
 
+    _validate_mcp_call_input_envelope(step, workflow_name, errors)
+
     kind = _try_get_input_string(step, "kind") or "tool"
     if kind.lower() != "tool":
         return
 
     server_name = _try_get_input_string(step, "server")
-    method_name = _try_get_input_string(step, "method")
-    if not server_name or not method_name:
+    method_targets = _get_literal_mcp_method_targets(step)
+    if not server_name or not method_targets:
         return
 
-    if not _validate_mcp_call_target_exists(step, workflow_name, server_name, method_name, mcp_contracts, errors):
-        return
+    for method_name, method_field in method_targets:
+        if not _validate_mcp_call_target_exists(step, workflow_name, server_name, method_name, method_field, mcp_contracts, errors):
+            continue
 
-    contract = mcp_contracts.get((server_name, method_name))
-    if contract is None or not isinstance(contract.input_schema, dict):
-        return
+        contract = mcp_contracts.get((server_name, method_name))
+        if contract is None or not isinstance(contract.input_schema, dict):
+            continue
 
-    request_node = step.input.get("request")
-    request_object = request_node if isinstance(request_node, dict) else {}
-    schema_errors: list[_SchemaValidationError] = []
-    _validate_json_node_against_schema(request_object, contract.input_schema, "", schema_errors)
-    if not schema_errors:
-        return
+        request_node = step.input.get("request")
+        request_object = request_node if isinstance(request_node, dict) else {}
+        schema_errors = validate_instance(request_object, contract.input_schema)
+        if not schema_errors:
+            continue
 
-    allowed_paths = list(_enumerate_allowed_paths("input.request", contract.input_schema))[:64]
-    for schema_error in schema_errors:
-        invalid_path = "input.request" if not schema_error.path else f"input.request.{schema_error.path}"
+        allowed_paths = list(_enumerate_allowed_paths("input.request", contract.input_schema))[:64]
+        for schema_error in schema_errors:
+            invalid_path = schema_error.removeprefix("$").lstrip(".") if isinstance(schema_error, str) else ""
+            invalid_path = "input.request" if not invalid_path else f"input.request.{invalid_path}"
+            errors.append(
+                WorkflowSemanticValidationError(
+                    code="MCP_REQUEST_SCHEMA_INVALID",
+                    workflow_name=workflow_name,
+                    step_id=step.id,
+                    field="input.request",
+                    invalid_path=invalid_path,
+                    allowed_paths=allowed_paths,
+                    suggestion=f"Align `mcp.call` request with MCP tool schema for server '{server_name}' method '{method_name}'.",
+                    message=f"mcp.call request for '{server_name}/{method_name}' is invalid: {schema_error}",
+                )
+            )
+
+
+def _validate_mcp_call_input_envelope(
+    step: StepDef,
+    workflow_name: str,
+    errors: list[WorkflowSemanticValidationError],
+) -> None:
+    input_obj = step.input if isinstance(step.input, dict) else {}
+    for field_name in input_obj:
+        if field_name in _KNOWN_MCP_CALL_INPUT_FIELDS:
+            continue
         errors.append(
             WorkflowSemanticValidationError(
-                code="MCP_REQUEST_SCHEMA_INVALID",
+                code="MCP_CALL_INPUT_FIELD_UNKNOWN",
                 workflow_name=workflow_name,
                 step_id=step.id,
-                field="input.request",
-                invalid_path=invalid_path,
-                allowed_paths=allowed_paths,
-                suggestion=f"Align `mcp.call` request with MCP tool schema for server '{server_name}' method '{method_name}'.",
-                message=f"mcp.call request for '{server_name}/{method_name}' is invalid: {schema_error.message}",
+                field=f"input.{field_name}",
+                invalid_path=f"input.{field_name}",
+                allowed_paths=[f"input.{name}" for name in sorted(_KNOWN_MCP_CALL_INPUT_FIELDS)],
+                suggestion=f"Move tool argument '{field_name}' under `input.request`, or remove it if it is not part of the tool request.",
+                message=f"mcp.call input contains unknown top-level field '{field_name}'. Tool arguments must be nested under `input.request`.",
             )
         )
+
+    if "method" in input_obj and "methods" in input_obj:
+        errors.append(
+            WorkflowSemanticValidationError(
+                code="MCP_CALL_SELECTION_CONFLICT",
+                workflow_name=workflow_name,
+                step_id=step.id,
+                field="input.methods",
+                invalid_path="input.method+input.methods",
+                allowed_paths=["input.method", "input.methods"],
+                suggestion="Use either `method` for one capability or `methods` for a batch, but not both.",
+                message="mcp.call input cannot define both 'method' and 'methods'.",
+            )
+        )
+
+    if "request" in input_obj and "request_template" in input_obj:
+        errors.append(
+            WorkflowSemanticValidationError(
+                code="MCP_CALL_REQUEST_CONFLICT",
+                workflow_name=workflow_name,
+                step_id=step.id,
+                field="input.request_template",
+                invalid_path="input.request+input.request_template",
+                allowed_paths=["input.request", "input.request_template"],
+                suggestion="Use either a structured `request` or a rendered `request_template`, but not both.",
+                message="mcp.call input cannot define both 'request' and 'request_template'.",
+            )
+        )
+
+    error_policy = input_obj.get("error_policy")
+    if isinstance(error_policy, dict):
+        for field_name in error_policy:
+            if field_name in {"detect_result_errors", "detectResultErrors"}:
+                continue
+            errors.append(
+                WorkflowSemanticValidationError(
+                    code="MCP_CALL_INPUT_FIELD_UNKNOWN",
+                    workflow_name=workflow_name,
+                    step_id=step.id,
+                    field=f"input.error_policy.{field_name}",
+                    invalid_path=f"input.error_policy.{field_name}",
+                    allowed_paths=["input.error_policy.detect_result_errors"],
+                    suggestion="Remove the unsupported MCP error-policy field.",
+                    message=f"mcp.call error_policy contains unknown field '{field_name}'.",
+                )
+            )
+
+
+def _get_literal_mcp_method_targets(step: StepDef) -> list[tuple[str, str]]:
+    if not isinstance(step.input, dict):
+        return []
+    if "methods" in step.input:
+        methods = step.input.get("methods")
+        if not isinstance(methods, list):
+            return []
+        targets: list[tuple[str, str]] = []
+        for index, item in enumerate(methods):
+            if isinstance(item, str) and item.strip() and "${" not in item:
+                targets.append((item, f"input.methods[{index}]"))
+        return targets
+
+    method_name = _try_get_input_string(step, "method")
+    return [(method_name, "input.method")] if method_name else []
 
 
 def _validate_mcp_call_target_exists(
@@ -381,6 +497,7 @@ def _validate_mcp_call_target_exists(
     workflow_name: str,
     server_name: str,
     method_name: str,
+    method_field: str,
     mcp_contracts: dict[tuple[str, str], McpToolOutputContract],
     errors: list[WorkflowSemanticValidationError],
 ) -> bool:
@@ -412,14 +529,86 @@ def _validate_mcp_call_target_exists(
             code="MCP_METHOD_UNKNOWN",
             workflow_name=workflow_name,
             step_id=step.id,
-            field="input.method",
-            invalid_path=f"input.method:{method_name}",
+            field=method_field,
+            invalid_path=f"{method_field}:{method_name}",
             allowed_paths=[f"mcp.server:{server_name}.method:{method}" for method in known_methods],
             suggestion=f"Use one of the tools discovered for MCP server '{server_name}', or inspect the server with `mcp.list` before calling it.",
             message=f"mcp.call references unknown MCP method '{method_name}' on server '{server_name}'.",
         )
     )
     return False
+
+
+def _validate_llm_call_structured_output(
+    step: StepDef,
+    workflow_name: str,
+    errors: list[WorkflowSemanticValidationError],
+) -> None:
+    if step.type not in {"llm.call", "mcp.call"} or not isinstance(step.input, dict):
+        return
+    if "structured_output" not in step.input:
+        return
+
+    contract = validate_structured_output(step.input.get("structured_output"), allow_dynamic_schema_reference=True)
+    if not contract.errors:
+        return
+
+    for error in contract.errors:
+        errors.append(
+            WorkflowSemanticValidationError(
+                code="STRUCTURED_OUTPUT_SCHEMA_INVALID",
+                workflow_name=workflow_name,
+                step_id=step.id,
+                field="input.structured_output",
+                invalid_path="input.structured_output",
+                allowed_paths=[
+                    "input.structured_output.schema_inline",
+                    "input.structured_output.schema_ref",
+                    "input.structured_output.strict",
+                ],
+                suggestion=(
+                    "Provide a valid JSON Schema under exactly one of `schema_inline` or `schema_ref`; "
+                    "strict schemas must list every property in `required` and set `additionalProperties: false` on objects."
+                ),
+                message=f"{step.type} structured_output is invalid: {error}",
+            )
+        )
+
+
+def _validate_local_workflow_call_args(
+    step: StepDef,
+    workflow_name: str,
+    workflow_contracts: dict[str, Any],
+    errors: list[WorkflowSemanticValidationError],
+) -> None:
+    if step.type != "workflow.call" or not isinstance(step.input, dict):
+        return
+
+    ref = step.input.get("ref")
+    if not isinstance(ref, dict) or str(ref.get("kind", "local")) != "local":
+        return
+
+    target_name = ref.get("name")
+    if not isinstance(target_name, str) or target_name not in workflow_contracts:
+        return
+
+    target_workflow = workflow_contracts[target_name]
+    args = step.input.get("args") if isinstance(step.input.get("args"), dict) else {}
+    input_schema = _input_defs_to_json_schema(getattr(target_workflow, "inputs", None))
+    for schema_error in validate_instance(args, input_schema):
+        invalid_path = schema_error.removeprefix("$").lstrip(".")
+        errors.append(
+            WorkflowSemanticValidationError(
+                code="WORKFLOW_CALL_ARGS_SCHEMA_INVALID",
+                workflow_name=workflow_name,
+                step_id=step.id,
+                field="input.args",
+                invalid_path="input.args" if not invalid_path else f"input.args.{invalid_path}",
+                allowed_paths=list(_enumerate_allowed_paths("input.args", input_schema))[:64],
+                suggestion=f"Align local workflow.call args with workflow '{target_name}' inputs.",
+                message=f"workflow.call args for local workflow '{target_name}' are invalid: {schema_error}",
+            )
+        )
 
 
 def _validate_json_node_against_schema(value: Any, schema: Any, path: str, errors: list[_SchemaValidationError]) -> None:
@@ -711,7 +900,11 @@ def _enumerate_allowed_paths(prefix: str, schema: Any, depth: int = 0):
                 yield nested
 
 
-def _build_step_output_schema(step: StepDef, mcp_contracts: dict[tuple[str, str], McpToolOutputContract]) -> Any:
+def _build_step_output_schema(
+    step: StepDef,
+    mcp_contracts: dict[tuple[str, str], McpToolOutputContract],
+    workflow_contracts: dict[str, Any] | None = None,
+) -> Any:
     if step.type == "set":
         return _build_set_output_schema(step)
     if step.type == "template.render":
@@ -747,6 +940,15 @@ def _build_step_output_schema(step: StepDef, mcp_contracts: dict[tuple[str, str]
             ("workflow", _string_schema()),
             ("run", _object_schema(("steps_executed", _number_schema()), ("success", _boolean_schema()))),
         )
+    if step.type == "workflow.call":
+        outputs_schema = _opaque_schema()
+        input_obj = step.input if isinstance(step.input, dict) else {}
+        ref = input_obj.get("ref")
+        if isinstance(ref, dict) and str(ref.get("kind", "local")) == "local":
+            target_name = ref.get("name")
+            if isinstance(target_name, str) and workflow_contracts and target_name in workflow_contracts:
+                outputs_schema = _output_defs_to_json_schema(getattr(workflow_contracts[target_name], "outputs", None))
+        return _object_schema(("outputs", outputs_schema), ("workflow", _string_schema()))
     if step.type == "sequence":
         return _object_schema(("steps", _object_schema()), ("count", _number_schema()))
     if step.type == "parallel":
@@ -838,6 +1040,84 @@ def _get_structured_output_schema(step: StepDef) -> Any:
     if not isinstance(structured, dict):
         return None
     return copy.deepcopy(structured.get("schema_inline") or structured.get("schema_ref"))
+
+
+def _input_defs_to_json_schema(inputs: dict[str, InputDef] | None) -> dict[str, Any]:
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+    for name, definition in (inputs or {}).items():
+        properties[name] = _input_def_to_json_schema(definition)
+        if getattr(definition, "required", True) and getattr(definition, "default", None) is None:
+            required.append(name)
+    schema: dict[str, Any] = {"type": "object", "properties": properties, "additionalProperties": False}
+    if required:
+        schema["required"] = required
+    return schema
+
+
+def _output_defs_to_json_schema(outputs: dict[str, OutputDef] | None) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {name: _output_def_to_json_schema(definition) for name, definition in (outputs or {}).items()},
+        "additionalProperties": False,
+    }
+
+
+def _input_def_to_json_schema(definition: InputDef | None) -> dict[str, Any]:
+    if definition is None:
+        return _opaque_schema()
+    schema_type = _schema_type_to_json_type(definition.type)
+    schema: dict[str, Any] = {"type": schema_type} if schema_type else _opaque_schema()
+    if definition.description:
+        schema["description"] = definition.description
+    if definition.default is not None:
+        schema["default"] = copy.deepcopy(definition.default)
+    if schema_type == "array" and definition.items is not None:
+        schema["items"] = _input_def_to_json_schema(definition.items)
+    if schema_type == "object":
+        schema["properties"] = {name: _input_def_to_json_schema(child) for name, child in (definition.properties or {}).items()}
+        schema["additionalProperties"] = _input_def_to_json_schema(definition.additional_properties) if definition.additional_properties else False
+        if definition.required_properties:
+            schema["required"] = list(definition.required_properties)
+    if definition.type.lower() == "dictionary":
+        schema["type"] = "object"
+        schema["additionalProperties"] = _input_def_to_json_schema(definition.additional_properties) if definition.additional_properties else True
+    return schema
+
+
+def _output_def_to_json_schema(definition: OutputDef | None) -> dict[str, Any]:
+    if definition is None:
+        return _opaque_schema()
+    schema_type = _schema_type_to_json_type(definition.type)
+    schema: dict[str, Any] = {"type": schema_type} if schema_type else _opaque_schema()
+    if definition.description:
+        schema["description"] = definition.description
+    if schema_type == "array" and definition.items is not None:
+        schema["items"] = _output_def_to_json_schema(definition.items)
+    if schema_type == "object":
+        schema["properties"] = {name: _output_def_to_json_schema(child) for name, child in (definition.properties or {}).items()}
+        schema["additionalProperties"] = _output_def_to_json_schema(definition.additional_properties) if definition.additional_properties else False
+        if definition.required_properties:
+            schema["required"] = list(definition.required_properties)
+    if definition.type.lower() == "dictionary":
+        schema["type"] = "object"
+        schema["additionalProperties"] = _output_def_to_json_schema(definition.additional_properties) if definition.additional_properties else True
+    return schema
+
+
+def _schema_type_to_json_type(type_name: str | None) -> str | None:
+    normalized = (type_name or "any").strip().lower()
+    if normalized in {"any", "json"}:
+        return None
+    if normalized in {"string", "text", "markdown", "yaml", "url", "email", "date", "file", "directory"}:
+        return "string"
+    if normalized in {"number", "integer", "boolean", "array", "object"}:
+        return normalized
+    if normalized in {"bool"}:
+        return "boolean"
+    if normalized == "dictionary":
+        return "object"
+    return None
 
 
 def _try_get_input_string(step: StepDef, property_name: str) -> str | None:

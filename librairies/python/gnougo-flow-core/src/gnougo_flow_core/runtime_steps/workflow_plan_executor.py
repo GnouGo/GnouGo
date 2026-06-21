@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import copy
 import json
 import re
+import textwrap
+from dataclasses import dataclass
+
+import yaml
 
 from gnougo_flow_core.compilation import ValidationError, WorkflowValidator
 from gnougo_flow_core.models import StepDef, WorkflowDocument
@@ -14,6 +19,48 @@ from gnougo_flow_core.workflow_plan_semantic_validator import (
     normalize_mcp_call_input_requests,
     validate_workflow_semantics,
 )
+
+_MCP_DISCOVERY_MAX_ATTEMPTS = 3
+_MCP_DISCOVERY_RETRY_BASE_DELAY_SECONDS = 0.5
+
+
+@dataclass(slots=True)
+class _WorkflowPipelineSubworkflowSpec:
+    name: str
+    goal: str
+    inputs: dict[str, str]
+    outputs: dict[str, str]
+    extract_reason: str
+    content: str
+    generation_prompt: str
+
+
+@dataclass(slots=True)
+class _WorkflowPipelineExtraction:
+    subworkflows: list[_WorkflowPipelineSubworkflowSpec]
+    main_workflow_prompt: str
+    validation_errors: list[str]
+
+
+@dataclass(slots=True)
+class _GeneratedLeafWorkflow:
+    name: str
+    workflow_name: str
+    document: WorkflowDocument
+    yaml_text: str
+    workflow_node: dict[str, Any]
+
+
+@dataclass(slots=True)
+class _GeneratedMainAssembly:
+    main_workflow_node: dict[str, Any]
+    document_name: str | None = None
+    skill_node: dict[str, Any] | None = None
+
+
+class _NoAliasDumper(yaml.SafeDumper):
+    def ignore_aliases(self, data):
+        return True
 
 
 class WorkflowPlanExecutor:
@@ -52,13 +99,21 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
     ]
 
     async def execute_async(self, ctx: StepExecutionContext) -> Any:
-        client = ctx.engine.llm_client
-        if client is None:
-            raise WorkflowRuntimeException(ErrorCodes.LLM_NETWORK, "No LLM client configured")
-
         input_obj = ctx.engine.get_resolved_input(ctx)
         if not isinstance(input_obj, dict):
             raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "workflow.plan input must be object")
+
+        generator = input_obj.get("generator") if isinstance(input_obj.get("generator"), dict) else {}
+        mode = input_obj.get("mode") or generator.get("mode")
+        if isinstance(mode, str) and mode.strip().lower() == "pipeline":
+            return await self._execute_pipeline_async(ctx, copy.deepcopy(input_obj))
+
+        return await self._execute_single_plan_async(ctx, input_obj)
+
+    async def _execute_single_plan_async(self, ctx: StepExecutionContext, input_obj: dict[str, Any]) -> Any:
+        client = ctx.engine.llm_client
+        if client is None:
+            raise WorkflowRuntimeException(ErrorCodes.LLM_NETWORK, "No LLM client configured")
 
         generator = input_obj.get("generator")
         if not isinstance(generator, dict):
@@ -161,9 +216,19 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     validation_span.set_attribute("gnougo-flow.plan.workflow_count", len(doc.workflows))
                     self._enforce_plan_policy(doc, policy, limits)
                     if bool(validate.get("compile", True)):
-                        normalization_count = self._validate_generated_workflow_for_plan(doc, validation_mcp_tool_contracts)
+                        normalization_count = self._validate_generated_workflow_for_plan(
+                            doc,
+                            validation_mcp_tool_contracts,
+                            validation_mcp_server_metadata,
+                        )
                         if normalization_count > 0:
                             yaml_text = self._dump_workflow_yaml(doc)
+                    elif bool(validate.get("dry_run", False)):
+                        self._validate_mcp_discovery_coverage(
+                            doc,
+                            validation_mcp_tool_contracts,
+                            validation_mcp_server_metadata,
+                        )
                     if bool(validate.get("dry_run", False)):
                         validation_span.set_attribute("gnougo-flow.plan.dry_run", True)
                         await validate_workflow_plan_dry_run(
@@ -198,6 +263,795 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             ErrorCodes.TEMPLATE_PLAN,
             f"Failed to generate valid workflow after {max_attempts} attempts: {last_error or 'unknown error'}",
         )
+
+    async def _execute_pipeline_async(self, ctx: StepExecutionContext, input_obj: dict[str, Any]) -> Any:
+        generator = input_obj.get("generator") if isinstance(input_obj.get("generator"), dict) else {}
+        raw_prompt = input_obj.get("raw_prompt") or generator.get("raw_prompt") or generator.get("instruction") or ""
+        raw_prompt = str(raw_prompt)
+        if not raw_prompt.strip():
+            raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "workflow.plan pipeline mode requires 'raw_prompt' or generator.instruction")
+
+        self._normalize_pipeline_main_policy(input_obj)
+
+        provider, model = ctx.engine.resolve_llm_target(generator.get("provider"), generator.get("model"))
+        model = model or "gpt-4"
+        reasoning_raw = generator.get("reasoning")
+        reasoning = reasoning_raw.strip() if isinstance(reasoning_raw, str) and reasoning_raw.strip() else "medium"
+
+        ctx.set_telemetry_attribute("gnougo-flow.plan.mode", "pipeline")
+        ctx.add_telemetry_event(
+            "gnougo-flow.step.thinking",
+            [
+                ("gnougo-flow.thinking.message", "Preparing workflow generation prompt through pipeline mode."),
+                ("gnougo-flow.thinking.level", "thinking"),
+            ],
+        )
+
+        normalized_markdown = await self._normalize_user_prompt(ctx, raw_prompt, provider, model, reasoning)
+        annotated_markdown = await self._mark_extractable_blocks(ctx, normalized_markdown, provider, model, reasoning)
+        extraction = self._extract_subworkflow_specs(annotated_markdown)
+        if extraction.validation_errors:
+            raise WorkflowRuntimeException(
+                ErrorCodes.TEMPLATE_PLAN,
+                "workflow.plan pipeline extraction failed: " + "; ".join(extraction.validation_errors),
+            )
+
+        generated_leaves = [
+            await self._generate_leaf_workflow_async(ctx, input_obj, generator, spec)
+            for spec in extraction.subworkflows
+        ]
+
+        validate = input_obj.get("validate") if isinstance(input_obj.get("validate"), dict) else {}
+        validation_mcp_server_metadata = self._get_configured_mcp_server_metadata(ctx)
+        validation_mcp_tool_contracts: list[McpToolOutputContract] = []
+        if (bool(validate.get("compile", True)) or bool(validate.get("dry_run", False))) and validation_mcp_server_metadata:
+            validation_mcp_tool_contracts = await self._collect_mcp_tool_contracts(ctx, validation_mcp_server_metadata)
+
+        configured_main_inputs = self._build_configured_main_input_contract(input_obj, generator)
+        inferred_leaf_inputs = self._build_generated_main_input_contract(extraction.subworkflows)
+        base_prompt = self._build_main_assembly_prompt(
+            input_obj,
+            generator,
+            normalized_markdown,
+            extraction,
+            generated_leaves,
+            configured_main_inputs,
+            inferred_leaf_inputs,
+        )
+        max_attempts = self._get_pipeline_generation_max_attempts(input_obj)
+        previous_response: str | None = None
+        previous_error: str | None = None
+        last_error: Exception | None = None
+        final_yaml: str | None = None
+        final_doc: WorkflowDocument | None = None
+
+        for attempt in range(1, max_attempts + 1):
+            prompt = base_prompt if previous_error is None else self._build_main_assembly_repair_prompt(base_prompt, previous_response, previous_error)
+            try:
+                response = await ctx.engine.call_llm_async(
+                    LLMRequest(
+                        provider=provider,
+                        model=model,
+                        prompt=prompt,
+                        reasoning=reasoning,
+                        use_background_mode=True,
+                    )
+                )
+                previous_response = response.text
+                assembly = self._parse_generated_main_assembly(response.text or "")
+                main_inputs = self._resolve_main_input_contract(configured_main_inputs, assembly, inferred_leaf_inputs)
+                assembly.main_workflow_node["inputs"] = copy.deepcopy(main_inputs)
+                self._ensure_main_workflow_outputs(assembly.main_workflow_node, extraction.subworkflows)
+                self._validate_declared_main_input_references(assembly.main_workflow_node, main_inputs)
+
+                candidate_yaml = self._compose_pipeline_workflow_yaml(input_obj, generator, extraction, generated_leaves, assembly, main_inputs)
+                candidate_doc = WorkflowParser.parse(candidate_yaml)
+                self._enforce_pipeline_workflow_hierarchy(candidate_doc, {leaf.name for leaf in generated_leaves})
+                self._run_standard_plan_validation_sequence(
+                    candidate_doc,
+                    input_obj.get("policy") if isinstance(input_obj.get("policy"), dict) else {},
+                    input_obj.get("limits") if isinstance(input_obj.get("limits"), dict) else {},
+                    validate,
+                    validation_mcp_tool_contracts,
+                    validation_mcp_server_metadata,
+                )
+                if bool(validate.get("dry_run", False)):
+                    await validate_workflow_plan_dry_run(candidate_doc, validation_mcp_tool_contracts, validation_mcp_server_metadata)
+
+                final_yaml = candidate_yaml
+                final_doc = candidate_doc
+                break
+            except Exception as exc:
+                last_error = exc
+                if attempt >= max_attempts:
+                    break
+                previous_error = self._build_structured_plan_error(exc)
+
+        if final_yaml is None or final_doc is None:
+            raise WorkflowRuntimeException(
+                ErrorCodes.TEMPLATE_PLAN,
+                f"Pipeline main workflow assembly failed after {max_attempts} attempt(s): {last_error or 'unknown error'}",
+            )
+
+        return {
+            "yaml": final_yaml,
+            "workflow": {
+                "version": final_doc.version,
+                "name": final_doc.name,
+                "workflows": list(final_doc.workflows.keys()),
+            },
+            "meta": {
+                "model": model,
+                "mode": "pipeline",
+                "leaf_subworkflow_count": len(generated_leaves),
+            },
+            "diagnostics": [],
+            "pipeline": {
+                "normalized_markdown": normalized_markdown,
+                "annotated_markdown": annotated_markdown,
+                "specs": self._build_extraction_json(extraction),
+            },
+        }
+
+    async def _normalize_user_prompt(self, ctx: StepExecutionContext, raw_prompt: str, provider: str | None, model: str, reasoning: str | None) -> str:
+        prompt = (
+            "You are preparing a raw user automation prompt for GnOuGo workflow generation.\n"
+            "Return ONLY clean Markdown. Do not wrap the result in code fences.\n\n"
+            "Behavior:\n"
+            "- Correct spelling and grammar.\n"
+            "- Rewrite the raw prompt as clean Markdown.\n"
+            "- Preserve the exact business meaning.\n"
+            "- Do not invent requirements.\n"
+            "- Do not remove requirements.\n"
+            "- Do not change the user intent.\n"
+            "- Keep all important business rules.\n"
+            "- Keep input parameters, defaults, conditions, loops, security rules, reporting rules, and cleanup rules.\n"
+            "- Make the result easier to read and easier to transform into workflows.\n\n"
+            f"<raw_prompt>\n{raw_prompt}\n</raw_prompt>"
+        )
+        return await self._execute_pipeline_llm_text_phase(ctx, "normalize_user_prompt", prompt, provider, model, reasoning)
+
+    async def _mark_extractable_blocks(
+        self,
+        ctx: StepExecutionContext,
+        normalized_markdown: str,
+        provider: str | None,
+        model: str,
+        reasoning: str | None,
+    ) -> str:
+        prompt = (
+            "You annotate normalized automation Markdown for GnOuGo workflow generation.\n"
+            "Return ONLY annotated Markdown. Do not wrap the result in code fences.\n\n"
+            "Identify only the parts that contain significant algorithmic logic and wrap them in exactly this block syntax:\n\n"
+            ":::subworkflow name=\"snake_case_name\"\n"
+            "goal: Short goal.\n"
+            "inputs:\n"
+            "  input_name: type\n"
+            "outputs:\n"
+            "  output_name: type\n"
+            "extract_reason: Why this deserves a sub-workflow.\n"
+            "content:\n"
+            "  Markdown description of the logic to implement.\n"
+            ":::\n\n"
+            "Rules for subworkflow blocks:\n"
+            "- The name must use snake_case.\n"
+            "- Each block must describe exactly one responsibility.\n"
+            "- Each block must be self-contained and detailed enough to generate a workflow later.\n"
+            "- Each block must be a leaf workflow.\n"
+            "- The block content must not mention calling another subworkflow.\n"
+            "- Inputs and outputs must be explicit and typed.\n\n"
+            "At the end of the Markdown, add:\n\n"
+            "## Main workflow orchestration\n\n"
+            "In that section, explain how the main workflow calls the leaf subworkflows in order.\n"
+            "The architecture must have only one hierarchy level: only the main workflow can call leaf workflows.\n\n"
+            f"<normalized_markdown>\n{normalized_markdown}\n</normalized_markdown>"
+        )
+        return await self._execute_pipeline_llm_text_phase(ctx, "mark_extractable_blocks", prompt, provider, model, reasoning)
+
+    async def _execute_pipeline_llm_text_phase(
+        self,
+        ctx: StepExecutionContext,
+        phase: str,
+        prompt: str,
+        provider: str | None,
+        model: str,
+        reasoning: str | None,
+    ) -> str:
+        with ctx.begin_telemetry_span(
+            f"workflow.plan.pipeline.{phase}",
+            phase,
+            [
+                ("gen_ai.operation.name", "chat"),
+                ("gen_ai.system", provider or "unknown"),
+                ("gen_ai.request.model", model),
+                ("gen_ai.request.background", True),
+            ],
+        ) as span:
+            response = await ctx.engine.call_llm_async(
+                LLMRequest(provider=provider, model=model, prompt=prompt, reasoning=reasoning, use_background_mode=True)
+            )
+            self._add_usage_attributes(span, response.usage)
+        text = self._strip_markdown_code_fence(textwrap.dedent(response.text or "")).strip()
+        if not text:
+            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, f"workflow.plan pipeline phase '{phase}' returned empty text.")
+        return text
+
+    def _extract_subworkflow_specs(self, annotated_markdown: str) -> _WorkflowPipelineExtraction:
+        normalized = annotated_markdown.replace("\r\n", "\n").replace("\r", "\n")
+        block_re = re.compile(r"(?ms)^:::subworkflow\s+name=\"(?P<name>[^\"]+)\"\s*\n(?P<body>.*?)^:::\s*$")
+        marker_re = re.compile(r"(?m)^:::subworkflow\b")
+        specs: list[_WorkflowPipelineSubworkflowSpec] = []
+        errors: list[str] = []
+        names: set[str] = set()
+        matches = list(block_re.finditer(normalized))
+        if len(matches) != len(marker_re.findall(normalized)):
+            errors.append("Nested or malformed :::subworkflow block found.")
+
+        for match in matches:
+            name = match.group("name").strip()
+            if not re.match(r"^[a-z][a-z0-9_]*$", name):
+                errors.append(f"Subworkflow name '{name}' must use snake_case.")
+            if name in names:
+                errors.append(f"Duplicate subworkflow name '{name}'.")
+            names.add(name)
+            specs.append(self._parse_subworkflow_block(name, match.group("body"), errors))
+
+        if "## main workflow orchestration" not in normalized.lower():
+            errors.append("Annotated markdown must include a '## Main workflow orchestration' section.")
+
+        main_prompt = self._extract_main_workflow_prompt(normalized, specs)
+        return _WorkflowPipelineExtraction(specs, main_prompt, errors)
+
+    def _parse_subworkflow_block(self, name: str, body: str, errors: list[str]) -> _WorkflowPipelineSubworkflowSpec:
+        if re.search(r"(?m)^:::subworkflow\b", body):
+            errors.append(f"Subworkflow '{name}' contains a nested :::subworkflow block.")
+        goal = ""
+        extract_reason = ""
+        inputs: dict[str, str] = {}
+        outputs: dict[str, str] = {}
+        content: list[str] = []
+        section = ""
+        for raw_line in body.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+            trimmed = raw_line.strip()
+            if trimmed.startswith("goal:"):
+                goal = trimmed[len("goal:") :].strip()
+                section = ""
+                continue
+            if trimmed == "inputs:":
+                section = "inputs"
+                continue
+            if trimmed == "outputs:":
+                section = "outputs"
+                continue
+            if trimmed.startswith("extract_reason:"):
+                extract_reason = trimmed[len("extract_reason:") :].strip()
+                section = ""
+                continue
+            if trimmed.startswith("content:"):
+                section = "content"
+                inline = trimmed[len("content:") :].strip()
+                if inline:
+                    content.append(inline)
+                continue
+            if section in {"inputs", "outputs"}:
+                if not trimmed:
+                    continue
+                if ":" not in trimmed:
+                    errors.append(f"Subworkflow '{name}' has an invalid {section} line: '{trimmed}'.")
+                    continue
+                key, type_name = (part.strip() for part in trimmed.split(":", 1))
+                if not key or not type_name:
+                    errors.append(f"Subworkflow '{name}' has an untyped {section} entry: '{trimmed}'.")
+                    continue
+                if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", key):
+                    errors.append(f"Subworkflow '{name}' {section} entry '{key}' must be an identifier.")
+                (inputs if section == "inputs" else outputs)[key] = self._normalize_workflow_schema_type(type_name)
+                continue
+            if section == "content":
+                content.append(raw_line[2:] if raw_line.startswith("  ") else raw_line)
+
+        content_text = "\n".join(content).strip()
+        if not goal:
+            errors.append(f"Subworkflow '{name}' is missing goal.")
+        if not extract_reason:
+            errors.append(f"Subworkflow '{name}' is missing extract_reason.")
+        if not content_text:
+            errors.append(f"Subworkflow '{name}' is missing content.")
+        if re.search(r"\b(call|invoke|run)\s+(another\s+)?subworkflow\b", content_text, re.IGNORECASE):
+            errors.append(f"Subworkflow '{name}' appears to call another subworkflow.")
+
+        return _WorkflowPipelineSubworkflowSpec(
+            name=name,
+            goal=goal,
+            inputs=inputs,
+            outputs=outputs,
+            extract_reason=extract_reason,
+            content=content_text,
+            generation_prompt=self._build_subworkflow_generation_prompt(name, goal, inputs, outputs, content_text),
+        )
+
+    @staticmethod
+    def _extract_main_workflow_prompt(annotated_markdown: str, specs: list[_WorkflowPipelineSubworkflowSpec]) -> str:
+        match = re.search(r"(?im)^##\s+Main workflow orchestration\b", annotated_markdown)
+        if match:
+            return annotated_markdown[match.start() :].strip()
+        order = "No leaf subworkflows were extracted." if not specs else ", ".join(spec.name for spec in specs)
+        return "Build a main workflow that calls these leaf subworkflows in order with local workflow.call: " + order
+
+    @staticmethod
+    def _normalize_workflow_schema_type(type_name: str) -> str:
+        normalized = type_name.strip().lower()
+        return normalized if normalized in {"string", "number", "integer", "boolean", "array", "object", "dictionary", "any"} else "any"
+
+    @staticmethod
+    def _build_subworkflow_generation_prompt(
+        name: str,
+        goal: str,
+        inputs: dict[str, str],
+        outputs: dict[str, str],
+        content: str,
+    ) -> str:
+        lines = [
+            f"Generate exactly one leaf GnOuGo workflow named `{name}`.",
+            f"Goal: {goal}",
+            "",
+            "Leaf workflow constraints:",
+            "- Generate a complete YAML document with version, name, skill, and workflows.",
+            f"- The document must contain exactly one workflow, preferably named `{name}`.",
+            "- The workflow must be a leaf workflow.",
+            "- Do not use workflow.call.",
+            "- Do not use workflow.plan.",
+            "- Do not depend on another subworkflow.",
+            "- Preserve the declared input and output contract.",
+            "- Any schema with `type: object` MUST be strongly typed with a non-empty `properties` mapping. "
+            "Never generate a bare `type: object` input, output, item, or nested property.",
+            "- Use `required_properties: [field_name]` for required object property names; do not duplicate YAML keys.",
+            "",
+            "Inputs:",
+        ]
+        lines.extend([f"- {key}: {value}" for key, value in inputs.items()] or ["- none"])
+        lines.append("Outputs:")
+        lines.extend([f"- {key}: {value}" for key, value in outputs.items()] or ["- none"])
+        lines.extend(["", "Content to implement:", content])
+        return "\n".join(lines).strip()
+
+    async def _generate_leaf_workflow_async(
+        self,
+        ctx: StepExecutionContext,
+        pipeline_input: dict[str, Any],
+        generator: dict[str, Any],
+        spec: _WorkflowPipelineSubworkflowSpec,
+    ) -> _GeneratedLeafWorkflow:
+        max_attempts = self._get_pipeline_generation_max_attempts(pipeline_input)
+        previous_error: str | None = None
+        previous_yaml: str | None = None
+        previous_prompt: str | None = None
+        last_error: Exception | None = None
+        for attempt in range(1, max_attempts + 1):
+            leaf_input = self._build_leaf_plan_input(pipeline_input, generator, spec, previous_error, previous_yaml, previous_prompt)
+            previous_prompt = leaf_input.get("generator", {}).get("instruction") if isinstance(leaf_input.get("generator"), dict) else spec.generation_prompt
+            try:
+                result = await self._execute_single_plan_async(ctx, leaf_input)
+                yaml_text = result.get("yaml") if isinstance(result, dict) else None
+                if not isinstance(yaml_text, str) or not yaml_text.strip():
+                    raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, f"Leaf workflow '{spec.name}' generation did not return YAML.")
+                return self._prepare_generated_leaf(spec, yaml_text)
+            except Exception as exc:
+                last_error = exc
+                if attempt >= max_attempts:
+                    break
+                previous_yaml = self._try_extract_generated_yaml_from_exception(exc)
+                previous_error = self._format_leaf_generation_error(spec.name, attempt, exc)
+
+        raise WorkflowRuntimeException(
+            ErrorCodes.TEMPLATE_PLAN,
+            f"Leaf workflow '{spec.name}' failed after {max_attempts} generation attempt(s): {last_error or 'unknown error'}",
+        )
+
+    def _build_leaf_plan_input(
+        self,
+        pipeline_input: dict[str, Any],
+        generator: dict[str, Any],
+        spec: _WorkflowPipelineSubworkflowSpec,
+        previous_error: str | None,
+        previous_yaml: str | None,
+        previous_prompt: str | None,
+    ) -> dict[str, Any]:
+        leaf_generator = copy.deepcopy(generator)
+        leaf_generator.pop("mode", None)
+        leaf_generator.pop("raw_prompt", None)
+        leaf_generator["instruction"] = (
+            spec.generation_prompt
+            if not previous_error
+            else self._build_leaf_repair_prompt(spec.generation_prompt, previous_prompt, previous_yaml, previous_error)
+        )
+        leaf_generator["context"] = ""
+        leaf_generator["pipeline_leaf_name"] = spec.name
+        leaf_input: dict[str, Any] = {
+            "generator": leaf_generator,
+            "policy": self._build_leaf_policy(pipeline_input.get("policy") if isinstance(pipeline_input.get("policy"), dict) else None),
+            "validate": copy.deepcopy(pipeline_input.get("validate") if isinstance(pipeline_input.get("validate"), dict) else {}),
+            "on_invalid": {"action": "fail", "max_attempts": 1},
+        }
+        leaf_input["validate"]["compile"] = True
+        if isinstance(pipeline_input.get("limits"), dict):
+            leaf_input["limits"] = copy.deepcopy(pipeline_input["limits"])
+        return leaf_input
+
+    def _build_leaf_repair_prompt(self, generation_prompt: str, previous_prompt: str | None, previous_yaml: str | None, previous_error: str) -> str:
+        repair_context = "Previous generated YAML for this leaf workflow failed validation.\nRegenerate only this leaf workflow and fix the YAML below."
+        if previous_prompt:
+            repair_context += f"\n\n<previous_prompt>\n{previous_prompt.strip()}\n</previous_prompt>"
+        return self._build_reprompt(generation_prompt, "", {}, previous_yaml, Exception(previous_error), repair_context)
+
+    @staticmethod
+    def _format_leaf_generation_error(leaf_name: str, attempt: int, exc: Exception) -> str:
+        return f"Leaf workflow: {leaf_name}\nFailed attempt: {attempt}\nError type: {type(exc).__name__}\nError message:\n{exc}"
+
+    @staticmethod
+    def _try_extract_generated_yaml_from_exception(exc: Exception) -> str | None:
+        message = str(exc)
+        marker = "generated_yaml"
+        if marker not in message:
+            return None
+        return message
+
+    def _prepare_generated_leaf(self, spec: _WorkflowPipelineSubworkflowSpec, yaml_text: str) -> _GeneratedLeafWorkflow:
+        doc = WorkflowParser.parse(yaml_text)
+        if len(doc.workflows) != 1:
+            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, f"Leaf workflow '{spec.name}' must generate exactly one workflow.")
+        workflow_name = next(iter(doc.workflows))
+        self._enforce_strong_object_schemas(spec.name, doc)
+        for step in self._enumerate_steps(doc.workflows[workflow_name].steps):
+            if step.type in {"workflow.call", "workflow.plan"}:
+                raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_POLICY, f"Leaf workflow '{spec.name}' must not contain step type '{step.type}'.")
+        parsed = yaml.safe_load(yaml_text)
+        workflow_node = copy.deepcopy(parsed.get("workflows", {}).get(workflow_name)) if isinstance(parsed, dict) else None
+        if not isinstance(workflow_node, dict):
+            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, f"Leaf workflow '{spec.name}' did not contain a valid workflow mapping.")
+        return _GeneratedLeafWorkflow(spec.name, workflow_name, doc, yaml_text, workflow_node)
+
+    def _run_standard_plan_validation_sequence(
+        self,
+        doc: WorkflowDocument,
+        policy: dict[str, Any],
+        limits: dict[str, Any],
+        validate: dict[str, Any],
+        mcp_contracts: list[McpToolOutputContract],
+        mcp_server_metadata: list[McpServerMetadata],
+    ) -> None:
+        self._enforce_plan_policy(doc, policy, limits)
+        if bool(validate.get("compile", True)):
+            normalization_count = self._validate_generated_workflow_for_plan(doc, mcp_contracts, mcp_server_metadata)
+            if normalization_count:
+                doc.raw_yaml = self._dump_workflow_yaml(doc)
+        elif bool(validate.get("dry_run", False)):
+            self._validate_mcp_discovery_coverage(doc, mcp_contracts, mcp_server_metadata)
+
+    @staticmethod
+    def _normalize_pipeline_main_policy(input_obj: dict[str, Any]) -> None:
+        policy = input_obj.get("policy")
+        if not isinstance(policy, dict):
+            policy = {}
+            input_obj["policy"] = policy
+        denied = policy.get("denied_step_types")
+        if isinstance(denied, list):
+            policy["denied_step_types"] = [item for item in denied if str(item) != "workflow.call"]
+        allowed = policy.get("allowed_step_types")
+        if isinstance(allowed, list) and "workflow.call" not in allowed:
+            allowed.append("workflow.call")
+
+    @staticmethod
+    def _build_leaf_policy(source_policy: dict[str, Any] | None) -> dict[str, Any]:
+        policy = copy.deepcopy(source_policy or {})
+        allowed = policy.get("allowed_step_types")
+        if isinstance(allowed, list):
+            policy["allowed_step_types"] = [item for item in allowed if str(item) not in {"workflow.call", "workflow.plan"}]
+        denied = policy.get("denied_step_types")
+        if not isinstance(denied, list):
+            denied = []
+            policy["denied_step_types"] = denied
+        for step_type in ("workflow.call", "workflow.plan"):
+            if step_type not in denied:
+                denied.append(step_type)
+        policy["allow_remote_workflow_refs"] = False
+        return policy
+
+    def _enforce_strong_object_schemas(self, leaf_name: str, doc: WorkflowDocument) -> None:
+        errors: list[str] = []
+        if doc.skill and doc.skill.inputs:
+            for name, definition in doc.skill.inputs.items():
+                self._validate_strong_object_schema(definition, f"skill.inputs.{name}", errors)
+        if doc.skill and doc.skill.outputs:
+            for name, definition in doc.skill.outputs.items():
+                self._validate_strong_object_schema(definition, f"skill.outputs.{name}", errors)
+        for workflow_name, workflow in doc.workflows.items():
+            for name, definition in (workflow.inputs or {}).items():
+                self._validate_strong_object_schema(definition, f"workflows.{workflow_name}.inputs.{name}", errors)
+            for name, definition in (workflow.outputs or {}).items():
+                self._validate_strong_object_schema(definition, f"workflows.{workflow_name}.outputs.{name}", errors)
+        if errors:
+            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, f"Leaf workflow '{leaf_name}' uses weak object schemas: {'; '.join(errors)}")
+
+    def _validate_strong_object_schema(self, definition: Any, path: str, errors: list[str]) -> None:
+        if getattr(definition, "type", "").lower() == "object" and not getattr(definition, "properties", None):
+            errors.append(f"{path} has type object without properties")
+        if getattr(definition, "items", None) is not None:
+            self._validate_strong_object_schema(definition.items, path + ".items", errors)
+        for name, child in (getattr(definition, "properties", None) or {}).items():
+            self._validate_strong_object_schema(child, f"{path}.properties.{name}", errors)
+        if getattr(definition, "additional_properties", None) is not None:
+            self._validate_strong_object_schema(definition.additional_properties, path + ".additional_properties", errors)
+
+    @staticmethod
+    def _get_pipeline_generation_max_attempts(input_obj: dict[str, Any]) -> int:
+        on_invalid = input_obj.get("on_invalid") if isinstance(input_obj.get("on_invalid"), dict) else {}
+        return max(1, int(on_invalid.get("max_attempts", 3) or 3))
+
+    def _build_main_assembly_prompt(
+        self,
+        pipeline_input: dict[str, Any],
+        generator: dict[str, Any],
+        normalized_markdown: str,
+        extraction: _WorkflowPipelineExtraction,
+        leaves: list[_GeneratedLeafWorkflow],
+        configured_main_inputs: dict[str, Any],
+        inferred_leaf_inputs: dict[str, str],
+    ) -> str:
+        parts = [
+            "You are assembling the parent `main` workflow for a GnOuGo.Flow pipeline.",
+            "Return ONLY one YAML mapping with `document` and `main` keys. Do not return version, entrypoint, workflows, or leaf workflow definitions.",
+            "",
+            "Hard rules:",
+            "- The main workflow may call leaf workflows using local `workflow.call` only.",
+            "- The main workflow must never use `workflow.plan`.",
+            "- Leaf workflows must never call other workflows.",
+            "- Preserve the orchestration algorithm from the normalized prompt and the Main workflow orchestration section.",
+            "- Do not inline leaf logic. Call the leaf workflow that owns each responsibility.",
+            "- Every `data.inputs.<name>` reference MUST have an identically named declaration in `main.inputs`.",
+            "- Leaf input names are call arguments, not automatically public main inputs.",
+        ]
+        if configured_main_inputs:
+            parts.append("- `authoritative_main_inputs_yaml` is exact: preserve every name and schema and do not add or remove inputs.")
+        else:
+            parts.append("- Infer public main inputs from the user's normalized request; do not expose leaf-only implementation details.")
+        parts.extend(
+            [
+                "",
+                self._prompt_section("configured_document_name", self._resolve_configured_pipeline_document_name(pipeline_input, generator) or ""),
+                self._prompt_section("configured_skill_yaml", self._serialize_yaml_value(self._resolve_configured_skill(pipeline_input, generator) or {})),
+                self._prompt_section("normalized_markdown", normalized_markdown),
+                self._prompt_section("main_workflow_orchestration", extraction.main_workflow_prompt),
+                self._prompt_section("authoritative_main_inputs_yaml", self._serialize_yaml_value(configured_main_inputs)),
+                self._prompt_section("leaf_input_candidates_yaml", self._serialize_yaml_value(inferred_leaf_inputs)),
+                self._prompt_section("leaf_subworkflow_specs_json", json.dumps(self._build_extraction_json(extraction), ensure_ascii=False, indent=2)),
+                self._prompt_section("generated_leaf_workflows_yaml", "\n---\n".join(leaf.yaml_text for leaf in leaves)),
+                "",
+                "Output shape example:",
+                "document:",
+                "  name: example_pipeline",
+                "  skill:",
+                "    description: Process the user's query.",
+                "    tags: [example, pipeline]",
+                "    inputs:",
+                "      user_query: string",
+                "    outputs:",
+                "      result: string",
+                "main:",
+                "  inputs:",
+                "    user_query: string",
+                "  steps:",
+                "    - id: call_example_leaf",
+                "      type: workflow.call",
+                "      input:",
+                "        ref:",
+                "          kind: local",
+                "          name: example_leaf",
+                "        args:",
+                "          query: ${data.inputs.user_query}",
+                "  outputs:",
+                "    result: ${data.steps.call_example_leaf.outputs.result}",
+            ]
+        )
+        return "\n".join(parts)
+
+    @staticmethod
+    def _build_main_assembly_repair_prompt(base_prompt: str, previous_response: str | None, structured_error: str) -> str:
+        parts = [
+            base_prompt.rstrip(),
+            "",
+            "The previous main workflow assembly failed final validation.",
+            "Return a complete corrected `document` and `main` YAML mapping that still follows every rule above.",
+        ]
+        if previous_response:
+            parts.extend(["<invalid_main_assembly_yaml>", WorkflowPlanExecutor._strip_markdown_code_fence(previous_response), "</invalid_main_assembly_yaml>"])
+        parts.extend(["<main_assembly_validation_error>", structured_error, "</main_assembly_validation_error>"])
+        return "\n".join(parts)
+
+    def _parse_generated_main_assembly(self, text: str) -> _GeneratedMainAssembly:
+        parsed = yaml.safe_load(self._strip_markdown_code_fence(textwrap.dedent(text))) or {}
+        if not isinstance(parsed, dict):
+            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, "Pipeline main assembly response must be a YAML mapping.")
+        document = parsed.get("document") if isinstance(parsed.get("document"), dict) else {}
+        if isinstance(parsed.get("main"), dict):
+            skill = copy.deepcopy(document.get("skill")) if isinstance(document.get("skill"), dict) else None
+            return _GeneratedMainAssembly(copy.deepcopy(parsed["main"]), document.get("name"), skill)
+        workflows = parsed.get("workflows")
+        if isinstance(workflows, dict) and isinstance(workflows.get("main"), dict):
+            skill = copy.deepcopy(parsed.get("skill")) if isinstance(parsed.get("skill"), dict) else None
+            return _GeneratedMainAssembly(copy.deepcopy(workflows["main"]), parsed.get("name"), skill)
+        skill = copy.deepcopy(parsed.get("skill")) if isinstance(parsed.get("skill"), dict) else None
+        return _GeneratedMainAssembly(copy.deepcopy(parsed), parsed.get("name"), skill)
+
+    def _compose_pipeline_workflow_yaml(
+        self,
+        pipeline_input: dict[str, Any],
+        generator: dict[str, Any],
+        extraction: _WorkflowPipelineExtraction,
+        leaves: list[_GeneratedLeafWorkflow],
+        assembly: _GeneratedMainAssembly,
+        main_inputs: dict[str, Any],
+    ) -> str:
+        document_name = self._resolve_configured_pipeline_document_name(pipeline_input, generator) or assembly.document_name or "generated-pipeline-workflow"
+        main_node = copy.deepcopy(assembly.main_workflow_node)
+        main_node["inputs"] = copy.deepcopy(main_inputs)
+        root = {
+            "version": 1,
+            "name": document_name,
+            "skill": self._build_pipeline_skill_node(document_name, pipeline_input, generator, extraction, main_inputs, assembly.skill_node),
+            "entrypoint": "main",
+            "workflows": {"main": main_node},
+        }
+        for leaf in leaves:
+            root["workflows"][leaf.name] = copy.deepcopy(leaf.workflow_node)
+        return yaml.dump(root, Dumper=_NoAliasDumper, sort_keys=False, allow_unicode=False).strip()
+
+    def _build_pipeline_skill_node(
+        self,
+        document_name: str,
+        pipeline_input: dict[str, Any],
+        generator: dict[str, Any],
+        extraction: _WorkflowPipelineExtraction,
+        main_inputs: dict[str, Any],
+        generated_skill: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        configured_skill = self._resolve_configured_skill(pipeline_input, generator) or {}
+        description = (
+            configured_skill.get("description")
+            or pipeline_input.get("description")
+            or generator.get("description")
+            or (generated_skill or {}).get("description")
+            or self._build_generated_pipeline_skill_description(document_name, pipeline_input, generator, extraction)
+        )
+        tags = configured_skill.get("tags") or (generated_skill or {}).get("tags") or ["generated", "pipeline"]
+        outputs = {}
+        for source in (generator.get("outputs"), configured_skill.get("outputs"), pipeline_input.get("outputs"), (generated_skill or {}).get("outputs")):
+            if isinstance(source, dict):
+                outputs.update(copy.deepcopy(source))
+        if not outputs:
+            for spec in extraction.subworkflows:
+                outputs[f"{spec.name}_outputs"] = {"type": "object", "description": f"Outputs from the {spec.name} leaf workflow."}
+        return {"description": description, "tags": tags, "inputs": copy.deepcopy(main_inputs), "outputs": outputs}
+
+    @staticmethod
+    def _resolve_configured_skill(pipeline_input: dict[str, Any], generator: dict[str, Any]) -> dict[str, Any] | None:
+        skill = pipeline_input.get("skill") if isinstance(pipeline_input.get("skill"), dict) else generator.get("skill")
+        return copy.deepcopy(skill) if isinstance(skill, dict) else None
+
+    @staticmethod
+    def _resolve_configured_pipeline_document_name(pipeline_input: dict[str, Any], generator: dict[str, Any]) -> str | None:
+        for source in (pipeline_input, generator):
+            for key in ("name", "workflow_name", "document_name"):
+                value = source.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+        return None
+
+    @staticmethod
+    def _build_generated_pipeline_skill_description(
+        document_name: str,
+        pipeline_input: dict[str, Any],
+        generator: dict[str, Any],
+        extraction: _WorkflowPipelineExtraction,
+    ) -> str:
+        source = (
+            pipeline_input.get("raw_prompt")
+            or generator.get("raw_prompt")
+            or generator.get("instruction")
+            or extraction.main_workflow_prompt
+            or document_name
+        )
+        first_line = next((line.strip() for line in str(source).splitlines() if line.strip() and not line.strip().startswith("#")), "")
+        return first_line[:177] + "..." if len(first_line) > 180 else first_line or f"Generated pipeline workflow for {document_name}."
+
+    @staticmethod
+    def _build_configured_main_input_contract(pipeline_input: dict[str, Any], generator: dict[str, Any]) -> dict[str, Any]:
+        inputs: dict[str, Any] = {}
+        for source in (
+            (generator.get("skill") if isinstance(generator.get("skill"), dict) else {}).get("inputs"),
+            generator.get("inputs"),
+            (pipeline_input.get("skill") if isinstance(pipeline_input.get("skill"), dict) else {}).get("inputs"),
+            pipeline_input.get("inputs"),
+        ):
+            if isinstance(source, dict):
+                inputs.update(copy.deepcopy(source))
+        return inputs
+
+    @staticmethod
+    def _build_generated_main_input_contract(specs: list[_WorkflowPipelineSubworkflowSpec]) -> dict[str, str]:
+        inputs: dict[str, str] = {}
+        available_outputs: set[str] = set()
+        for spec in specs:
+            for name, type_name in spec.inputs.items():
+                if name in available_outputs:
+                    continue
+                inputs[name] = type_name if name not in inputs or inputs[name] == type_name else "any"
+            available_outputs.update(spec.outputs.keys())
+        return inputs
+
+    def _resolve_main_input_contract(
+        self,
+        configured_inputs: dict[str, Any],
+        assembly: _GeneratedMainAssembly,
+        inferred_leaf_inputs: dict[str, str],
+    ) -> dict[str, Any]:
+        if configured_inputs:
+            return copy.deepcopy(configured_inputs)
+        inputs = assembly.main_workflow_node.get("inputs")
+        if isinstance(inputs, dict) and inputs:
+            return copy.deepcopy(inputs)
+        generated_skill_inputs = assembly.skill_node.get("inputs") if isinstance(assembly.skill_node, dict) else None
+        if isinstance(generated_skill_inputs, dict) and generated_skill_inputs:
+            return copy.deepcopy(generated_skill_inputs)
+        return copy.deepcopy(inferred_leaf_inputs)
+
+    @staticmethod
+    def _ensure_main_workflow_outputs(main_node: dict[str, Any], specs: list[_WorkflowPipelineSubworkflowSpec]) -> None:
+        if isinstance(main_node.get("outputs"), dict):
+            return
+        main_node["outputs"] = {f"{spec.name}_outputs": f"${{data.steps.call_{spec.name}.outputs}}" for spec in specs}
+
+    @staticmethod
+    def _validate_declared_main_input_references(main_node: dict[str, Any], main_inputs: dict[str, Any]) -> None:
+        dumped = yaml.dump(main_node, Dumper=_NoAliasDumper, sort_keys=False, allow_unicode=False)
+        undeclared = sorted(set(re.findall(r"\bdata\.inputs\.([A-Za-z_][A-Za-z0-9_]*)", dumped)) - set(main_inputs.keys()))
+        if undeclared:
+            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, "Pipeline main workflow references undeclared inputs: " + ", ".join(undeclared))
+
+    def _enforce_pipeline_workflow_hierarchy(self, doc: WorkflowDocument, leaf_names: set[str]) -> None:
+        for workflow_name, workflow in doc.workflows.items():
+            for step in self._enumerate_steps(workflow.steps):
+                if workflow_name != "main" and step.type in {"workflow.call", "workflow.plan"}:
+                    raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_POLICY, f"Leaf workflow '{workflow_name}' must not contain step type '{step.type}'.")
+                if workflow_name == "main" and step.type == "workflow.call" and isinstance(step.input, dict):
+                    ref = step.input.get("ref")
+                    if not isinstance(ref, dict) or str(ref.get("kind", "local")) != "local" or ref.get("name") not in leaf_names:
+                        raise WorkflowRuntimeException(
+                            ErrorCodes.TEMPLATE_POLICY,
+                            f"Pipeline main workflow step '{step.id}' must call a generated local leaf workflow.",
+                        )
+
+    @staticmethod
+    def _build_extraction_json(extraction: _WorkflowPipelineExtraction) -> dict[str, Any]:
+        return {
+            "subworkflows": [
+                {
+                    "name": spec.name,
+                    "goal": spec.goal,
+                    "inputs": spec.inputs,
+                    "outputs": spec.outputs,
+                    "extract_reason": spec.extract_reason,
+                    "content": spec.content,
+                }
+                for spec in extraction.subworkflows
+            ],
+            "main_workflow_prompt": extraction.main_workflow_prompt,
+            "validation_errors": extraction.validation_errors,
+        }
+
+    @staticmethod
+    def _serialize_yaml_value(value: Any) -> str:
+        return yaml.dump(value, Dumper=_NoAliasDumper, sort_keys=False, allow_unicode=False).strip()
 
     @staticmethod
     def _build_reprompt(
@@ -337,8 +1191,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         for meta in server_metadata:
             name = getattr(meta, "name", None) or str(meta)
             try:
-                session = await factory.get_client_async(name)
-                tools = await session.list_tools_async()
+                session, tools, _prompts, _resources = await self._discover_mcp_capabilities_with_retry(factory, str(name))
             except Exception:
                 continue
 
@@ -356,6 +1209,26 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     )
                 )
         return contracts
+
+    @staticmethod
+    async def _discover_mcp_capabilities_with_retry(factory: Any, server_name: str) -> tuple[Any, list[Any], list[Any], list[Any]]:
+        last_error: Exception | None = None
+        for attempt in range(1, _MCP_DISCOVERY_MAX_ATTEMPTS + 1):
+            try:
+                session = await factory.get_client_async(server_name)
+                tools = list(await session.list_tools_async())
+                prompts = list(await session.list_prompts_async())
+                try:
+                    resources = list(await session.list_resources_async())
+                except Exception:
+                    resources = []
+                return session, tools, prompts, resources
+            except Exception as exc:
+                last_error = exc
+                if attempt >= _MCP_DISCOVERY_MAX_ATTEMPTS:
+                    break
+                await asyncio.sleep(_MCP_DISCOVERY_RETRY_BASE_DELAY_SECONDS * attempt)
+        raise last_error or RuntimeError(f"MCP discovery failed for server '{server_name}'")
 
     async def _build_repair_context_with_mcp_docs(
         self,
@@ -1053,17 +1926,24 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
     def _validate_generated_workflow_for_plan(
         doc: WorkflowDocument,
         mcp_tool_contracts: list[McpToolOutputContract],
+        mcp_server_metadata: list[McpServerMetadata] | None = None,
     ) -> int:
         errors = WorkflowValidator().validate(doc)
         semantic_exception: WorkflowSemanticValidationException | None = None
         compilation_exception: Exception | None = None
         normalization_count = 0
+        mcp_coverage_exception: Exception | None = None
 
         try:
             normalization_count = normalize_mcp_call_input_requests(doc, mcp_tool_contracts)
             validate_workflow_semantics(doc, mcp_tool_contracts)
         except WorkflowSemanticValidationException as exc:
             semantic_exception = exc
+
+        try:
+            WorkflowPlanExecutor._validate_mcp_discovery_coverage(doc, mcp_tool_contracts, mcp_server_metadata or [])
+        except Exception as exc:
+            mcp_coverage_exception = exc
 
         if not any(WorkflowPlanExecutor._is_fatal_compiler_validation_error(error) for error in errors):
             try:
@@ -1079,6 +1959,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             diagnostics.append("workflow validation: " + WorkflowPlanExecutor._format_validation_errors(errors))
         if semantic_exception is not None:
             diagnostics.append("semantic validation: " + str(semantic_exception))
+        if mcp_coverage_exception is not None:
+            diagnostics.append("mcp discovery: " + str(mcp_coverage_exception))
         if compilation_exception is not None:
             diagnostics.append("compilation: " + str(compilation_exception))
 
@@ -1090,7 +1972,65 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
     @staticmethod
     def _dump_workflow_yaml(doc: WorkflowDocument) -> str:
         data = doc.model_dump(by_alias=True, exclude_none=True, exclude={"raw_yaml"})
-        return yaml.safe_dump(data, sort_keys=False, allow_unicode=False).strip()
+        return yaml.dump(data, Dumper=_NoAliasDumper, sort_keys=False, allow_unicode=False).strip()
+
+    @staticmethod
+    def _validate_mcp_discovery_coverage(
+        doc: WorkflowDocument,
+        mcp_tool_contracts: list[McpToolOutputContract],
+        mcp_server_metadata: list[McpServerMetadata],
+    ) -> None:
+        tool_calls = [
+            step
+            for workflow in doc.workflows.values()
+            for step in WorkflowPlanExecutor._enumerate_steps(workflow.steps)
+            if step.type == "mcp.call"
+            and isinstance(step.input, dict)
+            and str(step.input.get("kind", "tool")).lower() != "prompt"
+        ]
+        if not tool_calls:
+            return
+
+        if not mcp_tool_contracts:
+            raise WorkflowRuntimeException(
+                ErrorCodes.TEMPLATE_PLAN,
+                "MCP_DISCOVERY_REQUIRED: generated workflow contains mcp.call tool steps, but no MCP tool catalog was discovered. Validation is fail-closed.",
+            )
+
+        known_servers = {contract.server_name for contract in mcp_tool_contracts}
+        configured_servers = {meta.name for meta in mcp_server_metadata if getattr(meta, "name", None)}
+        for step in tool_calls:
+            server_name = step.input.get("server")
+            if not isinstance(server_name, str) or not server_name.strip() or "${" in server_name:
+                raise WorkflowRuntimeException(
+                    ErrorCodes.TEMPLATE_PLAN,
+                    f"MCP_SERVER_DYNAMIC_UNVERIFIABLE: mcp.call step '{step.id}' must use a literal discovered server name during workflow.plan validation.",
+                )
+            if server_name not in known_servers:
+                if configured_servers and server_name in configured_servers:
+                    raise WorkflowRuntimeException(
+                        ErrorCodes.TEMPLATE_PLAN,
+                        f"MCP_TOOL_CATALOG_EMPTY: MCP server '{server_name}' is referenced by step '{step.id}', but its discovered tool catalog is empty.",
+                    )
+                raise WorkflowRuntimeException(
+                    ErrorCodes.TEMPLATE_PLAN,
+                    f"MCP_SERVER_UNKNOWN: mcp.call step '{step.id}' references server '{server_name}', which is absent from the discovered MCP catalog.",
+                )
+
+    @staticmethod
+    def _enumerate_steps(steps: list[StepDef] | None) -> list[StepDef]:
+        found: list[StepDef] = []
+        for step in steps or []:
+            found.append(step)
+            found.extend(WorkflowPlanExecutor._enumerate_steps(step.steps))
+            if step.branches:
+                for branch in step.branches:
+                    found.extend(WorkflowPlanExecutor._enumerate_steps(branch.steps))
+            if step.cases:
+                for case in step.cases:
+                    found.extend(WorkflowPlanExecutor._enumerate_steps(case.steps))
+            found.extend(WorkflowPlanExecutor._enumerate_steps(step.default))
+        return found
 
     @staticmethod
     def _is_fatal_compiler_validation_error(error: ValidationError) -> bool:
@@ -1322,14 +2262,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 desc = getattr(meta, "description", None) or ""
                 section = [f"## Server: {name}", f"Description: {desc or '(none)'}"]
                 try:
-                    session = await factory.get_client_async(name)
-                    tools = await session.list_tools_async()
-                    prompts = await session.list_prompts_async()
-                    resources: list[Any] = []
-                    try:
-                        resources = await session.list_resources_async()
-                    except Exception:
-                        resources = []
+                    _session, tools, prompts, resources = await self._discover_mcp_capabilities_with_retry(factory, str(name))
 
                     discovered_count += 1
                     tools_total += len(tools)

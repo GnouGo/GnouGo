@@ -47,6 +47,44 @@ class SequencePlanLlm:
         return LLMResponse(text=self.responses[index])
 
 
+class PipelinePlanLlm:
+    def __init__(self, leaf_yaml: str, assembly_yaml: str, annotated_markdown: str | None = None) -> None:
+        self.leaf_yaml = ensure_generated_skill(leaf_yaml)
+        self.assembly_yaml = assembly_yaml
+        self.annotated_markdown = annotated_markdown or """
+        # Resolve issue
+
+        :::subworkflow name="parse_issue"
+        goal: Parse an issue key.
+        inputs:
+          issue_key: string
+        outputs:
+          issue_number: integer
+        extract_reason: Reusable issue parsing logic.
+        content:
+          Parse the issue key and return its numeric issue_number.
+        :::
+
+        ## Main workflow orchestration
+
+        Call parse_issue and expose its issue_number.
+        """
+        self.prompts: list[str] = []
+
+    async def call_async(self, request):
+        self.prompts.append(request.prompt)
+        prompt = request.prompt
+        if "preparing a raw user automation prompt" in prompt:
+            return LLMResponse(text="# Resolve issue\n\nParse the issue and expose the number.")
+        if "annotate normalized automation Markdown" in prompt:
+            return LLMResponse(text=self.annotated_markdown)
+        if "Generate exactly one leaf GnOuGo workflow named `parse_issue`" in prompt:
+            return LLMResponse(text=self.leaf_yaml)
+        if "assembling the parent `main` workflow" in prompt:
+            return LLMResponse(text=self.assembly_yaml)
+        return LLMResponse(text=self.leaf_yaml)
+
+
 class FakeMcpSession:
     server_name = "demo"
 
@@ -102,6 +140,18 @@ class DocsMcpFactory:
         self.server_metadata = [McpServerMetadata(name="docs", description="Documentation tools")]
 
     async def get_client_async(self, server_name):
+        return DocsMcpSession(self.tool)
+
+
+class FlakyDocsMcpFactory(DocsMcpFactory):
+    def __init__(self, tool: McpToolInfo) -> None:
+        super().__init__(tool)
+        self.calls = 0
+
+    async def get_client_async(self, server_name):
+        self.calls += 1
+        if self.calls < 3:
+            raise RuntimeError(f"transient discovery failure {self.calls}")
         return DocsMcpSession(self.tool)
 
 
@@ -1336,3 +1386,392 @@ async def test_workflow_plan_dry_run_allows_structured_llm_json_used_as_number()
     result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
 
     assert result.success is True
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_pipeline_mode_composes_main_and_leaf_subworkflows() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: pipeline
+              raw_prompt: "Resolve issue ABC-42"
+              generator:
+                model: fake
+                prefilter: false
+              validate:
+                compile: true
+    """
+    leaf_yaml = """
+    version: 1
+    name: parse_issue_leaf
+    skill:
+      description: Parse issue.
+      tags: [issue]
+      inputs:
+        issue_key: string
+      outputs:
+        issue_number: integer
+    workflows:
+      parse_issue:
+        inputs:
+          issue_key: string
+        steps:
+          - id: parsed
+            type: set
+            input:
+              issue_number: 42
+        outputs:
+          issue_number: "${data.steps.parsed.issue_number}"
+    """
+    assembly_yaml = """
+    document:
+      name: issue_pipeline
+      skill:
+        description: Resolve an issue.
+        tags: [issue, pipeline]
+        inputs:
+          issue_key: string
+        outputs:
+          issue_number: integer
+    main:
+      inputs:
+        issue_key: string
+      steps:
+        - id: call_parse_issue
+          type: workflow.call
+          input:
+            ref:
+              kind: local
+              name: parse_issue
+            args:
+              issue_key: "${data.inputs.issue_key}"
+      outputs:
+        issue_number: "${data.steps.call_parse_issue.outputs.issue_number}"
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = PipelinePlanLlm(leaf_yaml, assembly_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    plan = result.outputs["plan"]
+    assert plan["meta"]["mode"] == "pipeline"
+    generated = yaml.safe_load(plan["yaml"])
+    assert list(generated["workflows"].keys()) == ["main", "parse_issue"]
+    assert generated["entrypoint"] == "main"
+    assert generated["workflows"]["main"]["steps"][0]["type"] == "workflow.call"
+    assert generated["workflows"]["main"]["steps"][0]["input"]["ref"]["name"] == "parse_issue"
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_pipeline_mode_rejects_generated_leaf_workflow_calls() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: pipeline
+              raw_prompt: "Resolve issue ABC-42"
+              generator:
+                model: fake
+                prefilter: false
+              on_invalid:
+                action: fail
+                max_attempts: 1
+    """
+    leaf_yaml = """
+    version: 1
+    name: bad_leaf
+    skill:
+      description: Bad leaf.
+      tags: [issue]
+      inputs:
+        issue_key: string
+      outputs:
+        issue_number: integer
+    workflows:
+      parse_issue:
+        inputs:
+          issue_key: string
+        steps:
+          - id: call_nested
+            type: workflow.call
+            input:
+              ref:
+                kind: local
+                name: other
+              args: {}
+        outputs:
+          issue_number: 1
+    """
+    assembly_yaml = "document: {name: unused}\nmain: {steps: []}\n"
+
+    engine = WorkflowEngine()
+    engine.llm_client = PipelinePlanLlm(leaf_yaml, assembly_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "Leaf workflow 'parse_issue'" in result.error.message
+    assert "workflow.call" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_pipeline_mode_final_dry_run_accepts_string_conversion_helper() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: pipeline
+              raw_prompt: "Resolve issue ABC-42"
+              generator:
+                model: fake
+                prefilter: false
+              validate:
+                compile: true
+                dry_run: true
+    """
+    leaf_yaml = """
+    version: 1
+    name: parse_issue_leaf
+    skill:
+      description: Parse issue.
+      tags: [issue]
+      inputs:
+        issue_key: string
+      outputs:
+        issue_number: integer
+    workflows:
+      parse_issue:
+        inputs:
+          issue_key: string
+        steps:
+          - id: parsed
+            type: set
+            input:
+              issue_number: 42
+        outputs:
+          issue_number: "${data.steps.parsed.issue_number}"
+    """
+    assembly_yaml = """
+    document:
+      name: issue_pipeline
+      skill:
+        description: Resolve an issue.
+        tags: [issue, pipeline]
+        inputs:
+          issue_key: string
+        outputs:
+          answer: string
+    main:
+      inputs:
+        issue_key: string
+      steps:
+        - id: call_parse_issue
+          type: workflow.call
+          input:
+            ref:
+              kind: local
+              name: parse_issue
+            args:
+              issue_key: "${data.inputs.issue_key}"
+        - id: answer
+          type: llm.call
+          input:
+            prompt: "Issue number is ${string(data.steps.call_parse_issue.outputs.issue_number)}"
+      outputs:
+        answer: "${data.steps.answer.text}"
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = PipelinePlanLlm(leaf_yaml, assembly_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_rejects_unknown_mcp_method_in_methods_array() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              methods: [get_doc, missing_doc]
+              request:
+                id: intro
+    """
+    tool = McpToolInfo(name="get_doc", description="Get a document")
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "MCP_METHOD_UNKNOWN" in result.error.message
+    assert "input.methods[1]:missing_doc" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_rejects_unknown_mcp_call_input_field() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: get_doc
+              id: intro
+    """
+    tool = McpToolInfo(name="get_doc", description="Get a document")
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "MCP_CALL_INPUT_FIELD_UNKNOWN" in result.error.message
+    assert "input.id" in result.error.message
+    assert "input.request" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_rejects_invalid_llm_structured_output_schema() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build typed llm workflow"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: classify
+            type: llm.call
+            input:
+              prompt: "Classify"
+              structured_output:
+                strict: true
+                schema_inline:
+                  type: object
+                  properties:
+                    category: { type: string }
+                    priority: { type: string }
+                  required: [category]
+                  additionalProperties: false
+    """
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "STRUCTURED_OUTPUT_SCHEMA_INVALID" in result.error.message
+    assert "structured_output" in result.error.message
+    assert "priority" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_mcp_discovery_retries_before_validation() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: get_doc
+              request:
+                id: intro
+    """
+    tool = McpToolInfo(name="get_doc", description="Get a document")
+    factory = FlakyDocsMcpFactory(tool)
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = factory
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    assert factory.calls >= 3

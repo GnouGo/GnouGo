@@ -40,6 +40,7 @@ async def test_llm_call_structured_output_parses_text_json() -> None:
                   properties:
                     category: { type: string }
                   required: [category]
+                  additionalProperties: false
                 strict: true
         outputs:
           category: "${data.steps.classify.json.category}"
@@ -71,6 +72,7 @@ async def test_llm_call_structured_output_mismatch_raises_llm_schema() -> None:
                   properties:
                     category: { type: string }
                   required: [category]
+                  additionalProperties: false
                 strict: true
     """
     engine = WorkflowEngine()
@@ -106,4 +108,3 @@ async def test_llm_call_structured_output_invalid_json_raises_llm_schema() -> No
 
     assert not result.success
     assert result.error.code == ErrorCodes.LLM_SCHEMA
-
