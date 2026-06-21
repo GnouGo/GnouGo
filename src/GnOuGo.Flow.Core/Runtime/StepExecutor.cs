@@ -16,6 +16,13 @@ public interface IStepExecutor
     Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct);
 
     /// <summary>
+    /// Declarative input/output contract used by compile-time and workflow.plan validation.
+    /// Custom executors should override this property; built-in executors are resolved from
+    /// <see cref="BuiltInStepContracts"/> by default.
+    /// </summary>
+    StepContract? Contract => BuiltInStepContracts.Get(StepType);
+
+    /// <summary>
     /// Returns a short DSL reference snippet for this step type.
     /// Used by workflow.plan to dynamically build comprehensive LLM prompts.
     /// Each executor owns its own documentation, keeping it maintainable.
@@ -203,6 +210,18 @@ public sealed class StepExecutorRegistry
     public bool Has(string stepType) => _executors.ContainsKey(stepType);
 
     public IEnumerable<string> RegisteredTypes => _executors.Keys;
+
+    public IReadOnlyDictionary<string, StepContract> GetContracts()
+    {
+        var contracts = new Dictionary<string, StepContract>(StringComparer.Ordinal);
+        foreach (var executor in _executors.Values)
+        {
+            if (executor.Contract != null)
+                contracts[executor.StepType] = executor.Contract;
+        }
+
+        return contracts;
+    }
 
     /// <summary>
     /// Collects DSL snippets from all registered executors.

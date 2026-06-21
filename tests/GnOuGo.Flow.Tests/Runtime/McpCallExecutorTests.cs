@@ -33,6 +33,61 @@ public class McpCallExecutorTests
     // ------ Basic mcp.call ------
 
     [Fact]
+    public async Task McpCall_ResolvedRequestIsValidatedAgainstLiveToolSchemaBeforeTransport()
+    {
+        var handlerCalled = false;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("numbers", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "double",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": { "value": { "type": "integer", "minimum": 1 } },
+                      "required": ["value"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            },
+            ToolHandlers =
+            {
+                ["double"] = _ =>
+                {
+                    handlerCalled = true;
+                    return new McpCallResult { Content = new JsonObject { ["result"] = 2 } };
+                }
+            }
+        });
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    inputs:
+      value: string
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: numbers
+          method: double
+          request:
+            value: "${data.inputs.value}"
+""", new JsonObject { ["value"] = "not-a-number" }, factory);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("runtime JSON Schema validation", result.Error.Message);
+        Assert.Contains("expected integer", result.Error.Message);
+        Assert.False(handlerCalled);
+    }
+
+    [Fact]
     public async Task McpCall_BasicCall_ReturnsOk()
     {
         var mockSession = new Mock<IMcpSession>();
@@ -66,7 +121,7 @@ workflows:
       msg: "${data.steps.call_mcp.response.message}"
 """, mcpFactory: mockFactory.Object);
 
-        Assert.True(result.Success);
+        Assert.True(result.Success, result.Error?.Message);
         Assert.Equal("ok", result.Outputs!["status"]!.GetValue<string>());
         Assert.Equal("Hello World", result.Outputs["msg"]!.GetValue<string>());
 
@@ -874,6 +929,10 @@ workflows:
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("data-server", new MockMcpServerConfig
         {
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "fetch_data", InputSchema = new JsonObject { ["type"] = "object" } }
+            },
             ToolHandlers = new()
             {
                 ["fetch_data"] = _ => new McpCallResult

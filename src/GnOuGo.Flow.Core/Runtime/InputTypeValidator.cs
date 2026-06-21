@@ -71,6 +71,11 @@ public static class InputTypeValidator
                     errors.Add($"'{path}': expected number, got {DescribeKind(node)}.");
                 break;
 
+            case "integer":
+                if (!IsInteger(node))
+                    errors.Add($"'{path}': expected integer, got {DescribeKind(node)}.");
+                break;
+
             case "boolean":
                 if (node is not JsonValue bv || !bv.TryGetValue(out bool _))
                     errors.Add($"'{path}': expected boolean, got {DescribeKind(node)}.");
@@ -183,6 +188,16 @@ public static class InputTypeValidator
             || jv.TryGetValue(out decimal _);
     }
 
+    private static bool IsInteger(JsonNode node)
+    {
+        if (node is not JsonValue jv) return false;
+        return jv.TryGetValue(out int _)
+            || jv.TryGetValue(out long _)
+            || jv.TryGetValue(out short _)
+            || (jv.TryGetValue(out decimal dec) && decimal.Truncate(dec) == dec)
+            || (jv.TryGetValue(out double dbl) && double.IsFinite(dbl) && Math.Truncate(dbl) == dbl);
+    }
+
     private static string DescribeKind(JsonNode? node) => node switch
     {
         null => "null",
@@ -194,4 +209,3 @@ public static class InputTypeValidator
         _ => node.GetType().Name
     };
 }
-

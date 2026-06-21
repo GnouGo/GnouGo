@@ -785,7 +785,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     {
         // Simple expression output
         if (!string.IsNullOrEmpty(def.Expr))
-            return _interpolator.Interpolate(def.Expr, data);
+            return _interpolator.Interpolate(def.Expr, data)?.DeepClone();
 
         // Nested object output (backward-compat: outputs without expr, with properties containing expressions)
         if (def.Properties != null)
@@ -793,7 +793,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             var obj = new JsonObject();
             foreach (var (key, propDef) in def.Properties)
             {
-                obj[key] = EvaluateOutputDef(propDef, data);
+                obj[key] = EvaluateOutputDef(propDef, data)?.DeepClone();
             }
             return obj;
         }

@@ -154,6 +154,9 @@ public static class JsonSchemaConverter
             case "number":
                 schema["type"] = "number";
                 break;
+            case "integer":
+                schema["type"] = "integer";
+                break;
             case "boolean":
                 schema["type"] = "boolean";
                 break;

@@ -435,13 +435,16 @@ Sends a prompt to an LLM and returns the response. Supports structured JSON outp
           category: { type: string }
           priority: { type: string, enum: [low, medium, high, critical] }
           confidence: { type: number }
-        required: [category, priority]
+        required: [category, priority, confidence]
+        additionalProperties: false
       strict: true
 ```
 
 **Output:** `{ text: "...", json: { category: "bug", priority: "high", confidence: 0.92 }, usage: {...} }`
 
 Access: `data.steps.classify.json.category`, `data.steps.classify.json.priority`
+
+Before contacting the provider, Flow validates the `structured_output` envelope and recursively validates/normalizes its JSON Schema. `schema_inline` and `schema_ref` are mutually exclusive; `schema_ref` must resolve through an expression to a schema object. With `strict: true`, the root must be an object, every object property must be listed in `required`, every object must set `additionalProperties: false`, arrays must declare `items`, and unsupported strict composition keywords are rejected. After the LLM responds, parsed JSON is validated against the same schema before it is exposed as `data.steps.<id>.json`; failures use `LLM_SCHEMA` and include property paths.
 
 ---
 
@@ -1186,10 +1189,16 @@ The final composed pipeline document uses the same validation sequence as standa
 - **MCP pre-filter**: Uses a lightweight LLM call to select only the MCP servers/tools relevant to the task instruction — reduces prompt size and cost.
 - **Full DSL reference injection**: The LLM receives the complete DSL documentation (step types, expressions, error handling) so it can generate valid workflows.
 - **Policy enforcement**: Generated workflows are validated against allowed/denied step types and max step limits.
-- **Full validation before acceptance**: `workflow.plan` runs the validator, compiler, and semantic checks before returning a plan. This catches non-fatal validator diagnostics such as unknown step types, invalid container shapes, future step references, conditional branch/loop mapping errors, and invalid `data.steps.<id>.response.<field>` mappings.
-- **Optional dry-run validation**: Set `validate.dry_run: true` to execute the generated workflow once with deterministic fake LLM, MCP, human-input, and routing providers. This catches runtime input-resolution errors such as free-form `llm.call.text` being used where a number is required. The dry-run never calls real LLMs or MCP tools.
+- **Full validation before acceptance**: `workflow.plan` runs the validator, compiler, and semantic checks before returning a plan. This catches non-fatal validator diagnostics such as unknown step types, invalid container shapes, unknown YAML structural keys, future step references, conditional branch/loop mapping errors, and invalid `data.steps.<id>.response.<field>` mappings.
+- **Executor-owned step contracts**: Every registered executor must expose declarative JSON Schema input/output contracts. Planning validation recursively rejects missing required fields, wrong literal types, unknown keys (including nested keys), and mutually exclusive fields. A custom registered executor without a contract fails closed.
+- **Static expression type inference**: Exact `${...}` references inherit types from workflow inputs and previous step outputs; embedded interpolation is a string, and built-ins such as `len`, `toNumber`, `exists`, `json`, `pick`, and `omit` have known result types. Incompatible assignments such as `llm.call.text` into `max_tokens` fail with `EXPR_TYPE_MISMATCH` before dry-run. Opaque/custom expressions remain runtime-validated.
+- **Local workflow-call contracts**: Literal local `workflow.call` targets are validated against the called workflow's declared inputs. Missing, extra, and wrongly typed `input.args` fail during plan validation, and the called workflow's typed outputs are propagated so invented paths like `data.steps.call.outputs.unknown` are rejected.
+- **Optional dry-run validation**: Set `validate.dry_run: true` to execute the generated workflow once with deterministic fake LLM, MCP, human-input, and routing providers. This catches runtime input-resolution errors such as free-form `llm.call.text` being used where a number is required. Dry-run MCP sessions expose only discovered tools: an invented method fails instead of receiving a generic mock response. The dry-run never calls real LLMs or MCP tools.
 - **MCP output contracts**: MCP discovery injects complete `input_schema`, `output_schema`, and `example_response` metadata into the planning prompt. `output_schema` / `example_response` define which fields may be read from `mcp.call` single-tool `response` objects.
-- **MCP target and request validation**: During `workflow.plan` validation, literal `mcp.call.input.method` and every literal entry in `mcp.call.input.methods` must exist in the discovered server contract. The shared `input.request` is validated against each selected method schema. Static single-method request values are also normalized against the discovered `input_schema`; numeric, integer, and boolean YAML strings are converted to typed JSON values when the schema allows it, including nested objects, arrays, additional properties, and matching `oneOf` / `anyOf` object variants.
+- **Fail-closed MCP discovery**: A generated tool-mode `mcp.call` is rejected when its server catalog is missing, discovery failed after all retries, or the discovered catalog is empty. Dynamic server names cannot pass plan validation because their existence cannot be proven.
+- **MCP envelope, target, and request validation**: Unknown fields at `mcp.call.input` are rejected with a suggestion to move tool arguments under `input.request`. Literal `method` and every literal entry in `methods` must exist in the discovered server contract. The shared request is validated against every selected tool schema.
+- **Expanded JSON Schema checks**: MCP requests support `enum`, `const`, `allOf`, exact `oneOf`, `anyOf`, string length/pattern, numeric bounds/multiples, object/array size, `uniqueItems`, nested schemas, and schema-correct `additionalProperties` behavior. Static numeric, integer, and boolean YAML strings may be normalized when the schema permits it.
+- **Runtime request validation**: Requests containing expressions or `request_template` are checked again after resolution/rendering and immediately before `CallToolAsync`. The live tool catalog proves the method exists, and the resolved request must satisfy that tool's `input_schema`.
 - **Self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error, or semantic mapping error), the error is sent back to the LLM for automatic correction.
 - **OpenTelemetry tracing**: Full GenAI convention traces for the planning LLM call, MCP discovery, and pre-filter phases.
 
@@ -1371,6 +1380,8 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 | `replace(s, old, new)` | Replaces all occurrences |
 | `substring(s, start)` | Characters from position `start` to end |
 | `substring(s, start, len)` | `len` characters starting at `start` |
+| `string(val)` | Converts value to string |
+| `toString(val)` | Alias for `string(val)` |
 | `toNumber(val)` | Converts to number |
 | `json(val)` | Serializes value to JSON string |
 | `pick(obj, ...keys)` | Returns a new object containing only the requested keys; keys may be separate arguments or an array |

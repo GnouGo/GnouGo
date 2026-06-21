@@ -1175,6 +1175,133 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_PipelineMode_FinalDryRunAcceptsStringConversionHelper()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nPrepare a path for an issue number." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="prepare_issue"
+                        goal: Prepare issue metadata.
+                        inputs:
+                          path: string
+                        outputs:
+                          prepared_path: string
+                        extract_reason: This keeps the leaf contract explicit.
+                        content:
+                          Return the configured path as prepared_path.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Build a path from issue_number and call prepare_issue.
+                        """
+                    };
+                }
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `prepare_issue`.", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: prepare-issue-leaf
+                        skill:
+                          description: Prepare issue metadata.
+                          tags: [generated, leaf]
+                          inputs:
+                            path: string
+                          outputs:
+                            prepared_path: string
+                        workflows:
+                          main:
+                            inputs:
+                              path: string
+                            steps:
+                              - id: prepare
+                                type: set
+                                input:
+                                  prepared_path: "${data.inputs.path}"
+                            outputs:
+                              prepared_path: "${data.steps.prepare.prepared_path}"
+                        """
+                    };
+                }
+
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        document:
+                          name: issue_path_pipeline
+                          skill:
+                            description: Prepare a path for an issue number.
+                            tags: [issue, pipeline]
+                            outputs:
+                              prepared_path: string
+                        main:
+                          inputs:
+                            issue_number: number
+                          steps:
+                            - id: build_path
+                              type: set
+                              input:
+                                path: '${"issue_" + string(data.inputs.issue_number)}'
+                            - id: call_prepare_issue
+                              type: workflow.call
+                              input:
+                                ref: { kind: local, name: prepare_issue }
+                                args:
+                                  path: "${data.steps.build_path.path}"
+                          outputs:
+                            prepared_path: "${data.steps.call_prepare_issue.outputs.prepared_path}"
+                        """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Prepare a path for an issue number."
+                  inputs:
+                    issue_number: number
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: true
+                    dry_run: true
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        Assert.Contains("string(data.inputs.issue_number)", yaml);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_PipelineMode_AllowsWorkflowCallForMainWhenPolicyDeniedIt()
     {
         var mockLlm = new Mock<ILLMClient>();
@@ -1920,7 +2047,7 @@ workflows:
         Assert.True(result.Success, result.Error?.Message);
         Assert.Contains(requests, request =>
             request.Prompt.Contains("Previous generated YAML for this leaf workflow failed validation", StringComparison.Ordinal)
-            && request.Prompt.Contains("Generated workflow dry_run failed", StringComparison.Ordinal)
+            && request.Prompt.Contains(ErrorCodes.ExprTypeMismatch, StringComparison.Ordinal)
             && request.Prompt.Contains("<invalid_yaml>", StringComparison.Ordinal)
             && request.Prompt.Contains("max_tokens: \"${data.inputs.name}\"", StringComparison.Ordinal)
             && request.Prompt.Contains("</invalid_yaml>", StringComparison.Ordinal));
@@ -2556,6 +2683,213 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_Validation_FailsClosedWhenMcpDiscoveryIsUnavailable()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated docs workflow.
+                         tags: [docs]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: fetch
+                               type: mcp.call
+                               input:
+                                 server: docs
+                                 method: get_doc
+                                 request: { id: intro }
+                       """
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build a docs workflow
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_DISCOVERY_REQUIRED", result.Error.Message);
+        Assert.Contains("fail-closed", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsUnknownMcpCallEnvelopeField()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated docs workflow.
+                         tags: [docs]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: fetch
+                               type: mcp.call
+                               input:
+                                 server: docs
+                                 method: get_doc
+                                 id: intro
+                                 request: {}
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("docs", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo> { new() { Name = "get_doc", InputSchema = new JsonObject { ["type"] = "object" } } }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build a docs workflow
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_CALL_INPUT_FIELD_UNKNOWN", result.Error.Message);
+        Assert.Contains("input.id", result.Error.Message);
+        Assert.Contains("input.request", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_EnforcesExpandedMcpRequestSchemaKeywords()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated constrained workflow.
+                         tags: [schema]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: search
+                               type: mcp.call
+                               input:
+                                 server: catalog
+                                 method: search
+                                 request:
+                                   mode: invalid
+                                   version: v2
+                                   query: x
+                                   limit: 11
+                                   tags: [same, same, extra]
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("catalog", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "search",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "mode": { "type": "string" },
+                        "version": { "type": "string" },
+                        "query": { "type": "string" },
+                        "limit": { "type": "integer" },
+                        "tags": { "type": "array", "items": { "type": "string" } }
+                      },
+                      "required": ["mode", "version", "query", "limit", "tags"],
+                      "additionalProperties": false,
+                      "allOf": [
+                        { "properties": { "mode": { "enum": ["fast", "deep"] } } },
+                        { "properties": { "version": { "const": "v1" } } },
+                        { "properties": { "query": { "minLength": 3, "pattern": "^[a-z]+$" } } },
+                        { "properties": { "limit": { "minimum": 1, "maximum": 10 } } },
+                        { "properties": { "tags": { "minItems": 1, "maxItems": 2, "uniqueItems": true } } }
+                      ]
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build a constrained catalog workflow
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
+        Assert.Contains("value must be one of", result.Error.Message);
+        Assert.Contains("value must equal", result.Error.Message);
+        Assert.Contains("at least 3 characters", result.Error.Message);
+        Assert.Contains("less than or equal to 10", result.Error.Message);
+        Assert.Contains("at most 2 items", result.Error.Message);
+        Assert.Contains("must be unique", result.Error.Message);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_SemanticValidation_RejectsUnknownMcpResponseProperty()
     {
         var mockLlm = new Mock<ILLMClient>();
@@ -2969,9 +3303,70 @@ workflows:
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, result.Error.Message);
+        Assert.Contains("requires integer", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_DryRun_RejectsUnknownMcpToolWhenCompileValidationIsDisabled()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated docs workflow.
+                         tags: [docs]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: fetch
+                               type: mcp.call
+                               input:
+                                 server: docs
+                                 method: invented_tool
+                                 request: {}
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("docs", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo> { new() { Name = "get_doc", InputSchema = new JsonObject { ["type"] = "object" } } }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build a docs workflow
+                    prefilter: false
+                  validate:
+                    compile: false
+                    dry_run: true
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
         Assert.Contains("dry_run", result.Error.Message);
-        Assert.Contains("Expected number", result.Error.Message);
-        Assert.Contains("dry-run text response", result.Error.Message);
+        Assert.Contains("invented_tool", result.Error.Message);
+        Assert.Contains("get_doc", result.Error.Message);
     }
 
     [Fact]

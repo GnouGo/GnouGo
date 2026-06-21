@@ -41,9 +41,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         return generatedDoc;
     }
 
-    private static void ValidateGeneratedWorkflowForPlan(WorkflowDocument generatedDoc, IReadOnlyList<McpServerDiscovery>? discovered)
+    private static void ValidateGeneratedWorkflowForPlan(
+        WorkflowDocument generatedDoc,
+        IReadOnlyList<McpServerDiscovery>? discovered,
+        StepExecutorRegistry registry)
     {
-        var validator = new WorkflowValidator();
+        var validator = new WorkflowValidator(registry);
         var errors = validator.Validate(generatedDoc);
         WorkflowSemanticValidationException? semanticException = null;
         Exception? compilationException = null;
@@ -53,7 +56,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         try
         {
-            WorkflowPlanSemanticValidator.Validate(generatedDoc, mcpToolContracts);
+            WorkflowPlanSemanticValidator.ValidateWithStepContracts(generatedDoc, mcpToolContracts, registry.GetContracts());
         }
         catch (WorkflowSemanticValidationException ex)
         {
@@ -108,13 +111,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (limits != null)
             EnforceLimits(generatedDoc, limits);
 
-        if (validate?["compile"]?.GetValue<bool>() ?? true)
+        var compileValidation = validate?["compile"]?.GetValue<bool>() ?? true;
+        var dryRunValidation = validate?["dry_run"]?.GetValue<bool>() ?? false;
+        if (compileValidation)
         {
             validationSpan.SetAttribute("gnougo-flow.plan.compile_validation", true);
-            ValidateGeneratedWorkflowForPlan(generatedDoc, validationDiscovered);
+            ValidateGeneratedWorkflowForPlan(generatedDoc, validationDiscovered, ctx.Engine.Registry);
         }
 
-        if (validate?["dry_run"]?.GetValue<bool>() ?? false)
+        if (compileValidation || dryRunValidation)
+            ValidateMcpDiscoveryCoverage(generatedDoc, validationDiscovered);
+
+        if (dryRunValidation)
         {
             validationSpan.SetAttribute("gnougo-flow.plan.dry_run", true);
             await WorkflowPlanDryRunValidator.ValidateAsync(
@@ -123,6 +131,70 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 ctx.Engine.Logger,
                 ct);
         }
+    }
+
+    private static void ValidateMcpDiscoveryCoverage(
+        WorkflowDocument generatedDoc,
+        IReadOnlyList<McpServerDiscovery>? discovered)
+    {
+        var toolCalls = generatedDoc.Workflows.Values
+            .SelectMany(static workflow => EnumerateSteps(workflow.Steps))
+            .Where(static step => string.Equals(step.Type, "mcp.call", StringComparison.Ordinal))
+            .Where(static step => !string.Equals(ReadMcpCallInputString(step, "kind"), "prompt", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        if (toolCalls.Length == 0)
+            return;
+
+        if (discovered == null || discovered.Count == 0)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.TemplatePlan,
+                "MCP_DISCOVERY_REQUIRED: generated workflow contains mcp.call tool steps, but no MCP tool catalog was discovered. Validation is fail-closed.");
+        }
+
+        foreach (var step in toolCalls)
+        {
+            var serverName = ReadMcpCallInputString(step, "server");
+            if (string.IsNullOrWhiteSpace(serverName) || serverName.Contains("${", StringComparison.Ordinal))
+            {
+                throw new WorkflowRuntimeException(
+                    ErrorCodes.TemplatePlan,
+                    $"MCP_SERVER_DYNAMIC_UNVERIFIABLE: mcp.call step '{step.Id}' must use a literal discovered server name during workflow.plan validation.");
+            }
+
+            var server = discovered.FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, serverName, StringComparison.Ordinal));
+            if (server == null)
+            {
+                throw new WorkflowRuntimeException(
+                    ErrorCodes.TemplatePlan,
+                    $"MCP_SERVER_UNKNOWN: mcp.call step '{step.Id}' references server '{serverName}', which is absent from the discovered MCP catalog.");
+            }
+
+            if (!server.Discovered)
+            {
+                throw new WorkflowRuntimeException(
+                    ErrorCodes.TemplatePlan,
+                    $"MCP_DISCOVERY_FAILED: MCP server '{serverName}' is referenced by step '{step.Id}', but tools/list did not succeed after all discovery attempts.");
+            }
+
+            if (server.Tools.Count == 0)
+            {
+                throw new WorkflowRuntimeException(
+                    ErrorCodes.TemplatePlan,
+                    $"MCP_TOOL_CATALOG_EMPTY: MCP server '{serverName}' is referenced by step '{step.Id}', but its discovered tool catalog is empty.");
+            }
+        }
+    }
+
+    private static string? ReadMcpCallInputString(StepDef step, string fieldName)
+    {
+        return step.Input is JsonObject input
+            && input[fieldName] is JsonValue value
+            && value.TryGetValue<string>(out var text)
+                ? text
+                : null;
     }
 
     private static bool IsFatalCompilerValidationError(ValidationError error) =>

@@ -1,6 +1,9 @@
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Runtime.Executors;
+using System.Text.Json.Nodes;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Compilation;
@@ -116,6 +119,144 @@ workflows:
         doc.Exports = new List<string> { "nonexistent" };
         var errors = _validator.Validate(doc);
         Assert.Contains(errors, e => e.Code == "INVALID_EXPORT");
+    }
+
+    [Fact]
+    public void Validate_WithRegistry_RecursivelyRejectsUnknownNestedInputField()
+    {
+        var doc = ParseDoc("""
+version: 1
+skill:
+  description: Contract validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: outer
+        type: sequence
+        steps:
+          - id: call
+            type: mcp.call
+            input:
+              server: github
+              method: search
+              request: {}
+              error_policy:
+                unexpected: true
+""");
+
+        var errors = new WorkflowValidator(new WorkflowEngine().Registry).Validate(doc);
+
+        Assert.Contains(errors, error =>
+            error.Code == ErrorCodes.InputValidation
+            && error.StepId == "call"
+            && error.Field == "input.error_policy.unexpected"
+            && error.Message.Contains("unknown field", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Validate_WithRegistry_RejectsMutuallyExclusiveInputFields()
+    {
+        var doc = ParseDoc("""
+version: 1
+skill:
+  description: Contract validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: github
+          method: one
+          methods: [two]
+""");
+
+        var errors = new WorkflowValidator(new WorkflowEngine().Registry).Validate(doc);
+
+        Assert.Contains(errors, error =>
+            error.StepId == "call"
+            && error.Message.Contains("mutually exclusive", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void DefaultRegistry_EveryExecutorDeclaresInputAndOutputContract()
+    {
+        var registry = new WorkflowEngine().Registry;
+
+        foreach (var type in registry.RegisteredTypes)
+        {
+            var contract = registry.Get(type)!.Contract;
+            Assert.NotNull(contract);
+            Assert.NotNull(contract!.InputSchema);
+            Assert.NotNull(contract.OutputSchema);
+        }
+    }
+
+    [Fact]
+    public void Validate_RegisteredCustomExecutorWithoutContract_FailsClosed()
+    {
+        var registry = new StepExecutorRegistry();
+        registry.Register(new ContractlessExecutor());
+        var doc = ParseDoc("""
+version: 1
+skill:
+  description: Contract validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: custom
+        type: custom.contractless
+""");
+
+        var errors = new WorkflowValidator(registry).Validate(doc);
+
+        Assert.Contains(errors, error =>
+            error.StepId == "custom"
+            && error.Message.Contains("does not declare an input/output contract", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Validate_UnknownYamlStructuralField_ReportsPreciseError()
+    {
+        var doc = ParseDoc("""
+version: 1
+skill:
+  description: Unknown YAML field test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: render
+        type: template.render
+        inputs:
+          template: Hello
+""");
+
+        var errors = _validator.Validate(doc);
+
+        Assert.Contains(errors, error =>
+            error.Code == ErrorCodes.InputValidation
+            && error.Field == "workflows.main.steps[0].inputs"
+            && error.Message.Contains("Unknown YAML field 'inputs'", StringComparison.Ordinal)
+            && error.Message.Contains("input", StringComparison.Ordinal));
+    }
+
+    private sealed class ContractlessExecutor : IStepExecutor
+    {
+        public string StepType => "custom.contractless";
+        public Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct) =>
+            Task.FromResult<JsonNode?>(null);
     }
 
     [Fact]

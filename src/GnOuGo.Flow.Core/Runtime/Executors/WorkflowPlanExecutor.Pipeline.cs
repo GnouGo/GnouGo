@@ -1390,7 +1390,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (outputs.Children.Count == 0 && generatedSkill?.GetMapping("outputs") is { } generatedOutputs)
         {
             foreach (var output in generatedOutputs.Children)
-                outputs.Add(output.Key, output.Value);
+            {
+                if (output.Key is YamlScalarNode key && !string.IsNullOrWhiteSpace(key.Value))
+                    AddYaml(outputs, key.Value, output.Value);
+                else
+                    outputs.Add(CloneYamlNode(output.Key), CloneYamlNode(output.Value));
+            }
         }
 
         if (outputs.Children.Count == 0)
@@ -1849,7 +1854,46 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     }
 
     private static void AddYaml(YamlMappingNode node, string key, YamlNode value)
-        => node.Children.Add(Scalar(key), value);
+        => node.Children.Add(Scalar(key), CloneYamlNode(value));
+
+    private static YamlNode CloneYamlNode(YamlNode node)
+    {
+        switch (node)
+        {
+            case YamlScalarNode scalar:
+                return new YamlScalarNode(scalar.Value)
+                {
+                    Style = scalar.Style
+                };
+
+            case YamlSequenceNode sequence:
+            {
+                var clone = new YamlSequenceNode
+                {
+                    Style = sequence.Style
+                };
+                foreach (var child in sequence.Children)
+                    clone.Add(CloneYamlNode(child));
+                return clone;
+            }
+
+            case YamlMappingNode mapping:
+            {
+                var clone = new YamlMappingNode
+                {
+                    Style = mapping.Style
+                };
+                foreach (var (key, value) in mapping.Children)
+                    clone.Add(CloneYamlNode(key), CloneYamlNode(value));
+                return clone;
+            }
+
+            default:
+                throw new WorkflowRuntimeException(
+                    ErrorCodes.TemplatePlan,
+                    $"Unsupported YAML node type during pipeline assembly: {node.GetType().Name}");
+        }
+    }
 
     private static YamlScalarNode Scalar(string value) => new(value);
 

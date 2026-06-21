@@ -675,4 +675,34 @@ workflows:
         Assert.Equal("string", env.AdditionalProperties.Properties!["url"].Type);
         Assert.Equal("number", env.AdditionalProperties.Properties["port"].Type);
     }
+
+    [Fact]
+    public void Parse_ObjectSchema_WithRequiredPropertiesKey_ParsesRequiredPropertyNames()
+    {
+        var yaml = @"
+version: 1
+workflows:
+  main:
+    inputs:
+      payload:
+        type: object
+        properties:
+          title: { type: string }
+        required_properties: [title]
+    outputs:
+      result:
+        type: object
+        properties:
+          title: { type: string }
+        required_properties: [title]
+    steps:
+      - id: s1
+        type: template.render
+";
+
+        var doc = WorkflowParser.Parse(yaml);
+
+        Assert.Equal(new[] { "title" }, doc.Workflows["main"].Inputs!["payload"].RequiredProperties);
+        Assert.Equal(new[] { "title" }, doc.Workflows["main"].Outputs!["result"].RequiredProperties);
+    }
 }

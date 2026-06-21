@@ -8,6 +8,9 @@ public sealed class WorkflowDef
     /// <summary>Input parameter declarations.</summary>
     public Dictionary<string, InputDef>? Inputs { get; set; }
 
+    /// <summary>Optional per-workflow capability metadata used by routers/catalogs.</summary>
+    public WorkflowSkillDef? Skill { get; set; }
+
     /// <summary>Local WFScript functions (shadow global).</summary>
     public string? Functions { get; set; }
 
@@ -24,7 +27,7 @@ public sealed class WorkflowDef
 /// </summary>
 public sealed class InputDef
 {
-    /// <summary>Base type: string, number, boolean, array, object, dictionary, any.</summary>
+    /// <summary>Base type: string, number, integer, boolean, array, object, dictionary, any.</summary>
     public string Type { get; set; } = "any";
 
     /// <summary>Whether the input is required (default true).</summary>
@@ -62,7 +65,7 @@ public sealed class OutputDef
     /// <summary>Runtime expression evaluated against the data context (e.g. <c>"${data.steps.x.text}"</c>).</summary>
     public string Expr { get; set; } = "";
 
-    /// <summary>Base type: string, number, boolean, array, object, dictionary, any.</summary>
+    /// <summary>Base type: string, number, integer, boolean, array, object, dictionary, any.</summary>
     public string Type { get; set; } = "any";
 
     /// <summary>Optional human-readable description.</summary>
@@ -86,4 +89,3 @@ public sealed class OutputDef
     /// <summary>Shorthand factory: creates an untyped OutputDef from a bare expression string.</summary>
     public static OutputDef FromExpr(string expr) => new() { Expr = expr };
 }
-

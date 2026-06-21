@@ -45,8 +45,23 @@ internal static class WorkflowPlanSemanticValidator
     private static readonly Regex DataStepsPathRegex = new(
         @"\bdata\.steps\.([A-Za-z_][A-Za-z0-9_-]*)(?<path>(?:\.[A-Za-z_][A-Za-z0-9_]*)*)",
         RegexOptions.Compiled);
+    private static readonly HashSet<string> KnownMcpCallInputFields = new(StringComparer.Ordinal)
+    {
+        "server", "kind", "method", "methods", "request", "request_template", "template_data",
+        "timeout_ms", "prompt", "provider", "model", "temperature", "tools", "prompts",
+        "structured_output", "raise_on_error", "raiseOnError", "error_policy",
+        "detect_result_errors", "detectResultErrors"
+    };
 
-    public static void Validate(WorkflowDocument document, IReadOnlyList<McpToolOutputContract>? mcpToolContracts = null)
+    public static void Validate(
+        WorkflowDocument document,
+        IReadOnlyList<McpToolOutputContract>? mcpToolContracts = null) =>
+        ValidateWithStepContracts(document, mcpToolContracts, BuiltInStepContracts.All);
+
+    public static void ValidateWithStepContracts(
+        WorkflowDocument document,
+        IReadOnlyList<McpToolOutputContract>? mcpToolContracts,
+        IReadOnlyDictionary<string, StepContract> stepContracts)
     {
         var errors = new List<WorkflowSemanticValidationError>();
         var mcpContracts = BuildMcpContractLookup(mcpToolContracts);
@@ -55,12 +70,28 @@ internal static class WorkflowPlanSemanticValidator
         {
             var allStepIds = CollectStepIds(workflow.Steps).ToHashSet(StringComparer.Ordinal);
             var knownContracts = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
-            ValidateStepList(workflow.Steps, workflowName, knownContracts, allStepIds, mcpContracts, errors);
+            ValidateStepList(
+                workflow.Steps,
+                workflowName,
+                document.Workflows,
+                workflow.Inputs,
+                knownContracts,
+                allStepIds,
+                mcpContracts,
+                stepContracts,
+                errors);
 
             if (workflow.Outputs != null)
             {
                 foreach (var (outputName, outputDef) in workflow.Outputs)
-                    ValidateOutputDef(outputDef, workflowName, $"outputs.{outputName}", knownContracts, allStepIds, errors);
+                    ValidateOutputDef(
+                        outputDef,
+                        workflowName,
+                        $"outputs.{outputName}",
+                        workflow.Inputs,
+                        knownContracts,
+                        allStepIds,
+                        errors);
             }
         }
 
@@ -139,13 +170,16 @@ internal static class WorkflowPlanSemanticValidator
     private static void ValidateStepList(
         IReadOnlyList<StepDef> steps,
         string workflowName,
+        IReadOnlyDictionary<string, WorkflowDef> workflows,
+        IReadOnlyDictionary<string, InputDef>? workflowInputs,
         Dictionary<string, JsonNode?> knownContracts,
         HashSet<string> allStepIds,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
+        IReadOnlyDictionary<string, StepContract> stepContracts,
         List<WorkflowSemanticValidationError> errors)
     {
         foreach (var step in steps)
-            ValidateStep(step, workflowName, knownContracts, allStepIds, mcpContracts, errors);
+            ValidateStep(step, workflowName, workflows, workflowInputs, knownContracts, allStepIds, mcpContracts, stepContracts, errors);
     }
 
     private static int NormalizeMcpCallInputRequests(
@@ -207,15 +241,50 @@ internal static class WorkflowPlanSemanticValidator
     private static void ValidateStep(
         StepDef step,
         string workflowName,
+        IReadOnlyDictionary<string, WorkflowDef> workflows,
+        IReadOnlyDictionary<string, InputDef>? workflowInputs,
         Dictionary<string, JsonNode?> knownContracts,
         HashSet<string> allStepIds,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
+        IReadOnlyDictionary<string, StepContract> stepContracts,
         List<WorkflowSemanticValidationError> errors)
     {
         ValidateString(step.If, workflowName, step.Id, "if", knownContracts, allStepIds, errors);
         ValidateString(step.Expr, workflowName, step.Id, "expr", knownContracts, allStepIds, errors);
         ValidateJson(step.Input, workflowName, step.Id, "input", knownContracts, allStepIds, errors);
         ValidateMcpCallInputRequest(step, workflowName, mcpContracts, errors);
+        ValidateLocalWorkflowCallInput(step, workflowName, workflows, workflowInputs, knownContracts, errors);
+        if (stepContracts.TryGetValue(step.Type, out var stepContract))
+        {
+            foreach (var mismatch in StepExpressionTypeValidator.ValidateInput(
+                         step.Input,
+                         stepContract.InputSchema,
+                         workflowInputs,
+                         knownContracts))
+            {
+                errors.Add(new WorkflowSemanticValidationError
+                {
+                    Code = ErrorCodes.ExprTypeMismatch,
+                    WorkflowName = workflowName,
+                    StepId = step.Id,
+                    Field = mismatch.Field,
+                    InvalidPath = mismatch.Expression,
+                    AllowedPaths = Array.Empty<string>(),
+                    Suggestion = $"Provide a {mismatch.ExpectedType} value or reference an expression with a compatible output type.",
+                    Message = mismatch.Message
+                });
+            }
+        }
+        AddExpressionTypeMismatch(
+            StepExpressionTypeValidator.ValidateExpression(
+                step.If,
+                "if",
+                BooleanSchema(),
+                workflowInputs,
+                knownContracts),
+            workflowName,
+            step.Id,
+            errors);
 
         var stepIsConditional = !string.IsNullOrWhiteSpace(step.If);
 
@@ -235,7 +304,7 @@ internal static class WorkflowPlanSemanticValidator
             foreach (var branch in step.Branches)
             {
                 var branchKnown = CloneContracts(knownContracts);
-                ValidateStepList(branch.Steps, workflowName, branchKnown, allStepIds, mcpContracts, errors);
+                ValidateStepList(branch.Steps, workflowName, workflows, workflowInputs, branchKnown, allStepIds, mcpContracts, stepContracts, errors);
                 foreach (var produced in branchKnown.Where(kv => !knownContracts.ContainsKey(kv.Key)))
                     branchProducedContracts[produced.Key] = produced.Value?.DeepClone();
             }
@@ -253,18 +322,28 @@ internal static class WorkflowPlanSemanticValidator
                 foreach (var @case in step.Cases)
                 {
                     ValidateString(@case.When, workflowName, step.Id, "cases.when", knownContracts, allStepIds, errors);
+                    AddExpressionTypeMismatch(
+                        StepExpressionTypeValidator.ValidateExpression(
+                            @case.When,
+                            "cases.when",
+                            BooleanSchema(),
+                            workflowInputs,
+                            knownContracts),
+                        workflowName,
+                        step.Id,
+                        errors);
 
                     // Only one switch branch runs at runtime, so branch-local step outputs are not
                     // guaranteed mappings after the switch. Validate each branch independently.
                     var caseKnown = CloneContracts(knownContracts);
-                    ValidateStepList(@case.Steps, workflowName, caseKnown, allStepIds, mcpContracts, errors);
+                    ValidateStepList(@case.Steps, workflowName, workflows, workflowInputs, caseKnown, allStepIds, mcpContracts, stepContracts, errors);
                 }
             }
 
             if (step.Default != null)
             {
                 var defaultKnown = CloneContracts(knownContracts);
-                ValidateStepList(step.Default, workflowName, defaultKnown, allStepIds, mcpContracts, errors);
+                ValidateStepList(step.Default, workflowName, workflows, workflowInputs, defaultKnown, allStepIds, mcpContracts, stepContracts, errors);
             }
         }
         else if (step.Type is "loop.sequential" or "loop.parallel")
@@ -274,7 +353,7 @@ internal static class WorkflowPlanSemanticValidator
                 // Loop bodies may execute zero times, so their inner step outputs are not guaranteed
                 // mappings after the loop. References inside the loop are still validated in order.
                 var loopKnown = CloneContracts(knownContracts);
-                ValidateStepList(step.Steps, workflowName, loopKnown, allStepIds, mcpContracts, errors);
+                ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, loopKnown, allStepIds, mcpContracts, stepContracts, errors);
             }
         }
         else
@@ -284,17 +363,23 @@ internal static class WorkflowPlanSemanticValidator
                 if (stepIsConditional)
                 {
                     var conditionalKnown = CloneContracts(knownContracts);
-                    ValidateStepList(step.Steps, workflowName, conditionalKnown, allStepIds, mcpContracts, errors);
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, conditionalKnown, allStepIds, mcpContracts, stepContracts, errors);
                 }
                 else
                 {
-                    ValidateStepList(step.Steps, workflowName, knownContracts, allStepIds, mcpContracts, errors);
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, knownContracts, allStepIds, mcpContracts, stepContracts, errors);
                 }
             }
         }
 
         if (!stepIsConditional && !string.IsNullOrWhiteSpace(step.Id))
-            knownContracts[step.Id] = BuildStepOutputSchema(step, mcpContracts);
+            knownContracts[step.Id] = BuildStepOutputSchema(
+                step,
+                workflowInputs,
+                workflows,
+                knownContracts,
+                mcpContracts,
+                stepContracts);
     }
 
     private static Dictionary<string, JsonNode?> CloneContracts(Dictionary<string, JsonNode?> source)
@@ -309,23 +394,56 @@ internal static class WorkflowPlanSemanticValidator
         OutputDef outputDef,
         string workflowName,
         string field,
+        IReadOnlyDictionary<string, InputDef>? workflowInputs,
         Dictionary<string, JsonNode?> knownContracts,
         HashSet<string> allStepIds,
         List<WorkflowSemanticValidationError> errors)
     {
         ValidateString(outputDef.Expr, workflowName, null, field, knownContracts, allStepIds, errors);
+        AddExpressionTypeMismatch(
+            StepExpressionTypeValidator.ValidateExpression(
+                outputDef.Expr,
+                field,
+                StepExpressionTypeValidator.OutputDefSchema(outputDef),
+                workflowInputs,
+                knownContracts),
+            workflowName,
+            null,
+            errors);
 
         if (outputDef.Properties != null)
         {
             foreach (var (propertyName, propertyDef) in outputDef.Properties)
-                ValidateOutputDef(propertyDef, workflowName, $"{field}.properties.{propertyName}", knownContracts, allStepIds, errors);
+                ValidateOutputDef(propertyDef, workflowName, $"{field}.properties.{propertyName}", workflowInputs, knownContracts, allStepIds, errors);
         }
 
         if (outputDef.Items != null)
-            ValidateOutputDef(outputDef.Items, workflowName, $"{field}.items", knownContracts, allStepIds, errors);
+            ValidateOutputDef(outputDef.Items, workflowName, $"{field}.items", workflowInputs, knownContracts, allStepIds, errors);
 
         if (outputDef.AdditionalProperties != null)
-            ValidateOutputDef(outputDef.AdditionalProperties, workflowName, $"{field}.additional_properties", knownContracts, allStepIds, errors);
+            ValidateOutputDef(outputDef.AdditionalProperties, workflowName, $"{field}.additional_properties", workflowInputs, knownContracts, allStepIds, errors);
+    }
+
+    private static void AddExpressionTypeMismatch(
+        StepExpressionTypeMismatch? mismatch,
+        string workflowName,
+        string? stepId,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        if (mismatch == null)
+            return;
+
+        errors.Add(new WorkflowSemanticValidationError
+        {
+            Code = ErrorCodes.ExprTypeMismatch,
+            WorkflowName = workflowName,
+            StepId = stepId,
+            Field = mismatch.Field,
+            InvalidPath = mismatch.Expression,
+            AllowedPaths = Array.Empty<string>(),
+            Suggestion = $"Provide a {mismatch.ExpectedType} value or reference an expression with a compatible output type.",
+            Message = mismatch.Message
+        });
     }
 
     private static void ValidateJson(
@@ -449,6 +567,8 @@ internal static class WorkflowPlanSemanticValidator
             return;
         }
 
+        ValidateMcpCallInputEnvelope(step, workflowName, input, errors);
+
         var kind = TryGetInputString(step, "kind") ?? "tool";
         if (!string.Equals(kind, "tool", StringComparison.OrdinalIgnoreCase))
             return;
@@ -469,11 +589,17 @@ internal static class WorkflowPlanSemanticValidator
                 continue;
             }
 
+            // Templates and whole-object expressions cannot be checked statically. Their
+            // fully rendered JsonNode is validated immediately before the runtime transport.
+            if (input["request_template"] != null)
+                continue;
+
             var requestNode = input["request"];
-            var requestObject = requestNode as JsonObject ?? new JsonObject();
+            var requestValue = requestNode ?? new JsonObject();
             var schemaErrors = new List<SchemaValidationError>();
-            ValidateJsonNodeAgainstSchema(requestObject, inputSchema, "", schemaErrors);
-            ValidateMcpRequestCompatibilityConventions(requestObject, inputSchema, "", schemaErrors);
+            ValidateJsonNodeAgainstSchema(requestValue, inputSchema, "", schemaErrors);
+            if (requestValue is JsonObject requestObject)
+                ValidateMcpRequestCompatibilityConventions(requestObject, inputSchema, "", schemaErrors);
             if (schemaErrors.Count == 0)
                 continue;
 
@@ -493,6 +619,164 @@ internal static class WorkflowPlanSemanticValidator
                     AllowedPaths = EnumerateAllowedPaths("input.request", inputSchema).Take(64).ToArray(),
                     Suggestion = $"Align `mcp.call` request with MCP tool schema for server '{serverName}' method '{methodName}'.",
                     Message = $"mcp.call request for '{serverName}/{methodName}' is invalid: {schemaError.Message}"
+                });
+            }
+        }
+    }
+
+    private static void ValidateLocalWorkflowCallInput(
+        StepDef step,
+        string workflowName,
+        IReadOnlyDictionary<string, WorkflowDef> workflows,
+        IReadOnlyDictionary<string, InputDef>? workflowInputs,
+        IReadOnlyDictionary<string, JsonNode?> knownContracts,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        if (!string.Equals(step.Type, "workflow.call", StringComparison.Ordinal)
+            || step.Input is not JsonObject input
+            || input["ref"] is not JsonObject refObject)
+        {
+            return;
+        }
+
+        var kind = TryGetLiteralString(refObject["kind"]) ?? "local";
+        if (!string.Equals(kind, "local", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var targetName = TryGetLiteralString(refObject["name"]);
+        if (string.IsNullOrWhiteSpace(targetName) || !workflows.TryGetValue(targetName, out var targetWorkflow))
+            return;
+
+        var argsNode = input["args"] ?? new JsonObject();
+        if (IsDynamicExpressionString(argsNode))
+            return;
+
+        var inputSchema = StepExpressionTypeValidator.InputsObjectSchema(targetWorkflow.Inputs);
+        foreach (var mismatch in StepExpressionTypeValidator.ValidateInput(
+                     argsNode,
+                     inputSchema,
+                     workflowInputs,
+                     knownContracts))
+        {
+            errors.Add(new WorkflowSemanticValidationError
+            {
+                Code = ErrorCodes.ExprTypeMismatch,
+                WorkflowName = workflowName,
+                StepId = step.Id,
+                Field = $"input.args{mismatch.Field["input".Length..]}",
+                InvalidPath = mismatch.Expression,
+                AllowedPaths = Array.Empty<string>(),
+                Suggestion = $"Pass arguments compatible with local workflow '{targetName}' input contract.",
+                Message = mismatch.Message.Replace("input", "workflow.call input.args", StringComparison.Ordinal)
+            });
+        }
+
+        var schemaErrors = new List<SchemaValidationError>();
+        ValidateJsonNodeAgainstSchema(argsNode, inputSchema, "", schemaErrors);
+        if (schemaErrors.Count == 0)
+            return;
+
+        foreach (var schemaError in schemaErrors)
+        {
+            var invalidPath = string.IsNullOrEmpty(schemaError.Path)
+                ? "input.args"
+                : $"input.args.{schemaError.Path}";
+
+            errors.Add(new WorkflowSemanticValidationError
+            {
+                Code = "WORKFLOW_CALL_ARGS_INVALID",
+                WorkflowName = workflowName,
+                StepId = step.Id,
+                Field = "input.args",
+                InvalidPath = invalidPath,
+                AllowedPaths = EnumerateAllowedPaths("input.args", inputSchema).Take(64).ToArray(),
+                Suggestion = $"Align workflow.call args with local workflow '{targetName}' inputs.",
+                Message = $"workflow.call args for local workflow '{targetName}' are invalid: {schemaError.Message}"
+            });
+        }
+    }
+
+    private static string? TryGetLiteralString(JsonNode? node)
+    {
+        if (node is not JsonValue value || !value.TryGetValue<string>(out var text))
+            return null;
+
+        return string.IsNullOrWhiteSpace(text) || text.Contains("$" + "{", StringComparison.Ordinal)
+            ? null
+            : text;
+    }
+
+    private static void ValidateMcpCallInputEnvelope(
+        StepDef step,
+        string workflowName,
+        JsonObject input,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        foreach (var fieldName in input.Select(static property => property.Key))
+        {
+            if (KnownMcpCallInputFields.Contains(fieldName))
+                continue;
+
+            errors.Add(new WorkflowSemanticValidationError
+            {
+                Code = "MCP_CALL_INPUT_FIELD_UNKNOWN",
+                WorkflowName = workflowName,
+                StepId = step.Id,
+                Field = $"input.{fieldName}",
+                InvalidPath = $"input.{fieldName}",
+                AllowedPaths = KnownMcpCallInputFields.OrderBy(static name => name, StringComparer.Ordinal).Select(static name => $"input.{name}").ToArray(),
+                Suggestion = $"Move tool argument '{fieldName}' under `input.request`, or remove it if it is not part of the tool request.",
+                Message = $"mcp.call input contains unknown top-level field '{fieldName}'. Tool arguments must be nested under `input.request`."
+            });
+        }
+
+        if (input.ContainsKey("method") && input.ContainsKey("methods"))
+        {
+            errors.Add(new WorkflowSemanticValidationError
+            {
+                Code = "MCP_CALL_SELECTION_CONFLICT",
+                WorkflowName = workflowName,
+                StepId = step.Id,
+                Field = "input.methods",
+                InvalidPath = "input.method+input.methods",
+                AllowedPaths = new[] { "input.method", "input.methods" },
+                Suggestion = "Use either `method` for one capability or `methods` for a batch, but not both.",
+                Message = "mcp.call input cannot define both 'method' and 'methods'."
+            });
+        }
+
+        if (input.ContainsKey("request") && input.ContainsKey("request_template"))
+        {
+            errors.Add(new WorkflowSemanticValidationError
+            {
+                Code = "MCP_CALL_REQUEST_CONFLICT",
+                WorkflowName = workflowName,
+                StepId = step.Id,
+                Field = "input.request_template",
+                InvalidPath = "input.request+input.request_template",
+                AllowedPaths = new[] { "input.request", "input.request_template" },
+                Suggestion = "Use either a structured `request` or a rendered `request_template`, but not both.",
+                Message = "mcp.call input cannot define both 'request' and 'request_template'."
+            });
+        }
+
+        if (input["error_policy"] is JsonObject errorPolicy)
+        {
+            foreach (var fieldName in errorPolicy.Select(static property => property.Key))
+            {
+                if (fieldName is "detect_result_errors" or "detectResultErrors")
+                    continue;
+
+                errors.Add(new WorkflowSemanticValidationError
+                {
+                    Code = "MCP_CALL_INPUT_FIELD_UNKNOWN",
+                    WorkflowName = workflowName,
+                    StepId = step.Id,
+                    Field = $"input.error_policy.{fieldName}",
+                    InvalidPath = $"input.error_policy.{fieldName}",
+                    AllowedPaths = new[] { "input.error_policy.detect_result_errors" },
+                    Suggestion = "Remove the unsupported MCP error-policy field.",
+                    Message = $"mcp.call error_policy contains unknown field '{fieldName}'."
                 });
             }
         }
@@ -590,6 +874,11 @@ internal static class WorkflowPlanSemanticValidator
 
     private sealed record SchemaValidationError(string Path, string Message);
 
+    internal static IReadOnlyList<string> ValidateResolvedMcpRequest(JsonNode? request, JsonNode? inputSchema)
+    {
+        return JsonSchemaContractValidator.ValidateInstance(request ?? new JsonObject(), inputSchema);
+    }
+
     private static void ValidateMcpRequestCompatibilityConventions(
         JsonObject request,
         JsonObject inputSchema,
@@ -635,64 +924,79 @@ internal static class WorkflowPlanSemanticValidator
         JsonNode? value,
         JsonNode? schema,
         string path,
-        List<SchemaValidationError> errors)
+        List<SchemaValidationError> errors,
+        bool allowDynamicExpressions = true)
     {
         if (schema is not JsonObject schemaObject)
             return;
 
+        if (schemaObject["allOf"] is JsonArray allOf)
+        {
+            foreach (var variant in allOf)
+                ValidateJsonNodeAgainstSchema(value, variant, path, errors, allowDynamicExpressions);
+        }
+
         if (schemaObject["anyOf"] is JsonArray anyOf)
         {
-            if (MatchesAnySchemaVariant(value, anyOf))
+            if (!MatchesAnySchemaVariant(value, anyOf, allowDynamicExpressions))
+            {
+                errors.Add(new SchemaValidationError(path, "value does not match any allowed schema variant"));
                 return;
-
-            errors.Add(new SchemaValidationError(path, "value does not match any allowed schema variant"));
-            return;
+            }
         }
 
         if (schemaObject["oneOf"] is JsonArray oneOf)
         {
-            if (MatchesAnySchemaVariant(value, oneOf))
+            if (!MatchesExactlyOneSchemaVariant(value, oneOf, allowDynamicExpressions))
+            {
+                errors.Add(new SchemaValidationError(path, "value must match exactly one allowed schema variant"));
                 return;
-
-            errors.Add(new SchemaValidationError(path, "value does not match any allowed schema variant"));
-            return;
+            }
         }
 
-        var typeName = ReadSchemaType(schemaObject);
+        if (allowDynamicExpressions && IsDynamicExpressionString(value))
+            return;
+
+        ValidateConstAndEnum(value, schemaObject, path, errors);
+
+        var typeName = ReadApplicableSchemaType(schemaObject, value);
         switch (typeName)
         {
             case "object":
-                ValidateObjectAgainstSchema(value, schemaObject, path, errors);
+                ValidateObjectAgainstSchema(value, schemaObject, path, errors, allowDynamicExpressions);
                 break;
             case "array":
-                ValidateArrayAgainstSchema(value, schemaObject, path, errors);
+                ValidateArrayAgainstSchema(value, schemaObject, path, errors, allowDynamicExpressions);
                 break;
             case "string":
-                ValidatePrimitiveType(value, "string", path, errors);
+                ValidatePrimitiveType(value, "string", path, errors, allowDynamicExpressions);
+                ValidateStringConstraints(value, schemaObject, path, errors);
                 break;
             case "number":
-                ValidatePrimitiveType(value, "number", path, errors);
+                ValidatePrimitiveType(value, "number", path, errors, allowDynamicExpressions);
+                ValidateNumericConstraints(value, schemaObject, path, errors);
                 break;
             case "integer":
-                ValidatePrimitiveType(value, "integer", path, errors);
+                ValidatePrimitiveType(value, "integer", path, errors, allowDynamicExpressions);
+                ValidateNumericConstraints(value, schemaObject, path, errors);
                 break;
             case "boolean":
-                ValidatePrimitiveType(value, "boolean", path, errors);
+                ValidatePrimitiveType(value, "boolean", path, errors, allowDynamicExpressions);
                 break;
             case "null":
-                ValidatePrimitiveType(value, "null", path, errors);
+                ValidatePrimitiveType(value, "null", path, errors, allowDynamicExpressions);
                 break;
             default:
                 break;
         }
     }
 
-    private static bool MatchesAnySchemaVariant(JsonNode? value, JsonArray variants)
+    private static bool MatchesAnySchemaVariant(JsonNode? value, JsonArray variants, bool allowDynamicExpressions)
     {
         foreach (var variant in variants)
         {
             var variantErrors = new List<SchemaValidationError>();
-            ValidateJsonNodeAgainstSchema(value, variant, string.Empty, variantErrors);
+            ValidateJsonNodeAgainstSchema(value, variant, string.Empty, variantErrors, allowDynamicExpressions);
             if (variantErrors.Count == 0)
                 return true;
         }
@@ -700,13 +1004,28 @@ internal static class WorkflowPlanSemanticValidator
         return false;
     }
 
+    private static bool MatchesExactlyOneSchemaVariant(JsonNode? value, JsonArray variants, bool allowDynamicExpressions)
+    {
+        var matchCount = 0;
+        foreach (var variant in variants)
+        {
+            var variantErrors = new List<SchemaValidationError>();
+            ValidateJsonNodeAgainstSchema(value, variant, string.Empty, variantErrors, allowDynamicExpressions);
+            if (variantErrors.Count == 0)
+                matchCount++;
+        }
+
+        return matchCount == 1;
+    }
+
     private static void ValidateObjectAgainstSchema(
         JsonNode? value,
         JsonObject schema,
         string path,
-        List<SchemaValidationError> errors)
+        List<SchemaValidationError> errors,
+        bool allowDynamicExpressions)
     {
-        if (IsDynamicExpressionString(value))
+        if (allowDynamicExpressions && IsDynamicExpressionString(value))
             return;
 
         if (value is not JsonObject obj)
@@ -716,6 +1035,7 @@ internal static class WorkflowPlanSemanticValidator
         }
 
         var properties = schema["properties"] as JsonObject;
+        ValidateCountConstraint(obj.Count, schema, "minProperties", "maxProperties", path, "properties", errors);
         var required = schema["required"] as JsonArray;
         if (required != null)
         {
@@ -738,7 +1058,7 @@ internal static class WorkflowPlanSemanticValidator
             if (properties != null && properties.TryGetPropertyValue(propertyName, out var propertySchema) && propertySchema != null)
             {
                 var propertyPath = string.IsNullOrEmpty(path) ? propertyName : $"{path}.{propertyName}";
-                ValidateJsonNodeAgainstSchema(propertyValue, propertySchema, propertyPath, errors);
+                ValidateJsonNodeAgainstSchema(propertyValue, propertySchema, propertyPath, errors, allowDynamicExpressions);
                 continue;
             }
 
@@ -752,7 +1072,7 @@ internal static class WorkflowPlanSemanticValidator
             if (schema["additionalProperties"] is JsonObject additionalSchema)
             {
                 var propertyPath = string.IsNullOrEmpty(path) ? propertyName : $"{path}.{propertyName}";
-                ValidateJsonNodeAgainstSchema(propertyValue, additionalSchema, propertyPath, errors);
+                ValidateJsonNodeAgainstSchema(propertyValue, additionalSchema, propertyPath, errors, allowDynamicExpressions);
             }
         }
     }
@@ -761,9 +1081,10 @@ internal static class WorkflowPlanSemanticValidator
         JsonNode? value,
         JsonObject schema,
         string path,
-        List<SchemaValidationError> errors)
+        List<SchemaValidationError> errors,
+        bool allowDynamicExpressions)
     {
-        if (IsDynamicExpressionString(value))
+        if (allowDynamicExpressions && IsDynamicExpressionString(value))
             return;
 
         if (value is not JsonArray array)
@@ -772,13 +1093,29 @@ internal static class WorkflowPlanSemanticValidator
             return;
         }
 
+        ValidateCountConstraint(array.Count, schema, "minItems", "maxItems", path, "items", errors);
+
+        if (schema["uniqueItems"] is JsonValue uniqueValue
+            && uniqueValue.TryGetValue<bool>(out var uniqueItems)
+            && uniqueItems)
+        {
+            for (var i = 0; i < array.Count; i++)
+            {
+                for (var j = i + 1; j < array.Count; j++)
+                {
+                    if (JsonNode.DeepEquals(array[i], array[j]))
+                        errors.Add(new SchemaValidationError(path, $"array items at indexes {i} and {j} must be unique"));
+                }
+            }
+        }
+
         if (schema["items"] == null)
             return;
 
         for (var i = 0; i < array.Count; i++)
         {
             var itemPath = string.IsNullOrEmpty(path) ? $"[{i}]" : $"{path}[{i}]";
-            ValidateJsonNodeAgainstSchema(array[i], schema["items"], itemPath, errors);
+            ValidateJsonNodeAgainstSchema(array[i], schema["items"], itemPath, errors, allowDynamicExpressions);
         }
     }
 
@@ -786,9 +1123,10 @@ internal static class WorkflowPlanSemanticValidator
         JsonNode? value,
         string expectedType,
         string path,
-        List<SchemaValidationError> errors)
+        List<SchemaValidationError> errors,
+        bool allowDynamicExpressions)
     {
-        if (IsDynamicExpressionString(value))
+        if (allowDynamicExpressions && IsDynamicExpressionString(value))
             return;
 
         if (value is null)
@@ -808,7 +1146,7 @@ internal static class WorkflowPlanSemanticValidator
         {
             "string" => jsonValue.TryGetValue<string>(out _),
             "number" => IsJsonNumber(jsonValue),
-            "integer" => jsonValue.TryGetValue<long>(out _) || jsonValue.TryGetValue<int>(out _),
+            "integer" => IsJsonInteger(jsonValue),
             "boolean" => jsonValue.TryGetValue<bool>(out _),
             "null" => false,
             _ => true
@@ -826,6 +1164,172 @@ internal static class WorkflowPlanSemanticValidator
         || jsonValue.TryGetValue<int>(out _)
         || jsonValue.TryGetValue<short>(out _)
         || jsonValue.TryGetValue<byte>(out _);
+
+    private static bool IsJsonInteger(JsonValue jsonValue) =>
+        TryReadDecimal(jsonValue, out var number) && decimal.Truncate(number) == number;
+
+    private static void ValidateConstAndEnum(
+        JsonNode? value,
+        JsonObject schema,
+        string path,
+        List<SchemaValidationError> errors)
+    {
+        if (schema.TryGetPropertyValue("const", out var constant)
+            && !JsonNode.DeepEquals(value, constant))
+        {
+            errors.Add(new SchemaValidationError(path, $"value must equal {constant?.ToJsonString() ?? "null"}"));
+        }
+
+        if (schema["enum"] is not JsonArray allowedValues)
+            return;
+
+        if (!allowedValues.Any(allowed => JsonNode.DeepEquals(value, allowed)))
+        {
+            var allowedText = string.Join(", ", allowedValues.Select(static allowed => allowed?.ToJsonString() ?? "null"));
+            errors.Add(new SchemaValidationError(path, $"value must be one of: {allowedText}"));
+        }
+    }
+
+    private static void ValidateStringConstraints(
+        JsonNode? value,
+        JsonObject schema,
+        string path,
+        List<SchemaValidationError> errors)
+    {
+        if (value is not JsonValue jsonValue || !jsonValue.TryGetValue<string>(out var text) || text == null)
+            return;
+
+        ValidateCountConstraint(text.Length, schema, "minLength", "maxLength", path, "characters", errors);
+
+        if (schema["pattern"] is not JsonValue patternValue
+            || !patternValue.TryGetValue<string>(out var pattern)
+            || string.IsNullOrEmpty(pattern))
+        {
+            return;
+        }
+
+        try
+        {
+            if (!Regex.IsMatch(text, pattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+                errors.Add(new SchemaValidationError(path, $"string does not match required pattern '{pattern}'"));
+        }
+        catch (ArgumentException)
+        {
+            errors.Add(new SchemaValidationError(path, $"tool schema contains invalid regex pattern '{pattern}'"));
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            errors.Add(new SchemaValidationError(path, $"tool schema regex pattern '{pattern}' timed out"));
+        }
+    }
+
+    private static void ValidateNumericConstraints(
+        JsonNode? value,
+        JsonObject schema,
+        string path,
+        List<SchemaValidationError> errors)
+    {
+        if (!TryReadDecimal(value, out var number))
+            return;
+
+        if (TryReadSchemaDecimal(schema, "minimum", out var minimum) && number < minimum)
+            errors.Add(new SchemaValidationError(path, $"number must be greater than or equal to {minimum}"));
+        if (TryReadSchemaDecimal(schema, "maximum", out var maximum) && number > maximum)
+            errors.Add(new SchemaValidationError(path, $"number must be less than or equal to {maximum}"));
+        if (TryReadSchemaDecimal(schema, "exclusiveMinimum", out var exclusiveMinimum) && number <= exclusiveMinimum)
+            errors.Add(new SchemaValidationError(path, $"number must be greater than {exclusiveMinimum}"));
+        if (TryReadSchemaDecimal(schema, "exclusiveMaximum", out var exclusiveMaximum) && number >= exclusiveMaximum)
+            errors.Add(new SchemaValidationError(path, $"number must be less than {exclusiveMaximum}"));
+        if (TryReadSchemaDecimal(schema, "multipleOf", out var multipleOf)
+            && multipleOf > 0
+            && number % multipleOf != 0)
+        {
+            errors.Add(new SchemaValidationError(path, $"number must be a multiple of {multipleOf}"));
+        }
+    }
+
+    private static void ValidateCountConstraint(
+        int count,
+        JsonObject schema,
+        string minimumProperty,
+        string maximumProperty,
+        string path,
+        string unit,
+        List<SchemaValidationError> errors)
+    {
+        if (TryReadNonNegativeInteger(schema[minimumProperty], out var minimum) && count < minimum)
+            errors.Add(new SchemaValidationError(path, $"must contain at least {minimum} {unit}"));
+        if (TryReadNonNegativeInteger(schema[maximumProperty], out var maximum) && count > maximum)
+            errors.Add(new SchemaValidationError(path, $"must contain at most {maximum} {unit}"));
+    }
+
+    private static bool TryReadNonNegativeInteger(JsonNode? node, out long value)
+    {
+        value = 0;
+        if (node is not JsonValue jsonValue)
+            return false;
+
+        if (jsonValue.TryGetValue<long>(out value))
+            return value >= 0;
+        if (jsonValue.TryGetValue<int>(out var intValue))
+        {
+            value = intValue;
+            return value >= 0;
+        }
+
+        return false;
+    }
+
+    private static bool TryReadSchemaDecimal(JsonObject schema, string propertyName, out decimal value) =>
+        TryReadDecimal(schema[propertyName], out value);
+
+    private static bool TryReadDecimal(JsonNode? node, out decimal value)
+    {
+        value = 0;
+        if (node is not JsonValue jsonValue)
+            return false;
+
+        if (jsonValue.TryGetValue<decimal>(out value))
+            return true;
+        if (jsonValue.TryGetValue<long>(out var longValue))
+        {
+            value = longValue;
+            return true;
+        }
+        if (jsonValue.TryGetValue<int>(out var intValue))
+        {
+            value = intValue;
+            return true;
+        }
+        if (jsonValue.TryGetValue<short>(out var shortValue))
+        {
+            value = shortValue;
+            return true;
+        }
+        if (jsonValue.TryGetValue<float>(out var floatValue)
+            && !float.IsNaN(floatValue)
+            && !float.IsInfinity(floatValue))
+        {
+            value = (decimal)floatValue;
+            return true;
+        }
+        if (jsonValue.TryGetValue<double>(out var doubleValue)
+            && !double.IsNaN(doubleValue)
+            && !double.IsInfinity(doubleValue))
+        {
+            try
+            {
+                value = (decimal)doubleValue;
+                return true;
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
 
     private static int NormalizeJsonNodeAgainstSchema(JsonNode? value, JsonNode? schema)
     {
@@ -985,6 +1489,68 @@ internal static class WorkflowPlanSemanticValidator
         return null;
     }
 
+    private static string? ReadApplicableSchemaType(JsonObject schema, JsonNode? value)
+    {
+        if (schema["type"] is not JsonArray typeArray)
+        {
+            var declaredType = ReadSchemaType(schema);
+            if (declaredType != null)
+                return declaredType;
+
+            if (schema.ContainsKey("properties") || schema.ContainsKey("required")
+                || schema.ContainsKey("additionalProperties") || schema.ContainsKey("minProperties")
+                || schema.ContainsKey("maxProperties"))
+                return "object";
+            if (schema.ContainsKey("items") || schema.ContainsKey("minItems")
+                || schema.ContainsKey("maxItems") || schema.ContainsKey("uniqueItems"))
+                return "array";
+            if (schema.ContainsKey("minLength") || schema.ContainsKey("maxLength") || schema.ContainsKey("pattern"))
+                return "string";
+            if (schema.ContainsKey("minimum") || schema.ContainsKey("maximum")
+                || schema.ContainsKey("exclusiveMinimum") || schema.ContainsKey("exclusiveMaximum")
+                || schema.ContainsKey("multipleOf"))
+                return "number";
+
+            return null;
+        }
+
+        foreach (var typeNode in typeArray)
+        {
+            if (typeNode is JsonValue typeValue
+                && typeValue.TryGetValue<string>(out var typeName)
+                && typeName != null
+                && ValueMatchesJsonType(value, typeName))
+            {
+                return typeName;
+            }
+        }
+
+        return typeArray
+            .Select(static node => node is JsonValue candidate && candidate.TryGetValue<string>(out var parsed) ? parsed : null)
+            .FirstOrDefault(static parsed => !string.IsNullOrWhiteSpace(parsed));
+    }
+
+    private static bool ValueMatchesJsonType(JsonNode? value, string typeName)
+    {
+        if (value == null)
+            return string.Equals(typeName, "null", StringComparison.Ordinal);
+        if (value is JsonObject)
+            return string.Equals(typeName, "object", StringComparison.Ordinal);
+        if (value is JsonArray)
+            return string.Equals(typeName, "array", StringComparison.Ordinal);
+        if (value is not JsonValue jsonValue)
+            return false;
+
+        return typeName switch
+        {
+            "string" => jsonValue.TryGetValue<string>(out _),
+            "number" => IsJsonNumber(jsonValue),
+            "integer" => IsJsonInteger(jsonValue),
+            "boolean" => jsonValue.TryGetValue<bool>(out _),
+            _ => false
+        };
+    }
+
     private sealed record SchemaPathValidationResult(bool IsValid, string Message, bool IsOpaqueResponse = false);
 
     private static SchemaPathValidationResult ValidateSchemaPath(JsonNode? schema, IReadOnlyList<string> path)
@@ -1020,7 +1586,7 @@ internal static class WorkflowPlanSemanticValidator
     private static bool AllowsAdditionalProperties(JsonObject schemaObject)
     {
         if (!schemaObject.TryGetPropertyValue("additionalProperties", out var additional) || additional == null)
-            return false;
+            return true;
 
         if (additional is JsonValue value && value.TryGetValue<bool>(out var allowed))
             return allowed;
@@ -1061,26 +1627,46 @@ internal static class WorkflowPlanSemanticValidator
 
     private static JsonNode? BuildStepOutputSchema(
         StepDef step,
-        Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts)
+        IReadOnlyDictionary<string, InputDef>? workflowInputs,
+        IReadOnlyDictionary<string, WorkflowDef> workflows,
+        IReadOnlyDictionary<string, JsonNode?> knownContracts,
+        Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
+        IReadOnlyDictionary<string, StepContract> stepContracts)
     {
         return step.Type switch
         {
-            "set" => BuildSetOutputSchema(step),
+            "set" => BuildSetOutputSchema(step, workflowInputs, knownContracts),
             "template.render" => BuildTemplateRenderOutputSchema(step),
             "llm.call" => BuildLlmCallOutputSchema(step),
             "mcp.call" => BuildMcpCallOutputSchema(step, mcpContracts),
-            "mcp.list" => ObjectSchema(("status", StringSchema()), ("text", StringSchema()), ("servers", ArraySchema()), ("tools", ArraySchema()), ("resources", ArraySchema()), ("prompts", ArraySchema())),
-            "workflow.call" => ObjectSchema(("outputs", OpaqueSchema()), ("workflow", StringSchema())),
-            "workflow.plan" => ObjectSchema(("workflow", ObjectSchema()), ("yaml", StringSchema()), ("meta", ObjectSchema()), ("diagnostics", ArraySchema())),
-            "workflow.execute" => ObjectSchema(("outputs", OpaqueSchema()), ("workflow", StringSchema()), ("run", ObjectSchema(("steps_executed", NumberSchema()), ("success", BooleanSchema())))),
-            "sequence" => ObjectSchema(("steps", ObjectSchema()), ("count", NumberSchema())),
-            "parallel" => ObjectSchema(("branches", ArraySchema()), ("count", NumberSchema())),
-            "loop.sequential" or "loop.parallel" => ObjectSchema(("results", ArraySchema()), ("count", NumberSchema())),
-            "switch" => ObjectSchema(("matched", StringSchema()), ("steps", ObjectSchema())),
-            "emit" => ObjectSchema(("event", OpaqueSchema()), ("status", StringSchema())),
+            "workflow.call" => BuildWorkflowCallOutputSchema(step, workflows),
             "human.input" => BuildHumanInputOutputSchema(step),
-            _ => OpaqueSchema()
+            _ => stepContracts.TryGetValue(step.Type, out var contract)
+                ? contract.OutputSchema.DeepClone()
+                : OpaqueSchema()
         };
+    }
+
+    private static JsonNode BuildWorkflowCallOutputSchema(
+        StepDef step,
+        IReadOnlyDictionary<string, WorkflowDef> workflows)
+    {
+        if (step.Input is JsonObject input
+            && input["ref"] is JsonObject refObject
+            && string.Equals(TryGetLiteralString(refObject["kind"]) ?? "local", "local", StringComparison.OrdinalIgnoreCase)
+            && TryGetLiteralString(refObject["name"]) is { } targetName
+            && workflows.TryGetValue(targetName, out var targetWorkflow))
+        {
+            return ObjectSchema(
+                ("outputs", StepExpressionTypeValidator.OutputsObjectSchema(targetWorkflow.Outputs)),
+                ("workflow", StringSchema()),
+                ("run", ObjectSchema(("steps_executed", NumberSchema()), ("success", BooleanSchema()))));
+        }
+
+        return ObjectSchema(
+            ("outputs", OpaqueSchema()),
+            ("workflow", StringSchema()),
+            ("run", ObjectSchema(("steps_executed", NumberSchema()), ("success", BooleanSchema()))));
     }
 
     private static JsonNode BuildHumanInputOutputSchema(StepDef step)
@@ -1118,14 +1704,18 @@ internal static class WorkflowPlanSemanticValidator
             _ => StringSchema()
         };
 
-    private static JsonNode BuildSetOutputSchema(StepDef step)
+    private static JsonNode BuildSetOutputSchema(
+        StepDef step,
+        IReadOnlyDictionary<string, InputDef>? workflowInputs,
+        IReadOnlyDictionary<string, JsonNode?> knownContracts)
     {
         if (step.Input is not JsonObject input)
             return ObjectSchema();
 
         var properties = new List<(string Name, JsonNode? Schema)>();
         foreach (var (key, value) in input)
-            properties.Add((key, InferSchemaFromExample(value)));
+            properties.Add((key, StepExpressionTypeValidator.InferValueSchema(value, workflowInputs, knownContracts)
+                ?? InferSchemaFromExample(value)));
         return ObjectSchema(properties.ToArray());
     }
 

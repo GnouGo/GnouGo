@@ -23,6 +23,8 @@ public static class BuiltInFunctions
         ["endsWith"] = EndsWith,
         ["replace"] = Replace,
         ["substring"] = Substring,
+        ["string"] = ToStringValue,
+        ["toString"] = ToStringValue,
         ["toNumber"] = ToNumber,
         ["json"] = Json,
         ["pick"] = Pick,
@@ -136,6 +138,12 @@ public static class BuiltInFunctions
         return JsonValue.Create(ExpressionEvaluator.GetNumber(args[0]));
     }
 
+    private static JsonNode? ToStringValue(JsonNode?[] args)
+    {
+        if (args.Length < 1 || args[0] == null) return JsonValue.Create("");
+        return JsonValue.Create(ExpressionEvaluator.GetString(args[0]));
+    }
+
     private static JsonNode? Json(JsonNode?[] args)
     {
         if (args.Length < 1 || args[0] == null) return JsonValue.Create("null");
@@ -238,6 +246,5 @@ public static class BuiltInFunctions
         return JsonValue.Create(Convert.ToBase64String(Encoding.UTF8.GetBytes(s)));
     }
 }
-
 
 

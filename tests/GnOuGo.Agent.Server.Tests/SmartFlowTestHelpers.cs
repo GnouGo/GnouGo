@@ -70,6 +70,57 @@ internal sealed class RecordingLlmClient : ILLMClient
 
     private static string BuildResponseText(LLMRequest request)
     {
+        if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.OrdinalIgnoreCase))
+        {
+            return """
+                # Generated chat agent
+
+                Build a persisted chat agent that accepts a `task` string and returns an `answer` string.
+                """;
+        }
+
+        if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.OrdinalIgnoreCase))
+        {
+            return """
+                # Generated chat agent
+
+                Build a persisted chat agent that accepts a `task` string and returns an `answer` string.
+
+                ## Main workflow orchestration
+
+                Implement the answer directly in the main workflow. No leaf subworkflow is needed.
+                """;
+        }
+
+        if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.OrdinalIgnoreCase))
+        {
+            return """
+                document:
+                  name: generated-agent
+                  skill:
+                    description: Generated chat agent workflow.
+                    tags: [agent, generated]
+                    inputs:
+                      task: { type: string }
+                    outputs:
+                      answer: { type: string }
+                main:
+                  inputs:
+                    task:
+                      type: string
+                      required: true
+                  steps:
+                    - id: final_answer
+                      type: set
+                      input:
+                        answer: "${data.inputs.task}"
+                  outputs:
+                    answer:
+                      expr: "${data.steps.final_answer.answer}"
+                      type: string
+                """;
+        }
+
         if (request.Prompt.Contains("Generate a valid GnOuGo.Flow YAML workflow", StringComparison.OrdinalIgnoreCase)
             || request.Prompt.Contains("Return only a complete workflow YAML document", StringComparison.OrdinalIgnoreCase))
         {
@@ -174,6 +225,8 @@ internal sealed class FakeMcpSession : IMcpSession
     public FakeMcpSession OnTool(string toolName, Func<JsonNode?, CancellationToken, Task<McpCallResult>> handler)
     {
         _toolHandlers[toolName] = handler;
+        if (!_tools.Any(tool => string.Equals(tool.Name, toolName, StringComparison.OrdinalIgnoreCase)))
+            _tools.Add(new McpToolInfo { Name = toolName });
         return this;
     }
 
@@ -184,6 +237,7 @@ internal sealed class FakeMcpSession : IMcpSession
         JsonNode? outputSchema = null,
         JsonNode? exampleResponse = null)
     {
+        _tools.RemoveAll(tool => string.Equals(tool.Name, toolName, StringComparison.OrdinalIgnoreCase));
         _tools.Add(new McpToolInfo
         {
             Name = toolName,

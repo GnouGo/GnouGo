@@ -274,9 +274,27 @@ public sealed class McpCallExecutor : IStepExecutor
                 });
             await using var session = await factory.GetClientAsync(serverName, linkedCts.Token);
 
+            IReadOnlyList<McpToolInfo>? runtimeToolCatalog = null;
+            if (string.Equals(kind, "tool", StringComparison.Ordinal))
+            {
+                runtimeToolCatalog = McpCacheHelper.GetCachedTools(ctx.Engine.McpCache, serverName)
+                    ?? await session.ListToolsAsync(linkedCts.Token);
+                if (runtimeToolCatalog != null)
+                    McpCacheHelper.CacheTools(ctx.Engine.McpCache, serverName, runtimeToolCatalog);
+
+                // Loose legacy test factories often expose neither metadata nor a catalog.
+                // Configured production factories always expose server metadata, so an empty
+                // catalog remains meaningful and is rejected by runtime validation.
+                if (runtimeToolCatalog is { Count: 0 }
+                    && factory.ServerMetadata?.Any(server => string.Equals(server.Name, serverName, StringComparison.Ordinal)) != true)
+                {
+                    runtimeToolCatalog = null;
+                }
+            }
+
             if (hasPromptSelection)
             {
-                return await ExecuteLlmAssistedAsync(session, input, kind, singleMethod, batchMethods, errorPolicy, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                return await ExecuteLlmAssistedAsync(session, input, kind, singleMethod, batchMethods, errorPolicy, runtimeToolCatalog, ctx, realtimeProgressFingerprints, linkedCts.Token);
             }
 
             // Auto-discover: list all tools or prompts from the server
@@ -294,7 +312,8 @@ public sealed class McpCallExecutor : IStepExecutor
                 }
                 else
                 {
-                    var tools = McpCacheHelper.GetCachedTools(cache, serverName)
+                    var tools = runtimeToolCatalog
+                        ?? McpCacheHelper.GetCachedTools(cache, serverName)
                         ?? (IReadOnlyList<McpToolInfo>) await session.ListToolsAsync(linkedCts.Token);
                     McpCacheHelper.CacheTools(cache, serverName, tools);
                     foreach (var t in tools)
@@ -328,7 +347,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 foreach (var methodName in batchMethods!)
                 {
                     var itemCorrelation = correlation with { MethodName = methodName };
-                    var itemResult = await CallSingleAsync(session, kind, methodName, requestArgs?.DeepClone(), itemCorrelation, errorPolicy.DetectResultErrors, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                    var itemResult = await CallSingleAsync(session, kind, methodName, requestArgs?.DeepClone(), itemCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, ctx, realtimeProgressFingerprints, linkedCts.Token);
                     var itemObj = (JsonObject)itemResult!;
                     itemObj["method"] = methodName;
                     if (itemObj["status"]?.GetValue<string>() == "error")
@@ -350,7 +369,7 @@ public sealed class McpCallExecutor : IStepExecutor
             {
                 // ── Single mode (backward compatible) ──
                 var singleCorrelation = correlation with { MethodName = singleMethod };
-                var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, errorPolicy.DetectResultErrors, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, ctx, realtimeProgressFingerprints, linkedCts.Token);
                 var statusStr = (singleResult as JsonObject)?["status"]?.GetValue<string>();
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", statusStr == "error" ? "error" : "stop");
                 if (errorPolicy.RaiseOnError && statusStr == "error")
@@ -438,6 +457,7 @@ public sealed class McpCallExecutor : IStepExecutor
         string? singleMethod,
         List<string>? batchMethods,
         McpErrorPolicy errorPolicy,
+        IReadOnlyList<McpToolInfo>? runtimeToolCatalog,
         StepExecutionContext ctx,
         ConcurrentDictionary<string, byte>? realtimeProgressFingerprints,
         CancellationToken ct)
@@ -466,7 +486,7 @@ public sealed class McpCallExecutor : IStepExecutor
 
         var (structuredOutputSchema, structuredOutputStrict) = GetStructuredOutputConfig(input);
 
-        var capabilities = await ResolveSelectableCapabilitiesAsync(session, session.ServerName, input, defaultKind, singleMethod, batchMethods, ctx, ct);
+        var capabilities = await ResolveSelectableCapabilitiesAsync(session, session.ServerName, input, defaultKind, singleMethod, batchMethods, runtimeToolCatalog, ctx, ct);
         if (capabilities.Count == 0)
         {
             ctx.SetTelemetryAttribute("gen_ai.system", provider ?? "default");
@@ -540,7 +560,7 @@ public sealed class McpCallExecutor : IStepExecutor
                     $"mcp.call prompt mode selected unknown MCP capability '{toolCall.Name}'", retryable: false);
 
             var correlation = BuildCorrelationContext(ctx, session.ServerName, capability.Kind, capability.MethodName, null);
-            var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, errorPolicy.DetectResultErrors, ctx, realtimeProgressFingerprints, ct);
+            var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, errorPolicy.DetectResultErrors, runtimeToolCatalog, ctx, realtimeProgressFingerprints, ct);
             var itemObj = (JsonObject)itemResult!;
             itemObj["method"] = capability.MethodName;
             itemObj["kind"] = capability.Kind;
@@ -723,6 +743,7 @@ Produce the final answer strictly from the executed MCP results.
         string defaultKind,
         string? singleMethod,
         List<string>? batchMethods,
+        IReadOnlyList<McpToolInfo>? runtimeToolCatalog,
         StepExecutionContext ctx,
         CancellationToken ct)
     {
@@ -759,7 +780,8 @@ Produce the final answer strictly from the executed MCP results.
         else
         {
             var cache = ctx.Engine.McpCache;
-            var tools = McpCacheHelper.GetCachedTools(cache, serverName)
+            var tools = runtimeToolCatalog
+                ?? McpCacheHelper.GetCachedTools(cache, serverName)
                 ?? (IReadOnlyList<McpToolInfo>) await session.ListToolsAsync(ct);
             McpCacheHelper.CacheTools(cache, serverName, tools);
             foreach (var tool in tools)
@@ -958,7 +980,8 @@ Produce the final answer strictly from the executed MCP results.
     /// <summary>Calls a single tool or prompt and returns the result JsonObject.</summary>
     private static async Task<JsonNode?> CallSingleAsync(
         IMcpSession session, string kind, string method, JsonNode? requestArgs,
-        McpCorrelationContext correlation, bool detectResultErrors, StepExecutionContext ctx, ConcurrentDictionary<string, byte>? realtimeProgressFingerprints, CancellationToken ct)
+        McpCorrelationContext correlation, bool detectResultErrors, IReadOnlyList<McpToolInfo>? runtimeToolCatalog,
+        StepExecutionContext ctx, ConcurrentDictionary<string, byte>? realtimeProgressFingerprints, CancellationToken ct)
     {
         EmitMcpContentEvent(ctx, "gen_ai.content.prompt", "gen_ai.prompt",
             BuildMcpContentEnvelope(session.ServerName, kind, method, requestArgs), correlation);
@@ -996,6 +1019,7 @@ Produce the final answer strictly from the executed MCP results.
         }
         else
         {
+            ValidateResolvedToolCall(session, method, requestArgs, runtimeToolCatalog);
             var callResult = await session.CallToolAsync(method, requestArgs, ct);
 
             // ── Telemetry: extract LLM metrics from tool result ──
@@ -1019,6 +1043,54 @@ Produce the final answer strictly from the executed MCP results.
                 result, correlation);
             return result;
         }
+    }
+
+    private static void ValidateResolvedToolCall(
+        IMcpSession session,
+        string method,
+        JsonNode? requestArgs,
+        IReadOnlyList<McpToolInfo>? tools)
+    {
+        // A null catalog is possible only for legacy factories that expose no server
+        // metadata. Configured runtime and workflow.plan dry-run factories are fail-closed.
+        if (tools == null)
+            return;
+
+        if (tools.Count == 0)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.McpCallError,
+                $"MCP server '{session.ServerName}' exposes no tools; '{method}' cannot be called.");
+        }
+        var tool = tools.FirstOrDefault(candidate =>
+            string.Equals(candidate.Name, method, StringComparison.Ordinal));
+        if (tool == null)
+        {
+            var available = tools.Select(static candidate => candidate.Name)
+                .Where(static name => !string.IsNullOrWhiteSpace(name))
+                .OrderBy(static name => name, StringComparer.Ordinal)
+                .ToArray();
+            throw new WorkflowRuntimeException(
+                ErrorCodes.McpCallError,
+                $"MCP tool '{method}' does not exist on server '{session.ServerName}'. Available tools: [{string.Join(", ", available)}].");
+        }
+
+        if (tool.InputSchema == null)
+            return;
+
+        var validationErrors = WorkflowPlanSemanticValidator.ValidateResolvedMcpRequest(requestArgs, tool.InputSchema);
+        if (validationErrors.Count == 0)
+            return;
+
+        throw new WorkflowRuntimeException(
+            ErrorCodes.InputValidation,
+            $"mcp.call request for '{session.ServerName}/{method}' failed runtime JSON Schema validation: {string.Join("; ", validationErrors)}",
+            details: new JsonObject
+            {
+                ["server"] = session.ServerName,
+                ["method"] = method,
+                ["validation_errors"] = new JsonArray(validationErrors.Select(static error => (JsonNode?)JsonValue.Create(error)).ToArray())
+            });
     }
 
     private static JsonObject BuildMcpContentEnvelope(string serverName, string kind, string method, JsonNode? requestArgs)

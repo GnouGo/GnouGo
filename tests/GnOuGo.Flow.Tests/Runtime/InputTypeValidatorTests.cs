@@ -44,6 +44,23 @@ public class InputTypeValidatorTests
     }
 
     [Fact]
+    public void Validate_IntegerInput_ValidValue_NoErrors()
+    {
+        var wf = MakeWorkflow(new InputDef { Type = "integer" });
+        var errors = InputTypeValidator.Validate(wf, new JsonObject { ["x"] = 42 });
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Validate_IntegerInput_FractionalValue_Error()
+    {
+        var wf = MakeWorkflow(new InputDef { Type = "integer" });
+        var errors = InputTypeValidator.Validate(wf, new JsonObject { ["x"] = 4.2 });
+        Assert.Single(errors);
+        Assert.Contains("expected integer", errors[0]);
+    }
+
+    [Fact]
     public void Validate_BooleanInput_ValidValue_NoErrors()
     {
         var wf = MakeWorkflow(new InputDef { Type = "boolean" });
@@ -370,4 +387,3 @@ public class InputTypeValidatorTests
         };
     }
 }
-

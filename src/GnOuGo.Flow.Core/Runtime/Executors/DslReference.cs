@@ -151,6 +151,8 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 - `replace(s, old, new)` → replaces all occurrences of old with new in s
 - `substring(s, start)` → returns characters from position start to end
 - `substring(s, start, length)` → returns length characters starting at position start
+- `string(val)` → converts value to string
+- `toString(val)` → alias for `string(val)`
 - `toNumber(val)` → converts value to number
 - `json(val)` → serializes value to JSON string
 - `pick(obj, ...keys)` → returns a new object containing only the requested keys; keys may be separate arguments or an array

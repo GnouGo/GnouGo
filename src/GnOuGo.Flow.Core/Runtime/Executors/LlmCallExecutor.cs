@@ -19,7 +19,7 @@ public sealed class LlmCallExecutor : IStepExecutor
         new(ErrorCodes.LlmTimeout, true, "The LLM request timed out. This is retryable and is a good candidate for `retry`."),
         new(ErrorCodes.LlmNetwork, true, "A transient network failure occurred while calling the LLM provider."),
         new(ErrorCodes.LlmNetwork, false, "The LLM client is not configured or the provider failed in a non-transient way."),
-        new(ErrorCodes.LlmSchema, false, "structured_output was requested but the LLM returned a response that could not be parsed as valid JSON.")
+        new(ErrorCodes.LlmSchema, false, "The structured_output envelope/schema is invalid, or the returned JSON does not conform to that schema.")
     };
 
     public string DslSnippet => """
@@ -43,7 +43,7 @@ public sealed class LlmCallExecutor : IStepExecutor
         - Every schema object with `properties` MUST have `required` listing EVERY key from `properties`.
         - Do NOT list only the fields that feel mandatory; strict mode rejects omitted property names.
         - Optional fields must still be listed in `required`; represent them as nullable with `anyOf: [{ type: <type> }, { type: "null" }]`.
-        - Add `additionalProperties: false` on every object schema for portability. The OpenAI provider also patches it automatically in strict mode.
+        - Add `additionalProperties: false` on every object schema; Flow validates this before sending strict requests.
         ```yaml
         - id: classify
           type: llm.call
@@ -61,11 +61,12 @@ public sealed class LlmCallExecutor : IStepExecutor
                     anyOf:
                       - type: string
                       - type: "null"
-                required: [category, priority, notes]   # every property above is listed, including nullable optional fields
+                required: [category, priority, notes]   # every property above must be listed, including nullable optional fields
                 additionalProperties: false
               strict: true                       # optional
         ```
-        You can also use `structured_output.schema_ref` instead of `schema_inline`.
+        You can also use `structured_output.schema_ref` instead of `schema_inline`; it must resolve from an expression to a JSON Schema object.
+        Flow validates the schema before the provider call and validates returned JSON against the same schema before exposing `data.steps.<id>.json`.
         Output: `{ text: "...", json?: {...}, usage: { prompt_tokens, completion_tokens, total_tokens }, meta: { model } }`
         """;
 
@@ -129,13 +130,18 @@ public sealed class LlmCallExecutor : IStepExecutor
             }
         }
 
-        // Structured output
-        var structuredOutput = input["structured_output"] as JsonObject;
-        if (structuredOutput != null)
+        // Structured output: validate the envelope and the JSON Schema before any provider call.
+        StructuredOutputContract? structuredOutputContract = null;
+        if (input.TryGetPropertyValue("structured_output", out var structuredOutputNode))
         {
-            request.StructuredOutputSchema = structuredOutput["schema_inline"] ?? structuredOutput["schema_ref"];
-            if (structuredOutput.TryGetPropertyValue("strict", out var s) && s != null)
-                request.StructuredOutputStrict = s.GetValue<bool>();
+            structuredOutputContract = JsonSchemaContractValidator.ValidateStructuredOutput(
+                structuredOutputNode,
+                allowDynamicSchemaReference: false);
+            if (structuredOutputContract.Errors.Count > 0)
+                ThrowStructuredOutputSchemaError("llm.call structured_output schema is invalid", structuredOutputContract.Errors);
+
+            request.StructuredOutputSchema = structuredOutputContract.Schema?.DeepClone();
+            request.StructuredOutputStrict = structuredOutputContract.Strict;
         }
 
         // Max output tokens
@@ -221,18 +227,30 @@ public sealed class LlmCallExecutor : IStepExecutor
 
             // Structured output: fallback parse response.Text as JSON (parity with Python)
             JsonNode? structuredJson = response.Json;
-            if (structuredOutput != null && structuredJson == null && !string.IsNullOrWhiteSpace(response.Text))
+            var hasStructuredJson = response.Json != null;
+            if (structuredOutputContract != null && !hasStructuredJson && !string.IsNullOrWhiteSpace(response.Text))
             {
                 var textToParse = StripMarkdownCodeFences(response.Text);
-                try { structuredJson = JsonNode.Parse(textToParse); }
+                try
+                {
+                    structuredJson = JsonNode.Parse(textToParse);
+                    hasStructuredJson = true;
+                }
                 catch { structuredJson = null; }
             }
-            if (structuredOutput != null && structuredJson == null)
+            if (structuredOutputContract != null && !hasStructuredJson)
                 throw new WorkflowRuntimeException(ErrorCodes.LlmSchema,
                     "llm.call structured_output expected valid JSON but the LLM returned an incompatible response", retryable: true);
 
-            if (structuredJson != null)
-                result["json"] = structuredJson.DeepClone();
+            if (structuredOutputContract?.Schema != null && hasStructuredJson)
+            {
+                var outputErrors = JsonSchemaContractValidator.ValidateInstance(structuredJson, structuredOutputContract.Schema);
+                if (outputErrors.Count > 0)
+                    ThrowStructuredOutputSchemaError("llm.call returned JSON that does not conform to structured_output", outputErrors, retryable: true);
+            }
+
+            if (hasStructuredJson)
+                result["json"] = structuredJson?.DeepClone();
             else if (response.Json != null)
                 result["json"] = response.Json.DeepClone();
             if (response.Usage != null)
@@ -261,6 +279,21 @@ public sealed class LlmCallExecutor : IStepExecutor
             ctx.Engine.Logger.LogError(ex, "llm.call failed for model '{Model}'", model);
             throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork, $"LLM call failed: {ex.Message}", retryable: false);
         }
+    }
+
+    private static void ThrowStructuredOutputSchemaError(
+        string message,
+        IReadOnlyList<string> errors,
+        bool retryable = false)
+    {
+        throw new WorkflowRuntimeException(
+            ErrorCodes.LlmSchema,
+            $"{message}: {string.Join("; ", errors)}",
+            retryable: retryable,
+            details: new JsonObject
+            {
+                ["validation_errors"] = new JsonArray(errors.Select(static error => (JsonNode?)JsonValue.Create(error)).ToArray())
+            });
     }
 
     /// <summary>
