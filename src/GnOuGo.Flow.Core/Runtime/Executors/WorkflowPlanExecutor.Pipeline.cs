@@ -721,6 +721,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Do not use workflow.plan.");
         sb.AppendLine("- Do not depend on another subworkflow.");
         sb.AppendLine("- Preserve the declared input and output contract.");
+        sb.AppendLine("- Workflow outputs must match their declared contract type exactly. A string output must resolve to a string; a boolean output must resolve to a boolean.");
+        sb.AppendLine("- Comparison/predicate expressions such as `${a == b}`, `${a != b}`, `${contains(...)}`, and `${exists(...)}` return boolean. Use them only for boolean outputs or `if`/`switch.when` conditions.");
+        sb.AppendLine("- For string outputs such as classification/status/level/severity, return a string-valued field or quoted string literal. Invalid for a string output: `${data.steps.classify.json.classification == 'bug'}`. Valid: `${data.steps.classify.json.classification}`.");
+        sb.AppendLine("- If a string output must be derived from an MCP/LLM response, first normalize it with `llm.call` or `mcp.call` `structured_output`, then map `data.steps.<normalizer>.json.<field>` to the workflow output.");
         sb.AppendLine("- Any schema with `type: object` MUST be strongly typed with a non-empty `properties` mapping. Never generate a bare `type: object` input, output, item, or nested property.");
         sb.AppendLine("- Never duplicate the YAML key `required` in an object schema. Use `required: true|false` only for input-level requiredness, and use `required_properties: [field_name]` for required object property names.");
         sb.AppendLine();
@@ -751,14 +755,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         WorkflowPipelineSubworkflowSpec spec,
         string? previousError,
         string? previousYaml,
-        string? previousPrompt)
+        string? previousPrompt,
+        string? previousRepairContext)
     {
         var leafGenerator = generator.DeepClone() as JsonObject ?? new JsonObject();
         leafGenerator.Remove("mode");
         leafGenerator.Remove("raw_prompt");
         leafGenerator["instruction"] = string.IsNullOrWhiteSpace(previousError)
             ? spec.GenerationPrompt
-            : BuildLeafRepairPrompt(spec.GenerationPrompt, previousPrompt, previousYaml, previousError);
+            : BuildLeafRepairPrompt(spec.GenerationPrompt, previousPrompt, previousYaml, previousError, previousRepairContext);
         leafGenerator["context"] = "";
         leafGenerator["pipeline_leaf_name"] = spec.Name;
 
@@ -790,6 +795,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string? previousError = null;
         string? previousYaml = null;
         string? previousPrompt = null;
+        string? previousRepairContext = null;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
@@ -804,7 +810,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             try
             {
-                var leafInput = BuildLeafPlanInput(pipelineInput, generator, spec, previousError, previousYaml, previousPrompt);
+                var leafInput = BuildLeafPlanInput(pipelineInput, generator, spec, previousError, previousYaml, previousPrompt, previousRepairContext);
                 var leafPrompt = ((leafInput["generator"] as JsonObject)?["instruction"] as JsonValue)?.GetValue<string>();
                 var leafCtx = new StepExecutionContext
                 {
@@ -844,6 +850,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 previousPrompt ??= spec.GenerationPrompt;
                 previousYaml ??= TryExtractGeneratedYamlFromException(ex);
                 previousError = FormatLeafGenerationError(spec.Name, attempt, ex);
+                previousRepairContext = await BuildPipelineLeafRepairContextAsync(
+                    parentCtx,
+                    pipelineInput,
+                    previousYaml,
+                    ex,
+                    leafAttemptSpan.Span,
+                    ct);
                 leafAttemptSpan.AddEvent(
                     "gnougo-flow.plan.pipeline.leaf_generation.error",
                     BuildPlanErrorTelemetryAttributes(ex, attempt, "generate_leaf", spec.Name));
@@ -925,7 +938,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string generationPrompt,
         string? previousPrompt,
         string? previousYaml,
-        string previousError)
+        string previousError,
+        string? additionalRepairContext)
     {
         var repairContext = new StringBuilder();
         repairContext.AppendLine("Previous generated YAML for this leaf workflow failed validation.");
@@ -940,6 +954,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             repairContext.AppendLine("</previous_prompt>");
         }
 
+        if (!string.IsNullOrWhiteSpace(additionalRepairContext))
+        {
+            repairContext.AppendLine();
+            repairContext.AppendLine("Additional validation repair context:");
+            repairContext.AppendLine(additionalRepairContext.Trim());
+        }
+
         return BuildRepairPrompt(
             generationPrompt,
             context: null,
@@ -947,6 +968,58 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             structuredError: previousError,
             repairContext: repairContext.ToString(),
             constraints: "This is a pipeline leaf repair. Generate exactly one leaf workflow. Do not use workflow.call or workflow.plan.");
+    }
+
+    private static async Task<string?> BuildPipelineLeafRepairContextAsync(
+        StepExecutionContext parentCtx,
+        JsonObject pipelineInput,
+        string? previousYaml,
+        Exception exception,
+        ITelemetrySpan? parentSpan,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(previousYaml))
+            return null;
+
+        try
+        {
+            var leafPolicy = BuildLeafPolicy(pipelineInput["policy"] as JsonObject);
+            var allowedTypes = ExtractAllowedStepTypes(leafPolicy);
+            var discovered = previousYaml.Contains("mcp.call", StringComparison.Ordinal)
+                ? await DiscoverMcpServersAsync(
+                    parentCtx.Engine.McpClientFactory,
+                    parentCtx.Engine.McpCache,
+                    parentCtx.Engine.Logger,
+                    parentCtx,
+                    candidateServers: null,
+                    parentSpan,
+                    ct)
+                : null;
+
+            return BuildMinimalRepairContext(
+                parentCtx.Engine.Registry,
+                allowedTypes,
+                previousYaml,
+                exception,
+                discovered);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            parentCtx.Engine.Logger.LogDebug(ex, "workflow.plan pipeline: failed to build leaf repair context");
+            return null;
+        }
+    }
+
+    private static HashSet<string>? ExtractAllowedStepTypes(JsonObject policy)
+    {
+        if (policy["allowed_step_types"] is not JsonArray allowed)
+            return null;
+
+        return allowed
+            .Select(static node => node?.GetValue<string>())
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value!)
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     private static void NormalizePipelineMainPolicy(JsonObject pipelineInput, StepExecutionContext ctx)

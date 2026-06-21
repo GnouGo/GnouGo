@@ -441,9 +441,20 @@ internal static class WorkflowPlanSemanticValidator
             Field = mismatch.Field,
             InvalidPath = mismatch.Expression,
             AllowedPaths = Array.Empty<string>(),
-            Suggestion = $"Provide a {mismatch.ExpectedType} value or reference an expression with a compatible output type.",
+            Suggestion = BuildExpressionTypeMismatchSuggestion(mismatch),
             Message = mismatch.Message
         });
+    }
+
+    private static string BuildExpressionTypeMismatchSuggestion(StepExpressionTypeMismatch mismatch)
+    {
+        if (mismatch.ExpectedType.Contains("string", StringComparison.OrdinalIgnoreCase)
+            && mismatch.Message.Contains("resolves to boolean", StringComparison.OrdinalIgnoreCase))
+        {
+            return "A comparison/predicate expression returns boolean. For string outputs, return a string-valued field/literal instead, or normalize an MCP/LLM response with structured_output and map data.steps.<normalizer>.json.<field>.";
+        }
+
+        return $"Provide a {mismatch.ExpectedType} value or reference an expression with a compatible output type.";
     }
 
     private static void ValidateJson(

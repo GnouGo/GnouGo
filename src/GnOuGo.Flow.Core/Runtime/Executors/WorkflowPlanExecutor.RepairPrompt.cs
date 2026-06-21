@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
@@ -207,6 +206,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Available step type names:");
         sb.AppendLine(string.Join(", ", availableTypes.OrderBy(t => t, StringComparer.Ordinal)));
 
+        var expressionTypeDoc = BuildExpressionTypeMismatchRepairContext(exception.Message);
+        if (!string.IsNullOrWhiteSpace(expressionTypeDoc))
+        {
+            sb.AppendLine();
+            sb.AppendLine("Expression type mismatch repair guidance:");
+            sb.AppendLine(expressionTypeDoc);
+        }
+
         if (selectedTypes.Count > 0)
         {
             var snippets = registry.GetDslSnippets(selectedTypes).ToList();
@@ -227,6 +234,143 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    private static string? BuildExpressionTypeMismatchRepairContext(string errorMessage)
+    {
+        if (string.IsNullOrWhiteSpace(errorMessage))
+            return null;
+
+        var lower = errorMessage.ToLowerInvariant();
+        if (!lower.Contains(ErrorCodes.ExprTypeMismatch.ToLowerInvariant(), StringComparison.Ordinal)
+            && !(lower.Contains("resolves to", StringComparison.Ordinal) && lower.Contains("contract requires", StringComparison.Ordinal)))
+            return null;
+
+        var fields = ExtractJsonStringValues(errorMessage, "field")
+            .Where(static field => field.StartsWith("outputs.", StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var invalidExpressions = ExtractJsonStringValues(errorMessage, "invalid_path")
+            .Where(static expression => expression.Contains("${", StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .Take(6)
+            .ToArray();
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Workflow output expressions must match their declared output contract types exactly.");
+        if (fields.Length > 0)
+            sb.AppendLine("Affected output field(s): " + string.Join(", ", fields.Select(static field => $"`{field}`")));
+
+        if (lower.Contains("resolves to boolean", StringComparison.Ordinal) && lower.Contains("requires string", StringComparison.Ordinal))
+        {
+            sb.AppendLine("A comparison/predicate expression returns boolean, so it cannot satisfy a string output contract.");
+            sb.AppendLine("Do not assign `${a == b}`, `${a != b}`, `${contains(...)}`, `${exists(...)}`, or other predicates to string outputs.");
+            sb.AppendLine("For string outputs such as classification/status/level/severity, return a string-valued field or quoted string literal.");
+            sb.AppendLine("If deriving the value from an MCP/LLM response, add a normalization step with `structured_output`, then map `data.steps.<normalizer>.json.<field>`.");
+            sb.AppendLine("Invalid string output: `expr: \"${data.steps.classify.json.classification == 'bug'}\"`.");
+            sb.AppendLine("Valid string output: `expr: \"${data.steps.classify.json.classification}\"`.");
+        }
+        else
+        {
+            sb.AppendLine("Replace incompatible expressions with values that resolve to the declared output type.");
+            sb.AppendLine("Use predicate/comparison expressions only for boolean outputs or conditional fields such as `if` and `switch.when`.");
+        }
+
+        if (invalidExpressions.Length > 0)
+            sb.AppendLine("Invalid expression(s) to replace: " + string.Join(", ", invalidExpressions.Select(static expression => $"`{expression}`")));
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static IReadOnlyList<string> ExtractJsonStringValues(string text, string propertyName)
+    {
+        var values = new List<string>();
+        foreach (Match match in Regex.Matches(
+            text,
+            $"\"{Regex.Escape(propertyName)}\":\"(?<value>(?:\\\\.|[^\"])*)\"",
+            RegexOptions.CultureInvariant))
+        {
+            var raw = match.Groups["value"].Value;
+            if (string.IsNullOrWhiteSpace(raw))
+                continue;
+
+            var decoded = DecodeJsonStringFragment(raw);
+            if (!string.IsNullOrWhiteSpace(decoded))
+                values.Add(decoded);
+        }
+
+        return values;
+    }
+
+    private static string DecodeJsonStringFragment(string value)
+    {
+        if (!value.Contains('\\', StringComparison.Ordinal))
+            return value;
+
+        var sb = new StringBuilder(value.Length);
+        for (var i = 0; i < value.Length; i++)
+        {
+            var current = value[i];
+            if (current != '\\' || i + 1 >= value.Length)
+            {
+                sb.Append(current);
+                continue;
+            }
+
+            var escaped = value[++i];
+            switch (escaped)
+            {
+                case '"':
+                case '\\':
+                case '/':
+                    sb.Append(escaped);
+                    break;
+                case 'b':
+                    sb.Append('\b');
+                    break;
+                case 'f':
+                    sb.Append('\f');
+                    break;
+                case 'n':
+                    sb.Append('\n');
+                    break;
+                case 'r':
+                    sb.Append('\r');
+                    break;
+                case 't':
+                    sb.Append('\t');
+                    break;
+                case 'u' when i + 4 < value.Length && TryParseHexQuad(value.AsSpan(i + 1, 4), out var codepoint):
+                    sb.Append((char)codepoint);
+                    i += 4;
+                    break;
+                default:
+                    sb.Append(escaped);
+                    break;
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static bool TryParseHexQuad(ReadOnlySpan<char> text, out int value)
+    {
+        value = 0;
+        foreach (var ch in text)
+        {
+            var digit = ch switch
+            {
+                >= '0' and <= '9' => ch - '0',
+                >= 'a' and <= 'f' => ch - 'a' + 10,
+                >= 'A' and <= 'F' => ch - 'A' + 10,
+                _ => -1
+            };
+            if (digit < 0)
+                return false;
+            value = value * 16 + digit;
+        }
+
+        return true;
     }
 
     private sealed record StepRepairInfo(string Type, IReadOnlyList<string> AncestorTypes);
@@ -343,7 +487,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         HashSet<string> selectedTypes,
         IReadOnlyList<McpServerDiscovery>? discovered)
     {
-        if (discovered == null || discovered.Count == 0 || !selectedTypes.Contains("mcp.call") || string.IsNullOrWhiteSpace(invalidYaml))
+        if (discovered == null || discovered.Count == 0 || string.IsNullOrWhiteSpace(invalidYaml))
             return null;
 
         WorkflowDocument doc;
@@ -362,8 +506,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             .Select(step =>
             {
                 var input = (JsonObject)step.Input!;
-                var server = input["server"]?.GetValue<string>();
-                var method = input["method"]?.GetValue<string>();
+                var server = ReadMcpCallInputString(step, "server");
+                var method = ReadMcpCallInputString(step, "method");
                 var methods = new List<string>();
                 if (!string.IsNullOrWhiteSpace(method) && !method.Contains("${", StringComparison.Ordinal))
                     methods.Add(method);
@@ -371,7 +515,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 {
                     foreach (var item in methodArray)
                     {
-                        var methodName = item?.GetValue<string>();
+                        var methodName = item is JsonValue methodValue
+                            && methodValue.TryGetValue<string>(out var parsedMethodName)
+                                ? parsedMethodName
+                                : null;
                         if (!string.IsNullOrWhiteSpace(methodName) && !methodName.Contains("${", StringComparison.Ordinal))
                             methods.Add(methodName);
                     }
@@ -395,49 +542,156 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         {
             var server = discovered.FirstOrDefault(s => string.Equals(s.Name, call.Server, StringComparison.Ordinal));
             if (server == null)
-                continue;
+            {
+                sb.AppendLine();
+                sb.Append("- ");
+                if (!string.IsNullOrWhiteSpace(call.StepId))
+                    sb.Append($"Step `{call.StepId}` references ");
+                sb.AppendLine($"unknown MCP server `{call.Server}`.");
+                sb.AppendLine("  This server name is not configured/discovered. Use one exact server name from the available MCP servers list.");
+                if (call.Request != null)
+                    AppendJsonBlock(sb, "  ", "invalid_request", call.Request);
 
+                var likelyServers = SelectLikelyMcpRepairServers(discovered, call.StepId, call.Server, call.Methods);
+                if (likelyServers.Count > 0)
+                {
+                    sb.AppendLine("  Likely matching discovered server(s):");
+                    foreach (var likelyServer in likelyServers)
+                        AppendMcpServerRepairDetails(sb, likelyServer, call.Methods, includeUnknownMethods: false);
+                }
+                continue;
+            }
+
+            AppendMcpServerRepairDetails(sb, server, call.Methods, includeUnknownMethods: true, call.StepId, call.Request);
+        }
+
+        return sb.Length == 0 ? null : sb.ToString().TrimEnd();
+    }
+
+    private static void AppendMcpServerRepairDetails(
+        StringBuilder sb,
+        McpServerDiscovery server,
+        IReadOnlyList<string> methods,
+        bool includeUnknownMethods,
+        string? stepId = null,
+        JsonNode? request = null)
+    {
+        if (stepId != null || request != null)
+        {
             sb.AppendLine();
             sb.Append("- ");
-            if (!string.IsNullOrWhiteSpace(call.StepId))
-                sb.Append($"Step `{call.StepId}` references ");
+            if (!string.IsNullOrWhiteSpace(stepId))
+                sb.Append($"Step `{stepId}` references ");
             sb.Append(server.Name);
             if (!string.IsNullOrWhiteSpace(server.Description))
                 sb.Append($": {server.Description}");
             sb.AppendLine();
+        }
+        else
+        {
+            sb.Append("  - ");
+            sb.Append(server.Name);
+            if (!string.IsNullOrWhiteSpace(server.Description))
+                sb.Append($": {server.Description}");
+            sb.AppendLine();
+        }
 
-            var availableToolNames = server.Tools.Select(static tool => tool.Name).ToArray();
-            sb.AppendLine($"  Available tools on `{server.Name}`: {string.Join(", ", availableToolNames)}");
+        var availableToolNames = server.Tools.Select(static tool => tool.Name).ToArray();
+        sb.AppendLine($"  Available tools on `{server.Name}`: {string.Join(", ", availableToolNames)}");
 
-            var unknownMethods = call.Methods
-                .Where(method => !availableToolNames.Contains(method, StringComparer.Ordinal))
-                .ToArray();
-            if (unknownMethods.Length > 0)
-                sb.AppendLine($"  Unknown requested method(s): {string.Join(", ", unknownMethods)}");
+        var unknownMethods = methods
+            .Where(method => !availableToolNames.Contains(method, StringComparer.Ordinal))
+            .ToArray();
+        if (includeUnknownMethods && unknownMethods.Length > 0)
+            sb.AppendLine($"  Unknown requested method(s): {string.Join(", ", unknownMethods)}");
 
-            if (call.Request != null)
-                AppendJsonBlock(sb, "  ", "invalid_request", call.Request);
+        if (request != null)
+            AppendJsonBlock(sb, "  ", "invalid_request", request);
 
-            var tools = unknownMethods.Length > 0 || call.Methods.Length == 0
-                ? server.Tools.ToList()
-                : server.Tools.Where(tool => call.Methods.Contains(tool.Name, StringComparer.Ordinal)).ToList();
+        var tools = unknownMethods.Length > 0 || methods.Count == 0
+            ? server.Tools.ToList()
+            : server.Tools.Where(tool => methods.Contains(tool.Name, StringComparer.Ordinal)).ToList();
 
-            foreach (var tool in tools)
+        foreach (var tool in tools.Take(12))
+        {
+            sb.Append($"  - {tool.Name}");
+            if (!string.IsNullOrWhiteSpace(tool.Description))
+                sb.Append($": {tool.Description}");
+            sb.AppendLine();
+            if (tool.InputSchema != null)
+                AppendJsonBlock(sb, "    ", "input_schema", tool.InputSchema);
+            if (tool.OutputSchema != null)
+                AppendJsonBlock(sb, "    ", "output_schema", tool.OutputSchema);
+            if (tool.ExampleResponse != null)
+                AppendJsonBlock(sb, "    ", "example_response", tool.ExampleResponse);
+        }
+
+        if (tools.Count > 12)
+            sb.AppendLine($"  ... {tools.Count - 12} additional tool(s) omitted from repair context.");
+    }
+
+    private static IReadOnlyList<McpServerDiscovery> SelectLikelyMcpRepairServers(
+        IReadOnlyList<McpServerDiscovery> discovered,
+        string? stepId,
+        string? requestedServer,
+        IReadOnlyList<string> requestedMethods)
+    {
+        var queryTokens = TokenizeMcpRepairQuery(
+            string.Join(' ', new[] { stepId, requestedServer }.Where(static text => !string.IsNullOrWhiteSpace(text)))
+            + " "
+            + string.Join(' ', requestedMethods));
+
+        if (queryTokens.Count == 0)
+            return discovered.Count <= 3 ? discovered : Array.Empty<McpServerDiscovery>();
+
+        return discovered
+            .Select(server => new
             {
-                sb.Append($"  - {tool.Name}");
-                if (!string.IsNullOrWhiteSpace(tool.Description))
-                    sb.Append($": {tool.Description}");
-                sb.AppendLine();
-                if (tool.InputSchema != null)
-                    AppendJsonBlock(sb, "    ", "input_schema", tool.InputSchema);
-                if (tool.OutputSchema != null)
-                    AppendJsonBlock(sb, "    ", "output_schema", tool.OutputSchema);
-                if (tool.ExampleResponse != null)
-                    AppendJsonBlock(sb, "    ", "example_response", tool.ExampleResponse);
+                Server = server,
+                Score = ScoreMcpServerRepairMatch(server, queryTokens)
+            })
+            .Where(item => item.Score > 0)
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.Server.Name, StringComparer.Ordinal)
+            .Take(3)
+            .Select(item => item.Server)
+            .ToArray();
+    }
+
+    private static int ScoreMcpServerRepairMatch(McpServerDiscovery server, IReadOnlySet<string> queryTokens)
+    {
+        var haystacks = new List<string?>
+        {
+            server.Name,
+            server.Description
+        };
+        foreach (var tool in server.Tools)
+        {
+            haystacks.Add(tool.Name);
+            haystacks.Add(tool.Description);
+        }
+
+        var score = 0;
+        foreach (var token in queryTokens)
+        {
+            foreach (var haystack in haystacks)
+            {
+                if (string.IsNullOrWhiteSpace(haystack))
+                    continue;
+                if (haystack.Contains(token, StringComparison.OrdinalIgnoreCase))
+                    score++;
             }
         }
 
-        return sb.Length == 0 ? null : sb.ToString().TrimEnd();
+        return score;
+    }
+
+    private static IReadOnlySet<string> TokenizeMcpRepairQuery(string text)
+    {
+        return Regex.Matches(text.ToLowerInvariant(), @"[a-z0-9]{3,}")
+            .Select(static match => match.Value)
+            .Where(static token => token is not "mcp" and not "call" and not "server" and not "tool")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private static void AppendJsonBlock(StringBuilder sb, string indent, string label, JsonNode node)
@@ -458,6 +712,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             errorCode = "MCP_SERVER_UNKNOWN";
         else if (lower.Contains("mcp_method_unknown"))
             errorCode = "MCP_METHOD_UNKNOWN";
+        else if (lower.Contains("expr_type_mismatch")
+            || lower.Contains("resolves to", StringComparison.Ordinal) && lower.Contains("contract requires", StringComparison.Ordinal))
+            errorCode = ErrorCodes.ExprTypeMismatch;
         else if (lower.Contains("mcp_server_not_found") || lower.Contains("mcp server") && lower.Contains("not found"))
             errorCode = ErrorCodes.McpServerNotFound;
         else if (lower.Contains("missing required field 'workflows'"))

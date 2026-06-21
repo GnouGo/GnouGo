@@ -238,6 +238,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- If precise fields are needed from an opaque response, add an `llm.call` normalization step with `structured_output`, then read fields from `data.steps.<normalizer>.json`.");
         basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");
         basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
+        basePrompt.AppendLine("- Workflow output expressions must match the declared output contract type exactly. A string output must resolve to a string; a boolean output must resolve to a boolean.");
+        basePrompt.AppendLine("- Comparison/predicate expressions such as `${a == b}`, `${a != b}`, `${contains(...)}`, and `${exists(...)}` return boolean. Use them only for boolean outputs or `if`/`switch.when` conditions.");
+        basePrompt.AppendLine("- For string outputs such as classification/status/level/severity, return a string-valued field or quoted string literal. Invalid for a string output: `${data.steps.classify.json.classification == 'bug'}`. Valid: `${data.steps.classify.json.classification}`.");
+        basePrompt.AppendLine("- If a string output must be derived from an MCP/LLM response, first normalize it with `llm.call` or `mcp.call` `structured_output`, then map `data.steps.<normalizer>.json.<field>` to the workflow output.");
         basePrompt.AppendLine("- For input/output object schemas, never duplicate the YAML key `required`. Use input-level `required: true|false` only as a boolean. Use `required_properties: [field_name]` for required object property names.");
         AppendPromptSectionEnd(basePrompt, "generation_validation_checklist");
 

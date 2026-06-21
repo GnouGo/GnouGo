@@ -99,6 +99,8 @@ public class WorkflowPlanExecutorTests
                 ? ("build_profile", "name")
                 : req.Prompt.Contains("build_token_workflow", StringComparison.Ordinal)
                     ? ("build_token_workflow", "name")
+                    : req.Prompt.Contains("classify_issue_via_copilot_ask", StringComparison.Ordinal)
+                        ? ("classify_issue_via_copilot_ask", "issue")
                     : req.Prompt.Contains("collect_data", StringComparison.Ordinal)
                         ? ("collect_data", "query")
                         : ("leaf", "input");
@@ -578,6 +580,9 @@ workflows:
         Assert.Contains("Do not use workflow.plan.", collectRequest.Prompt);
         Assert.Contains("Any schema with `type: object` MUST be strongly typed with a non-empty `properties` mapping.", collectRequest.Prompt);
         Assert.Contains("required_properties: [field_name]", collectRequest.Prompt);
+        Assert.Contains("Workflow outputs must match their declared contract type exactly.", collectRequest.Prompt);
+        Assert.Contains("Comparison/predicate expressions such as `${a == b}`", collectRequest.Prompt);
+        Assert.Contains("Invalid for a string output", collectRequest.Prompt);
         Assert.DoesNotContain("Normalized prompt:", collectRequest.Prompt);
         Assert.DoesNotContain("Annotated prompt:", collectRequest.Prompt);
         Assert.DoesNotContain("generate_report", collectRequest.Prompt);
@@ -2054,6 +2059,159 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_PipelineMode_LeafRetryIncludesLikelyMcpToolDefinitionsForUnknownServerAlias()
+    {
+        var requests = new List<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) =>
+            {
+                lock (requests)
+                    requests.Add(req);
+            })
+            .ReturnsAsync((LLMRequest req, CancellationToken _) =>
+            {
+                if (req.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nClassify an issue with Copilot." };
+
+                if (req.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="classify_issue_via_copilot_ask"
+                        goal: Classify an issue with Copilot.
+                        inputs:
+                          issue: string
+                        outputs:
+                          category: string
+                        extract_reason: This leaf calls the Copilot ask tool.
+                        content:
+                          Use GitHub Copilot ask to classify the provided issue.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call classify_issue_via_copilot_ask.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Previous generated YAML for this leaf workflow failed validation", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: classify-issue-via-copilot-ask-leaf
+                        skill:
+                          description: Classify an issue with Copilot.
+                          tags: [generated, leaf, copilot]
+                          inputs:
+                            issue: string
+                          outputs:
+                            category: string
+                        workflows:
+                          classify_issue_via_copilot_ask:
+                            inputs:
+                              issue: string
+                            steps:
+                              - id: call_copilot_ask
+                                type: mcp.call
+                                input:
+                                  server: GnOuGo.GithubCopilot.Mcp
+                                  method: ask
+                                  request:
+                                    question: "Classify this issue: ${data.inputs.issue}"
+                            outputs:
+                              category: triage
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `classify_issue_via_copilot_ask`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: classify-issue-via-copilot-ask-leaf
+                        skill:
+                          description: Classify an issue with Copilot.
+                          tags: [generated, leaf, copilot]
+                          inputs:
+                            issue: string
+                          outputs:
+                            category: string
+                        workflows:
+                          classify_issue_via_copilot_ask:
+                            inputs:
+                              issue: string
+                            steps:
+                              - id: call_copilot_ask
+                                type: mcp.call
+                                input:
+                                  server: copilot-ask
+                                  method: ask
+                                  request:
+                                    question: "Classify this issue: ${data.inputs.issue}"
+                            outputs:
+                              category: triage
+                        """
+                    };
+
+                return TryRespondToPipelineMainAssembly(req)
+                    ?? throw new InvalidOperationException("Unexpected LLM prompt: " + req.Prompt);
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("GnOuGo.GithubCopilot.Mcp", new MockMcpServerConfig
+        {
+            Description = "GitHub Copilot operations",
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "ask",
+                    Description = "Ask GitHub Copilot",
+                    InputSchema = JsonNode.Parse("""
+                    { "type": "object", "required": ["question"], "properties": { "question": { "type": "string" } }, "additionalProperties": false }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Classify an issue with Copilot."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: true
+                  on_invalid:
+                    max_attempts: 2
+        """);
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Contains(requests, request =>
+            request.Prompt.Contains("Previous generated YAML for this leaf workflow failed validation", StringComparison.Ordinal)
+            && request.Prompt.Contains("Additional validation repair context", StringComparison.Ordinal)
+            && request.Prompt.Contains("unknown MCP server `copilot-ask`", StringComparison.Ordinal)
+            && request.Prompt.Contains("Likely matching discovered server(s):", StringComparison.Ordinal)
+            && request.Prompt.Contains("Available tools on `GnOuGo.GithubCopilot.Mcp`: ask", StringComparison.Ordinal)
+            && request.Prompt.Contains("- ask: Ask GitHub Copilot", StringComparison.Ordinal)
+            && request.Prompt.Contains("input_schema_json", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task WorkflowPlan_WithAllowedTypes_FiltersSnippets()
     {
         string? capturedPrompt = null;
@@ -2099,6 +2257,162 @@ workflows:
         Assert.DoesNotContain("- sequence", capturedPrompt);
         Assert.Contains("<constraints>", capturedPrompt);
         Assert.Contains("Allowed step types:", capturedPrompt);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_GenerationPromptWarnsAgainstBooleanPredicatesForStringOutputs()
+    {
+        string? capturedPrompt = null;
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated workflow.
+                         tags: [generated]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: ok
+                               type: set
+                               input:
+                                 value: done
+                       """
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build a classification workflow
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.NotNull(capturedPrompt);
+        Assert.Contains("Workflow output expressions must match the declared output contract type exactly.", capturedPrompt);
+        Assert.Contains("Comparison/predicate expressions such as `${a == b}`", capturedPrompt);
+        Assert.Contains("Invalid for a string output", capturedPrompt);
+        Assert.Contains("structured_output", capturedPrompt);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_RepromptExplainsBooleanPredicateStringOutputMismatch()
+    {
+        var requests = new List<LLMRequest>();
+        var responses = new Queue<string>(new[]
+        {
+            """
+            version: 1
+            skill:
+              description: Generated classification workflow.
+              tags: [generated, classification]
+              inputs: {}
+              outputs:
+                classification: string
+                feasibility_level: string
+                security_level: string
+            workflows:
+              main:
+                steps:
+                  - id: classify
+                    type: set
+                    input:
+                      classification: bug
+                      feasibility_level: high
+                      security_level: low
+                outputs:
+                  classification:
+                    expr: "${data.steps.classify.classification == 'bug'}"
+                    type: string
+                  feasibility_level:
+                    expr: "${data.steps.classify.feasibility_level == 'high'}"
+                    type: string
+                  security_level:
+                    expr: "${data.steps.classify.security_level == 'low'}"
+                    type: string
+            """,
+            """
+            version: 1
+            skill:
+              description: Generated classification workflow.
+              tags: [generated, classification]
+              inputs: {}
+              outputs:
+                classification: string
+                feasibility_level: string
+                security_level: string
+            workflows:
+              main:
+                steps:
+                  - id: classify
+                    type: set
+                    input:
+                      classification: bug
+                      feasibility_level: high
+                      security_level: low
+                outputs:
+                  classification:
+                    expr: "${data.steps.classify.classification}"
+                    type: string
+                  feasibility_level:
+                    expr: "${data.steps.classify.feasibility_level}"
+                    type: string
+                  security_level:
+                    expr: "${data.steps.classify.security_level}"
+                    type: string
+            """
+        });
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => requests.Add(req))
+            .ReturnsAsync(() => new LLMResponse { Text = responses.Dequeue() });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build a classification workflow
+                  on_invalid:
+                    action: reprompt
+                    max_attempts: 2
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, requests.Count);
+        var retryPrompt = requests[1].Prompt;
+        Assert.Contains("code=EXPR_TYPE_MISMATCH", retryPrompt);
+        Assert.Contains("Expression type mismatch repair guidance", retryPrompt);
+        Assert.Contains("Affected output field(s): `outputs.classification`, `outputs.feasibility_level`, `outputs.security_level`", retryPrompt);
+        Assert.Contains("A comparison/predicate expression returns boolean", retryPrompt);
+        Assert.Contains("cannot satisfy a string output contract", retryPrompt);
+        Assert.Contains("Invalid string output", retryPrompt);
+        Assert.Contains("Valid string output", retryPrompt);
+        Assert.Contains("structured_output", retryPrompt);
     }
 
 
@@ -2781,6 +3095,103 @@ workflows:
         Assert.Contains("input_schema_json", retryPrompt);
         Assert.Contains("output_schema_json", retryPrompt);
         Assert.Contains("method: <exact-tool>", retryPrompt);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_RepromptIncludesLikelyMcpToolDefinitionsForUnknownServerAlias()
+    {
+        var requests = new List<LLMRequest>();
+        var responses = new Queue<string>(new[]
+        {
+            """
+            version: 1
+            skill:
+              description: Generated Copilot workflow.
+              tags: [copilot]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: call_copilot_ask
+                    type: mcp.call
+                    input:
+                      server: copilot-ask
+                      method: ask
+                      request: { question: "How should I classify this issue?" }
+            """,
+            """
+            version: 1
+            skill:
+              description: Generated Copilot workflow.
+              tags: [copilot]
+              inputs: {}
+              outputs: {}
+            workflows:
+              main:
+                steps:
+                  - id: call_copilot_ask
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.GithubCopilot.Mcp
+                      method: ask
+                      request: { question: "How should I classify this issue?" }
+            """
+        });
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((request, _) => requests.Add(request))
+            .ReturnsAsync(() => new LLMResponse { Text = responses.Dequeue() });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("GnOuGo.GithubCopilot.Mcp", new MockMcpServerConfig
+        {
+            Description = "GitHub Copilot operations",
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "ask",
+                    Description = "Ask GitHub Copilot",
+                    InputSchema = JsonNode.Parse("""
+                    { "type": "object", "required": ["question"], "properties": { "question": { "type": "string" } }, "additionalProperties": false }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build a Copilot classification workflow
+                    prefilter: false
+                  on_invalid:
+                    action: reprompt
+                    max_attempts: 2
+        """);
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, requests.Count);
+        var retryPrompt = requests[1].Prompt;
+        Assert.Contains("unknown MCP server `copilot-ask`", retryPrompt);
+        Assert.Contains("Available MCP servers: GnOuGo.GithubCopilot.Mcp", retryPrompt);
+        Assert.Contains("Likely matching discovered server(s):", retryPrompt);
+        Assert.Contains("GnOuGo.GithubCopilot.Mcp: GitHub Copilot operations", retryPrompt);
+        Assert.Contains("Available tools on `GnOuGo.GithubCopilot.Mcp`: ask", retryPrompt);
+        Assert.Contains("- ask: Ask GitHub Copilot", retryPrompt);
+        Assert.Contains("input_schema_json", retryPrompt);
     }
 
     [Fact]
