@@ -36,9 +36,22 @@ Shell availability is auto-detected at runtime. The `cmd_get_environment` tool r
 
 | Tool                         | Description |
 |------------------------------|-------------|
-| `cmd_list_allowed_commands`  | Lists allowed command aliases with description, shell, working directory, and parameters. |
+| `cmd_list_allowed_commands`  | Returns the allowlist as structured data for clients, diagnostics, and workflows that need to inspect aliases programmatically. |
 | `cmd_get_policy`             | Returns the active policy: shells, roots, timeouts, limits, **and** OS/architecture/available shells. |
-| `cmd_run`                    | Executes an allowlisted alias. Returns structured result with stdout, stderr, exit code, and error details. |
+| `cmd_run`                    | Executes an allowlisted alias. Its advertised tool description includes the configured command aliases and accepted parameter names so planners can choose valid `commandName` values without a separate discovery step. |
+
+## Tool Discovery
+
+`cmd_run` is the primary execution tool. During MCP `tools/list`, its description is enriched from the active `AllowedCommands` configuration with:
+
+- allowed `commandName` aliases
+- each alias description
+- accepted `parametersJson` field names
+- required/optional markers and workspace-path hints
+
+This is intended to help planning workflows generate valid `cmd_run` calls directly.
+
+`cmd_list_allowed_commands` is still kept as a structured introspection endpoint. Use it when a client or workflow needs machine-readable command metadata rather than prose embedded in the `cmd_run` description.
 
 ## Structured Error Handling
 

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using GnOuGo.Workspace;
@@ -104,6 +105,39 @@ public sealed class CommandPolicy
             MaxOutputCharacters: _settings.MaxOutputCharacters,
             AllowedCommandCount: _settings.AllowedCommands.Count,
             Environment: DetectEnvironment());
+
+    public string BuildCmdRunToolDescription()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Runs one allowlisted command by name. Raw shell commands are not accepted; only preconfigured aliases may be executed. Commands execute within the default workspace. Returns a structured result with stdout, stderr, exit code, success flag, and error details if any.");
+
+        if (_settings.AllowedCommands.Count == 0)
+        {
+            sb.AppendLine("Allowed commandName values: none configured.");
+            return sb.ToString().TrimEnd();
+        }
+
+        sb.AppendLine("Allowed commandName values:");
+        foreach (var commandEntry in _settings.AllowedCommands.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            var command = ApplyOsOverride(commandEntry.Value);
+            sb.Append("- ");
+            sb.Append(commandEntry.Key);
+
+            if (!string.IsNullOrWhiteSpace(command.Description))
+            {
+                sb.Append(": ");
+                sb.Append(SingleLine(command.Description));
+            }
+
+            sb.Append(" Parameters: ");
+            sb.Append(FormatParametersForDescription(command.Parameters));
+            sb.AppendLine();
+        }
+
+        sb.Append("Pass parametersJson as a JSON object string using only the declared parameter names.");
+        return sb.ToString().TrimEnd();
+    }
 
     /// <summary>
     /// Detects the current OS, architecture, and which configured shells are actually available.
@@ -306,6 +340,34 @@ public sealed class CommandPolicy
         parameters[targetParameter] = legacyValue;
         parameters.Remove("args");
     }
+
+    private static string FormatParametersForDescription(
+        Dictionary<string, CommandParameterSettings> parameters)
+    {
+        if (parameters.Count == 0)
+            return "none; omit parametersJson.";
+
+        var parts = parameters
+            .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kv =>
+            {
+                var parameter = kv.Value;
+                var required = parameter.Required ? "required" : "optional";
+                var pathHint = parameter.IsWorkspacePath
+                    ? $", workspace path, {parameter.PathKind.ToString().ToLowerInvariant()}"
+                    : string.Empty;
+                var description = string.IsNullOrWhiteSpace(parameter.Description)
+                    ? string.Empty
+                    : $", {SingleLine(parameter.Description)}";
+
+                return $"{kv.Key} ({required}{pathHint}{description})";
+            });
+
+        return string.Join("; ", parts) + ".";
+    }
+
+    private static string SingleLine(string value)
+        => string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     internal static string EscapeForShell(string shellName, string value)
     {
@@ -558,4 +620,3 @@ public sealed record ShellLaunchInfo(
     string LogicalName,
     string ExecutablePath,
     Func<string, string> BuildArguments);
-

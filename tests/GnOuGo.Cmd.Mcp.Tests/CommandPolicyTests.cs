@@ -58,6 +58,51 @@ public class CommandPolicyTests
     }
 
     [Fact]
+    public void BuildCmdRunToolDescription_IncludesAllowedCommandNamesAndParameters()
+    {
+        var root = CreateTempDirectory();
+        var policy = new CommandPolicy(new CmdServerSettings
+        {
+            DefaultWorkingDirectory = root,
+            AllowedShells = ["powershell", "sh"],
+            AllowedCommands = new Dictionary<string, AllowedCommandSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["list_files"] = new()
+                {
+                    Description = "List workspace files.",
+                    Shell = "powershell",
+                    Script = "Get-ChildItem {{path}}",
+                    Parameters = new Dictionary<string, CommandParameterSettings>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["path"] = new()
+                        {
+                            Description = "Directory to list.",
+                            Required = true,
+                            IsWorkspacePath = true,
+                            PathKind = WorkspacePathKind.Directory
+                        }
+                    }
+                },
+                ["echo_test"] = new()
+                {
+                    Shell = "powershell",
+                    Script = "Write-Output 'ok'"
+                }
+            }
+        }, root);
+
+        var description = policy.BuildCmdRunToolDescription();
+
+        Assert.Contains("Allowed commandName values:", description);
+        Assert.Contains("- echo_test", description);
+        Assert.Contains("Parameters: none; omit parametersJson.", description);
+        Assert.Contains("- list_files: List workspace files.", description);
+        Assert.Contains("path (required, workspace path, directory, Directory to list.)", description);
+        Assert.Contains("Pass parametersJson as a JSON object string", description);
+        Assert.DoesNotContain("Get-ChildItem", description);
+    }
+
+    [Fact]
     public void ResolveWorkingDirectory_AllowsChildDirectoryInsideAllowedRoot()
     {
         var root = CreateTempDirectory();
@@ -263,4 +308,3 @@ public class CommandPolicyTests
         return path;
     }
 }
-
