@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -13,14 +14,21 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 {
     private static readonly TimeSpan BackgroundInitialPollDelay = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan BackgroundMaxPollDelay = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan BackgroundUnsupportedCacheDuration = TimeSpan.FromMinutes(65);
+    private const string BackgroundUnsupportedCacheKeyPrefix = "gnougo-ai:openai:background-unsupported:";
 
     private readonly HttpClient _http;
     private readonly ILogger<OpenAiLLMProvider> _logger;
+    private readonly IMemoryCache? _backgroundModeCache;
 
-    public OpenAiLLMProvider(HttpClient http, ILogger<OpenAiLLMProvider>? logger = null)
+    public OpenAiLLMProvider(
+        HttpClient http,
+        ILogger<OpenAiLLMProvider>? logger = null,
+        IMemoryCache? backgroundModeCache = null)
     {
         _http = http;
         _logger = logger ?? NullLogger<OpenAiLLMProvider>.Instance;
+        _backgroundModeCache = backgroundModeCache;
         LLMHttpClientDefaults.EnsureMinimumTimeout(_http);
     }
 
@@ -127,6 +135,17 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
     {
         var url = OpenAiEndpoints.Responses(provider.Url, provider.ApiVersion);
+        var cacheKey = BuildBackgroundUnsupportedCacheKey(provider, url);
+        if (IsBackgroundUnsupportedCached(cacheKey))
+        {
+            _logger.LogInformation(
+                "OpenAI Responses background API previously returned unsupported; skipping background mode and using Chat Completions. ResponsesUrl={ResponsesUrl}; Model={Model}; CacheDuration={CacheDuration}",
+                url,
+                model,
+                BackgroundUnsupportedCacheDuration);
+            return await CallChatCompletionsAsync(model, provider, request, ct);
+        }
+
         var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
 
         _logger.LogInformation(
@@ -152,6 +171,9 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         {
             if (IsBackgroundUnsupported(resp.StatusCode, body))
             {
+                if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    CacheBackgroundUnsupported(cacheKey, url, model, resp.StatusCode);
+
                 _logger.LogWarning(
                     "OpenAI Responses background API not available, falling back to Chat Completions. " +
                     "ResponsesUrl={ResponsesUrl}; Model={Model}; StatusCode={StatusCode}; ReasonPhrase={ReasonPhrase}; ResponseBody={ResponseBody}",
@@ -169,6 +191,34 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 
         return await AwaitResponsesApiCompletionAsync(url, bearerToken, body, request, ct);
     }
+
+    private bool IsBackgroundUnsupportedCached(string cacheKey)
+        => _backgroundModeCache?.TryGetValue(cacheKey, out bool unsupported) == true && unsupported;
+
+    private void CacheBackgroundUnsupported(string cacheKey, string url, string model, System.Net.HttpStatusCode statusCode)
+    {
+        if (_backgroundModeCache == null)
+            return;
+
+        _backgroundModeCache.Set(cacheKey, true, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = BackgroundUnsupportedCacheDuration
+        });
+        _logger.LogInformation(
+            "Cached OpenAI Responses background unsupported result. ResponsesUrl={ResponsesUrl}; Model={Model}; StatusCode={StatusCode}; CacheDuration={CacheDuration}",
+            url,
+            model,
+            (int)statusCode,
+            BackgroundUnsupportedCacheDuration);
+    }
+
+    private static string BuildBackgroundUnsupportedCacheKey(ModelProviderOptions provider, string responsesUrl)
+        => string.Join("|",
+            BackgroundUnsupportedCacheKeyPrefix,
+            provider.ResolvedType,
+            provider.Url ?? "",
+            provider.ApiVersion ?? "",
+            responsesUrl);
 
     private async Task<LLMClientResponse> AwaitResponsesApiCompletionAsync(
         string responsesUrl,

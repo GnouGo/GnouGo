@@ -1,5 +1,6 @@
 ﻿using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -12,19 +13,22 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILLMClient? _llmClientOverride;
     private readonly IMcpClientFactory? _mcpClientFactoryOverride;
+    private readonly IMemoryCache? _backgroundModeCache;
 
     public SecureWorkflowRuntimeFactory(
         LLMRuntimeOptionsStore optionsStore,
         IKeyVaultRuntimeConfigStore keyVaultStore,
         ILoggerFactory? loggerFactory = null,
         ILLMClient? llmClientOverride = null,
-        IMcpClientFactory? mcpClientFactoryOverride = null)
+        IMcpClientFactory? mcpClientFactoryOverride = null,
+        IMemoryCache? backgroundModeCache = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
         _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
         _llmClientOverride = llmClientOverride;
         _mcpClientFactoryOverride = mcpClientFactoryOverride;
+        _backgroundModeCache = backgroundModeCache;
     }
 
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
@@ -37,7 +41,7 @@ public sealed class SecureWorkflowRuntimeFactory
             : new InMemoryMcpClientFactory());
 
         var llmClient = _llmClientOverride
-            ?? new SnapshotRoutingLlmClientAdapter(http, options, _loggerFactory);
+            ?? new SnapshotRoutingLlmClientAdapter(http, options, _loggerFactory, _backgroundModeCache);
 
         return new SecureWorkflowRuntimeSession(
             llmClient,
@@ -83,17 +87,23 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
     private readonly HttpClient _http;
     private readonly LLMOptions _options;
     private readonly ILoggerFactory _loggerFactory;
+    private readonly IMemoryCache? _backgroundModeCache;
 
-    public SnapshotRoutingLlmClientAdapter(HttpClient http, LLMOptions options, ILoggerFactory loggerFactory)
+    public SnapshotRoutingLlmClientAdapter(
+        HttpClient http,
+        LLMOptions options,
+        ILoggerFactory loggerFactory,
+        IMemoryCache? backgroundModeCache = null)
     {
         _http = http;
         _options = options;
         _loggerFactory = loggerFactory;
+        _backgroundModeCache = backgroundModeCache;
     }
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
-        var routingClient = new RoutingLLMClient(_http, _options, _loggerFactory);
+        var routingClient = new RoutingLLMClient(_http, _options, _loggerFactory, _backgroundModeCache);
         var aiRequest = new LLMClientRequest
         {
             Provider = request.Provider,
@@ -138,5 +148,4 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
         return response;
     }
 }
-
 

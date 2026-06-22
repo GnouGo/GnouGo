@@ -376,6 +376,9 @@ workflows:
         Assert.Contains("- skill: required object", capturedPrompt);
         Assert.Contains("Use input-level `required: true|false` only as a boolean", capturedPrompt);
         Assert.Contains("required_properties: [field_name]", capturedPrompt);
+        Assert.Contains("1. Inspect every MCP tool used by this workflow.", capturedPrompt);
+        Assert.Contains("Never satisfy a missing required MCP argument with data.env.*, empty string, fake values, or casts.", capturedPrompt);
+        Assert.Contains("Prefer the exact MCP argument name and type.", capturedPrompt);
         // Should contain built-in functions doc
         Assert.Contains("exists(val)", capturedPrompt);
         Assert.Contains("len(val)", capturedPrompt);
@@ -580,6 +583,9 @@ workflows:
         Assert.Contains("Do not use workflow.plan.", collectRequest.Prompt);
         Assert.Contains("Any schema with `type: object` MUST be strongly typed with a non-empty `properties` mapping.", collectRequest.Prompt);
         Assert.Contains("required_properties: [field_name]", collectRequest.Prompt);
+        Assert.Contains("Treat the declared input/output contract as a draft when MCP tools require additional arguments.", collectRequest.Prompt);
+        Assert.Contains("1. Inspect every MCP tool used by this workflow.", collectRequest.Prompt);
+        Assert.Contains("Never convert a string input to a number just to satisfy an MCP schema.", collectRequest.Prompt);
         Assert.Contains("Workflow outputs must match their declared contract type exactly.", collectRequest.Prompt);
         Assert.Contains("Comparison/predicate expressions such as `${a == b}`", collectRequest.Prompt);
         Assert.Contains("Invalid for a string output", collectRequest.Prompt);
@@ -915,6 +921,9 @@ workflows:
         var assemblyPrompt = Assert.Single(requests, request =>
             request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal)).Prompt;
         Assert.Contains("leaf_input_candidates_yaml", assemblyPrompt);
+        Assert.Contains("generated_leaf_contracts_yaml", assemblyPrompt);
+        Assert.Contains("`generated_leaf_contracts_yaml` is authoritative for leaf workflow names, call arguments, and available outputs.", assemblyPrompt);
+        Assert.Contains("repository_url: string", assemblyPrompt);
         Assert.Contains("Leaf input names are call arguments, not automatically public main inputs.", assemblyPrompt);
         Assert.Contains("Every `data.inputs.<name>` reference MUST have an identically named declaration", assemblyPrompt);
     }

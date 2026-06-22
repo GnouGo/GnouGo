@@ -25,6 +25,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     {
         WriteIndented = true
     };
+    private static readonly string[] McpInputContractChecklist =
+    {
+        "1. Inspect every MCP tool used by this workflow.",
+        "2. For each required MCP argument, ensure the workflow has a matching input or a previous step that produces it.",
+        "3. If a required MCP argument is missing, add it to skill.inputs and workflow.inputs with the exact MCP schema type.",
+        "4. Never satisfy a missing required MCP argument with data.env.*, empty string, fake values, or casts.",
+        "5. Never convert a string input to a number just to satisfy an MCP schema.",
+        "6. Prefer the exact MCP argument name and type."
+    };
 
     public string StepType => "workflow.plan";
 
@@ -47,6 +56,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             return await ExecutePipelineAsync(ctx, input, ct);
 
         return await ExecuteSinglePlanAsync(ctx, input, ct);
+    }
+
+    private static void AppendMcpInputContractChecklist(StringBuilder sb)
+    {
+        sb.AppendLine("MCP input contract rules:");
+        foreach (var rule in McpInputContractChecklist)
+            sb.AppendLine(rule);
     }
 
     private async Task<JsonNode?> ExecuteSinglePlanAsync(
@@ -236,6 +252,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- NEVER invent properties under `data.steps.<id>.response`. Access `response.<field>` only when an `output_schema` or `example_response` explicitly documents that field.");
         basePrompt.AppendLine("- If an MCP response is opaque, use `json(data.steps.<id>.response)` to pass the whole response to another step.");
         basePrompt.AppendLine("- If precise fields are needed from an opaque response, add an `llm.call` normalization step with `structured_output`, then read fields from `data.steps.<normalizer>.json`.");
+        AppendMcpInputContractChecklist(basePrompt);
         basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");
         basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
         basePrompt.AppendLine("- Workflow output expressions must match the declared output contract type exactly. A string output must resolve to a string; a boolean output must resolve to a boolean.");

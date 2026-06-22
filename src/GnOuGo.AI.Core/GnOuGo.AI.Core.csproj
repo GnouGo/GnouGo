@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
     <ProjectReference Include="..\GnOuGo.Auth.Core\GnOuGo.Auth.Core.csproj" />
   </ItemGroup>
@@ -33,4 +34,3 @@
     <Exec Condition="!$([MSBuild]::IsOSPlatform('Windows'))" Command="bash &quot;$(MSBuildThisFileDirectory)../../scripts/update-model-metadata.sh&quot; --json-path &quot;$(MSBuildThisFileDirectory)Telemetry/model-metadata.json&quot; --output-path &quot;$(MSBuildThisFileDirectory)ModelMetadataCatalog.Generated.cs&quot;" IgnoreExitCode="true" />
   </Target>
 </Project>
-

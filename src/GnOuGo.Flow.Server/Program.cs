@@ -119,11 +119,12 @@ else
     builder.Services.AddSingleton<IWorkflowTelemetry>(NullWorkflowTelemetry.Instance);
 }
 
-builder.Services.AddSingleton<ILLMClient>(_ =>
+builder.Services.AddSingleton<ILLMClient>(sp =>
 {
     var llmOptions = builder.Configuration.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
+    var cache = sp.GetRequiredService<IMemoryCache>();
     var http = new HttpClient { Timeout = LLMHttpClientDefaults.MinimumTimeout };
-    var routingClient = new RoutingLLMClient(http, llmOptions);
+    var routingClient = new RoutingLLMClient(http, llmOptions, backgroundModeCache: cache);
     return new RoutingLLMClientAdapter(routingClient);
 });
 builder.Services.AddSingleton<IMcpClientFactory>(_ =>

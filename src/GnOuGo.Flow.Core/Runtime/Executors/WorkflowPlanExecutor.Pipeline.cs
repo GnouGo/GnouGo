@@ -111,9 +111,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 mainSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly.kind", "llm_main_workflow");
                 var configuredMainInputs = BuildConfiguredMainInputContract(input, generator);
-                var inferredLeafInputs = BuildGeneratedMainInputContract(extraction.Subworkflows);
+                var generatedLeafInputs = BuildGeneratedMainInputContract(generatedLeaves);
                 var baseMainAssemblyPrompt = BuildMainAssemblyPrompt(
-                    input, generator, normalizedMarkdown, extraction, generatedLeaves, configuredMainInputs, inferredLeafInputs);
+                    input, generator, normalizedMarkdown, extraction, generatedLeaves, configuredMainInputs, generatedLeafInputs);
                 var maxAssemblyAttempts = GetPipelineGenerationMaxAttempts(input);
                 var validate = input["validate"] as JsonObject;
                 var requiresMcpValidationContracts = (validate?["compile"]?.GetValue<bool>() ?? true)
@@ -223,7 +223,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         }
 
                         var assembly = ParseGeneratedMainAssembly(mainResponse.Text ?? string.Empty);
-                        var mainInputs = ResolveMainInputContract(configuredMainInputs, assembly, inferredLeafInputs);
+                        var mainInputs = ResolveMainInputContract(configuredMainInputs, assembly, generatedLeafInputs);
                         ForceMainWorkflowInputs(assembly.MainWorkflowNode, mainInputs);
                         EnsureMainWorkflowOutputs(assembly.MainWorkflowNode, extraction.Subworkflows);
                         ValidateDeclaredMainInputReferences(assembly.MainWorkflowNode, mainInputs);
@@ -720,7 +720,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Do not use workflow.call.");
         sb.AppendLine("- Do not use workflow.plan.");
         sb.AppendLine("- Do not depend on another subworkflow.");
-        sb.AppendLine("- Preserve the declared input and output contract.");
+        sb.AppendLine("- Treat the declared input/output contract as a draft when MCP tools require additional arguments.");
+        AppendMcpInputContractChecklist(sb);
         sb.AppendLine("- Workflow outputs must match their declared contract type exactly. A string output must resolve to a string; a boolean output must resolve to a boolean.");
         sb.AppendLine("- Comparison/predicate expressions such as `${a == b}`, `${a != b}`, `${contains(...)}`, and `${exists(...)}` return boolean. Use them only for boolean outputs or `if`/`switch.when` conditions.");
         sb.AppendLine("- For string outputs such as classification/status/level/severity, return a string-valued field or quoted string literal. Invalid for a string output: `${data.steps.classify.json.classification == 'bug'}`. Valid: `${data.steps.classify.json.classification}`.");
@@ -1255,7 +1256,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         WorkflowPipelineExtraction extraction,
         IReadOnlyList<GeneratedLeafWorkflow> leaves,
         IReadOnlyDictionary<string, JsonNode?> configuredMainInputs,
-        IReadOnlyDictionary<string, string> inferredLeafInputs)
+        IReadOnlyDictionary<string, JsonNode?> generatedLeafInputs)
     {
         var sb = new StringBuilder();
         sb.AppendLine("You are assembling the parent `main` workflow for a GnOuGo.Flow pipeline.");
@@ -1271,6 +1272,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Pass leaf arguments from declared `data.inputs.<name>`, earlier step outputs, loop variables, derived values, or constants.");
         sb.AppendLine("- Every `data.inputs.<name>` reference MUST have an identically named declaration in `main.inputs`.");
         sb.AppendLine("- Leaf input names are call arguments, not automatically public main inputs.");
+        sb.AppendLine("- `generated_leaf_contracts_yaml` is authoritative for leaf workflow names, call arguments, and available outputs.");
+        sb.AppendLine("- If `leaf_input_candidates_yaml` or `leaf_subworkflow_specs_json` disagree with `generated_leaf_contracts_yaml`, follow `generated_leaf_contracts_yaml`.");
         sb.AppendLine("- Map public user input names to differently named leaf arguments when their meanings match.");
         sb.AppendLine("- Do not expose loop variables, intermediate values, paths, identifiers, flags, or leaf-only implementation details as public inputs unless the user explicitly requested them.");
         if (configuredMainInputs.Count > 0)
@@ -1295,8 +1298,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AppendPromptSection(sb, "normalized_markdown", normalizedMarkdown);
         AppendPromptSection(sb, "main_workflow_orchestration", extraction.MainWorkflowPrompt);
         AppendPromptSection(sb, "authoritative_main_inputs_yaml", SerializeYamlMapping(configuredMainInputs));
-        AppendPromptSection(sb, "leaf_input_candidates_yaml", SerializeYamlMapping(
-            inferredLeafInputs.ToDictionary(static pair => pair.Key, static pair => (JsonNode?)JsonValue.Create(pair.Value), StringComparer.Ordinal)));
+        AppendPromptSection(sb, "leaf_input_candidates_yaml", SerializeYamlMapping(generatedLeafInputs));
+        AppendPromptSection(sb, "generated_leaf_contracts_yaml", BuildGeneratedLeafContractsYaml(leaves));
         AppendPromptSection(sb, "leaf_subworkflow_specs_json", BuildExtractionJson(extraction).ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         AppendPromptSection(sb, "generated_leaf_workflows_yaml", string.Join("\n---\n", leaves.Select(leaf => leaf.Yaml)));
         sb.AppendLine();
@@ -1416,6 +1419,24 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             return "{}";
 
         var stream = new YamlStream(new YamlDocument(JsonToYaml(skill)));
+        using var writer = new StringWriter();
+        stream.Save(writer, assignAnchors: false);
+        return writer.ToString().Trim();
+    }
+
+    private static string BuildGeneratedLeafContractsYaml(IReadOnlyList<GeneratedLeafWorkflow> leaves)
+    {
+        var root = new YamlMappingNode();
+        foreach (var leaf in leaves)
+        {
+            var contract = new YamlMappingNode();
+            AddYaml(contract, "workflow", Scalar(leaf.GeneratedWorkflowName));
+            AddYaml(contract, "inputs", leaf.WorkflowNode.GetMapping("inputs") ?? new YamlMappingNode());
+            AddYaml(contract, "outputs", leaf.WorkflowNode.GetMapping("outputs") ?? new YamlMappingNode());
+            AddYaml(root, leaf.Name, contract);
+        }
+
+        var stream = new YamlStream(new YamlDocument(root));
         using var writer = new StringWriter();
         stream.Save(writer, assignAnchors: false);
         return writer.ToString().Trim();
@@ -1630,7 +1651,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static Dictionary<string, JsonNode?> ResolveMainInputContract(
         IReadOnlyDictionary<string, JsonNode?> configuredInputs,
         GeneratedMainAssembly assembly,
-        IReadOnlyDictionary<string, string> inferredLeafInputs)
+        IReadOnlyDictionary<string, JsonNode?> generatedLeafInputs)
     {
         if (configuredInputs.Count > 0)
             return configuredInputs.ToDictionary(static pair => pair.Key, static pair => pair.Value?.DeepClone(), StringComparer.Ordinal);
@@ -1642,10 +1663,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (generated.Count > 0)
             return generated;
 
-        return inferredLeafInputs.ToDictionary(
-            static pair => pair.Key,
-            static pair => (JsonNode?)JsonValue.Create(pair.Value),
-            StringComparer.Ordinal);
+        return generatedLeafInputs.ToDictionary(static pair => pair.Key, static pair => pair.Value?.DeepClone(), StringComparer.Ordinal);
     }
 
     private static Dictionary<string, JsonNode?> ReadYamlSchemaMap(YamlMappingNode? inputMap)
@@ -1708,6 +1726,35 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
 
             foreach (var outputName in spec.Outputs.Keys)
+                availableOutputs.Add(outputName);
+        }
+
+        return inputs;
+    }
+
+    private static Dictionary<string, JsonNode?> BuildGeneratedMainInputContract(IReadOnlyList<GeneratedLeafWorkflow> leaves)
+    {
+        var inputs = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
+        var availableOutputs = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var leaf in leaves)
+        {
+            var leafInputs = ReadYamlSchemaMap(leaf.WorkflowNode.GetMapping("inputs"));
+            foreach (var (name, schema) in leafInputs)
+            {
+                if (availableOutputs.Contains(name))
+                    continue;
+
+                if (!inputs.TryGetValue(name, out var existing))
+                {
+                    inputs[name] = schema?.DeepClone();
+                    continue;
+                }
+
+                if (!JsonNode.DeepEquals(existing, schema))
+                    inputs[name] = JsonValue.Create("any");
+            }
+
+            foreach (var outputName in ReadYamlSchemaMap(leaf.WorkflowNode.GetMapping("outputs")).Keys)
                 availableOutputs.Add(outputName);
         }
 

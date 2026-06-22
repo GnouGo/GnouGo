@@ -204,6 +204,9 @@ async def test_workflow_plan_prompt_contains_dotnet_like_sections() -> None:
     assert "produced only inside `switch` cases" in prompt
     assert "version, name, skill, workflows" in prompt
     assert "- skill: required object" in prompt
+    assert "1. Inspect every MCP tool used by this workflow." in prompt
+    assert "Never satisfy a missing required MCP argument with data.env.*, empty string, fake values, or casts." in prompt
+    assert "Prefer the exact MCP argument name and type." in prompt
 
 
 @pytest.mark.asyncio
@@ -1455,7 +1458,8 @@ async def test_workflow_plan_pipeline_mode_composes_main_and_leaf_subworkflows()
     """
 
     engine = WorkflowEngine()
-    engine.llm_client = PipelinePlanLlm(leaf_yaml, assembly_yaml)
+    llm = PipelinePlanLlm(leaf_yaml, assembly_yaml)
+    engine.llm_client = llm
 
     result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
 
@@ -1467,6 +1471,14 @@ async def test_workflow_plan_pipeline_mode_composes_main_and_leaf_subworkflows()
     assert generated["entrypoint"] == "main"
     assert generated["workflows"]["main"]["steps"][0]["type"] == "workflow.call"
     assert generated["workflows"]["main"]["steps"][0]["input"]["ref"]["name"] == "parse_issue"
+    leaf_prompt = next(prompt for prompt in llm.prompts if "Generate exactly one leaf GnOuGo workflow named `parse_issue`" in prompt)
+    assert "Treat the declared input/output contract as a draft when MCP tools require additional arguments." in leaf_prompt
+    assert "1. Inspect every MCP tool used by this workflow." in leaf_prompt
+    assert "Never convert a string input to a number just to satisfy an MCP schema." in leaf_prompt
+    assembly_prompt = next(prompt for prompt in llm.prompts if "assembling the parent `main` workflow" in prompt)
+    assert "generated_leaf_contracts_yaml" in assembly_prompt
+    assert "`generated_leaf_contracts_yaml` is authoritative for leaf workflow names, call arguments, and available outputs." in assembly_prompt
+    assert "issue_key: string" in assembly_prompt
 
 
 @pytest.mark.asyncio

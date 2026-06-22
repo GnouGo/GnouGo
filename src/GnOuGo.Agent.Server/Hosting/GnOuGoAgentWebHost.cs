@@ -360,12 +360,13 @@ public static class GnOuGoAgentWebHost
         {
             var store = sp.GetRequiredService<LLMRuntimeOptionsStore>();
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+            var cache = sp.GetRequiredService<IMemoryCache>();
             var sslLogger = loggerFactory.CreateLogger("GnOuGo.AI.Core.SSL");
             var dangerousCert = store.Current.DangerousAcceptAnyServerCertificate;
             var http = LLMHttpClientFactory.Create(dangerousCert, LLMHttpClientDefaults.MinimumTimeout, sslLogger);
             // DynamicRoutingLLMClientAdapter reads the LATEST options from the store on every call,
             // so a /llm wizard update takes effect for the very next message.
-            return new DynamicRoutingLLMClientAdapter(http, store, loggerFactory);
+            return new DynamicRoutingLLMClientAdapter(http, store, loggerFactory, cache);
         });
         builder.Services.AddSingleton<ILLMModelCatalog>(sp =>
         {

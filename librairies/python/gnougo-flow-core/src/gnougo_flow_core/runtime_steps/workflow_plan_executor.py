@@ -97,6 +97,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         (ErrorCodes.TEMPLATE_POLICY, False, "planned workflow violates policy/limits."),
         (ErrorCodes.WORKFLOW_FETCH_POLICY, False, "planned workflow uses a remote workflow reference forbidden by policy."),
     ]
+    _MCP_INPUT_CONTRACT_CHECKLIST = [
+        "1. Inspect every MCP tool used by this workflow.",
+        "2. For each required MCP argument, ensure the workflow has a matching input or a previous step that produces it.",
+        "3. If a required MCP argument is missing, add it to skill.inputs and workflow.inputs with the exact MCP schema type.",
+        "4. Never satisfy a missing required MCP argument with data.env.*, empty string, fake values, or casts.",
+        "5. Never convert a string input to a number just to satisfy an MCP schema.",
+        "6. Prefer the exact MCP argument name and type.",
+    ]
 
     async def execute_async(self, ctx: StepExecutionContext) -> Any:
         input_obj = ctx.engine.get_resolved_input(ctx)
@@ -322,7 +330,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             validation_mcp_tool_contracts = await self._collect_mcp_tool_contracts(ctx, validation_mcp_server_metadata)
 
         configured_main_inputs = self._build_configured_main_input_contract(input_obj, generator)
-        inferred_leaf_inputs = self._build_generated_main_input_contract(extraction.subworkflows)
+        generated_leaf_inputs = self._build_generated_main_input_contract(generated_leaves)
         base_prompt = self._build_main_assembly_prompt(
             input_obj,
             generator,
@@ -330,7 +338,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             extraction,
             generated_leaves,
             configured_main_inputs,
-            inferred_leaf_inputs,
+            generated_leaf_inputs,
         )
         max_attempts = self._get_pipeline_generation_max_attempts(input_obj)
         previous_response: str | None = None
@@ -353,7 +361,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 )
                 previous_response = response.text
                 assembly = self._parse_generated_main_assembly(response.text or "")
-                main_inputs = self._resolve_main_input_contract(configured_main_inputs, assembly, inferred_leaf_inputs)
+                main_inputs = self._resolve_main_input_contract(configured_main_inputs, assembly, generated_leaf_inputs)
                 assembly.main_workflow_node["inputs"] = copy.deepcopy(main_inputs)
                 self._ensure_main_workflow_outputs(assembly.main_workflow_node, extraction.subworkflows)
                 self._validate_declared_main_input_references(assembly.main_workflow_node, main_inputs)
@@ -616,7 +624,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "- Do not use workflow.call.",
             "- Do not use workflow.plan.",
             "- Do not depend on another subworkflow.",
-            "- Preserve the declared input and output contract.",
+            "- Treat the declared input/output contract as a draft when MCP tools require additional arguments.",
+            "MCP input contract rules:",
+            *WorkflowPlanExecutor._MCP_INPUT_CONTRACT_CHECKLIST,
             "- Any schema with `type: object` MUST be strongly typed with a non-empty `properties` mapping. "
             "Never generate a bare `type: object` input, output, item, or nested property.",
             "- Use `required_properties: [field_name]` for required object property names; do not duplicate YAML keys.",
@@ -810,7 +820,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         extraction: _WorkflowPipelineExtraction,
         leaves: list[_GeneratedLeafWorkflow],
         configured_main_inputs: dict[str, Any],
-        inferred_leaf_inputs: dict[str, str],
+        generated_leaf_inputs: dict[str, Any],
     ) -> str:
         parts = [
             "You are assembling the parent `main` workflow for a GnOuGo.Flow pipeline.",
@@ -824,6 +834,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "- Do not inline leaf logic. Call the leaf workflow that owns each responsibility.",
             "- Every `data.inputs.<name>` reference MUST have an identically named declaration in `main.inputs`.",
             "- Leaf input names are call arguments, not automatically public main inputs.",
+            "- `generated_leaf_contracts_yaml` is authoritative for leaf workflow names, call arguments, and available outputs.",
+            "- If `leaf_input_candidates_yaml` or `leaf_subworkflow_specs_json` disagree with `generated_leaf_contracts_yaml`, follow `generated_leaf_contracts_yaml`.",
         ]
         if configured_main_inputs:
             parts.append("- `authoritative_main_inputs_yaml` is exact: preserve every name and schema and do not add or remove inputs.")
@@ -837,7 +849,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 self._prompt_section("normalized_markdown", normalized_markdown),
                 self._prompt_section("main_workflow_orchestration", extraction.main_workflow_prompt),
                 self._prompt_section("authoritative_main_inputs_yaml", self._serialize_yaml_value(configured_main_inputs)),
-                self._prompt_section("leaf_input_candidates_yaml", self._serialize_yaml_value(inferred_leaf_inputs)),
+                self._prompt_section("leaf_input_candidates_yaml", self._serialize_yaml_value(generated_leaf_inputs)),
+                self._prompt_section("generated_leaf_contracts_yaml", self._serialize_yaml_value(self._build_generated_leaf_contracts(leaves))),
                 self._prompt_section("leaf_subworkflow_specs_json", json.dumps(self._build_extraction_json(extraction), ensure_ascii=False, indent=2)),
                 self._prompt_section("generated_leaf_workflows_yaml", "\n---\n".join(leaf.yaml_text for leaf in leaves)),
                 "",
@@ -992,22 +1005,40 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         return inputs
 
     @staticmethod
-    def _build_generated_main_input_contract(specs: list[_WorkflowPipelineSubworkflowSpec]) -> dict[str, str]:
-        inputs: dict[str, str] = {}
+    def _build_generated_leaf_contracts(leaves: list[_GeneratedLeafWorkflow]) -> dict[str, Any]:
+        contracts: dict[str, Any] = {}
+        for leaf in leaves:
+            inputs = leaf.workflow_node.get("inputs")
+            outputs = leaf.workflow_node.get("outputs")
+            contracts[leaf.name] = {
+                "workflow": leaf.workflow_name,
+                "inputs": copy.deepcopy(inputs) if isinstance(inputs, dict) else {},
+                "outputs": copy.deepcopy(outputs) if isinstance(outputs, dict) else {},
+            }
+        return contracts
+
+    @staticmethod
+    def _build_generated_main_input_contract(leaves: list[_GeneratedLeafWorkflow]) -> dict[str, Any]:
+        inputs: dict[str, Any] = {}
         available_outputs: set[str] = set()
-        for spec in specs:
-            for name, type_name in spec.inputs.items():
+        for leaf in leaves:
+            leaf_inputs = leaf.workflow_node.get("inputs") if isinstance(leaf.workflow_node.get("inputs"), dict) else {}
+            for name, schema in leaf_inputs.items():
                 if name in available_outputs:
                     continue
-                inputs[name] = type_name if name not in inputs or inputs[name] == type_name else "any"
-            available_outputs.update(spec.outputs.keys())
+                if name not in inputs:
+                    inputs[name] = copy.deepcopy(schema)
+                elif inputs[name] != schema:
+                    inputs[name] = "any"
+            leaf_outputs = leaf.workflow_node.get("outputs") if isinstance(leaf.workflow_node.get("outputs"), dict) else {}
+            available_outputs.update(leaf_outputs.keys())
         return inputs
 
     def _resolve_main_input_contract(
         self,
         configured_inputs: dict[str, Any],
         assembly: _GeneratedMainAssembly,
-        inferred_leaf_inputs: dict[str, str],
+        generated_leaf_inputs: dict[str, Any],
     ) -> dict[str, Any]:
         if configured_inputs:
             return copy.deepcopy(configured_inputs)
@@ -1017,7 +1048,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         generated_skill_inputs = assembly.skill_node.get("inputs") if isinstance(assembly.skill_node, dict) else None
         if isinstance(generated_skill_inputs, dict) and generated_skill_inputs:
             return copy.deepcopy(generated_skill_inputs)
-        return copy.deepcopy(inferred_leaf_inputs)
+        return copy.deepcopy(generated_leaf_inputs)
 
     @staticmethod
     def _ensure_main_workflow_outputs(main_node: dict[str, Any], specs: list[_WorkflowPipelineSubworkflowSpec]) -> None:
@@ -1628,6 +1659,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "- If an MCP response is opaque, use `json(data.steps.<id>.response)` to pass the whole response to another step.\n"
             "- If precise fields are needed from an opaque response, add an `llm.call` normalization step with "
             "`structured_output`, then read fields from `data.steps.<normalizer>.json`.\n"
+            "MCP input contract rules:\n"
+            f"{self._format_mcp_input_contract_checklist()}\n"
             "- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; "
             "do not put unescaped JSON inside a double-quoted YAML string.\n"
             "- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`.\n"
@@ -1675,6 +1708,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             f"{chr(10).join(constraints_lines) if constraints_lines else '(none)'}\n"
             "</constraints>\n"
         )
+
+    @classmethod
+    def _format_mcp_input_contract_checklist(cls) -> str:
+        return "\n".join(cls._MCP_INPUT_CONTRACT_CHECKLIST)
 
     @staticmethod
     def _should_prefilter(generator: dict[str, Any]) -> bool:
