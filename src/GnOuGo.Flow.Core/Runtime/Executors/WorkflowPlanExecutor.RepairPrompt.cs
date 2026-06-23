@@ -6,6 +6,7 @@ using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
@@ -711,50 +712,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     }
 
     private static string BuildStructuredPlanError(Exception ex, int attempt)
-    {
-        var message = ex.Message.Trim();
-        var lower = message.ToLowerInvariant();
-
-        var errorCode = "VALIDATION_ERROR";
-        if (lower.Contains("mcp_server_unknown"))
-            errorCode = "MCP_SERVER_UNKNOWN";
-        else if (lower.Contains("mcp_method_unknown"))
-            errorCode = "MCP_METHOD_UNKNOWN";
-        else if (lower.Contains("mcp_request_schema_invalid")
-            || lower.Contains("mcp.call request") && lower.Contains("invalid"))
-            errorCode = "MCP_REQUEST_SCHEMA_INVALID";
-        else if (lower.Contains("expr_type_mismatch")
-            || lower.Contains("resolves to", StringComparison.Ordinal) && lower.Contains("contract requires", StringComparison.Ordinal))
-            errorCode = ErrorCodes.ExprTypeMismatch;
-        else if (lower.Contains("mcp_server_not_found") || lower.Contains("mcp server") && lower.Contains("not found"))
-            errorCode = ErrorCodes.McpServerNotFound;
-        else if (lower.Contains("missing required field 'workflows'"))
-            errorCode = "MISSING_ROOT_KEY_WORKFLOWS";
-        else if (lower.Contains("missing required field 'version'"))
-            errorCode = "MISSING_ROOT_KEY_VERSION";
-        else if (lower.Contains("missing required field 'name'"))
-            errorCode = "MISSING_ROOT_KEY_NAME";
-        else if (lower.Contains("skill_required") || lower.Contains("top-level 'skill'"))
-            errorCode = "MISSING_ROOT_KEY_SKILL";
-        else if (lower.Contains("step_type_unknown"))
-            errorCode = "UNKNOWN_STEP_TYPE";
-        else if (lower.Contains("missing_steps") || lower.Contains("missing_branches") || lower.Contains("missing_cases"))
-            errorCode = "INVALID_CONTAINER_SHAPE";
-        else if (lower.Contains("step_reference_not_available") || lower.Contains("step_reference_unknown") || lower.Contains("semantic_mapping_error"))
-            errorCode = "SEMANTIC_MAPPING_ERROR";
-        else if (lower.Contains("opaque_response_deep_access"))
-            errorCode = "OPAQUE_RESPONSE_DEEP_ACCESS";
-        else if (lower.Contains("step_output_property_unknown"))
-            errorCode = "STEP_OUTPUT_PROPERTY_UNKNOWN";
-        else if (lower.Contains("yaml"))
-            errorCode = "YAML_PARSE_ERROR";
-        else if (lower.Contains("not allowed by policy") || lower.Contains("denied by policy"))
-            errorCode = "POLICY_ERROR";
-        else if (lower.Contains("exceeds limit"))
-            errorCode = "LIMIT_ERROR";
-
-        return $"attempt={attempt}; code={errorCode}; message={message}";
-    }
+        => WorkflowPlanDiagnostics.BuildStructuredPlanError(ex, attempt);
 
     private static string? TryExtractMissingMcpServerName(string message)
     {

@@ -339,7 +339,7 @@ workflows:
                 dry_run: true
               on_invalid:
                 action: reprompt
-                max_attempts: 4
+                max_attempts: 10
 
           - id: emit_workflow
             type: emit

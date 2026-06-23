@@ -363,6 +363,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     if (!string.IsNullOrWhiteSpace(t.Description))
                         sb.Append($": {t.Description}");
                     sb.AppendLine();
+                    AppendMcpCapabilityCard(sb, "      ", server, t);
                     if (t.InputSchema != null)
                         AppendJsonBlock(sb, "      ", "input_schema", t.InputSchema);
                     if (t.OutputSchema != null)
@@ -408,8 +409,461 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("When using LLM-assisted mcp.call, put the natural-language instruction in input.prompt and pass candidate capabilities through input.tools and/or input.prompts, typically from mcp.list outputs.");
         sb.AppendLine("If a server lists a recommended mcp.call timeout, include at least that value as `input.timeout_ms` for generated calls to that server.");
         sb.AppendLine("When building `mcp.call.input.request`, preserve JSON schema scalar types exactly: numbers/integers/booleans must be unquoted YAML scalars, while strings may be quoted.");
+        sb.AppendLine("Prefer adapting each `capability_card_yaml` example when it matches the task; the JSON schemas remain authoritative for exact validation.");
         sb.AppendLine("If a string field must contain JSON text, prefer a YAML literal block (`|`) so nested quotes remain valid YAML.");
         sb.AppendLine("For `mcp.call` single-tool outputs, access `data.steps.<id>.response.<field>` only when that field is documented in `output_schema` or `example_response` above. Otherwise the response is opaque: use `json(data.steps.<id>.response)` or normalize it with `llm.call` + `structured_output`.");
         return sb.ToString().TrimEnd();
+    }
+
+    private static void AppendMcpCapabilityCard(StringBuilder sb, string indent, McpServerDiscovery server, McpToolInfo tool)
+    {
+        var properties = GetJsonSchemaProperties(tool.InputSchema);
+        var requiredNames = GetRequiredPropertyNames(tool.InputSchema);
+        var propertyNames = properties.Keys
+            .Concat(requiredNames)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var enumValuesByName = propertyNames
+            .Select(name => new { Name = name, Values = GetEnumValues(GetSchemaProperty(properties, name)) })
+            .Where(item => item.Values.Count > 0)
+            .ToList();
+        var numericRequiredNames = requiredNames
+            .Where(name => IsNumericJsonSchema(GetSchemaProperty(properties, name)))
+            .ToList();
+
+        sb.Append(indent).AppendLine("capability_card_yaml:");
+        sb.Append(indent).Append("  server: ").AppendLine(FormatYamlScalar(server.Name));
+        sb.Append(indent).Append("  tool: ").AppendLine(FormatYamlScalar(tool.Name));
+        sb.Append(indent).AppendLine("  kind: tool");
+        if (!string.IsNullOrWhiteSpace(tool.Description))
+            sb.Append(indent).Append("  purpose: ").AppendLine(FormatYamlScalar(tool.Description));
+
+        sb.Append(indent).AppendLine("  request_contract:");
+        if (requiredNames.Count > 0)
+        {
+            sb.Append(indent).AppendLine("    required_arguments:");
+            foreach (var name in requiredNames)
+            {
+                sb.Append(indent)
+                    .Append("      ")
+                    .Append(name)
+                    .Append(": ")
+                    .AppendLine(DescribeJsonSchemaType(GetSchemaProperty(properties, name)));
+            }
+        }
+        else
+        {
+            sb.Append(indent).AppendLine("    required_arguments: {}");
+        }
+
+        var optionalNames = propertyNames
+            .Where(name => !requiredNames.Contains(name, StringComparer.Ordinal))
+            .ToList();
+        if (optionalNames.Count > 0)
+        {
+            sb.Append(indent).AppendLine("    optional_arguments:");
+            foreach (var name in optionalNames)
+            {
+                sb.Append(indent)
+                    .Append("      ")
+                    .Append(name)
+                    .Append(": ")
+                    .AppendLine(DescribeJsonSchemaType(GetSchemaProperty(properties, name)));
+            }
+        }
+
+        if (enumValuesByName.Count > 0)
+        {
+            sb.Append(indent).AppendLine("    valid_values:");
+            foreach (var item in enumValuesByName)
+            {
+                sb.Append(indent).Append("      ").Append(item.Name).AppendLine(":");
+                foreach (var value in item.Values)
+                    sb.Append(indent).Append("        - ").AppendLine(FormatYamlScalar(value));
+            }
+        }
+
+        sb.Append(indent).AppendLine("  examples:");
+        var methodVariants = enumValuesByName
+            .FirstOrDefault(item => string.Equals(item.Name, "method", StringComparison.OrdinalIgnoreCase))
+            ?.Values
+            .Take(4)
+            .ToList();
+        if (methodVariants is { Count: > 0 })
+        {
+            foreach (var methodVariant in methodVariants)
+                AppendMcpCapabilityExample(sb, indent, server, tool, properties, requiredNames, "method", methodVariant);
+        }
+        else
+        {
+            AppendMcpCapabilityExample(sb, indent, server, tool, properties, requiredNames, null, null);
+        }
+
+        sb.Append(indent).AppendLine("  rules:");
+        if (properties.ContainsKey("method"))
+        {
+            sb.Append(indent).Append("    - ").AppendLine(FormatYamlScalar(
+                $"Use input.method: {tool.Name} for the MCP tool name; use input.request.method only as this tool's argument."));
+        }
+        if (requiredNames.Count > 0)
+        {
+            sb.Append(indent).Append("    - ").AppendLine(FormatYamlScalar(
+                "Always provide required request arguments: " + string.Join(", ", requiredNames) + "."));
+        }
+        if (numericRequiredNames.Count > 0)
+        {
+            sb.Append(indent).Append("    - ").AppendLine(FormatYamlScalar(
+                string.Join(", ", numericRequiredNames) + " must resolve to numbers, not strings."));
+        }
+        foreach (var item in enumValuesByName)
+        {
+            sb.Append(indent).Append("    - ").AppendLine(FormatYamlScalar(
+                $"request.{item.Name} must be one of: {string.Join(", ", item.Values)}."));
+        }
+    }
+
+    private static void AppendMcpCapabilityExample(
+        StringBuilder sb,
+        string indent,
+        McpServerDiscovery server,
+        McpToolInfo tool,
+        IReadOnlyDictionary<string, JsonNode?> properties,
+        IReadOnlyList<string> requiredNames,
+        string? variantArgumentName,
+        string? variantArgumentValue)
+    {
+        var variantSuffix = variantArgumentValue == null ? "" : "_" + SanitizeExampleName(variantArgumentValue);
+        sb.Append(indent).Append("    - name: ").AppendLine(FormatYamlScalar("call_" + SanitizeExampleName(tool.Name) + variantSuffix));
+        sb.Append(indent).AppendLine("      call:");
+        sb.Append(indent).AppendLine("        type: mcp.call");
+        sb.Append(indent).AppendLine("        input:");
+        sb.Append(indent).Append("          server: ").AppendLine(FormatYamlScalar(server.Name));
+        sb.Append(indent).AppendLine("          kind: tool");
+        sb.Append(indent).Append("          method: ").AppendLine(FormatYamlScalar(tool.Name));
+        if (requiredNames.Count == 0)
+        {
+            sb.Append(indent).AppendLine("          request: {}");
+            return;
+        }
+
+        sb.Append(indent).AppendLine("          request:");
+        foreach (var name in requiredNames)
+        {
+            var schema = GetSchemaProperty(properties, name);
+            var value = string.Equals(name, variantArgumentName, StringComparison.Ordinal)
+                ? FormatYamlScalar(variantArgumentValue ?? "")
+                : BuildExampleRequestValue(name, schema);
+            sb.Append(indent).Append("            ").Append(name).Append(": ").AppendLine(value);
+        }
+    }
+
+    private const int MaxCapabilityCardTypeDepth = 3;
+    private const int MaxCapabilityCardProperties = 8;
+
+    private static IReadOnlyDictionary<string, JsonNode?> GetJsonSchemaProperties(JsonNode? schema)
+    {
+        if (schema is not JsonObject obj || obj["properties"] is not JsonObject properties)
+            return new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
+
+        return properties.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+    }
+
+    private static List<string> GetRequiredPropertyNames(JsonNode? schema)
+    {
+        if (schema is not JsonObject obj || obj["required"] is not JsonArray required)
+            return new List<string>();
+
+        return required
+            .Select(item => item is JsonValue value && value.TryGetValue<string>(out var name) ? name : null)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Cast<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static JsonNode? GetSchemaProperty(IReadOnlyDictionary<string, JsonNode?> properties, string name)
+        => properties.TryGetValue(name, out var property) ? property : null;
+
+    private static string DescribeJsonSchemaType(JsonNode? schema)
+        => DescribeJsonSchemaType(schema, 0);
+
+    private static string DescribeJsonSchemaType(JsonNode? schema, int depth)
+    {
+        if (schema is not JsonObject obj)
+            return "any";
+
+        var enumValues = GetEnumValues(obj);
+        if (enumValues.Count > 0)
+        {
+            var enumPreview = string.Join("|", enumValues.Take(6));
+            if (enumValues.Count > 6)
+                enumPreview += "|...";
+            return $"string enum<{enumPreview}>";
+        }
+
+        if (TryDescribeSchemaUnion(obj, "anyOf", depth, out var union)
+            || TryDescribeSchemaUnion(obj, "oneOf", depth, out union))
+            return union;
+
+        var type = GetJsonSchemaTypeName(obj);
+        var typeParts = type?.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            ?? Array.Empty<string>();
+
+        if (typeParts.Contains("object", StringComparer.OrdinalIgnoreCase)
+            || obj["properties"] is JsonObject)
+            return DescribeObjectJsonSchemaType(obj, depth);
+
+        if (typeParts.Contains("array", StringComparer.OrdinalIgnoreCase))
+            return DescribeArrayJsonSchemaType(obj, depth);
+
+        if (string.Equals(type, "string", StringComparison.OrdinalIgnoreCase)
+            && obj["format"] is JsonValue formatValue
+            && formatValue.TryGetValue<string>(out var format)
+            && !string.IsNullOrWhiteSpace(format))
+            return $"string({format})";
+
+        return string.IsNullOrWhiteSpace(type) ? "any" : type;
+    }
+
+    private static bool TryDescribeSchemaUnion(JsonObject obj, string keyword, int depth, out string description)
+    {
+        description = "";
+        if (obj[keyword] is not JsonArray variants || variants.Count == 0)
+            return false;
+
+        var parts = variants
+            .Take(4)
+            .Select(item => DescribeJsonSchemaType(item, depth + 1))
+            .Where(text => !string.IsNullOrWhiteSpace(text))
+            .ToList();
+        if (parts.Count == 0)
+            return false;
+
+        if (variants.Count > parts.Count)
+            parts.Add("...");
+        description = string.Join("|", parts);
+        return true;
+    }
+
+    private static string DescribeObjectJsonSchemaType(JsonObject obj, int depth)
+    {
+        var properties = GetJsonSchemaProperties(obj);
+        if (properties.Count == 0)
+        {
+            if (obj["additionalProperties"] is JsonObject additionalSchema)
+                return $"object<string, {DescribeJsonSchemaType(additionalSchema, depth + 1)}>";
+            return "object";
+        }
+
+        if (depth >= MaxCapabilityCardTypeDepth)
+            return "object {...}";
+
+        var required = GetRequiredPropertyNames(obj);
+        var parts = properties
+            .Take(MaxCapabilityCardProperties)
+            .Select(kv =>
+            {
+                var optional = required.Contains(kv.Key, StringComparer.Ordinal) ? "" : "?";
+                return $"{kv.Key}{optional}: {DescribeJsonSchemaType(kv.Value, depth + 1)}";
+            })
+            .ToList();
+
+        if (properties.Count > MaxCapabilityCardProperties)
+            parts.Add("...");
+
+        return "object { " + string.Join(", ", parts) + " }";
+    }
+
+    private static string DescribeArrayJsonSchemaType(JsonObject obj, int depth)
+    {
+        if (obj["items"] is JsonObject items)
+            return $"array<{DescribeJsonSchemaType(items, depth + 1)}>";
+
+        if (obj["items"] is JsonArray tupleItems)
+        {
+            var itemTypes = tupleItems
+                .Take(4)
+                .Select(item => DescribeJsonSchemaType(item, depth + 1))
+                .ToList();
+            if (tupleItems.Count > itemTypes.Count)
+                itemTypes.Add("...");
+            return "array<" + string.Join("|", itemTypes) + ">";
+        }
+
+        return "array<any>";
+    }
+
+    private static string? GetJsonSchemaTypeName(JsonObject obj)
+    {
+        if (obj["type"] is JsonValue typeValue && typeValue.TryGetValue<string>(out var typeText))
+            return typeText;
+
+        if (obj["type"] is JsonArray typeArray)
+        {
+            var values = typeArray
+                .Select(item => item is JsonValue value && value.TryGetValue<string>(out var text) ? text : null)
+                .Where(text => !string.IsNullOrWhiteSpace(text));
+            return string.Join("|", values);
+        }
+
+        if (obj["enum"] is JsonArray)
+            return "string";
+        if (obj["const"] != null)
+            return "string";
+
+        return null;
+    }
+
+    private static List<string> GetEnumValues(JsonNode? schema)
+    {
+        if (schema is not JsonObject obj)
+            return new List<string>();
+
+        if (obj["enum"] is JsonArray enumArray)
+        {
+            return enumArray
+                .Select(GetJsonScalarText)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Cast<string>()
+                .ToList();
+        }
+
+        var constValue = GetJsonScalarText(obj["const"]);
+        return string.IsNullOrWhiteSpace(constValue) ? new List<string>() : new List<string> { constValue };
+    }
+
+    private static bool IsNumericJsonSchema(JsonNode? schema)
+    {
+        if (schema is not JsonObject obj)
+            return false;
+
+        var type = GetJsonSchemaTypeName(obj);
+        return type != null
+            && (type.Split('|').Contains("number", StringComparer.OrdinalIgnoreCase)
+                || type.Split('|').Contains("integer", StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static string BuildExampleRequestValue(string name, JsonNode? schema)
+    {
+        if (schema is JsonObject obj)
+        {
+            if (obj["default"] != null)
+                return FormatYamlValue(obj["default"]);
+            if (obj["const"] != null)
+                return FormatYamlValue(obj["const"]);
+
+            var enumValues = GetEnumValues(obj);
+            if (enumValues.Count > 0)
+                return FormatYamlScalar(enumValues[0]);
+
+            if (IsNumericJsonSchema(obj))
+            {
+                if (string.Equals(name, "page", StringComparison.OrdinalIgnoreCase))
+                    return "1";
+                if (string.Equals(name, "perPage", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(name, "per_page", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(name, "pageSize", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(name, "limit", StringComparison.OrdinalIgnoreCase))
+                    return "30";
+            }
+        }
+
+        return FormatYamlScalar("${" + BuildInputReference(name) + "}");
+    }
+
+    private static string BuildInputReference(string name)
+    {
+        if (Regex.IsMatch(name, @"^[A-Za-z_][A-Za-z0-9_]*$"))
+            return "data.inputs." + name;
+
+        return "data.inputs[" + QuoteDouble(name) + "]";
+    }
+
+    private static string? GetJsonScalarText(JsonNode? node)
+    {
+        if (node is not JsonValue value)
+            return null;
+        if (value.TryGetValue<string>(out var text))
+            return text;
+        if (value.TryGetValue<bool>(out var boolValue))
+            return boolValue ? "true" : "false";
+        if (value.TryGetValue<int>(out var intValue))
+            return intValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (value.TryGetValue<long>(out var longValue))
+            return longValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (value.TryGetValue<double>(out var doubleValue))
+            return doubleValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return value.ToJsonString();
+    }
+
+    private static string FormatYamlValue(JsonNode? node)
+    {
+        if (node == null)
+            return "null";
+
+        if (node is JsonValue value)
+        {
+            if (value.TryGetValue<string>(out var text))
+                return FormatYamlScalar(text);
+            if (value.TryGetValue<bool>(out var boolValue))
+                return boolValue ? "true" : "false";
+            if (value.TryGetValue<int>(out var intValue))
+                return intValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (value.TryGetValue<long>(out var longValue))
+                return longValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (value.TryGetValue<double>(out var doubleValue))
+                return doubleValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        return FormatYamlScalar(node.ToJsonString(PromptJsonOptions));
+    }
+
+    private static string FormatYamlScalar(string value)
+        => QuoteDouble(value);
+
+    private static string QuoteDouble(string value)
+    {
+        var sb = new StringBuilder(value.Length + 2);
+        sb.Append('"');
+        foreach (var c in value)
+        {
+            switch (c)
+            {
+                case '\\':
+                    sb.Append(@"\\");
+                    break;
+                case '"':
+                    sb.Append("\\\"");
+                    break;
+                case '\r':
+                    sb.Append(@"\r");
+                    break;
+                case '\n':
+                    sb.Append(@"\n");
+                    break;
+                case '\t':
+                    sb.Append(@"\t");
+                    break;
+                default:
+                    sb.Append(c);
+                    break;
+            }
+        }
+        sb.Append('"');
+        return sb.ToString();
+    }
+
+    private static string SanitizeExampleName(string value)
+    {
+        var sb = new StringBuilder(value.Length);
+        foreach (var c in value)
+        {
+            if (char.IsLetterOrDigit(c))
+                sb.Append(char.ToLowerInvariant(c));
+            else if (sb.Length > 0 && sb[^1] != '_')
+                sb.Append('_');
+        }
+
+        return sb.ToString().Trim('_') is { Length: > 0 } text ? text : "tool";
     }
 }

@@ -81,6 +81,7 @@ public class DocumentPolicyTests
         Assert.Contains(root, description);
         Assert.Contains(exports, description);
         Assert.Contains("document_get_policy.MaxFileSizeBytes: 1234 bytes", description);
+        Assert.Contains("Use relative paths only from the workspace root", description);
     }
 
     [Fact]

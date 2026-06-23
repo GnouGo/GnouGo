@@ -31,7 +31,7 @@ public sealed class DocumentPolicy
     public long MaxFileSizeBytes => _settings.MaxFileSizeBytes;
 
     /// <summary>
-    /// Resolve a file path (relative or absolute) and ensure it is inside an allowed root.
+    /// Resolve a file path and ensure it is inside an allowed root.
     /// </summary>
     public string ResolveFilePath(string filePath)
     {
@@ -75,7 +75,7 @@ public sealed class DocumentPolicy
         sb.AppendLine("Writes text content to a file. For .docx, automatically detects Markdown and maps headings, lists, emphasis, code, links, blockquotes, and tables to Word structures.");
         sb.AppendLine("For .pdf, generates a readable A4 PDF and automatically renders Markdown headings, lists, emphasis, code, links, blockquotes, tables, and separators.");
         sb.AppendLine("For .xlsx, generates a spreadsheet from tab/comma-separated text. For other allowed extensions, writes plain text.");
-        sb.AppendLine("Allowed targets come from document_get_policy: file paths must resolve inside document_get_policy.AllowedRoots and use an extension from document_get_policy.AllowedExtensions.");
+        sb.AppendLine("Allowed targets come from document_get_policy: file paths must be relative to the workspace root, resolve inside document_get_policy.AllowedRoots, and use an extension from document_get_policy.AllowedExtensions.");
         sb.Append("Current document_get_policy.AllowedExtensions: ");
         sb.Append(FormatDescriptionList(policy.AllowedExtensions));
         sb.AppendLine(".");
@@ -88,7 +88,7 @@ public sealed class DocumentPolicy
         sb.Append("Current document_get_policy.MaxFileSizeBytes: ");
         sb.Append(policy.MaxFileSizeBytes);
         sb.AppendLine(" bytes.");
-        sb.AppendLine("Use a relative path from the workspace root unless an absolute path is explicitly inside an allowed root.");
+        sb.AppendLine("Use relative paths only from the workspace root; do not provide absolute paths. Only workspace-contained targets are authorized.");
         sb.AppendLine("For long LLM workflows, initialize the document with append=false, then call document_write repeatedly with append=true as each section is ready.");
         sb.Append("This avoids sending one very large final save payload that can exceed the model context window.");
         return sb.ToString().TrimEnd();

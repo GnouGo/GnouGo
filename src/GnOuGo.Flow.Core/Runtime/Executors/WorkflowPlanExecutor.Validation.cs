@@ -2,11 +2,13 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
@@ -33,10 +35,36 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static WorkflowDocument ParseAndValidateGeneratedWorkflow(string yaml)
     {
-        var generatedDoc = Parsing.WorkflowParser.Parse(yaml);
+        WorkflowDocument generatedDoc;
+        try
+        {
+            generatedDoc = Parsing.WorkflowParser.Parse(yaml);
+        }
+        catch (Exception ex)
+        {
+            var details = WorkflowPlanDiagnostics.BuildExceptionDetails(
+                WorkflowPlanDiagnostics.InferPlanErrorCode(ex.Message),
+                "parse",
+                ex.Message,
+                ex);
+            throw new WorkflowRuntimeException(
+                ErrorCodes.TemplatePlan,
+                $"Generated workflow parse failed: {ex.Message} | repair diagnostics: {WorkflowPlanDiagnostics.ToPromptJson(details)}",
+                inner: ex,
+                details: details);
+        }
 
         if (generatedDoc.Workflows.Count == 0)
-            throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "Validation failed: required root key 'workflows' must be a non-empty object.");
+        {
+            var details = WorkflowPlanDiagnostics.BuildExceptionDetails(
+                "MISSING_ROOT_KEY_WORKFLOWS",
+                "validation",
+                "required root key 'workflows' must be a non-empty object.");
+            throw new WorkflowRuntimeException(
+                ErrorCodes.TemplatePlan,
+                "Validation failed: required root key 'workflows' must be a non-empty object. | repair diagnostics: " + WorkflowPlanDiagnostics.ToPromptJson(details),
+                details: details);
+        }
 
         return generatedDoc;
     }
@@ -91,8 +119,17 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (compilationException != null)
             diagnostics.Add("compilation: " + compilationException.Message);
 
+        var details = WorkflowPlanDiagnostics.BuildValidationFailureDetails(
+            errors,
+            semanticException,
+            compilationException);
+
         throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan,
-            "Generated workflow validation failed: " + string.Join(" | ", diagnostics));
+            "Generated workflow validation failed: "
+            + string.Join(" | ", diagnostics)
+            + " | repair diagnostics: "
+            + WorkflowPlanDiagnostics.ToPromptJson(details),
+            details: details);
     }
 
     private static async Task RunStandardPlanValidationSequenceAsync(
@@ -148,9 +185,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         if (discovered == null || discovered.Count == 0)
         {
-            throw new WorkflowRuntimeException(
-                ErrorCodes.TemplatePlan,
-                "MCP_DISCOVERY_REQUIRED: generated workflow contains mcp.call tool steps, but no MCP tool catalog was discovered. Validation is fail-closed.");
+            ThrowMcpDiscoveryCoverageError(
+                "MCP_DISCOVERY_REQUIRED",
+                "generated workflow contains mcp.call tool steps, but no MCP tool catalog was discovered. Validation is fail-closed.",
+                "Run MCP discovery for this plan, remove mcp.call steps, or add an mcp.list discovery step before tool execution.");
         }
 
         foreach (var step in toolCalls)
@@ -158,34 +196,71 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             var serverName = ReadMcpCallInputString(step, "server");
             if (string.IsNullOrWhiteSpace(serverName) || serverName.Contains("${", StringComparison.Ordinal))
             {
-                throw new WorkflowRuntimeException(
-                    ErrorCodes.TemplatePlan,
-                    $"MCP_SERVER_DYNAMIC_UNVERIFIABLE: mcp.call step '{step.Id}' must use a literal discovered server name during workflow.plan validation.");
+                ThrowMcpDiscoveryCoverageError(
+                    "MCP_SERVER_DYNAMIC_UNVERIFIABLE",
+                    $"mcp.call step '{step.Id}' must use a literal discovered server name during workflow.plan validation.",
+                    "Use an exact server name from the discovered MCP catalog in input.server.");
             }
 
             var server = discovered.FirstOrDefault(candidate =>
                 string.Equals(candidate.Name, serverName, StringComparison.Ordinal));
             if (server == null)
             {
-                throw new WorkflowRuntimeException(
-                    ErrorCodes.TemplatePlan,
-                    $"MCP_SERVER_UNKNOWN: mcp.call step '{step.Id}' references server '{serverName}', which is absent from the discovered MCP catalog.");
+                ThrowMcpDiscoveryCoverageError(
+                    "MCP_SERVER_UNKNOWN",
+                    $"mcp.call step '{step.Id}' references server '{serverName}', which is absent from the discovered MCP catalog.",
+                    "Change input.server to one of the discovered server names, or do not generate this mcp.call.");
             }
 
             if (!server.Discovered)
             {
-                throw new WorkflowRuntimeException(
-                    ErrorCodes.TemplatePlan,
-                    $"MCP_DISCOVERY_FAILED: MCP server '{serverName}' is referenced by step '{step.Id}', but tools/list did not succeed after all discovery attempts.");
+                ThrowMcpDiscoveryCoverageError(
+                    "MCP_DISCOVERY_FAILED",
+                    $"MCP server '{serverName}' is referenced by step '{step.Id}', but tools/list did not succeed after all discovery attempts.",
+                    "Do not rely on this server in the generated workflow unless discovery succeeds.");
             }
 
             if (server.Tools.Count == 0)
             {
-                throw new WorkflowRuntimeException(
-                    ErrorCodes.TemplatePlan,
-                    $"MCP_TOOL_CATALOG_EMPTY: MCP server '{serverName}' is referenced by step '{step.Id}', but its discovered tool catalog is empty.");
+                ThrowMcpDiscoveryCoverageError(
+                    "MCP_TOOL_CATALOG_EMPTY",
+                    $"MCP server '{serverName}' is referenced by step '{step.Id}', but its discovered tool catalog is empty.",
+                    "Remove the mcp.call or select a discovered server with tools.");
             }
         }
+    }
+
+    [DoesNotReturn]
+    private static void ThrowMcpDiscoveryCoverageError(string code, string message, string hint)
+    {
+        var diagnostics = new JsonArray();
+        diagnostics.Add((JsonNode)new JsonObject
+        {
+            ["code"] = code,
+            ["phase"] = "mcp_discovery_coverage",
+            ["message"] = message,
+            ["location"] = "mcp.discovery",
+            ["hint"] = hint,
+            ["llm_guidance"] = hint
+        });
+
+        var guidance = new JsonArray();
+        guidance.Add((JsonNode)JsonValue.Create("Use only MCP servers and tools that were discovered for this workflow.plan run.")!);
+        guidance.Add((JsonNode)JsonValue.Create("When discovery is unavailable, avoid generating mcp.call steps that require a catalog contract.")!);
+
+        var details = new JsonObject
+        {
+            ["ok"] = false,
+            ["phase"] = "validation",
+            ["summary"] = "1 diagnostic(s): " + code,
+            ["diagnostics"] = diagnostics,
+            ["llm_guidance"] = guidance
+        };
+
+        throw new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            $"{code}: {message} | repair diagnostics: {WorkflowPlanDiagnostics.ToPromptJson(details)}",
+            details: details);
     }
 
     private static string? ReadMcpCallInputString(StepDef step, string fieldName)
@@ -285,28 +360,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         return factory;
     }
 
-    private static string FormatValidationErrors(IReadOnlyList<ValidationError> errors)
-    {
-        return string.Join("; ", errors.Select(error =>
-        {
-            var location = new StringBuilder();
-            if (!string.IsNullOrWhiteSpace(error.WorkflowName))
-                location.Append($"workflow '{error.WorkflowName}'");
-            if (!string.IsNullOrWhiteSpace(error.StepId))
-            {
-                if (location.Length > 0)
-                    location.Append(", ");
-                location.Append($"step '{error.StepId}'");
-            }
-            if (!string.IsNullOrWhiteSpace(error.Field))
-            {
-                if (location.Length > 0)
-                    location.Append(", ");
-                location.Append($"field '{error.Field}'");
-            }
-
-            var prefix = location.Length > 0 ? $"[{location}] " : "";
-            return $"{prefix}{error.Code}: {error.Message}";
-        }));
-    }
+    private static string FormatValidationErrors(IReadOnlyList<ValidationError> errors) =>
+        WorkflowPlanDiagnostics.FormatValidationErrors(errors);
 }

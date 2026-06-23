@@ -2570,6 +2570,9 @@ workflows:
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal(2, requests.Count);
         var retryPrompt = requests[1].Prompt;
+        Assert.Contains("\"details\"", retryPrompt);
+        Assert.Contains("\"diagnostics\"", retryPrompt);
+        Assert.Contains("\"llm_guidance\"", retryPrompt);
         Assert.Contains("code=EXPR_TYPE_MISMATCH", retryPrompt);
         Assert.Contains("Expression type mismatch repair guidance", retryPrompt);
         Assert.Contains("Affected output field(s): `outputs.classification`, `outputs.feasibility_level`, `outputs.security_level`", retryPrompt);
@@ -3471,6 +3474,18 @@ workflows:
         Assert.Contains("MCP_CALL_INPUT_FIELD_UNKNOWN", result.Error.Message);
         Assert.Contains("input.id", result.Error.Message);
         Assert.Contains("input.request", result.Error.Message);
+        Assert.Contains("repair diagnostics", result.Error.Message);
+
+        var details = Assert.IsType<JsonObject>(result.Error.Details);
+        Assert.Equal("validation", details["phase"]?.GetValue<string>());
+        Assert.Contains("llm_guidance", details);
+        var diagnostics = Assert.IsType<JsonArray>(details["diagnostics"]);
+        var diagnostic = Assert.IsType<JsonObject>(diagnostics
+            .OfType<JsonObject>()
+            .Single(item => item["code"]?.GetValue<string>() == "MCP_CALL_INPUT_FIELD_UNKNOWN"));
+        Assert.Equal("MCP_CALL_INPUT_FIELD_UNKNOWN", diagnostic["code"]?.GetValue<string>());
+        Assert.Equal("workflow:main/step:fetch/field:input.id", diagnostic["location"]?.GetValue<string>());
+        Assert.Contains("input.request", diagnostic["hint"]?.GetValue<string>());
     }
 
     [Fact]
@@ -4046,6 +4061,14 @@ workflows:
         Assert.Contains("dry_run", result.Error.Message);
         Assert.Contains("invented_tool", result.Error.Message);
         Assert.Contains("get_doc", result.Error.Message);
+
+        var details = Assert.IsType<JsonObject>(result.Error.Details);
+        Assert.Equal("dry_run", details["phase"]?.GetValue<string>());
+        Assert.Contains("llm_guidance", details);
+        var diagnostics = Assert.IsType<JsonArray>(details["diagnostics"]);
+        var diagnostic = Assert.IsType<JsonObject>(Assert.Single(diagnostics)!);
+        Assert.Equal("MCP_METHOD_UNKNOWN", diagnostic["code"]?.GetValue<string>());
+        Assert.Equal("execution", diagnostic["failure_kind"]?.GetValue<string>());
     }
 
     [Fact]
@@ -4834,6 +4857,40 @@ workflows:
                     OutputSchema = JsonNode.Parse("{\"type\":\"object\",\"properties\":{\"repositories\":{\"type\":\"array\"}},\"additionalProperties\":false}"),
                     ExampleResponse = JsonNode.Parse("{\"repositories\":[{\"name\":\"demo\"}]}")
                 },
+                new()
+                {
+                    Name = "issue_read",
+                    Description = "Read a GitHub issue or its comments.",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "method": { "type": "string", "enum": ["get", "get_comments"] },
+                        "owner": { "type": "string" },
+                        "repo": { "type": "string" },
+                        "issue_number": { "type": "integer" },
+                        "page": { "type": "integer" },
+                        "perPage": { "type": "integer" },
+                        "filters": {
+                          "type": "object",
+                          "properties": {
+                            "labels": { "type": "array", "items": { "type": "string" } },
+                            "include_reactions": { "type": "boolean" },
+                            "window": {
+                              "type": "object",
+                              "properties": {
+                                "created_after": { "type": "string", "format": "date-time" },
+                                "max_age_days": { "type": "integer" }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "required": ["method", "owner", "repo", "issue_number", "page", "perPage"],
+                      "additionalProperties": false
+                    }
+                    """)
+                },
                 new() { Name = "get_file", Description = "Get file contents from a repo" }
             },
             Prompts = new List<McpPromptInfo>
@@ -4881,6 +4938,26 @@ workflows:
         Assert.Contains("list_repos", capturedPrompt);
         Assert.Contains("List repositories for a user", capturedPrompt);
         Assert.Contains("get_file", capturedPrompt);
+        Assert.Contains("capability_card_yaml:", capturedPrompt);
+        Assert.Contains("tool: \"issue_read\"", capturedPrompt);
+        Assert.Contains("purpose: \"Read a GitHub issue or its comments.\"", capturedPrompt);
+        Assert.Contains("required_arguments:", capturedPrompt);
+        Assert.Contains("issue_number: integer", capturedPrompt);
+        Assert.Contains("optional_arguments:", capturedPrompt);
+        Assert.Contains("filters: object { labels?: array<string>, include_reactions?: boolean, window?: object { created_after?: string(date-time), max_age_days?: integer } }", capturedPrompt);
+        Assert.Contains("valid_values:", capturedPrompt);
+        Assert.Contains("get_comments", capturedPrompt);
+        Assert.Contains("call_issue_read_get", capturedPrompt);
+        Assert.Contains("call_issue_read_get_comments", capturedPrompt);
+        Assert.Contains("type: mcp.call", capturedPrompt);
+        Assert.Contains("server: \"github\"", capturedPrompt);
+        Assert.Contains("kind: tool", capturedPrompt);
+        Assert.Contains("method: \"issue_read\"", capturedPrompt);
+        Assert.Contains("owner: \"${data.inputs.owner}\"", capturedPrompt);
+        Assert.Contains("page: 1", capturedPrompt);
+        Assert.Contains("perPage: 30", capturedPrompt);
+        Assert.Contains("Use input.method: issue_read for the MCP tool name; use input.request.method only as this tool's argument.", capturedPrompt);
+        Assert.Contains("issue_number, page, perPage must resolve to numbers, not strings.", capturedPrompt);
         Assert.Contains("input_schema_json:", capturedPrompt);
         Assert.Contains("output_schema_json:", capturedPrompt);
         Assert.Contains("example_response_json:", capturedPrompt);
@@ -4910,6 +4987,7 @@ workflows:
         Assert.Contains("If the exact tool or prompt name is unknown, use mcp.list first", capturedPrompt);
         Assert.Contains("When using LLM-assisted mcp.call, put the natural-language instruction in input.prompt", capturedPrompt);
         Assert.Contains("Do NOT generate mcp.call with only input.server as the default plan.", capturedPrompt);
+        Assert.Contains("Prefer adapting each `capability_card_yaml` example when it matches the task", capturedPrompt);
         Assert.Contains("output_schema_json", capturedPrompt);
         Assert.Contains("\"repositories\"", capturedPrompt);
     }

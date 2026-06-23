@@ -26,17 +26,38 @@ internal static class WorkflowPlanDryRunValidator
         }
         catch (Exception ex)
         {
+            var details = ex is WorkflowCompilationException compilationException
+                ? WorkflowPlanDiagnostics.BuildValidationFailureDetails(
+                    compilationException.Errors,
+                    semanticException: null,
+                    compilationException,
+                    phase: "dry_run_compilation")
+                : WorkflowPlanDiagnostics.BuildDryRunFailureDetails(
+                    "DRY_RUN_COMPILATION_FAILED",
+                    ex.Message,
+                    "compilation",
+                    ex);
+
             throw new WorkflowRuntimeException(
                 ErrorCodes.TemplatePlan,
-                $"Generated workflow dry_run compilation failed: {ex.Message}");
+                $"Generated workflow dry_run compilation failed: {ex.Message} | repair diagnostics: {WorkflowPlanDiagnostics.ToPromptJson(details)}",
+                inner: ex,
+                details: details);
         }
 
         var entrypoint = compiled.Entrypoint;
         if (string.IsNullOrWhiteSpace(entrypoint) || !compiled.Workflows.TryGetValue(entrypoint, out var workflow))
         {
+            var details = WorkflowPlanDiagnostics.BuildDryRunFailureDetails(
+                "DRY_RUN_ENTRYPOINT_MISSING",
+                "compiled workflow has no executable entrypoint.",
+                "entrypoint");
+
             throw new WorkflowRuntimeException(
                 ErrorCodes.TemplatePlan,
-                "Generated workflow dry_run failed: compiled workflow has no executable entrypoint.");
+                "Generated workflow dry_run failed: compiled workflow has no executable entrypoint. | repair diagnostics: "
+                + WorkflowPlanDiagnostics.ToPromptJson(details),
+                details: details);
         }
 
         var engine = new WorkflowEngine
@@ -66,9 +87,18 @@ internal static class WorkflowPlanDryRunValidator
         }
         catch (Exception ex)
         {
+            var details = WorkflowPlanDiagnostics.BuildDryRunFailureDetails(
+                "DRY_RUN_BEFORE_EXECUTION_FAILED",
+                ex.Message,
+                "before_execution",
+                ex,
+                ex is WorkflowRuntimeException workflowEx ? workflowEx.Details : null);
+
             throw new WorkflowRuntimeException(
                 ErrorCodes.TemplatePlan,
-                $"Generated workflow dry_run failed before execution: {ex.Message}");
+                $"Generated workflow dry_run failed before execution: {ex.Message} | repair diagnostics: {WorkflowPlanDiagnostics.ToPromptJson(details)}",
+                inner: ex,
+                details: details);
         }
 
         if (result.Success)
@@ -86,9 +116,16 @@ internal static class WorkflowPlanDryRunValidator
             return;
         }
 
+        var failureDetails = WorkflowPlanDiagnostics.BuildDryRunFailureDetails(
+            code,
+            message,
+            "execution",
+            runtimeDetails: error?.Details);
+
         throw new WorkflowRuntimeException(
             ErrorCodes.TemplatePlan,
-            $"Generated workflow dry_run failed: [{code}] {message}");
+            $"Generated workflow dry_run failed: [{code}] {message} | repair diagnostics: {WorkflowPlanDiagnostics.ToPromptJson(failureDetails)}",
+            details: failureDetails);
     }
 
     private static bool IsInconclusiveInternalError(string code) =>
