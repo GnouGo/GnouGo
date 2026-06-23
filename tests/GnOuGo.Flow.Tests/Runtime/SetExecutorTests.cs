@@ -78,6 +78,28 @@ workflows:
     }
 
     [Fact]
+    public async Task Set_ExpressionWithYamlDecodedNewlineInStringLiteral_EvaluatesCorrectly()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: row
+        type: set
+        input:
+          data_row: ""${'a' + '\n'}""
+    outputs:
+      data_row: ""${data.steps.row.data_row}""
+");
+        var engine = new WorkflowEngine();
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("a\n", result.Outputs!["data_row"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Set_OutputAccessibleByNextStep()
     {
         var wf = CompileMain(@"
@@ -233,5 +255,4 @@ workflows:
         Assert.Contains("set", executor.DslSnippet);
     }
 }
-
 

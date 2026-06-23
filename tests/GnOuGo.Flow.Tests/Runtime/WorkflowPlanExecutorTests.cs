@@ -1316,6 +1316,158 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_PipelineMode_ComposesDetachedMainAssemblyNodes()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nBuild a profile for a name." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="build_profile"
+                        goal: Build a simple profile.
+                        inputs:
+                          name: string
+                        outputs:
+                          profile: object
+                        extract_reason: This owns the profile construction logic.
+                        content:
+                          Return a profile object containing the provided name.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call build_profile and return its profile.
+                        """
+                    };
+                }
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `build_profile`.", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: build-profile-leaf
+                        skill:
+                          description: Build a profile.
+                          tags: [generated, leaf]
+                          inputs:
+                            name: string
+                          outputs:
+                            profile:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                              required_properties: [name]
+                        workflows:
+                          main:
+                            inputs:
+                              name: string
+                            steps:
+                              - id: profile
+                                type: set
+                                input:
+                                  profile:
+                                    name: "${data.inputs.name}"
+                            outputs:
+                              profile:
+                                expr: "${data.steps.profile.profile}"
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                                required_properties: [name]
+                        """
+                    };
+                }
+
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        document:
+                          name: profile_pipeline
+                          skill:
+                            description: Build profiles.
+                            tags: [profile, pipeline]
+                            inputs:
+                              name:
+                                type: string
+                                description: Person name.
+                            outputs:
+                              profile:
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                                required_properties: [name]
+                        main:
+                          inputs:
+                            name:
+                              type: string
+                              description: Person name.
+                          steps:
+                            - id: call_build_profile
+                              type: workflow.call
+                              input:
+                                ref: { kind: local, name: build_profile }
+                                args:
+                                  name: "${data.inputs.name}"
+                          outputs:
+                            profile:
+                              expr: "${data.steps.call_build_profile.outputs.profile}"
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                              required_properties: [name]
+                        """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Build a profile for a name."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: true
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject { ["name"] = "Ada" }, CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        Assert.Contains("name: profile_pipeline", yaml);
+        Assert.Contains("profile:", yaml);
+        Assert.Contains("name: build_profile", yaml);
+        WorkflowParser.Parse(yaml);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_PipelineMode_AllowsWorkflowCallForMainWhenPolicyDeniedIt()
     {
         var mockLlm = new Mock<ILLMClient>();

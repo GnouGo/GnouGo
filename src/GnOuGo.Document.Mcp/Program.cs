@@ -29,6 +29,21 @@ builder.Services
             Version = "1.0.0"
         };
         options.AddGnOuGoToolErrorNormalizer();
+        options.Filters.Request.ListToolsFilters.Add(next => async (request, cancellationToken) =>
+        {
+            var result = await next(request, cancellationToken);
+            var policy = request.Services?.GetService<DocumentPolicy>();
+            if (policy is null)
+                return result;
+
+            foreach (var tool in result.Tools)
+            {
+                if (string.Equals(tool.Name, "document_write", StringComparison.Ordinal))
+                    tool.Description = policy.BuildDocumentWriteToolDescription();
+            }
+
+            return result;
+        });
     })
     .WithStdioServerTransport()
     .WithTools<DocumentTools>(DocumentMcpJson.SerializerOptions);

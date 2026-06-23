@@ -61,6 +61,29 @@ public class DocumentPolicyTests
     }
 
     [Fact]
+    public void BuildDocumentWriteToolDescription_IncludesPolicyValues()
+    {
+        var root = CreateTempDir();
+        var exports = Directory.CreateDirectory(Path.Combine(root, "exports")).FullName;
+        var policy = new DocumentPolicy(new DocumentServerSettings
+        {
+            DefaultWorkingDirectory = root,
+            AllowedWorkingRoots = [exports],
+            AllowedExtensions = [".md", ".docx"],
+            MaxFileSizeBytes = 1234
+        }, root);
+
+        var description = policy.BuildDocumentWriteToolDescription();
+
+        Assert.Contains("document_get_policy.AllowedExtensions", description);
+        Assert.Contains(".md, .docx", description);
+        Assert.Contains("document_get_policy.AllowedRoots", description);
+        Assert.Contains(root, description);
+        Assert.Contains(exports, description);
+        Assert.Contains("document_get_policy.MaxFileSizeBytes: 1234 bytes", description);
+    }
+
+    [Fact]
     public void DiscoverWorkspaceRoot_FindsSolutionFile()
     {
         var root = CreateTempDir();
@@ -94,4 +117,3 @@ public class DocumentPolicyTests
         return path;
     }
 }
-

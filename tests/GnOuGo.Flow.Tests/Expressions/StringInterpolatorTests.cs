@@ -38,6 +38,13 @@ public class StringInterpolatorTests
     }
 
     [Fact]
+    public void Interpolate_SingleExpressionWithDecodedNewlineInStringLiteral_ReturnsString()
+    {
+        var result = _interpolator.Interpolate("${'row' + '\n'}", MakeCtx());
+        Assert.Equal("row\n", result!.GetValue<string>());
+    }
+
+    [Fact]
     public void Interpolate_SingleExpressionArray_ReturnsArray()
     {
         var ctx = MakeCtx(new JsonObject { ["items"] = new JsonArray(JsonValue.Create(1), JsonValue.Create(2)) });
@@ -108,4 +115,3 @@ public class StringInterpolatorTests
         Assert.Equal(42, result!.GetValue<int>());
     }
 }
-

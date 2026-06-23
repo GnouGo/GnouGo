@@ -74,11 +74,12 @@ public sealed class DocumentTools
         "For .pdf, generates a readable A4 PDF and automatically renders Markdown headings, lists, emphasis, code, links, blockquotes, tables, and separators. " +
         "For .xlsx, generates a spreadsheet from tab/comma-separated text. " +
         "For other allowed extensions, writes plain text. " +
+        "Allowed targets come from document_get_policy: paths must resolve inside AllowedRoots and use an extension from AllowedExtensions. " +
         "Use a relative path from the workspace root. " +
         "For long LLM workflows, initialize the document with append=false, then call document_write repeatedly with append=true as each section is ready. " +
         "This avoids sending one very large final save payload that can exceed the model context window.")]
     public DocumentWriteResult Write(
-        [Description("Relative file path inside the workspace root, for example 'output/result.md'.")] string filePath,
+        [Description("Relative file path inside the workspace root, for example 'output/result.md'. The target must match document_get_policy.AllowedRoots and document_get_policy.AllowedExtensions.")] string filePath,
         [Description("Text content to write or append. For .xlsx, use tab or comma separated values.")] string content,
         [Description("Text encoding: 'utf-8' (default), 'utf-8-bom', 'ascii', 'latin1'.")] string? encoding = null,
         [Description("When false (default), overwrite/create the target file. When true, append content to an existing document; initialize the file first with append=false, then append incrementally to avoid oversized LLM context payloads.")] bool append = false)

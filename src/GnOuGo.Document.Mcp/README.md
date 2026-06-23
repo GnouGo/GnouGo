@@ -21,6 +21,8 @@ MCP (Model Context Protocol) stdio server for reading and writing document files
 | `document_read` | Reads a document, returns structured sections (markdown or plain) |
 | `document_write` | Writes or appends content to a file (generates DOCX/XLSX for Office formats) |
 
+`document_write` includes the current `document_get_policy` values in its MCP tool description when clients list tools: allowed roots, allowed extensions, default working directory, and max file size. This lets clients choose valid target paths without a separate hardcoded allowlist.
+
 ### Incremental writes for LLM workflows
 
 `document_write` has an `append` parameter. The default is `false`, which preserves the existing overwrite/create behavior. For long MCP workflows, prefer this pattern:

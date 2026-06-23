@@ -1396,25 +1396,31 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (root.GetMapping("document") is { } document && root.GetMapping("main") is { } wrappedMain)
         {
             return new GeneratedMainAssembly(
-                wrappedMain,
+                CloneYamlMappingNode(wrappedMain),
                 document.GetScalar("name"),
-                document.GetMapping("skill"));
+                CloneYamlMappingNodeOrNull(document.GetMapping("skill")));
         }
 
         if (root.GetMapping("workflows") is { } workflows
             && workflows.Children.TryGetValue(Scalar("main"), out var nestedMain)
             && nestedMain is YamlMappingNode nestedMainMap)
         {
-            return new GeneratedMainAssembly(nestedMainMap, root.GetScalar("name"), root.GetMapping("skill"));
+            return new GeneratedMainAssembly(
+                CloneYamlMappingNode(nestedMainMap),
+                root.GetScalar("name"),
+                CloneYamlMappingNodeOrNull(root.GetMapping("skill")));
         }
 
         if (root.Children.TryGetValue(Scalar("main"), out var main)
             && main is YamlMappingNode mainMap)
         {
-            return new GeneratedMainAssembly(mainMap, root.GetScalar("name"), root.GetMapping("skill"));
+            return new GeneratedMainAssembly(
+                CloneYamlMappingNode(mainMap),
+                root.GetScalar("name"),
+                CloneYamlMappingNodeOrNull(root.GetMapping("skill")));
         }
 
-        return new GeneratedMainAssembly(root, null, null);
+        return new GeneratedMainAssembly(CloneYamlMappingNode(root), null, null);
     }
 
     private static void ForceMainWorkflowInputs(
@@ -1729,7 +1735,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         YamlMappingNode mainWorkflowNode,
         IReadOnlyDictionary<string, JsonNode?> mainInputs)
     {
-        var stream = new YamlStream(new YamlDocument(mainWorkflowNode));
+        var stream = new YamlStream(new YamlDocument(CloneYamlMappingNode(mainWorkflowNode)));
         using var writer = new StringWriter();
         stream.Save(writer, assignAnchors: false);
 
@@ -1934,7 +1940,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, $"Generated leaf YAML does not contain workflow '{workflowName}'.");
         }
 
-        return workflowMapping;
+        return CloneYamlMappingNode(workflowMapping);
     }
 
     private static YamlMappingNode LoadYamlRoot(string yaml)
@@ -2057,6 +2063,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     $"Unsupported YAML node type during pipeline assembly: {node.GetType().Name}");
         }
     }
+
+    private static YamlMappingNode CloneYamlMappingNode(YamlMappingNode node)
+        => (YamlMappingNode)CloneYamlNode(node);
+
+    private static YamlMappingNode? CloneYamlMappingNodeOrNull(YamlMappingNode? node)
+        => node == null ? null : CloneYamlMappingNode(node);
 
     private static YamlScalarNode Scalar(string value) => new(value);
 
