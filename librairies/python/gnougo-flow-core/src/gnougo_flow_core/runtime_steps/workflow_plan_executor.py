@@ -627,6 +627,13 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "- Treat the declared input/output contract as a draft when MCP tools require additional arguments.",
             "MCP input contract rules:",
             *WorkflowPlanExecutor._MCP_INPUT_CONTRACT_CHECKLIST,
+            "- Workflow outputs must match their declared contract type exactly on every path.",
+            "- If a step has an `if`, later unconditional steps must not reference that step directly. "
+            "Either give the later step the same guard or create guaranteed branch outputs/default values first.",
+            "- Function arguments are evaluated before the function runs. Do not hide unavailable step references inside "
+            "`coalesce`, ternaries, or helper calls.",
+            "- For MCP schemas, required numeric/integer/boolean request fields must be literal YAML scalars when the "
+            "schema or validator requires explicit values; do not use expressions, casts, empty strings, or `data.env.*` fallbacks.",
             "- Any schema with `type: object` MUST be strongly typed with a non-empty `properties` mapping. "
             "Never generate a bare `type: object` input, output, item, or nested property.",
             "- Use `required_properties: [field_name]` for required object property names; do not duplicate YAML keys.",
@@ -650,6 +657,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         previous_error: str | None = None
         previous_yaml: str | None = None
         previous_prompt: str | None = None
+        previous_errors: list[str] = []
         last_error: Exception | None = None
         for attempt in range(1, max_attempts + 1):
             leaf_input = self._build_leaf_plan_input(pipeline_input, generator, spec, previous_error, previous_yaml, previous_prompt)
@@ -666,6 +674,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     break
                 previous_yaml = self._try_extract_generated_yaml_from_exception(exc)
                 previous_error = self._format_leaf_generation_error(spec.name, attempt, exc)
+                previous_errors.append(previous_error)
+                previous_errors = previous_errors[-8:]
+                previous_error = self._merge_leaf_cumulative_repair_context(previous_errors)
 
         raise WorkflowRuntimeException(
             ErrorCodes.TEMPLATE_PLAN,
@@ -710,7 +721,30 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
     @staticmethod
     def _format_leaf_generation_error(leaf_name: str, attempt: int, exc: Exception) -> str:
-        return f"Leaf workflow: {leaf_name}\nFailed attempt: {attempt}\nError type: {type(exc).__name__}\nError message:\n{exc}"
+        return (
+            f"Leaf workflow: {leaf_name}\n"
+            f"Failed attempt: {attempt}\n"
+            f"Error type: {type(exc).__name__}\n"
+            f"Structured error: {WorkflowPlanExecutor._build_structured_plan_error(exc)}\n"
+            f"Error message:\n{exc}"
+        )
+
+    @staticmethod
+    def _merge_leaf_cumulative_repair_context(previous_errors: list[str]) -> str:
+        lines = [
+            "Cumulative leaf retry requirements:",
+            "- Preserve all fixes made for earlier validation failures; do not regress one MCP request or output while fixing another.",
+            "- Re-check every mcp.call in the leaf against its discovered input_schema, not only the step named in the latest error.",
+            "- If a required MCP request field is numeric/integer/boolean, emit an explicit YAML scalar of that type when the validator requires it.",
+            "- Never satisfy missing MCP arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.",
+            "- Do not reference an `if`-guarded step from an unconditional later step unless a guaranteed value has first been produced on every path.",
+            "- Workflow outputs must resolve to their declared type on every path.",
+        ]
+        if previous_errors:
+            lines.extend(["", "All previous failed attempts for this leaf:"])
+            for index, error in enumerate(previous_errors, start=1):
+                lines.extend([f"<leaf_failure_{index}>", error, f"</leaf_failure_{index}>"])
+        return "\n".join(lines).rstrip()
 
     @staticmethod
     def _try_extract_generated_yaml_from_exception(exc: Exception) -> str | None:
@@ -1144,6 +1178,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 "Executor-specific arguments go inside input only.",
                 "Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.",
                 "Expressions may read data.inputs.* and earlier data.steps.<id>.* only.",
+                "If a step has an `if`, later unconditional steps must not reference that step directly. Give the later step the same guard, or produce guaranteed defaults/branch outputs first.",
+                "Function arguments are evaluated before the function runs: `coalesce`, ternaries, and helper calls do not make unavailable step references safe.",
+                "MCP request objects must preserve schema scalar types exactly. Numeric/integer/boolean fields must be unquoted YAML scalars when required explicitly by the MCP schema/validator.",
+                "Never satisfy missing MCP request arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.",
+                "Workflow output expressions must resolve to their declared type on every branch.",
                 "</minimum_dsl_context>",
             ]
         )
@@ -1407,6 +1446,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "Correct direct tool call shape:",
             "  type: mcp.call",
             "  input: { server: <exact-server>, kind: tool, method: <exact-tool>, request: { ... } }",
+            "For every listed input_schema_json, copy all required request properties into input.request with the exact schema name and scalar type.",
+            "If a required numeric/integer/boolean MCP property is missing, add an explicit YAML scalar value; do not use an expression string, cast, empty value, fake value, or data.env fallback.",
+            "When repairing one MCP call, re-check every MCP call in the YAML so earlier schema fixes are preserved.",
             f"Available MCP servers: {', '.join(available_servers) if available_servers else '(none)'}",
         ]
 
@@ -1539,6 +1581,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             error_code = "MCP_SERVER_UNKNOWN"
         elif "mcp_method_unknown" in lower:
             error_code = "MCP_METHOD_UNKNOWN"
+        elif "mcp_request_schema_invalid" in lower or ("mcp.call request" in lower and "invalid" in lower):
+            error_code = "MCP_REQUEST_SCHEMA_INVALID"
+        elif "expr_type_mismatch" in lower or ("resolves to" in lower and "contract requires" in lower):
+            error_code = ErrorCodes.EXPR_TYPE_MISMATCH
         elif "missing required field 'workflows'" in lower:
             error_code = "MISSING_ROOT_KEY_WORKFLOWS"
         elif "missing required field 'version'" in lower:

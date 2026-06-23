@@ -302,7 +302,7 @@ workflows:
               generator:
                 prefilter: true
                 mode: pipeline
-                reasoning: medium
+                reasoning: low
                 instruction: >
                   Generate a valid GnOuGo.Flow YAML workflow for a persisted chat agent.
 
@@ -339,7 +339,7 @@ workflows:
                 dry_run: true
               on_invalid:
                 action: reprompt
-                max_attempts: 3
+                max_attempts: 4
 
           - id: emit_workflow
             type: emit

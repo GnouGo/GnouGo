@@ -1475,6 +1475,8 @@ async def test_workflow_plan_pipeline_mode_composes_main_and_leaf_subworkflows()
     assert "Treat the declared input/output contract as a draft when MCP tools require additional arguments." in leaf_prompt
     assert "1. Inspect every MCP tool used by this workflow." in leaf_prompt
     assert "Never convert a string input to a number just to satisfy an MCP schema." in leaf_prompt
+    assert "Workflow outputs must match their declared contract type exactly on every path." in leaf_prompt
+    assert "If a step has an `if`, later unconditional steps must not reference that step directly." in leaf_prompt
     assembly_prompt = next(prompt for prompt in llm.prompts if "assembling the parent `main` workflow" in prompt)
     assert "generated_leaf_contracts_yaml" in assembly_prompt
     assert "`generated_leaf_contracts_yaml` is authoritative for leaf workflow names, call arguments, and available outputs." in assembly_prompt
@@ -1932,5 +1934,7 @@ async def test_workflow_plan_retry_prompt_includes_invalid_mcp_request_and_schem
     assert "invalid_request_yaml" in retry_prompt
     assert "title: intro" in retry_prompt
     assert "input_schema_json" in retry_prompt
+    assert "For every listed input_schema_json, copy all required request properties into input.request" in retry_prompt
+    assert "When repairing one MCP call, re-check every MCP call in the YAML" in retry_prompt
     assert '"required": [' in retry_prompt
     assert '"id"' in retry_prompt

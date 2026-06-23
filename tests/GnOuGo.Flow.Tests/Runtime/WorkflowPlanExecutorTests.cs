@@ -1927,6 +1927,10 @@ workflows:
         Assert.Equal(5, requests.Count);
         Assert.Contains(requests, request =>
             request.Prompt.Contains("Previous generated YAML for this leaf workflow failed validation", StringComparison.Ordinal)
+            && request.Prompt.Contains("Cumulative leaf retry requirements:", StringComparison.Ordinal)
+            && request.Prompt.Contains("Preserve all fixes made for earlier validation failures", StringComparison.Ordinal)
+            && request.Prompt.Contains("Re-check every mcp.call in the leaf", StringComparison.Ordinal)
+            && request.Prompt.Contains("Workflow outputs must resolve to their declared type on every path.", StringComparison.Ordinal)
             && request.Prompt.Contains("weak object schemas", StringComparison.Ordinal)
             && request.Prompt.Contains("<user_prompt>", StringComparison.Ordinal)
             && request.Prompt.Contains("</user_prompt>", StringComparison.Ordinal)
@@ -3104,6 +3108,8 @@ workflows:
         Assert.Contains("input_schema_json", retryPrompt);
         Assert.Contains("output_schema_json", retryPrompt);
         Assert.Contains("method: <exact-tool>", retryPrompt);
+        Assert.Contains("For every listed input_schema_json, copy all required request properties into input.request", retryPrompt);
+        Assert.Contains("When repairing one MCP call, re-check every MCP call in the YAML", retryPrompt);
     }
 
     [Fact]
@@ -4419,6 +4425,8 @@ workflows:
         Assert.Equal(2, prompts.Count);
         Assert.Contains("SEMANTIC_MAPPING_ERROR", prompts[1]);
         Assert.Contains("STEP_REFERENCE_NOT_AVAILABLE", prompts[1]);
+        Assert.Contains("If a step has an `if`, later unconditional steps must not reference that step directly.", prompts[1]);
+        Assert.Contains("Function arguments are evaluated before the function runs", prompts[1]);
         Assert.Contains("set_fix_result", prompts[1]);
     }
 

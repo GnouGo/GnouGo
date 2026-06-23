@@ -47,6 +47,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Executor-specific arguments go inside input only.");
         sb.AppendLine("Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.");
         sb.AppendLine("Expressions may read data.inputs.* and earlier data.steps.<id>.* only.");
+        sb.AppendLine("If a step has an `if`, later unconditional steps must not reference that step directly. Give the later step the same guard, or produce guaranteed defaults/branch outputs first.");
+        sb.AppendLine("Function arguments are evaluated before the function runs: `coalesce`, ternaries, and helper calls do not make unavailable step references safe.");
+        sb.AppendLine("MCP request objects must preserve schema scalar types exactly. Numeric/integer/boolean fields must be unquoted YAML scalars when required explicitly by the MCP schema/validator.");
+        sb.AppendLine("Never satisfy missing MCP request arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.");
+        sb.AppendLine("Workflow output expressions must resolve to their declared type on every branch.");
         sb.AppendLine("Object schemas: never duplicate the YAML key `required`. Input-level `required` is only a boolean. Required object property names must use `required_properties`, not a second `required` key.");
         AppendPromptSectionEnd(sb, "minimum_dsl_context");
         if (structuredError.Contains("Duplicate key required", StringComparison.OrdinalIgnoreCase))
@@ -537,6 +542,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Correct direct tool call shape:");
         sb.AppendLine("  type: mcp.call");
         sb.AppendLine("  input: { server: <exact-server>, kind: tool, method: <exact-tool>, request: { ... } }");
+        sb.AppendLine("For every listed input_schema_json, copy all required request properties into input.request with the exact schema name and scalar type.");
+        sb.AppendLine("If a required numeric/integer/boolean MCP property is missing, add an explicit YAML scalar value; do not use an expression string, cast, empty value, fake value, or data.env fallback.");
+        sb.AppendLine("When repairing one MCP call, re-check every MCP call in the YAML so earlier schema fixes are preserved.");
         sb.AppendLine("Available MCP servers: " + string.Join(", ", discovered.Select(static server => server.Name).OrderBy(static name => name, StringComparer.Ordinal)));
         foreach (var call in calls)
         {
@@ -712,6 +720,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             errorCode = "MCP_SERVER_UNKNOWN";
         else if (lower.Contains("mcp_method_unknown"))
             errorCode = "MCP_METHOD_UNKNOWN";
+        else if (lower.Contains("mcp_request_schema_invalid")
+            || lower.Contains("mcp.call request") && lower.Contains("invalid"))
+            errorCode = "MCP_REQUEST_SCHEMA_INVALID";
         else if (lower.Contains("expr_type_mismatch")
             || lower.Contains("resolves to", StringComparison.Ordinal) && lower.Contains("contract requires", StringComparison.Ordinal))
             errorCode = ErrorCodes.ExprTypeMismatch;

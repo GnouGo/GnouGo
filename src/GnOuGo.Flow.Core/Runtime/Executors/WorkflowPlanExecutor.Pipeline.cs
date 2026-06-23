@@ -726,6 +726,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Comparison/predicate expressions such as `${a == b}`, `${a != b}`, `${contains(...)}`, and `${exists(...)}` return boolean. Use them only for boolean outputs or `if`/`switch.when` conditions.");
         sb.AppendLine("- For string outputs such as classification/status/level/severity, return a string-valued field or quoted string literal. Invalid for a string output: `${data.steps.classify.json.classification == 'bug'}`. Valid: `${data.steps.classify.json.classification}`.");
         sb.AppendLine("- If a string output must be derived from an MCP/LLM response, first normalize it with `llm.call` or `mcp.call` `structured_output`, then map `data.steps.<normalizer>.json.<field>` to the workflow output.");
+        sb.AppendLine("- If a step has an `if`, later unconditional steps must not reference that step directly. Either give the later step the same guard or create guaranteed branch outputs/default values first.");
+        sb.AppendLine("- Function arguments are evaluated before the function runs. Do not hide unavailable step references inside `coalesce`, ternaries, or helper calls.");
+        sb.AppendLine("- For MCP schemas, required numeric/integer/boolean request fields must be literal YAML scalars when the schema or validator requires explicit values; do not use expressions, casts, empty strings, or `data.env.*` fallbacks.");
         sb.AppendLine("- Any schema with `type: object` MUST be strongly typed with a non-empty `properties` mapping. Never generate a bare `type: object` input, output, item, or nested property.");
         sb.AppendLine("- Never duplicate the YAML key `required` in an object schema. Use `required: true|false` only for input-level requiredness, and use `required_properties: [field_name]` for required object property names.");
         sb.AppendLine();
@@ -797,6 +800,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string? previousYaml = null;
         string? previousPrompt = null;
         string? previousRepairContext = null;
+        var previousErrors = new List<string>();
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
@@ -851,6 +855,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 previousPrompt ??= spec.GenerationPrompt;
                 previousYaml ??= TryExtractGeneratedYamlFromException(ex);
                 previousError = FormatLeafGenerationError(spec.Name, attempt, ex);
+                previousErrors.Add(previousError);
+                if (previousErrors.Count > 8)
+                    previousErrors.RemoveAt(0);
                 previousRepairContext = await BuildPipelineLeafRepairContextAsync(
                     parentCtx,
                     pipelineInput,
@@ -858,6 +865,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     ex,
                     leafAttemptSpan.Span,
                     ct);
+                previousRepairContext = MergeLeafCumulativeRepairContext(previousErrors, previousRepairContext);
                 leafAttemptSpan.AddEvent(
                     "gnougo-flow.plan.pipeline.leaf_generation.error",
                     BuildPlanErrorTelemetryAttributes(ex, attempt, "generate_leaf", spec.Name));
@@ -913,8 +921,43 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine($"Error type: {ex.GetType().Name}");
         if (ex is WorkflowRuntimeException workflowEx)
             sb.AppendLine($"Error code: {workflowEx.Code}");
+        sb.AppendLine($"Structured error: {BuildStructuredPlanError(ex, attempt)}");
         sb.AppendLine("Error message:");
         sb.AppendLine(ex.Message);
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string MergeLeafCumulativeRepairContext(
+        IReadOnlyList<string> previousErrors,
+        string? latestRepairContext)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Cumulative leaf retry requirements:");
+        sb.AppendLine("- Preserve all fixes made for earlier validation failures; do not regress one MCP request or output while fixing another.");
+        sb.AppendLine("- Re-check every mcp.call in the leaf against its discovered input_schema, not only the step named in the latest error.");
+        sb.AppendLine("- If a required MCP request field is numeric/integer/boolean, emit an explicit YAML scalar of that type when the validator requires it.");
+        sb.AppendLine("- Never satisfy missing MCP arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.");
+        sb.AppendLine("- Do not reference an `if`-guarded step from an unconditional later step unless a guaranteed value has first been produced on every path.");
+        sb.AppendLine("- Workflow outputs must resolve to their declared type on every path.");
+
+        if (previousErrors.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("All previous failed attempts for this leaf:");
+            for (var i = 0; i < previousErrors.Count; i++)
+            {
+                sb.AppendLine($"<leaf_failure_{i + 1}>");
+                sb.AppendLine(previousErrors[i]);
+                sb.AppendLine($"</leaf_failure_{i + 1}>");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(latestRepairContext))
+        {
+            sb.AppendLine();
+            sb.AppendLine(latestRepairContext.Trim());
+        }
+
         return sb.ToString().TrimEnd();
     }
 
