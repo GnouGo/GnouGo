@@ -12,6 +12,15 @@ import yaml
 from gnougo_flow_core.compilation import ValidationError, WorkflowValidator
 from gnougo_flow_core.models import StepDef, WorkflowDocument
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
+from gnougo_flow_core.workflow_plan_diagnostics import (
+    build_exception_details,
+    build_mcp_discovery_coverage_details,
+    build_structured_plan_error,
+    build_validation_failure_details,
+    format_validation_errors,
+    infer_plan_error_code,
+    to_prompt_json,
+)
 from gnougo_flow_core.workflow_plan_dry_run_validator import validate_workflow_plan_dry_run
 from gnougo_flow_core.workflow_plan_semantic_validator import (
     McpToolOutputContract,
@@ -220,7 +229,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                     yaml_text = self._strip_markdown_code_fence(textwrap.dedent(response.text).strip())
                     yaml_text = self._normalize_planned_yaml(yaml_text)
                     validation_span.set_attribute("gnougo-flow.plan.yaml_length", len(yaml_text))
-                    doc = WorkflowParser.parse(yaml_text)
+                    doc = self._parse_and_validate_generated_workflow(yaml_text)
                     validation_span.set_attribute("gnougo-flow.plan.workflow_count", len(doc.workflows))
                     self._enforce_plan_policy(doc, policy, limits)
                     if bool(validate.get("compile", True)):
@@ -367,7 +376,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 self._validate_declared_main_input_references(assembly.main_workflow_node, main_inputs)
 
                 candidate_yaml = self._compose_pipeline_workflow_yaml(input_obj, generator, extraction, generated_leaves, assembly, main_inputs)
-                candidate_doc = WorkflowParser.parse(candidate_yaml)
+                candidate_doc = self._parse_and_validate_generated_workflow(candidate_yaml)
                 self._enforce_pipeline_workflow_hierarchy(candidate_doc, {leaf.name for leaf in generated_leaves})
                 self._run_standard_plan_validation_sequence(
                     candidate_doc,
@@ -1573,46 +1582,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
     @staticmethod
     def _build_structured_plan_error(exc: Exception) -> str:
-        message = str(exc).strip()
-        lower = message.lower()
-
-        error_code = "VALIDATION_ERROR"
-        if "mcp_server_unknown" in lower:
-            error_code = "MCP_SERVER_UNKNOWN"
-        elif "mcp_method_unknown" in lower:
-            error_code = "MCP_METHOD_UNKNOWN"
-        elif "mcp_request_schema_invalid" in lower or ("mcp.call request" in lower and "invalid" in lower):
-            error_code = "MCP_REQUEST_SCHEMA_INVALID"
-        elif "expr_type_mismatch" in lower or ("resolves to" in lower and "contract requires" in lower):
-            error_code = ErrorCodes.EXPR_TYPE_MISMATCH
-        elif "missing required field 'workflows'" in lower:
-            error_code = "MISSING_ROOT_KEY_WORKFLOWS"
-        elif "missing required field 'version'" in lower:
-            error_code = "MISSING_ROOT_KEY_VERSION"
-        elif "missing required field 'name'" in lower:
-            error_code = "MISSING_ROOT_KEY_NAME"
-        elif "skill_required" in lower or "top-level 'skill'" in lower:
-            error_code = "MISSING_ROOT_KEY_SKILL"
-        elif "step_type_unknown" in lower:
-            error_code = "UNKNOWN_STEP_TYPE"
-        elif "missing_steps" in lower or "missing_branches" in lower or "missing_cases" in lower:
-            error_code = "INVALID_CONTAINER_SHAPE"
-        elif "step_reference_not_available" in lower or "step_reference_unknown" in lower or "semantic_mapping_error" in lower:
-            error_code = "SEMANTIC_MAPPING_ERROR"
-        elif "opaque_response_deep_access" in lower:
-            error_code = "OPAQUE_RESPONSE_DEEP_ACCESS"
-        elif "step_output_property_unknown" in lower:
-            error_code = "STEP_OUTPUT_PROPERTY_UNKNOWN"
-        elif "mcp_server_not_found" in lower or ("mcp server" in lower and "not found" in lower):
-            error_code = "MCP_SERVER_NOT_FOUND"
-        elif "yaml" in lower:
-            error_code = "YAML_PARSE_ERROR"
-        elif "not allowed by policy" in lower or "denied by policy" in lower:
-            error_code = "POLICY_ERROR"
-        elif "exceeds limit" in lower:
-            error_code = "LIMIT_ERROR"
-
-        return f"code={error_code}; message={message}"
+        return build_structured_plan_error(exc)
 
     async def _build_planning_prompt(
         self,
@@ -2130,13 +2100,50 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         return yaml.safe_dump(compact, sort_keys=False, allow_unicode=False).strip()
 
     @staticmethod
+    def _parse_and_validate_generated_workflow(yaml_text: str) -> WorkflowDocument:
+        try:
+            doc = WorkflowParser.parse(yaml_text)
+        except Exception as exc:
+            details = build_exception_details(
+                infer_plan_error_code(str(exc)),
+                "parse",
+                str(exc),
+                exc,
+            )
+            raise WorkflowRuntimeException(
+                ErrorCodes.TEMPLATE_PLAN,
+                f"Generated workflow parse failed: {exc} | repair diagnostics: {to_prompt_json(details)}",
+                details=details,
+            ) from exc
+
+        if not doc.workflows:
+            details = build_exception_details(
+                "MISSING_ROOT_KEY_WORKFLOWS",
+                "validation",
+                "required root key 'workflows' must be a non-empty object.",
+            )
+            raise WorkflowRuntimeException(
+                ErrorCodes.TEMPLATE_PLAN,
+                "Validation failed: required root key 'workflows' must be a non-empty object. | repair diagnostics: "
+                + to_prompt_json(details),
+                details=details,
+            )
+
+        return doc
+
+    @staticmethod
     def _validate_generated_workflow(doc: WorkflowDocument) -> None:
         errors = WorkflowValidator().validate(doc)
         if not errors:
             return
+        details = build_validation_failure_details(errors, None, None)
         raise WorkflowRuntimeException(
             ErrorCodes.TEMPLATE_PLAN,
-            "Generated workflow validation failed: " + WorkflowPlanExecutor._format_validation_errors(errors),
+            "Generated workflow validation failed: "
+            + WorkflowPlanExecutor._format_validation_errors(errors)
+            + " | repair diagnostics: "
+            + to_prompt_json(details),
+            details=details,
         )
 
     @staticmethod
@@ -2168,8 +2175,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             except Exception as exc:
                 compilation_exception = exc
 
-        if not errors and semantic_exception is None and compilation_exception is None:
+        if not errors and semantic_exception is None and compilation_exception is None and mcp_coverage_exception is None:
             return normalization_count
+
+        if not errors and semantic_exception is None and compilation_exception is None and isinstance(mcp_coverage_exception, WorkflowRuntimeException):
+            raise mcp_coverage_exception
 
         diagnostics: list[str] = []
         if errors:
@@ -2181,9 +2191,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         if compilation_exception is not None:
             diagnostics.append("compilation: " + str(compilation_exception))
 
+        details = build_validation_failure_details(errors, semantic_exception, compilation_exception)
         raise WorkflowRuntimeException(
             ErrorCodes.TEMPLATE_PLAN,
-            "Generated workflow validation failed: " + " | ".join(diagnostics),
+            "Generated workflow validation failed: "
+            + " | ".join(diagnostics)
+            + " | repair diagnostics: "
+            + to_prompt_json(details),
+            details=details,
         )
 
     @staticmethod
@@ -2209,9 +2224,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             return
 
         if not mcp_tool_contracts:
-            raise WorkflowRuntimeException(
-                ErrorCodes.TEMPLATE_PLAN,
-                "MCP_DISCOVERY_REQUIRED: generated workflow contains mcp.call tool steps, but no MCP tool catalog was discovered. Validation is fail-closed.",
+            WorkflowPlanExecutor._raise_mcp_discovery_coverage_error(
+                "MCP_DISCOVERY_REQUIRED",
+                "generated workflow contains mcp.call tool steps, but no MCP tool catalog was discovered. Validation is fail-closed.",
+                "Run MCP discovery for this plan, remove mcp.call steps, or add an mcp.list discovery step before tool execution.",
             )
 
         known_servers = {contract.server_name for contract in mcp_tool_contracts}
@@ -2219,20 +2235,32 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         for step in tool_calls:
             server_name = step.input.get("server")
             if not isinstance(server_name, str) or not server_name.strip() or "${" in server_name:
-                raise WorkflowRuntimeException(
-                    ErrorCodes.TEMPLATE_PLAN,
-                    f"MCP_SERVER_DYNAMIC_UNVERIFIABLE: mcp.call step '{step.id}' must use a literal discovered server name during workflow.plan validation.",
+                WorkflowPlanExecutor._raise_mcp_discovery_coverage_error(
+                    "MCP_SERVER_DYNAMIC_UNVERIFIABLE",
+                    f"mcp.call step '{step.id}' must use a literal discovered server name during workflow.plan validation.",
+                    "Use an exact server name from the discovered MCP catalog in input.server.",
                 )
             if server_name not in known_servers:
                 if configured_servers and server_name in configured_servers:
-                    raise WorkflowRuntimeException(
-                        ErrorCodes.TEMPLATE_PLAN,
-                        f"MCP_TOOL_CATALOG_EMPTY: MCP server '{server_name}' is referenced by step '{step.id}', but its discovered tool catalog is empty.",
+                    WorkflowPlanExecutor._raise_mcp_discovery_coverage_error(
+                        "MCP_TOOL_CATALOG_EMPTY",
+                        f"MCP server '{server_name}' is referenced by step '{step.id}', but its discovered tool catalog is empty.",
+                        "Remove the mcp.call or select a discovered server with tools.",
                     )
-                raise WorkflowRuntimeException(
-                    ErrorCodes.TEMPLATE_PLAN,
-                    f"MCP_SERVER_UNKNOWN: mcp.call step '{step.id}' references server '{server_name}', which is absent from the discovered MCP catalog.",
+                WorkflowPlanExecutor._raise_mcp_discovery_coverage_error(
+                    "MCP_SERVER_UNKNOWN",
+                    f"mcp.call step '{step.id}' references server '{server_name}', which is absent from the discovered MCP catalog.",
+                    "Change input.server to one of the discovered server names, or do not generate this mcp.call.",
                 )
+
+    @staticmethod
+    def _raise_mcp_discovery_coverage_error(code: str, message: str, hint: str) -> None:
+        details = build_mcp_discovery_coverage_details(code, message, hint)
+        raise WorkflowRuntimeException(
+            ErrorCodes.TEMPLATE_PLAN,
+            f"{code}: {message} | repair diagnostics: {to_prompt_json(details)}",
+            details=details,
+        )
 
     @staticmethod
     def _enumerate_steps(steps: list[StepDef] | None) -> list[StepDef]:
@@ -2261,18 +2289,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
     @staticmethod
     def _format_validation_errors(errors: list[ValidationError]) -> str:
-        formatted: list[str] = []
-        for error in errors:
-            location_parts: list[str] = []
-            if error.workflow_name:
-                location_parts.append(f"workflow '{error.workflow_name}'")
-            if error.step_id:
-                location_parts.append(f"step '{error.step_id}'")
-            if error.field:
-                location_parts.append(f"field '{error.field}'")
-            prefix = f"[{', '.join(location_parts)}] " if location_parts else ""
-            formatted.append(f"{prefix}{error.code}: {error.message}")
-        return "; ".join(formatted)
+        return format_validation_errors(errors)
 
     @staticmethod
     def _validate_generated_workflow_semantics(

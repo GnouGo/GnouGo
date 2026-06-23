@@ -568,6 +568,10 @@ async def test_workflow_plan_reprompts_on_validator_diagnostics_not_only_compile
     assert "</invalid_yaml>" in llm.prompts[1]
     assert "<dsl_reference>" not in llm.prompts[1]
     assert "<step_exceptions_by_type>" not in llm.prompts[1]
+    assert '"details"' in llm.prompts[1]
+    assert '"diagnostics"' in llm.prompts[1]
+    assert '"llm_guidance"' in llm.prompts[1]
+    assert "code=UNKNOWN_STEP_TYPE" in llm.prompts[1]
     assert "STEP_TYPE_UNKNOWN" in llm.prompts[1]
 
 
@@ -621,6 +625,12 @@ async def test_workflow_plan_validation_returns_structural_and_semantic_diagnost
     assert "INVALID_OUTPUT_SCHEMA" in result.error.message
     assert "STEP_REFERENCE_UNKNOWN" in result.error.message
     assert "data.steps.missing.value" in result.error.message
+    assert result.error.details is not None
+    assert result.error.details["phase"] == "validation"
+    assert "llm_guidance" in result.error.details
+    diagnostic_codes = {item["code"] for item in result.error.details["diagnostics"]}
+    assert "INVALID_INPUT_SCHEMA" in diagnostic_codes
+    assert "STEP_REFERENCE_UNKNOWN" in diagnostic_codes
 
 
 @pytest.mark.asyncio
@@ -800,6 +810,11 @@ async def test_workflow_plan_semantic_validation_rejects_unknown_mcp_method() ->
     assert "MCP_METHOD_UNKNOWN" in result.error.message
     assert "missing_doc" in result.error.message
     assert "mcp.server:docs.method:get_doc" in result.error.message
+    assert result.error.details is not None
+    assert result.error.details["phase"] == "validation"
+    diagnostic = next(item for item in result.error.details["diagnostics"] if item["code"] == "MCP_METHOD_UNKNOWN")
+    assert diagnostic["location"] == "workflow:main/step:fetch/field:input.method"
+    assert "llm_guidance" in diagnostic
 
 
 @pytest.mark.asyncio
@@ -1336,6 +1351,12 @@ async def test_workflow_plan_dry_run_rejects_freeform_llm_text_used_as_number() 
     assert "dry_run" in result.error.message
     assert "Expected number" in result.error.message
     assert "dry-run text response" in result.error.message
+    assert result.error.details is not None
+    assert result.error.details["phase"] == "dry_run"
+    diagnostic = result.error.details["diagnostics"][0]
+    assert diagnostic["phase"] == "dry_run"
+    assert diagnostic["failure_kind"] == "execution"
+    assert "llm_guidance" in diagnostic
 
 
 @pytest.mark.asyncio

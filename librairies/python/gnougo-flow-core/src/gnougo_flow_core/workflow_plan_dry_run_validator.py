@@ -4,7 +4,7 @@ import copy
 import json
 from typing import Any
 
-from gnougo_flow_core.compilation import WorkflowCompiler
+from gnougo_flow_core.compilation import WorkflowCompilationException, WorkflowCompiler
 from gnougo_flow_core.errors import ErrorCodes, WorkflowRuntimeException
 from gnougo_flow_core.integrations.mcp import InMemoryMcpClientFactory, MockMcpServerConfig
 from gnougo_flow_core.models import (
@@ -23,6 +23,11 @@ from gnougo_flow_core.models import (
     WorkflowRouteCandidateQuery,
 )
 from gnougo_flow_core.runtime import WorkflowEngine, apply_workflow_input_defaults
+from gnougo_flow_core.workflow_plan_diagnostics import (
+    build_dry_run_failure_details,
+    build_validation_failure_details,
+    to_prompt_json,
+)
 from gnougo_flow_core.workflow_plan_semantic_validator import McpToolOutputContract
 
 
@@ -34,17 +39,30 @@ async def validate_workflow_plan_dry_run(
     try:
         compiled = WorkflowCompiler().compile(generated_doc)
     except Exception as exc:
+        details = (
+            build_validation_failure_details(exc.errors, None, exc, phase="dry_run_compilation")
+            if isinstance(exc, WorkflowCompilationException)
+            else build_dry_run_failure_details("DRY_RUN_COMPILATION_FAILED", str(exc), "compilation", exc)
+        )
         raise WorkflowRuntimeException(
             ErrorCodes.TEMPLATE_PLAN,
-            f"Generated workflow dry_run compilation failed: {exc}",
+            f"Generated workflow dry_run compilation failed: {exc} | repair diagnostics: {to_prompt_json(details)}",
+            details=details,
         ) from exc
 
     entrypoint = compiled.entrypoint
     workflow = compiled.workflows.get(entrypoint or "") if entrypoint else None
     if workflow is None:
+        details = build_dry_run_failure_details(
+            "DRY_RUN_ENTRYPOINT_MISSING",
+            "compiled workflow has no executable entrypoint.",
+            "entrypoint",
+        )
         raise WorkflowRuntimeException(
             ErrorCodes.TEMPLATE_PLAN,
-            "Generated workflow dry_run failed: compiled workflow has no executable entrypoint.",
+            "Generated workflow dry_run failed: compiled workflow has no executable entrypoint. | repair diagnostics: "
+            + to_prompt_json(details),
+            details=details,
         )
 
     engine = WorkflowEngine()
@@ -65,9 +83,17 @@ async def validate_workflow_plan_dry_run(
     try:
         result = await engine.execute_async(workflow, inputs)
     except Exception as exc:
+        details = build_dry_run_failure_details(
+            "DRY_RUN_BEFORE_EXECUTION_FAILED",
+            str(exc),
+            "before_execution",
+            exc,
+            getattr(exc, "details", None),
+        )
         raise WorkflowRuntimeException(
             ErrorCodes.TEMPLATE_PLAN,
-            f"Generated workflow dry_run failed before execution: {exc}",
+            f"Generated workflow dry_run failed before execution: {exc} | repair diagnostics: {to_prompt_json(details)}",
+            details=details,
         ) from exc
 
     if result.success:
@@ -75,9 +101,16 @@ async def validate_workflow_plan_dry_run(
 
     code = result.error.code if result.error and result.error.code else "UNKNOWN"
     message = result.error.message if result.error and result.error.message else "No error message returned."
+    details = build_dry_run_failure_details(
+        code,
+        message,
+        "execution",
+        runtime_details=result.error.details if result.error else None,
+    )
     raise WorkflowRuntimeException(
         ErrorCodes.TEMPLATE_PLAN,
-        f"Generated workflow dry_run failed: [{code}] {message}",
+        f"Generated workflow dry_run failed: [{code}] {message} | repair diagnostics: {to_prompt_json(details)}",
+        details=details,
     )
 
 
