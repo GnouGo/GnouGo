@@ -101,6 +101,7 @@ async def test_workflow_execute_basic_plan_then_execute_returns_output() -> None
               - id: generate
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Generate a greeting
@@ -217,6 +218,7 @@ async def test_workflow_execute_multi_step_generated_workflow_executes_all_steps
               - id: generate
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: test
@@ -260,6 +262,7 @@ async def test_workflow_execute_no_outputs_defined_falls_back_to_steps_data() ->
               - id: generate
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: test
@@ -313,6 +316,7 @@ async def test_workflow_execute_with_args_defaults_and_type_validation() -> None
               - id: generate
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: test
@@ -358,6 +362,7 @@ async def test_workflow_execute_invalid_args_fail_with_input_validation() -> Non
               - id: generate
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: test
@@ -400,6 +405,7 @@ async def test_workflow_execute_exceeds_call_depth_fails_with_cycle_detected() -
               - id: generate
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: test
@@ -439,6 +445,7 @@ async def test_workflow_execute_generated_workflow_failure_propagates_error() ->
               - id: generate
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: test
@@ -503,6 +510,7 @@ async def test_workflow_execute_starts_dedicated_subworkflow_telemetry_span() ->
               - id: generate
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: test

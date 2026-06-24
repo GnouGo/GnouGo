@@ -49,6 +49,7 @@ public class WorkflowPlanMcpChatGuidanceTests
        - id: plan
          type: workflow.plan
          input:
+           mode: basic
            generator:
              model: gpt-4
              instruction: Build an MCP workflow
@@ -106,6 +107,7 @@ public class WorkflowPlanMcpChatGuidanceTests
        - id: plan
          type: workflow.plan
          input:
+           mode: basic
            generator:
              model: gpt-4
              instruction: test

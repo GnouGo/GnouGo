@@ -273,6 +273,7 @@ async def _run_plan(factory):
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: gpt-4
                 instruction: Build an MCP workflow
@@ -324,6 +325,7 @@ async def test_workflow_plan_server_prefilter_uses_descriptions_before_capabilit
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: gpt-4
                 instruction: Build a workflow that lists GitHub repositories
@@ -373,6 +375,7 @@ async def test_workflow_plan_server_prefilter_uses_explicit_temperature_when_con
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: gpt-4
                 instruction: Build a workflow that lists GitHub repositories
@@ -406,6 +409,7 @@ async def test_workflow_plan_capability_prefilter_falls_back_when_schema_is_trun
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: gpt-4
                 instruction: Build an MCP workflow
@@ -438,6 +442,7 @@ async def test_workflow_plan_dry_run_keeps_all_configured_mcp_servers_available(
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: gpt-4
                 instruction: Build a workflow that lists GitHub repositories
@@ -467,6 +472,7 @@ async def test_workflow_plan_server_prefilter_force_includes_servers_referenced_
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: gpt-4
                 instruction: Build a workflow from the existing MCP call.

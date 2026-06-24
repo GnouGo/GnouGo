@@ -120,6 +120,7 @@ async def test_runtime_llm_mcp_and_plan_execute() -> None:
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "make a simple workflow"
@@ -243,6 +244,7 @@ async def test_runtime_execute_supports_to_json_alias_in_generated_workflow_outp
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "make a simple workflow"

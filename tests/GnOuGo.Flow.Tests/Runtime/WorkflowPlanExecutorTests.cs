@@ -330,6 +330,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a simple greeting workflow
@@ -410,6 +411,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             instruction: Build a simple greeting workflow
           validate:
@@ -433,6 +435,219 @@ workflows:
         Assert.Equal("gpt-4o-mini", capturedRequest.Model);
         Assert.Equal("medium", capturedRequest.Reasoning);
         Assert.True(capturedRequest.UseBackgroundMode);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_DefaultAutoMode_ClassifiesAndRunsBasicPlan()
+    {
+        var requests = new List<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => requests.Add(req))
+            .ReturnsAsync((LLMRequest req, CancellationToken _) =>
+            {
+                if (req.Prompt.Contains("classify a GnOuGo workflow.plan request", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        {"mode":"basic","cyclomatic_complexity":4,"branch_count":3,"confidence":0.91,"reason":"Linear request with a small conditional surface."}
+                        """
+                    };
+                }
+
+                return new LLMResponse
+                {
+                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                };
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  generator:
+                    model: gpt-4
+                    instruction: Build a simple greeting workflow with one optional branch
+                  validate:
+                    compile: false
+        """);
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, requests.Count);
+        Assert.Contains("cyclomatic complexity is less than 10", requests[0].Prompt);
+        Assert.Contains("Build a simple greeting workflow", requests[0].Prompt);
+        Assert.False(requests[0].UseBackgroundMode);
+        Assert.Equal("low", requests[0].Reasoning);
+        Assert.True(requests[1].UseBackgroundMode);
+
+        var planOutput = Assert.IsType<JsonObject>(result.Outputs!["plan"]!);
+        var meta = Assert.IsType<JsonObject>(planOutput["meta"]!);
+        Assert.Equal("basic", meta["mode"]!.GetValue<string>());
+        var selection = Assert.IsType<JsonObject>(meta["mode_selection"]!);
+        Assert.Equal("auto", selection["source"]!.GetValue<string>());
+        Assert.Equal("basic", selection["selected_mode"]!.GetValue<string>());
+        Assert.Equal(4, selection["cyclomatic_complexity"]!.GetValue<int>());
+        Assert.Equal(10, selection["threshold"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_AutoMode_CanSelectPipeline()
+    {
+        var requests = new List<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => requests.Add(req))
+            .ReturnsAsync((LLMRequest req, CancellationToken _) =>
+            {
+                if (req.Prompt.Contains("classify a GnOuGo workflow.plan request", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        {"mode":"pipeline","cyclomatic_complexity":14,"branch_count":12,"confidence":0.86,"reason":"Multiple phases and enough branches to split into leaf workflows."}
+                        """
+                    };
+                }
+
+                if (req.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nCollect records, then generate a report." };
+
+                if (req.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="collect_data"
+                        goal: Collect records.
+                        inputs:
+                          query: string
+                        outputs:
+                          records: string
+                        extract_reason: One data collection responsibility.
+                        content:
+                          Collect records for the query.
+                        :::
+
+                        :::subworkflow name="generate_report"
+                        goal: Generate a report.
+                        inputs:
+                          query: string
+                          records: string
+                        outputs:
+                          text: string
+                        extract_reason: One reporting responsibility.
+                        content:
+                          Generate a report from records.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call collect_data, then call generate_report.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `collect_data`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: collect-data
+                        skill:
+                          description: Collect records.
+                          tags: [generated]
+                          inputs:
+                            query: string
+                          outputs:
+                            records: string
+                        workflows:
+                          collect_data:
+                            inputs:
+                              query: string
+                            steps:
+                              - id: collect
+                                type: set
+                                input:
+                                  records: "${data.inputs.query}-records"
+                            outputs:
+                              records: "${data.steps.collect.records}"
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `generate_report`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: generate-report
+                        skill:
+                          description: Generate a report.
+                          tags: [generated]
+                          inputs:
+                            query: string
+                            records: string
+                          outputs:
+                            text: string
+                        workflows:
+                          generate_report:
+                            inputs:
+                              query: string
+                              records: string
+                            steps:
+                              - id: report
+                                type: template.render
+                                input:
+                                  engine: mustache
+                                  template: "Report for {{query}}: {{records}}"
+                                  mode: text
+                                  data:
+                                    query: "${data.inputs.query}"
+                                    records: "${data.inputs.records}"
+                            outputs:
+                              text: "${data.steps.report.text}"
+                        """
+                    };
+
+                return TryRespondToPipelineMainAssembly(req)
+                    ?? throw new InvalidOperationException("Unexpected LLM prompt: " + req.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: auto
+                  raw_prompt: "Collect records, then generate a report."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+        """);
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(6, requests.Count);
+        Assert.Contains("cyclomatic complexity is 10 or more", requests[0].Prompt);
+        var planOutput = Assert.IsType<JsonObject>(result.Outputs!["plan"]!);
+        var meta = Assert.IsType<JsonObject>(planOutput["meta"]!);
+        Assert.Equal("pipeline", meta["mode"]!.GetValue<string>());
+        Assert.Equal(2, meta["leaf_subworkflow_count"]!.GetValue<int>());
+        var selection = Assert.IsType<JsonObject>(meta["mode_selection"]!);
+        Assert.Equal("pipeline", selection["selected_mode"]!.GetValue<string>());
+        Assert.Equal(14, selection["cyclomatic_complexity"]!.GetValue<int>());
     }
 
     [Fact]
@@ -2397,6 +2612,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build something
@@ -2459,6 +2675,7 @@ workflows:
               - id: plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Build a classification workflow
@@ -2556,6 +2773,7 @@ workflows:
               - id: plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Build a classification workflow
@@ -2607,6 +2825,7 @@ workflows:
                                  - id: nested_plan
                                    type: workflow.plan
                                    input:
+                                     mode: basic
                                      generator:
                                        instruction: nested
                        """
@@ -2620,6 +2839,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             instruction: Build something
           policy:
@@ -2670,6 +2890,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build something
@@ -2789,6 +3010,7 @@ workflows:
               - id: plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Build an object schema workflow
@@ -2852,6 +3074,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: |
@@ -2908,6 +3131,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build something
@@ -2980,6 +3204,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a docs workflow
@@ -3033,6 +3258,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a docs workflow
@@ -3090,6 +3316,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a docs workflow
@@ -3147,6 +3374,7 @@ workflows:
               - id: plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Build a docs workflow
@@ -3239,6 +3467,7 @@ workflows:
               - id: plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Build a docs workflow
@@ -3339,6 +3568,7 @@ workflows:
               - id: plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Build a Copilot classification workflow
@@ -3398,6 +3628,7 @@ workflows:
               - id: plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Build a docs workflow
@@ -3457,6 +3688,7 @@ workflows:
               - id: plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Build a docs workflow
@@ -3560,6 +3792,7 @@ workflows:
               - id: plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Build a constrained catalog workflow
@@ -3637,6 +3870,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a docs workflow
@@ -3702,6 +3936,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a docs workflow
@@ -3755,6 +3990,7 @@ workflows:
               - id: plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Build a generated workflow
@@ -3847,6 +4083,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Close GitHub issue
@@ -3926,6 +4163,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: List GitHub issues
@@ -3980,6 +4218,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a workflow that extracts a token budget
@@ -4041,6 +4280,7 @@ workflows:
               - id: plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Build a docs workflow
@@ -4120,6 +4360,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a workflow that extracts a token budget
@@ -4176,6 +4417,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a workflow with a numeric issue limit
@@ -4232,6 +4474,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a workflow with duplicate ids
@@ -4333,6 +4576,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: List GitHub pull requests
@@ -4386,6 +4630,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a workflow with typed inputs and outputs
@@ -4455,6 +4700,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a branching workflow
@@ -4584,6 +4830,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a branching workflow
@@ -4692,6 +4939,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: Build a docs workflow
@@ -4729,6 +4977,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             model: gpt-4
             instruction: test
@@ -4800,6 +5049,7 @@ workflows:
               - id: plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     model: gpt-4
                     instruction: Build a docs workflow
@@ -4915,6 +5165,7 @@ workflows:
        - id: plan
          type: workflow.plan
          input:
+           mode: basic
            generator:
              model: gpt-4
              instruction: Build an MCP workflow
@@ -5023,6 +5274,7 @@ workflows:
        - id: plan
          type: workflow.plan
          input:
+           mode: basic
            generator:
              model: gpt-4
              instruction: test
@@ -5102,6 +5354,7 @@ workflows:
        - id: plan
          type: workflow.plan
          input:
+           mode: basic
            generator:
              model: gpt-4
              instruction: Build a workflow that lists GitHub repositories
@@ -5204,6 +5457,7 @@ workflows:
        - id: plan
          type: workflow.plan
          input:
+           mode: basic
            generator:
              model: gpt-4
              instruction: |
@@ -5216,6 +5470,7 @@ workflows:
                      - id: create_doc
                        type: mcp.call
                        input:
+                         mode: basic
                          server: GnOuGo.Document.Mcp
                          method: document_create
                          request: {}
@@ -5288,6 +5543,7 @@ workflows:
        - id: plan
          type: workflow.plan
          input:
+           mode: basic
            generator:
              model: gpt-4
              instruction: Build a workflow that lists GitHub repositories

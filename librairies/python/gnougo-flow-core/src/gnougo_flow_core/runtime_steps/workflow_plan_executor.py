@@ -68,6 +68,17 @@ class _GeneratedMainAssembly:
     skill_node: dict[str, Any] | None = None
 
 
+@dataclass(slots=True)
+class _WorkflowPlanModeSelection:
+    selected_mode: str
+    cyclomatic_complexity: int | None = None
+    branch_count: int | None = None
+    confidence: float | None = None
+    reason: str | None = None
+    used_fallback: bool = False
+    raw_response: str | None = None
+
+
 class _NoAliasDumper(yaml.SafeDumper):
     def ignore_aliases(self, data):
         return True
@@ -75,6 +86,7 @@ class _NoAliasDumper(yaml.SafeDumper):
 
 class WorkflowPlanExecutor:
     step_type = "workflow.plan"
+    _AUTO_MODE_BASIC_CYCLOMATIC_THRESHOLD = 10
     step_description = "Generate a YAML workflow dynamically under policy/limits."
     dsl_snippet = """
 ### workflow.plan - Generate a workflow YAML dynamically
@@ -123,10 +135,238 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
         generator = input_obj.get("generator") if isinstance(input_obj.get("generator"), dict) else {}
         mode = input_obj.get("mode") or generator.get("mode")
-        if isinstance(mode, str) and mode.strip().lower() == "pipeline":
-            return await self._execute_pipeline_async(ctx, copy.deepcopy(input_obj))
+        normalized_mode = mode.strip().lower() if isinstance(mode, str) else None
+        if normalized_mode == "pipeline":
+            result = await self._execute_pipeline_async(ctx, copy.deepcopy(input_obj))
+            self._attach_plan_mode_metadata(result, "pipeline", None)
+            return result
+        if normalized_mode == "basic":
+            result = await self._execute_single_plan_async(ctx, input_obj)
+            self._attach_plan_mode_metadata(result, "basic", None)
+            return result
+        if normalized_mode and normalized_mode != "auto":
+            raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, f"workflow.plan mode '{mode}' is not supported. Use auto, basic, or pipeline.")
 
-        return await self._execute_single_plan_async(ctx, input_obj)
+        selection = await self._classify_plan_mode_async(ctx, input_obj)
+        if selection.selected_mode == "pipeline":
+            result = await self._execute_pipeline_async(ctx, copy.deepcopy(input_obj))
+            self._attach_plan_mode_metadata(result, "pipeline", selection)
+            return result
+
+        result = await self._execute_single_plan_async(ctx, input_obj)
+        self._attach_plan_mode_metadata(result, "basic", selection)
+        return result
+
+    async def _classify_plan_mode_async(self, ctx: StepExecutionContext, input_obj: dict[str, Any]) -> _WorkflowPlanModeSelection:
+        generator = input_obj.get("generator") if isinstance(input_obj.get("generator"), dict) else {}
+        provider, model = ctx.engine.resolve_llm_target(generator.get("provider"), generator.get("model"))
+        model = model or "gpt-4"
+        reasoning_raw = generator.get("reasoning")
+        reasoning = reasoning_raw.strip() if isinstance(reasoning_raw, str) and reasoning_raw.strip() else "low"
+        prompt = self._build_auto_mode_classification_prompt(input_obj)
+
+        ctx.add_telemetry_event(
+            "gnougo-flow.step.thinking",
+            [
+                ("gnougo-flow.thinking.message", "Classifying workflow planning complexity for auto mode."),
+                ("gnougo-flow.thinking.level", "thinking"),
+            ],
+        )
+
+        try:
+            with ctx.begin_telemetry_span(
+                "workflow.plan.classify_mode",
+                "classification",
+                [
+                    ("gen_ai.operation.name", "chat"),
+                    ("gen_ai.system", provider or "unknown"),
+                    ("gen_ai.request.model", model),
+                    ("gnougo-flow.plan.mode.requested", "auto"),
+                    ("gnougo-flow.plan.auto.threshold", self._AUTO_MODE_BASIC_CYCLOMATIC_THRESHOLD),
+                ],
+            ) as span:
+                if ctx.limits.log_step_content:
+                    span.add_event(
+                        "gen_ai.content.prompt",
+                        [
+                            ("gen_ai.prompt", prompt),
+                            ("prompt.role", "user"),
+                            ("gnougo-flow.plan.phase", "classification"),
+                        ],
+                    )
+                response = await ctx.engine.call_llm_async(
+                    LLMRequest(
+                        provider=provider,
+                        model=model,
+                        prompt=prompt,
+                        reasoning=reasoning,
+                        structured_output_strict=True,
+                        structured_output_schema={
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["mode", "cyclomatic_complexity", "branch_count", "confidence", "reason"],
+                            "properties": {
+                                "mode": {"type": "string", "enum": ["basic", "pipeline"]},
+                                "cyclomatic_complexity": {"type": "integer", "minimum": 1},
+                                "branch_count": {"type": "integer", "minimum": 0},
+                                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                                "reason": {"type": "string"},
+                            },
+                        },
+                    )
+                )
+                span.set_attribute("gen_ai.response.model", model)
+                span.set_attribute("gen_ai.response.finish_reason", "stop")
+                self._add_usage_attributes(span, response.usage)
+                if ctx.limits.log_step_content and response.text:
+                    span.add_event(
+                        "gen_ai.content.completion",
+                        [
+                            ("gen_ai.completion", response.text),
+                            ("completion.role", "assistant"),
+                            ("completion.finish_reason", "stop"),
+                            ("gnougo-flow.plan.phase", "classification"),
+                        ],
+                    )
+
+                selection = self._parse_plan_mode_selection(response)
+                span.set_attribute("gnougo-flow.plan.mode.selected", selection.selected_mode)
+                if selection.cyclomatic_complexity is not None:
+                    span.set_attribute("gnougo-flow.plan.auto.cyclomatic_complexity", selection.cyclomatic_complexity)
+                if selection.branch_count is not None:
+                    span.set_attribute("gnougo-flow.plan.auto.branch_count", selection.branch_count)
+                if selection.confidence is not None:
+                    span.set_attribute("gnougo-flow.plan.auto.confidence", selection.confidence)
+                if selection.used_fallback:
+                    span.set_attribute("gnougo-flow.plan.auto.fallback", True)
+
+            ctx.set_telemetry_attribute("gnougo-flow.plan.mode", selection.selected_mode)
+            ctx.set_telemetry_attribute("gnougo-flow.plan.mode.source", "auto_fallback" if selection.used_fallback else "auto")
+            return selection
+        except Exception:
+            fallback = _WorkflowPlanModeSelection(
+                selected_mode="basic",
+                reason="Classifier failed or returned invalid JSON; defaulted to basic mode.",
+                used_fallback=True,
+            )
+            ctx.set_telemetry_attribute("gnougo-flow.plan.mode", fallback.selected_mode)
+            ctx.set_telemetry_attribute("gnougo-flow.plan.mode.source", "auto_fallback")
+            return fallback
+
+    def _build_auto_mode_classification_prompt(self, input_obj: dict[str, Any]) -> str:
+        generator = input_obj.get("generator") if isinstance(input_obj.get("generator"), dict) else {}
+        raw_prompt = str(input_obj.get("raw_prompt") or generator.get("raw_prompt") or "")
+        instruction = str(generator.get("instruction") or "")
+        context_text = str(generator.get("context") or "")
+        policy = json.dumps(input_obj.get("policy") or {}, indent=2, sort_keys=True)
+        limits = json.dumps(input_obj.get("limits") or {}, indent=2, sort_keys=True)
+        threshold = self._AUTO_MODE_BASIC_CYCLOMATIC_THRESHOLD
+        return (
+            "You classify a GnOuGo workflow.plan request before workflow generation.\n"
+            "Return ONLY JSON that matches the requested schema.\n\n"
+            "Decision rule:\n"
+            f'- Choose "basic" when estimated cyclomatic complexity is less than {threshold} branching points and the workflow can be generated coherently in one plan.\n'
+            f'- Choose "pipeline" when estimated cyclomatic complexity is {threshold} or more, or when the request should be decomposed into many small leaf workflows before assembling a main workflow.\n'
+            "- Count branching points from conditions, switch/case paths, loops, retries, error handling, cleanup paths, validation branches, tool-orchestration choices, and state transitions.\n"
+            '- Prefer "pipeline" when several independent phases, tools, or responsibilities would make one generated workflow brittle.\n'
+            '- Prefer "basic" for simple linear flows, small conditionals, or requests with fewer than 10 meaningful branches.\n\n'
+            f"<raw_prompt>\n{raw_prompt}\n</raw_prompt>\n\n"
+            f"<generator_instruction>\n{instruction}\n</generator_instruction>\n\n"
+            f"<generator_context>\n{context_text}\n</generator_context>\n\n"
+            f"<policy_json>\n{policy}\n</policy_json>\n\n"
+            f"<limits_json>\n{limits}\n</limits_json>"
+        )
+
+    def _parse_plan_mode_selection(self, response: LLMResponse) -> _WorkflowPlanModeSelection:
+        payload = response.json_payload if isinstance(response.json_payload, dict) else None
+        if payload is None and response.text:
+            try:
+                payload = json.loads(self._strip_markdown_code_fence(response.text).strip())
+            except Exception:
+                payload = None
+        if not isinstance(payload, dict):
+            return _WorkflowPlanModeSelection(
+                selected_mode="basic",
+                reason="Classifier returned non-JSON content; defaulted to basic mode.",
+                used_fallback=True,
+                raw_response=response.text,
+            )
+
+        mode = str(payload.get("mode") or "").strip().lower()
+        complexity = self._coerce_int(payload.get("cyclomatic_complexity"))
+        branch_count = self._coerce_int(payload.get("branch_count"))
+        confidence = self._coerce_float(payload.get("confidence"))
+        if mode not in {"basic", "pipeline"} and complexity is None and branch_count is None:
+            return _WorkflowPlanModeSelection(
+                selected_mode="basic",
+                reason="Classifier JSON did not include a mode or complexity signal; defaulted to basic mode.",
+                used_fallback=True,
+                raw_response=response.text,
+            )
+        selected_mode = (
+            "pipeline"
+            if mode == "pipeline"
+            or (complexity is not None and complexity >= self._AUTO_MODE_BASIC_CYCLOMATIC_THRESHOLD)
+            or (branch_count is not None and branch_count >= self._AUTO_MODE_BASIC_CYCLOMATIC_THRESHOLD)
+            else "basic"
+        )
+        return _WorkflowPlanModeSelection(
+            selected_mode=selected_mode,
+            cyclomatic_complexity=complexity,
+            branch_count=branch_count,
+            confidence=confidence,
+            reason=str(payload.get("reason") or ""),
+            raw_response=response.text,
+        )
+
+    @staticmethod
+    def _coerce_int(value: Any) -> int | None:
+        if isinstance(value, bool) or value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return round(value)
+        try:
+            return int(str(value).strip())
+        except Exception:
+            return None
+
+    @staticmethod
+    def _coerce_float(value: Any) -> float | None:
+        if isinstance(value, bool) or value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        try:
+            return float(str(value).strip())
+        except Exception:
+            return None
+
+    def _attach_plan_mode_metadata(self, result: Any, mode: str, selection: _WorkflowPlanModeSelection | None) -> None:
+        if not isinstance(result, dict):
+            return
+        meta = result.setdefault("meta", {})
+        if not isinstance(meta, dict):
+            meta = {}
+            result["meta"] = meta
+        meta["mode"] = mode
+        if selection is None:
+            return
+        mode_selection: dict[str, Any] = {
+            "source": "auto_fallback" if selection.used_fallback else "auto",
+            "selected_mode": selection.selected_mode,
+            "threshold": self._AUTO_MODE_BASIC_CYCLOMATIC_THRESHOLD,
+        }
+        if selection.cyclomatic_complexity is not None:
+            mode_selection["cyclomatic_complexity"] = selection.cyclomatic_complexity
+        if selection.branch_count is not None:
+            mode_selection["branch_count"] = selection.branch_count
+        if selection.confidence is not None:
+            mode_selection["confidence"] = selection.confidence
+        if selection.reason:
+            mode_selection["reason"] = selection.reason
+        meta["mode_selection"] = mode_selection
 
     async def _execute_single_plan_async(self, ctx: StepExecutionContext, input_obj: dict[str, Any]) -> Any:
         client = ctx.engine.llm_client

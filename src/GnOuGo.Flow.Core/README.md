@@ -1064,12 +1064,15 @@ Output shape:
 
 The most powerful step type: asks an LLM to **generate a complete YAML workflow** from a natural-language instruction, then validates and compiles it before execution.
 
+`mode` defaults to `auto`. Auto mode first asks the configured LLM to estimate the request's cyclomatic complexity and choose `basic` or `pipeline`. It chooses `basic` for requests under 10 meaningful branches, and `pipeline` when the request should be decomposed into leaf workflows before assembly.
+
 #### Basic usage
 
 ```yaml
 - id: plan
   type: workflow.plan
   input:
+    mode: auto                    # default; use basic to force the single-plan path
     generator:
       model: gpt-4o
       instruction: "Build a workflow that fetches weather for Paris and summarizes it."
@@ -1082,6 +1085,7 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 - id: plan
   type: workflow.plan
   input:
+    mode: auto                    # auto | basic | pipeline
     generator:
       model: gpt-4o                 # LLM model for planning
       provider: openai              # Optional — LLM provider
@@ -1089,11 +1093,11 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
       context: "${json(data.inputs)}"
 
       # Reasoning effort for the planning LLM call (and the MCP pre-filter).
-      # Defaults to "high" (max) because planning is heavy reasoning work.
+      # Defaults to "medium" because planning is reasoning-heavy work.
       # Set to "auto" to let the provider decide, or any of:
       # "minimal" | "low" | "medium" | "high" | "max" | "auto".
       # Models without thinking support ignore this field.
-      reasoning: high
+      reasoning: medium
 
       # MCP pre-filter: uses an LLM to select only relevant MCP servers/tools
       # before injecting them into the planning prompt (reduces prompt size)
@@ -1127,6 +1131,12 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
       action: reprompt              # "reprompt" (re-send error to LLM) | "fail"
       max_attempts: 3               # Number of attempts before giving up
 ```
+
+#### Auto and basic modes
+
+`mode: auto` is the default. It performs one classifier LLM call before generation and returns the classifier result under `meta.mode_selection`. The classifier estimates complexity by counting meaningful branches such as conditions, switch/case paths, loops, retries, error handling, cleanup paths, validation branches, tool-orchestration choices, and state transitions.
+
+Use `mode: basic` to skip classification and run the original single workflow-generation path directly. Use `mode: pipeline` to force decomposition.
 
 #### Pipeline mode
 
@@ -1181,7 +1191,7 @@ Configured `name`, `skill`, and public input schemas are authoritative and are p
 
 The final composed pipeline document uses the same validation sequence as standard `workflow.plan`: policy and limits are enforced, `validate.compile` enables compiler and MCP-contract-aware semantic validation, and `validate.dry_run` executes the complete entrypoint with deterministic fake LLM, MCP, and human-input providers. MCP discovery contracts are collected once for final validation, and every assembly attempt emits its own `workflow.plan.validate` telemetry span.
 
-**Output:** `{ workflow: { version, name, workflows: [...] }, yaml: "...", meta: { model, attempt?, mode? }, diagnostics: [...], pipeline? }`
+**Output:** `{ workflow: { version, name, workflows: [...] }, yaml: "...", meta: { model, attempt?, mode, mode_selection? }, diagnostics: [...], pipeline? }`
 
 **Features:**
 

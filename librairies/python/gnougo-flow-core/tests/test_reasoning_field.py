@@ -195,6 +195,7 @@ async def test_workflow_plan_defaults_reasoning_to_medium() -> None:
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build something"
@@ -246,6 +247,7 @@ async def test_workflow_plan_respects_explicit_reasoning_override() -> None:
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build something"

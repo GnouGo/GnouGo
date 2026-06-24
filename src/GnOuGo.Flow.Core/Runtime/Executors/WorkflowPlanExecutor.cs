@@ -49,13 +49,36 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var input = ctx.Engine.GetResolvedInput(ctx) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan input must be object");
 
-        var mode = input["mode"]?.GetValue<string>()
-            ?? (input["generator"] as JsonObject)?["mode"]?.GetValue<string>();
+        var mode = GetConfiguredPlanMode(input);
 
         if (string.Equals(mode, "pipeline", StringComparison.OrdinalIgnoreCase))
-            return await ExecutePipelineAsync(ctx, input, ct);
+        {
+            var result = await ExecutePipelineAsync(ctx, input, ct);
+            AttachPlanModeMetadata(result, "pipeline", null);
+            return result;
+        }
 
-        return await ExecuteSinglePlanAsync(ctx, input, ct);
+        if (string.Equals(mode, "basic", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = await ExecuteSinglePlanAsync(ctx, input, ct);
+            AttachPlanModeMetadata(result, "basic", null);
+            return result;
+        }
+
+        if (!string.IsNullOrWhiteSpace(mode) && !string.Equals(mode, "auto", StringComparison.OrdinalIgnoreCase))
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"workflow.plan mode '{mode}' is not supported. Use auto, basic, or pipeline.");
+
+        var selection = await ClassifyPlanModeAsync(ctx, input, ct);
+        if (string.Equals(selection.SelectedMode, "pipeline", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = await ExecutePipelineAsync(ctx, input, ct);
+            AttachPlanModeMetadata(result, "pipeline", selection);
+            return result;
+        }
+
+        var autoResult = await ExecuteSinglePlanAsync(ctx, input, ct);
+        AttachPlanModeMetadata(autoResult, "basic", selection);
+        return autoResult;
     }
 
     private static void AppendMcpInputContractChecklist(StringBuilder sb)

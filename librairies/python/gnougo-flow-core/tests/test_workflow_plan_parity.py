@@ -38,10 +38,15 @@ class CapturePlanLlm:
 
 class SequencePlanLlm:
     def __init__(self, responses: list[str]) -> None:
-        self.responses = [ensure_generated_skill(response) for response in responses]
+        self.responses = [
+            response if response.lstrip().startswith("{") else ensure_generated_skill(response)
+            for response in responses
+        ]
         self.prompts: list[str] = []
+        self.requests = []
 
     async def call_async(self, request):
+        self.requests.append(request)
         self.prompts.append(request.prompt)
         index = min(len(self.prompts), len(self.responses)) - 1
         return LLMResponse(text=self.responses[index])
@@ -156,6 +161,57 @@ class FlakyDocsMcpFactory(DocsMcpFactory):
 
 
 @pytest.mark.asyncio
+async def test_workflow_plan_default_auto_mode_classifies_and_runs_basic_plan() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              generator:
+                model: fake
+                prefilter: false
+                instruction: "Build a simple greeting workflow with one optional branch"
+              validate:
+                compile: false
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      generated:
+        steps:
+          - id: done
+            type: set
+            input:
+              text: ok
+    """
+    llm = SequencePlanLlm([
+        '{"mode":"basic","cyclomatic_complexity":4,"branch_count":3,"confidence":0.91,"reason":"Small request."}',
+        generated_yaml,
+    ])
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+
+    compiled = WorkflowCompiler().compile(WorkflowParser.parse(source))
+    result = await engine.execute_async(compiled.workflows["main"], {})
+
+    assert result.success is True
+    assert len(llm.requests) == 2
+    assert "cyclomatic complexity is less than 10" in llm.requests[0].prompt
+    assert llm.requests[0].reasoning == "low"
+    assert llm.requests[0].use_background_mode is False
+    assert llm.requests[1].use_background_mode is False
+    plan_output = result.outputs["plan"]
+    assert plan_output["meta"]["mode"] == "basic"
+    assert plan_output["meta"]["mode_selection"]["source"] == "auto"
+    assert plan_output["meta"]["mode_selection"]["selected_mode"] == "basic"
+    assert plan_output["meta"]["mode_selection"]["cyclomatic_complexity"] == 4
+    assert plan_output["meta"]["mode_selection"]["threshold"] == 10
+
+
+@pytest.mark.asyncio
 async def test_workflow_plan_prompt_contains_dotnet_like_sections() -> None:
     source = """
     version: 1
@@ -165,6 +221,7 @@ async def test_workflow_plan_prompt_contains_dotnet_like_sections() -> None:
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build something"
@@ -219,6 +276,7 @@ async def test_workflow_plan_policy_blocks_remote_refs() -> None:
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build something"
@@ -260,6 +318,7 @@ async def test_workflow_plan_policy_enforces_denied_types_on_nested_steps() -> N
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build something"
@@ -280,6 +339,7 @@ async def test_workflow_plan_policy_enforces_denied_types_on_nested_steps() -> N
               - id: nested_plan
                 type: workflow.plan
                 input:
+                  mode: basic
                   generator:
                     instruction: nested
     """
@@ -305,6 +365,7 @@ async def test_workflow_plan_policy_enforces_allowed_types_on_nested_steps() -> 
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build something"
@@ -348,6 +409,7 @@ async def test_workflow_plan_policy_blocks_nested_remote_refs() -> None:
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build something"
@@ -394,6 +456,7 @@ async def test_workflow_plan_limits_count_nested_steps() -> None:
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build something"
@@ -437,6 +500,7 @@ async def test_workflow_plan_normalizes_workflow_body_without_workflows_root() -
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build something"
@@ -478,6 +542,7 @@ async def test_workflow_plan_uses_prompt_snippet_from_executor_class() -> None:
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build something"
@@ -520,6 +585,7 @@ async def test_workflow_plan_reprompts_on_validator_diagnostics_not_only_compile
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build something"
@@ -585,6 +651,7 @@ async def test_workflow_plan_validation_returns_structural_and_semantic_diagnost
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build a workflow with typed inputs and outputs"
@@ -643,6 +710,7 @@ async def test_workflow_plan_semantic_validation_allows_known_mcp_response_prope
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build docs workflow"
@@ -687,6 +755,7 @@ async def test_workflow_plan_semantic_validation_rejects_unknown_mcp_response_pr
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build docs workflow"
@@ -736,6 +805,7 @@ async def test_workflow_plan_semantic_validation_rejects_unknown_mcp_server() ->
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build docs workflow"
@@ -779,6 +849,7 @@ async def test_workflow_plan_semantic_validation_rejects_unknown_mcp_method() ->
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build docs workflow"
@@ -827,6 +898,7 @@ async def test_workflow_plan_semantic_validation_rejects_deep_access_into_opaque
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build docs workflow"
@@ -872,6 +944,7 @@ async def test_workflow_plan_semantic_validation_rejects_switch_branch_step_outp
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build branching workflow"
@@ -936,6 +1009,7 @@ async def test_workflow_plan_semantic_validation_reprompt_can_fix_switch_branch_
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build branching workflow"
@@ -1039,6 +1113,7 @@ async def test_workflow_plan_semantic_validation_reprompt_can_fix_opaque_mcp_res
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build docs workflow"
@@ -1113,6 +1188,7 @@ async def test_workflow_plan_semantic_validation_rejects_invalid_mcp_request_aga
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "close a github issue"
@@ -1174,6 +1250,7 @@ async def test_workflow_plan_semantic_validation_coerces_string_scalars_for_mcp_
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "list github pull requests"
@@ -1230,6 +1307,7 @@ async def test_workflow_plan_semantic_validation_coerces_nested_mcp_request_scal
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "normalize mcp request"
@@ -1314,6 +1392,7 @@ async def test_workflow_plan_dry_run_rejects_freeform_llm_text_used_as_number() 
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build token workflow"
@@ -1369,6 +1448,7 @@ async def test_workflow_plan_dry_run_allows_structured_llm_json_used_as_number()
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build token workflow"
@@ -1651,6 +1731,7 @@ async def test_workflow_plan_semantic_validation_rejects_unknown_mcp_method_in_m
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build docs workflow"
@@ -1693,6 +1774,7 @@ async def test_workflow_plan_semantic_validation_rejects_unknown_mcp_call_input_
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build docs workflow"
@@ -1735,6 +1817,7 @@ async def test_workflow_plan_semantic_validation_rejects_invalid_llm_structured_
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build typed llm workflow"
@@ -1782,6 +1865,7 @@ async def test_workflow_plan_mcp_discovery_retries_before_validation() -> None:
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build docs workflow"
@@ -1822,6 +1906,7 @@ async def test_workflow_plan_retry_prompt_includes_targeted_mcp_tools_for_unknow
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build docs workflow"
@@ -1898,6 +1983,7 @@ async def test_workflow_plan_retry_prompt_includes_invalid_mcp_request_and_schem
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: fake
                 instruction: "build docs workflow"

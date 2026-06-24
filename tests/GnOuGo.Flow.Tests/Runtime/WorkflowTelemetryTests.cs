@@ -408,6 +408,7 @@ workflows:
       - id: plan
         type: workflow.plan
         input:
+          mode: basic
           generator:
             provider: openai
             model: gpt-5.5

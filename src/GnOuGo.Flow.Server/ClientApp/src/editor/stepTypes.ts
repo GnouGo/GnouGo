@@ -199,8 +199,8 @@ export const STEP_TYPES: StepTypeDef[] = [
     color: '#a855f7',
     description: 'Generate a workflow dynamically via LLM',
     fields: [
-      { name: 'mode', label: 'Mode', type: 'string', placeholder: 'pipeline', description: 'Optional mode: pipeline prepares a raw automation prompt before workflow generation' },
-      { name: 'raw_prompt', label: 'Raw prompt', type: 'string', placeholder: '${data.inputs.prompt}', description: 'Raw user automation prompt used by pipeline mode' },
+      { name: 'mode', label: 'Mode', type: 'select', options: ['auto', 'basic', 'pipeline'], defaultValue: 'auto', description: 'auto classifies complexity first; basic generates one workflow; pipeline decomposes a raw prompt' },
+      { name: 'raw_prompt', label: 'Raw prompt', type: 'string', placeholder: '${data.inputs.prompt}', description: 'Raw user automation prompt used by auto or pipeline mode' },
       { name: 'generator', label: 'Generator (JSON)', type: 'json', required: true, placeholder: '{ "model": "gpt-4", "instruction": "Build a ...", "context": "" }', description: 'LLM generator config: model, instruction, context' },
       { name: 'policy', label: 'Policy (JSON)', type: 'json', placeholder: '{ "allowed_step_types": ["llm.call", "template.render"] }', description: 'Step type allowlist/denylist, allow_remote_workflow_refs' },
       { name: 'limits', label: 'Limits (JSON)', type: 'json', placeholder: '{ "max_steps_total": 10 }' },
