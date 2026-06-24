@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import yaml
 
 from gnougo_flow_core.compilation import ValidationError, WorkflowValidator
+from gnougo_flow_core.mcp_cache import cache_prompts, cache_resources, cache_tools, get_cached_prompts, get_cached_resources, get_cached_tools
 from gnougo_flow_core.models import StepDef, WorkflowDocument
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 from gnougo_flow_core.workflow_plan_diagnostics import (
@@ -1284,7 +1285,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         for meta in server_metadata:
             name = getattr(meta, "name", None) or str(meta)
             try:
-                session, tools, _prompts, _resources = await self._discover_mcp_capabilities_with_retry(factory, str(name))
+                _session, tools, _prompts, _resources = await self._discover_mcp_capabilities_with_retry(factory, str(name), ctx.engine.mcp_cache)
             except Exception:
                 continue
 
@@ -1305,17 +1306,37 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         return contracts
 
     @staticmethod
-    async def _discover_mcp_capabilities_with_retry(factory: Any, server_name: str) -> tuple[Any, list[Any], list[Any], list[Any]]:
+    async def _discover_mcp_capabilities_with_retry(factory: Any, server_name: str, cache: Any = None) -> tuple[Any, list[Any], list[Any], list[Any]]:
+        cached_tools = get_cached_tools(cache, server_name)
+        cached_prompts = get_cached_prompts(cache, server_name)
+        cached_resources = get_cached_resources(cache, server_name)
+        if cached_tools is not None and cached_prompts is not None and cached_resources is not None:
+            return None, list(cached_tools), list(cached_prompts), list(cached_resources)
+
         last_error: Exception | None = None
         for attempt in range(1, _MCP_DISCOVERY_MAX_ATTEMPTS + 1):
             try:
                 session = await factory.get_client_async(server_name)
-                tools = list(await session.list_tools_async())
-                prompts = list(await session.list_prompts_async())
-                try:
-                    resources = list(await session.list_resources_async())
-                except Exception:
-                    resources = []
+                if cached_tools is None:
+                    tools = list(await session.list_tools_async())
+                    cache_tools(cache, server_name, tools)
+                else:
+                    tools = list(cached_tools)
+
+                if cached_prompts is None:
+                    prompts = list(await session.list_prompts_async())
+                    cache_prompts(cache, server_name, prompts)
+                else:
+                    prompts = list(cached_prompts)
+
+                if cached_resources is None:
+                    try:
+                        resources = list(await session.list_resources_async())
+                    except Exception:
+                        resources = []
+                    cache_resources(cache, server_name, resources)
+                else:
+                    resources = list(cached_resources)
                 return session, tools, prompts, resources
             except Exception as exc:
                 last_error = exc
@@ -2496,7 +2517,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 desc = getattr(meta, "description", None) or ""
                 section = [f"## Server: {name}", f"Description: {desc or '(none)'}"]
                 try:
-                    _session, tools, prompts, resources = await self._discover_mcp_capabilities_with_retry(factory, str(name))
+                    _session, tools, prompts, resources = await self._discover_mcp_capabilities_with_retry(factory, str(name), ctx.engine.mcp_cache)
 
                     discovered_count += 1
                     tools_total += len(tools)

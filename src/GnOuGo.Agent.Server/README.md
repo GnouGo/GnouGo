@@ -355,6 +355,24 @@ Example:
 
 The cache key includes the active provider configuration fingerprint, so changing a provider URL or credentials invalidates the cached entry automatically.
 
+## MCP capability cache
+
+Workflow execution uses `IMemoryCache` to cache MCP server capability discovery results: tools, prompts, resources, and their descriptions.
+
+- Service: `WorkflowEngine`
+- Default sliding expiration: `3600` seconds
+- Configuration section: `McpCapabilityCache`
+
+Example:
+
+```json
+{
+  "McpCapabilityCache": {
+	"SlidingExpirationSeconds": 3600
+  }
+}
+```
+
 ## Test
 
 ```powershell

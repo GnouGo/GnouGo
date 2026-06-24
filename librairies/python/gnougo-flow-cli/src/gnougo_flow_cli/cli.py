@@ -9,7 +9,7 @@ from typing import Annotated, Any
 
 import typer
 import yaml
-from gnougo_flow_core import WorkflowCompiler, WorkflowEngine, WorkflowParser
+from gnougo_flow_core import McpCacheHelper, WorkflowCompiler, WorkflowEngine, WorkflowParser
 from gnougo_flow_core.checkpointing import InMemoryWorkflowCheckpointer
 from gnougo_flow_core.models import StepStatus
 from gnougo_flow_core.runtime import apply_workflow_input_defaults
@@ -149,6 +149,7 @@ async def _run_async(
         raise typer.BadParameter(f"Workflow '{target}' not found")
 
     engine = WorkflowEngine()
+    engine.mcp_cache = McpCacheHelper(ttl_seconds=settings.mcp_capability_cache.ttl_seconds)
     background_mode_cache = BackgroundModeAvailabilityCache()
     if llm_mode == "stub":
         engine.llm_client = EchoLLMClient()
@@ -323,6 +324,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
 
 

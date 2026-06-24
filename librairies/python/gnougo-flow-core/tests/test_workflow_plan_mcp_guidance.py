@@ -3,9 +3,11 @@ from __future__ import annotations
 import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
-from gnougo_flow_core.models import LLMResponse, McpServerMetadata, McpToolInfo
+from gnougo_flow_core.mcp_cache import McpCacheHelper
+from gnougo_flow_core.models import LLMResponse, McpPromptInfo, McpResourceInfo, McpServerMetadata, McpToolInfo
 from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
+from gnougo_flow_core.runtime_steps.workflow_plan_executor import WorkflowPlanExecutor
 
 _VALID_PLAN_YAML = """
 version: 1
@@ -58,6 +60,35 @@ class _ToolSession:
 
     async def get_prompt_async(self, prompt_name, arguments):
         raise NotImplementedError
+
+
+class _CountingDiscoverySession:
+    def __init__(self) -> None:
+        self.list_tools_calls = 0
+        self.list_prompts_calls = 0
+        self.list_resources_calls = 0
+
+    async def list_tools_async(self):
+        self.list_tools_calls += 1
+        return [McpToolInfo(name="search")]
+
+    async def list_prompts_async(self):
+        self.list_prompts_calls += 1
+        return [McpPromptInfo(name="choose")]
+
+    async def list_resources_async(self):
+        self.list_resources_calls += 1
+        return [McpResourceInfo(uri="file:///demo.txt", name="demo")]
+
+
+class _CountingDiscoveryFactory:
+    def __init__(self) -> None:
+        self.session = _CountingDiscoverySession()
+        self.get_client_calls = 0
+
+    async def get_client_async(self, server_name):
+        self.get_client_calls += 1
+        return self.session
 
 
 class _ToolFactory:
@@ -210,6 +241,22 @@ class _BrokenFactory:
 
     async def get_client_async(self, server_name):
         raise RuntimeError("Connection refused")
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_mcp_discovery_uses_capability_cache() -> None:
+    factory = _CountingDiscoveryFactory()
+    cache = McpCacheHelper()
+
+    first = await WorkflowPlanExecutor._discover_mcp_capabilities_with_retry(factory, "srv", cache)
+    second = await WorkflowPlanExecutor._discover_mcp_capabilities_with_retry(factory, "srv", cache)
+
+    assert [tool.name for tool in first[1]] == ["search"]
+    assert [tool.name for tool in second[1]] == ["search"]
+    assert factory.get_client_calls == 1
+    assert factory.session.list_tools_calls == 1
+    assert factory.session.list_prompts_calls == 1
+    assert factory.session.list_resources_calls == 1
 
 
 def _compile_main(yaml_text: str):

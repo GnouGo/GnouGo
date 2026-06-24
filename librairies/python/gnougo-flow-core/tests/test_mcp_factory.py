@@ -179,3 +179,9 @@ def test_mcp_cache_helper_deep_copies_and_expires():
 
     time.sleep(0.02)
     assert cache.get_cached_tools("srv") is None
+
+
+def test_mcp_cache_helper_defaults_to_one_hour_and_clamps_invalid_ttl():
+    assert McpCacheHelper.DEFAULT_TTL_SECONDS == 3600
+    assert McpCacheHelper().ttl_seconds == 3600
+    assert McpCacheHelper(ttl_seconds=0).ttl_seconds == 3600

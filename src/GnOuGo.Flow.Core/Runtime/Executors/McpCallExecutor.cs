@@ -280,7 +280,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 runtimeToolCatalog = McpCacheHelper.GetCachedTools(ctx.Engine.McpCache, serverName)
                     ?? await session.ListToolsAsync(linkedCts.Token);
                 if (runtimeToolCatalog != null)
-                    McpCacheHelper.CacheTools(ctx.Engine.McpCache, serverName, runtimeToolCatalog);
+                    McpCacheHelper.CacheTools(ctx.Engine.McpCache, serverName, runtimeToolCatalog, ctx.Engine.McpCacheSlidingExpiration);
 
                 // Loose legacy test factories often expose neither metadata nor a catalog.
                 // Configured production factories always expose server metadata, so an empty
@@ -306,7 +306,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 {
                     var prompts = McpCacheHelper.GetCachedPrompts(cache, serverName)
                         ?? await TryListPromptsAsync(session, serverName, ctx, linkedCts.Token);
-                    McpCacheHelper.CachePrompts(cache, serverName, prompts);
+                    McpCacheHelper.CachePrompts(cache, serverName, prompts, ctx.Engine.McpCacheSlidingExpiration);
                     foreach (var p in prompts)
                         batchMethods.Add(p.Name);
                 }
@@ -315,7 +315,7 @@ public sealed class McpCallExecutor : IStepExecutor
                     var tools = runtimeToolCatalog
                         ?? McpCacheHelper.GetCachedTools(cache, serverName)
                         ?? (IReadOnlyList<McpToolInfo>) await session.ListToolsAsync(linkedCts.Token);
-                    McpCacheHelper.CacheTools(cache, serverName, tools);
+                    McpCacheHelper.CacheTools(cache, serverName, tools, ctx.Engine.McpCacheSlidingExpiration);
                     foreach (var t in tools)
                         batchMethods.Add(t.Name);
                 }
@@ -769,7 +769,7 @@ Produce the final answer strictly from the executed MCP results.
             var cache = ctx.Engine.McpCache;
             var prompts = McpCacheHelper.GetCachedPrompts(cache, serverName)
                 ?? await TryListPromptsAsync(session, serverName, ctx, ct);
-            McpCacheHelper.CachePrompts(cache, serverName, prompts);
+            McpCacheHelper.CachePrompts(cache, serverName, prompts, ctx.Engine.McpCacheSlidingExpiration);
             foreach (var prompt in prompts)
             {
                 if (allowed != null && !allowed.Contains(prompt.Name))
@@ -783,7 +783,7 @@ Produce the final answer strictly from the executed MCP results.
             var tools = runtimeToolCatalog
                 ?? McpCacheHelper.GetCachedTools(cache, serverName)
                 ?? (IReadOnlyList<McpToolInfo>) await session.ListToolsAsync(ct);
-            McpCacheHelper.CacheTools(cache, serverName, tools);
+            McpCacheHelper.CacheTools(cache, serverName, tools, ctx.Engine.McpCacheSlidingExpiration);
             foreach (var tool in tools)
             {
                 if (allowed != null && !allowed.Contains(tool.Name))

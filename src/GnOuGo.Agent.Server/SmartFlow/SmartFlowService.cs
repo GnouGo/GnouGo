@@ -5,8 +5,10 @@ using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Services;
+using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Shared;
 using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.AI.Core;
@@ -58,6 +60,7 @@ public sealed class SmartFlowService
     private readonly ILogger<SmartFlowService> _logger;
     private readonly IWorkflowTraceFileExporter? _traceFileExporter;
     private readonly string _routingWorkflowYaml;
+    private readonly TimeSpan _mcpCacheSlidingExpiration;
 
     /// <summary>Slash commands that route to the configure-providers workflow.</summary>
     private static readonly string[] ProviderCommands = { "/llm", "/embedding", "/mcp", "/status" };
@@ -76,7 +79,8 @@ public sealed class SmartFlowService
         IWorkflowCandidateProvider? candidateProvider = null,
         InMemoryChatHistoryStore? historyStore = null,
         IServiceScopeFactory? scopeFactory = null,
-        IWorkflowTraceFileExporter? traceFileExporter = null)
+        IWorkflowTraceFileExporter? traceFileExporter = null,
+        IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null)
     {
         _llm = llm;
         _mcpCache = mcpCache;
@@ -91,6 +95,7 @@ public sealed class SmartFlowService
         _traceFileExporter = traceFileExporter;
         _otel = otel;
         _logger = logger;
+        _mcpCacheSlidingExpiration = (mcpCapabilityCacheSettings?.Value ?? new McpCapabilityCacheSettings()).SlidingExpiration;
 
         _routingWorkflowYaml = LoadEmbeddedWorkflowYaml("main-routing-agent.yaml");
     }
@@ -320,6 +325,7 @@ public sealed class SmartFlowService
                 },
                 McpClientFactory = runtime.McpClientFactory,
                 McpCache = _mcpCache,
+                McpCacheSlidingExpiration = _mcpCacheSlidingExpiration,
                 HumanInputProvider = _humanInput,
                 WorkflowCallResolver = CreateWorkflowCallResolver(),
                 WorkflowCandidateProvider = _candidateProvider,
@@ -885,6 +891,7 @@ public sealed class SmartFlowService
             },
             McpClientFactory = runtime.McpClientFactory,
             McpCache = _mcpCache,
+            McpCacheSlidingExpiration = _mcpCacheSlidingExpiration,
             HumanInputProvider = _humanInput,
             WorkflowCallResolver = CreateWorkflowCallResolver(),
             WorkflowCandidateProvider = _candidateProvider,

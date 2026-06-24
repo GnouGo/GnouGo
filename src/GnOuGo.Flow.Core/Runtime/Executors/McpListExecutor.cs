@@ -277,17 +277,17 @@ public sealed class McpListExecutor : IStepExecutor
         if (wantTools && tools == null)
         {
             tools = await session.ListToolsAsync(ct);
-            McpCacheHelper.CacheTools(cache, serverName, tools);
+            McpCacheHelper.CacheTools(cache, serverName, tools, ctx.Engine.McpCacheSlidingExpiration);
         }
         if (wantResources && resources == null)
         {
             resources = await TryListResourcesAsync(session, serverName, ctx, ct);
-            McpCacheHelper.CacheResources(cache, serverName, resources);
+            McpCacheHelper.CacheResources(cache, serverName, resources, ctx.Engine.McpCacheSlidingExpiration);
         }
         if (wantPrompts && prompts == null)
         {
             prompts = await TryListPromptsAsync(session, serverName, ctx, ct);
-            McpCacheHelper.CachePrompts(cache, serverName, prompts);
+            McpCacheHelper.CachePrompts(cache, serverName, prompts, ctx.Engine.McpCacheSlidingExpiration);
         }
 
         return new ServerCapabilitiesResult

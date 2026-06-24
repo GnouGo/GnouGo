@@ -39,6 +39,9 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     /// <summary>Optional memory cache for MCP server capability listings.</summary>
     public IMemoryCache? McpCache { get; set; }
 
+    /// <summary>Sliding expiration for cached MCP server capability listings.</summary>
+    public TimeSpan McpCacheSlidingExpiration { get; set; } = TimeSpan.FromMinutes(5);
+
     /// <summary>Additional functions registered from Jint scripts.</summary>
     public Dictionary<string, Func<JsonNode?[], JsonNode?>> ScriptFunctions { get; } = new();
 

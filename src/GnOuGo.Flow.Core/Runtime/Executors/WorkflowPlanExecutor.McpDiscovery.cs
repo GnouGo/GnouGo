@@ -221,7 +221,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     await using var session = await factory.GetClientAsync(server.Name, discoveryCts.Token);
 
                     var tools = cachedTools ?? await session.ListToolsAsync(discoveryCts.Token);
-                    McpCacheHelper.CacheTools(cache, server.Name, tools);
+                    McpCacheHelper.CacheTools(cache, server.Name, tools, ctx.Engine.McpCacheSlidingExpiration);
 
                     IReadOnlyList<McpPromptInfo> prompts;
                     if (cachedPrompts != null)
@@ -236,7 +236,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             logger.LogWarning(ex, "workflow.plan: prompts/list not supported on MCP server '{ServerName}'", server.Name);
                             prompts = Array.Empty<McpPromptInfo>();
                         }
-                        McpCacheHelper.CachePrompts(cache, server.Name, prompts);
+                        McpCacheHelper.CachePrompts(cache, server.Name, prompts, ctx.Engine.McpCacheSlidingExpiration);
                     }
 
                     results.Add(new McpServerDiscovery

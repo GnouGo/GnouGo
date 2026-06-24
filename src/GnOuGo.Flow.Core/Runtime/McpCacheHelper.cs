@@ -10,10 +10,7 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// </summary>
 internal static class McpCacheHelper
 {
-    internal static readonly MemoryCacheEntryOptions CacheOptions = new()
-    {
-        SlidingExpiration = TimeSpan.FromMinutes(5)
-    };
+    internal static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(5);
 
     // ── Keys ──
 
@@ -35,12 +32,47 @@ internal static class McpCacheHelper
     // ── Set ──
 
     internal static void CacheTools(IMemoryCache? cache, string serverName, IReadOnlyList<McpToolInfo> tools)
-        => cache?.Set(ToolsKey(serverName), tools, CacheOptions);
+        => CacheTools(cache, serverName, tools, DefaultSlidingExpiration);
+
+    internal static void CacheTools(
+        IMemoryCache? cache,
+        string serverName,
+        IReadOnlyList<McpToolInfo> tools,
+        TimeSpan slidingExpiration)
+        => CacheValue(cache, ToolsKey(serverName), tools, slidingExpiration);
 
     internal static void CacheResources(IMemoryCache? cache, string serverName, IReadOnlyList<McpResourceInfo> resources)
-        => cache?.Set(ResourcesKey(serverName), resources, CacheOptions);
+        => CacheResources(cache, serverName, resources, DefaultSlidingExpiration);
+
+    internal static void CacheResources(
+        IMemoryCache? cache,
+        string serverName,
+        IReadOnlyList<McpResourceInfo> resources,
+        TimeSpan slidingExpiration)
+        => CacheValue(cache, ResourcesKey(serverName), resources, slidingExpiration);
 
     internal static void CachePrompts(IMemoryCache? cache, string serverName, IReadOnlyList<McpPromptInfo> prompts)
-        => cache?.Set(PromptsKey(serverName), prompts, CacheOptions);
-}
+        => CachePrompts(cache, serverName, prompts, DefaultSlidingExpiration);
 
+    internal static void CachePrompts(
+        IMemoryCache? cache,
+        string serverName,
+        IReadOnlyList<McpPromptInfo> prompts,
+        TimeSpan slidingExpiration)
+        => CacheValue(cache, PromptsKey(serverName), prompts, slidingExpiration);
+
+    private static void CacheValue<T>(IMemoryCache? cache, string key, T value, TimeSpan slidingExpiration)
+    {
+        if (cache is null)
+            return;
+
+        var effectiveExpiration = slidingExpiration > TimeSpan.Zero
+            ? slidingExpiration
+            : DefaultSlidingExpiration;
+
+        cache.Set(key, value, new MemoryCacheEntryOptions
+        {
+            SlidingExpiration = effectiveExpiration
+        });
+    }
+}

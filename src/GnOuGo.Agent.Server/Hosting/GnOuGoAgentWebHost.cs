@@ -315,6 +315,8 @@ public static class GnOuGoAgentWebHost
         });
         builder.Services.Configure<ModelCatalogCacheSettings>(
             builder.Configuration.GetSection(ModelCatalogCacheSettings.SectionName));
+        builder.Services.Configure<McpCapabilityCacheSettings>(
+            builder.Configuration.GetSection(McpCapabilityCacheSettings.SectionName));
         builder.Services.Configure<BundledMcpSettings>(
             builder.Configuration.GetSection(BundledMcpSettings.SectionName));
         builder.Services.Configure<KeyVaultSettings>(

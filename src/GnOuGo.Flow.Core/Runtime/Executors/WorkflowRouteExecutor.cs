@@ -424,7 +424,8 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             FetchPolicy = ctx.Engine.FetchPolicy,
             Limits = CreateChildLimits(ctx.Limits, candidate),
             Logger = ctx.Engine.Logger,
-            McpCache = ctx.Engine.McpCache
+            McpCache = ctx.Engine.McpCache,
+            McpCacheSlidingExpiration = ctx.Engine.McpCacheSlidingExpiration
         };
 
         var candidateArgs = args.DeepClone() as JsonObject ?? new JsonObject();

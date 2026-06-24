@@ -1509,7 +1509,7 @@ The Python package is not a NativeAOT binary; it is a Python 3.10+ library and C
   - `InMemoryMcpClientFactory` and `MockMcpServerConfig` for tests and demos.
   - `ConfiguredMcpClientFactory` and `McpSessionAdapter` for injected MCP sessions.
   - `RoutingLLMClientAdapter` for adapting a routing LLM client.
-- `WorkflowEngine.mcp_cache` defaults to `McpCacheHelper`, a 5-minute sliding TTL cache for MCP tools/resources/prompts per server. Set it to `None` to disable capability caching.
+- `WorkflowEngine.mcp_cache` defaults to `McpCacheHelper`, a 1-hour sliding TTL cache for MCP tools/resources/prompts per server. Set it to `None` to disable capability caching.
 - `WorkflowEngine.resume_async`, `WorkflowCheckpointer`, and `limits.run_id` support resumable workflow execution.
 Development commands:
 
