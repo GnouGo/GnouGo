@@ -5,7 +5,7 @@ import json
 from typing import Any
 
 from .compilation import ValidationError, WorkflowCompilationException
-from .errors import ErrorCodes, WorkflowRuntimeException
+from .errors import ErrorCodes
 from .workflow_plan_semantic_validator import (
     WorkflowSemanticValidationError,
     WorkflowSemanticValidationException,
@@ -417,6 +417,9 @@ def _semantic_hint(error: WorkflowSemanticValidationError) -> str:
         "MCP_CALL_INPUT_FIELD_UNKNOWN": "Move MCP tool arguments under input.request; keep only mcp.call envelope fields at input top level.",
         "MCP_METHOD_UNKNOWN": "Use one exact MCP tool name from the discovered server catalog.",
         "MCP_SERVER_UNKNOWN": "Use one exact MCP server name from discovery.",
+        "FUNCTION_JSDOC_MISSING": "Add a JSDoc block immediately before the custom function declaration.",
+        "FUNCTION_JSDOC_PARAM_MISSING": "Add one typed `@param {type} name` tag for every custom function parameter.",
+        "FUNCTION_JSDOC_RETURNS_MISSING": "Add a typed `@returns {type}` tag for the custom function return value.",
         ErrorCodes.EXPR_TYPE_MISMATCH: "Use an expression whose resolved type matches the destination contract.",
     }
     return hints.get(error.code, "Repair the generated workflow so the semantic contract can be proven statically.")
@@ -432,6 +435,9 @@ def _semantic_expected(error: WorkflowSemanticValidationError) -> str | None:
         "MCP_CALL_INPUT_FIELD_UNKNOWN": "supported mcp.call input envelope",
         "MCP_METHOD_UNKNOWN": "discovered MCP method",
         "MCP_SERVER_UNKNOWN": "discovered MCP server",
+        "FUNCTION_JSDOC_MISSING": "JSDoc immediately preceding the function declaration",
+        "FUNCTION_JSDOC_PARAM_MISSING": "typed @param tag for each function parameter",
+        "FUNCTION_JSDOC_RETURNS_MISSING": "typed @returns tag for the function return value",
         ErrorCodes.EXPR_TYPE_MISMATCH: "expression result matching expected type",
     }
     return expected.get(error.code)

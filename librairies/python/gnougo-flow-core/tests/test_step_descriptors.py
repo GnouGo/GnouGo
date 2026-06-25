@@ -3,7 +3,7 @@ from gnougo_flow_core.runtime import WorkflowEngine
 from gnougo_flow_core.runtime_steps import STEP_TYPES
 from gnougo_flow_core.runtime_steps.human_input_executor import HumanInputExecutor
 from gnougo_flow_core.step_types import STEP_TYPES as DECLARED_STEP_TYPES
-from gnougo_flow_core.workflow_plan_semantic_validator import validate_workflow_semantics
+from gnougo_flow_core.workflow_plan_semantic_validator import WorkflowSemanticValidationException, validate_workflow_semantics
 
 
 def test_all_registered_steps_are_self_described() -> None:
@@ -82,3 +82,62 @@ def test_semantic_validator_allows_human_input_response_and_form_fields() -> Non
 
     validate_workflow_semantics(doc)
 
+
+def test_semantic_validator_requires_jsdoc_for_custom_functions() -> None:
+    doc = WorkflowParser.parse(
+        """
+        version: 1
+        functions: |
+          function parseRepoUrl(url) {
+            return { owner: "AxaFrance", repo: "oidc-client" };
+          }
+        workflows:
+          main:
+            inputs:
+              repo_url: string
+            steps:
+              - id: parse
+                type: set
+                input:
+                  owner: "${functions.parseRepoUrl(data.inputs.repo_url).owner}"
+        """
+    )
+
+    try:
+        validate_workflow_semantics(doc)
+        raise AssertionError("Expected semantic validation to fail")
+    except WorkflowSemanticValidationException as exc:
+        message = str(exc)
+        assert "FUNCTION_JSDOC_MISSING" in message
+        assert "parseRepoUrl" in message
+        assert "@param" in message
+        assert "@returns" in message
+
+
+def test_semantic_validator_accepts_typed_jsdoc_for_custom_functions() -> None:
+    doc = WorkflowParser.parse(
+        """
+        version: 1
+        functions: |
+          /**
+           * Parses a GitHub repository URL into owner and repository names.
+           *
+           * @param {string} url - Repository URL.
+           * @returns {object} Parsed repository parts with owner and repo fields.
+           */
+          function parseRepoUrl(url) {
+            return { owner: "AxaFrance", repo: "oidc-client" };
+          }
+        workflows:
+          main:
+            inputs:
+              repo_url: string
+            steps:
+              - id: parse
+                type: set
+                input:
+                  owner: "${functions.parseRepoUrl(data.inputs.repo_url).owner}"
+        """
+    )
+
+    validate_workflow_semantics(doc)

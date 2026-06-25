@@ -100,6 +100,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine($"- Built-in expression functions are exactly: {builtIns}.");
         sb.AppendLine("- Call only documented built-ins, or custom functions that you define in a document-level or workflow-level `functions:` block.");
         sb.AppendLine("- Every `functions.<name>(...)` call must refer to a built-in or to a matching `function <name>(...)` declaration in `functions:`.");
+        sb.AppendLine("- Every generated custom `function name(...)` declaration MUST be immediately preceded by JSDoc (`/** ... */`).");
+        sb.AppendLine("- That JSDoc MUST include one typed `@param {type} name - meaning` tag for every function parameter.");
+        sb.AppendLine("- That JSDoc MUST include a typed `@returns {type} - meaning` tag for the function output, including `{void}` when it intentionally returns nothing.");
+        sb.AppendLine("- Use semantic JSDoc types such as `{string}`, `{number}`, `{boolean}`, `{object}`, `{Array<string>}`, or a concise object shape when it clarifies the contract.");
         sb.AppendLine("- Do not invent helpers such as `functions.parseRepoUrl`, `functions.clampNumber`, `functions.take`, or `functions.filterUnprocessedIssues`; implement them in `functions:` or replace them with built-ins, structured_output normalization, or explicit workflow steps.");
     }
 

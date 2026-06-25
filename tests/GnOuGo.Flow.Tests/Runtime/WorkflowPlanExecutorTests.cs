@@ -328,6 +328,8 @@ workflows:
         Assert.Contains("json(val)", reference);
         Assert.Contains("now()", reference);
         Assert.Contains("formatDate(", reference);
+        Assert.Contains("@param {string}", reference);
+        Assert.Contains("@returns {string}", reference);
     }
 
     [Fact]
@@ -437,6 +439,9 @@ workflows:
         Assert.Contains("- skill: required object", capturedPrompt);
         Assert.Contains("Use input-level `required: true|false` only as a boolean", capturedPrompt);
         Assert.Contains("required_properties: [field_name]", capturedPrompt);
+        Assert.Contains("Every generated custom `function name(...)` declaration MUST be immediately preceded by JSDoc", capturedPrompt);
+        Assert.Contains("@param {type} name - meaning", capturedPrompt);
+        Assert.Contains("@returns {type} - meaning", capturedPrompt);
         Assert.Contains("1. Inspect every MCP tool used by this workflow.", capturedPrompt);
         Assert.Contains("Never satisfy a missing required MCP argument with data.env.*, empty string, fake values, or casts.", capturedPrompt);
         Assert.Contains("Prefer the exact MCP argument name and type.", capturedPrompt);
@@ -956,6 +961,12 @@ workflows:
                             owner: string
                             repo: string
                         functions: |
+                          /**
+                           * Parses a GitHub repository URL into owner and repository name.
+                           *
+                           * @param {string} url - Repository URL to parse.
+                           * @returns {object} Parsed owner and repo fields.
+                           */
                           function parseRepoUrl(url) {
                             var parts = String(url || "").replace(/\/$/, "").split("/");
                             if (parts.length < 2) return { owner: "dry-run-owner", repo: "dry-run-repo" };

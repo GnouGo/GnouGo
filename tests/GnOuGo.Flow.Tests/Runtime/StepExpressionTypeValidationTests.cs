@@ -91,12 +91,26 @@ skill:
   inputs: {}
   outputs: {}
 functions: |
+  /**
+   * Parses a GitHub repository URL into owner and repository names.
+   *
+   * @param {string} url - Repository URL.
+   * @returns {object} Parsed repository parts with owner and repo fields.
+   */
   function parseRepoUrl(url) {
     return { owner: "AxaFrance", repo: "oidc-client" };
   }
 workflows:
   main:
     functions: |
+      /**
+       * Clamps a number inside an inclusive range.
+       *
+       * @param {number} value - Value to clamp.
+       * @param {number} min - Minimum allowed value.
+       * @param {number} max - Maximum allowed value.
+       * @returns {number} Clamped value.
+       */
       function clampNumber(value, min, max) {
         return Math.max(min, Math.min(max, value));
       }
@@ -112,6 +126,75 @@ workflows:
 """);
 
         InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsDeclaredFunctionWithoutJsDoc()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Function validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+functions: |
+  function parseRepoUrl(url) {
+    return { owner: "AxaFrance", repo: "oidc-client" };
+  }
+workflows:
+  main:
+    inputs:
+      repo_url: string
+    steps:
+      - id: parse
+        type: set
+        input:
+          owner: "${functions.parseRepoUrl(data.inputs.repo_url).owner}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains("FUNCTION_JSDOC_MISSING", exception.InnerException!.Message);
+        Assert.Contains("parseRepoUrl", exception.InnerException.Message);
+        Assert.Contains("@param", exception.InnerException.Message);
+        Assert.Contains("@returns", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsDeclaredFunctionWithoutTypedParamAndReturnDocs()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Function validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+functions: |
+  /**
+   * Parses a GitHub repository URL.
+   */
+  function parseRepoUrl(url) {
+    return { owner: "AxaFrance", repo: "oidc-client" };
+  }
+workflows:
+  main:
+    inputs:
+      repo_url: string
+    steps:
+      - id: parse
+        type: set
+        input:
+          owner: "${functions.parseRepoUrl(data.inputs.repo_url).owner}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains("FUNCTION_JSDOC_PARAM_MISSING", exception.InnerException!.Message);
+        Assert.Contains("FUNCTION_JSDOC_RETURNS_MISSING", exception.InnerException.Message);
+        Assert.Contains("@param {type} url", exception.InnerException.Message);
+        Assert.Contains("@returns {type}", exception.InnerException.Message);
     }
 
     [Fact]

@@ -560,13 +560,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         )
 
         normalized_markdown = await self._normalize_user_prompt(ctx, raw_prompt, provider, model, reasoning)
-        annotated_markdown = await self._mark_extractable_blocks(ctx, normalized_markdown, provider, model, reasoning)
-        extraction = self._extract_subworkflow_specs(annotated_markdown)
-        if extraction.validation_errors:
-            raise WorkflowRuntimeException(
-                ErrorCodes.TEMPLATE_PLAN,
-                "workflow.plan pipeline extraction failed: " + "; ".join(extraction.validation_errors),
-            )
+        annotated_markdown, extraction = await self._mark_and_extract_subworkflow_specs(
+            ctx,
+            normalized_markdown,
+            input_obj,
+            provider,
+            model,
+            reasoning,
+        )
 
         generated_leaves = [
             await self._generate_leaf_workflow_async(ctx, input_obj, generator, spec)
@@ -619,6 +620,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 candidate_yaml = self._compose_pipeline_workflow_yaml(input_obj, generator, extraction, generated_leaves, assembly, main_inputs)
                 candidate_doc = self._parse_and_validate_generated_workflow(candidate_yaml)
                 self._enforce_pipeline_workflow_hierarchy(candidate_doc, {leaf.name for leaf in generated_leaves})
+                self._validate_pipeline_leaf_call_arguments(candidate_doc, generated_leaves)
                 self._run_standard_plan_validation_sequence(
                     candidate_doc,
                     input_obj.get("policy") if isinstance(input_obj.get("policy"), dict) else {},
@@ -691,7 +693,73 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         model: str,
         reasoning: str | None,
     ) -> str:
-        prompt = (
+        prompt = self._build_mark_extractable_blocks_prompt(normalized_markdown)
+        return await self._execute_pipeline_llm_text_phase(ctx, "mark_extractable_blocks", prompt, provider, model, reasoning)
+
+    async def _mark_and_extract_subworkflow_specs(
+        self,
+        ctx: StepExecutionContext,
+        normalized_markdown: str,
+        pipeline_input: dict[str, Any],
+        provider: str | None,
+        model: str,
+        reasoning: str | None,
+    ) -> tuple[str, _WorkflowPipelineExtraction]:
+        max_attempts = self._get_pipeline_generation_max_attempts(pipeline_input)
+        previous_annotated_markdown: str | None = None
+        previous_validation_errors: list[str] | None = None
+        last_error: Exception | None = None
+
+        for attempt in range(1, max_attempts + 1):
+            prompt = (
+                self._build_mark_extractable_blocks_prompt(normalized_markdown)
+                if previous_validation_errors is None
+                else self._build_mark_extractable_blocks_repair_prompt(
+                    normalized_markdown,
+                    previous_annotated_markdown,
+                    previous_validation_errors,
+                )
+            )
+
+            try:
+                annotated_markdown = await self._execute_pipeline_llm_text_phase(
+                    ctx,
+                    "mark_extractable_blocks",
+                    prompt,
+                    provider,
+                    model,
+                    reasoning,
+                    attempt=attempt,
+                    max_attempts=max_attempts,
+                )
+                extraction = self._extract_subworkflow_specs(annotated_markdown)
+                if not extraction.validation_errors:
+                    return annotated_markdown, extraction
+
+                validation_error = self._build_pipeline_extraction_exception(extraction.validation_errors, annotated_markdown)
+                if attempt >= max_attempts:
+                    raise validation_error
+
+                last_error = validation_error
+                previous_annotated_markdown = annotated_markdown
+                previous_validation_errors = list(extraction.validation_errors)
+                self._add_pipeline_extraction_retry_telemetry(ctx, attempt, max_attempts, validation_error)
+            except Exception as exc:
+                if attempt >= max_attempts:
+                    raise
+                last_error = exc
+                previous_annotated_markdown = None
+                previous_validation_errors = [str(exc)]
+                self._add_pipeline_extraction_retry_telemetry(ctx, attempt, max_attempts, exc)
+
+        raise WorkflowRuntimeException(
+            ErrorCodes.TEMPLATE_PLAN,
+            f"workflow.plan pipeline extraction failed after {max_attempts} attempt(s): {last_error or 'unknown error'}",
+        )
+
+    @staticmethod
+    def _build_mark_extractable_blocks_prompt(normalized_markdown: str) -> str:
+        return (
             "You annotate normalized automation Markdown for GnOuGo workflow generation.\n"
             "Return ONLY annotated Markdown. Do not wrap the result in code fences.\n\n"
             "Identify only the parts that contain significant algorithmic logic and wrap them in exactly this block syntax:\n\n"
@@ -705,20 +773,115 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "content:\n"
             "  Markdown description of the logic to implement.\n"
             ":::\n\n"
+            "A part is algorithmic if it contains:\n"
+            "- a loop;\n"
+            "- a conditional decision;\n"
+            "- a multi-step sequence with state;\n"
+            "- tool orchestration;\n"
+            "- retry or error handling;\n"
+            "- branching logic;\n"
+            "- file or report generation;\n"
+            "- cleanup logic;\n"
+            "- a reusable technical operation.\n\n"
+            "Do not extract:\n"
+            "- simple one-line or few actions;\n"
+            "- global style rules;\n"
+            "- constants;\n"
+            "- footer text;\n"
+            "- wording rules;\n"
+            "- tiny isolated actions that do not deserve a workflow.\n\n"
+            "Keep extracted blocks focused:\n"
+            "- Do not create one large block that mixes several responsibilities.\n"
+            "- Avoid blocks with high cyclomatic complexity: too many branches, nested conditionals, nested loops, retry paths, cleanup paths, or state transitions.\n"
+            "- When one algorithmic section has several independent decision paths or phases, split it into multiple self-contained leaf subworkflow blocks.\n"
+            "- Prefer cohesive blocks that a workflow generator can implement without needing to reason about unrelated branches.\n"
+            "- Do not over-split into trivial one-line operations; split only when the reduced complexity improves workflow generation quality.\n\n"
             "Rules for subworkflow blocks:\n"
             "- The name must use snake_case.\n"
             "- Each block must describe exactly one responsibility.\n"
-            "- Each block must be self-contained and detailed enough to generate a workflow later.\n"
+            "- Each block must be self-contained.\n"
+            "- Each block must be detailed enough to generate a workflow later.\n"
             "- Each block must be a leaf workflow.\n"
             "- The block content must not mention calling another subworkflow.\n"
+            "- The block content must not contain another :::subworkflow block.\n"
             "- Inputs and outputs must be explicit and typed.\n\n"
+            "- Keep global rules outside subworkflow blocks when they apply to the whole automation.\n\n"
             "At the end of the Markdown, add:\n\n"
             "## Main workflow orchestration\n\n"
             "In that section, explain how the main workflow calls the leaf subworkflows in order.\n"
-            "The architecture must have only one hierarchy level: only the main workflow can call leaf workflows.\n\n"
+            "The architecture must have only one hierarchy level:\n"
+            "- Only the main workflow can call subworkflows.\n"
+            "- Every subworkflow is a leaf workflow.\n"
+            "- A subworkflow must never call another subworkflow.\n"
+            "- A subworkflow must never depend on another subworkflow.\n"
+            "- The final YAML will contain the main workflow and all leaf subworkflows in the same local YAML file.\n"
+            "- The main workflow calls leaf workflows with local workflow.call.\n\n"
             f"<normalized_markdown>\n{normalized_markdown}\n</normalized_markdown>"
         )
-        return await self._execute_pipeline_llm_text_phase(ctx, "mark_extractable_blocks", prompt, provider, model, reasoning)
+
+    @staticmethod
+    def _build_mark_extractable_blocks_repair_prompt(
+        normalized_markdown: str,
+        previous_annotated_markdown: str | None,
+        validation_errors: list[str],
+    ) -> str:
+        parts = [
+            WorkflowPlanExecutor._build_mark_extractable_blocks_prompt(normalized_markdown).rstrip(),
+            "",
+            "The previous `mark_extractable_blocks` response failed extraction validation.",
+            "Return a complete corrected annotated Markdown document. Keep the original user intent and fix only the annotation shape.",
+            "",
+            "<validation_errors>",
+            *[f"- {error}" for error in validation_errors],
+            "</validation_errors>",
+            "",
+            "<correction_checklist>",
+            "- Every extracted block must open with exactly `:::subworkflow name=\"snake_case_name\"` and close with exactly `:::`.",
+            "- Never nest `:::subworkflow` blocks.",
+            "- Each block must include non-empty `goal:`, `inputs:`, `outputs:`, `extract_reason:`, and `content:` sections.",
+            "- Each input and output line must be `identifier: type`; use explicit simple types such as string, number, boolean, array, object, or dictionary.",
+            "- Block names and input/output names must be identifiers; block names must be snake_case and unique.",
+            "- Block content must describe leaf logic only and must not mention calling another subworkflow.",
+            "- The document must include `## Main workflow orchestration` after the leaf blocks.",
+            "</correction_checklist>",
+        ]
+        if previous_annotated_markdown and previous_annotated_markdown.strip():
+            parts.extend(["", WorkflowPlanExecutor._prompt_section("invalid_annotated_markdown", previous_annotated_markdown)])
+        parts.extend(["", "Fix the validation errors above and return ONLY the corrected annotated Markdown."])
+        return "\n".join(parts)
+
+    @staticmethod
+    def _build_pipeline_extraction_exception(validation_errors: list[str], annotated_markdown: str | None) -> WorkflowRuntimeException:
+        details: dict[str, Any] = {"validation": {"errors": list(validation_errors)}}
+        if annotated_markdown and annotated_markdown.strip():
+            details["invalid_annotated_markdown"] = annotated_markdown
+        return WorkflowRuntimeException(
+            ErrorCodes.TEMPLATE_PLAN,
+            "workflow.plan pipeline extraction failed: " + "; ".join(validation_errors),
+            details=details,
+        )
+
+    @staticmethod
+    def _add_pipeline_extraction_retry_telemetry(ctx: StepExecutionContext, attempt: int, max_attempts: int, exc: Exception) -> None:
+        ctx.add_telemetry_event(
+            "gnougo-flow.step.thinking",
+            [
+                (
+                    "gnougo-flow.thinking.message",
+                    f"Pipeline extraction attempt {attempt}/{max_attempts} failed; retrying mark_extractable_blocks with validation feedback.",
+                ),
+                ("gnougo-flow.thinking.level", "info"),
+            ],
+        )
+        ctx.add_telemetry_event(
+            "gnougo-flow.plan.pipeline.extractable_blocks_retry",
+            [
+                ("gnougo-flow.plan.attempt", attempt),
+                ("gnougo-flow.plan.max_attempts", max_attempts),
+                ("error.type", type(exc).__name__),
+                ("error.message", str(exc)),
+            ],
+        )
 
     async def _execute_pipeline_llm_text_phase(
         self,
@@ -728,16 +891,23 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         provider: str | None,
         model: str,
         reasoning: str | None,
+        attempt: int | None = None,
+        max_attempts: int | None = None,
     ) -> str:
+        attributes = [
+            ("gen_ai.operation.name", "chat"),
+            ("gen_ai.system", provider or "unknown"),
+            ("gen_ai.request.model", model),
+            ("gen_ai.request.background", True),
+        ]
+        if attempt is not None:
+            attributes.append(("gnougo-flow.plan.attempt", attempt))
+        if max_attempts is not None:
+            attributes.append(("gnougo-flow.plan.max_attempts", max_attempts))
         with ctx.begin_telemetry_span(
             f"workflow.plan.pipeline.{phase}",
             phase,
-            [
-                ("gen_ai.operation.name", "chat"),
-                ("gen_ai.system", provider or "unknown"),
-                ("gen_ai.request.model", model),
-                ("gen_ai.request.background", True),
-            ],
+            attributes,
         ) as span:
             response = await ctx.engine.call_llm_async(
                 LLMRequest(provider=provider, model=model, prompt=prompt, reasoning=reasoning, use_background_mode=True)
@@ -882,6 +1052,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "Either give the later step the same guard or create guaranteed branch outputs/default values first.",
             "- Function arguments are evaluated before the function runs. Do not hide unavailable step references inside "
             "`coalesce`, ternaries, or helper calls.",
+            "- Every generated custom `function name(...)` declaration in a `functions:` block MUST be immediately "
+            "preceded by JSDoc (`/** ... */`).",
+            "- Function JSDoc MUST include one typed `@param {type} name - meaning` tag for every function parameter "
+            "and one typed `@returns {type} - meaning` tag for the output.",
             "- For MCP schemas, required numeric/integer/boolean request fields must be literal YAML scalars when the "
             "schema or validator requires explicit values; do not use expressions, casts, empty strings, or `data.env.*` fallbacks.",
             "- Any schema with `type: object` MUST be strongly typed with a non-empty `properties` mapping. "
@@ -907,11 +1081,21 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         previous_error: str | None = None
         previous_yaml: str | None = None
         previous_prompt: str | None = None
+        previous_repair_context: str | None = None
         previous_errors: list[str] = []
         last_error: Exception | None = None
         for attempt in range(1, max_attempts + 1):
-            leaf_input = self._build_leaf_plan_input(pipeline_input, generator, spec, previous_error, previous_yaml, previous_prompt)
+            leaf_input = self._build_leaf_plan_input(
+                pipeline_input,
+                generator,
+                spec,
+                previous_error,
+                previous_yaml,
+                previous_prompt,
+                previous_repair_context,
+            )
             previous_prompt = leaf_input.get("generator", {}).get("instruction") if isinstance(leaf_input.get("generator"), dict) else spec.generation_prompt
+            yaml_text: str | None = None
             try:
                 result = await self._execute_single_plan_async(ctx, leaf_input)
                 yaml_text = result.get("yaml") if isinstance(result, dict) else None
@@ -922,11 +1106,12 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 last_error = exc
                 if attempt >= max_attempts:
                     break
-                previous_yaml = self._try_extract_generated_yaml_from_exception(exc)
+                previous_yaml = yaml_text or self._try_extract_generated_yaml_from_exception(exc)
                 previous_error = self._format_leaf_generation_error(spec.name, attempt, exc)
                 previous_errors.append(previous_error)
                 previous_errors = previous_errors[-8:]
-                previous_error = self._merge_leaf_cumulative_repair_context(previous_errors)
+                previous_repair_context = await self._build_pipeline_leaf_repair_context(ctx, pipeline_input, previous_yaml, exc)
+                previous_error = self._merge_leaf_cumulative_repair_context(previous_errors, previous_repair_context)
 
         raise WorkflowRuntimeException(
             ErrorCodes.TEMPLATE_PLAN,
@@ -941,6 +1126,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         previous_error: str | None,
         previous_yaml: str | None,
         previous_prompt: str | None,
+        previous_repair_context: str | None,
     ) -> dict[str, Any]:
         leaf_generator = copy.deepcopy(generator)
         leaf_generator.pop("mode", None)
@@ -948,7 +1134,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         leaf_generator["instruction"] = (
             spec.generation_prompt
             if not previous_error
-            else self._build_leaf_repair_prompt(spec.generation_prompt, previous_prompt, previous_yaml, previous_error)
+            else self._build_leaf_repair_prompt(spec.generation_prompt, previous_prompt, previous_yaml, previous_error, previous_repair_context)
         )
         leaf_generator["context"] = ""
         leaf_generator["pipeline_leaf_name"] = spec.name
@@ -963,10 +1149,19 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             leaf_input["limits"] = copy.deepcopy(pipeline_input["limits"])
         return leaf_input
 
-    def _build_leaf_repair_prompt(self, generation_prompt: str, previous_prompt: str | None, previous_yaml: str | None, previous_error: str) -> str:
+    def _build_leaf_repair_prompt(
+        self,
+        generation_prompt: str,
+        previous_prompt: str | None,
+        previous_yaml: str | None,
+        previous_error: str,
+        additional_repair_context: str | None,
+    ) -> str:
         repair_context = "Previous generated YAML for this leaf workflow failed validation.\nRegenerate only this leaf workflow and fix the YAML below."
         if previous_prompt:
             repair_context += f"\n\n<previous_prompt>\n{previous_prompt.strip()}\n</previous_prompt>"
+        if additional_repair_context and additional_repair_context.strip():
+            repair_context += f"\n\nAdditional validation repair context:\n{additional_repair_context.strip()}"
         return self._build_reprompt(generation_prompt, "", {}, previous_yaml, Exception(previous_error), repair_context)
 
     @staticmethod
@@ -980,12 +1175,13 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         )
 
     @staticmethod
-    def _merge_leaf_cumulative_repair_context(previous_errors: list[str]) -> str:
+    def _merge_leaf_cumulative_repair_context(previous_errors: list[str], latest_repair_context: str | None = None) -> str:
         lines = [
             "Cumulative leaf retry requirements:",
             "- Preserve all fixes made for earlier validation failures; do not regress one MCP request or output while fixing another.",
             "- Re-check every mcp.call in the leaf against its discovered input_schema, not only the step named in the latest error.",
             "- If a required MCP request field is numeric/integer/boolean, emit an explicit YAML scalar of that type when the validator requires it.",
+            "- If a required MCP request field is string/number/boolean, do not pass a nullable structured_output field into it; make the source non-null, add an exact non-null step guard, or skip the mcp.call.",
             "- Never satisfy missing MCP arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.",
             "- Do not reference an `if`-guarded step from an unconditional later step unless a guaranteed value has first been produced on every path.",
             "- Workflow outputs must resolve to their declared type on every path.",
@@ -994,15 +1190,40 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             lines.extend(["", "All previous failed attempts for this leaf:"])
             for index, error in enumerate(previous_errors, start=1):
                 lines.extend([f"<leaf_failure_{index}>", error, f"</leaf_failure_{index}>"])
+        if latest_repair_context and latest_repair_context.strip():
+            lines.extend(["", latest_repair_context.strip()])
         return "\n".join(lines).rstrip()
 
     @staticmethod
     def _try_extract_generated_yaml_from_exception(exc: Exception) -> str | None:
-        message = str(exc)
-        marker = "generated_yaml"
-        if marker not in message:
+        current: BaseException | None = exc
+        while current is not None:
+            details = getattr(current, "details", None)
+            if isinstance(details, dict):
+                for key in ("generated_yaml", "invalid_yaml", "yaml"):
+                    value = details.get(key)
+                    if isinstance(value, str) and value.strip():
+                        return value
+            current = current.__cause__ or current.__context__
+        return None
+
+    async def _build_pipeline_leaf_repair_context(
+        self,
+        ctx: StepExecutionContext,
+        pipeline_input: dict[str, Any],
+        previous_yaml: str | None,
+        exc: Exception,
+    ) -> str | None:
+        if not previous_yaml or not previous_yaml.strip():
             return None
-        return message
+        try:
+            leaf_policy = self._build_leaf_policy(pipeline_input.get("policy") if isinstance(pipeline_input.get("policy"), dict) else None)
+            mcp_contracts: list[McpToolOutputContract] = []
+            if "mcp.call" in previous_yaml:
+                mcp_contracts = await self._collect_mcp_tool_contracts(ctx, self._get_configured_mcp_server_metadata(ctx))
+            return self._build_minimal_repair_context(ctx, leaf_policy, previous_yaml, exc, mcp_contracts)
+        except Exception:
+            return None
 
     def _prepare_generated_leaf(self, spec: _WorkflowPipelineSubworkflowSpec, yaml_text: str) -> _GeneratedLeafWorkflow:
         doc = WorkflowParser.parse(yaml_text)
@@ -1010,6 +1231,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, f"Leaf workflow '{spec.name}' must generate exactly one workflow.")
         workflow_name = next(iter(doc.workflows))
         self._enforce_strong_object_schemas(spec.name, doc)
+        self._enforce_strong_array_output_schemas(spec.name, spec, workflow_name, doc)
         for step in self._enumerate_steps(doc.workflows[workflow_name].steps):
             if step.type in {"workflow.call", "workflow.plan"}:
                 raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_POLICY, f"Leaf workflow '{spec.name}' must not contain step type '{step.type}'.")
@@ -1017,6 +1239,14 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         workflow_node = copy.deepcopy(parsed.get("workflows", {}).get(workflow_name)) if isinstance(parsed, dict) else None
         if not isinstance(workflow_node, dict):
             raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, f"Leaf workflow '{spec.name}' did not contain a valid workflow mapping.")
+        document_functions = parsed.get("functions") if isinstance(parsed, dict) else None
+        if isinstance(document_functions, str) and document_functions.strip():
+            workflow_functions = workflow_node.get("functions")
+            workflow_node["functions"] = (
+                document_functions.rstrip()
+                if not isinstance(workflow_functions, str) or not workflow_functions.strip()
+                else document_functions.rstrip() + "\n\n" + workflow_functions.lstrip()
+            )
         return _GeneratedLeafWorkflow(spec.name, workflow_name, doc, yaml_text, workflow_node)
 
     def _run_standard_plan_validation_sequence(
@@ -1038,16 +1268,27 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
     @staticmethod
     def _normalize_pipeline_main_policy(input_obj: dict[str, Any]) -> None:
+        support_step_types = {
+            "workflow.call",
+            "set",
+            "sequence",
+            "switch",
+            "parallel",
+            "loop.sequential",
+            "loop.parallel",
+        }
         policy = input_obj.get("policy")
         if not isinstance(policy, dict):
             policy = {}
             input_obj["policy"] = policy
         denied = policy.get("denied_step_types")
         if isinstance(denied, list):
-            policy["denied_step_types"] = [item for item in denied if str(item) != "workflow.call"]
+            policy["denied_step_types"] = [item for item in denied if str(item) not in support_step_types]
         allowed = policy.get("allowed_step_types")
-        if isinstance(allowed, list) and "workflow.call" not in allowed:
-            allowed.append("workflow.call")
+        if isinstance(allowed, list):
+            for step_type in support_step_types:
+                if step_type not in allowed:
+                    allowed.append(step_type)
 
     @staticmethod
     def _build_leaf_policy(source_policy: dict[str, Any] | None) -> dict[str, Any]:
@@ -1091,6 +1332,59 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         if getattr(definition, "additional_properties", None) is not None:
             self._validate_strong_object_schema(definition.additional_properties, path + ".additional_properties", errors)
 
+    def _enforce_strong_array_output_schemas(
+        self,
+        leaf_name: str,
+        spec: _WorkflowPipelineSubworkflowSpec,
+        workflow_name: str,
+        doc: WorkflowDocument,
+    ) -> None:
+        errors: list[str] = []
+        if doc.skill and doc.skill.outputs:
+            for name, definition in doc.skill.outputs.items():
+                self._validate_strong_array_output_schema(definition, f"skill.outputs.{name}", errors)
+
+        workflow = doc.workflows.get(workflow_name)
+        if workflow and workflow.outputs:
+            for name, definition in workflow.outputs.items():
+                self._validate_strong_array_output_schema(definition, f"workflows.{workflow_name}.outputs.{name}", errors)
+
+            for name, type_name in spec.outputs.items():
+                if self._normalize_workflow_schema_type(type_name) != "array":
+                    continue
+                output = workflow.outputs.get(name)
+                if output is None:
+                    errors.append(f"workflows.{workflow_name}.outputs.{name} is missing but was declared as an array output in the extracted leaf contract")
+                    continue
+                if self._normalize_workflow_schema_type(getattr(output, "type", "any")) != "array":
+                    errors.append(
+                        f"workflows.{workflow_name}.outputs.{name} was declared as an array output in the extracted leaf contract "
+                        "but the generated workflow output is not typed as array"
+                    )
+                    continue
+                if getattr(output, "items", None) is None:
+                    errors.append(f"workflows.{workflow_name}.outputs.{name} has type array without items")
+
+        if errors:
+            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, f"Leaf workflow '{leaf_name}' uses weak array output schemas: {'; '.join(errors)}")
+
+    def _validate_strong_array_output_schema(self, definition: Any, path: str, errors: list[str]) -> None:
+        type_name = self._normalize_workflow_schema_type(getattr(definition, "type", "any"))
+        if type_name == "array":
+            items = getattr(definition, "items", None)
+            if items is None:
+                errors.append(f"{path} has type array without items")
+            else:
+                item_type = self._normalize_workflow_schema_type(getattr(items, "type", "any"))
+                if item_type == "any":
+                    errors.append(f"{path}.items has type any; choose a concrete item schema")
+                self._validate_strong_array_output_schema(items, path + ".items", errors)
+
+        for name, child in (getattr(definition, "properties", None) or {}).items():
+            self._validate_strong_array_output_schema(child, f"{path}.properties.{name}", errors)
+        if getattr(definition, "additional_properties", None) is not None:
+            self._validate_strong_array_output_schema(definition.additional_properties, path + ".additional_properties", errors)
+
     @staticmethod
     def _get_pipeline_generation_max_attempts(input_obj: dict[str, Any]) -> int:
         on_invalid = input_obj.get("on_invalid") if isinstance(input_obj.get("on_invalid"), dict) else {}
@@ -1107,19 +1401,28 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         generated_leaf_inputs: dict[str, Any],
     ) -> str:
         parts = [
-            "You are assembling the parent `main` workflow for a GnOuGo.Flow pipeline.",
-            "Return ONLY one YAML mapping with `document` and `main` keys. Do not return version, entrypoint, workflows, or leaf workflow definitions.",
+            "You are assembling the parent `main` workflow graph for a GnOuGo.Flow pipeline.",
+            "Return ONLY one YAML mapping with `document` and `graph` keys. Do not return version, entrypoint, workflows, a full `main` workflow, or leaf workflow definitions.",
             "",
             "Hard rules:",
-            "- The main workflow may call leaf workflows using local `workflow.call` only.",
-            "- The main workflow must never use `workflow.plan`.",
+            "- Return a compact orchestration graph. The runtime will render the real `main` workflow and graft validated leaf workflows before final validation.",
+            "- Graph call nodes must use `leaf: <leaf_name>` and `args`; do not write raw workflow.call refs.",
+            "- Non-call support nodes may use normal step `type` and `input` when the main orchestration needs derived values, guards, switches, loops, or parallel branches.",
+            "- The main workflow must never use `workflow.plan`, and graph nodes must not inline leaf logic.",
             "- Leaf workflows must never call other workflows.",
             "- Preserve the orchestration algorithm from the normalized prompt and the Main workflow orchestration section.",
-            "- Do not inline leaf logic. Call the leaf workflow that owns each responsibility.",
-            "- Every `data.inputs.<name>` reference MUST have an identically named declaration in `main.inputs`.",
+            "- Use conditionals, switches, loops, or parallel branches when the orchestration requires them.",
+            "- For container support nodes (`sequence`, `switch`, `parallel`, loops), nested graph nodes are allowed in `steps`, `branches[].steps`, `cases[].steps`, and `default`.",
+            "- Pass leaf arguments from declared `data.inputs.<name>`, earlier step outputs, loop variables, derived values, or constants.",
+            "- Every `data.inputs.<name>` reference MUST have an identically named declaration in `graph.inputs` or `document.skill.inputs`.",
             "- Leaf input names are call arguments, not automatically public main inputs.",
             "- `generated_leaf_contracts_yaml` is authoritative for leaf workflow names, call arguments, and available outputs.",
             "- If `leaf_input_candidates_yaml` or `leaf_subworkflow_specs_json` disagree with `generated_leaf_contracts_yaml`, follow `generated_leaf_contracts_yaml`.",
+            "- Map public user input names to differently named leaf arguments when their meanings match.",
+            "- Do not expose loop variables, intermediate values, paths, identifiers, flags, or leaf-only implementation details as public inputs unless the user explicitly requested them.",
+            "- Use `set` support nodes for data shaping in the main graph: renaming fields, building objects/arrays, constants, and safe type conversions.",
+            "- Keep exact JSON values intact when passing arrays, objects, numbers, or booleans. Do not stringify a structured leaf output unless a downstream leaf explicitly wants a string.",
+            "- If a leaf call is inside a switch, loop, parallel branch, or conditional path, do not reference that leaf call step from outside that container/path. Put dependent work in the same path, or expose the container step itself as the output.",
         ]
         if configured_main_inputs:
             parts.append("- `authoritative_main_inputs_yaml` is exact: preserve every name and schema and do not add or remove inputs.")
@@ -1148,20 +1451,21 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                 "      user_query: string",
                 "    outputs:",
                 "      result: string",
-                "main:",
+                "graph:",
                 "  inputs:",
                 "    user_query: string",
                 "  steps:",
                 "    - id: call_example_leaf",
-                "      type: workflow.call",
-                "      input:",
-                "        ref:",
-                "          kind: local",
-                "          name: example_leaf",
-                "        args:",
-                "          query: ${data.inputs.user_query}",
+                "      leaf: example_leaf",
+                "      args:",
+                "        query: ${data.inputs.user_query}",
                 "  outputs:",
                 "    result: ${data.steps.call_example_leaf.outputs.result}",
+                "",
+                "Main graph boundaries:",
+                "- Keep business/tool/LLM work inside leaf workflows. The main graph should only orchestrate, derive values, branch, loop, and call leaves.",
+                "- If a value is required by a generated leaf input contract, pass it in the leaf args or derive it in an earlier support step.",
+                "- Do not add MCP, LLM, template, human-input, workflow.plan, or raw workflow.call support nodes to the main graph.",
             ]
         )
         return "\n".join(parts)
@@ -1172,7 +1476,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             base_prompt.rstrip(),
             "",
             "The previous main workflow assembly failed final validation.",
-            "Return a complete corrected `document` and `main` YAML mapping that still follows every rule above.",
+            "Return a complete corrected `document` and `graph` YAML mapping that still follows every rule above.",
+            "Fix the reported error without changing the user's public contract or orchestration intent.",
         ]
         if previous_response:
             parts.extend(["<invalid_main_assembly_yaml>", WorkflowPlanExecutor._strip_markdown_code_fence(previous_response), "</invalid_main_assembly_yaml>"])
@@ -1184,6 +1489,9 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         if not isinstance(parsed, dict):
             raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, "Pipeline main assembly response must be a YAML mapping.")
         document = parsed.get("document") if isinstance(parsed.get("document"), dict) else {}
+        if isinstance(parsed.get("graph"), dict):
+            skill = copy.deepcopy(document.get("skill")) if isinstance(document.get("skill"), dict) else None
+            return _GeneratedMainAssembly(self._build_main_workflow_node_from_graph(parsed["graph"]), document.get("name"), skill)
         if isinstance(parsed.get("main"), dict):
             skill = copy.deepcopy(document.get("skill")) if isinstance(document.get("skill"), dict) else None
             return _GeneratedMainAssembly(copy.deepcopy(parsed["main"]), document.get("name"), skill)
@@ -1193,6 +1501,87 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             return _GeneratedMainAssembly(copy.deepcopy(workflows["main"]), parsed.get("name"), skill)
         skill = copy.deepcopy(parsed.get("skill")) if isinstance(parsed.get("skill"), dict) else None
         return _GeneratedMainAssembly(copy.deepcopy(parsed), parsed.get("name"), skill)
+
+    def _build_main_workflow_node_from_graph(self, graph: dict[str, Any]) -> dict[str, Any]:
+        main: dict[str, Any] = {}
+        if isinstance(graph.get("inputs"), dict):
+            main["inputs"] = copy.deepcopy(graph["inputs"])
+        source_steps = graph.get("steps") if isinstance(graph.get("steps"), list) else graph.get("nodes")
+        if not isinstance(source_steps, list):
+            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, "Pipeline orchestration graph must include steps or nodes.")
+        main["steps"] = self._render_graph_step_sequence(source_steps)
+        if isinstance(graph.get("outputs"), dict):
+            main["outputs"] = copy.deepcopy(graph["outputs"])
+        return main
+
+    def _render_graph_step_sequence(self, source_steps: list[Any]) -> list[dict[str, Any]]:
+        rendered: list[dict[str, Any]] = []
+        for source_step in source_steps:
+            if not isinstance(source_step, dict):
+                raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, "Pipeline orchestration graph steps must be mappings.")
+            rendered.append(self._render_graph_step(source_step))
+        return rendered
+
+    def _render_graph_step(self, graph_step: dict[str, Any]) -> dict[str, Any]:
+        leaf_name = graph_step.get("leaf") or graph_step.get("workflow")
+        if isinstance(leaf_name, str) and leaf_name.strip():
+            return self._render_graph_leaf_call_step(graph_step, leaf_name.strip())
+
+        step_type = graph_step.get("type")
+        if not isinstance(step_type, str) or not step_type.strip():
+            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, "Pipeline orchestration graph step must include either leaf or type.")
+        if step_type == "workflow.plan":
+            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_POLICY, "Pipeline orchestration graph must not contain workflow.plan.")
+        if step_type == "workflow.call":
+            raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_POLICY, "Pipeline orchestration graph call nodes must use leaf and args, not raw workflow.call.")
+
+        rendered = copy.deepcopy(graph_step)
+        if isinstance(rendered.get("steps"), list):
+            rendered["steps"] = self._render_graph_step_sequence(rendered["steps"])
+        if isinstance(rendered.get("branches"), list):
+            rendered["branches"] = self._render_graph_branch_sequence(rendered["branches"])
+        if isinstance(rendered.get("cases"), list):
+            rendered["cases"] = self._render_graph_case_sequence(rendered["cases"])
+        if isinstance(rendered.get("default"), list):
+            rendered["default"] = self._render_graph_step_sequence(rendered["default"])
+        return rendered
+
+    @staticmethod
+    def _render_graph_leaf_call_step(graph_step: dict[str, Any], leaf_name: str) -> dict[str, Any]:
+        step: dict[str, Any] = {
+            "id": graph_step.get("id") if isinstance(graph_step.get("id"), str) and graph_step.get("id").strip() else f"call_{leaf_name}",
+            "type": "workflow.call",
+        }
+        for common_field in ("if", "retry", "on_error", "output"):
+            if common_field in graph_step:
+                step[common_field] = copy.deepcopy(graph_step[common_field])
+        step["input"] = {
+            "ref": {"kind": "local", "name": leaf_name},
+            "args": copy.deepcopy(graph_step.get("args") if isinstance(graph_step.get("args"), dict) else {}),
+        }
+        return step
+
+    def _render_graph_branch_sequence(self, source_branches: list[Any]) -> list[dict[str, Any]]:
+        rendered: list[dict[str, Any]] = []
+        for source_branch in source_branches:
+            if not isinstance(source_branch, dict):
+                raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, "Pipeline orchestration graph branches must be mappings.")
+            branch = copy.deepcopy(source_branch)
+            if isinstance(branch.get("steps"), list):
+                branch["steps"] = self._render_graph_step_sequence(branch["steps"])
+            rendered.append(branch)
+        return rendered
+
+    def _render_graph_case_sequence(self, source_cases: list[Any]) -> list[dict[str, Any]]:
+        rendered: list[dict[str, Any]] = []
+        for source_case in source_cases:
+            if not isinstance(source_case, dict):
+                raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, "Pipeline orchestration graph cases must be mappings.")
+            case = copy.deepcopy(source_case)
+            if isinstance(case.get("steps"), list):
+                case["steps"] = self._render_graph_step_sequence(case["steps"])
+            rendered.append(case)
+        return rendered
 
     def _compose_pipeline_workflow_yaml(
         self,
@@ -1338,7 +1727,57 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
     def _ensure_main_workflow_outputs(main_node: dict[str, Any], specs: list[_WorkflowPipelineSubworkflowSpec]) -> None:
         if isinstance(main_node.get("outputs"), dict):
             return
-        main_node["outputs"] = {f"{spec.name}_outputs": f"${{data.steps.call_{spec.name}.outputs}}" for spec in specs}
+        main_node["outputs"] = WorkflowPlanExecutor._build_default_main_outputs(main_node, specs)
+
+    @staticmethod
+    def _build_default_main_outputs(main_node: dict[str, Any], specs: list[_WorkflowPipelineSubworkflowSpec]) -> dict[str, str]:
+        outputs: dict[str, str] = {}
+        top_level_steps = main_node.get("steps")
+        if isinstance(top_level_steps, list):
+            for step_id, leaf_name in WorkflowPlanExecutor._enumerate_top_level_workflow_calls(top_level_steps):
+                key = WorkflowPlanExecutor._build_unique_key(outputs, f"{leaf_name}_outputs")
+                outputs[key] = f"${{data.steps.{step_id}.outputs}}"
+            if outputs:
+                return outputs
+
+            for step in top_level_steps:
+                if not isinstance(step, dict):
+                    continue
+                step_id = step.get("id")
+                if not isinstance(step_id, str) or not step_id.strip():
+                    continue
+                key = WorkflowPlanExecutor._build_unique_key(outputs, f"{step_id}_output")
+                outputs[key] = f"${{data.steps.{step_id}}}"
+            if outputs:
+                return outputs
+
+        for spec in specs:
+            key = WorkflowPlanExecutor._build_unique_key(outputs, f"{spec.name}_outputs")
+            outputs[key] = f"${{data.steps.call_{spec.name}.outputs}}"
+        return outputs
+
+    @staticmethod
+    def _enumerate_top_level_workflow_calls(steps: list[Any]) -> list[tuple[str, str]]:
+        calls: list[tuple[str, str]] = []
+        for step in steps:
+            if not isinstance(step, dict) or step.get("type") != "workflow.call":
+                continue
+            step_id = step.get("id")
+            input_obj = step.get("input") if isinstance(step.get("input"), dict) else {}
+            ref = input_obj.get("ref") if isinstance(input_obj, dict) and isinstance(input_obj.get("ref"), dict) else {}
+            leaf_name = ref.get("name") if isinstance(ref, dict) else None
+            if isinstance(step_id, str) and step_id.strip() and isinstance(leaf_name, str) and leaf_name.strip():
+                calls.append((step_id, leaf_name))
+        return calls
+
+    @staticmethod
+    def _build_unique_key(mapping: dict[str, Any], requested_key: str) -> str:
+        if requested_key not in mapping:
+            return requested_key
+        index = 2
+        while f"{requested_key}_{index}" in mapping:
+            index += 1
+        return f"{requested_key}_{index}"
 
     @staticmethod
     def _validate_declared_main_input_references(main_node: dict[str, Any], main_inputs: dict[str, Any]) -> None:
@@ -1359,6 +1798,50 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
                             ErrorCodes.TEMPLATE_POLICY,
                             f"Pipeline main workflow step '{step.id}' must call a generated local leaf workflow.",
                         )
+
+    def _validate_pipeline_leaf_call_arguments(self, doc: WorkflowDocument, leaves: list[_GeneratedLeafWorkflow]) -> None:
+        main = doc.workflows.get("main")
+        if main is None:
+            return
+
+        required_inputs_by_leaf = {
+            leaf.name: [
+                input_name
+                for input_name, schema in self._build_leaf_input_schema_map(leaf).items()
+                if self._is_required_leaf_input(schema)
+            ]
+            for leaf in leaves
+        }
+
+        for step in self._enumerate_steps(main.steps):
+            if step.type != "workflow.call" or not isinstance(step.input, dict):
+                continue
+            ref = step.input.get("ref")
+            target_name = ref.get("name") if isinstance(ref, dict) else None
+            if not isinstance(target_name, str) or target_name not in required_inputs_by_leaf:
+                continue
+            args = step.input.get("args") if isinstance(step.input.get("args"), dict) else {}
+            missing = sorted(name for name in required_inputs_by_leaf[target_name] if name not in args)
+            if missing:
+                raise WorkflowRuntimeException(
+                    ErrorCodes.TEMPLATE_PLAN,
+                    f"Pipeline main workflow call '{step.id}' to leaf '{target_name}' is missing required leaf argument(s): {', '.join(missing)}",
+                )
+
+    @staticmethod
+    def _build_leaf_input_schema_map(leaf: _GeneratedLeafWorkflow) -> dict[str, Any]:
+        inputs = leaf.workflow_node.get("inputs")
+        return copy.deepcopy(inputs) if isinstance(inputs, dict) else {}
+
+    @staticmethod
+    def _is_required_leaf_input(schema: Any) -> bool:
+        if not isinstance(schema, dict):
+            return True
+        if schema.get("required") is False:
+            return False
+        if "default" in schema:
+            return False
+        return True
 
     @staticmethod
     def _build_extraction_json(extraction: _WorkflowPipelineExtraction) -> dict[str, Any]:
@@ -1923,6 +2406,11 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             "- Function arguments are evaluated before the function runs: "
             "`coalesce(data.steps.branch_a.value, data.steps.branch_b.value)` is invalid if either "
             "branch step may not exist.\n"
+            "- Every generated custom `function name(...)` declaration in a `functions:` block MUST be immediately "
+            "preceded by JSDoc (`/** ... */`).\n"
+            "- Function JSDoc MUST include one typed `@param {type} name - meaning` tag for every function parameter.\n"
+            "- Function JSDoc MUST include a typed `@returns {type} - meaning` tag for the function output, "
+            "including `{void}` when it intentionally returns nothing.\n"
             "- After a `switch`, prefer writing a common result object via the same workflow-level "
             "output alias in every case/default branch, or add one guaranteed normalization step "
             "that receives the whole switch/branch context and emits a stable schema.\n"

@@ -40,6 +40,13 @@ class WorkflowSemanticValidationException(Exception):
 
 
 _DATA_STEPS_PATH_RE = re.compile(r"\bdata\.steps\.([A-Za-z_][A-Za-z0-9_-]*)(?P<path>(?:\.[A-Za-z_][A-Za-z0-9_]*)*)")
+_FUNCTION_DECL_RE = re.compile(r"\bfunction\s+(?P<name>[A-Za-z_$][A-Za-z0-9_$]*)\s*\((?P<params>[^)]*)\)")
+_FUNCTION_PARAM_IDENT_RE = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
+_JSDOC_PARAM_RE = re.compile(
+    r"@param\s+\{(?P<type>[^}\r\n]+)\}\s+(?P<name>\[?[A-Za-z_$][A-Za-z0-9_$]*(?:=[^\]\s]+)?\]?)",
+    re.IGNORECASE,
+)
+_JSDOC_RETURNS_RE = re.compile(r"@returns?\s+\{(?P<type>[^}\r\n]+)\}", re.IGNORECASE)
 _KNOWN_MCP_CALL_INPUT_FIELDS = {
     "server",
     "kind",
@@ -70,10 +77,12 @@ def validate_workflow_semantics(
     errors: list[WorkflowSemanticValidationError] = []
     mcp_contracts = {(c.server_name, c.tool_name): c for c in mcp_tool_contracts or []}
     workflow_contracts = document.workflows
+    _validate_function_jsdoc(document.functions, None, errors)
 
     for workflow_name, workflow in document.workflows.items():
         all_step_ids = set(_collect_step_ids(workflow.steps))
         known_contracts: dict[str, Any] = {}
+        _validate_function_jsdoc(workflow.functions, workflow_name, errors)
         _validate_step_list(workflow.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, workflow_contracts, errors)
         if workflow.outputs:
             for output_name, output_def in workflow.outputs.items():
@@ -114,6 +123,166 @@ def format_semantic_errors(errors: list[WorkflowSemanticValidationError]) -> str
         },
         ensure_ascii=False,
     )
+
+
+@dataclass(slots=True)
+class _FunctionDeclaration:
+    name: str
+    parameters: list[str]
+    index: int
+
+
+def _iter_function_declarations(script: str | None) -> list[_FunctionDeclaration]:
+    if not script or not script.strip():
+        return []
+    return [
+        _FunctionDeclaration(
+            name=match.group("name"),
+            parameters=_parse_function_parameters(match.group("params")),
+            index=match.start(),
+        )
+        for match in _FUNCTION_DECL_RE.finditer(script)
+    ]
+
+
+def _parse_function_parameters(raw_parameters: str) -> list[str]:
+    parameters: list[str] = []
+    for raw in raw_parameters.split(","):
+        candidate = _normalize_function_parameter(raw)
+        if candidate:
+            parameters.append(candidate)
+    return parameters
+
+
+def _normalize_function_parameter(parameter: str) -> str:
+    candidate = parameter.strip()
+    if candidate.startswith("..."):
+        candidate = candidate[3:].lstrip()
+    if "=" in candidate:
+        candidate = candidate.split("=", 1)[0].rstrip()
+    match = _FUNCTION_PARAM_IDENT_RE.search(candidate)
+    return match.group(0) if match else candidate
+
+
+def _validate_function_jsdoc(
+    script: str | None,
+    workflow_name: str | None,
+    errors: list[WorkflowSemanticValidationError],
+) -> None:
+    if not script or not script.strip():
+        return
+
+    for declaration in _iter_function_declarations(script):
+        field = f"functions.{declaration.name}"
+        invalid_path = (
+            f"functions.{declaration.name}"
+            if workflow_name is None
+            else f"workflows.{workflow_name}.functions.{declaration.name}"
+        )
+        jsdoc = _find_leading_jsdoc(script, declaration.index)
+        if not jsdoc:
+            errors.append(
+                WorkflowSemanticValidationError(
+                    code="FUNCTION_JSDOC_MISSING",
+                    workflow_name=workflow_name,
+                    step_id=None,
+                    field=field,
+                    invalid_path=invalid_path,
+                    allowed_paths=[],
+                    suggestion=_function_jsdoc_suggestion(declaration),
+                    message=f"Custom function `{declaration.name}` must be immediately preceded by JSDoc documenting its input and output contract.",
+                )
+            )
+            continue
+
+        documented_parameters = _parse_jsdoc_param_types(jsdoc)
+        for parameter in declaration.parameters:
+            if documented_parameters.get(parameter):
+                continue
+            errors.append(
+                WorkflowSemanticValidationError(
+                    code="FUNCTION_JSDOC_PARAM_MISSING",
+                    workflow_name=workflow_name,
+                    step_id=None,
+                    field=field,
+                    invalid_path=f"{invalid_path}.{parameter}",
+                    allowed_paths=[],
+                    suggestion=f"Add `@param {{type}} {parameter} - ...` to the JSDoc for function `{declaration.name}`.",
+                    message=f"JSDoc for custom function `{declaration.name}` must document parameter `{parameter}` with an explicit type.",
+                )
+            )
+
+        if not _has_typed_jsdoc_return(jsdoc):
+            errors.append(
+                WorkflowSemanticValidationError(
+                    code="FUNCTION_JSDOC_RETURNS_MISSING",
+                    workflow_name=workflow_name,
+                    step_id=None,
+                    field=field,
+                    invalid_path=f"{invalid_path}.return",
+                    allowed_paths=[],
+                    suggestion=f"Add `@returns {{type}} - ...` to the JSDoc for function `{declaration.name}`.",
+                    message=f"JSDoc for custom function `{declaration.name}` must document the return value with an explicit type.",
+                )
+            )
+
+
+def _find_leading_jsdoc(script: str, function_index: int) -> str | None:
+    end = function_index
+    while end > 0 and script[end - 1].isspace():
+        end -= 1
+    if end < 2 or script[end - 2 : end] != "*/":
+        return None
+    start = script.rfind("/*", 0, end)
+    if start < 0 or not script.startswith("/**", start):
+        return None
+    candidate = script[start:end].strip()
+    if candidate.startswith("/**") and candidate.endswith("*/"):
+        return candidate
+    return None
+
+
+def _parse_jsdoc_param_types(jsdoc: str) -> dict[str, str]:
+    parameters: dict[str, str] = {}
+    for match in _JSDOC_PARAM_RE.finditer(jsdoc):
+        name = _normalize_jsdoc_parameter_name(match.group("name"))
+        type_name = match.group("type").strip()
+        if name and name not in parameters:
+            parameters[name] = type_name
+    return parameters
+
+
+def _normalize_jsdoc_parameter_name(name: str) -> str:
+    candidate = name.strip()
+    if candidate.startswith("["):
+        candidate = candidate[1:]
+    if candidate.endswith("]"):
+        candidate = candidate[:-1]
+    if "=" in candidate:
+        candidate = candidate.split("=", 1)[0]
+    return candidate.strip()
+
+
+def _has_typed_jsdoc_return(jsdoc: str) -> bool:
+    match = _JSDOC_RETURNS_RE.search(jsdoc)
+    return bool(match and match.group("type").strip())
+
+
+def _function_jsdoc_suggestion(declaration: _FunctionDeclaration) -> str:
+    lines = [
+        f"Add a JSDoc block immediately before `function {declaration.name}(...)`.",
+        "Example:",
+        "/**",
+        f" * Describe what `{declaration.name}` computes and any constraints.",
+    ]
+    lines.extend(f" * @param {{type}} {parameter} - Describe this input." for parameter in declaration.parameters)
+    lines.extend(
+        [
+            " * @returns {type} Describe the returned value.",
+            " */",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _collect_step_ids(steps: list[StepDef]) -> list[str]:

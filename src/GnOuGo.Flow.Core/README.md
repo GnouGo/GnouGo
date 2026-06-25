@@ -1553,7 +1553,8 @@ Increase these limits only for trusted workflows; prefer simplifying expressions
 
 ## WFScript — Custom JavaScript Functions
 
-Define reusable functions in the `functions:` block (document-level or workflow-level):
+Define reusable functions in the `functions:` block (document-level or workflow-level).
+When `workflow.plan` generates custom functions, each generated `function` must be immediately preceded by JSDoc with typed `@param` entries for every parameter and a typed `@returns` entry for the output:
 
 Scope rules:
 
@@ -1568,12 +1569,25 @@ Scope rules:
 version: 1
 name: smart-triage
 functions: |
+  /**
+   * Classifies a message by urgency and issue type.
+   *
+   * @param {string} text - Message text to classify.
+   * @returns {string} Routing label: "critical", "bug", or "general".
+   */
   function classify(text) {
     if (contains(lower(text), "urgent")) return "critical";
     if (contains(lower(text), "bug")) return "bug";
     return "general";
   }
 
+  /**
+   * Truncates text to a maximum visible length.
+   *
+   * @param {string} text - Text to truncate.
+   * @param {number} maxLen - Maximum number of characters.
+   * @returns {string} Original or truncated text.
+   */
   function truncate(text, maxLen) {
     if (len(text) <= maxLen) return text;
     return text.substring(0, maxLen) + "...";

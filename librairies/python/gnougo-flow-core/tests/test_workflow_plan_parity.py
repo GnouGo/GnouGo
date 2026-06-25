@@ -90,6 +90,43 @@ class PipelinePlanLlm:
         return LLMResponse(text=self.leaf_yaml)
 
 
+class RepairingExtractionPipelineLlm(PipelinePlanLlm):
+    def __init__(self, leaf_yaml: str, assembly_yaml: str) -> None:
+        super().__init__(leaf_yaml, assembly_yaml)
+        self.annotate_calls = 0
+
+    async def call_async(self, request):
+        self.prompts.append(request.prompt)
+        prompt = request.prompt
+        if "preparing a raw user automation prompt" in prompt:
+            return LLMResponse(text="# Resolve issue\n\nParse the issue and expose the number.")
+        if "annotate normalized automation Markdown" in prompt:
+            self.annotate_calls += 1
+            if self.annotate_calls == 1:
+                return LLMResponse(
+                    text="""
+                    # Resolve issue
+
+                    :::subworkflow name="BadName"
+                    goal: Parse an issue key.
+                    inputs:
+                      issue_key: string
+                    outputs:
+                      issue_number: integer
+                    extract_reason: Reusable issue parsing logic.
+                    content:
+                      Parse the issue key.
+                    :::
+                    """
+                )
+            return LLMResponse(text=self.annotated_markdown)
+        if "Generate exactly one leaf GnOuGo workflow named `parse_issue`" in prompt:
+            return LLMResponse(text=self.leaf_yaml)
+        if "assembling the parent `main` workflow" in prompt:
+            return LLMResponse(text=self.assembly_yaml)
+        return LLMResponse(text=self.leaf_yaml)
+
+
 class FakeMcpSession:
     server_name = "demo"
 
@@ -258,6 +295,9 @@ async def test_workflow_plan_prompt_contains_dotnet_like_sections() -> None:
     assert "## Server: demo" in prompt
     assert "Function arguments are evaluated before the function runs" in prompt
     assert "coalesce(data.steps.branch_a.value, data.steps.branch_b.value)" in prompt
+    assert "Every generated custom `function name(...)` declaration in a `functions:` block MUST be immediately preceded by JSDoc" in prompt
+    assert "@param {type} name - meaning" in prompt
+    assert "@returns {type} - meaning" in prompt
     assert "produced only inside `switch` cases" in prompt
     assert "version, name, skill, workflows" in prompt
     assert "- skill: required object" in prompt
@@ -1585,6 +1625,227 @@ async def test_workflow_plan_pipeline_mode_composes_main_and_leaf_subworkflows()
 
 
 @pytest.mark.asyncio
+async def test_workflow_plan_pipeline_mode_accepts_dotnet_graph_assembly_shape() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: pipeline
+              raw_prompt: "Resolve issue ABC-42"
+              generator:
+                model: fake
+                prefilter: false
+              validate:
+                compile: true
+    """
+    leaf_yaml = """
+    version: 1
+    name: parse_issue_leaf
+    skill:
+      description: Parse issue.
+      tags: [issue]
+      inputs:
+        issue_key: string
+      outputs:
+        issue_number: integer
+    workflows:
+      parse_issue:
+        inputs:
+          issue_key: string
+        steps:
+          - id: parsed
+            type: set
+            input:
+              issue_number: 42
+        outputs:
+          issue_number: "${data.steps.parsed.issue_number}"
+    """
+    assembly_yaml = """
+    document:
+      name: issue_pipeline
+      skill:
+        description: Resolve an issue.
+        tags: [issue, pipeline]
+        inputs:
+          issue_key: string
+        outputs:
+          issue_number: integer
+    graph:
+      inputs:
+        issue_key: string
+      steps:
+        - id: call_parse_issue
+          leaf: parse_issue
+          args:
+            issue_key: "${data.inputs.issue_key}"
+      outputs:
+        issue_number: "${data.steps.call_parse_issue.outputs.issue_number}"
+    """
+
+    engine = WorkflowEngine()
+    llm = PipelinePlanLlm(leaf_yaml, assembly_yaml)
+    engine.llm_client = llm
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    generated = yaml.safe_load(result.outputs["plan"]["yaml"])
+    call = generated["workflows"]["main"]["steps"][0]
+    assert call["type"] == "workflow.call"
+    assert call["input"]["ref"] == {"kind": "local", "name": "parse_issue"}
+    assert call["input"]["args"]["issue_key"] == "${data.inputs.issue_key}"
+    assembly_prompt = next(prompt for prompt in llm.prompts if "assembling the parent `main` workflow" in prompt)
+    assert "document` and `graph` keys" in assembly_prompt
+    assert "Graph call nodes must use `leaf: <leaf_name>` and `args`" in assembly_prompt
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_pipeline_mode_reprompts_mark_extractable_blocks_when_extraction_validation_fails() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: pipeline
+              raw_prompt: "Resolve issue ABC-42"
+              generator:
+                model: fake
+                prefilter: false
+              on_invalid:
+                max_attempts: 2
+              validate:
+                compile: true
+    """
+    leaf_yaml = """
+    version: 1
+    name: parse_issue_leaf
+    skill:
+      description: Parse issue.
+      tags: [issue]
+      inputs:
+        issue_key: string
+      outputs:
+        issue_number: integer
+    workflows:
+      parse_issue:
+        inputs:
+          issue_key: string
+        steps:
+          - id: parsed
+            type: set
+            input:
+              issue_number: 42
+        outputs:
+          issue_number: "${data.steps.parsed.issue_number}"
+    """
+    assembly_yaml = """
+    document:
+      name: issue_pipeline
+    graph:
+      inputs:
+        issue_key: string
+      steps:
+        - id: call_parse_issue
+          leaf: parse_issue
+          args:
+            issue_key: "${data.inputs.issue_key}"
+    """
+
+    engine = WorkflowEngine()
+    llm = RepairingExtractionPipelineLlm(leaf_yaml, assembly_yaml)
+    engine.llm_client = llm
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    assert llm.annotate_calls == 2
+    repair_prompt = next(prompt for prompt in llm.prompts if "previous `mark_extractable_blocks` response failed" in prompt)
+    assert "Subworkflow name 'BadName' must use snake_case." in repair_prompt
+    assert "invalid_annotated_markdown" in repair_prompt
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_pipeline_mode_moves_leaf_root_functions_to_leaf_workflow_scope_python() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: pipeline
+              raw_prompt: "Resolve issue ABC-42"
+              generator:
+                model: fake
+                prefilter: false
+              validate:
+                compile: true
+    """
+    leaf_yaml = """
+    version: 1
+    name: parse_issue_leaf
+    skill:
+      description: Parse issue.
+      tags: [issue]
+      inputs:
+        issue_key: string
+      outputs:
+        issue_number: integer
+    functions: |
+      /**
+       * Parses an issue key into a numeric identifier.
+       *
+       * @param {string} issueKey - Issue key such as ABC-42.
+       * @returns {number} Numeric issue identifier.
+       */
+      function parseIssue(issueKey) {
+        return 42;
+      }
+    workflows:
+      parse_issue:
+        inputs:
+          issue_key: string
+        steps:
+          - id: parsed
+            type: set
+            input:
+              issue_number: "${functions.parseIssue(data.inputs.issue_key)}"
+        outputs:
+          issue_number: "${data.steps.parsed.issue_number}"
+    """
+    assembly_yaml = """
+    document:
+      name: issue_pipeline
+    graph:
+      inputs:
+        issue_key: string
+      steps:
+        - id: call_parse_issue
+          leaf: parse_issue
+          args:
+            issue_key: "${data.inputs.issue_key}"
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = PipelinePlanLlm(leaf_yaml, assembly_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    generated = yaml.safe_load(result.outputs["plan"]["yaml"])
+    assert "functions" not in generated
+    assert "parseIssue" in generated["workflows"]["parse_issue"]["functions"]
+
+
+@pytest.mark.asyncio
 async def test_workflow_plan_pipeline_mode_rejects_generated_leaf_workflow_calls() -> None:
     source = """
     version: 1
@@ -1640,6 +1901,149 @@ async def test_workflow_plan_pipeline_mode_rejects_generated_leaf_workflow_calls
     assert result.error.code == "TEMPLATE_PLAN"
     assert "Leaf workflow 'parse_issue'" in result.error.message
     assert "workflow.call" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_pipeline_mode_rejects_untyped_array_outputs_in_leaf_workflows_python() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: pipeline
+              raw_prompt: "Collect records"
+              generator:
+                model: fake
+                prefilter: false
+              on_invalid:
+                action: fail
+                max_attempts: 1
+    """
+    annotated = """
+    # Collect records
+
+    :::subworkflow name="parse_issue"
+    goal: Collect records.
+    inputs:
+      issue_key: string
+    outputs:
+      records: array
+    extract_reason: Reusable collection logic.
+    content:
+      Collect records for the issue.
+    :::
+
+    ## Main workflow orchestration
+
+    Call parse_issue and expose records.
+    """
+    leaf_yaml = """
+    version: 1
+    name: collect-records-leaf
+    skill:
+      description: Collect records.
+      tags: [records]
+      inputs:
+        issue_key: string
+      outputs:
+        records:
+          type: array
+    workflows:
+      parse_issue:
+        inputs:
+          issue_key: string
+        steps:
+          - id: records
+            type: set
+            input:
+              value: []
+        outputs:
+          records:
+            expr: "${data.steps.records.value}"
+            type: array
+    """
+    assembly_yaml = "document: {name: unused}\ngraph: {steps: []}\n"
+
+    engine = WorkflowEngine()
+    engine.llm_client = PipelinePlanLlm(leaf_yaml, assembly_yaml, annotated_markdown=annotated)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "weak array output schemas" in result.error.message
+    assert "records" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_pipeline_mode_rejects_main_graph_missing_required_leaf_args_python() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: pipeline
+              raw_prompt: "Resolve issue ABC-42"
+              generator:
+                model: fake
+                prefilter: false
+              on_invalid:
+                action: fail
+                max_attempts: 1
+              validate:
+                compile: true
+    """
+    leaf_yaml = """
+    version: 1
+    name: parse_issue_leaf
+    skill:
+      description: Parse issue.
+      tags: [issue]
+      inputs:
+        issue_key: string
+      outputs:
+        issue_number: integer
+    workflows:
+      parse_issue:
+        inputs:
+          issue_key: string
+        steps:
+          - id: parsed
+            type: set
+            input:
+              issue_number: 42
+        outputs:
+          issue_number: "${data.steps.parsed.issue_number}"
+    """
+    assembly_yaml = """
+    document:
+      name: issue_pipeline
+    graph:
+      inputs:
+        issue_key: string
+      steps:
+        - id: call_parse_issue
+          leaf: parse_issue
+          args: {}
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = PipelinePlanLlm(leaf_yaml, assembly_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "missing required leaf argument" in result.error.message
+    assert "issue_key" in result.error.message
 
 
 @pytest.mark.asyncio

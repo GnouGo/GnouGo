@@ -452,6 +452,9 @@ internal static class WorkflowPlanDiagnostics
             "MCP_METHOD_UNKNOWN" => "Use one exact MCP tool name from the discovered server catalog.",
             "MCP_SERVER_UNKNOWN" => "Use one exact MCP server name from discovery.",
             "EXPRESSION_FUNCTION_UNKNOWN" => "Use only documented built-in functions, or define the custom helper in a document-level or workflow-level `functions:` block before calling it.",
+            "FUNCTION_JSDOC_MISSING" => "Add a JSDoc block immediately before the custom function declaration.",
+            "FUNCTION_JSDOC_PARAM_MISSING" => "Add one typed `@param {type} name` tag for every custom function parameter.",
+            "FUNCTION_JSDOC_RETURNS_MISSING" => "Add a typed `@returns {type}` tag for the custom function return value.",
             ErrorCodes.ExprTypeMismatch => "Use an expression whose resolved type matches the destination contract.",
             _ => "Repair the generated workflow so the semantic contract can be proven statically."
         };
@@ -469,6 +472,9 @@ internal static class WorkflowPlanDiagnostics
             "MCP_METHOD_UNKNOWN" => "discovered MCP method",
             "MCP_SERVER_UNKNOWN" => "discovered MCP server",
             "EXPRESSION_FUNCTION_UNKNOWN" => "built-in or declared WFScript function",
+            "FUNCTION_JSDOC_MISSING" => "JSDoc immediately preceding the function declaration",
+            "FUNCTION_JSDOC_PARAM_MISSING" => "typed @param tag for each function parameter",
+            "FUNCTION_JSDOC_RETURNS_MISSING" => "typed @returns tag for the function return value",
             ErrorCodes.ExprTypeMismatch => "expression result matching expected type",
             _ => null
         };

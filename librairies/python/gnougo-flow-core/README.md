@@ -1076,6 +1076,27 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 
 Use `mode: basic` to skip classification and run the original single workflow-generation path directly. Use `mode: pipeline` to force decomposition.
 
+#### Pipeline mode
+
+Pipeline mode normalizes the user prompt, asks the LLM to mark extractable `:::subworkflow` leaf blocks, generates each leaf as an independently valid workflow, then asks for a compact parent orchestration graph:
+
+```yaml
+document:
+  name: generated-pipeline-workflow
+graph:
+  inputs:
+    query: string
+  steps:
+    - id: call_collect_data
+      leaf: collect_data
+      args:
+        query: ${data.inputs.query}
+  outputs:
+    collect_data_outputs: ${data.steps.call_collect_data.outputs}
+```
+
+The runtime renders graph leaf nodes into local `workflow.call` steps, grafts the validated leaf workflows, moves leaf document-level `functions:` into that leaf workflow scope, checks required leaf arguments, and validates the final YAML. If extractable-block annotation fails validation, `workflow.plan` reprompts with the invalid annotated Markdown and exact validation errors.
+
 **Output:** `{ workflow: { dsl, name, workflows: [...] }, yaml: "...", meta: { model, attempt?, mode, mode_selection? } }`
 
 **Features:**
@@ -1296,18 +1317,32 @@ Increase these limits only for trusted workflows; prefer simplifying expressions
 
 ## WFScript — Custom JavaScript Functions
 
-Define reusable functions in the `functions:` block (document-level or workflow-level):
+Define reusable functions in the `functions:` block (document-level or workflow-level).
+When `workflow.plan` generates custom functions, each generated `function` must be immediately preceded by JSDoc with typed `@param` entries for every parameter and a typed `@returns` entry for the output:
 
 ```yaml
 version: 1
 name: smart-triage
 functions: |
+  /**
+   * Classifies a message by urgency and issue type.
+   *
+   * @param {string} text - Message text to classify.
+   * @returns {string} Routing label: "critical", "bug", or "general".
+   */
   function classify(text) {
     if (contains(lower(text), "urgent")) return "critical";
     if (contains(lower(text), "bug")) return "bug";
     return "general";
   }
 
+  /**
+   * Truncates text to a maximum visible length.
+   *
+   * @param {string} text - Text to truncate.
+   * @param {number} maxLen - Maximum number of characters.
+   * @returns {string} Original or truncated text.
+   */
   function truncate(text, maxLen) {
     if (len(text) <= maxLen) return text;
     return text.substring(0, maxLen) + "...";

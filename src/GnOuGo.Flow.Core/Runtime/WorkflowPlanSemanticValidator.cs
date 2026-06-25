@@ -52,8 +52,17 @@ internal static class WorkflowPlanSemanticValidator
         @"\bfunctions\.([A-Za-z_][A-Za-z0-9_]*)\s*\(",
         RegexOptions.Compiled);
     private static readonly Regex FunctionDeclarationRegex = new(
-        @"\bfunction\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(",
+        @"\bfunction\s+(?<name>[A-Za-z_$][A-Za-z0-9_$]*)\s*\((?<params>[^)]*)\)",
         RegexOptions.Compiled);
+    private static readonly Regex FunctionParameterIdentifierRegex = new(
+        @"[A-Za-z_$][A-Za-z0-9_$]*",
+        RegexOptions.Compiled);
+    private static readonly Regex JsDocParamRegex = new(
+        @"@param\s+\{(?<type>[^}\r\n]+)\}\s+(?<name>\[?[A-Za-z_$][A-Za-z0-9_$]*(?:=[^\]\s]+)?\]?)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex JsDocReturnsRegex = new(
+        @"@returns?\s+\{(?<type>[^}\r\n]+)\}",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly HashSet<string> KnownMcpCallInputFields = new(StringComparer.Ordinal)
     {
         "server", "kind", "method", "methods", "request", "request_template", "template_data",
@@ -74,12 +83,14 @@ internal static class WorkflowPlanSemanticValidator
     {
         var errors = new List<WorkflowSemanticValidationError>();
         var mcpContracts = BuildMcpContractLookup(mcpToolContracts);
+        ValidateFunctionJsDoc(document.Functions, workflowName: null, errors);
         var globalFunctionNames = BuildAllowedFunctionNames(document.Functions);
 
         foreach (var (workflowName, workflow) in document.Workflows)
         {
             var allStepIds = CollectStepIds(workflow.Steps).ToHashSet(StringComparer.Ordinal);
             var knownContracts = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
+            ValidateFunctionJsDoc(workflow.Functions, workflowName, errors);
             var allowedFunctionNames = BuildAllowedFunctionNames(workflow.Functions, globalFunctionNames);
             ValidateStepList(
                 workflow.Steps,
@@ -164,10 +175,187 @@ internal static class WorkflowPlanSemanticValidator
         if (string.IsNullOrWhiteSpace(script))
             return names;
 
-        foreach (Match match in FunctionDeclarationRegex.Matches(script))
-            names.Add(match.Groups[1].Value);
+        foreach (var declaration in EnumerateFunctionDeclarations(script))
+            names.Add(declaration.Name);
 
         return names;
+    }
+
+    private sealed record FunctionDeclaration(string Name, IReadOnlyList<string> Parameters, int Index);
+
+    private static IEnumerable<FunctionDeclaration> EnumerateFunctionDeclarations(string? script)
+    {
+        if (string.IsNullOrWhiteSpace(script))
+            yield break;
+
+        foreach (Match match in FunctionDeclarationRegex.Matches(script))
+        {
+            var name = match.Groups["name"].Value;
+            var parameters = ParseFunctionParameters(match.Groups["params"].Value);
+            yield return new FunctionDeclaration(name, parameters, match.Index);
+        }
+    }
+
+    private static IReadOnlyList<string> ParseFunctionParameters(string rawParameters)
+    {
+        if (string.IsNullOrWhiteSpace(rawParameters))
+            return Array.Empty<string>();
+
+        return rawParameters
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeFunctionParameter)
+            .Where(static parameter => !string.IsNullOrWhiteSpace(parameter))
+            .ToArray();
+    }
+
+    private static string NormalizeFunctionParameter(string parameter)
+    {
+        var candidate = parameter.Trim();
+        if (candidate.StartsWith("...", StringComparison.Ordinal))
+            candidate = candidate[3..].TrimStart();
+
+        var defaultIndex = candidate.IndexOf('=');
+        if (defaultIndex >= 0)
+            candidate = candidate[..defaultIndex].TrimEnd();
+
+        var match = FunctionParameterIdentifierRegex.Match(candidate);
+        return match.Success ? match.Value : candidate;
+    }
+
+    private static void ValidateFunctionJsDoc(
+        string? script,
+        string? workflowName,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        if (string.IsNullOrWhiteSpace(script))
+            return;
+
+        foreach (var declaration in EnumerateFunctionDeclarations(script))
+        {
+            var field = $"functions.{declaration.Name}";
+            var invalidPath = workflowName == null
+                ? $"functions.{declaration.Name}"
+                : $"workflows.{workflowName}.functions.{declaration.Name}";
+            var jsDoc = FindLeadingJsDoc(script, declaration.Index);
+
+            if (string.IsNullOrWhiteSpace(jsDoc))
+            {
+                errors.Add(new WorkflowSemanticValidationError
+                {
+                    Code = "FUNCTION_JSDOC_MISSING",
+                    WorkflowName = workflowName,
+                    Field = field,
+                    InvalidPath = invalidPath,
+                    AllowedPaths = Array.Empty<string>(),
+                    Suggestion = BuildFunctionJsDocSuggestion(declaration),
+                    Message = $"Custom function `{declaration.Name}` must be immediately preceded by JSDoc documenting its input and output contract."
+                });
+                continue;
+            }
+
+            var documentedParameters = ParseJsDocParamTypes(jsDoc);
+            foreach (var parameter in declaration.Parameters)
+            {
+                if (documentedParameters.TryGetValue(parameter, out var parameterType)
+                    && !string.IsNullOrWhiteSpace(parameterType))
+                {
+                    continue;
+                }
+
+                errors.Add(new WorkflowSemanticValidationError
+                {
+                    Code = "FUNCTION_JSDOC_PARAM_MISSING",
+                    WorkflowName = workflowName,
+                    Field = field,
+                    InvalidPath = $"{invalidPath}.{parameter}",
+                    AllowedPaths = Array.Empty<string>(),
+                    Suggestion = $"Add `@param {{type}} {parameter} - ...` to the JSDoc for function `{declaration.Name}`.",
+                    Message = $"JSDoc for custom function `{declaration.Name}` must document parameter `{parameter}` with an explicit type."
+                });
+            }
+
+            if (!HasTypedJsDocReturn(jsDoc))
+            {
+                errors.Add(new WorkflowSemanticValidationError
+                {
+                    Code = "FUNCTION_JSDOC_RETURNS_MISSING",
+                    WorkflowName = workflowName,
+                    Field = field,
+                    InvalidPath = $"{invalidPath}.return",
+                    AllowedPaths = Array.Empty<string>(),
+                    Suggestion = $"Add `@returns {{type}} - ...` to the JSDoc for function `{declaration.Name}`.",
+                    Message = $"JSDoc for custom function `{declaration.Name}` must document the return value with an explicit type."
+                });
+            }
+        }
+    }
+
+    private static string? FindLeadingJsDoc(string script, int functionIndex)
+    {
+        var end = functionIndex;
+        while (end > 0 && char.IsWhiteSpace(script[end - 1]))
+            end--;
+
+        if (end < 2 || script[end - 1] != '/' || script[end - 2] != '*')
+            return null;
+
+        var start = script.LastIndexOf("/*", end - 1, StringComparison.Ordinal);
+        if (start < 0 || start + 2 >= script.Length || script[start + 2] != '*')
+            return null;
+
+        var candidate = script[start..end].Trim();
+        return candidate.StartsWith("/**", StringComparison.Ordinal) && candidate.EndsWith("*/", StringComparison.Ordinal)
+            ? candidate
+            : null;
+    }
+
+    private static Dictionary<string, string> ParseJsDocParamTypes(string jsDoc)
+    {
+        var parameters = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (Match match in JsDocParamRegex.Matches(jsDoc))
+        {
+            var name = NormalizeJsDocParameterName(match.Groups["name"].Value);
+            var type = match.Groups["type"].Value.Trim();
+            if (!string.IsNullOrWhiteSpace(name) && !parameters.ContainsKey(name))
+                parameters[name] = type;
+        }
+
+        return parameters;
+    }
+
+    private static string NormalizeJsDocParameterName(string name)
+    {
+        var candidate = name.Trim();
+        if (candidate.StartsWith("[", StringComparison.Ordinal))
+            candidate = candidate[1..];
+        if (candidate.EndsWith("]", StringComparison.Ordinal))
+            candidate = candidate[..^1];
+
+        var defaultIndex = candidate.IndexOf('=');
+        if (defaultIndex >= 0)
+            candidate = candidate[..defaultIndex];
+
+        return candidate.Trim();
+    }
+
+    private static bool HasTypedJsDocReturn(string jsDoc)
+    {
+        var match = JsDocReturnsRegex.Match(jsDoc);
+        return match.Success && !string.IsNullOrWhiteSpace(match.Groups["type"].Value);
+    }
+
+    private static string BuildFunctionJsDocSuggestion(FunctionDeclaration declaration)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Add a JSDoc block immediately before `function {declaration.Name}(...)`.");
+        sb.AppendLine("Example:");
+        sb.AppendLine("/**");
+        sb.AppendLine($" * Describe what `{declaration.Name}` computes and any constraints.");
+        foreach (var parameter in declaration.Parameters)
+            sb.AppendLine($" * @param {{type}} {parameter} - Describe this input.");
+        sb.AppendLine(" * @returns {type} Describe the returned value.");
+        sb.AppendLine(" */");
+        return sb.ToString().TrimEnd();
     }
 
     private static IEnumerable<string> CollectStepIds(IEnumerable<StepDef> steps)
