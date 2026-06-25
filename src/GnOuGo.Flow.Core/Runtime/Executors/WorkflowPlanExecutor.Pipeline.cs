@@ -2471,65 +2471,29 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static JsonNode InputDefToContractNode(InputDef schema)
     {
-        var type = NormalizeWorkflowSchemaType(schema.Type);
-        if (CanUseScalarInputContract(schema, type))
-            return JsonValue.Create(type)!;
+        var node = FlowTypeDescriptorConverter.ToWorkflowContractNode(
+            FlowTypeDescriptorConverter.FromInputDef(schema),
+            inputStyle: true,
+            allowScalarShortForm: schema.Required);
 
-        var obj = new JsonObject { ["type"] = type };
-        if (!string.IsNullOrWhiteSpace(schema.Description))
-            obj["description"] = schema.Description;
         if (!schema.Required)
+        {
+            if (node is not JsonObject obj)
+            {
+                obj = new JsonObject { ["type"] = NormalizeWorkflowSchemaType(schema.Type) };
+                node = obj;
+            }
+
             obj["required"] = false;
-        if (schema.Default != null)
-            obj["default"] = InputDefaultValueConverter.ConvertToNode(schema.Default, schema);
-        if (schema.Items != null)
-            obj["items"] = InputDefToContractNode(schema.Items);
-        if (schema.Properties != null)
-            obj["properties"] = BuildSchemaMapJson(BuildInputSchemaMap(schema.Properties));
-        if (schema.AdditionalProperties != null)
-            obj["additional_properties"] = InputDefToContractNode(schema.AdditionalProperties);
-        if (schema.RequiredProperties is { Count: > 0 })
-            obj["required_properties"] = BuildStringArray(schema.RequiredProperties);
-        return obj;
+        }
+
+        return node;
     }
 
     private static JsonNode OutputDefToContractNode(OutputDef schema)
-    {
-        var type = NormalizeWorkflowSchemaType(schema.Type);
-        if (CanUseScalarOutputContract(schema, type))
-            return JsonValue.Create(type)!;
-
-        var obj = new JsonObject { ["type"] = type };
-        if (!string.IsNullOrWhiteSpace(schema.Description))
-            obj["description"] = schema.Description;
-        if (schema.Items != null)
-            obj["items"] = OutputDefToContractNode(schema.Items);
-        if (schema.Properties != null)
-            obj["properties"] = BuildSchemaMapJson(BuildOutputSchemaMap(schema.Properties, null));
-        if (schema.AdditionalProperties != null)
-            obj["additional_properties"] = OutputDefToContractNode(schema.AdditionalProperties);
-        if (schema.RequiredProperties is { Count: > 0 })
-            obj["required_properties"] = BuildStringArray(schema.RequiredProperties);
-        return obj;
-    }
-
-    private static bool CanUseScalarInputContract(InputDef schema, string type)
-        => type is not ("array" or "object" or "dictionary")
-            && schema.Required
-            && schema.Default == null
-            && string.IsNullOrWhiteSpace(schema.Description)
-            && schema.Items == null
-            && schema.Properties == null
-            && schema.AdditionalProperties == null
-            && schema.RequiredProperties is not { Count: > 0 };
-
-    private static bool CanUseScalarOutputContract(OutputDef schema, string type)
-        => type is not ("array" or "object" or "dictionary")
-            && string.IsNullOrWhiteSpace(schema.Description)
-            && schema.Items == null
-            && schema.Properties == null
-            && schema.AdditionalProperties == null
-            && schema.RequiredProperties is not { Count: > 0 };
+        => FlowTypeDescriptorConverter.ToWorkflowContractNode(
+            FlowTypeDescriptorConverter.FromOutputDef(schema),
+            inputStyle: false);
 
     private static bool IsOpaqueOutputSchema(OutputDef schema)
         => string.Equals(NormalizeWorkflowSchemaType(schema.Type), "any", StringComparison.Ordinal)
@@ -2538,14 +2502,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             && schema.Properties == null
             && schema.AdditionalProperties == null
             && schema.RequiredProperties is not { Count: > 0 };
-
-    private static JsonArray BuildStringArray(IEnumerable<string> values)
-    {
-        var array = new JsonArray();
-        foreach (var value in values)
-            array.Add((JsonNode?)JsonValue.Create(value));
-        return array;
-    }
 
     private static YamlMappingNode BuildYamlSchemaMap(IReadOnlyDictionary<string, JsonNode?> schemas)
     {

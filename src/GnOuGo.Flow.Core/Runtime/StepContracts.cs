@@ -11,7 +11,11 @@ public sealed record StepContract(
     JsonObject InputSchema,
     JsonObject OutputSchema,
     bool InputRequired = false,
-    IReadOnlyList<IReadOnlyList<string>>? MutuallyExclusiveInputFields = null);
+    IReadOnlyList<IReadOnlyList<string>>? MutuallyExclusiveInputFields = null)
+{
+    internal FlowTypeDescriptor InputType { get; } = FlowTypeDescriptorConverter.FromJsonSchema(InputSchema);
+    internal FlowTypeDescriptor OutputType { get; } = FlowTypeDescriptorConverter.FromJsonSchema(OutputSchema);
+}
 
 public sealed record StepContractViolation(string Field, string Message);
 
@@ -310,7 +314,7 @@ internal static class StepContractValidator
             return violations;
         }
 
-        ValidateNode(input, contract.InputSchema, "input", violations);
+        ValidateNode(input, contract.InputType, "input", violations);
 
         if (input is JsonObject obj && contract.MutuallyExclusiveInputFields != null)
         {
@@ -331,79 +335,81 @@ internal static class StepContractValidator
 
     private static void ValidateNode(
         JsonNode? value,
-        JsonObject schema,
+        FlowTypeDescriptor schema,
         string path,
         List<StepContractViolation> violations)
     {
-        if (IsDynamic(value) || IsOpaque(schema))
+        if (IsDynamic(value) || schema.IsOpaque)
             return;
 
-        if (schema["anyOf"] is JsonArray variants)
+        if (schema.Kind == FlowTypeKind.Union)
         {
-            var candidates = variants
-                .OfType<JsonObject>()
-                .Where(candidate => MatchesType(value, candidate["type"]?.GetValue<string>()))
+            var candidates = schema.Variants
+                .Where(candidate => MatchesType(value, candidate))
                 .ToArray();
             if (candidates.Length == 0)
             {
-                var expected = variants
-                    .OfType<JsonObject>()
-                    .Select(candidate => candidate["type"]?.GetValue<string>())
-                    .Where(static type => type != null)
-                    .Distinct(StringComparer.Ordinal);
-                violations.Add(new StepContractViolation(path, $"expected {string.Join(" or ", expected)}, got {DescribeType(value)}"));
+                violations.Add(new StepContractViolation(path, $"expected {schema.Describe()}, got {DescribeType(value)}"));
                 return;
+            }
+
+            foreach (var candidate in candidates)
+            {
+                var candidateViolations = new List<StepContractViolation>();
+                ValidateNode(value, candidate, path, candidateViolations);
+                if (candidateViolations.Count == 0)
+                    return;
             }
 
             ValidateNode(value, candidates[0], path, violations);
             return;
         }
 
-        var type = schema["type"]?.GetValue<string>();
-        if (!MatchesType(value, type))
+        if (!MatchesType(value, schema))
         {
-            violations.Add(new StepContractViolation(path, $"expected {type ?? "a valid value"}, got {DescribeType(value)}"));
+            violations.Add(new StepContractViolation(path, $"expected {schema.Describe()}, got {DescribeType(value)}"));
             return;
         }
 
-        if (schema["enum"] is JsonArray allowed && value is JsonValue scalar)
+        if (schema.EnumValues.Count > 0 && value is JsonValue scalar)
         {
-            var matches = allowed.Any(candidate => JsonNode.DeepEquals(candidate, scalar));
+            var matches = schema.EnumValues.Any(candidate =>
+                scalar.TryGetValue<string>(out var actual)
+                && string.Equals(actual, candidate, StringComparison.Ordinal));
             if (!matches)
-                violations.Add(new StepContractViolation(path, $"value must be one of: {string.Join(", ", allowed.Select(static item => item?.ToJsonString()))}"));
+                violations.Add(new StepContractViolation(path, $"value must be one of: {string.Join(", ", schema.EnumValues)}"));
         }
 
-        if (value is JsonObject obj && string.Equals(type, "object", StringComparison.Ordinal))
+        if (value is JsonObject obj && schema.Kind is FlowTypeKind.Object or FlowTypeKind.Dictionary)
         {
-            if (schema["required"] is JsonArray required)
+            foreach (var (name, property) in schema.Properties)
             {
-                foreach (var requiredNode in required)
-                {
-                    var name = requiredNode?.GetValue<string>();
-                    if (name != null && !obj.ContainsKey(name))
-                        violations.Add(new StepContractViolation($"{path}.{name}", $"required field '{name}' is missing"));
-                }
+                if (property.Required && !obj.ContainsKey(name))
+                    violations.Add(new StepContractViolation($"{path}.{name}", $"required field '{name}' is missing"));
             }
 
-            var properties = schema["properties"] as JsonObject;
-            var additionalAllowed = schema["additionalProperties"]?.GetValue<bool>() ?? true;
             foreach (var (name, child) in obj)
             {
-                if (properties != null && properties[name] is JsonObject childSchema)
+                if (schema.Properties.TryGetValue(name, out var childSchema))
                 {
-                    ValidateNode(child, childSchema, $"{path}.{name}", violations);
+                    ValidateNode(child, childSchema.Type, $"{path}.{name}", violations);
                     continue;
                 }
 
-                if (!additionalAllowed)
+                if (!schema.AllowsAdditionalProperties)
+                {
                     violations.Add(new StepContractViolation($"{path}.{name}", $"unknown field '{name}'"));
+                    continue;
+                }
+
+                if (schema.AdditionalProperties != null)
+                    ValidateNode(child, schema.AdditionalProperties, $"{path}.{name}", violations);
             }
         }
-        else if (value is JsonArray array && string.Equals(type, "array", StringComparison.Ordinal)
-                 && schema["items"] is JsonObject itemSchema)
+        else if (value is JsonArray array && schema.Kind == FlowTypeKind.Array && schema.Items != null)
         {
             for (var i = 0; i < array.Count; i++)
-                ValidateNode(array[i], itemSchema, $"{path}[{i}]", violations);
+                ValidateNode(array[i], schema.Items, $"{path}[{i}]", violations);
         }
     }
 
@@ -412,26 +418,22 @@ internal static class StepContractValidator
         && scalar.TryGetValue<string>(out var text)
         && text?.Contains("${", StringComparison.Ordinal) == true;
 
-    private static bool IsOpaque(JsonObject schema) =>
-        schema["x-gnougo-opaque"] is JsonValue value
-        && value.TryGetValue<bool>(out var opaque)
-        && opaque;
-
-    private static bool MatchesType(JsonNode? value, string? type)
+    private static bool MatchesType(JsonNode? value, FlowTypeDescriptor schema)
     {
-        if (type == null)
+        if (schema.IsOpaque)
             return true;
         if (value == null)
-            return string.Equals(type, "null", StringComparison.Ordinal);
+            return schema.Kind == FlowTypeKind.Null;
 
-        return type switch
+        return schema.Kind switch
         {
-            "object" => value is JsonObject,
-            "array" => value is JsonArray,
-            "string" => value is JsonValue scalar && scalar.TryGetValue<string>(out _),
-            "boolean" => value is JsonValue scalar && scalar.TryGetValue<bool>(out _),
-            "integer" => IsInteger(value),
-            "number" => IsNumber(value),
+            FlowTypeKind.Object or FlowTypeKind.Dictionary => value is JsonObject,
+            FlowTypeKind.Array => value is JsonArray,
+            FlowTypeKind.String => value is JsonValue scalar && scalar.TryGetValue<string>(out _),
+            FlowTypeKind.Boolean => value is JsonValue scalar && scalar.TryGetValue<bool>(out _),
+            FlowTypeKind.Integer => IsInteger(value),
+            FlowTypeKind.Number => IsNumber(value),
+            FlowTypeKind.Null => value == null,
             _ => true
         };
     }

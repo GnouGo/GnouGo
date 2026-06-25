@@ -48,8 +48,28 @@ internal static class StepExpressionTypeValidator
         IReadOnlyDictionary<string, JsonNode?> knownStepOutputs,
         IReadOnlySet<string>? nonNullReferences = null)
     {
+        var knownTypes = knownStepOutputs.ToDictionary(
+            static pair => pair.Key,
+            pair => FlowTypeDescriptorConverter.FromJsonSchema(pair.Value),
+            StringComparer.Ordinal);
+
+        return ValidateInput(
+            input,
+            FlowTypeDescriptorConverter.FromJsonSchema(inputSchema),
+            FlowTypeDescriptorConverter.InputMap(workflowInputs),
+            knownTypes,
+            nonNullReferences);
+    }
+
+    public static IReadOnlyList<StepExpressionTypeMismatch> ValidateInput(
+        JsonNode? input,
+        FlowTypeDescriptor inputType,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
+        IReadOnlySet<string>? nonNullReferences = null)
+    {
         var mismatches = new List<StepExpressionTypeMismatch>();
-        ValidateNode(input, inputSchema, "input", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
+        ValidateNode(input, inputType, "input", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
         return mismatches;
     }
 
@@ -58,45 +78,56 @@ internal static class StepExpressionTypeValidator
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
         IReadOnlyDictionary<string, JsonNode?> knownStepOutputs)
     {
+        var knownTypes = knownStepOutputs.ToDictionary(
+            static pair => pair.Key,
+            pair => FlowTypeDescriptorConverter.FromJsonSchema(pair.Value),
+            StringComparer.Ordinal);
+
+        var inferred = InferValueType(value, FlowTypeDescriptorConverter.InputMap(workflowInputs), knownTypes);
+        return inferred == null ? null : FlowTypeDescriptorConverter.ToRuntimeJsonSchema(inferred);
+    }
+
+    public static FlowTypeDescriptor? InferValueType(
+        JsonNode? value,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs)
+    {
         if (value == null)
-            return TypeSchema("null");
+            return FlowTypeDescriptor.Null;
+
         if (value is JsonObject obj)
         {
-            var properties = new JsonObject();
+            var properties = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal);
             foreach (var (name, child) in obj)
-                properties[name] = InferValueSchema(child, workflowInputs, knownStepOutputs) ?? OpaqueSchema();
-            return new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = properties,
-                ["additionalProperties"] = false
-            };
+                properties[name] = new FlowPropertyDescriptor(
+                    InferValueType(child, workflowInputs, knownStepOutputs) ?? FlowTypeDescriptor.Any,
+                    Required: true);
+            return FlowTypeDescriptor.Object(properties);
         }
+
         if (value is JsonArray array)
         {
-            return new JsonObject
-            {
-                ["type"] = "array",
-                ["items"] = array.Count == 0
-                    ? OpaqueSchema()
-                    : InferValueSchema(array[0], workflowInputs, knownStepOutputs) ?? OpaqueSchema()
-            };
+            return FlowTypeDescriptor.Array(array.Count == 0
+                ? FlowTypeDescriptor.Any
+                : InferValueType(array[0], workflowInputs, knownStepOutputs) ?? FlowTypeDescriptor.Any);
         }
+
         if (value is JsonValue scalar)
         {
             if (scalar.TryGetValue<string>(out var text))
             {
                 return text?.Contains("${", StringComparison.Ordinal) == true
-                    ? InferInterpolatedString(text, workflowInputs, knownStepOutputs) ?? OpaqueSchema()
-                    : TypeSchema("string");
+                    ? InferInterpolatedStringType(text, workflowInputs, knownStepOutputs) ?? FlowTypeDescriptor.Any
+                    : FlowTypeDescriptor.String;
             }
             if (scalar.TryGetValue<bool>(out _))
-                return TypeSchema("boolean");
+                return FlowTypeDescriptor.Boolean;
             if (scalar.TryGetValue<long>(out _) || scalar.TryGetValue<int>(out _))
-                return TypeSchema("integer");
+                return FlowTypeDescriptor.Integer;
             if (scalar.TryGetValue<decimal>(out _) || scalar.TryGetValue<double>(out _))
-                return TypeSchema("number");
+                return FlowTypeDescriptor.Number;
         }
+
         return null;
     }
 
@@ -108,15 +139,37 @@ internal static class StepExpressionTypeValidator
         IReadOnlyDictionary<string, JsonNode?> knownStepOutputs,
         IReadOnlySet<string>? nonNullReferences = null)
     {
+        var knownTypes = knownStepOutputs.ToDictionary(
+            static pair => pair.Key,
+            pair => FlowTypeDescriptorConverter.FromJsonSchema(pair.Value),
+            StringComparer.Ordinal);
+
+        return ValidateExpression(
+            expression,
+            field,
+            FlowTypeDescriptorConverter.FromJsonSchema(expectedSchema),
+            FlowTypeDescriptorConverter.InputMap(workflowInputs),
+            knownTypes,
+            nonNullReferences);
+    }
+
+    public static StepExpressionTypeMismatch? ValidateExpression(
+        string? expression,
+        string field,
+        FlowTypeDescriptor expectedType,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
+        IReadOnlySet<string>? nonNullReferences = null)
+    {
         if (string.IsNullOrWhiteSpace(expression) || !expression.Contains("${", StringComparison.Ordinal))
             return null;
 
-        var inferred = InferInterpolatedString(expression, workflowInputs, knownStepOutputs, nonNullReferences);
-        if (inferred == null || IsCompatible(inferred, expectedSchema))
+        var inferred = InferInterpolatedStringType(expression, workflowInputs, knownStepOutputs, nonNullReferences);
+        if (inferred == null || inferred.IsCompatibleWith(expectedType))
             return null;
 
-        var expected = DescribeExpected(expectedSchema);
-        var actual = DescribeActual(inferred);
+        var expected = expectedType.Describe();
+        var actual = inferred.Describe();
         return new StepExpressionTypeMismatch(
             field,
             expression,
@@ -164,108 +217,43 @@ internal static class StepExpressionTypeValidator
         return references.Count == 0 ? EmptyStringSet.Value : references;
     }
 
-    public static JsonObject OutputDefSchema(OutputDef definition)
-    {
-        var type = NormalizeType(definition.Type);
-        if (type == null)
-            return OpaqueSchema();
-        if (type == "array")
-            return new JsonObject
-            {
-                ["type"] = "array",
-                ["items"] = definition.Items == null ? OpaqueSchema() : OutputDefSchema(definition.Items)
-            };
-        if (type is "object" or "dictionary")
-        {
-            var properties = new JsonObject();
-            if (definition.Properties != null)
-            {
-                foreach (var (name, child) in definition.Properties)
-                    properties[name] = OutputDefSchema(child);
-            }
-            var schema = new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = properties,
-                ["additionalProperties"] = definition.AdditionalProperties == null
-                    ? type == "dictionary"
-                    : OutputDefSchema(definition.AdditionalProperties)
-            };
-            if (definition.RequiredProperties is { Count: > 0 })
-            {
-                schema["required"] = new JsonArray(
-                    definition.RequiredProperties
-                        .Select(static name => (JsonNode?)JsonValue.Create(name))
-                        .ToArray());
-            }
-            return schema;
-        }
-        return TypeSchema(type);
-    }
+    public static JsonObject OutputDefSchema(OutputDef definition) =>
+        FlowTypeDescriptorConverter.ToRuntimeJsonSchema(FlowTypeDescriptorConverter.FromOutputDef(definition));
 
-    public static JsonObject InputsObjectSchema(IReadOnlyDictionary<string, InputDef>? inputs)
-    {
-        var properties = new JsonObject();
-        var required = new JsonArray();
+    public static FlowTypeDescriptor OutputDefType(OutputDef definition) =>
+        FlowTypeDescriptorConverter.FromOutputDef(definition);
 
-        if (inputs != null)
-        {
-            foreach (var (name, definition) in inputs)
-            {
-                properties[name] = InputDefSchema(definition);
-                if (definition.Required)
-                    required.Add((JsonNode?)JsonValue.Create(name));
-            }
-        }
+    public static JsonObject InputsObjectSchema(IReadOnlyDictionary<string, InputDef>? inputs) =>
+        FlowTypeDescriptorConverter.ToRuntimeJsonSchema(FlowTypeDescriptorConverter.InputsObject(inputs));
 
-        var schema = new JsonObject
-        {
-            ["type"] = "object",
-            ["properties"] = properties,
-            ["additionalProperties"] = false
-        };
-        if (required.Count > 0)
-            schema["required"] = required;
-        return schema;
-    }
+    public static FlowTypeDescriptor InputsObjectType(IReadOnlyDictionary<string, InputDef>? inputs) =>
+        FlowTypeDescriptorConverter.InputsObject(inputs);
 
-    public static JsonObject OutputsObjectSchema(IReadOnlyDictionary<string, OutputDef>? outputs)
-    {
-        var properties = new JsonObject();
+    public static JsonObject OutputsObjectSchema(IReadOnlyDictionary<string, OutputDef>? outputs) =>
+        FlowTypeDescriptorConverter.ToRuntimeJsonSchema(FlowTypeDescriptorConverter.OutputsObject(outputs));
 
-        if (outputs != null)
-        {
-            foreach (var (name, definition) in outputs)
-                properties[name] = OutputDefSchema(definition);
-        }
-
-        return new JsonObject
-        {
-            ["type"] = "object",
-            ["properties"] = properties,
-            ["additionalProperties"] = false
-        };
-    }
+    public static FlowTypeDescriptor OutputsObjectType(IReadOnlyDictionary<string, OutputDef>? outputs) =>
+        FlowTypeDescriptorConverter.OutputsObject(outputs);
 
     private static void ValidateNode(
         JsonNode? value,
-        JsonObject schema,
+        FlowTypeDescriptor expectedType,
         string field,
-        IReadOnlyDictionary<string, InputDef>? workflowInputs,
-        IReadOnlyDictionary<string, JsonNode?> knownStepOutputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
         IReadOnlySet<string>? nonNullReferences,
         List<StepExpressionTypeMismatch> mismatches)
     {
-        if (IsOpaque(schema))
+        if (expectedType.IsOpaque)
             return;
 
         if (value is JsonValue scalar && scalar.TryGetValue<string>(out var text) && text?.Contains("${", StringComparison.Ordinal) == true)
         {
-            var inferred = InferInterpolatedString(text, workflowInputs, knownStepOutputs, nonNullReferences);
-            if (inferred != null && !IsCompatible(inferred, schema))
+            var inferred = InferInterpolatedStringType(text, workflowInputs, knownStepOutputs, nonNullReferences);
+            if (inferred != null && !inferred.IsCompatibleWith(expectedType))
             {
-                var expected = DescribeExpected(schema);
-                var actual = DescribeActual(inferred);
+                var expected = expectedType.Describe();
+                var actual = inferred.Describe();
                 mismatches.Add(new StepExpressionTypeMismatch(
                     field,
                     text,
@@ -276,35 +264,58 @@ internal static class StepExpressionTypeValidator
             return;
         }
 
-        if (value is JsonObject obj && schema["type"]?.GetValue<string>() == "object")
+        var objectType = SelectObjectCompatibleType(value, expectedType);
+        if (value is JsonObject obj && objectType != null)
         {
-            var properties = schema["properties"] as JsonObject;
             foreach (var (name, child) in obj)
             {
-                if (properties?[name] is JsonObject childSchema)
-                    ValidateNode(child, childSchema, $"{field}.{name}", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
+                if (objectType.Properties.TryGetValue(name, out var property))
+                    ValidateNode(child, property.Type, $"{field}.{name}", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
+                else if (objectType.AdditionalProperties != null)
+                    ValidateNode(child, objectType.AdditionalProperties, $"{field}.{name}", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
             }
             return;
         }
 
-        if (value is JsonArray array
-            && schema["type"]?.GetValue<string>() == "array"
-            && schema["items"] is JsonObject itemSchema)
+        var arrayType = SelectArrayCompatibleType(value, expectedType);
+        if (value is JsonArray array && arrayType?.Items != null)
         {
             for (var i = 0; i < array.Count; i++)
-                ValidateNode(array[i], itemSchema, $"{field}[{i}]", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
+                ValidateNode(array[i], arrayType.Items, $"{field}[{i}]", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
         }
     }
 
-    private static JsonObject? InferInterpolatedString(
+    private static FlowTypeDescriptor? SelectObjectCompatibleType(JsonNode? value, FlowTypeDescriptor expectedType)
+    {
+        if (value is not JsonObject)
+            return null;
+        if (expectedType.Kind is FlowTypeKind.Object or FlowTypeKind.Dictionary)
+            return expectedType;
+        if (expectedType.Kind == FlowTypeKind.Union)
+            return expectedType.Variants.FirstOrDefault(static variant => variant.Kind is FlowTypeKind.Object or FlowTypeKind.Dictionary);
+        return null;
+    }
+
+    private static FlowTypeDescriptor? SelectArrayCompatibleType(JsonNode? value, FlowTypeDescriptor expectedType)
+    {
+        if (value is not JsonArray)
+            return null;
+        if (expectedType.Kind == FlowTypeKind.Array)
+            return expectedType;
+        if (expectedType.Kind == FlowTypeKind.Union)
+            return expectedType.Variants.FirstOrDefault(static variant => variant.Kind == FlowTypeKind.Array);
+        return null;
+    }
+
+    private static FlowTypeDescriptor? InferInterpolatedStringType(
         string text,
-        IReadOnlyDictionary<string, InputDef>? workflowInputs,
-        IReadOnlyDictionary<string, JsonNode?> knownStepOutputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
         IReadOnlySet<string>? nonNullReferences = null)
     {
         var exact = ExactExpression.Match(text);
         if (!exact.Success)
-            return TypeSchema("string");
+            return FlowTypeDescriptor.String;
 
         var expression = exact.Groups["expression"].Value.Trim();
         if (expression.Length == 0)
@@ -312,54 +323,53 @@ internal static class StepExpressionTypeValidator
 
         var inputMatch = InputReference.Match(expression);
         if (inputMatch.Success && workflowInputs != null
-            && workflowInputs.TryGetValue(inputMatch.Groups[1].Value, out var inputDef))
+            && workflowInputs.TryGetValue(inputMatch.Groups[1].Value, out var inputType))
         {
             var reference = $"inputs.{inputMatch.Groups[1].Value}{inputMatch.Groups["path"].Value}";
             return ApplyNonNullNarrowing(
-                ResolveSchemaPath(InputDefSchema(inputDef), SplitPath(inputMatch.Groups["path"].Value)),
+                inputType.ResolvePath(SplitPath(inputMatch.Groups["path"].Value)),
                 reference,
                 nonNullReferences);
         }
 
         var stepMatch = StepReference.Match(expression);
-        if (stepMatch.Success
-            && knownStepOutputs.TryGetValue(stepMatch.Groups[1].Value, out var outputSchema))
+        if (stepMatch.Success && knownStepOutputs.TryGetValue(stepMatch.Groups[1].Value, out var outputType))
         {
             var reference = $"steps.{stepMatch.Groups[1].Value}{stepMatch.Groups["path"].Value}";
             return ApplyNonNullNarrowing(
-                ResolveSchemaPath(outputSchema as JsonObject, SplitPath(stepMatch.Groups["path"].Value)),
+                outputType.ResolvePath(SplitPath(stepMatch.Groups["path"].Value)),
                 reference,
                 nonNullReferences);
         }
 
         if (expression is "true" or "false" || LooksBoolean(expression))
-            return TypeSchema("boolean");
+            return FlowTypeDescriptor.Boolean;
         if (expression == "null")
-            return TypeSchema("null");
+            return FlowTypeDescriptor.Null;
         if (IntegerLiteral.IsMatch(expression))
-            return TypeSchema("integer");
+            return FlowTypeDescriptor.Integer;
         if (NumberLiteral.IsMatch(expression))
-            return TypeSchema("number");
+            return FlowTypeDescriptor.Number;
         if ((expression.StartsWith('"') && expression.EndsWith('"'))
             || (expression.StartsWith('\'') && expression.EndsWith('\''))
             || expression.StartsWith('`'))
-            return TypeSchema("string");
+            return FlowTypeDescriptor.String;
         if (expression.StartsWith('['))
-            return TypeSchema("array");
+            return FlowTypeDescriptor.Array();
         if (expression.StartsWith('{'))
-            return TypeSchema("object");
+            return FlowTypeDescriptor.Object(allowsAdditionalProperties: true);
 
         var function = FunctionCall.Match(expression);
         if (function.Success)
         {
             return function.Groups[1].Value switch
             {
-                "exists" or "contains" or "startsWith" or "endsWith" => TypeSchema("boolean"),
-                "len" or "length" => TypeSchema("integer"),
-                "toNumber" => TypeSchema("number"),
+                "exists" or "contains" or "startsWith" or "endsWith" => FlowTypeDescriptor.Boolean,
+                "len" or "length" => FlowTypeDescriptor.Integer,
+                "toNumber" => FlowTypeDescriptor.Number,
                 "lower" or "upper" or "trim" or "replace" or "substring" or "json"
-                    or "now" or "formatDate" or "base64" => TypeSchema("string"),
-                "pick" or "omit" => TypeSchema("object"),
+                    or "now" or "formatDate" or "base64" => FlowTypeDescriptor.String,
+                "pick" or "omit" => FlowTypeDescriptor.Object(allowsAdditionalProperties: true),
                 _ => null
             };
         }
@@ -367,81 +377,15 @@ internal static class StepExpressionTypeValidator
         return null;
     }
 
-    private static JsonObject? ApplyNonNullNarrowing(
-        JsonObject? schema,
+    private static FlowTypeDescriptor? ApplyNonNullNarrowing(
+        FlowTypeDescriptor? type,
         string reference,
         IReadOnlySet<string>? nonNullReferences)
     {
-        if (schema == null || nonNullReferences == null || !nonNullReferences.Contains(reference))
-            return schema;
+        if (type == null || nonNullReferences == null || !nonNullReferences.Contains(reference))
+            return type;
 
-        return RemoveNullType(schema);
-    }
-
-    private static JsonObject RemoveNullType(JsonObject schema)
-    {
-        if (IsOpaque(schema))
-            return schema.DeepClone() as JsonObject ?? OpaqueSchema();
-
-        var clone = schema.DeepClone() as JsonObject ?? OpaqueSchema();
-        if (clone.ContainsKey("type") && clone["type"] == null)
-        {
-            return OpaqueSchema();
-        }
-        if (clone["type"] is JsonValue typeValue && typeValue.TryGetValue<string>(out var type) && type != null)
-        {
-            if (string.Equals(type, "null", StringComparison.Ordinal))
-                return OpaqueSchema();
-        }
-        else if (clone["type"] is JsonArray typeArray)
-        {
-            var remaining = typeArray
-                .OfType<JsonValue>()
-                .Select(static value => value.TryGetValue<string>(out var item) ? item : null)
-                .Where(static item => item != null && !string.Equals(item, "null", StringComparison.Ordinal))
-                .Cast<string>()
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
-
-            clone["type"] = remaining.Length switch
-            {
-                0 => null,
-                1 => JsonValue.Create(remaining[0]),
-                _ => new JsonArray(remaining.Select(static item => (JsonNode?)JsonValue.Create(item)).ToArray())
-            };
-
-            if (remaining.Length == 0)
-                return OpaqueSchema();
-        }
-
-        foreach (var keyword in new[] { "anyOf", "oneOf" })
-        {
-            if (clone[keyword] is not JsonArray variants)
-                continue;
-
-            var narrowed = new JsonArray();
-            foreach (var variant in variants)
-            {
-                if (variant is not JsonObject variantObject)
-                {
-                    narrowed.Add((JsonNode?)variant?.DeepClone());
-                    continue;
-                }
-
-                var variantTypes = ReadTypes(variantObject);
-                if (variantTypes.Count == 1 && variantTypes.Contains("null"))
-                    continue;
-
-                narrowed.Add((JsonNode?)RemoveNullType(variantObject));
-            }
-
-            if (narrowed.Count == 0)
-                return OpaqueSchema();
-
-            clone[keyword] = narrowed;
-        }
-
-        return clone;
+        return type.RemoveNull();
     }
 
     private static bool TryNormalizeReference(string expression, out string reference)
@@ -502,169 +446,10 @@ internal static class StepExpressionTypeValidator
             || expression.Contains("||", StringComparison.Ordinal);
     }
 
-    private static JsonObject InputDefSchema(InputDef definition)
-    {
-        var type = NormalizeType(definition.Type);
-        if (type == null)
-            return OpaqueSchema();
-
-        if (type == "array")
-            return new JsonObject
-            {
-                ["type"] = "array",
-                ["items"] = definition.Items == null ? OpaqueSchema() : InputDefSchema(definition.Items)
-            };
-
-        if (type == "object")
-        {
-            var properties = new JsonObject();
-            var required = new JsonArray();
-            if (definition.Properties != null)
-            {
-                foreach (var (name, child) in definition.Properties)
-                {
-                    properties[name] = InputDefSchema(child);
-                    if (definition.RequiredProperties == null && child.Required)
-                        required.Add((JsonNode?)JsonValue.Create(name));
-                }
-            }
-
-            if (definition.RequiredProperties is { Count: > 0 })
-            {
-                required = new JsonArray(
-                    definition.RequiredProperties
-                        .Select(static name => (JsonNode?)JsonValue.Create(name))
-                        .ToArray());
-            }
-
-            var schema = new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = properties,
-                ["additionalProperties"] = definition.AdditionalProperties == null
-                    ? false
-                    : InputDefSchema(definition.AdditionalProperties)
-            };
-            if (required.Count > 0)
-                schema["required"] = required;
-            return schema;
-        }
-
-        if (type == "dictionary")
-        {
-            return new JsonObject
-            {
-                ["type"] = "object",
-                ["additionalProperties"] = definition.AdditionalProperties == null
-                    ? OpaqueSchema()
-                    : InputDefSchema(definition.AdditionalProperties)
-            };
-        }
-
-        return TypeSchema(type);
-    }
-
-    private static string? NormalizeType(string? type) => type?.ToLowerInvariant() switch
-    {
-        "string" => "string",
-        "number" => "number",
-        "integer" => "integer",
-        "boolean" or "bool" => "boolean",
-        "array" => "array",
-        "object" => "object",
-        "dictionary" => "dictionary",
-        "null" => "null",
-        _ => null
-    };
-
-    private static JsonObject? ResolveSchemaPath(JsonObject? schema, IReadOnlyList<string> path)
-    {
-        var current = schema;
-        foreach (var segment in path)
-        {
-            if (current == null || IsOpaque(current))
-                return null;
-            if (current["properties"] is JsonObject properties && properties[segment] is JsonObject child)
-            {
-                current = child;
-                continue;
-            }
-            if (current["additionalProperties"] is JsonObject additional)
-            {
-                current = additional;
-                continue;
-            }
-            return null;
-        }
-        return current?.DeepClone() as JsonObject;
-    }
-
     private static IReadOnlyList<string> SplitPath(string path) =>
         string.IsNullOrWhiteSpace(path)
             ? Array.Empty<string>()
             : path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-    private static bool IsCompatible(JsonObject actual, JsonObject expected)
-    {
-        if (IsOpaque(actual) || IsOpaque(expected))
-            return true;
-
-        var actualTypes = ReadTypes(actual);
-        var expectedTypes = ReadTypes(expected);
-        if (actualTypes.Count == 0 || expectedTypes.Count == 0)
-            return true;
-
-        return actualTypes.All(actualType =>
-            expectedTypes.Contains(actualType)
-            || (actualType == "integer" && expectedTypes.Contains("number")));
-    }
-
-    private static HashSet<string> ReadTypes(JsonObject schema)
-    {
-        var types = new HashSet<string>(StringComparer.Ordinal);
-        if (schema.ContainsKey("type") && schema["type"] == null)
-            types.Add("null");
-        else if (schema["type"] is JsonValue typeValue && typeValue.TryGetValue<string>(out var type) && type != null)
-            types.Add(type);
-        else if (schema["type"] is JsonArray typeArray)
-        {
-            foreach (var node in typeArray)
-            {
-                if (node == null)
-                    types.Add("null");
-                else if (node is JsonValue value && value.TryGetValue<string>(out var item) && item != null)
-                    types.Add(item);
-            }
-        }
-
-        foreach (var keyword in new[] { "anyOf", "oneOf" })
-        {
-            if (schema[keyword] is not JsonArray variants)
-                continue;
-            foreach (var variant in variants)
-            {
-                if (variant is JsonObject variantSchema)
-                    types.UnionWith(ReadTypes(variantSchema));
-            }
-        }
-        return types;
-    }
-
-    private static string DescribeExpected(JsonObject schema)
-    {
-        var types = ReadTypes(schema).OrderBy(static type => type, StringComparer.Ordinal).ToArray();
-        return types.Length == 0 ? "compatible" : string.Join(" or ", types);
-    }
-
-    private static string DescribeActual(JsonObject schema) => DescribeExpected(schema);
-
-    private static bool IsOpaque(JsonObject schema) =>
-        schema["x-gnougo-opaque"] is JsonValue value
-        && value.TryGetValue<bool>(out var opaque)
-        && opaque;
-
-    private static JsonObject TypeSchema(string type) => new() { ["type"] = type };
-    private static JsonObject OpaqueSchema() => new() { ["x-gnougo-opaque"] = true };
 
     private static class EmptyStringSet
     {

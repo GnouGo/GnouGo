@@ -63,6 +63,11 @@ tests/
   GnOuGo.Flow.Tests/         # Unit tests
 ```
 
+Flow keeps one internal type representation for validation: `FlowTypeDescriptor`.
+Workflow `InputDef`/`OutputDef`, executor `StepContract` schemas, MCP JSON Schema, and workflow.plan contract snippets are converted into or out of this descriptor instead of being reasoned about as separate type systems.
+
+During workflow.plan semantic validation, a `WorkflowSymbolTable` is built as steps are walked. It tracks workflow inputs, available step output types, and control-flow availability so expressions such as `data.steps.<id>.<field>` can be checked against known symbols before generated YAML is accepted.
+
 ---
 
 ## Skill Metadata
