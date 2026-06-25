@@ -699,6 +699,131 @@ workflows:
         Assert.Equal("local", result.Outputs!["val"]!.GetValue<string>());
     }
 
+    [Fact]
+    public async Task Execute_WorkflowCall_UsesCalledWorkflowLocalFunctions()
+    {
+        var wf = CompileMain(@"
+version: 1
+functions: |
+  function tag() { return ""global""; }
+workflows:
+  main:
+    functions: |
+      function tag() { return ""main""; }
+    steps:
+      - id: call_helper
+        type: workflow.call
+        input:
+          ref: { kind: local, name: helper }
+          args: {}
+      - id: caller_tag
+        type: set
+        input:
+          value: ""${functions.tag()}""
+    outputs:
+      helper_tag: ""${data.steps.call_helper.outputs.tag}""
+      caller_tag: ""${data.steps.caller_tag.value}""
+  helper:
+    functions: |
+      function tag() { return ""helper""; }
+    steps:
+      - id: value
+        type: set
+        input:
+          tag: ""${functions.tag()}""
+    outputs:
+      tag: ""${data.steps.value.tag}""
+");
+        var result = await CreateEngine().ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("helper", result.Outputs!["helper_tag"]!.GetValue<string>());
+        Assert.Equal("main", result.Outputs!["caller_tag"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Execute_WorkflowCall_DoesNotLeakCallerFunctionsIntoCalledWorkflow()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    functions: |
+      function callerOnly() { return ""caller""; }
+    steps:
+      - id: call_helper
+        type: workflow.call
+        input:
+          ref: { kind: local, name: helper }
+          args: {}
+  helper:
+    steps:
+      - id: value
+        type: set
+        input:
+          val: ""${functions.callerOnly()}""
+");
+        var result = await CreateEngine().ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.EvalError, result.Error!.Code);
+        Assert.Contains("callerOnly", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task Execute_ParallelWorkflowCalls_KeepLocalFunctionScopesIsolated()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: fanout
+        type: parallel
+        branches:
+          - steps:
+              - id: call_a
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: a }
+                  args: {}
+          - steps:
+              - id: call_b
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: b }
+                  args: {}
+    outputs:
+      a: ""${data.steps.fanout.branches[0].call_a.outputs.tag}""
+      b: ""${data.steps.fanout.branches[1].call_b.outputs.tag}""
+  a:
+    functions: |
+      function tag() { return ""a""; }
+    steps:
+      - id: value
+        type: set
+        input:
+          tag: ""${functions.tag()}""
+    outputs:
+      tag: ""${data.steps.value.tag}""
+  b:
+    functions: |
+      function tag() { return ""b""; }
+    steps:
+      - id: value
+        type: set
+        input:
+          tag: ""${functions.tag()}""
+    outputs:
+      tag: ""${data.steps.value.tag}""
+");
+        var result = await CreateEngine().ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("a", result.Outputs!["a"]!.GetValue<string>());
+        Assert.Equal("b", result.Outputs!["b"]!.GetValue<string>());
+    }
+
     // === Error Handling Tests ===
 
     [Fact]

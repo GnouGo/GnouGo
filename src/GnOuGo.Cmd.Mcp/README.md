@@ -51,7 +51,11 @@ Shell availability is auto-detected at runtime. The `cmd_get_environment` tool r
 
 This is intended to help planning workflows generate valid `cmd_run` calls directly.
 
-`cmd_list_allowed_commands` is still kept as a structured introspection endpoint. Use it when a client or workflow needs machine-readable command metadata rather than prose embedded in the `cmd_run` description.
+`cmd_get_policy` and `cmd_list_allowed_commands` are also enriched during MCP `tools/list`.
+Their descriptions include the returned JSON shape plus the current policy roots, limits, shell availability, and allowlisted command aliases.
+This gives `workflow.plan` enough context to generate frozen `mcp.call` requests without first adding discovery calls to the generated workflow.
+
+`cmd_list_allowed_commands` is still kept as a structured introspection endpoint. Use it when a client or workflow needs machine-readable command metadata at runtime rather than prose embedded in the discovery metadata.
 
 ## Structured Error Handling
 

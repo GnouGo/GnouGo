@@ -134,6 +134,7 @@ public sealed class WorkflowCallResolutionContext
     public required string Kind { get; init; }
     public required int CallDepth { get; init; }
     public required IReadOnlySet<string> CallStack { get; init; }
+    public CompiledDocument? ActiveDocument { get; init; }
 }
 
 /// <summary>

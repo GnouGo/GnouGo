@@ -139,6 +139,64 @@ public sealed class CommandPolicy
         return sb.ToString().TrimEnd();
     }
 
+    public string BuildListAllowedCommandsToolDescription()
+    {
+        var commands = ListAllowedCommands();
+        var sb = new StringBuilder();
+        sb.AppendLine("Lists the allowlisted commands that this secure command MCP server is allowed to execute. Takes no arguments; use input.request: {} or omit request.");
+        sb.AppendLine("Output shape: { \"commands\": [ { \"name\": string, \"description\": string|null, \"shell\": string, \"workingDirectory\": string, \"parameters\": string[] } ] }.");
+
+        if (commands.Count == 0)
+        {
+            sb.AppendLine("Current allowlisted commands: none configured.");
+            return sb.ToString().TrimEnd();
+        }
+
+        sb.AppendLine("Current allowlisted commands:");
+        foreach (var command in commands)
+        {
+            sb.Append("- ");
+            sb.Append(command.Name);
+
+            if (!string.IsNullOrWhiteSpace(command.Description))
+            {
+                sb.Append(": ");
+                sb.Append(SingleLine(command.Description));
+            }
+
+            sb.Append("; shell=");
+            sb.Append(command.Shell);
+            sb.Append("; workingDirectory=");
+            sb.Append(SingleLine(command.WorkingDirectory));
+            sb.Append("; parameters=");
+            sb.Append(FormatListForDescription(command.Parameters));
+            sb.AppendLine(".");
+        }
+
+        sb.Append("For frozen workflow.plan requests, call cmd_run directly with one exact commandName above and pass parametersJson only when the chosen command declares parameters.");
+        return sb.ToString().TrimEnd();
+    }
+
+    public string BuildGetPolicyToolDescription()
+    {
+        var policy = DescribePolicy();
+        var sb = new StringBuilder();
+        sb.AppendLine("Returns the active command execution policy. Takes no arguments; use input.request: {} or omit request.");
+        sb.AppendLine("Output shape: { \"allowedShells\": string[], \"allowedWorkingRoots\": string[], \"defaultTimeoutMs\": integer, \"maxTimeoutMs\": integer, \"maxOutputCharacters\": integer, \"allowedCommandCount\": integer, \"environment\": { \"operatingSystem\": string, \"architecture\": string, \"machineName\": string, \"availableShells\": [ { \"name\": string, \"available\": boolean, \"resolvedPath\": string|null } ] } }.");
+        sb.AppendLine("Current policy:");
+        sb.AppendLine($"- allowedShells: {FormatListForDescription(policy.AllowedShells)}");
+        sb.AppendLine($"- allowedWorkingRoots: {FormatListForDescription(policy.AllowedWorkingRoots)}");
+        sb.AppendLine($"- defaultTimeoutMs: {policy.DefaultTimeoutMs}");
+        sb.AppendLine($"- maxTimeoutMs: {policy.MaxTimeoutMs}");
+        sb.AppendLine($"- maxOutputCharacters: {policy.MaxOutputCharacters}");
+        sb.AppendLine($"- allowedCommandCount: {policy.AllowedCommandCount}");
+        sb.AppendLine($"- environment.operatingSystem: {policy.Environment.OperatingSystem}");
+        sb.AppendLine($"- environment.architecture: {policy.Environment.Architecture}");
+        sb.AppendLine($"- environment.availableShells: {FormatShellAvailabilityForDescription(policy.Environment.AvailableShells)}");
+        sb.Append("Only allowedWorkingRoots are authorized; generated workflows should not use paths outside those roots.");
+        return sb.ToString().TrimEnd();
+    }
+
     /// <summary>
     /// Detects the current OS, architecture, and which configured shells are actually available.
     /// </summary>
@@ -364,6 +422,31 @@ public sealed class CommandPolicy
             });
 
         return string.Join("; ", parts) + ".";
+    }
+
+    private static string FormatListForDescription(IEnumerable<string> values)
+    {
+        var items = values
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(SingleLine)
+            .ToArray();
+
+        return items.Length == 0 ? "none" : string.Join(", ", items);
+    }
+
+    private static string FormatShellAvailabilityForDescription(IEnumerable<CmdShellAvailability> shells)
+    {
+        var items = shells
+            .Select(shell =>
+            {
+                var status = shell.Available ? "available" : "unavailable";
+                return string.IsNullOrWhiteSpace(shell.ResolvedPath)
+                    ? $"{shell.Name} ({status})"
+                    : $"{shell.Name} ({status}, {SingleLine(shell.ResolvedPath)})";
+            })
+            .ToArray();
+
+        return items.Length == 0 ? "none" : string.Join(", ", items);
     }
 
     private static string SingleLine(string value)

@@ -103,6 +103,60 @@ public class CommandPolicyTests
     }
 
     [Fact]
+    public void BuildListAllowedCommandsToolDescription_IncludesOutputShapeAndLiveAllowlist()
+    {
+        var root = CreateTempDirectory();
+        var policy = new CommandPolicy(new CmdServerSettings
+        {
+            DefaultWorkingDirectory = root,
+            AllowedShells = ["powershell", "sh"],
+            AllowedCommands = new Dictionary<string, AllowedCommandSettings>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["list_files"] = new()
+                {
+                    Description = "List workspace files.",
+                    Shell = "powershell",
+                    Script = "Get-ChildItem {{path}}",
+                    Parameters = new Dictionary<string, CommandParameterSettings>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["path"] = new() { Required = true, IsWorkspacePath = true }
+                    }
+                }
+            }
+        }, root);
+
+        var description = policy.BuildListAllowedCommandsToolDescription();
+
+        Assert.Contains("Output shape:", description);
+        Assert.Contains("\"commands\"", description);
+        Assert.Contains("- list_files: List workspace files.", description);
+        Assert.Contains("shell=powershell", description);
+        Assert.Contains($"workingDirectory={Path.GetFullPath(root)}", description);
+        Assert.Contains("parameters=path", description);
+        Assert.Contains("For frozen workflow.plan requests, call cmd_run directly", description);
+        Assert.DoesNotContain("Get-ChildItem", description);
+    }
+
+    [Fact]
+    public void BuildGetPolicyToolDescription_IncludesOutputShapeAndLivePolicy()
+    {
+        var root = CreateTempDirectory();
+        var policy = CreatePolicy(root, commandScript: "Write-Output 'ok'", maxTimeoutMs: 45000);
+
+        var description = policy.BuildGetPolicyToolDescription();
+
+        Assert.Contains("Output shape:", description);
+        Assert.Contains("\"allowedShells\"", description);
+        Assert.Contains("- allowedWorkingRoots:", description);
+        Assert.Contains(Path.GetFullPath(root), description);
+        Assert.Contains("- maxTimeoutMs: 45000", description);
+        Assert.Contains("- allowedCommandCount: 1", description);
+        Assert.Contains("- environment.operatingSystem:", description);
+        Assert.Contains("- environment.availableShells:", description);
+        Assert.Contains("Only allowedWorkingRoots are authorized", description);
+    }
+
+    [Fact]
     public void ResolveWorkingDirectory_AllowsChildDirectoryInsideAllowedRoot()
     {
         var root = CreateTempDirectory();

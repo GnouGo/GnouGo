@@ -162,6 +162,9 @@ internal static class WorkflowPlanDiagnostics
         if (lower.Contains("mcp_request_schema_invalid", StringComparison.Ordinal)
             || lower.Contains("mcp.call request", StringComparison.Ordinal) && lower.Contains("invalid", StringComparison.Ordinal))
             return "MCP_REQUEST_SCHEMA_INVALID";
+        if (lower.Contains("mcp_request_expr_type_mismatch", StringComparison.Ordinal)
+            || lower.Contains("mcp.call request field", StringComparison.Ordinal) && lower.Contains("input_schema requires", StringComparison.Ordinal))
+            return "MCP_REQUEST_EXPR_TYPE_MISMATCH";
         if (lower.Contains("expr_type_mismatch", StringComparison.Ordinal)
             || lower.Contains("resolves to", StringComparison.Ordinal) && lower.Contains("contract requires", StringComparison.Ordinal))
             return ErrorCodes.ExprTypeMismatch;
@@ -389,7 +392,7 @@ internal static class WorkflowPlanDiagnostics
             ErrorCodes.StepTypeUnknown => "Replace the step type with one exact registered step type from the available DSL snippets.",
             ErrorCodes.ExprParse => "Fix the expression syntax inside `${...}`; validate function names, parentheses, and quoted string literals.",
             ErrorCodes.InputValidation => "Align this field with the step input contract and preserve JSON/YAML scalar types exactly.",
-            ErrorCodes.LlmSchema => "Use a valid structured_output schema. Prefer `schema_inline` with standard JSON Schema object fields.",
+            ErrorCodes.LlmSchema => "Use a strict structured_output JSON Schema: no `type: any`, root `type: object`, every object has `properties`, `required` listing every property, and `additionalProperties: false`.",
             ErrorCodes.WorkflowCycleDetected => "Break local workflow.call cycles so the call graph is acyclic.",
             "DUPLICATE_STEP_ID" => "Rename one step id. Step ids must be unique within the workflow, including nested branches and cases.",
             "DSL_VERSION" => "Use workflow DSL version 1.",
@@ -444,9 +447,11 @@ internal static class WorkflowPlanDiagnostics
             "OPAQUE_RESPONSE_DEEP_ACCESS" => "Do not invent fields under an opaque response. Pass the whole response or normalize it with llm.call structured_output.",
             "STEP_OUTPUT_PROPERTY_UNKNOWN" => "Use one of the allowed output paths or add a normalizer step that produces the desired property.",
             "MCP_REQUEST_SCHEMA_INVALID" => "Align input.request with the discovered MCP tool input schema.",
+            "MCP_REQUEST_EXPR_TYPE_MISMATCH" => "Use only expressions whose resolved type is compatible with the discovered MCP input_schema; nullable sources must be guarded or normalized before the mcp.call.",
             "MCP_CALL_INPUT_FIELD_UNKNOWN" => "Move MCP tool arguments under input.request; keep only mcp.call envelope fields at input top level.",
             "MCP_METHOD_UNKNOWN" => "Use one exact MCP tool name from the discovered server catalog.",
             "MCP_SERVER_UNKNOWN" => "Use one exact MCP server name from discovery.",
+            "EXPRESSION_FUNCTION_UNKNOWN" => "Use only documented built-in functions, or define the custom helper in a document-level or workflow-level `functions:` block before calling it.",
             ErrorCodes.ExprTypeMismatch => "Use an expression whose resolved type matches the destination contract.",
             _ => "Repair the generated workflow so the semantic contract can be proven statically."
         };
@@ -459,9 +464,11 @@ internal static class WorkflowPlanDiagnostics
             "STEP_REFERENCE_NOT_AVAILABLE" or "STEP_REFERENCE_UNKNOWN" => "previously executed step output",
             "OPAQUE_RESPONSE_DEEP_ACCESS" or "STEP_OUTPUT_PROPERTY_UNKNOWN" => "documented output path",
             "MCP_REQUEST_SCHEMA_INVALID" => "request matching MCP input_schema",
+            "MCP_REQUEST_EXPR_TYPE_MISMATCH" => "non-null MCP request expression matching input_schema",
             "MCP_CALL_INPUT_FIELD_UNKNOWN" => "supported mcp.call input envelope",
             "MCP_METHOD_UNKNOWN" => "discovered MCP method",
             "MCP_SERVER_UNKNOWN" => "discovered MCP server",
+            "EXPRESSION_FUNCTION_UNKNOWN" => "built-in or declared WFScript function",
             ErrorCodes.ExprTypeMismatch => "expression result matching expected type",
             _ => null
         };
@@ -480,7 +487,7 @@ internal static class WorkflowPlanDiagnostics
         if (code == ErrorCodes.ExprTypeMismatch || message.Contains("requires", StringComparison.OrdinalIgnoreCase))
             return "Change the expression or declared contract so the runtime value type matches the expected type.";
 
-        if (code is "MCP_REQUEST_SCHEMA_INVALID" or "MCP_METHOD_UNKNOWN" or "MCP_SERVER_UNKNOWN")
+        if (code is "MCP_REQUEST_SCHEMA_INVALID" or "MCP_REQUEST_EXPR_TYPE_MISMATCH" or "MCP_METHOD_UNKNOWN" or "MCP_SERVER_UNKNOWN")
             return "Fix the mcp.call server, method, and input.request against the discovered MCP catalog.";
 
         if (message.Contains("data.steps.", StringComparison.Ordinal))
@@ -495,6 +502,7 @@ internal static class WorkflowPlanDiagnostics
         {
             ErrorCodes.ExprTypeMismatch => hint + " For numeric fields, use numeric workflow inputs or structured JSON fields, not free-form LLM text.",
             "MCP_REQUEST_SCHEMA_INVALID" => hint + " Preserve exact scalar types: integers/numbers/booleans must not be quoted strings.",
+            "MCP_REQUEST_EXPR_TYPE_MISMATCH" => hint + " Do not pass `string|null`, `number|null`, or other nullable structured_output fields into required MCP request fields unless the same step has an `if` guard proving that exact field is non-null.",
             _ => hint
         };
     }

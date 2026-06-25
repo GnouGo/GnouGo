@@ -50,11 +50,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Expressions may read data.inputs.* and earlier data.steps.<id>.* only.");
         sb.AppendLine("If a step has an `if`, later unconditional steps must not reference that step directly. Give the later step the same guard, or produce guaranteed defaults/branch outputs first.");
         sb.AppendLine("Function arguments are evaluated before the function runs: `coalesce`, ternaries, and helper calls do not make unavailable step references safe.");
+        AppendExpressionFunctionRules(sb);
         sb.AppendLine("MCP request objects must preserve schema scalar types exactly. Numeric/integer/boolean fields must be unquoted YAML scalars when required explicitly by the MCP schema/validator.");
+        sb.AppendLine("MCP request expressions must also match the schema statically. Do not pass nullable structured_output fields into required MCP request fields unless the same step has an `if` guard proving that exact field is non-null.");
         sb.AppendLine("Never satisfy missing MCP request arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.");
         sb.AppendLine("Workflow output expressions must resolve to their declared type on every branch.");
         sb.AppendLine("Object schemas: never duplicate the YAML key `required`. Input-level `required` is only a boolean. Required object property names must use `required_properties`, not a second `required` key.");
         AppendPromptSectionEnd(sb, "minimum_dsl_context");
+        sb.AppendLine();
+        AppendStructuredOutputStrictSchemaRules(sb);
         if (structuredError.Contains("Duplicate key required", StringComparison.OrdinalIgnoreCase))
         {
             sb.AppendLine();
@@ -115,6 +119,43 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static void AppendPromptSectionEnd(StringBuilder sb, string tagName)
         => sb.AppendLine($"</{tagName}>");
+
+    private static void AppendStructuredOutputStrictSchemaRules(StringBuilder sb)
+    {
+        AppendPromptSection(sb, "structured_output_strict_schema_rules", """
+        When generating any `llm.call.input.structured_output` or `mcp.call.input.structured_output`, use strict JSON Schema only:
+        - Never use `type: any`; JSON Schema has no `any` type. Choose a real type, use `anyOf` with explicit variants, or avoid structured_output if no stable contract exists.
+        - The root schema must be an object: `type: object`.
+        - Every object schema, including nested objects and array item objects, must declare `type: object`, a `properties` object, `required` listing EVERY key from `properties`, and `additionalProperties: false`.
+        - Optional fields must still appear in `required`; model optionality with `anyOf: [{ type: string }, { type: "null" }]` or another explicit nullable type.
+        - Every array schema must declare `items`.
+        - Do not generate bare object schemas such as `type: object` without `properties`, `required`, and `additionalProperties: false`.
+        - Do not use `required_properties` inside JSON Schema structured_output; that keyword is only for GnOuGo workflow input/output schemas.
+
+        Valid strict structured_output example:
+        structured_output:
+          strict: true
+          schema_inline:
+            type: object
+            properties:
+              issues:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    number: { type: integer }
+                    title: { type: string }
+                    severity:
+                      anyOf:
+                        - type: string
+                        - type: "null"
+                  required: [number, title, severity]
+                  additionalProperties: false
+              summary: { type: string }
+            required: [issues, summary]
+            additionalProperties: false
+        """);
+    }
 
     private static string RemoveDuplicateTaskPreamble(string invalidYaml, string instruction, string? context)
     {
@@ -249,11 +290,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         var lower = errorMessage.ToLowerInvariant();
         if (!lower.Contains(ErrorCodes.ExprTypeMismatch.ToLowerInvariant(), StringComparison.Ordinal)
+            && !lower.Contains("mcp_request_expr_type_mismatch", StringComparison.Ordinal)
             && !(lower.Contains("resolves to", StringComparison.Ordinal) && lower.Contains("contract requires", StringComparison.Ordinal)))
             return null;
 
         var fields = ExtractJsonStringValues(errorMessage, "field")
-            .Where(static field => field.StartsWith("outputs.", StringComparison.Ordinal))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         var invalidExpressions = ExtractJsonStringValues(errorMessage, "invalid_path")
@@ -263,9 +304,28 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             .ToArray();
 
         var sb = new StringBuilder();
-        sb.AppendLine("Workflow output expressions must match their declared output contract types exactly.");
-        if (fields.Length > 0)
-            sb.AppendLine("Affected output field(s): " + string.Join(", ", fields.Select(static field => $"`{field}`")));
+        var mcpFields = fields
+            .Where(static field => field.StartsWith("input.request", StringComparison.Ordinal))
+            .ToArray();
+        if (lower.Contains("mcp_request_expr_type_mismatch", StringComparison.Ordinal) || mcpFields.Length > 0)
+        {
+            sb.AppendLine("MCP request expressions must match the discovered MCP input_schema before runtime.");
+            if (mcpFields.Length > 0)
+                sb.AppendLine("Affected MCP request field(s): " + string.Join(", ", mcpFields.Select(static field => $"`{field}`")));
+            sb.AppendLine("If a field is required as string/number/boolean, do not map a nullable source such as `string|null` directly into it.");
+            sb.AppendLine("Prefer fixing the upstream `structured_output` schema so the field is non-null whenever the MCP call should run.");
+            sb.AppendLine("Alternatively add an `if` guard on the same mcp.call step that proves the exact expression is non-null, for example `if: \"${data.steps.decide.json.commandName != null}\"`.");
+            sb.AppendLine("If the decision can be false, skip the mcp.call or split the workflow into a guarded branch instead of passing null.");
+        }
+        else
+        {
+            sb.AppendLine("Workflow output expressions must match their declared output contract types exactly.");
+            var outputFields = fields
+                .Where(static field => field.StartsWith("outputs.", StringComparison.Ordinal))
+                .ToArray();
+            if (outputFields.Length > 0)
+                sb.AppendLine("Affected output field(s): " + string.Join(", ", outputFields.Select(static field => $"`{field}`")));
+        }
 
         if (lower.Contains("resolves to boolean", StringComparison.Ordinal) && lower.Contains("requires string", StringComparison.Ordinal))
         {

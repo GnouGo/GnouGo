@@ -61,7 +61,8 @@ public sealed class WorkflowCallExecutor : IStepExecutor
             Ref = refObj,
             Kind = kind,
             CallDepth = ctx.CallDepth,
-            CallStack = ctx.CallStack
+            CallStack = ctx.CallStack,
+            ActiveDocument = ctx.ActiveDocument
         }, ct);
 
         if (!string.IsNullOrWhiteSpace(resolution.CallStackKey) && ctx.CallStack.Contains(resolution.CallStackKey))
@@ -107,15 +108,17 @@ public sealed class WorkflowCallExecutor : IStepExecutor
             ["env"] = ctx.Data["env"]?.DeepClone() ?? new JsonObject()
         };
 
-        var previousDocument = ctx.Engine.ReplaceCompiledDocumentForWorkflowCall(subWorkflow.Document);
-        try
-        {
-            await ctx.Engine.ExecuteStepsAsync(subWorkflow.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, newCallStack, ct, ctx.TelemetrySpan);
-        }
-        finally
-        {
-            ctx.Engine.ReplaceCompiledDocumentForWorkflowCall(previousDocument);
-        }
+        var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(subWorkflow);
+        await ctx.Engine.ExecuteStepsAsync(
+            subWorkflow.Steps,
+            subData,
+            result,
+            ctx.Limits,
+            ctx.CallDepth + 1,
+            newCallStack,
+            executionScope,
+            ct,
+            ctx.TelemetrySpan);
 
         // Evaluate outputs
         JsonNode? outputs;
@@ -124,7 +127,7 @@ public sealed class WorkflowCallExecutor : IStepExecutor
             var outputObj = new JsonObject();
             foreach (var kv in subWorkflow.Outputs)
             {
-                outputObj[kv.Key] = ctx.Engine.EvaluateOutputDef(kv.Value, subData);
+                outputObj[kv.Key] = ctx.Engine.EvaluateOutputDef(kv.Value, subData, executionScope);
             }
             outputs = outputObj;
         }
@@ -140,7 +143,6 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         };
     }
 }
-
 
 
 

@@ -399,7 +399,11 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<TraceDebugService>();
 
         builder.Services.AddRazorComponents()
-            .AddInteractiveServerComponents();
+            .AddInteractiveServerComponents(options =>
+            {
+                options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromHours(12);
+                options.DisconnectedCircuitMaxRetained = 256;
+            });
 
         builder.Services.AddSingleton<WordChunker>();
         var capturedArgs = args;

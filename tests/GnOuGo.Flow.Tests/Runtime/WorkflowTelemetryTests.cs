@@ -632,23 +632,35 @@ workflows:
                                 input:
                                   value: ["one", "two"]
                             outputs:
-                              records: "${data.steps.collect.value}"
+                              records:
+                                expr: "${data.steps.collect.value}"
+                                type: array
+                                items:
+                                  type: string
                         """
                     },
                     _ => new LLMResponse
                     {
                         Text = """
-                        inputs:
-                          query: string
-                        steps:
-                          - id: call_collect_data
-                            type: workflow.call
-                            input:
-                              ref: { kind: local, name: collect_data }
+                        document:
+                          name: collect-data-pipeline
+                          skill:
+                            description: Collect records.
+                            tags: [generated, pipeline]
+                            inputs:
+                              query: string
+                            outputs:
+                              collect_data_outputs: object
+                        graph:
+                          inputs:
+                            query: string
+                          steps:
+                            - id: call_collect_data
+                              leaf: collect_data
                               args:
                                 query: ${data.inputs.query}
-                        outputs:
-                          collect_data_outputs: ${data.steps.call_collect_data.outputs}
+                          outputs:
+                            collect_data_outputs: ${data.steps.call_collect_data.outputs}
                         """
                     }
                 };
@@ -682,7 +694,7 @@ workflows:
 
         Assert.True(result.Success, result.Error?.Message);
         var assemblySpan = Assert.Single(recording.ChildSpans, span => span.Name == "workflow.plan.pipeline.assemble_main_workflow");
-        Assert.Equal("llm_main_workflow", assemblySpan.Attributes["gnougo-flow.plan.pipeline.assembly.kind"]);
+        Assert.Equal("llm_orchestration_graph", assemblySpan.Attributes["gnougo-flow.plan.pipeline.assembly.kind"]);
         Assert.Contains(assemblySpan.SpanEvents, e => e.Name == "gnougo-flow.plan.pipeline.assembly.input"
             && e.Attributes != null
             && e.Attributes.Any(kv => kv.Key == "gnougo-flow.plan.pipeline.main_workflow_prompt")

@@ -8,6 +8,7 @@ internal sealed record StepExpressionTypeMismatch(
     string Field,
     string Expression,
     string ExpectedType,
+    string ActualType,
     string Message);
 
 /// <summary>
@@ -25,6 +26,15 @@ internal static class StepExpressionTypeValidator
     private static readonly Regex StepReference = new(
         @"^(?:data\.)?steps\.([A-Za-z_][A-Za-z0-9_-]*)(?<path>(?:\.[A-Za-z_][A-Za-z0-9_]*)*)$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex ReferenceExpression = new(
+        @"^(?:data\.)?(?:inputs|steps)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex NonNullComparison = new(
+        @"(?:(?<left>(?:data\.)?(?:inputs|steps)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*(?:!==|!=)\s*null|null\s*(?:!==|!=)\s*(?<right>(?:data\.)?(?:inputs|steps)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*))",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex ExistsCall = new(
+        @"^(?:functions\.)?exists\(\s*(?<reference>(?:data\.)?(?:inputs|steps)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\)$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex FunctionCall = new(
         @"^(?:functions\.)?([A-Za-z_][A-Za-z0-9_]*)\s*\(",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -35,10 +45,11 @@ internal static class StepExpressionTypeValidator
         JsonNode? input,
         JsonObject inputSchema,
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
-        IReadOnlyDictionary<string, JsonNode?> knownStepOutputs)
+        IReadOnlyDictionary<string, JsonNode?> knownStepOutputs,
+        IReadOnlySet<string>? nonNullReferences = null)
     {
         var mismatches = new List<StepExpressionTypeMismatch>();
-        ValidateNode(input, inputSchema, "input", workflowInputs, knownStepOutputs, mismatches);
+        ValidateNode(input, inputSchema, "input", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
         return mismatches;
     }
 
@@ -76,7 +87,7 @@ internal static class StepExpressionTypeValidator
             if (scalar.TryGetValue<string>(out var text))
             {
                 return text?.Contains("${", StringComparison.Ordinal) == true
-                    ? InferInterpolatedString(text, workflowInputs, knownStepOutputs)
+                    ? InferInterpolatedString(text, workflowInputs, knownStepOutputs) ?? OpaqueSchema()
                     : TypeSchema("string");
             }
             if (scalar.TryGetValue<bool>(out _))
@@ -94,21 +105,63 @@ internal static class StepExpressionTypeValidator
         string field,
         JsonObject expectedSchema,
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
-        IReadOnlyDictionary<string, JsonNode?> knownStepOutputs)
+        IReadOnlyDictionary<string, JsonNode?> knownStepOutputs,
+        IReadOnlySet<string>? nonNullReferences = null)
     {
         if (string.IsNullOrWhiteSpace(expression) || !expression.Contains("${", StringComparison.Ordinal))
             return null;
 
-        var inferred = InferInterpolatedString(expression, workflowInputs, knownStepOutputs);
+        var inferred = InferInterpolatedString(expression, workflowInputs, knownStepOutputs, nonNullReferences);
         if (inferred == null || IsCompatible(inferred, expectedSchema))
             return null;
 
         var expected = DescribeExpected(expectedSchema);
+        var actual = DescribeActual(inferred);
         return new StepExpressionTypeMismatch(
             field,
             expression,
             expected,
-            $"Expression assigned to '{field}' resolves to {DescribeActual(inferred)}, but the contract requires {expected}.");
+            actual,
+            $"Expression assigned to '{field}' resolves to {actual}, but the contract requires {expected}.");
+    }
+
+    public static IReadOnlySet<string> InferNonNullReferencesFromGuard(string? guard)
+    {
+        if (string.IsNullOrWhiteSpace(guard) || !guard.Contains("${", StringComparison.Ordinal))
+            return EmptyStringSet.Value;
+
+        var exact = ExactExpression.Match(guard);
+        if (!exact.Success)
+            return EmptyStringSet.Value;
+
+        var expression = exact.Groups["expression"].Value.Trim();
+        if (expression.Length == 0 || expression.Contains("||", StringComparison.Ordinal))
+            return EmptyStringSet.Value;
+
+        var references = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var rawTerm in expression.Split(new[] { "&&" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var term = TrimEnclosingParentheses(rawTerm);
+            if (TryNormalizeReference(term, out var directReference))
+            {
+                references.Add(directReference);
+                continue;
+            }
+
+            var exists = ExistsCall.Match(term);
+            if (exists.Success && TryNormalizeReference(exists.Groups["reference"].Value, out var existsReference))
+                references.Add(existsReference);
+
+            foreach (Match comparison in NonNullComparison.Matches(term))
+            {
+                if (comparison.Groups["left"].Success && TryNormalizeReference(comparison.Groups["left"].Value, out var leftReference))
+                    references.Add(leftReference);
+                if (comparison.Groups["right"].Success && TryNormalizeReference(comparison.Groups["right"].Value, out var rightReference))
+                    references.Add(rightReference);
+            }
+        }
+
+        return references.Count == 0 ? EmptyStringSet.Value : references;
     }
 
     public static JsonObject OutputDefSchema(OutputDef definition)
@@ -200,6 +253,7 @@ internal static class StepExpressionTypeValidator
         string field,
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
         IReadOnlyDictionary<string, JsonNode?> knownStepOutputs,
+        IReadOnlySet<string>? nonNullReferences,
         List<StepExpressionTypeMismatch> mismatches)
     {
         if (IsOpaque(schema))
@@ -207,15 +261,17 @@ internal static class StepExpressionTypeValidator
 
         if (value is JsonValue scalar && scalar.TryGetValue<string>(out var text) && text?.Contains("${", StringComparison.Ordinal) == true)
         {
-            var inferred = InferInterpolatedString(text, workflowInputs, knownStepOutputs);
+            var inferred = InferInterpolatedString(text, workflowInputs, knownStepOutputs, nonNullReferences);
             if (inferred != null && !IsCompatible(inferred, schema))
             {
                 var expected = DescribeExpected(schema);
+                var actual = DescribeActual(inferred);
                 mismatches.Add(new StepExpressionTypeMismatch(
                     field,
                     text,
                     expected,
-                    $"Expression assigned to '{field}' resolves to {DescribeActual(inferred)}, but the step contract requires {expected}."));
+                    actual,
+                    $"Expression assigned to '{field}' resolves to {actual}, but the step contract requires {expected}."));
             }
             return;
         }
@@ -226,7 +282,7 @@ internal static class StepExpressionTypeValidator
             foreach (var (name, child) in obj)
             {
                 if (properties?[name] is JsonObject childSchema)
-                    ValidateNode(child, childSchema, $"{field}.{name}", workflowInputs, knownStepOutputs, mismatches);
+                    ValidateNode(child, childSchema, $"{field}.{name}", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
             }
             return;
         }
@@ -236,14 +292,15 @@ internal static class StepExpressionTypeValidator
             && schema["items"] is JsonObject itemSchema)
         {
             for (var i = 0; i < array.Count; i++)
-                ValidateNode(array[i], itemSchema, $"{field}[{i}]", workflowInputs, knownStepOutputs, mismatches);
+                ValidateNode(array[i], itemSchema, $"{field}[{i}]", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
         }
     }
 
     private static JsonObject? InferInterpolatedString(
         string text,
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
-        IReadOnlyDictionary<string, JsonNode?> knownStepOutputs)
+        IReadOnlyDictionary<string, JsonNode?> knownStepOutputs,
+        IReadOnlySet<string>? nonNullReferences = null)
     {
         var exact = ExactExpression.Match(text);
         if (!exact.Success)
@@ -257,14 +314,22 @@ internal static class StepExpressionTypeValidator
         if (inputMatch.Success && workflowInputs != null
             && workflowInputs.TryGetValue(inputMatch.Groups[1].Value, out var inputDef))
         {
-            return ResolveSchemaPath(InputDefSchema(inputDef), SplitPath(inputMatch.Groups["path"].Value));
+            var reference = $"inputs.{inputMatch.Groups[1].Value}{inputMatch.Groups["path"].Value}";
+            return ApplyNonNullNarrowing(
+                ResolveSchemaPath(InputDefSchema(inputDef), SplitPath(inputMatch.Groups["path"].Value)),
+                reference,
+                nonNullReferences);
         }
 
         var stepMatch = StepReference.Match(expression);
         if (stepMatch.Success
             && knownStepOutputs.TryGetValue(stepMatch.Groups[1].Value, out var outputSchema))
         {
-            return ResolveSchemaPath(outputSchema as JsonObject, SplitPath(stepMatch.Groups["path"].Value));
+            var reference = $"steps.{stepMatch.Groups[1].Value}{stepMatch.Groups["path"].Value}";
+            return ApplyNonNullNarrowing(
+                ResolveSchemaPath(outputSchema as JsonObject, SplitPath(stepMatch.Groups["path"].Value)),
+                reference,
+                nonNullReferences);
         }
 
         if (expression is "true" or "false" || LooksBoolean(expression))
@@ -300,6 +365,125 @@ internal static class StepExpressionTypeValidator
         }
 
         return null;
+    }
+
+    private static JsonObject? ApplyNonNullNarrowing(
+        JsonObject? schema,
+        string reference,
+        IReadOnlySet<string>? nonNullReferences)
+    {
+        if (schema == null || nonNullReferences == null || !nonNullReferences.Contains(reference))
+            return schema;
+
+        return RemoveNullType(schema);
+    }
+
+    private static JsonObject RemoveNullType(JsonObject schema)
+    {
+        if (IsOpaque(schema))
+            return schema.DeepClone() as JsonObject ?? OpaqueSchema();
+
+        var clone = schema.DeepClone() as JsonObject ?? OpaqueSchema();
+        if (clone.ContainsKey("type") && clone["type"] == null)
+        {
+            return OpaqueSchema();
+        }
+        if (clone["type"] is JsonValue typeValue && typeValue.TryGetValue<string>(out var type) && type != null)
+        {
+            if (string.Equals(type, "null", StringComparison.Ordinal))
+                return OpaqueSchema();
+        }
+        else if (clone["type"] is JsonArray typeArray)
+        {
+            var remaining = typeArray
+                .OfType<JsonValue>()
+                .Select(static value => value.TryGetValue<string>(out var item) ? item : null)
+                .Where(static item => item != null && !string.Equals(item, "null", StringComparison.Ordinal))
+                .Cast<string>()
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            clone["type"] = remaining.Length switch
+            {
+                0 => null,
+                1 => JsonValue.Create(remaining[0]),
+                _ => new JsonArray(remaining.Select(static item => (JsonNode?)JsonValue.Create(item)).ToArray())
+            };
+
+            if (remaining.Length == 0)
+                return OpaqueSchema();
+        }
+
+        foreach (var keyword in new[] { "anyOf", "oneOf" })
+        {
+            if (clone[keyword] is not JsonArray variants)
+                continue;
+
+            var narrowed = new JsonArray();
+            foreach (var variant in variants)
+            {
+                if (variant is not JsonObject variantObject)
+                {
+                    narrowed.Add((JsonNode?)variant?.DeepClone());
+                    continue;
+                }
+
+                var variantTypes = ReadTypes(variantObject);
+                if (variantTypes.Count == 1 && variantTypes.Contains("null"))
+                    continue;
+
+                narrowed.Add((JsonNode?)RemoveNullType(variantObject));
+            }
+
+            if (narrowed.Count == 0)
+                return OpaqueSchema();
+
+            clone[keyword] = narrowed;
+        }
+
+        return clone;
+    }
+
+    private static bool TryNormalizeReference(string expression, out string reference)
+    {
+        reference = "";
+        var normalized = TrimEnclosingParentheses(expression);
+        if (!ReferenceExpression.IsMatch(normalized))
+            return false;
+
+        reference = normalized.StartsWith("data.", StringComparison.Ordinal)
+            ? normalized["data.".Length..]
+            : normalized;
+        return true;
+    }
+
+    private static string TrimEnclosingParentheses(string value)
+    {
+        var current = value.Trim();
+        while (current.Length >= 2
+               && current[0] == '('
+               && current[^1] == ')'
+               && IsSingleParenthesizedExpression(current))
+        {
+            current = current[1..^1].Trim();
+        }
+        return current;
+    }
+
+    private static bool IsSingleParenthesizedExpression(string value)
+    {
+        var depth = 0;
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (value[i] == '(')
+                depth++;
+            else if (value[i] == ')')
+                depth--;
+
+            if (depth == 0 && i < value.Length - 1)
+                return false;
+        }
+        return depth == 0;
     }
 
     private static bool LooksBoolean(string expression)
@@ -412,7 +596,7 @@ internal static class StepExpressionTypeValidator
             }
             return null;
         }
-        return current;
+        return current?.DeepClone() as JsonObject;
     }
 
     private static IReadOnlyList<string> SplitPath(string path) =>
@@ -438,13 +622,17 @@ internal static class StepExpressionTypeValidator
     private static HashSet<string> ReadTypes(JsonObject schema)
     {
         var types = new HashSet<string>(StringComparer.Ordinal);
-        if (schema["type"] is JsonValue typeValue && typeValue.TryGetValue<string>(out var type) && type != null)
+        if (schema.ContainsKey("type") && schema["type"] == null)
+            types.Add("null");
+        else if (schema["type"] is JsonValue typeValue && typeValue.TryGetValue<string>(out var type) && type != null)
             types.Add(type);
         else if (schema["type"] is JsonArray typeArray)
         {
             foreach (var node in typeArray)
             {
-                if (node is JsonValue value && value.TryGetValue<string>(out var item) && item != null)
+                if (node == null)
+                    types.Add("null");
+                else if (node is JsonValue value && value.TryGetValue<string>(out var item) && item != null)
                     types.Add(item);
             }
         }
@@ -477,4 +665,9 @@ internal static class StepExpressionTypeValidator
 
     private static JsonObject TypeSchema(string type) => new() { ["type"] = type };
     private static JsonObject OpaqueSchema() => new() { ["x-gnougo-opaque"] = true };
+
+    private static class EmptyStringSet
+    {
+        public static readonly IReadOnlySet<string> Value = new HashSet<string>(StringComparer.Ordinal);
+    }
 }

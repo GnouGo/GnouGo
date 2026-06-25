@@ -61,6 +61,48 @@ public class WorkflowInputDefaultsTests
     }
 
     [Fact]
+    public void Apply_AllowsNestedJsonNodeDefaultsWithoutReparenting()
+    {
+        var workflow = new WorkflowDef
+        {
+            Inputs = new Dictionary<string, InputDef>
+            {
+                ["config"] = new()
+                {
+                    Type = "object",
+                    Required = false,
+                    Default = new JsonObject
+                    {
+                        ["service"] = new JsonObject
+                        {
+                            ["name"] = "api"
+                        }
+                    },
+                    Properties = new Dictionary<string, InputDef>
+                    {
+                        ["service"] = new()
+                        {
+                            Type = "object",
+                            Properties = new Dictionary<string, InputDef>
+                            {
+                                ["name"] = new() { Type = "string", Required = true }
+                            },
+                            RequiredProperties = ["name"]
+                        }
+                    },
+                    RequiredProperties = ["service"]
+                }
+            }
+        };
+
+        var merged = WorkflowInputDefaults.Apply(workflow, new JsonObject());
+
+        var config = Assert.IsType<JsonObject>(merged["config"]);
+        var service = Assert.IsType<JsonObject>(config["service"]);
+        Assert.Equal("api", service["name"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void Apply_DoesNotOverrideExplicitInputs()
     {
         var workflow = new WorkflowDef

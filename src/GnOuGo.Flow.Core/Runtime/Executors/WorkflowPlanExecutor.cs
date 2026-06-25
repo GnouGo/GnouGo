@@ -88,6 +88,21 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.AppendLine(rule);
     }
 
+    private static void AppendExpressionFunctionRules(StringBuilder sb)
+    {
+        var builtIns = string.Join(
+            ", ",
+            BuiltInFunctions.All.Keys
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .Select(static name => $"`{name}`"));
+
+        sb.AppendLine("Expression function rules:");
+        sb.AppendLine($"- Built-in expression functions are exactly: {builtIns}.");
+        sb.AppendLine("- Call only documented built-ins, or custom functions that you define in a document-level or workflow-level `functions:` block.");
+        sb.AppendLine("- Every `functions.<name>(...)` call must refer to a built-in or to a matching `function <name>(...)` declaration in `functions:`.");
+        sb.AppendLine("- Do not invent helpers such as `functions.parseRepoUrl`, `functions.clampNumber`, `functions.take`, or `functions.filterUnprocessedIssues`; implement them in `functions:` or replace them with built-ins, structured_output normalization, or explicit workflow steps.");
+    }
+
     private async Task<JsonNode?> ExecuteSinglePlanAsync(
         StepExecutionContext ctx,
         JsonObject input,
@@ -276,6 +291,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- If an MCP response is opaque, use `json(data.steps.<id>.response)` to pass the whole response to another step.");
         basePrompt.AppendLine("- If precise fields are needed from an opaque response, add an `llm.call` normalization step with `structured_output`, then read fields from `data.steps.<normalizer>.json`.");
         AppendMcpInputContractChecklist(basePrompt);
+        AppendExpressionFunctionRules(basePrompt);
         basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");
         basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
         basePrompt.AppendLine("- Workflow output expressions must match the declared output contract type exactly. A string output must resolve to a string; a boolean output must resolve to a boolean.");
@@ -284,6 +300,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- If a string output must be derived from an MCP/LLM response, first normalize it with `llm.call` or `mcp.call` `structured_output`, then map `data.steps.<normalizer>.json.<field>` to the workflow output.");
         basePrompt.AppendLine("- For input/output object schemas, never duplicate the YAML key `required`. Use input-level `required: true|false` only as a boolean. Use `required_properties: [field_name]` for required object property names.");
         AppendPromptSectionEnd(basePrompt, "generation_validation_checklist");
+        basePrompt.AppendLine();
+        AppendStructuredOutputStrictSchemaRules(basePrompt);
 
         basePrompt.AppendLine();
         AppendPromptSectionStart(basePrompt, "llm_model_parameters");

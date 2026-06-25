@@ -40,6 +40,8 @@ public sealed class LlmCallExecutor : IStepExecutor
         ```
         Structured output:
         IMPORTANT for `strict: true` (OpenAI/GitHub Models response_format json_schema):
+        - The root schema MUST be `type: object`; do not return a scalar/array root for strict structured output.
+        - Never use `type: any`; JSON Schema has no `any` type. Use explicit real types or `anyOf` variants.
         - Every schema object with `properties` MUST have `required` listing EVERY key from `properties`.
         - Do NOT list only the fields that feel mandatory; strict mode rejects omitted property names.
         - Optional fields must still be listed in `required`; represent them as nullable with `anyOf: [{ type: <type> }, { type: "null" }]`.

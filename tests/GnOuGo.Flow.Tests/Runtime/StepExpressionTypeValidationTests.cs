@@ -61,6 +61,60 @@ steps:
     }
 
     [Fact]
+    public void SemanticValidation_RejectsUnknownNamespacedFunction()
+    {
+        var doc = Parse("""
+inputs:
+  repo_url: string
+steps:
+  - id: parse
+    type: set
+    input:
+      owner: "${functions.parseRepoUrl(data.inputs.repo_url).owner}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains("EXPRESSION_FUNCTION_UNKNOWN", exception.InnerException!.Message);
+        Assert.Contains("functions.parseRepoUrl", exception.InnerException.Message);
+        Assert.Contains("function parseRepoUrl", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_AcceptsDeclaredNamespacedFunctions()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Function validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+functions: |
+  function parseRepoUrl(url) {
+    return { owner: "AxaFrance", repo: "oidc-client" };
+  }
+workflows:
+  main:
+    functions: |
+      function clampNumber(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+    inputs:
+      repo_url: string
+      limit: number
+    steps:
+      - id: parse
+        type: set
+        input:
+          owner: "${functions.parseRepoUrl(data.inputs.repo_url).owner}"
+          max: "${functions.clampNumber(data.inputs.limit, 1, 100)}"
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
     public void SemanticValidation_PropagatesSetExpressionOutputType()
     {
         var doc = Parse("""
@@ -82,6 +136,76 @@ steps:
         type: set
         input:
           name: "${data.item}"
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
+    public void SemanticValidation_AcceptsNestedSetObjectBuiltFromPreviousStepFields()
+    {
+        var doc = Parse("""
+steps:
+  - id: source
+    type: set
+    input:
+      issue:
+        title: Example issue
+        number: 42
+  - id: reshape
+    type: set
+    input:
+      issue_for_question:
+        title: "${data.steps.source.issue.title}"
+        number: "${data.steps.source.issue.number}"
+  - id: consume
+    type: set
+    input:
+      copied_number: "${data.steps.reshape.issue_for_question.number}"
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
+    public void SemanticValidation_TreatsUnknownExactSetExpressionsAsOpaque()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Unknown expression type validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: loop
+        type: loop.sequential
+        input:
+          items:
+            - issue_number: 42
+        item_var: issue
+        steps:
+          - id: context
+            type: set
+            input:
+              issue_number: "${data.issue.issue_number}"
+          - id: call_helper
+            type: workflow.call
+            input:
+              ref: { kind: local, name: helper }
+              args:
+                issue_number: "${data.steps.context.issue_number}"
+  helper:
+    inputs:
+      issue_number:
+        type: number
+        required: true
+    steps:
+      - id: ok
+        type: set
+        input: { ok: true }
 """);
 
         InvokeSemanticValidation(doc);

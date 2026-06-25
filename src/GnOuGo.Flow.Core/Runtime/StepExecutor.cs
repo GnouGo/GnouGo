@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Diagnostics;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
 namespace GnOuGo.Flow.Core.Runtime;
@@ -49,6 +50,13 @@ public sealed class StepExecutionContext
     public ExecutionLimits Limits { get; init; } = new();
     public int CallDepth { get; init; }
     public HashSet<string> CallStack { get; init; } = new();
+    internal WorkflowExecutionScope? ExecutionScope { get; init; }
+    internal WorkflowExecutionScope EffectiveExecutionScope =>
+        ExecutionScope ?? new WorkflowExecutionScope(null, Engine.Evaluator, Engine.Interpolator);
+
+    public ExpressionEvaluator Evaluator => ExecutionScope?.Evaluator ?? Engine.Evaluator;
+    public StringInterpolator Interpolator => ExecutionScope?.Interpolator ?? Engine.Interpolator;
+    public CompiledDocument? ActiveDocument => ExecutionScope?.Workflow?.Document ?? Engine.CompiledDocument;
 
     /// <summary>
     /// The active telemetry span for this step.
@@ -134,6 +142,23 @@ public sealed class StepExecutionContext
         });
         return new TelemetrySpanScope(Engine.Telemetry, span);
     }
+}
+
+internal sealed class WorkflowExecutionScope
+{
+    public WorkflowExecutionScope(
+        CompiledWorkflow? workflow,
+        ExpressionEvaluator evaluator,
+        StringInterpolator interpolator)
+    {
+        Workflow = workflow;
+        Evaluator = evaluator;
+        Interpolator = interpolator;
+    }
+
+    public CompiledWorkflow? Workflow { get; }
+    public ExpressionEvaluator Evaluator { get; }
+    public StringInterpolator Interpolator { get; }
 }
 
 /// <summary>

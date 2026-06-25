@@ -16,11 +16,11 @@ public sealed class CmdTools
         _logger = logger;
     }
 
-    [McpServerTool(Name = "cmd_list_allowed_commands"), Description("Lists the allowlisted commands that this secure command MCP server is allowed to execute. Each entry includes its name, description, target shell, working directory, and accepted parameters. Commands run within the default workspace.")]
+    [McpServerTool(Name = "cmd_list_allowed_commands"), Description("Lists the allowlisted commands that this secure command MCP server is allowed to execute. Takes no arguments. Output shape: { \"commands\": [ { \"name\": string, \"description\": string|null, \"shell\": string, \"workingDirectory\": string, \"parameters\": string[] } ] }. Each entry includes the exact commandName value to pass to cmd_run, its description, target shell, resolved working directory, and accepted parameters. Commands run within the default workspace.")]
     public CmdAllowedCommandsResult ListAllowedCommands()
         => new(_host.ListAllowedCommands());
 
-    [McpServerTool(Name = "cmd_get_policy"), Description("Returns the active command execution policy: configured shells, allowed working roots, execution limits, and the current OS/architecture/available shells environment info. Call this first to discover the default workspace — only the default workspace is authorized.")]
+    [McpServerTool(Name = "cmd_get_policy"), Description("Returns the active command execution policy. Takes no arguments. Output shape: { \"allowedShells\": string[], \"allowedWorkingRoots\": string[], \"defaultTimeoutMs\": integer, \"maxTimeoutMs\": integer, \"maxOutputCharacters\": integer, \"allowedCommandCount\": integer, \"environment\": { \"operatingSystem\": string, \"architecture\": string, \"machineName\": string, \"availableShells\": [ { \"name\": string, \"available\": boolean, \"resolvedPath\": string|null } ] } }. Use it to discover the default workspace and execution limits; only allowed working roots are authorized.")]
     public CmdPolicyInfo GetPolicy()
         => _host.GetPolicy();
 

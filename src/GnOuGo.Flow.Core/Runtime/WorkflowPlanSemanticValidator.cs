@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
 namespace GnOuGo.Flow.Core.Runtime;
@@ -41,9 +42,17 @@ internal sealed class WorkflowSemanticValidationException : Exception
 /// </summary>
 internal static class WorkflowPlanSemanticValidator
 {
+    private const string McpRequestExpressionTypeMismatchCode = "MCP_REQUEST_EXPR_TYPE_MISMATCH";
+
     private static readonly Regex ExpressionRegex = new(@"\$\{([^}]+)\}", RegexOptions.Compiled);
     private static readonly Regex DataStepsPathRegex = new(
         @"\bdata\.steps\.([A-Za-z_][A-Za-z0-9_-]*)(?<path>(?:\.[A-Za-z_][A-Za-z0-9_]*)*)",
+        RegexOptions.Compiled);
+    private static readonly Regex NamespacedFunctionCallRegex = new(
+        @"\bfunctions\.([A-Za-z_][A-Za-z0-9_]*)\s*\(",
+        RegexOptions.Compiled);
+    private static readonly Regex FunctionDeclarationRegex = new(
+        @"\bfunction\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(",
         RegexOptions.Compiled);
     private static readonly HashSet<string> KnownMcpCallInputFields = new(StringComparer.Ordinal)
     {
@@ -65,11 +74,13 @@ internal static class WorkflowPlanSemanticValidator
     {
         var errors = new List<WorkflowSemanticValidationError>();
         var mcpContracts = BuildMcpContractLookup(mcpToolContracts);
+        var globalFunctionNames = BuildAllowedFunctionNames(document.Functions);
 
         foreach (var (workflowName, workflow) in document.Workflows)
         {
             var allStepIds = CollectStepIds(workflow.Steps).ToHashSet(StringComparer.Ordinal);
             var knownContracts = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
+            var allowedFunctionNames = BuildAllowedFunctionNames(workflow.Functions, globalFunctionNames);
             ValidateStepList(
                 workflow.Steps,
                 workflowName,
@@ -77,6 +88,7 @@ internal static class WorkflowPlanSemanticValidator
                 workflow.Inputs,
                 knownContracts,
                 allStepIds,
+                allowedFunctionNames,
                 mcpContracts,
                 stepContracts,
                 errors);
@@ -91,6 +103,7 @@ internal static class WorkflowPlanSemanticValidator
                         workflow.Inputs,
                         knownContracts,
                         allStepIds,
+                        allowedFunctionNames,
                         errors);
             }
         }
@@ -142,6 +155,21 @@ internal static class WorkflowPlanSemanticValidator
         return lookup;
     }
 
+    private static HashSet<string> BuildAllowedFunctionNames(string? script, HashSet<string>? inherited = null)
+    {
+        var names = inherited == null
+            ? new HashSet<string>(BuiltInFunctions.All.Keys, StringComparer.Ordinal)
+            : new HashSet<string>(inherited, StringComparer.Ordinal);
+
+        if (string.IsNullOrWhiteSpace(script))
+            return names;
+
+        foreach (Match match in FunctionDeclarationRegex.Matches(script))
+            names.Add(match.Groups[1].Value);
+
+        return names;
+    }
+
     private static IEnumerable<string> CollectStepIds(IEnumerable<StepDef> steps)
     {
         foreach (var step in steps)
@@ -174,12 +202,13 @@ internal static class WorkflowPlanSemanticValidator
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
         Dictionary<string, JsonNode?> knownContracts,
         HashSet<string> allStepIds,
+        HashSet<string> allowedFunctionNames,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
         IReadOnlyDictionary<string, StepContract> stepContracts,
         List<WorkflowSemanticValidationError> errors)
     {
         foreach (var step in steps)
-            ValidateStep(step, workflowName, workflows, workflowInputs, knownContracts, allStepIds, mcpContracts, stepContracts, errors);
+            ValidateStep(step, workflowName, workflows, workflowInputs, knownContracts, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
     }
 
     private static int NormalizeMcpCallInputRequests(
@@ -245,22 +274,25 @@ internal static class WorkflowPlanSemanticValidator
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
         Dictionary<string, JsonNode?> knownContracts,
         HashSet<string> allStepIds,
+        HashSet<string> allowedFunctionNames,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
         IReadOnlyDictionary<string, StepContract> stepContracts,
         List<WorkflowSemanticValidationError> errors)
     {
-        ValidateString(step.If, workflowName, step.Id, "if", knownContracts, allStepIds, errors);
-        ValidateString(step.Expr, workflowName, step.Id, "expr", knownContracts, allStepIds, errors);
-        ValidateJson(step.Input, workflowName, step.Id, "input", knownContracts, allStepIds, errors);
-        ValidateMcpCallInputRequest(step, workflowName, mcpContracts, errors);
-        ValidateLocalWorkflowCallInput(step, workflowName, workflows, workflowInputs, knownContracts, errors);
+        ValidateString(step.If, workflowName, step.Id, "if", knownContracts, allStepIds, allowedFunctionNames, errors);
+        ValidateString(step.Expr, workflowName, step.Id, "expr", knownContracts, allStepIds, allowedFunctionNames, errors);
+        ValidateJson(step.Input, workflowName, step.Id, "input", knownContracts, allStepIds, allowedFunctionNames, errors);
+        var nonNullReferences = StepExpressionTypeValidator.InferNonNullReferencesFromGuard(step.If);
+        ValidateMcpCallInputRequest(step, workflowName, workflowInputs, knownContracts, nonNullReferences, mcpContracts, errors);
+        ValidateLocalWorkflowCallInput(step, workflowName, workflows, workflowInputs, knownContracts, nonNullReferences, errors);
         if (stepContracts.TryGetValue(step.Type, out var stepContract))
         {
             foreach (var mismatch in StepExpressionTypeValidator.ValidateInput(
                          step.Input,
                          stepContract.InputSchema,
                          workflowInputs,
-                         knownContracts))
+                         knownContracts,
+                         nonNullReferences))
             {
                 errors.Add(new WorkflowSemanticValidationError
                 {
@@ -293,8 +325,8 @@ internal static class WorkflowPlanSemanticValidator
             for (var i = 0; i < step.OnError.Cases.Count; i++)
             {
                 var onErrorCase = step.OnError.Cases[i];
-                ValidateString(onErrorCase.If, workflowName, step.Id, $"on_error.cases[{i}].if", knownContracts, allStepIds, errors);
-                ValidateJson(onErrorCase.SetOutput, workflowName, step.Id, $"on_error.cases[{i}].set_output", knownContracts, allStepIds, errors);
+                ValidateString(onErrorCase.If, workflowName, step.Id, $"on_error.cases[{i}].if", knownContracts, allStepIds, allowedFunctionNames, errors);
+                ValidateJson(onErrorCase.SetOutput, workflowName, step.Id, $"on_error.cases[{i}].set_output", knownContracts, allStepIds, allowedFunctionNames, errors);
             }
         }
 
@@ -304,7 +336,7 @@ internal static class WorkflowPlanSemanticValidator
             foreach (var branch in step.Branches)
             {
                 var branchKnown = CloneContracts(knownContracts);
-                ValidateStepList(branch.Steps, workflowName, workflows, workflowInputs, branchKnown, allStepIds, mcpContracts, stepContracts, errors);
+                ValidateStepList(branch.Steps, workflowName, workflows, workflowInputs, branchKnown, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
                 foreach (var produced in branchKnown.Where(kv => !knownContracts.ContainsKey(kv.Key)))
                     branchProducedContracts[produced.Key] = produced.Value?.DeepClone();
             }
@@ -321,7 +353,7 @@ internal static class WorkflowPlanSemanticValidator
             {
                 foreach (var @case in step.Cases)
                 {
-                    ValidateString(@case.When, workflowName, step.Id, "cases.when", knownContracts, allStepIds, errors);
+                    ValidateString(@case.When, workflowName, step.Id, "cases.when", knownContracts, allStepIds, allowedFunctionNames, errors);
                     AddExpressionTypeMismatch(
                         StepExpressionTypeValidator.ValidateExpression(
                             @case.When,
@@ -336,14 +368,14 @@ internal static class WorkflowPlanSemanticValidator
                     // Only one switch branch runs at runtime, so branch-local step outputs are not
                     // guaranteed mappings after the switch. Validate each branch independently.
                     var caseKnown = CloneContracts(knownContracts);
-                    ValidateStepList(@case.Steps, workflowName, workflows, workflowInputs, caseKnown, allStepIds, mcpContracts, stepContracts, errors);
+                    ValidateStepList(@case.Steps, workflowName, workflows, workflowInputs, caseKnown, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
                 }
             }
 
             if (step.Default != null)
             {
                 var defaultKnown = CloneContracts(knownContracts);
-                ValidateStepList(step.Default, workflowName, workflows, workflowInputs, defaultKnown, allStepIds, mcpContracts, stepContracts, errors);
+                ValidateStepList(step.Default, workflowName, workflows, workflowInputs, defaultKnown, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
             }
         }
         else if (step.Type is "loop.sequential" or "loop.parallel")
@@ -353,7 +385,7 @@ internal static class WorkflowPlanSemanticValidator
                 // Loop bodies may execute zero times, so their inner step outputs are not guaranteed
                 // mappings after the loop. References inside the loop are still validated in order.
                 var loopKnown = CloneContracts(knownContracts);
-                ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, loopKnown, allStepIds, mcpContracts, stepContracts, errors);
+                ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, loopKnown, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
             }
         }
         else
@@ -363,11 +395,11 @@ internal static class WorkflowPlanSemanticValidator
                 if (stepIsConditional)
                 {
                     var conditionalKnown = CloneContracts(knownContracts);
-                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, conditionalKnown, allStepIds, mcpContracts, stepContracts, errors);
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, conditionalKnown, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
                 }
                 else
                 {
-                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, knownContracts, allStepIds, mcpContracts, stepContracts, errors);
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, knownContracts, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
                 }
             }
         }
@@ -397,9 +429,10 @@ internal static class WorkflowPlanSemanticValidator
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
         Dictionary<string, JsonNode?> knownContracts,
         HashSet<string> allStepIds,
+        HashSet<string> allowedFunctionNames,
         List<WorkflowSemanticValidationError> errors)
     {
-        ValidateString(outputDef.Expr, workflowName, null, field, knownContracts, allStepIds, errors);
+        ValidateString(outputDef.Expr, workflowName, null, field, knownContracts, allStepIds, allowedFunctionNames, errors);
         AddExpressionTypeMismatch(
             StepExpressionTypeValidator.ValidateExpression(
                 outputDef.Expr,
@@ -414,14 +447,14 @@ internal static class WorkflowPlanSemanticValidator
         if (outputDef.Properties != null)
         {
             foreach (var (propertyName, propertyDef) in outputDef.Properties)
-                ValidateOutputDef(propertyDef, workflowName, $"{field}.properties.{propertyName}", workflowInputs, knownContracts, allStepIds, errors);
+                ValidateOutputDef(propertyDef, workflowName, $"{field}.properties.{propertyName}", workflowInputs, knownContracts, allStepIds, allowedFunctionNames, errors);
         }
 
         if (outputDef.Items != null)
-            ValidateOutputDef(outputDef.Items, workflowName, $"{field}.items", workflowInputs, knownContracts, allStepIds, errors);
+            ValidateOutputDef(outputDef.Items, workflowName, $"{field}.items", workflowInputs, knownContracts, allStepIds, allowedFunctionNames, errors);
 
         if (outputDef.AdditionalProperties != null)
-            ValidateOutputDef(outputDef.AdditionalProperties, workflowName, $"{field}.additional_properties", workflowInputs, knownContracts, allStepIds, errors);
+            ValidateOutputDef(outputDef.AdditionalProperties, workflowName, $"{field}.additional_properties", workflowInputs, knownContracts, allStepIds, allowedFunctionNames, errors);
     }
 
     private static void AddExpressionTypeMismatch(
@@ -464,20 +497,21 @@ internal static class WorkflowPlanSemanticValidator
         string field,
         Dictionary<string, JsonNode?> knownContracts,
         HashSet<string> allStepIds,
+        HashSet<string> allowedFunctionNames,
         List<WorkflowSemanticValidationError> errors)
     {
         switch (node)
         {
             case JsonValue value when value.TryGetValue<string>(out var text):
-                ValidateString(text, workflowName, stepId, field, knownContracts, allStepIds, errors);
+                ValidateString(text, workflowName, stepId, field, knownContracts, allStepIds, allowedFunctionNames, errors);
                 break;
             case JsonObject obj:
                 foreach (var (key, child) in obj)
-                    ValidateJson(child, workflowName, stepId, $"{field}.{key}", knownContracts, allStepIds, errors);
+                    ValidateJson(child, workflowName, stepId, $"{field}.{key}", knownContracts, allStepIds, allowedFunctionNames, errors);
                 break;
             case JsonArray array:
                 for (var i = 0; i < array.Count; i++)
-                    ValidateJson(array[i], workflowName, stepId, $"{field}[{i}]", knownContracts, allStepIds, errors);
+                    ValidateJson(array[i], workflowName, stepId, $"{field}[{i}]", knownContracts, allStepIds, allowedFunctionNames, errors);
                 break;
         }
     }
@@ -489,14 +523,20 @@ internal static class WorkflowPlanSemanticValidator
         string field,
         Dictionary<string, JsonNode?> knownContracts,
         HashSet<string> allStepIds,
+        HashSet<string> allowedFunctionNames,
         List<WorkflowSemanticValidationError> errors)
     {
-        if (string.IsNullOrWhiteSpace(text) || !text.Contains("data.steps.", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(text) || !text.Contains("${", StringComparison.Ordinal))
             return;
 
         foreach (Match expressionMatch in ExpressionRegex.Matches(text))
         {
             var expression = expressionMatch.Groups[1].Value;
+            ValidateFunctionCalls(expression, workflowName, stepId, field, allowedFunctionNames, errors);
+
+            if (!expression.Contains("data.steps.", StringComparison.Ordinal))
+                continue;
+
             foreach (Match pathMatch in DataStepsPathRegex.Matches(expression))
             {
                 var referencedStepId = pathMatch.Groups[1].Value;
@@ -545,6 +585,37 @@ internal static class WorkflowPlanSemanticValidator
         }
     }
 
+    private static void ValidateFunctionCalls(
+        string expression,
+        string workflowName,
+        string? stepId,
+        string field,
+        HashSet<string> allowedFunctionNames,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        foreach (Match match in NamespacedFunctionCallRegex.Matches(expression))
+        {
+            var functionName = match.Groups[1].Value;
+            if (allowedFunctionNames.Contains(functionName))
+                continue;
+
+            errors.Add(new WorkflowSemanticValidationError
+            {
+                Code = "EXPRESSION_FUNCTION_UNKNOWN",
+                WorkflowName = workflowName,
+                StepId = stepId,
+                Field = field,
+                InvalidPath = $"functions.{functionName}",
+                AllowedPaths = allowedFunctionNames
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .Select(name => "functions." + name)
+                    .ToArray(),
+                Suggestion = $"Define `function {functionName}(...)` in a document-level or workflow-level `functions:` block, or replace `functions.{functionName}(...)` with documented built-in functions and normal workflow steps.",
+                Message = $"Expression calls unknown function `functions.{functionName}`."
+            });
+        }
+    }
+
     private static IReadOnlyList<string> SplitPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -569,6 +640,9 @@ internal static class WorkflowPlanSemanticValidator
     private static void ValidateMcpCallInputRequest(
         StepDef step,
         string workflowName,
+        IReadOnlyDictionary<string, InputDef>? workflowInputs,
+        IReadOnlyDictionary<string, JsonNode?> knownContracts,
+        IReadOnlySet<string>? nonNullReferences,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
         List<WorkflowSemanticValidationError> errors)
     {
@@ -607,6 +681,31 @@ internal static class WorkflowPlanSemanticValidator
 
             var requestNode = input["request"];
             var requestValue = requestNode ?? new JsonObject();
+            foreach (var mismatch in StepExpressionTypeValidator.ValidateInput(
+                         requestValue,
+                         inputSchema,
+                         workflowInputs,
+                         knownContracts,
+                         nonNullReferences))
+            {
+                var suffix = mismatch.Field.StartsWith("input", StringComparison.Ordinal)
+                    ? mismatch.Field["input".Length..]
+                    : $".{mismatch.Field}";
+                var field = $"input.request{suffix}";
+
+                errors.Add(new WorkflowSemanticValidationError
+                {
+                    Code = McpRequestExpressionTypeMismatchCode,
+                    WorkflowName = workflowName,
+                    StepId = step.Id,
+                    Field = field,
+                    InvalidPath = mismatch.Expression,
+                    AllowedPaths = EnumerateAllowedPaths("input.request", inputSchema).Take(64).ToArray(),
+                    Suggestion = BuildMcpRequestExpressionTypeSuggestion(mismatch, serverName, methodName, field),
+                    Message = $"mcp.call request field '{field}' for '{serverName}/{methodName}' resolves to {mismatch.ActualType}, but the MCP input_schema requires {mismatch.ExpectedType}."
+                });
+            }
+
             var schemaErrors = new List<SchemaValidationError>();
             ValidateJsonNodeAgainstSchema(requestValue, inputSchema, "", schemaErrors);
             if (requestValue is JsonObject requestObject)
@@ -635,12 +734,28 @@ internal static class WorkflowPlanSemanticValidator
         }
     }
 
+    private static string BuildMcpRequestExpressionTypeSuggestion(
+        StepExpressionTypeMismatch mismatch,
+        string serverName,
+        string methodName,
+        string field)
+    {
+        if (mismatch.ActualType.Split(" or ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(static type => string.Equals(type, "null", StringComparison.Ordinal)))
+        {
+            return $"Do not pass a nullable expression into required MCP field '{field}' for '{serverName}/{methodName}'. Make the upstream structured_output non-null, add a step guard that proves the exact expression is non-null, or normalize to a guaranteed {mismatch.ExpectedType} before the mcp.call.";
+        }
+
+        return $"Align MCP field '{field}' for '{serverName}/{methodName}' with the discovered input_schema, or add a normalization step that produces a {mismatch.ExpectedType} value.";
+    }
+
     private static void ValidateLocalWorkflowCallInput(
         StepDef step,
         string workflowName,
         IReadOnlyDictionary<string, WorkflowDef> workflows,
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
         IReadOnlyDictionary<string, JsonNode?> knownContracts,
+        IReadOnlySet<string>? nonNullReferences,
         List<WorkflowSemanticValidationError> errors)
     {
         if (!string.Equals(step.Type, "workflow.call", StringComparison.Ordinal)
@@ -667,7 +782,8 @@ internal static class WorkflowPlanSemanticValidator
                      argsNode,
                      inputSchema,
                      workflowInputs,
-                     knownContracts))
+                     knownContracts,
+                     nonNullReferences))
         {
             errors.Add(new WorkflowSemanticValidationError
             {

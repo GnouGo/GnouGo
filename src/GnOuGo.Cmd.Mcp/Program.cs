@@ -48,8 +48,13 @@ try
 
                 foreach (var tool in result.Tools)
                 {
-                    if (string.Equals(tool.Name, "cmd_run", StringComparison.Ordinal))
-                        tool.Description = policy.BuildCmdRunToolDescription();
+                    tool.Description = tool.Name switch
+                    {
+                        "cmd_run" => policy.BuildCmdRunToolDescription(),
+                        "cmd_get_policy" => policy.BuildGetPolicyToolDescription(),
+                        "cmd_list_allowed_commands" => policy.BuildListAllowedCommandsToolDescription(),
+                        _ => tool.Description
+                    };
                 }
 
                 return result;

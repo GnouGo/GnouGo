@@ -105,7 +105,7 @@ public sealed class StringInterpolator
         if (node == null) return null;
         if (node is JsonValue val && val.TryGetValue(out string? s) && HasExpressions(s))
         {
-            return Interpolate(s, context);
+            return Interpolate(s, context)?.DeepClone();
         }
         if (node is JsonObject obj)
         {

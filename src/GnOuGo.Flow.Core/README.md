@@ -328,6 +328,8 @@ functions: |                  # Global WFScript functions (optional)
 
 workflows:
   main:                       # Entrypoint workflow (by convention)
+    functions: |              # Workflow-local WFScript functions (optional)
+      function localHelper(x) { return x + 1; }
     inputs:                   # Input parameters with types (optional)
       message: { type: string, required: true }
     steps:                    # Ordered list of steps (required)
@@ -339,6 +341,7 @@ workflows:
 ```
 
 You can define **multiple workflows** in the same document and call them via `workflow.call`.
+Document-level functions are inherited by every workflow. Workflow-level functions are scoped to that workflow execution and can shadow document-level functions with the same name.
 
 ### Step Common Fields
 
@@ -899,6 +902,60 @@ If the called workflow has no `outputs` block, the engine returns the called wor
 
 Before executing the called workflow, the runtime applies defaults declared by its `inputs` schema and validates all resolved arguments. Missing required values or type mismatches fail immediately with `INPUT_VALIDATION` and identify the called workflow.
 
+#### Function scope
+
+`workflow.call` executes the called workflow with its own function scope:
+
+- Document-level `functions:` are available to every workflow in the document.
+- Workflow-level `functions:` are available only while that workflow is executing.
+- A workflow-level function with the same name as a document-level function shadows it for that workflow only.
+- Parent workflow-local functions do not leak into the called workflow, and called workflow-local functions do not leak back into the parent. Pass values through `input.args` and `outputs` instead.
+
+```yaml
+version: 1
+name: workflow-call-function-scope
+functions: |
+  function label() { return "document"; }
+
+workflows:
+  main:
+    functions: |
+      function label() { return "main"; }
+    steps:
+      - id: before
+        type: set
+        input:
+          value: "${functions.label()}"
+
+      - id: call_helper
+        type: workflow.call
+        input:
+          ref: { kind: local, name: helper }
+          args: {}
+
+      - id: after
+        type: set
+        input:
+          value: "${functions.label()}"
+    outputs:
+      before: "${data.steps.before.value}"              # "main"
+      helper: "${data.steps.call_helper.outputs.value}" # "helper"
+      after: "${data.steps.after.value}"                # "main"
+
+  helper:
+    functions: |
+      function label() { return "helper"; }
+    steps:
+      - id: local
+        type: set
+        input:
+          value: "${functions.label()}"
+    outputs:
+      value: "${data.steps.local.value}"
+```
+
+If `helper` tried to call a function defined only under `main.functions`, dry-run and runtime execution would fail with an expression error. This keeps sub-workflows independently testable: every helper they need must come from document-level `functions:`, their own workflow-level `functions:`, or host-registered `WorkflowEngine.ScriptFunctions`.
+
 #### Complete local example
 
 This example defines three workflows in the same file:
@@ -1176,18 +1233,89 @@ Use `mode: pipeline` when the input is a raw user automation prompt that should 
       max_attempts: 3
 ```
 
-Pipeline mode runs four traced phases:
+Pipeline mode runs five traced phases:
 
 1. `normalize_user_prompt` rewrites the raw prompt as clean Markdown without changing meaning.
 2. `mark_extractable_blocks` wraps only significant algorithmic sections in `:::subworkflow name="..."` blocks and adds a `## Main workflow orchestration` section.
 3. `extract_subworkflow_specs` parses those blocks as-is, builds generation prompts, and reports validation errors for nested blocks or subworkflow-call mentions.
 4. `generate_subworkflows` runs the normal `workflow.plan` generator for each leaf workflow in parallel. Each leaf prompt contains only that leaf's goal, input/output contract, and content; leaf generation forbids `workflow.call` and `workflow.plan`, preserves the configured MCP prefilter behavior, forces validation, retries failed leaf generation up to the parent `on_invalid.max_attempts`, and rejects bare `type: object` schemas unless they define non-empty `properties`.
+5. `assemble_main_workflow` sends a compact leaf manifest, the generated leaf contracts, and a minimal main-graph DSL context to the LLM. The LLM returns only a `document` plus orchestration `graph`; the runtime renders the real `main` workflow deterministically and grafts the validated leaf workflows before final validation.
 
 The final YAML has exactly one hierarchy level: `main` may call local leaf workflows with `workflow.call`, while leaf workflows must never contain `workflow.call` or `workflow.plan`. The returned `pipeline` object includes `normalized_markdown`, `annotated_markdown`, and parsed `specs`.
 
-Configured `name`, `skill`, and public input schemas are authoritative and are preserved exactly in the root skill and `main` workflow. Leaf inputs are call arguments and are not automatically promoted to public inputs; the main assembler maps public names to leaf argument names and derives internal values in workflow steps. When no structured contract is configured, the final assembly phase infers the public contract from the normalized user request. Composition rejects any `data.inputs.<name>` reference that is not declared by the resolved main input contract.
+When a generated leaf workflow contains root-level helper functions, final assembly moves those helpers into the grafted leaf workflow's own `functions:` block. They are not promoted to the final document root, so helpers remain isolated with the leaf that uses them.
 
-`on_invalid.max_attempts` is applied to both each leaf generation and the final main-workflow assembly. If final parsing, policy, hierarchy, compilation, or semantic validation fails, the next assembly attempt receives the previous YAML response and structured validation error so it can repair the complete `document` and `main` mapping.
+Standalone generated leaf:
+
+```yaml
+version: 1
+name: parse-repository
+functions: |
+  function parseRepoUrl(url) {
+    var parts = url.replace(/\/$/, "").split("/");
+    return {
+      owner: parts[parts.length - 2],
+      repo: parts[parts.length - 1]
+    };
+  }
+workflows:
+  parse_repository:
+    inputs:
+      repo_url: { type: string, required: true }
+    steps:
+      - id: parsed
+        type: set
+        input:
+          value: "${functions.parseRepoUrl(data.inputs.repo_url)}"
+    outputs:
+      owner: "${data.steps.parsed.value.owner}"
+      repo: "${data.steps.parsed.value.repo}"
+```
+
+Composed pipeline document:
+
+```yaml
+version: 1
+name: repository-pipeline
+workflows:
+  main:
+    inputs:
+      repo_url: { type: string, required: true }
+    steps:
+      - id: parse
+        type: workflow.call
+        input:
+          ref: { kind: local, name: parse_repository }
+          args:
+            repo_url: "${data.inputs.repo_url}"
+    outputs:
+      owner: "${data.steps.parse.outputs.owner}"
+      repo: "${data.steps.parse.outputs.repo}"
+
+  parse_repository:
+    functions: |
+      function parseRepoUrl(url) {
+        var parts = url.replace(/\/$/, "").split("/");
+        return {
+          owner: parts[parts.length - 2],
+          repo: parts[parts.length - 1]
+        };
+      }
+    inputs:
+      repo_url: { type: string, required: true }
+    steps:
+      - id: parsed
+        type: set
+        input:
+          value: "${functions.parseRepoUrl(data.inputs.repo_url)}"
+    outputs:
+      owner: "${data.steps.parsed.value.owner}"
+      repo: "${data.steps.parsed.value.repo}"
+```
+
+Configured `name`, `skill`, and public input schemas are authoritative and are preserved exactly in the root skill and `main` workflow. Leaf inputs are call arguments and are not automatically promoted to public inputs; the main assembler maps public names to leaf argument names and derives internal values in workflow steps. When no structured contract is configured, the final assembly phase infers the public contract from the normalized user request, but leaf call arguments and available outputs come from the actual generated leaf workflows rather than the initial extraction draft. Composition rejects any `data.inputs.<name>` reference that is not declared by the resolved main input contract, and it also rejects calls that omit required arguments from the generated leaf contract.
+
+`on_invalid.max_attempts` is applied to extractable-block annotation repair, each leaf generation, and the final main-workflow assembly. If block extraction validation fails, the next `mark_extractable_blocks` attempt receives the previous annotated Markdown plus exact validation feedback. If final parsing, policy, hierarchy, compilation, or semantic validation fails, the next assembly attempt receives the previous YAML response and structured validation error so it can repair the complete `document` and `graph` mapping.
 
 The final composed pipeline document uses the same validation sequence as standard `workflow.plan`: policy and limits are enforced, `validate.compile` enables compiler and MCP-contract-aware semantic validation, and `validate.dry_run` executes the complete entrypoint with deterministic fake LLM, MCP, and human-input providers. MCP discovery contracts are collected once for final validation, and every assembly attempt emits its own `workflow.plan.validate` telemetry span.
 
@@ -1426,6 +1554,15 @@ Increase these limits only for trusted workflows; prefer simplifying expressions
 ## WFScript — Custom JavaScript Functions
 
 Define reusable functions in the `functions:` block (document-level or workflow-level):
+
+Scope rules:
+
+- Document-level `functions:` are loaded for every workflow in the document.
+- Workflow-level `functions:` are loaded only for the workflow currently being executed.
+- Workflow-level functions shadow document-level functions with the same name for that workflow only.
+- `workflow.call` and `workflow.execute` create an isolated execution scope for the called or executed workflow.
+- Host-registered `WorkflowEngine.ScriptFunctions` are added after YAML functions and can override YAML helpers when the host intentionally provides a function with the same name.
+- Expressions can call helpers as either `functions.name(...)` or `name(...)`; the `functions.name(...)` form is preferred in workflow YAML because it makes helper calls explicit.
 
 ```yaml
 version: 1

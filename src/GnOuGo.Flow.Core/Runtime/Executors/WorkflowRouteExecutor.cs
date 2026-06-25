@@ -402,7 +402,8 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             Ref = candidate.Ref,
             Kind = kind,
             CallDepth = ctx.CallDepth,
-            CallStack = ctx.CallStack
+            CallStack = ctx.CallStack,
+            ActiveDocument = ctx.ActiveDocument
         }, ct);
 
         if (!string.IsNullOrWhiteSpace(resolution.CallStackKey) && ctx.CallStack.Contains(resolution.CallStackKey))

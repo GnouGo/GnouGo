@@ -196,6 +196,86 @@ workflows:
         Assert.False(result.Success);
     }
 
+    [Fact]
+    public async Task WorkflowCall_ArgsCanForwardArrayAndObjectOutputs()
+    {
+        var compiled = CompileDoc("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: collect
+        type: set
+        input:
+          issues:
+            - title: First
+              url: https://example.test/issues/1
+            - title: Second
+              url: https://example.test/issues/2
+          issue:
+            title: First
+            body: Details
+      - id: call
+        type: workflow.call
+        input:
+          ref:
+            kind: local
+            name: helper
+          args:
+            issues: "${data.steps.collect.issues}"
+            issue: "${data.steps.collect.issue}"
+  helper:
+    inputs:
+      issues:
+        type: array
+        required: true
+        items:
+          type: object
+          properties:
+            title: { type: string }
+            url: { type: string }
+      issue:
+        type: object
+        required: true
+        properties:
+          title: { type: string }
+          body: { type: string }
+    steps:
+      - id: passthrough
+        type: set
+        input:
+          ok: true
+    outputs:
+      issues:
+        expr: "${data.inputs.issues}"
+        type: array
+        items:
+          type: object
+          properties:
+            title: { type: string }
+            url: { type: string }
+      issue:
+        expr: "${data.inputs.issue}"
+        type: object
+        properties:
+          title: { type: string }
+          body: { type: string }
+""");
+        var engine = new WorkflowEngine();
+
+        var result = await engine.ExecuteAsync(compiled.Workflows["main"], new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var steps = Assert.IsType<JsonObject>(result.Outputs);
+        var call = Assert.IsType<JsonObject>(steps["call"]);
+        var outputs = Assert.IsType<JsonObject>(call["outputs"]);
+        var issues = Assert.IsType<JsonArray>(outputs["issues"]);
+        var issue = Assert.IsType<JsonObject>(outputs["issue"]);
+        var firstIssue = Assert.IsType<JsonObject>(issues[0]);
+        Assert.Equal("First", firstIssue["title"]!.GetValue<string>());
+        Assert.Equal("Details", issue["body"]!.GetValue<string>());
+    }
+
     // === Switch with no matching case and no default ===
 
     [Fact]

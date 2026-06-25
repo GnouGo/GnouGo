@@ -85,6 +85,7 @@ public sealed class McpCallExecutor : IStepExecutor
         By default, MCP tool errors raise MCP_CALL_ERROR/MCP_PROMPT_ERROR runtime exceptions so `on_error` handlers can run. Set `raise_on_error: false` only when the workflow intentionally wants to inspect `data.steps.<id>.status == "error"` as normal output.
         Optional `error_policy.detect_result_errors: true` treats common structured failure envelopes like `{ success: false, error_code, error_message }` as MCP errors even when the transport did not set IsError.
         For generated plans, do NOT use `mcp.call` with only `server` as the default next step after `mcp.list` unless calling everything is the explicit goal.
+        Request fields must statically match the discovered MCP input_schema. Do not pass nullable structured_output fields such as `string|null` into required request fields; make the source non-null, add an exact `if: "${data.steps.x.json.field != null}"` guard on the same mcp.call step, or skip the call.
 
         Output access patterns:
         - Single tool: `data.steps.<id>.status` ("ok"|"error") and `data.steps.<id>.response` (opaque tool-specific JSON).

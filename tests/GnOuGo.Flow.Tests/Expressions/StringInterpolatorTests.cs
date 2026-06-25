@@ -102,6 +102,52 @@ public class StringInterpolatorTests
     }
 
     [Fact]
+    public void ResolveDeep_ClonesWholeExpressionArrayResult()
+    {
+        var originalItems = new JsonArray(JsonValue.Create("a"), JsonValue.Create("b"));
+        var ctx = MakeCtx(new JsonObject { ["items"] = originalItems });
+        var input = new JsonObject
+        {
+            ["args"] = new JsonObject
+            {
+                ["items"] = "${data.inputs.items}"
+            }
+        };
+
+        var result = _interpolator.ResolveDeep(input, ctx) as JsonObject;
+
+        Assert.NotNull(result);
+        var args = Assert.IsType<JsonObject>(result!["args"]);
+        var copiedItems = Assert.IsType<JsonArray>(args["items"]);
+        Assert.NotSame(originalItems, copiedItems);
+        Assert.Equal("a", copiedItems[0]!.GetValue<string>());
+        Assert.Equal("b", copiedItems[1]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void ResolveDeep_ClonesWholeExpressionObjectResult()
+    {
+        var originalIssue = new JsonObject
+        {
+            ["title"] = "Bug",
+            ["body"] = "Details"
+        };
+        var ctx = MakeCtx(new JsonObject { ["issue"] = originalIssue });
+        var input = new JsonObject
+        {
+            ["issue"] = "${data.inputs.issue}"
+        };
+
+        var result = _interpolator.ResolveDeep(input, ctx) as JsonObject;
+
+        Assert.NotNull(result);
+        var copiedIssue = Assert.IsType<JsonObject>(result!["issue"]);
+        Assert.NotSame(originalIssue, copiedIssue);
+        Assert.Equal("Bug", copiedIssue["title"]!.GetValue<string>());
+        Assert.Equal("Details", copiedIssue["body"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void ResolveDeep_Null_ReturnsNull()
     {
         Assert.Null(_interpolator.ResolveDeep(null, null));
