@@ -137,6 +137,35 @@ workflows:
     }
 
     [Fact]
+    public async Task Set_OutputSchema_RejectsResolvedRuntimeMismatch()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: vars
+        type: set
+        output_schema:
+          type: object
+          properties:
+            count: { type: integer }
+          required: [count]
+          additionalProperties: false
+        input:
+          count: ""${data.inputs.count}""
+");
+        var engine = new WorkflowEngine();
+        var result = await engine.ExecuteAsync(wf, new JsonObject { ["count"] = "not-an-integer" }, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("set output does not satisfy output_schema", result.Error.Message);
+        Assert.Contains("$.count", result.Error.Message);
+    }
+
+    [Fact]
     public async Task Set_MultipleSteps_CanChain()
     {
         var wf = CompileMain(@"
@@ -255,4 +284,3 @@ workflows:
         Assert.Contains("set", executor.DslSnippet);
     }
 }
-

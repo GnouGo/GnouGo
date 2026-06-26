@@ -358,6 +358,416 @@ outputs:
     }
 
     [Fact]
+    public void SemanticValidation_PropagatesLlmStructuredOutputJsonType()
+    {
+        var doc = Parse("""
+steps:
+  - id: normalize
+    type: llm.call
+    input:
+      prompt: Normalize issues.
+      structured_output:
+        strict: true
+        schema_inline:
+          type: object
+          properties:
+            issue_count: { type: integer }
+            issues:
+              type: array
+              items:
+                type: object
+                properties:
+                  number: { type: integer }
+                  title: { type: string }
+                required: [number, title]
+                additionalProperties: false
+          required: [issue_count, issues]
+          additionalProperties: false
+  - id: consume
+    type: llm.call
+    input:
+      prompt: Summarize.
+      max_tokens: "${data.steps.normalize.json.issue_count}"
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsLlmStructuredOutputArrayAssignedToIntegerField()
+    {
+        var doc = Parse("""
+steps:
+  - id: normalize
+    type: llm.call
+    input:
+      prompt: Normalize issues.
+      structured_output:
+        strict: true
+        schema_inline:
+          type: object
+          properties:
+            issues:
+              type: array
+              items:
+                type: object
+                properties:
+                  number: { type: integer }
+                  title: { type: string }
+                required: [number, title]
+                additionalProperties: false
+          required: [issues]
+          additionalProperties: false
+  - id: consume
+    type: llm.call
+    input:
+      prompt: Summarize.
+      max_tokens: "${data.steps.normalize.json.issues}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
+        Assert.Contains("data.steps.normalize.json.issues", exception.InnerException.Message);
+        Assert.Contains("resolves to array", exception.InnerException.Message);
+        Assert.Contains("requires integer", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_PropagatesMcpStructuredOutputJsonType()
+    {
+        var doc = Parse("""
+steps:
+  - id: choose
+    type: mcp.call
+    input:
+      server: docs
+      model: gpt-4
+      prompt: Choose and summarize the right document.
+      structured_output:
+        strict: true
+        schema_inline:
+          type: object
+          properties:
+            token_budget: { type: integer }
+            title: { type: string }
+          required: [token_budget, title]
+          additionalProperties: false
+  - id: consume
+    type: llm.call
+    input:
+      prompt: Summarize.
+      max_tokens: "${data.steps.choose.json.token_budget}"
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
+    public void SemanticValidation_PropagatesSetOutputSchema()
+    {
+        var doc = Parse("""
+inputs:
+  token_budget: integer
+steps:
+  - id: normalize
+    type: set
+    output_schema:
+      type: object
+      properties:
+        token_budget: { type: integer }
+        title: { type: string }
+      required: [token_budget, title]
+      additionalProperties: false
+    input:
+      token_budget: "${data.inputs.token_budget}"
+      title: Example
+  - id: consume
+    type: llm.call
+    input:
+      prompt: Summarize.
+      max_tokens: "${data.steps.normalize.token_budget}"
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsSetOutputSchemaExpressionMismatch()
+    {
+        var doc = Parse("""
+inputs:
+  title: string
+steps:
+  - id: normalize
+    type: set
+    output_schema:
+      type: object
+      properties:
+        issue_number: { type: integer }
+      required: [issue_number]
+      additionalProperties: false
+    input:
+      issue_number: "${data.inputs.title}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
+        Assert.Contains("data.inputs.title", exception.InnerException.Message);
+        Assert.Contains("resolves to string", exception.InnerException.Message);
+        Assert.Contains("requires integer", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsSetInputMissingRequiredOutputSchemaField()
+    {
+        var doc = Parse("""
+steps:
+  - id: normalize
+    type: set
+    output_schema:
+      type: object
+      properties:
+        title: { type: string }
+        url: { type: string }
+      required: [title, url]
+      additionalProperties: false
+    input:
+      title: Example
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains("SET_OUTPUT_SCHEMA_MISMATCH", exception.InnerException!.Message);
+        Assert.Contains("input.url", exception.InnerException.Message);
+        Assert.Contains("missing required property", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsSetInputAdditionalOutputSchemaField()
+    {
+        var doc = Parse("""
+steps:
+  - id: normalize
+    type: set
+    output_schema:
+      type: object
+      properties:
+        title: { type: string }
+      required: [title]
+      additionalProperties: false
+    input:
+      title: Example
+      unexpected: nope
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains("SET_OUTPUT_SCHEMA_MISMATCH", exception.InnerException!.Message);
+        Assert.Contains("input.unexpected", exception.InnerException.Message);
+        Assert.Contains("property is not allowed by schema", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsUnknownPathFromSetOutputSchema()
+    {
+        var doc = Parse("""
+steps:
+  - id: normalize
+    type: set
+    output_schema:
+      type: object
+      properties:
+        title: { type: string }
+      required: [title]
+      additionalProperties: false
+    input:
+      title: Example
+  - id: consume
+    type: template.render
+    input:
+      template: "Title ${data.steps.normalize.missing}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains("STEP_OUTPUT_PROPERTY_UNKNOWN", exception.InnerException!.Message);
+        Assert.Contains("data.steps.normalize.missing", exception.InnerException.Message);
+        Assert.Contains("data.steps.normalize.title", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_TypesLoopItemFromStructuredOutput()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Loop item type validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: normalize
+        type: llm.call
+        input:
+          prompt: Normalize issues.
+          structured_output:
+            strict: true
+            schema_inline:
+              type: object
+              properties:
+                issues:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      number: { type: integer }
+                      title: { type: string }
+                    required: [number, title]
+                    additionalProperties: false
+              required: [issues]
+              additionalProperties: false
+      - id: process
+        type: loop.sequential
+        input:
+          items: "${data.steps.normalize.json.issues}"
+        item_var: issue
+        index_var: idx
+        steps:
+          - id: call_helper
+            type: workflow.call
+            input:
+              ref: { kind: local, name: helper }
+              args:
+                issue_number: "${data.issue.number}"
+                issue_index: "${data.idx}"
+  helper:
+    inputs:
+      issue_number: integer
+      issue_index: integer
+    steps:
+      - id: ok
+        type: set
+        input: { ok: true }
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsLoopItemFieldAssignedToIncompatibleInput()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Loop item type validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: process
+        type: loop.sequential
+        input:
+          items:
+            - number: 42
+              title: Example issue
+        item_var: issue
+        steps:
+          - id: call_helper
+            type: workflow.call
+            input:
+              ref: { kind: local, name: helper }
+              args:
+                issue_number: "${data.issue.title}"
+  helper:
+    inputs:
+      issue_number: integer
+    steps:
+      - id: ok
+        type: set
+        input: { ok: true }
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
+        Assert.Contains("data.issue.title", exception.InnerException.Message);
+        Assert.Contains("resolves to string", exception.InnerException.Message);
+        Assert.Contains("requires integer", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsUnknownLoopItemProperty()
+    {
+        var doc = Parse("""
+steps:
+  - id: process
+    type: loop.parallel
+    input:
+      items:
+        - number: 42
+    item_var: issue
+    steps:
+      - id: reshape
+        type: set
+        input:
+          title: "${data.issue.title}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains("DATA_VARIABLE_PROPERTY_UNKNOWN", exception.InnerException!.Message);
+        Assert.Contains("data.issue.title", exception.InnerException.Message);
+        Assert.Contains("data.issue.number", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_TypesSequentialLoopIndexContext()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Loop index type validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: repeat
+        type: loop.sequential
+        input:
+          times: 2
+        steps:
+          - id: call_helper
+            type: workflow.call
+            input:
+              ref: { kind: local, name: helper }
+              args:
+                label: "${data._loop.index}"
+  helper:
+    inputs:
+      label: string
+    steps:
+      - id: ok
+        type: set
+        input: { ok: true }
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
+        Assert.Contains("data._loop.index", exception.InnerException.Message);
+        Assert.Contains("resolves to integer", exception.InnerException.Message);
+        Assert.Contains("requires string", exception.InnerException.Message);
+    }
+
+    [Fact]
     public void SemanticValidation_RejectsLocalWorkflowCallArgsAgainstTargetInputs()
     {
         var doc = WorkflowParser.Parse("""

@@ -196,14 +196,35 @@ internal static class JsonSchemaContractValidator
     {
         if (TryReadString(obj[keyword], out var text)
             && long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
-            obj[keyword] = value;
+        {
+            obj[keyword] = value is >= int.MinValue and <= int.MaxValue
+                ? JsonValue.Create((int)value)
+                : JsonValue.Create(value);
+        }
     }
 
     private static void NormalizeNumber(JsonObject obj, string keyword)
     {
         if (TryReadString(obj[keyword], out var text)
             && decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
-            obj[keyword] = value;
+        {
+            if (decimal.Truncate(value) == value)
+            {
+                if (value is >= int.MinValue and <= int.MaxValue)
+                {
+                    obj[keyword] = JsonValue.Create((int)value);
+                    return;
+                }
+
+                if (value is >= long.MinValue and <= long.MaxValue)
+                {
+                    obj[keyword] = JsonValue.Create((long)value);
+                    return;
+                }
+            }
+
+            obj[keyword] = JsonValue.Create(value);
+        }
     }
 
     private static bool TryReadString(JsonNode? node, out string text)

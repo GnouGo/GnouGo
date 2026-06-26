@@ -11,6 +11,25 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public class WorkflowTelemetryTests
 {
+    private const string ValidGeneratedTemplateWorkflowYaml = """
+        version: 1
+        name: generated-workflow
+        skill:
+          description: Generated workflow.
+          tags: [generated]
+          inputs: {}
+          outputs: {}
+        workflows:
+          main:
+            steps:
+              - id: s
+                type: template.render
+                input:
+                  engine: mustache
+                  template: ok
+                  mode: text
+        """;
+
     private static double ExpectedCost(string model, long inputTokens, long outputTokens, string? providerType = null)
     {
         var cost = ModelMetadataCatalog.EstimateCost(model, inputTokens, outputTokens, providerType: providerType);
@@ -383,7 +402,7 @@ workflows:
                 },
                 _ => new LLMResponse
                 {
-                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text",
+                    Text = ValidGeneratedTemplateWorkflowYaml,
                     Usage = JsonNode.Parse("{\"prompt_tokens\":10,\"completion_tokens\":20,\"total_tokens\":30}")!
                 }
             });

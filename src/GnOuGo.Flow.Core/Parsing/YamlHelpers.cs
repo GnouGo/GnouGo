@@ -1,3 +1,5 @@
+using System.Globalization;
+using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
 namespace GnOuGo.Flow.Core.Parsing;
@@ -16,24 +18,51 @@ public static class YamlHelpers
 
     public static int? GetInt(this YamlMappingNode map, string key)
     {
-        var s = map.GetScalar(key);
-        return s != null && int.TryParse(s, out var i) ? i : null;
+        if (!TryGetScalarNode(map, key, out var scalar))
+            return null;
+
+        EnsurePlainScalar(scalar, key, "integer");
+        var s = scalar.Value?.Trim();
+        if (string.IsNullOrWhiteSpace(s))
+            throw new WorkflowParseException($"Field '{key}' must be an unquoted integer scalar.");
+
+        if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
+            return i;
+
+        throw new WorkflowParseException($"Field '{key}' must be an unquoted integer scalar.");
     }
 
     public static double? GetDouble(this YamlMappingNode map, string key)
     {
-        var s = map.GetScalar(key);
-        return s != null && double.TryParse(s, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null;
+        if (!TryGetScalarNode(map, key, out var scalar))
+            return null;
+
+        EnsurePlainScalar(scalar, key, "number");
+        var s = scalar.Value?.Trim();
+        if (string.IsNullOrWhiteSpace(s))
+            throw new WorkflowParseException($"Field '{key}' must be an unquoted number scalar.");
+
+        if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
+            return d;
+
+        throw new WorkflowParseException($"Field '{key}' must be an unquoted number scalar.");
     }
 
     public static bool? GetBool(this YamlMappingNode map, string key)
     {
-        var s = map.GetScalar(key);
-        return s?.ToLowerInvariant() switch
+        if (!TryGetScalarNode(map, key, out var scalar))
+            return null;
+
+        EnsurePlainScalar(scalar, key, "boolean");
+        var s = scalar.Value?.Trim();
+        if (string.IsNullOrWhiteSpace(s))
+            throw new WorkflowParseException($"Field '{key}' must be an unquoted boolean scalar.");
+
+        return s.ToLowerInvariant() switch
         {
             "true" or "yes" => true,
             "false" or "no" => false,
-            _ => null
+            _ => throw new WorkflowParseException($"Field '{key}' must be an unquoted boolean scalar.")
         };
     }
 
@@ -73,5 +102,27 @@ public static class YamlHelpers
         }
         return dict;
     }
-}
 
+    private static bool TryGetScalarNode(YamlMappingNode map, string key, out YamlScalarNode scalar)
+    {
+        scalar = null!;
+        if (!map.Children.TryGetValue(new YamlScalarNode(key), out var node))
+            return false;
+
+        if (node is YamlScalarNode scalarNode)
+        {
+            scalar = scalarNode;
+            return true;
+        }
+
+        throw new WorkflowParseException($"Field '{key}' must be a scalar.");
+    }
+
+    private static void EnsurePlainScalar(YamlScalarNode scalar, string key, string typeName)
+    {
+        if (scalar.Style is ScalarStyle.Any or ScalarStyle.Plain)
+            return;
+
+        throw new WorkflowParseException($"Field '{key}' must be an unquoted {typeName} scalar.");
+    }
+}

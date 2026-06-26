@@ -102,18 +102,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     input, generator, normalizedMarkdown, extraction, generatedLeaves, configuredMainInputs, generatedLeafInputs, ctx.Engine.Registry);
                 var maxAssemblyAttempts = GetPipelineGenerationMaxAttempts(input);
                 var validate = input["validate"] as JsonObject;
-                var requiresMcpValidationContracts = (validate?["compile"]?.GetValue<bool>() ?? true)
-                    || (validate?["dry_run"]?.GetValue<bool>() ?? false);
-                var validationDiscovered = requiresMcpValidationContracts
-                    ? await DiscoverMcpServersAsync(
-                        ctx.Engine.McpClientFactory,
-                        ctx.Engine.McpCache,
-                        ctx.Engine.Logger,
-                        ctx,
-                        candidateServers: null,
-                        mainSpan.Span,
-                        ct)
-                    : null;
+                var validationDiscovered = await DiscoverMcpServersAsync(
+                    ctx.Engine.McpClientFactory,
+                    ctx.Engine.McpCache,
+                    ctx.Engine.Logger,
+                    ctx,
+                    candidateServers: null,
+                    mainSpan.Span,
+                    ct);
                 string? previousAssemblyResponse = null;
                 string? previousAssemblyError = null;
                 Exception? lastAssemblyException = null;
@@ -982,7 +978,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (pipelineInput["limits"] is JsonObject limits)
             leafInput["limits"] = limits.DeepClone();
         var leafValidate = pipelineInput["validate"]?.DeepClone() as JsonObject ?? new JsonObject();
+        leafValidate["mode"] = "strict";
         leafValidate["compile"] = true;
+        leafValidate["repair"] = "auto";
         leafInput["validate"] = leafValidate;
         leafInput["on_invalid"] = new JsonObject { ["action"] = "fail", ["max_attempts"] = 1 };
 
@@ -1112,7 +1110,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static int GetPipelineGenerationMaxAttempts(JsonObject pipelineInput)
     {
-        var configured = (pipelineInput["on_invalid"] as JsonObject)?["max_attempts"]?.GetValue<int>() ?? 3;
+        var configured = TryGetPositiveInteger(pipelineInput["validate"] as JsonObject, "max_repair_attempts")
+            ?? TryGetPositiveInteger(pipelineInput["on_invalid"] as JsonObject, "max_attempts")
+            ?? DefaultPlanRepairMaxAttempts;
         return Math.Max(1, configured);
     }
 
@@ -1719,6 +1719,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         - Use ${data.steps.<id>.<field>} only for earlier steps that always ran on the current path.
         - Leaf call outputs are under ${data.steps.<call_id>.outputs.<leaf_output_name>}.
         - set step outputs are under ${data.steps.<set_id>.<field>}.
+        - For non-trivial set steps, declare step-level output_schema so downstream set fields have a strong contract.
         - Loop variables are data.<item_var>, data.<index_var>, data._loop.index, and data._loop.item.
         - When looping over a leaf array output, only read item fields declared under that output's `items.properties` schema in `generated_leaf_contracts_yaml`.
         - Do not hide unavailable/future step references inside coalesce, ternaries, or helper calls.
@@ -1749,6 +1750,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         - sequence output: object keyed by nested step id; nested steps also execute in order on the same path.
         - parallel output: `${data.steps.<parallel_id>.branches}` is an array of branch step-output objects. Do not reference branch child step ids outside the branch.
         - loop output: `${data.steps.<loop_id>.results}` is an array of per-iteration step-output objects and `${data.steps.<loop_id>.count}` is the number of iterations. Do not reference loop child step ids after the loop.
+        - loop result item shape: each element of `${data.steps.<loop_id>.results}` is a per-iteration step-output object. If a loop child step `build_issue_result` produced fields, read them as `iteration.build_issue_result.<field>` when flattening/filtering, not `iteration.<field>`.
+        - To flatten loop results, add a `set` support node with an `output_schema` after the loop or use a typed child `set` inside the loop and map/filter through that child step id.
         - switch output is path-dependent. Do not reference case/default child step ids after the switch unless the reference remains inside that same case/default path.
         - For final graph.outputs after containers, prefer returning the whole safe container output, such as `${data.steps.process_items.results}` or `${data.steps.fanout.branches}`, rather than deep paths that may not exist on every path.
 

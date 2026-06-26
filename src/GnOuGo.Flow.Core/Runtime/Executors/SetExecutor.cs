@@ -30,7 +30,7 @@ public sealed class SetExecutor : IStepExecutor
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]
     {
-        new(ErrorCodes.InputValidation, false, "The resolved input for `set` must be an object.")
+        new(ErrorCodes.InputValidation, false, "The resolved input for `set` must be an object and must satisfy `output_schema` when one is declared.")
     };
 
     public string DslSnippet => """
@@ -40,6 +40,16 @@ public sealed class SetExecutor : IStepExecutor
         ```yaml
         - id: vars
           type: set
+          output_schema:
+            type: object
+            properties:
+              base_url: { type: string }
+              max_retries: { type: integer }
+              full_name: { type: string }
+              items_count: { type: integer }
+              is_admin: { type: boolean }
+            required: [base_url, max_retries, full_name, items_count, is_admin]
+            additionalProperties: false
           input:
             base_url: "https://api.example.com"
             max_retries: 3
@@ -63,6 +73,17 @@ public sealed class SetExecutor : IStepExecutor
         foreach (var kv in input)
         {
             result[kv.Key] = kv.Value?.DeepClone();
+        }
+
+        if (ctx.Step.Source.OutputSchema != null)
+        {
+            var errors = JsonSchemaContractValidator.ValidateInstance(result, ctx.Step.Source.OutputSchema);
+            if (errors.Count > 0)
+            {
+                throw new WorkflowRuntimeException(
+                    ErrorCodes.InputValidation,
+                    "set output does not satisfy output_schema: " + string.Join("; ", errors));
+            }
         }
 
         return Task.FromResult<JsonNode?>(result);

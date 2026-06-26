@@ -316,6 +316,8 @@ public sealed class WorkflowValidator
         if (step.Expr != null)
             ValidateExpression(step.Expr, wfName, step.Id, "expr", errors);
 
+        ValidateStepOutputSchema(step, wfName, errors);
+
         // Type-specific validation
         switch (step.Type)
         {
@@ -372,6 +374,76 @@ public sealed class WorkflowValidator
         if (step.Default != null)
             foreach (var s in step.Default)
                 ValidateStep(s, wfName, doc, errors);
+    }
+
+    private static void ValidateStepOutputSchema(StepDef step, string wfName, List<ValidationError> errors)
+    {
+        if (step.OutputSchema == null)
+            return;
+
+        if (!string.Equals(step.Type, "set", StringComparison.Ordinal))
+        {
+            errors.Add(new ValidationError
+            {
+                Code = ErrorCodes.InputValidation,
+                WorkflowName = wfName,
+                StepId = step.Id,
+                Field = "output_schema",
+                Message = "output_schema is currently supported only on set steps."
+            });
+            return;
+        }
+
+        if (step.OutputSchema is not JsonObject schemaObject)
+        {
+            errors.Add(new ValidationError
+            {
+                Code = ErrorCodes.InputValidation,
+                WorkflowName = wfName,
+                StepId = step.Id,
+                Field = "output_schema",
+                Message = "set output_schema must be a JSON Schema object."
+            });
+            return;
+        }
+
+        foreach (var schemaError in JsonSchemaContractValidator.ValidateSchema(schemaObject, strictProfile: false))
+        {
+            errors.Add(new ValidationError
+            {
+                Code = ErrorCodes.InputValidation,
+                WorkflowName = wfName,
+                StepId = step.Id,
+                Field = "output_schema",
+                Message = $"set output_schema is invalid: {schemaError}"
+            });
+        }
+
+        if (!DeclaresJsonObjectRoot(schemaObject))
+        {
+            errors.Add(new ValidationError
+            {
+                Code = ErrorCodes.InputValidation,
+                WorkflowName = wfName,
+                StepId = step.Id,
+                Field = "output_schema",
+                Message = "set output_schema root must declare type: object."
+            });
+        }
+    }
+
+    private static bool DeclaresJsonObjectRoot(JsonObject schemaObject)
+    {
+        if (schemaObject["type"] is JsonValue typeValue
+            && typeValue.TryGetValue<string>(out var typeName))
+        {
+            return string.Equals(typeName, "object", StringComparison.Ordinal);
+        }
+
+        return schemaObject["type"] is JsonArray types
+            && types.Any(type => type is JsonValue value
+                && value.TryGetValue<string>(out var name)
+                && string.Equals(name, "object", StringComparison.Ordinal));
     }
 
     private static void ValidateLlmCallStructuredOutput(StepDef step, string workflowName, List<ValidationError> errors)

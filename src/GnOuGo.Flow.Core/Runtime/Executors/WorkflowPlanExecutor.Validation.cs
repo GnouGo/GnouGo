@@ -80,8 +80,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         Exception? compilationException = null;
         var mcpToolContracts = BuildMcpToolOutputContracts(discovered);
 
-        WorkflowPlanSemanticValidator.NormalizeMcpCallInputRequests(generatedDoc, mcpToolContracts);
-
         try
         {
             WorkflowPlanSemanticValidator.ValidateWithStepContracts(generatedDoc, mcpToolContracts, registry.GetContracts());
@@ -148,16 +146,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (limits != null)
             EnforceLimits(generatedDoc, limits);
 
-        var compileValidation = validate?["compile"]?.GetValue<bool>() ?? true;
         var dryRunValidation = validate?["dry_run"]?.GetValue<bool>() ?? false;
-        if (compileValidation)
-        {
-            validationSpan.SetAttribute("gnougo-flow.plan.compile_validation", true);
-            ValidateGeneratedWorkflowForPlan(generatedDoc, validationDiscovered, ctx.Engine.Registry);
-        }
+        validationSpan.SetAttribute("gnougo-flow.plan.validation.mode", "strict");
+        validationSpan.SetAttribute("gnougo-flow.plan.compile_validation", true);
+        validationSpan.SetAttribute("gnougo-flow.plan.compile_validation_forced", true);
+        ValidateGeneratedWorkflowForPlan(generatedDoc, validationDiscovered, ctx.Engine.Registry);
 
-        if (compileValidation || dryRunValidation)
-            ValidateMcpDiscoveryCoverage(generatedDoc, validationDiscovered);
+        ValidateMcpDiscoveryCoverage(generatedDoc, validationDiscovered);
 
         if (dryRunValidation)
         {

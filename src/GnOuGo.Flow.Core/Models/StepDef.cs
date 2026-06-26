@@ -22,6 +22,9 @@ public sealed class StepDef
     /// <summary>Optional output alias name.</summary>
     public string? Output { get; set; }
 
+    /// <summary>Optional JSON Schema contract for set step output.</summary>
+    public JsonNode? OutputSchema { get; set; }
+
     /// <summary>Retry policy.</summary>
     public RetryPolicy? Retry { get; set; }
 
@@ -74,4 +77,3 @@ public sealed class SwitchCaseDef
     /// <summary>Steps to execute if matched.</summary>
     public List<StepDef> Steps { get; set; } = new();
 }
-

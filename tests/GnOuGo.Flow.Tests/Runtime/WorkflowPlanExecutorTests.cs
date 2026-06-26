@@ -12,6 +12,25 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public class WorkflowPlanExecutorTests
 {
+    private const string ValidGeneratedTemplateWorkflowYaml = """
+        version: 1
+        name: generated-workflow
+        skill:
+          description: Generated workflow.
+          tags: [generated]
+          inputs: {}
+          outputs: {}
+        workflows:
+          main:
+            steps:
+              - id: s
+                type: template.render
+                input:
+                  engine: mustache
+                  template: ok
+                  mode: text
+        """;
+
     private static CompiledWorkflow CompileMain(string yaml)
     {
         var doc = WorkflowParser.Parse(yaml);
@@ -377,7 +396,7 @@ workflows:
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = ValidGeneratedTemplateWorkflowYaml
             });
 
         var wf = CompileMain(@"
@@ -439,6 +458,13 @@ workflows:
         Assert.Contains("- skill: required object", capturedPrompt);
         Assert.Contains("Use input-level `required: true|false` only as a boolean", capturedPrompt);
         Assert.Contains("required_properties: [field_name]", capturedPrompt);
+        Assert.Contains("<workflow_plan_generation_guardrails>", capturedPrompt);
+        Assert.Contains("every `results[]` item is a per-iteration `data.steps` snapshot", capturedPrompt);
+        Assert.Contains("iteration.build_issue_result.handled_by_gnougo", capturedPrompt);
+        Assert.Contains("Emit booleans and numbers as unquoted YAML scalars", capturedPrompt);
+        Assert.Contains("Use YAML literal block scalars (`|`) for multiline prompts/templates", capturedPrompt);
+        Assert.Contains("never pass empty strings for required `owner` or `repo`", capturedPrompt);
+        Assert.Contains("Preserve issue context across normalization", capturedPrompt);
         Assert.Contains("Every generated custom `function name(...)` declaration MUST be immediately preceded by JSDoc", capturedPrompt);
         Assert.Contains("@param {type} name - meaning", capturedPrompt);
         Assert.Contains("@returns {type} - meaning", capturedPrompt);
@@ -467,7 +493,7 @@ workflows:
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedRequest = req)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = ValidGeneratedTemplateWorkflowYaml
             });
 
         var wf = CompileMain(@"
@@ -525,7 +551,7 @@ workflows:
 
                 return new LLMResponse
                 {
-                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                    Text = ValidGeneratedTemplateWorkflowYaml
                 };
             });
 
@@ -1712,6 +1738,9 @@ workflows:
         Assert.Contains("parallel output: `${data.steps.<parallel_id>.branches}`", assemblyPrompt);
         Assert.Contains("loop output: `${data.steps.<loop_id>.results}`", assemblyPrompt);
         Assert.Contains("Do not reference loop child step ids after the loop.", assemblyPrompt);
+        Assert.Contains("loop result item shape: each element of `${data.steps.<loop_id>.results}`", assemblyPrompt);
+        Assert.Contains("iteration.build_issue_result.<field>", assemblyPrompt);
+        Assert.Contains("To flatten loop results", assemblyPrompt);
         Assert.Contains("Do not add MCP, LLM, template, human-input, workflow.plan, or raw workflow.call support nodes to the main graph.", assemblyPrompt);
         Assert.DoesNotContain("generated_leaf_workflows_yaml", assemblyPrompt);
         Assert.DoesNotContain("version: 1\nname: list-issues-leaf", assemblyPrompt);
@@ -3501,7 +3530,7 @@ workflows:
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = ValidGeneratedTemplateWorkflowYaml
             });
 
         var wf = CompileMain(@"
@@ -3781,7 +3810,24 @@ workflows:
                 // Second call: return valid YAML
                 return new LLMResponse
                 {
-                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                    Text = """
+                           version: 1
+                           name: repaired
+                           skill:
+                             description: Repaired workflow.
+                             tags: [test]
+                             inputs: {}
+                             outputs: {}
+                           workflows:
+                             main:
+                               steps:
+                                 - id: s
+                                   type: template.render
+                                   input:
+                                     engine: mustache
+                                     template: ok
+                                     mode: text
+                           """
                 };
             });
 
@@ -3826,7 +3872,120 @@ workflows:
         Assert.DoesNotContain("<step_exceptions_by_type>", prompts[1]);
         Assert.Contains("required_properties", prompts[1]);
         Assert.Contains("Input-level `required` is only a boolean", prompts[1]);
+        Assert.Contains("<workflow_plan_generation_guardrails>", prompts[1]);
+        Assert.Contains("iteration.build_issue_result.handled_by_gnougo", prompts[1]);
+        Assert.Contains("Emit booleans and numbers as unquoted YAML scalars", prompts[1]);
+        Assert.Contains("Use YAML literal block scalars (`|`) for multiline prompts/templates", prompts[1]);
         Assert.Contains("Fix the issues", prompts[1]);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_Reprompt_IsAutomaticByDefault()
+    {
+        var prompts = new List<string>();
+        var callCount = 0;
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) => prompts.Add(req.Prompt))
+            .ReturnsAsync(() =>
+            {
+                callCount++;
+                return new LLMResponse
+                {
+                    Text = callCount == 1
+                        ? "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n"
+                        : """
+                          version: 1
+                          name: repaired-by-default
+                          skill:
+                            description: Repaired workflow.
+                            tags: [test]
+                            inputs: {}
+                            outputs: {}
+                          workflows:
+                            main:
+                              steps:
+                                - id: s
+                                  type: set
+                                  input:
+                                    value: ok
+                          """
+                };
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Build something
+                  validate:
+                    compile: false
+                  on_invalid:
+                    max_attempts: 2
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, prompts.Count);
+        Assert.DoesNotContain("<previous_error>", prompts[0]);
+        Assert.Contains("<previous_error>", prompts[1]);
+        Assert.Contains("<invalid_yaml>", prompts[1]);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_StrictValidation_IgnoresCompileFalse()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       workflows:
+                         main:
+                           steps:
+                             - id: s
+                               type: template.render
+                               input:
+                                 template: ok
+                       """
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Build something invalid
+                  validate:
+                    compile: false
+                  on_invalid:
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("Generated workflow validation failed", result.Error.Message);
+        Assert.Contains("SKILL_REQUIRED", result.Error.Message);
     }
 
     [Fact]
@@ -3878,6 +4037,7 @@ workflows:
                 {
                     Text = """
                     version: 1
+                    name: duplicate-required-test
                     skill:
                       description: Duplicate required test.
                       tags: [test]
@@ -3900,7 +4060,15 @@ workflows:
                               title:
                                 type: string
                             required_properties: [title]
-                        steps: []
+                        steps:
+                          - id: render
+                            type: template.render
+                            input:
+                              engine: mustache
+                              template: "{{title}}"
+                              data:
+                                title: "${data.inputs.payload.title}"
+                              mode: text
                     """
                 };
             });
@@ -3965,7 +4133,7 @@ workflows:
 
                 return new LLMResponse
                 {
-                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                    Text = ValidGeneratedTemplateWorkflowYaml
                 };
             });
 
@@ -4016,13 +4184,13 @@ workflows:
                 {
                     return new LLMResponse
                     {
-                        Text = "version: 1\nskill:\n  description: Generated workflow.\n  tags: [generated]\n  inputs: {}\n  outputs: {}\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: definitely.not.a.step\n"
+                        Text = "version: 1\nname: generated-workflow\nskill:\n  description: Generated workflow.\n  tags: [generated]\n  inputs: {}\n  outputs: {}\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: definitely.not.a.step\n"
                     };
                 }
 
                 return new LLMResponse
                 {
-                    Text = "version: 1\nskill:\n  description: Generated workflow.\n  tags: [generated]\n  inputs: {}\n  outputs: {}\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                    Text = ValidGeneratedTemplateWorkflowYaml
                 };
             });
 
@@ -5432,7 +5600,7 @@ workflows:
     }
 
     [Fact]
-    public async Task WorkflowPlan_DryRun_RejectsUnknownMcpToolWhenCompileValidationIsDisabled()
+    public async Task WorkflowPlan_StrictValidation_RejectsUnknownMcpToolWhenCompileValidationIsDisabled()
     {
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
@@ -5489,17 +5657,18 @@ workflows:
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
-        Assert.Contains("dry_run", result.Error.Message);
+        Assert.Contains("Generated workflow validation failed", result.Error.Message);
+        Assert.Contains("MCP_METHOD_UNKNOWN", result.Error.Message);
         Assert.Contains("invented_tool", result.Error.Message);
         Assert.Contains("get_doc", result.Error.Message);
 
         var details = Assert.IsType<JsonObject>(result.Error.Details);
-        Assert.Equal("dry_run", details["phase"]?.GetValue<string>());
+        Assert.Equal("validation", details["phase"]?.GetValue<string>());
         Assert.Contains("llm_guidance", details);
         var diagnostics = Assert.IsType<JsonArray>(details["diagnostics"]);
         var diagnostic = Assert.IsType<JsonObject>(Assert.Single(diagnostics)!);
         Assert.Equal("MCP_METHOD_UNKNOWN", diagnostic["code"]?.GetValue<string>());
-        Assert.Equal("execution", diagnostic["failure_kind"]?.GetValue<string>());
+        Assert.Equal("semantic_validation", diagnostic["phase"]?.GetValue<string>());
     }
 
     [Fact]
@@ -5779,6 +5948,427 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsQuotedTypedStepScalars()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated extraction workflow.
+                         tags: [generated]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: extract
+                               type: llm.call
+                               input:
+                                 prompt: Extract issues.
+                                 structured_output:
+                                   strict: "true"
+                                   schema_inline:
+                                     type: object
+                                     properties:
+                                       issues:
+                                         type: array
+                                         items:
+                                           type: object
+                                           properties:
+                                             title:
+                                               type: string
+                                           required: [title]
+                                           additionalProperties: false
+                                     required: [issues]
+                                     additionalProperties: false
+                       """
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Build an extraction workflow
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("input.structured_output.strict", result.Error.Message);
+        Assert.Contains("boolean", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsQuotedTypedMcpRequestScalars()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated GitHub issue workflow.
+                         tags: [github, issues]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: list_issues
+                               type: mcp.call
+                               input:
+                                 server: github
+                                 kind: tool
+                                 method: list_issues
+                                 request:
+                                   owner: AxaFrance
+                                   repo: oidc-client
+                                   perPage: "30"
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "list_issues",
+                    Description = "List issues",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "owner": { "type": "string" },
+                        "repo": { "type": "string" },
+                        "perPage": { "type": "integer" }
+                      },
+                      "required": ["owner", "repo", "perPage"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: List GitHub issues
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("input.request.perPage", result.Error.Message);
+        Assert.Contains("integer", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsEmptyRequiredMcpString()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated GitHub issue workflow.
+                         tags: [github, issues]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: comment
+                               type: mcp.call
+                               input:
+                                 server: github
+                                 kind: tool
+                                 method: issue_comment
+                                 request:
+                                   owner: ""
+                                   repo: oidc-client
+                                   body: "Investigating."
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "issue_comment",
+                    Description = "Comment on an issue",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "owner": { "type": "string" },
+                        "repo": { "type": "string" },
+                        "body": { "type": "string" }
+                      },
+                      "required": ["owner", "repo", "body"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Comment on a GitHub issue
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_REQUIRED_STRING_EMPTY", result.Error.Message);
+        Assert.Contains("input.request.owner", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsEmptyRequiredWorkflowCallString()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated local workflow.
+                         tags: [github]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: call_child
+                               type: workflow.call
+                               input:
+                                 ref:
+                                   kind: local
+                                   name: post_comment
+                                 args:
+                                   owner: ""
+                                   repo: oidc-client
+                                   body: "Investigating."
+                         post_comment:
+                           inputs:
+                             owner:
+                               type: string
+                               required: true
+                             repo:
+                               type: string
+                               required: true
+                             body:
+                               type: string
+                               required: true
+                           steps:
+                             - id: done
+                               type: set
+                               input:
+                                 ok: true
+                           outputs:
+                             ok:
+                               expr: "${data.steps.done.ok}"
+                               type: boolean
+                       """
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Build a local workflow
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("WORKFLOW_CALL_REQUIRED_STRING_EMPTY", result.Error.Message);
+        Assert.Contains("input.args.owner", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsDirectLoopResultFieldAccessInCustomFunction()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated issue filtering workflow.
+                         tags: [github, issues]
+                         inputs: {}
+                         outputs: {}
+                       functions: |
+                         /**
+                          * Filters unprocessed issue iterations.
+                          * @param {Array<object>} iterations - Per-iteration loop result snapshots.
+                          * @returns {Array<object>} The unprocessed issue snapshots.
+                          */
+                         function filterUnprocessedIssues(iterations) {
+                           if (!Array.isArray(iterations)) return [];
+                           return iterations.filter(function (issue) {
+                             return issue && issue.handled_by_gnougo === false;
+                           });
+                         }
+                       workflows:
+                         main:
+                           steps:
+                             - id: source
+                               type: set
+                               output_schema:
+                                 type: object
+                                 properties:
+                                   issues:
+                                     type: array
+                                     items:
+                                       type: object
+                                       properties:
+                                         title:
+                                           type: string
+                                       required: [title]
+                                       additionalProperties: false
+                                 required: [issues]
+                                 additionalProperties: false
+                               input:
+                                 issues:
+                                   - title: First
+                             - id: process_issues
+                               type: loop.sequential
+                               input:
+                                 items: "${data.steps.source.issues}"
+                               item_var: issue
+                               steps:
+                                 - id: build_issue_result
+                                   type: set
+                                   output_schema:
+                                     type: object
+                                     properties:
+                                       title:
+                                         type: string
+                                       handled_by_gnougo:
+                                         type: boolean
+                                     required: [title, handled_by_gnougo]
+                                     additionalProperties: false
+                                   input:
+                                     title: "${data.issue.title}"
+                                     handled_by_gnougo: false
+                             - id: filter_results
+                               type: set
+                               output_schema:
+                                 type: object
+                                 properties:
+                                   issues_to_process:
+                                     type: array
+                                     items:
+                                       type: object
+                                       additionalProperties: true
+                                 required: [issues_to_process]
+                                 additionalProperties: false
+                               input:
+                                 issues_to_process: "${functions.filterUnprocessedIssues(data.steps.process_issues.results)}"
+                       """
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Build an issue filtering workflow
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("LOOP_RESULTS_FUNCTION_FIELD_ACCESS", result.Error.Message);
+        Assert.Contains("issue.handled_by_gnougo", result.Error.Message);
+        Assert.Contains("iteration.build_issue_result", result.Error.Message);
     }
 
     [Fact]
@@ -6157,7 +6747,26 @@ workflows:
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new LLMResponse
             {
-                Text = "```yaml\nversion: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text\n```"
+                Text = """
+                       ```yaml
+                       version: 1
+                       name: generated-workflow
+                       skill:
+                         description: Generated workflow.
+                         tags: [generated]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: s
+                               type: template.render
+                               input:
+                                 engine: mustache
+                                 template: ok
+                                 mode: text
+                       ```
+                       """
             });
 
         var wf = CompileMain(@"
@@ -6269,7 +6878,7 @@ workflows:
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = ValidGeneratedTemplateWorkflowYaml
             });
 
         var mcpFactory = new InMemoryMcpClientFactory();
@@ -6444,7 +7053,7 @@ workflows:
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = ValidGeneratedTemplateWorkflowYaml
             });
 
         var mcpFactory = new InMemoryMcpClientFactory();
@@ -6514,7 +7123,7 @@ workflows:
                 },
                 _ => new LLMResponse
                 {
-                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                    Text = ValidGeneratedTemplateWorkflowYaml
                 }
             });
 
@@ -6610,7 +7219,7 @@ workflows:
                 },
                 _ => new LLMResponse
                 {
-                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                    Text = ValidGeneratedTemplateWorkflowYaml
                 }
             });
 
@@ -6712,7 +7321,7 @@ workflows:
                 },
                 _ => new LLMResponse
                 {
-                    Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                    Text = ValidGeneratedTemplateWorkflowYaml
                 }
             });
 

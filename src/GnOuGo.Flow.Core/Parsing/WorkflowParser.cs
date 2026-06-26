@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Models;
+using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
 namespace GnOuGo.Flow.Core.Parsing;
@@ -100,7 +101,7 @@ public static class WorkflowParser
 
     private static readonly HashSet<string> StepFields = new(StringComparer.Ordinal)
     {
-        "id", "type", "if", "input", "output", "retry", "on_error",
+        "id", "type", "if", "input", "output", "output_schema", "retry", "on_error",
         "steps", "branches", "cases", "expr", "default", "item_var", "index_var"
     };
 
@@ -371,10 +372,15 @@ public static class WorkflowParser
 
         if (node is YamlMappingNode map)
         {
+            var required = map.Children.TryGetValue(new YamlScalarNode("required"), out var requiredNode)
+                && requiredNode is YamlScalarNode
+                    ? map.GetBool("required")
+                    : null;
+
             var def = new InputDef
             {
                 Type = map.GetScalar("type") ?? "any",
-                Required = map.GetBool("required") ?? true,
+                Required = required ?? true,
                 Default = map.GetScalar("default"),
                 Description = map.GetScalar("description")
             };
@@ -570,6 +576,12 @@ public static class WorkflowParser
             step.Input = YamlToJson(inputNode);
         }
 
+        if (node.HasKey("output_schema"))
+        {
+            var outputSchemaNode = node.Children[new YamlScalarNode("output_schema")];
+            step.OutputSchema = YamlToJson(outputSchemaNode);
+        }
+
         // retry
         var retryNode = node.GetMapping("retry");
         if (retryNode != null)
@@ -690,14 +702,20 @@ public static class WorkflowParser
     private static JsonNode? ParseScalarToJson(YamlScalarNode scalar)
     {
         var val = scalar.Value;
-        if (val == null || val == "null" || val == "~") return null;
+        if (val == null) return null;
+        if (!ShouldInferScalarType(scalar)) return JsonValue.Create(val);
+        if (val == "null" || val == "~") return null;
         if (val == "true" || val == "True") return JsonValue.Create(true);
         if (val == "false" || val == "False") return JsonValue.Create(false);
-        if (int.TryParse(val, out var i)) return JsonValue.Create(i);
+        if (int.TryParse(val, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var i))
+            return JsonValue.Create(i);
         if (double.TryParse(val, System.Globalization.CultureInfo.InvariantCulture, out var d))
             return JsonValue.Create(d);
         return JsonValue.Create(val);
     }
+
+    private static bool ShouldInferScalarType(YamlScalarNode scalar) =>
+        scalar.Style is ScalarStyle.Any or ScalarStyle.Plain;
 
     private static JsonObject YamlMapToJson(YamlMappingNode map)
     {

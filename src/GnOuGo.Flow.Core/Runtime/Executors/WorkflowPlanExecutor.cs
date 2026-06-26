@@ -21,6 +21,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private const int MaxMcpDiscoveryTimeoutSeconds = 300;
     private const int McpDiscoveryMaxAttempts = 3;
     private const int McpDiscoveryRetryBaseDelayMilliseconds = 500;
+    private const int DefaultPlanRepairMaxAttempts = 3;
     private static readonly JsonSerializerOptions PromptJsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -249,6 +250,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         // Build the base prompt with full DSL reference
         var basePrompt = new StringBuilder();
         basePrompt.AppendLine("You are a GnOuGo.Flow YAML workflow generator. Return ONLY valid YAML, no explanation or markdown fences.");
+        basePrompt.AppendLine("Strict plan validation is mandatory: invalid YAML will be rejected, repaired automatically within the bounded attempt budget, and never returned as a successful plan.");
         basePrompt.AppendLine();
         AppendPromptSection(basePrompt, "dsl_reference", RemoveMarkdownFenceLines(DslReference.CommonReference));
         basePrompt.AppendLine();
@@ -284,6 +286,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- Every step has a unique non-empty `id` and a non-empty `type`.");
         basePrompt.AppendLine("- Put common step fields (`id`, `type`, `if`, `input`, `output`, `retry`, `on_error`) at the step level, not inside `input`.");
         basePrompt.AppendLine("- Put executor-specific arguments inside `input` only. For example `llm.call.input.prompt`, `mcp.call.input.server`, `template.render.input.template`.");
+        basePrompt.AppendLine("- For non-trivial `set` steps that normalize or reshape data, declare step-level `output_schema` so later `data.steps.<id>.<field>` references have a real contract.");
         basePrompt.AppendLine("- Container mappings must use their documented shape: `sequence`/`loop.*` use step-level `steps`; `parallel` uses step-level `branches[].steps`; `switch` uses step-level `cases[].steps` and optional step-level `default`.");
         basePrompt.AppendLine("- Do not reference future steps. Expressions may read `data.inputs.*` and outputs from earlier `data.steps.<id>.*` only.");
         basePrompt.AppendLine("- Do not reference `data.steps.<id>.*` produced only inside `switch` cases, `if`-guarded steps, or loop bodies from later steps unless you first map every possible path to a guaranteed value.");
@@ -304,6 +307,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- If a string output must be derived from an MCP/LLM response, first normalize it with `llm.call` or `mcp.call` `structured_output`, then map `data.steps.<normalizer>.json.<field>` to the workflow output.");
         basePrompt.AppendLine("- For input/output object schemas, never duplicate the YAML key `required`. Use input-level `required: true|false` only as a boolean. Use `required_properties: [field_name]` for required object property names.");
         AppendPromptSectionEnd(basePrompt, "generation_validation_checklist");
+        basePrompt.AppendLine();
+        AppendWorkflowPlanGenerationGuardrails(basePrompt);
         basePrompt.AppendLine();
         AppendStructuredOutputStrictSchemaRules(basePrompt);
 
@@ -386,8 +391,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine();
         AppendUserTaskBlock(basePrompt, instruction, generatorContext);
 
-        var maxAttempts = onInvalid?["max_attempts"]?.GetValue<int>() ?? 3;
-        var failAction = onInvalid?["action"]?.GetValue<string>() ?? "fail";
+        var maxAttempts = GetWorkflowPlanRepairMaxAttempts(onInvalid, validate);
         string? lastError = null;
         string? lastInvalidYaml = null;
         string? lastRepairContext = null;
@@ -599,7 +603,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     ["diagnostics"] = new JsonArray()
                 };
             }
-            catch (Exception ex) when (attempt < maxAttempts - 1 && failAction == "reprompt")
+            catch (Exception ex) when (attempt < maxAttempts - 1)
             {
                 // Capture the error for injection into the next prompt
                 ctx.Engine.Logger.LogWarning(ex, "workflow.plan: attempt {Attempt}/{MaxAttempts} failed, reprompting", attempt + 1, maxAttempts);
@@ -628,9 +632,31 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         ctx.Engine.Logger.LogError("workflow.plan: failed to generate valid workflow after {MaxAttempts} attempts", maxAttempts);
         var finalException = new WorkflowRuntimeException(ErrorCodes.TemplatePlan,
-            $"Failed to generate valid workflow after {maxAttempts} attempts");
+            string.IsNullOrWhiteSpace(lastError)
+                ? $"Failed to generate valid workflow after {maxAttempts} attempts"
+                : $"Failed to generate valid workflow after {maxAttempts} attempts. Last strict validation error: {lastError}");
         generationSpan.Fail(finalException);
         throw finalException;
+    }
+
+    private static int GetWorkflowPlanRepairMaxAttempts(JsonObject? onInvalid, JsonObject? validate)
+    {
+        var configured = TryGetPositiveInteger(validate, "max_repair_attempts")
+            ?? TryGetPositiveInteger(onInvalid, "max_attempts")
+            ?? DefaultPlanRepairMaxAttempts;
+
+        return Math.Max(1, configured);
+    }
+
+    private static int? TryGetPositiveInteger(JsonObject? obj, string propertyName)
+    {
+        if (obj == null || !obj.TryGetPropertyValue(propertyName, out var node) || node == null)
+            return null;
+
+        if (node is JsonValue value && value.TryGetValue<int>(out var parsed) && parsed > 0)
+            return parsed;
+
+        return null;
     }
 
     private static Exception AttachGeneratedYamlToPlanException(Exception ex, string? yaml)

@@ -26,14 +26,17 @@ internal static class StepExpressionTypeValidator
     private static readonly Regex StepReference = new(
         @"^(?:data\.)?steps\.([A-Za-z_][A-Za-z0-9_-]*)(?<path>(?:\.[A-Za-z_][A-Za-z0-9_]*)*)$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex DataVariableReference = new(
+        @"^(?:data\.)?(?<name>[A-Za-z_][A-Za-z0-9_]*)(?<path>(?:\.[A-Za-z_][A-Za-z0-9_]*)*)$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex ReferenceExpression = new(
-        @"^(?:data\.)?(?:inputs|steps)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$",
+        @"^(?:data\.)?(?:(?:inputs|steps)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*|[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex NonNullComparison = new(
-        @"(?:(?<left>(?:data\.)?(?:inputs|steps)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*(?:!==|!=)\s*null|null\s*(?:!==|!=)\s*(?<right>(?:data\.)?(?:inputs|steps)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*))",
+        @"(?:(?<left>(?:data\.)?(?:(?:inputs|steps)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*|[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*))\s*(?:!==|!=)\s*null|null\s*(?:!==|!=)\s*(?<right>(?:data\.)?(?:(?:inputs|steps)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*|[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)))",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex ExistsCall = new(
-        @"^(?:functions\.)?exists\(\s*(?<reference>(?:data\.)?(?:inputs|steps)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\)$",
+        @"^(?:functions\.)?exists\(\s*(?<reference>(?:data\.)?(?:(?:inputs|steps)\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*|[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*))\s*\)$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex FunctionCall = new(
         @"^(?:functions\.)?([A-Za-z_][A-Za-z0-9_]*)\s*\(",
@@ -58,6 +61,7 @@ internal static class StepExpressionTypeValidator
             FlowTypeDescriptorConverter.FromJsonSchema(inputSchema),
             FlowTypeDescriptorConverter.InputMap(workflowInputs),
             knownTypes,
+            dataVariables: null,
             nonNullReferences);
     }
 
@@ -66,10 +70,11 @@ internal static class StepExpressionTypeValidator
         FlowTypeDescriptor inputType,
         IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
         IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? dataVariables = null,
         IReadOnlySet<string>? nonNullReferences = null)
     {
         var mismatches = new List<StepExpressionTypeMismatch>();
-        ValidateNode(input, inputType, "input", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
+        ValidateNode(input, inputType, "input", workflowInputs, knownStepOutputs, dataVariables, nonNullReferences, mismatches);
         return mismatches;
     }
 
@@ -90,7 +95,8 @@ internal static class StepExpressionTypeValidator
     public static FlowTypeDescriptor? InferValueType(
         JsonNode? value,
         IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
-        IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs)
+        IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? dataVariables = null)
     {
         if (value == null)
             return FlowTypeDescriptor.Null;
@@ -100,16 +106,19 @@ internal static class StepExpressionTypeValidator
             var properties = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal);
             foreach (var (name, child) in obj)
                 properties[name] = new FlowPropertyDescriptor(
-                    InferValueType(child, workflowInputs, knownStepOutputs) ?? FlowTypeDescriptor.Any,
+                    InferValueType(child, workflowInputs, knownStepOutputs, dataVariables) ?? FlowTypeDescriptor.Any,
                     Required: true);
             return FlowTypeDescriptor.Object(properties);
         }
 
         if (value is JsonArray array)
         {
-            return FlowTypeDescriptor.Array(array.Count == 0
+            var itemTypes = array
+                .Select(item => InferValueType(item, workflowInputs, knownStepOutputs, dataVariables) ?? FlowTypeDescriptor.Any)
+                .ToArray();
+            return FlowTypeDescriptor.Array(itemTypes.Length == 0
                 ? FlowTypeDescriptor.Any
-                : InferValueType(array[0], workflowInputs, knownStepOutputs) ?? FlowTypeDescriptor.Any);
+                : FlowTypeDescriptor.Union(itemTypes));
         }
 
         if (value is JsonValue scalar)
@@ -117,7 +126,7 @@ internal static class StepExpressionTypeValidator
             if (scalar.TryGetValue<string>(out var text))
             {
                 return text?.Contains("${", StringComparison.Ordinal) == true
-                    ? InferInterpolatedStringType(text, workflowInputs, knownStepOutputs) ?? FlowTypeDescriptor.Any
+                    ? InferInterpolatedStringType(text, workflowInputs, knownStepOutputs, dataVariables) ?? FlowTypeDescriptor.Any
                     : FlowTypeDescriptor.String;
             }
             if (scalar.TryGetValue<bool>(out _))
@@ -150,6 +159,7 @@ internal static class StepExpressionTypeValidator
             FlowTypeDescriptorConverter.FromJsonSchema(expectedSchema),
             FlowTypeDescriptorConverter.InputMap(workflowInputs),
             knownTypes,
+            dataVariables: null,
             nonNullReferences);
     }
 
@@ -159,12 +169,13 @@ internal static class StepExpressionTypeValidator
         FlowTypeDescriptor expectedType,
         IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
         IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? dataVariables = null,
         IReadOnlySet<string>? nonNullReferences = null)
     {
         if (string.IsNullOrWhiteSpace(expression) || !expression.Contains("${", StringComparison.Ordinal))
             return null;
 
-        var inferred = InferInterpolatedStringType(expression, workflowInputs, knownStepOutputs, nonNullReferences);
+        var inferred = InferInterpolatedStringType(expression, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
         if (inferred == null || inferred.IsCompatibleWith(expectedType))
             return null;
 
@@ -241,6 +252,7 @@ internal static class StepExpressionTypeValidator
         string field,
         IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
         IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? dataVariables,
         IReadOnlySet<string>? nonNullReferences,
         List<StepExpressionTypeMismatch> mismatches)
     {
@@ -249,7 +261,7 @@ internal static class StepExpressionTypeValidator
 
         if (value is JsonValue scalar && scalar.TryGetValue<string>(out var text) && text?.Contains("${", StringComparison.Ordinal) == true)
         {
-            var inferred = InferInterpolatedStringType(text, workflowInputs, knownStepOutputs, nonNullReferences);
+            var inferred = InferInterpolatedStringType(text, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
             if (inferred != null && !inferred.IsCompatibleWith(expectedType))
             {
                 var expected = expectedType.Describe();
@@ -270,9 +282,9 @@ internal static class StepExpressionTypeValidator
             foreach (var (name, child) in obj)
             {
                 if (objectType.Properties.TryGetValue(name, out var property))
-                    ValidateNode(child, property.Type, $"{field}.{name}", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
+                    ValidateNode(child, property.Type, $"{field}.{name}", workflowInputs, knownStepOutputs, dataVariables, nonNullReferences, mismatches);
                 else if (objectType.AdditionalProperties != null)
-                    ValidateNode(child, objectType.AdditionalProperties, $"{field}.{name}", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
+                    ValidateNode(child, objectType.AdditionalProperties, $"{field}.{name}", workflowInputs, knownStepOutputs, dataVariables, nonNullReferences, mismatches);
             }
             return;
         }
@@ -281,7 +293,7 @@ internal static class StepExpressionTypeValidator
         if (value is JsonArray array && arrayType?.Items != null)
         {
             for (var i = 0; i < array.Count; i++)
-                ValidateNode(array[i], arrayType.Items, $"{field}[{i}]", workflowInputs, knownStepOutputs, nonNullReferences, mismatches);
+                ValidateNode(array[i], arrayType.Items, $"{field}[{i}]", workflowInputs, knownStepOutputs, dataVariables, nonNullReferences, mismatches);
         }
     }
 
@@ -311,6 +323,7 @@ internal static class StepExpressionTypeValidator
         string text,
         IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
         IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? dataVariables = null,
         IReadOnlySet<string>? nonNullReferences = null)
     {
         var exact = ExactExpression.Match(text);
@@ -338,6 +351,20 @@ internal static class StepExpressionTypeValidator
             var reference = $"steps.{stepMatch.Groups[1].Value}{stepMatch.Groups["path"].Value}";
             return ApplyNonNullNarrowing(
                 outputType.ResolvePath(SplitPath(stepMatch.Groups["path"].Value)),
+                reference,
+                nonNullReferences);
+        }
+
+        var variableMatch = DataVariableReference.Match(expression);
+        if (variableMatch.Success
+            && variableMatch.Groups["name"].Value is { } variableName
+            && variableName is not ("inputs" or "steps")
+            && dataVariables != null
+            && dataVariables.TryGetValue(variableName, out var variableType))
+        {
+            var reference = $"{variableName}{variableMatch.Groups["path"].Value}";
+            return ApplyNonNullNarrowing(
+                variableType.ResolvePath(SplitPath(variableMatch.Groups["path"].Value)),
                 reference,
                 nonNullReferences);
         }

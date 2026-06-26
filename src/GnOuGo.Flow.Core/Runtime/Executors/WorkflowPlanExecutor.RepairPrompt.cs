@@ -46,6 +46,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Required root: version, name, skill, workflows. `skill` is a top-level object with description, tags, inputs, and outputs. Each workflow has steps: [] and optional outputs.");
         sb.AppendLine("Each step requires step-level id and type. Common fields stay at step level: if, input, output, retry, on_error, steps, branches, cases, default.");
         sb.AppendLine("Executor-specific arguments go inside input only.");
+        sb.AppendLine("workflow.plan uses mandatory strict validation and automatic bounded repair; corrected YAML must pass parse, policy, limits, compile, semantic validation, and optional dry-run.");
         sb.AppendLine("Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.");
         sb.AppendLine("Expressions may read data.inputs.* and earlier data.steps.<id>.* only.");
         sb.AppendLine("If a step has an `if`, later unconditional steps must not reference that step directly. Give the later step the same guard, or produce guaranteed defaults/branch outputs first.");
@@ -57,6 +58,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Workflow output expressions must resolve to their declared type on every branch.");
         sb.AppendLine("Object schemas: never duplicate the YAML key `required`. Input-level `required` is only a boolean. Required object property names must use `required_properties`, not a second `required` key.");
         AppendPromptSectionEnd(sb, "minimum_dsl_context");
+        sb.AppendLine();
+        AppendWorkflowPlanGenerationGuardrails(sb);
         sb.AppendLine();
         AppendStructuredOutputStrictSchemaRules(sb);
         if (structuredError.Contains("Duplicate key required", StringComparison.OrdinalIgnoreCase))
@@ -85,6 +88,24 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var sb = new StringBuilder();
         AppendUserTaskBlock(sb, instruction, context);
         return sb.ToString().TrimEnd();
+    }
+
+    private static void AppendWorkflowPlanGenerationGuardrails(StringBuilder sb)
+    {
+        AppendPromptSectionStart(sb, "workflow_plan_generation_guardrails");
+        sb.AppendLine("Loop output shape:");
+        sb.AppendLine("- `loop.sequential` and `loop.parallel` output `{ results, count }`; every `results[]` item is a per-iteration `data.steps` snapshot, not the direct output of the last loop child step.");
+        sb.AppendLine("- If a loop child step `build_issue_result` emits `{ handled_by_gnougo, title, ... }`, post-loop filtering must read `iteration.build_issue_result.handled_by_gnougo`, not `iteration.handled_by_gnougo`.");
+        sb.AppendLine("- To produce a flat array after a loop, make the loop body end with a `set` step that has `output_schema`, then map/filter `data.steps.<loop_id>.results` through that child step id.");
+        sb.AppendLine("YAML scalar and quoting rules:");
+        sb.AppendLine("- Emit booleans and numbers as unquoted YAML scalars: `required: false`, `strict: true`, `timeout_ms: 1200000`, `perPage: 30`, `append: false`. Do not emit `\"false\"`, `\"true\"`, `\"1200000\"`, or `\"30\"` for typed scalar fields.");
+        sb.AppendLine("- Use single quotes inside expressions that compare strings, for example `${data.steps.close.status == 'ok'}`.");
+        sb.AppendLine("- Use YAML literal block scalars (`|`) for multiline prompts/templates or strings containing JSON/double quotes; do not put unescaped nested double quotes inside a double-quoted YAML scalar.");
+        sb.AppendLine("GitHub issue workflow rules:");
+        sb.AppendLine("- Derive `owner` and `repo` once from `repository_url`, expose them with a typed `set.output_schema`, and pass those values into every GitHub action workflow; never pass empty strings for required `owner` or `repo`.");
+        sb.AppendLine("- Preserve issue context across normalization: include `number` or `issue_number`, `title`, `url` or `html_url`, and `body` on the issue object before classification, commenting, closing, or pull-request creation.");
+        sb.AppendLine("- If a GitHub MCP response is opaque, add an `llm.call` normalization step with strict `structured_output` to extract `body`, `owner`, `repo`, `number`, `title`, and URL fields before later steps read them.");
+        AppendPromptSectionEnd(sb, "workflow_plan_generation_guardrails");
     }
 
     private static void AppendUserTaskBlock(StringBuilder sb, string instruction, string? context)

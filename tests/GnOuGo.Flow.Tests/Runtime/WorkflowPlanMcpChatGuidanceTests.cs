@@ -10,6 +10,25 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public class WorkflowPlanMcpChatGuidanceTests
 {
+    private const string ValidGeneratedTemplateWorkflowYaml = """
+        version: 1
+        name: generated-workflow
+        skill:
+          description: Generated workflow.
+          tags: [generated]
+          inputs: {}
+          outputs: {}
+        workflows:
+          main:
+            steps:
+              - id: s
+                type: template.render
+                input:
+                  engine: mustache
+                  template: ok
+                  mode: text
+        """;
+
     private static CompiledWorkflow CompileMain(string yaml)
     {
         var doc = WorkflowParser.Parse(yaml);
@@ -28,7 +47,7 @@ public class WorkflowPlanMcpChatGuidanceTests
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = ValidGeneratedTemplateWorkflowYaml
             });
 
         var mcpFactory = new InMemoryMcpClientFactory();
@@ -87,7 +106,7 @@ public class WorkflowPlanMcpChatGuidanceTests
             .Callback<LLMRequest, CancellationToken>((req, _) => capturedPrompt = req.Prompt)
             .ReturnsAsync(new LLMResponse
             {
-                Text = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: s\n        type: template.render\n        input:\n          engine: mustache\n          template: ok\n          mode: text"
+                Text = ValidGeneratedTemplateWorkflowYaml
             });
 
         // Use a factory mock that throws on GetClientAsync

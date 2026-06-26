@@ -6,12 +6,14 @@ namespace GnOuGo.Flow.Core.Runtime;
 internal sealed class WorkflowSymbolTable
 {
     private readonly Dictionary<string, FlowTypeDescriptor> _stepOutputs;
+    private readonly Dictionary<string, FlowTypeDescriptor> _dataVariables;
 
     private WorkflowSymbolTable(
         string workflowName,
         IReadOnlyDictionary<string, FlowTypeDescriptor> workflowInputs,
         IReadOnlySet<string> allStepIds,
-        Dictionary<string, FlowTypeDescriptor>? stepOutputs = null)
+        Dictionary<string, FlowTypeDescriptor>? stepOutputs = null,
+        Dictionary<string, FlowTypeDescriptor>? dataVariables = null)
     {
         WorkflowName = workflowName;
         WorkflowInputs = workflowInputs;
@@ -19,12 +21,16 @@ internal sealed class WorkflowSymbolTable
         _stepOutputs = stepOutputs == null
             ? new Dictionary<string, FlowTypeDescriptor>(StringComparer.Ordinal)
             : new Dictionary<string, FlowTypeDescriptor>(stepOutputs, StringComparer.Ordinal);
+        _dataVariables = dataVariables == null
+            ? new Dictionary<string, FlowTypeDescriptor>(StringComparer.Ordinal)
+            : new Dictionary<string, FlowTypeDescriptor>(dataVariables, StringComparer.Ordinal);
     }
 
     public string WorkflowName { get; }
     public IReadOnlyDictionary<string, FlowTypeDescriptor> WorkflowInputs { get; }
     public IReadOnlySet<string> AllStepIds { get; }
     public IReadOnlyDictionary<string, FlowTypeDescriptor> StepOutputs => _stepOutputs;
+    public IReadOnlyDictionary<string, FlowTypeDescriptor> DataVariables => _dataVariables;
 
     public static WorkflowSymbolTable Create(
         string workflowName,
@@ -36,7 +42,7 @@ internal sealed class WorkflowSymbolTable
             allStepIds);
 
     public WorkflowSymbolTable Clone() =>
-        new(WorkflowName, WorkflowInputs, AllStepIds, _stepOutputs);
+        new(WorkflowName, WorkflowInputs, AllStepIds, _stepOutputs, _dataVariables);
 
     public bool HasStepOutput(string stepId) => _stepOutputs.ContainsKey(stepId);
 
@@ -47,6 +53,15 @@ internal sealed class WorkflowSymbolTable
     {
         if (!string.IsNullOrWhiteSpace(stepId))
             _stepOutputs[stepId] = descriptor;
+    }
+
+    public bool TryGetDataVariable(string name, out FlowTypeDescriptor descriptor) =>
+        _dataVariables.TryGetValue(name, out descriptor!);
+
+    public void SetDataVariable(string name, FlowTypeDescriptor descriptor)
+    {
+        if (!string.IsNullOrWhiteSpace(name))
+            _dataVariables[name] = descriptor;
     }
 
     public IReadOnlyDictionary<string, JsonNode?> ToRuntimeSchemaMap()
@@ -70,6 +85,17 @@ internal sealed class WorkflowSymbolTable
 
         return FlowTypeDescriptorConverter
             .EnumerateAllowedPaths("data.steps." + stepId, descriptor)
+            .Take(take)
+            .ToArray();
+    }
+
+    public IReadOnlyList<string> AllowedDataVariablePaths(string name, int take = int.MaxValue)
+    {
+        if (!_dataVariables.TryGetValue(name, out var descriptor))
+            return Array.Empty<string>();
+
+        return FlowTypeDescriptorConverter
+            .EnumerateAllowedPaths("data." + name, descriptor)
             .Take(take)
             .ToArray();
     }

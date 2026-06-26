@@ -196,7 +196,12 @@ public static class BuiltInStepContracts
             ("denied_step_types", Array(String())),
             ("allow_remote_workflow_refs", Boolean()))),
         ("limits", Object(("max_steps_total", PositiveInteger()))),
-        ("validate", Object(("compile", Boolean()), ("dry_run", Boolean()))),
+        ("validate", Object(
+            ("mode", Enum("strict")),
+            ("compile", Boolean()),
+            ("dry_run", Boolean()),
+            ("repair", Enum("auto")),
+            ("max_repair_attempts", PositiveInteger()))),
         ("on_invalid", Object(("action", Enum("fail", "stop", "reprompt")), ("max_attempts", PositiveInteger()))),
         ("skill", OpenObject()),
         ("inputs", OpenObject()),
