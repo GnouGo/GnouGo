@@ -6182,7 +6182,161 @@ workflows:
     }
 
     [Fact]
-    public async Task WorkflowPlan_SemanticValidation_RejectsEmptyRequiredWorkflowCallString()
+    public async Task WorkflowPlan_SemanticValidation_AllowsEmptyRequiredMcpStringWhenFieldIsNotActionIdentityOrContent()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated note workflow.
+                         tags: [notes]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: write_note
+                               type: mcp.call
+                               input:
+                                 server: docs
+                                 kind: tool
+                                 method: write_note
+                                 request:
+                                   note: ""
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("docs", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "write_note",
+                    Description = "Write a note",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "note": { "type": "string" }
+                      },
+                      "required": ["note"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Write a note
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsEmptyMcpStringWhenSchemaRequiresNonEmpty()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated search workflow.
+                         tags: [search]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: search
+                               type: mcp.call
+                               input:
+                                 server: docs
+                                 kind: tool
+                                 method: search_docs
+                                 request:
+                                   query: ""
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("docs", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "search_docs",
+                    Description = "Search documents",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "query": { "type": "string", "minLength": 1 }
+                      },
+                      "required": ["query"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Search docs
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_REQUIRED_STRING_EMPTY", result.Error.Message);
+        Assert.Contains("input.request.query", result.Error.Message);
+        Assert.Contains("minLength", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_AllowsEmptyRequiredWorkflowCallStringByDefault()
     {
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
@@ -6203,20 +6357,12 @@ workflows:
                                input:
                                  ref:
                                    kind: local
-                                   name: post_comment
+                                   name: append_report
                                  args:
-                                   owner: ""
-                                   repo: oidc-client
-                                   body: "Investigating."
-                         post_comment:
+                                   pull_request_link: ""
+                         append_report:
                            inputs:
-                             owner:
-                               type: string
-                               required: true
-                             repo:
-                               type: string
-                               required: true
-                             body:
+                             pull_request_link:
                                type: string
                                required: true
                            steps:
@@ -6252,10 +6398,7 @@ workflows:
         var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
             .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
-        Assert.False(result.Success);
-        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
-        Assert.Contains("WORKFLOW_CALL_REQUIRED_STRING_EMPTY", result.Error.Message);
-        Assert.Contains("input.args.owner", result.Error.Message);
+        Assert.True(result.Success, result.Error?.Message);
     }
 
     [Fact]

@@ -175,6 +175,16 @@ internal static class StepExpressionTypeValidator
         if (string.IsNullOrWhiteSpace(expression) || !expression.Contains("${", StringComparison.Ordinal))
             return null;
 
+        var semanticMismatch = ValidateInterpolatedExpressionSemantics(
+            expression,
+            field,
+            workflowInputs,
+            knownStepOutputs,
+            dataVariables,
+            nonNullReferences);
+        if (semanticMismatch != null)
+            return semanticMismatch;
+
         var inferred = InferInterpolatedStringType(expression, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
         if (inferred == null || inferred.IsCompatibleWith(expectedType))
             return null;
@@ -261,6 +271,16 @@ internal static class StepExpressionTypeValidator
 
         if (value is JsonValue scalar && scalar.TryGetValue<string>(out var text) && text?.Contains("${", StringComparison.Ordinal) == true)
         {
+            var semanticMismatch = ValidateInterpolatedExpressionSemantics(
+                text,
+                field,
+                workflowInputs,
+                knownStepOutputs,
+                dataVariables,
+                nonNullReferences);
+            if (semanticMismatch != null)
+                mismatches.Add(semanticMismatch);
+
             var inferred = InferInterpolatedStringType(text, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
             if (inferred != null && !inferred.IsCompatibleWith(expectedType))
             {
@@ -334,6 +354,29 @@ internal static class StepExpressionTypeValidator
         if (expression.Length == 0)
             return null;
 
+        return InferExpressionType(expression, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+    }
+
+    private static FlowTypeDescriptor? InferExpressionType(
+        string expression,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? dataVariables,
+        IReadOnlySet<string>? nonNullReferences)
+    {
+        expression = TrimEnclosingParentheses(expression);
+        if (expression.Length == 0)
+            return null;
+
+        if (TrySplitTopLevelTernary(expression, out var ternary))
+        {
+            var trueType = InferExpressionType(ternary.WhenTrue, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+            var falseType = InferExpressionType(ternary.WhenFalse, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+            return trueType == null || falseType == null
+                ? null
+                : FlowTypeDescriptor.Union(new[] { trueType, falseType });
+        }
+
         var inputMatch = InputReference.Match(expression);
         if (inputMatch.Success && workflowInputs != null
             && workflowInputs.TryGetValue(inputMatch.Groups[1].Value, out var inputType))
@@ -369,7 +412,7 @@ internal static class StepExpressionTypeValidator
                 nonNullReferences);
         }
 
-        if (expression is "true" or "false" || LooksBoolean(expression))
+        if (expression is "true" or "false")
             return FlowTypeDescriptor.Boolean;
         if (expression == "null")
             return FlowTypeDescriptor.Null;
@@ -377,14 +420,18 @@ internal static class StepExpressionTypeValidator
             return FlowTypeDescriptor.Integer;
         if (NumberLiteral.IsMatch(expression))
             return FlowTypeDescriptor.Number;
-        if ((expression.StartsWith('"') && expression.EndsWith('"'))
-            || (expression.StartsWith('\'') && expression.EndsWith('\''))
-            || expression.StartsWith('`'))
+        if (IsStringLiteral(expression))
             return FlowTypeDescriptor.String;
         if (expression.StartsWith('['))
             return FlowTypeDescriptor.Array();
         if (expression.StartsWith('{'))
             return FlowTypeDescriptor.Object(allowsAdditionalProperties: true);
+
+        if (LooksBoolean(expression))
+            return FlowTypeDescriptor.Boolean;
+
+        if (TryInferStringConcatenation(expression, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences, out var concatenationType))
+            return concatenationType;
 
         var function = FunctionCall.Match(expression);
         if (function.Success)
@@ -402,6 +449,51 @@ internal static class StepExpressionTypeValidator
         }
 
         return null;
+    }
+
+    private static StepExpressionTypeMismatch? ValidateInterpolatedExpressionSemantics(
+        string text,
+        string field,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? dataVariables,
+        IReadOnlySet<string>? nonNullReferences)
+    {
+        var exact = ExactExpression.Match(text);
+        if (!exact.Success)
+            return null;
+
+        var expression = exact.Groups["expression"].Value.Trim();
+        return ValidateTernaryConditions(expression, text, field, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+    }
+
+    private static StepExpressionTypeMismatch? ValidateTernaryConditions(
+        string expression,
+        string originalExpression,
+        string field,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? dataVariables,
+        IReadOnlySet<string>? nonNullReferences)
+    {
+        expression = TrimEnclosingParentheses(expression);
+        if (!TrySplitTopLevelTernary(expression, out var ternary))
+            return null;
+
+        var conditionType = InferExpressionType(ternary.Condition, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+        if (conditionType != null && !conditionType.IsCompatibleWith(FlowTypeDescriptor.Boolean))
+        {
+            var actual = conditionType.Describe();
+            return new StepExpressionTypeMismatch(
+                field,
+                originalExpression,
+                FlowTypeDescriptor.Boolean.Describe(),
+                actual,
+                $"Ternary condition in '{field}' resolves to {actual}, but ternary conditions must be boolean.");
+        }
+
+        return ValidateTernaryConditions(ternary.WhenTrue, originalExpression, field, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences)
+               ?? ValidateTernaryConditions(ternary.WhenFalse, originalExpression, field, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
     }
 
     private static FlowTypeDescriptor? ApplyNonNullNarrowing(
@@ -428,6 +520,165 @@ internal static class StepExpressionTypeValidator
         return true;
     }
 
+    private sealed record TernaryExpressionParts(string Condition, string WhenTrue, string WhenFalse);
+
+    private static bool TrySplitTopLevelTernary(string expression, out TernaryExpressionParts ternary)
+    {
+        ternary = default!;
+        var questionIndex = FindTopLevelTernaryQuestion(expression);
+        if (questionIndex < 0)
+            return false;
+
+        var colonIndex = FindMatchingTernaryColon(expression, questionIndex + 1);
+        if (colonIndex < 0)
+            return false;
+
+        var condition = expression[..questionIndex].Trim();
+        var whenTrue = expression[(questionIndex + 1)..colonIndex].Trim();
+        var whenFalse = expression[(colonIndex + 1)..].Trim();
+        if (condition.Length == 0 || whenTrue.Length == 0 || whenFalse.Length == 0)
+            return false;
+
+        ternary = new TernaryExpressionParts(condition, whenTrue, whenFalse);
+        return true;
+    }
+
+    private static int FindTopLevelTernaryQuestion(string expression)
+    {
+        var quote = '\0';
+        var escaped = false;
+        var parenDepth = 0;
+        var bracketDepth = 0;
+        var braceDepth = 0;
+
+        for (var i = 0; i < expression.Length; i++)
+        {
+            var current = expression[i];
+            if (UpdateQuotedState(current, ref quote, ref escaped))
+                continue;
+
+            UpdateNestingDepth(current, ref parenDepth, ref bracketDepth, ref braceDepth);
+            if (parenDepth == 0
+                && bracketDepth == 0
+                && braceDepth == 0
+                && current == '?'
+                && !IsOptionalOrNullishQuestion(expression, i))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int FindMatchingTernaryColon(string expression, int startIndex)
+    {
+        var quote = '\0';
+        var escaped = false;
+        var parenDepth = 0;
+        var bracketDepth = 0;
+        var braceDepth = 0;
+        var nestedTernaryDepth = 0;
+
+        for (var i = startIndex; i < expression.Length; i++)
+        {
+            var current = expression[i];
+            if (UpdateQuotedState(current, ref quote, ref escaped))
+                continue;
+
+            UpdateNestingDepth(current, ref parenDepth, ref bracketDepth, ref braceDepth);
+            if (parenDepth != 0 || bracketDepth != 0 || braceDepth != 0)
+                continue;
+
+            if (current == '?' && !IsOptionalOrNullishQuestion(expression, i))
+            {
+                nestedTernaryDepth++;
+                continue;
+            }
+
+            if (current != ':')
+                continue;
+
+            if (nestedTernaryDepth == 0)
+                return i;
+
+            nestedTernaryDepth--;
+        }
+
+        return -1;
+    }
+
+    private static bool TryInferStringConcatenation(
+        string expression,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? dataVariables,
+        IReadOnlySet<string>? nonNullReferences,
+        out FlowTypeDescriptor? type)
+    {
+        type = null;
+        var parts = SplitTopLevelPlus(expression);
+        if (parts.Count <= 1)
+            return false;
+
+        var hasStringOperand = false;
+        var allKnownNumeric = true;
+        foreach (var part in parts)
+        {
+            if (part.Length == 0)
+                return false;
+
+            var partType = InferExpressionType(part, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+            hasStringOperand |= IsStringLiteral(part) || partType?.Kind == FlowTypeKind.String;
+            allKnownNumeric &= partType is { Kind: FlowTypeKind.Integer or FlowTypeKind.Number };
+        }
+
+        if (hasStringOperand)
+        {
+            type = FlowTypeDescriptor.String;
+            return true;
+        }
+
+        if (allKnownNumeric)
+        {
+            type = FlowTypeDescriptor.Number;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<string> SplitTopLevelPlus(string expression)
+    {
+        var parts = new List<string>();
+        var quote = '\0';
+        var escaped = false;
+        var parenDepth = 0;
+        var bracketDepth = 0;
+        var braceDepth = 0;
+        var start = 0;
+
+        for (var i = 0; i < expression.Length; i++)
+        {
+            var current = expression[i];
+            if (UpdateQuotedState(current, ref quote, ref escaped))
+                continue;
+
+            UpdateNestingDepth(current, ref parenDepth, ref bracketDepth, ref braceDepth);
+            if (parenDepth != 0 || bracketDepth != 0 || braceDepth != 0 || current != '+')
+                continue;
+
+            parts.Add(expression[start..i].Trim());
+            start = i + 1;
+        }
+
+        if (parts.Count == 0)
+            return Array.Empty<string>();
+
+        parts.Add(expression[start..].Trim());
+        return parts;
+    }
+
     private static string TrimEnclosingParentheses(string value)
     {
         var current = value.Trim();
@@ -441,11 +692,21 @@ internal static class StepExpressionTypeValidator
         return current;
     }
 
+    private static bool IsStringLiteral(string expression) =>
+        (expression.StartsWith('"') && expression.EndsWith('"'))
+        || (expression.StartsWith('\'') && expression.EndsWith('\''))
+        || expression.StartsWith('`');
+
     private static bool IsSingleParenthesizedExpression(string value)
     {
         var depth = 0;
+        var quote = '\0';
+        var escaped = false;
         for (var i = 0; i < value.Length; i++)
         {
+            if (UpdateQuotedState(value[i], ref quote, ref escaped))
+                continue;
+
             if (value[i] == '(')
                 depth++;
             else if (value[i] == ')')
@@ -461,17 +722,105 @@ internal static class StepExpressionTypeValidator
     {
         if (expression.StartsWith('!'))
             return true;
-        return expression.Contains("===", StringComparison.Ordinal)
-            || expression.Contains("!==", StringComparison.Ordinal)
-            || expression.Contains("==", StringComparison.Ordinal)
-            || expression.Contains("!=", StringComparison.Ordinal)
-            || expression.Contains(">=", StringComparison.Ordinal)
-            || expression.Contains("<=", StringComparison.Ordinal)
-            || expression.Contains(" > ", StringComparison.Ordinal)
-            || expression.Contains(" < ", StringComparison.Ordinal)
-            || expression.Contains("&&", StringComparison.Ordinal)
-            || expression.Contains("||", StringComparison.Ordinal);
+        return ContainsTopLevelBooleanOperator(expression);
     }
+
+    private static bool ContainsTopLevelBooleanOperator(string expression)
+    {
+        var quote = '\0';
+        var escaped = false;
+        var parenDepth = 0;
+        var bracketDepth = 0;
+        var braceDepth = 0;
+
+        for (var i = 0; i < expression.Length; i++)
+        {
+            var current = expression[i];
+            if (UpdateQuotedState(current, ref quote, ref escaped))
+                continue;
+
+            UpdateNestingDepth(current, ref parenDepth, ref bracketDepth, ref braceDepth);
+            if (parenDepth != 0 || bracketDepth != 0 || braceDepth != 0)
+                continue;
+
+            if (IsAt(expression, i, "===")
+                || IsAt(expression, i, "!==")
+                || IsAt(expression, i, "==")
+                || IsAt(expression, i, "!=")
+                || IsAt(expression, i, ">=")
+                || IsAt(expression, i, "<=")
+                || IsAt(expression, i, "&&")
+                || IsAt(expression, i, "||")
+                || current is '>' or '<')
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool UpdateQuotedState(char current, ref char quote, ref bool escaped)
+    {
+        if (quote != '\0')
+        {
+            if (escaped)
+            {
+                escaped = false;
+                return true;
+            }
+
+            if (current == '\\')
+            {
+                escaped = true;
+                return true;
+            }
+
+            if (current == quote)
+                quote = '\0';
+
+            return true;
+        }
+
+        if (current is '"' or '\'' or '`')
+        {
+            quote = current;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void UpdateNestingDepth(char current, ref int parenDepth, ref int bracketDepth, ref int braceDepth)
+    {
+        switch (current)
+        {
+            case '(':
+                parenDepth++;
+                break;
+            case ')':
+                parenDepth = Math.Max(0, parenDepth - 1);
+                break;
+            case '[':
+                bracketDepth++;
+                break;
+            case ']':
+                bracketDepth = Math.Max(0, bracketDepth - 1);
+                break;
+            case '{':
+                braceDepth++;
+                break;
+            case '}':
+                braceDepth = Math.Max(0, braceDepth - 1);
+                break;
+        }
+    }
+
+    private static bool IsOptionalOrNullishQuestion(string expression, int index) =>
+        index + 1 < expression.Length && expression[index + 1] is '.' or '?';
+
+    private static bool IsAt(string expression, int index, string value) =>
+        expression.AsSpan(index).StartsWith(value.AsSpan(), StringComparison.Ordinal);
 
     private static IReadOnlyList<string> SplitPath(string path) =>
         string.IsNullOrWhiteSpace(path)

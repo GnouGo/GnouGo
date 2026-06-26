@@ -1377,7 +1377,7 @@ Workflow execution traces also include injected workflow inputs on the workflow 
 
 Loop outputs need special care: `data.steps.<loop_id>.results` is an array of per-iteration `data.steps` snapshots, not an array of the last child step's output. If a loop child `set` step named `build_issue_result` produces `handled_by_gnougo`, post-loop code must read `iteration.build_issue_result.handled_by_gnougo`. To produce a flat list, create a typed child `set` step in the loop and flatten/filter through that child step id.
 
-Generated YAML should preserve typed scalars: emit `required: false`, `strict: true`, `timeout_ms: 1200000`, `perPage: 30`, and `append: false` as booleans/numbers, not quoted strings. Use literal block scalars (`|`) for multiline prompts/templates or strings containing JSON/double quotes. For GitHub issue workflows, derive `owner` and `repo` once from `repository_url`, preserve `body` in normalized issue objects, and never pass empty strings for required GitHub action fields that can be derived or normalized.
+Generated YAML should preserve typed scalars: emit `required: false`, `strict: true`, `timeout_ms: 1200000`, `perPage: 30`, and `append: false` as booleans/numbers, not quoted strings. Use literal block scalars (`|`) for multiline prompts/templates or strings containing JSON/double quotes. A required string means the field must be present; it may still be `""` unless the schema declares `minLength: 1` or another stricter constraint. For GitHub issue workflows, derive `owner` and `repo` once from `repository_url`, preserve `body` in normalized issue objects, and never pass empty strings for required GitHub action fields that can be derived or normalized.
 
 ---
 

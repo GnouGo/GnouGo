@@ -1844,6 +1844,60 @@ internal static class WorkflowPlanSemanticValidator
         return null;
     }
 
+    private static bool SchemaRequiresNonEmptyString(JsonNode? schema)
+    {
+        if (schema is not JsonObject schemaObject)
+            return false;
+
+        if (TryReadPositiveInteger(schemaObject["minLength"], out _)
+            && SchemaAllowsString(schemaObject))
+        {
+            return true;
+        }
+
+        if (schemaObject["allOf"] is JsonArray allOf)
+            return allOf.Any(SchemaRequiresNonEmptyString);
+
+        if (schemaObject["anyOf"] is JsonArray anyOf)
+            return AllStringVariantsRequireNonEmpty(anyOf);
+
+        if (schemaObject["oneOf"] is JsonArray oneOf)
+            return AllStringVariantsRequireNonEmpty(oneOf);
+
+        return false;
+    }
+
+    private static bool AllStringVariantsRequireNonEmpty(JsonArray variants)
+    {
+        var stringVariants = variants
+            .Where(SchemaAllowsString)
+            .ToArray();
+        return stringVariants.Length > 0 && stringVariants.All(SchemaRequiresNonEmptyString);
+    }
+
+    private static bool IsMcpActionIdentityOrContentField(string propertyName)
+    {
+        return propertyName.Equals("owner", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("repo", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("body", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryReadPositiveInteger(JsonNode? node, out long value)
+    {
+        value = 0;
+        if (TryReadNonNegativeInteger(node, out value))
+            return value > 0;
+
+        if (node is JsonValue jsonValue
+            && jsonValue.TryGetValue<string>(out var text)
+            && long.TryParse(text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out value))
+        {
+            return value > 0;
+        }
+
+        return false;
+    }
+
     private static IReadOnlyList<string> ReadRequiredPropertyNames(JsonObject schema)
     {
         if (schema["required"] is not JsonArray required)

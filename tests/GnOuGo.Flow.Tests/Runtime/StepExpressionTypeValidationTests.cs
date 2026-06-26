@@ -520,6 +520,87 @@ steps:
     }
 
     [Fact]
+    public void SemanticValidation_AcceptsStringTernaryWithComparisonCondition()
+    {
+        var doc = Parse("""
+inputs:
+  classification: string
+  issue:
+    type: object
+    properties:
+      title: { type: string }
+    required_properties: [title]
+steps:
+  - id: normalize
+    type: set
+    output_schema:
+      type: object
+      properties:
+        title: { type: string }
+      required: [title]
+      additionalProperties: false
+    input:
+      title: "${data.inputs.classification == 'bug' ? ('Fix ' + data.inputs.issue.title) : ('Implement ' + data.inputs.issue.title)}"
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsStringTernaryAssignedToBoolean()
+    {
+        var doc = Parse("""
+inputs:
+  classification: string
+steps:
+  - id: normalize
+    type: set
+    output_schema:
+      type: object
+      properties:
+        should_fix: { type: boolean }
+      required: [should_fix]
+      additionalProperties: false
+    input:
+      should_fix: "${data.inputs.classification == 'bug' ? 'Fix' : 'Implement'}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
+        Assert.Contains("input.should_fix", exception.InnerException.Message);
+        Assert.Contains("resolves to string", exception.InnerException.Message);
+        Assert.Contains("requires boolean", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsNonBooleanTernaryCondition()
+    {
+        var doc = Parse("""
+inputs:
+  classification: string
+steps:
+  - id: normalize
+    type: set
+    output_schema:
+      type: object
+      properties:
+        title: { type: string }
+      required: [title]
+      additionalProperties: false
+    input:
+      title: "${data.inputs.classification ? 'Fix' : 'Implement'}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
+        Assert.Contains("Ternary condition", exception.InnerException.Message);
+        Assert.Contains("resolves to string", exception.InnerException.Message);
+        Assert.Contains("must be boolean", exception.InnerException.Message);
+    }
+
+    [Fact]
     public void SemanticValidation_RejectsSetInputMissingRequiredOutputSchemaField()
     {
         var doc = Parse("""
