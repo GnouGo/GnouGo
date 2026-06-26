@@ -51,6 +51,22 @@ public class ExpressionEvaluatorTests
         var result = _evaluator.Evaluate("data.inputs.a + \" world\"", ctx);
         Assert.Equal("hello world", result!.GetValue<string>());
     }
+
+    [Fact]
+    public void Evaluate_UrlConstructor_ExposesCommonFields()
+    {
+        var result = _evaluator.Evaluate(
+            "(() => { const u = new URL('https://github.com/AxaFrance/oidc-client?state=open#top'); return { hostname: u.hostname, pathname: u.pathname, search: u.search, hash: u.hash, href: u.toString() }; })()",
+            null) as JsonObject;
+
+        Assert.NotNull(result);
+        Assert.Equal("github.com", result!["hostname"]!.GetValue<string>());
+        Assert.Equal("/AxaFrance/oidc-client", result["pathname"]!.GetValue<string>());
+        Assert.Equal("?state=open", result["search"]!.GetValue<string>());
+        Assert.Equal("#top", result["hash"]!.GetValue<string>());
+        Assert.Equal("https://github.com/AxaFrance/oidc-client?state=open#top", result["href"]!.GetValue<string>());
+    }
+
     [Fact]
     public void Evaluate_Subtraction_ReturnsDifference()
     {

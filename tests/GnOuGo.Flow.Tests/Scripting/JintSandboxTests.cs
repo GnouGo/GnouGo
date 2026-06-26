@@ -78,6 +78,27 @@ public class JintSandboxTests
     }
 
     [Fact]
+    public void LoadFunctions_CanUseUrlConstructor()
+    {
+        var sandbox = new JintSandbox();
+        var funcs = sandbox.LoadFunctions(@"
+            function parseGithubRepoUrl(url) {
+                const u = new URL(url);
+                const parts = u.pathname.replace(/^\/+/, '').split('/');
+                return { owner: parts[0], repo: parts[1], hostname: u.hostname };
+            }
+        ");
+
+        var result = funcs["parseGithubRepoUrl"](
+            new JsonNode?[] { JsonValue.Create("https://github.com/AxaFrance/oidc-client") }) as JsonObject;
+
+        Assert.NotNull(result);
+        Assert.Equal("github.com", result!["hostname"]!.GetValue<string>());
+        Assert.Equal("AxaFrance", result["owner"]!.GetValue<string>());
+        Assert.Equal("oidc-client", result["repo"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void Execute_SimpleExpression_ReturnsResult()
     {
         var sandbox = new JintSandbox();

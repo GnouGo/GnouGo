@@ -78,6 +78,8 @@ public sealed class ExpressionEvaluator
             engine.SetValue("data", JsValue.Null);
         }
 
+        JintUrlInterop.Install(engine);
+
         // Register built-in + custom functions
         RegisterFunctions(engine);
 

@@ -671,6 +671,40 @@ workflows:
     }
 
     [Fact]
+    public async Task Execute_WithGlobalFunctions_CanUseUrlConstructor()
+    {
+        var wf = CompileMain(@"
+version: 1
+functions: |
+  function parseGithubRepoUrl(url) {
+    const u = new URL(url);
+    const parts = u.pathname.replace(/^\/+/, '').split('/');
+    return { owner: parts[0], repo: parts[1] };
+  }
+workflows:
+  main:
+    steps:
+      - id: parsed
+        type: set
+        input:
+          owner: ""${functions.parseGithubRepoUrl(data.inputs.repo_url).owner}""
+          repo: ""${functions.parseGithubRepoUrl(data.inputs.repo_url).repo}""
+    outputs:
+      owner: ""${data.steps.parsed.owner}""
+      repo: ""${data.steps.parsed.repo}""
+");
+
+        var result = await CreateEngine().ExecuteAsync(
+            wf,
+            new JsonObject { ["repo_url"] = "https://github.com/AxaFrance/oidc-client" },
+            CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("AxaFrance", result.Outputs!["owner"]!.GetValue<string>());
+        Assert.Equal("oidc-client", result.Outputs["repo"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Execute_WithLocalFunctions_ShadowsGlobal()
     {
         var wf = CompileMain(@"

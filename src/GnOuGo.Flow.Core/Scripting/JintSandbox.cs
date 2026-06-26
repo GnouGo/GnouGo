@@ -107,6 +107,8 @@ public sealed class JintSandbox
             engine.SetValue("data", jsData);
         }
 
+        JintUrlInterop.Install(engine);
+
         // Register built-in functions via a dispatcher + JS wrappers
         // This avoids Jint delegate signature issues
 #pragma warning disable IL2026, IL2111 // Jint delegate interop
@@ -243,6 +245,5 @@ public sealed class JintSandbox
         return null;
     }
 }
-
 
 
