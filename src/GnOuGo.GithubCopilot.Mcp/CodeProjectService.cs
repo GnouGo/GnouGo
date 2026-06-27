@@ -51,7 +51,7 @@ public sealed class CodeProjectService
             RootPathRelative: ToWorkspaceRelativePath(root));
     }
 
-    public CodeFileContent ReadFile(string projectRoot, string relativePath)
+    public CodeFileContent ReadFile(string? projectRoot, string relativePath)
     {
         var root = _policy.ResolveProjectRoot(projectRoot);
         var file = _policy.ResolveReadableFile(root, relativePath);
@@ -64,7 +64,7 @@ public sealed class CodeProjectService
             RelativePath: normalizedRelativePath);
     }
 
-    public CodeSearchResults Search(string projectRoot, string query, string? glob = null, bool caseSensitive = false)
+    public CodeSearchResults Search(string? projectRoot, string query, string? glob = null, bool caseSensitive = false)
     {
         if (string.IsNullOrWhiteSpace(query))
             throw new InvalidOperationException("query must not be empty.");
@@ -95,7 +95,7 @@ public sealed class CodeProjectService
         return new CodeSearchResults(results, Truncated: false);
     }
 
-    public CodeWriteResult WriteFile(string projectRoot, string relativePath, string content)
+    public CodeWriteResult WriteFile(string? projectRoot, string relativePath, string content)
     {
         _policy.EnsurePromptWithinLimit(content, nameof(content));
         var root = _policy.ResolveProjectRoot(projectRoot);
@@ -108,7 +108,7 @@ public sealed class CodeProjectService
         return new CodeWriteResult(normalizedRelativePath, file, Encoding.UTF8.GetByteCount(content), createdDirectory, normalizedRelativePath);
     }
 
-    public IReadOnlyList<CodeFileContent> ReadContextFiles(string projectRoot, IEnumerable<string> relativePaths, int maxFiles = 8)
+    public IReadOnlyList<CodeFileContent> ReadContextFiles(string? projectRoot, IEnumerable<string> relativePaths, int maxFiles = 8)
     {
         var files = new List<CodeFileContent>();
         foreach (var relativePath in relativePaths.Where(static p => !string.IsNullOrWhiteSpace(p)).Take(Math.Max(1, maxFiles)))

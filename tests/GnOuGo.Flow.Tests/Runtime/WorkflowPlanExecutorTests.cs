@@ -6303,6 +6303,308 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsExplicitEmptyOptionalMcpProjectRoot()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated code workflow.
+                         tags: [code]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: suggest
+                               type: mcp.call
+                               input:
+                                 server: code
+                                 kind: tool
+                                 method: code_suggest_change
+                                 request:
+                                   projectRoot: ""
+                                   task: Fix the issue
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("code", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "code_suggest_change",
+                    Description = "Suggest code changes",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "projectRoot": {
+                          "anyOf": [
+                            { "type": "string", "description": "Existing project root relative to the workspace." },
+                            { "type": "null" }
+                          ]
+                        },
+                        "task": { "type": "string" }
+                      },
+                      "required": ["task"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Suggest a code fix
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
+        Assert.Contains("input.request.projectRoot", result.Error.Message);
+        Assert.Contains("empty string is invalid", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsWorkspacePathOutputWithEmptyFallback()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated clone workflow.
+                         tags: [git]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: done
+                               type: set
+                               input:
+                                 ok: true
+                         clone_repository_for_issue:
+                           steps:
+                             - id: clone_repo
+                               type: mcp.call
+                               input:
+                                 server: git
+                                 kind: tool
+                                 method: git_clone
+                                 request:
+                                   remoteUrl: https://github.com/AxaFrance/oidc-client
+                                   targetDirectory: issue-1676
+                             - id: clone_result
+                               type: set
+                               output_schema:
+                                 type: object
+                                 properties:
+                                   success:
+                                     type: boolean
+                                   projectRootRelative:
+                                     type: string
+                                 required: [success, projectRootRelative]
+                                 additionalProperties: false
+                               input:
+                                 success: true
+                                 projectRootRelative: "${data.steps.clone_repo.response.projectRootRelative}"
+                           outputs:
+                             local_repo_path:
+                               expr: "${data.steps.clone_result.success ? data.steps.clone_result.projectRootRelative : ''}"
+                               type: string
+                               description: "Workspace-relative path to the cloned repository, or empty string if the operation failed."
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("git", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "git_clone",
+                    Description = "Clone a repository",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "remoteUrl": { "type": "string" },
+                        "targetDirectory": { "type": "string", "description": "Target directory path relative to the workspace root only." }
+                      },
+                      "required": ["remoteUrl", "targetDirectory"],
+                      "additionalProperties": false
+                    }
+                    """),
+                    OutputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "repositoryRoot": { "type": "string" },
+                        "repositoryRootRelative": { "type": "string" },
+                        "projectRootRelative": { "type": "string" }
+                      },
+                      "required": ["repositoryRoot", "repositoryRootRelative", "projectRootRelative"]
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Clone a repo
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("WORKFLOW_PATH_OUTPUT_EMPTY_FALLBACK", result.Error.Message);
+        Assert.Contains("outputs.local_repo_path", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsMcpProjectRootExpressionWithEmptyFallback()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated code workflow.
+                         tags: [code]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: clone_result
+                               type: set
+                               output_schema:
+                                 type: object
+                                 properties:
+                                   success:
+                                     type: boolean
+                                   projectRootRelative:
+                                     type: string
+                                 required: [success, projectRootRelative]
+                                 additionalProperties: false
+                               input:
+                                 success: true
+                                 projectRootRelative: issue-1676
+                             - id: suggest
+                               type: mcp.call
+                               input:
+                                 server: code
+                                 kind: tool
+                                 method: code_suggest_change
+                                 request:
+                                   projectRoot: "${data.steps.clone_result.success ? data.steps.clone_result.projectRootRelative : ''}"
+                                   task: Fix the issue
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("code", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "code_suggest_change",
+                    Description = "Suggest code changes",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "projectRoot": {
+                          "anyOf": [
+                            { "type": "string", "description": "Existing project root relative to the workspace." },
+                            { "type": "null" }
+                          ]
+                        },
+                        "task": { "type": "string" }
+                      },
+                      "required": ["task"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Suggest a code fix
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
+        Assert.Contains("input.request.projectRoot", result.Error.Message);
+        Assert.Contains("can resolve to an empty string", result.Error.Message);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_SemanticValidation_RejectsEmptyRequiredMcpString()
     {
         var mockLlm = new Mock<ILLMClient>();

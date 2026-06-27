@@ -51,7 +51,13 @@ public sealed class CodePolicy
 
     public string ResolveProjectRoot(string? projectRoot)
     {
-        var candidate = string.IsNullOrWhiteSpace(projectRoot)
+        if (projectRoot is not null && string.IsNullOrWhiteSpace(projectRoot))
+        {
+            throw new InvalidOperationException(
+                "projectRoot must be null/omitted to use the default workspace, or a non-empty workspace-relative existing project root such as git_clone.response.projectRootRelative.");
+        }
+
+        var candidate = projectRoot is null
             ? _defaultWorkingDirectory
             : ResolvePath(projectRoot, mustExist: true, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
 
@@ -215,4 +221,3 @@ public sealed class CodePolicy
     private static bool HasDriveRelativePrefix(string path)
         => path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':';
 }
-

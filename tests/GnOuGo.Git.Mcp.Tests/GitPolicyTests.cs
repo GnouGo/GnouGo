@@ -44,6 +44,26 @@ public sealed class GitPolicyTests : IDisposable
     }
 
     [Fact]
+    public void ResolveProjectRoot_UsesDefaultWorkingDirectoryWhenNull()
+    {
+        var policy = new GitPolicy(CreateSettings(), _root);
+
+        var projectRoot = policy.ResolveProjectRoot(null);
+
+        Assert.Equal(Path.GetFullPath(_root), projectRoot);
+    }
+
+    [Fact]
+    public void ResolveProjectRoot_RejectsExplicitEmptyString()
+    {
+        var policy = new GitPolicy(CreateSettings(), _root);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(""));
+
+        Assert.Contains("projectRoot must be null/omitted", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ResolveCloneTargetDirectory_ResolvesRelativeTargetsUnderDefaultWorkingDirectory()
     {
         var desktop = Path.Combine(_root, "Desktop");
@@ -97,4 +117,3 @@ public sealed class GitPolicyTests : IDisposable
         catch (UnauthorizedAccessException) { }
     }
 }
-

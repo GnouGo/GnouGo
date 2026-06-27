@@ -25,6 +25,7 @@ public sealed class CodeProjectServiceTests : IDisposable
 
         Assert.Equal(_root, summary.RootPath);
         Assert.Equal(".", summary.RootPathRelative);
+        Assert.Equal(".", summary.ProjectRootRelative);
         Assert.Contains("App.sln", summary.SolutionFiles);
         Assert.Contains("src\\App.csproj", summary.ProjectFiles.Select(p => p.Replace('/', '\\')));
         Assert.True(summary.CodeFileCount >= 2);
@@ -79,4 +80,3 @@ public sealed class CodeProjectServiceTests : IDisposable
         catch { }
     }
 }
-

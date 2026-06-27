@@ -109,6 +109,16 @@ public sealed class CodePolicyTests : IDisposable
         Assert.Equal(expectedProjectRoot, projectRoot);
     }
 
+    [Fact]
+    public void ResolveProjectRoot_RejectsExplicitEmptyString()
+    {
+        var policy = CreatePolicy();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(""));
+
+        Assert.Contains("projectRoot must be null/omitted", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
 
     private CodePolicy CreatePolicy() => new(CreateSettings(), _root);
 
@@ -133,5 +143,4 @@ public sealed class CodePolicyTests : IDisposable
         catch (UnauthorizedAccessException) { }
     }
 }
-
 

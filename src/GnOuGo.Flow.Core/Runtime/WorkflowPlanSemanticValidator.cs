@@ -65,8 +65,14 @@ internal static class WorkflowPlanSemanticValidator
         @"^[A-Za-z]:(?:[\\/]|$)",
         RegexOptions.Compiled);
     private static readonly Regex DiagnosticAbsolutePathFieldRegex = new(
-        @"(?:^|[.\[])(?<field>repositoryRootAbsolute|rootPathAbsolute|fullPathAbsolute|filePathAbsolute|workingDirectoryAbsolute|repositoryRoot|rootPath|fullPath|filePath|workingDirectory|defaultWorkingDirectory|allowedWorkingRoots|allowedRoots|originalPath)(?:\b|[\]\)])",
+        @"(?:^|[.\[])(?<field>repositoryRootAbsolute|rootPathAbsolute|fullPathAbsolute|filePathAbsolute|workingDirectoryAbsolute|repositoryRoot|rootPath|fullPath|filePath|workingDirectory|defaultWorkingDirectory|allowedWorkingRoots|allowedRoots|originalPath|repository_root_absolute|root_path_absolute|full_path_absolute|file_path_absolute|working_directory_absolute|repository_root|root_path|full_path|file_path|working_directory|default_working_directory|allowed_working_roots|allowed_roots|original_path)(?:\b|[\]\)])",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex EmptyStringTernaryBranchRegex = new(
+        @"(?:\?|:)\s*(?<quote>['""])\k<quote>",
+        RegexOptions.Compiled);
+    private static readonly Regex EmptyStringCoalesceFallbackRegex = new(
+        @"\bcoalesce\s*\([^)]*,\s*(?<quote>['""])\k<quote>\s*(?:,|\))",
+        RegexOptions.Compiled);
     private static readonly Regex LoopResultsFunctionCallRegex = new(
         @"\bfunctions\.(?<function>[A-Za-z_][A-Za-z0-9_]*)\s*\(\s*data\.steps\.(?<loop>[A-Za-z_][A-Za-z0-9_-]*)\.results\s*\)",
         RegexOptions.Compiled);
@@ -1133,6 +1139,7 @@ internal static class WorkflowPlanSemanticValidator
         List<WorkflowSemanticValidationError> errors)
     {
         ValidateString(outputDef.Expr, workflowName, null, field, symbols, allowedFunctionNames, errors);
+        ValidateWorkspacePathOutputDoesNotFallbackToEmpty(outputDef, workflowName, field, errors);
         AddExpressionTypeMismatch(
             StepExpressionTypeValidator.ValidateExpression(
                 outputDef.Expr,
@@ -1156,6 +1163,30 @@ internal static class WorkflowPlanSemanticValidator
 
         if (outputDef.AdditionalProperties != null)
             ValidateOutputDef(outputDef.AdditionalProperties, workflowName, $"{field}.additional_properties", workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, errors);
+    }
+
+    private static void ValidateWorkspacePathOutputDoesNotFallbackToEmpty(
+        OutputDef outputDef,
+        string workflowName,
+        string field,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        if (!IsWorkflowPathLikeField(field, outputDef.Description))
+            return;
+
+        if (!WorkspacePathExpressionCanResolveToEmptyString(outputDef.Expr))
+            return;
+
+        errors.Add(new WorkflowSemanticValidationError
+        {
+            Code = "WORKFLOW_PATH_OUTPUT_EMPTY_FALLBACK",
+            WorkflowName = workflowName,
+            Field = field,
+            InvalidPath = field,
+            AllowedPaths = Array.Empty<string>(),
+            Suggestion = "Do not model existing workspace paths as empty-string fallbacks. Stop/guard the failure path, use null for an intentionally optional path, or return the successful MCP value such as git_clone.response.projectRootRelative.",
+            Message = $"Workflow path output '{field}' can resolve to an empty string, which later makes MCP projectRoot fall back to the default workspace."
+        });
     }
 
     private static void AddExpressionTypeMismatch(
@@ -2250,7 +2281,16 @@ internal static class WorkflowPlanSemanticValidator
         List<SchemaValidationError> errors)
     {
         if (string.IsNullOrWhiteSpace(text))
+        {
+            if (RequiresNonEmptyMcpWorkspacePathValue(propertyName))
+            {
+                errors.Add(new SchemaValidationError(
+                    propertyPath,
+                    $"workspace path field '{propertyPath}' must be null/omitted or a non-empty relative path; empty string is invalid"));
+            }
+
             return;
+        }
 
         if (IsDynamicExpressionString(JsonValue.Create(text)))
         {
@@ -2258,7 +2298,15 @@ internal static class WorkflowPlanSemanticValidator
             {
                 errors.Add(new SchemaValidationError(
                     propertyPath,
-                    $"workspace path expression references diagnostic absolute path field '{fieldName}'; use a relative sibling such as repositoryRootRelative/rootPathRelative/relativePath, reuse the original relative request value, or omit/null optional projectRoot"));
+                    $"workspace path expression references diagnostic or planned path field '{fieldName}'; use a relative sibling such as projectRootRelative/repositoryRootRelative/rootPathRelative/relativePath, reuse a verified MCP output, or omit/null optional projectRoot"));
+            }
+
+            if (RequiresNonEmptyMcpWorkspacePathValue(propertyName)
+                && WorkspacePathExpressionCanResolveToEmptyString(text))
+            {
+                errors.Add(new SchemaValidationError(
+                    propertyPath,
+                    $"workspace path expression for '{propertyPath}' can resolve to an empty string; omit/null optional projectRoot intentionally, guard the call, or pass a verified value such as git_clone.response.projectRootRelative"));
             }
 
             return;
@@ -2281,7 +2329,12 @@ internal static class WorkflowPlanSemanticValidator
     {
         var trimmed = text.Trim();
         if (trimmed.Length == 0)
+        {
+            errors.Add(new SchemaValidationError(
+                propertyPath,
+                $"workspace path '{propertyPath}' must not be empty; omit/null the field if it is optional"));
             return;
+        }
 
         if (LooksLikeAbsoluteWorkspacePath(trimmed))
         {
@@ -2299,6 +2352,22 @@ internal static class WorkflowPlanSemanticValidator
         }
     }
 
+    private static bool RequiresNonEmptyMcpWorkspacePathValue(string propertyName)
+        => !propertyName.Equals("contextFilesJson", StringComparison.OrdinalIgnoreCase)
+           && !propertyName.Equals("pathsJson", StringComparison.OrdinalIgnoreCase);
+
+    private static bool WorkspacePathExpressionCanResolveToEmptyString(string? text)
+    {
+        if (text is null)
+            return false;
+
+        if (text.Length == 0)
+            return true;
+
+        return EmptyStringTernaryBranchRegex.IsMatch(text)
+               || EmptyStringCoalesceFallbackRegex.IsMatch(text);
+    }
+
     private static bool IsMcpWorkspacePathProperty(string propertyName, JsonNode? propertySchema)
     {
         if (propertyName.Contains("url", StringComparison.OrdinalIgnoreCase)
@@ -2308,10 +2377,19 @@ internal static class WorkflowPlanSemanticValidator
         }
 
         if (propertyName.Equals("projectRoot", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("projectRootRelative", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("targetDirectory", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("filePath", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("directoryPath", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("relativePath", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("repositoryRootRelative", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("rootPathRelative", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("local_repo_path", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("project_root", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("project_root_relative", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("repository_root_relative", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("root_path_relative", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("full_path", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("contextFilesJson", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("pathsJson", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("path", StringComparison.OrdinalIgnoreCase)
@@ -2326,6 +2404,36 @@ internal static class WorkflowPlanSemanticValidator
             && description.Contains("path", StringComparison.OrdinalIgnoreCase)
             && (description.Contains("workspace", StringComparison.OrdinalIgnoreCase)
                 || description.Contains("relative", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsWorkflowPathLikeField(string field, string? description)
+    {
+        var fieldName = LastFieldSegment(field);
+        if (IsMcpWorkspacePathProperty(fieldName, propertySchema: null))
+            return true;
+
+        return !string.IsNullOrWhiteSpace(description)
+               && description.Contains("path", StringComparison.OrdinalIgnoreCase)
+               && (description.Contains("workspace", StringComparison.OrdinalIgnoreCase)
+                   || description.Contains("relative", StringComparison.OrdinalIgnoreCase)
+                   || description.Contains("repository", StringComparison.OrdinalIgnoreCase)
+                   || description.Contains("project", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string LastFieldSegment(string field)
+    {
+        if (string.IsNullOrWhiteSpace(field))
+            return field;
+
+        var normalized = field.Replace("]", "", StringComparison.Ordinal);
+        var dotIndex = normalized.LastIndexOf('.');
+        if (dotIndex >= 0 && dotIndex + 1 < normalized.Length)
+            return normalized[(dotIndex + 1)..];
+
+        var bracketIndex = normalized.LastIndexOf('[');
+        return bracketIndex >= 0 && bracketIndex + 1 < normalized.Length
+            ? normalized[(bracketIndex + 1)..]
+            : normalized;
     }
 
     private static bool IsJsonPathListProperty(string propertyName)

@@ -1,4 +1,6 @@
-﻿namespace GnOuGo.Git.Mcp;
+﻿using System.ComponentModel;
+
+namespace GnOuGo.Git.Mcp;
 
 public sealed record GitPolicyInfo(
     string DefaultWorkingDirectory,
@@ -20,7 +22,11 @@ public sealed record GitRepositoryInfo(
     bool IsBare,
     string? Output = null,
     string? RootPathRelative = null,
-    string? WorkingDirectoryRelative = null);
+    string? WorkingDirectoryRelative = null)
+{
+    [Description("Workspace-relative existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RootPath.")]
+    public string? ProjectRootRelative => RootPathRelative;
+}
 
 public sealed record GitStatusEntry(string Path, string State);
 
@@ -31,7 +37,11 @@ public sealed record GitStatusResult(
     bool IsDirty,
     IReadOnlyList<GitStatusEntry> Entries,
     string? Output = null,
-    string? RepositoryRootRelative = null);
+    string? RepositoryRootRelative = null)
+{
+    [Description("Workspace-relative existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
 
 public sealed record GitDiffResult(
     string RepositoryRoot,
@@ -40,7 +50,11 @@ public sealed record GitDiffResult(
     string Patch,
     bool Truncated,
     string? Output = null,
-    string? RepositoryRootRelative = null);
+    string? RepositoryRootRelative = null)
+{
+    [Description("Workspace-relative existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
 
 public sealed record GitCommitInfo(string Sha, string ShortSha, string MessageShort, string AuthorName, string AuthorEmail, DateTimeOffset When, string? Output = null);
 
@@ -49,7 +63,11 @@ public sealed record GitLogResult(
     IReadOnlyList<GitCommitInfo> Commits,
     bool Truncated,
     string? Output = null,
-    string? RepositoryRootRelative = null);
+    string? RepositoryRootRelative = null)
+{
+    [Description("Workspace-relative existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
 
 public sealed record GitBranchInfo(string Name, string FriendlyName, string? UpstreamBranch, bool IsCurrentRepositoryHead, bool IsRemote, string? TipSha);
 
@@ -58,7 +76,11 @@ public sealed record GitBranchesResult(
     string? HeadBranch,
     IReadOnlyList<GitBranchInfo> Branches,
     string? Output = null,
-    string? RepositoryRootRelative = null);
+    string? RepositoryRootRelative = null)
+{
+    [Description("Workspace-relative existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
 
 public sealed record GitOperationResult(
     string RepositoryRoot,
@@ -66,14 +88,22 @@ public sealed record GitOperationResult(
     string Message,
     bool Success,
     string? Output = null,
-    string? RepositoryRootRelative = null);
+    string? RepositoryRootRelative = null)
+{
+    [Description("Workspace-relative existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
 
 public sealed record GitCloneResult(
     string RepositoryRoot,
     string RemoteUrl,
     string? Branch,
     string? Output = null,
-    string? RepositoryRootRelative = null);
+    string? RepositoryRootRelative = null)
+{
+    [Description("Workspace-relative existing project root created by git_clone. Pass this value to MCP projectRoot inputs after clone succeeds; do not reuse targetDirectory before clone.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
 
 public sealed record GitMergeResult(
     string RepositoryRoot,
@@ -82,7 +112,11 @@ public sealed record GitMergeResult(
     string? CommitSha,
     IReadOnlyList<GitConflictInfo> Conflicts,
     string? Output = null,
-    string? RepositoryRootRelative = null);
+    string? RepositoryRootRelative = null)
+{
+    [Description("Workspace-relative existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
 
 public sealed record GitConflictInfo(string Path, string? AncestorPath, string? OursPath, string? TheirsPath);
 
@@ -93,4 +127,8 @@ public sealed record GitPushResult(
     bool SetUpstream,
     string Message,
     string? Output = null,
-    string? RepositoryRootRelative = null);
+    string? RepositoryRootRelative = null)
+{
+    [Description("Workspace-relative existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}

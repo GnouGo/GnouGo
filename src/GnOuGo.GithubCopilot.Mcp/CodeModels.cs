@@ -1,4 +1,6 @@
-﻿namespace GnOuGo.GithubCopilot.Mcp;
+﻿using System.ComponentModel;
+
+namespace GnOuGo.GithubCopilot.Mcp;
 
 public sealed record CodePolicyInfo(
     string DefaultWorkingDirectory,
@@ -23,7 +25,11 @@ public sealed record CodeProjectSummary(
     IReadOnlyList<string> TopLevelDirectories,
     int CodeFileCount,
     long ApproximateBytes,
-    string? RootPathRelative = null);
+    string? RootPathRelative = null)
+{
+    [Description("Workspace-relative existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RootPath.")]
+    public string? ProjectRootRelative => RootPathRelative;
+}
 
 public sealed record CodeFileContent(
     string Path,
@@ -92,5 +98,4 @@ public sealed record CodeWriteResult(
 public sealed record CodeErrorResult(string Code, string Message);
 
 internal sealed record CodeUsageInfo(long? OutputTokens, string? RequestId, string? InteractionId);
-
 

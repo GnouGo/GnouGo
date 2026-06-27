@@ -263,6 +263,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
 
         Assert.Equal(NormalizePath(target), NormalizePath(clone.RepositoryRoot));
         Assert.Equal("target", clone.RepositoryRootRelative);
+        Assert.Equal("target", clone.ProjectRootRelative);
         Assert.Contains("Cloned", clone.Output, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("target", clone.Output, StringComparison.OrdinalIgnoreCase);
         Assert.True(Repository.IsValid(target));
