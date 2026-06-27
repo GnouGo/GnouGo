@@ -259,10 +259,12 @@ public sealed class GitRepositoryServiceTests : IDisposable
         WriteCommit(sourceService, Path.Combine(source, "README.md"), "source\n", "source initial", root: source);
         var service = CreateService(allowNetwork: true);
 
-        var clone = service.Clone(source, target);
+        var clone = service.Clone(source, "target");
 
         Assert.Equal(NormalizePath(target), NormalizePath(clone.RepositoryRoot));
+        Assert.Equal("target", clone.RepositoryRootRelative);
         Assert.Contains("Cloned", clone.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("target", clone.Output, StringComparison.OrdinalIgnoreCase);
         Assert.True(Repository.IsValid(target));
         Assert.True(File.Exists(Path.Combine(target, "README.md")));
     }

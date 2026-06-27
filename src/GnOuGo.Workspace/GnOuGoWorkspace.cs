@@ -182,6 +182,32 @@ public static class GnOuGoWorkspace
     }
 
     /// <summary>
+    /// Converts an absolute path under a workspace root to a portable slash-separated
+    /// relative path that can be safely reused in MCP workflow requests.
+    /// </summary>
+    public static string? ToWorkspaceRelativePath(string? path, string? workspaceRoot)
+    {
+        if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(workspaceRoot))
+            return null;
+
+        var fullPath = Path.GetFullPath(path);
+        var fullRoot = Path.GetFullPath(workspaceRoot);
+        if (!IsPathWithinRoot(fullPath, fullRoot))
+            return null;
+
+        return NormalizePortablePath(Path.GetRelativePath(fullRoot, fullPath));
+    }
+
+    /// <summary>
+    /// Normalizes directory separators for workflow-facing path values.
+    /// </summary>
+    public static string NormalizePortablePath(string path)
+    {
+        var normalized = path.Replace('\\', '/').TrimEnd('/');
+        return string.IsNullOrWhiteSpace(normalized) ? "." : normalized;
+    }
+
+    /// <summary>
     /// Fallback working directory resolution when Desktop-based resolution fails.
     /// Tries HOME/GnOuGo, TMPDIR/GnOuGo, system temp, then contentRootPath/workspace.
     /// </summary>

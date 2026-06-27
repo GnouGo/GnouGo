@@ -368,6 +368,7 @@ internal static class FlowTypeDescriptorConverter
         if (descriptor.Kind is FlowTypeKind.Object or FlowTypeKind.Dictionary)
         {
             var required = ReadStringArray(obj["required"]);
+            required.UnionWith(ReadStringArray(obj["required_properties"]));
             var properties = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal);
             if (obj["properties"] is JsonObject propertyObject)
             {

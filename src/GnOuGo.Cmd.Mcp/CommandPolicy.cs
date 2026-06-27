@@ -87,24 +87,36 @@ public sealed class CommandPolicy
             .Select(kv =>
             {
                 var effective = ApplyOsOverride(kv.Value);
+                var workingDirectory = ResolveWorkingDirectory(effective.WorkingDirectory);
                 return new CmdAllowedCommandInfo(
                     Name: kv.Key,
                     Description: effective.Description,
                     Shell: effective.Shell,
-                    WorkingDirectory: ResolveWorkingDirectory(effective.WorkingDirectory),
-                    Parameters: effective.Parameters.Keys.OrderBy(static p => p, StringComparer.OrdinalIgnoreCase).ToArray());
+                    WorkingDirectory: workingDirectory,
+                    Parameters: effective.Parameters.Keys.OrderBy(static p => p, StringComparer.OrdinalIgnoreCase).ToArray(),
+                    WorkingDirectoryRelative: ToWorkspaceRelativePath(workingDirectory));
             })
             .ToArray();
 
     public CmdPolicyInfo DescribePolicy()
-        => new(
+    {
+        var allowedWorkingRoots = ResolveAllowedWorkingRoots();
+        return new(
             AllowedShells: [.. _settings.AllowedShells.Distinct(StringComparer.OrdinalIgnoreCase)],
-            AllowedWorkingRoots: [.. ResolveAllowedWorkingRoots()],
+            AllowedWorkingRoots: [.. allowedWorkingRoots],
             DefaultTimeoutMs: _settings.DefaultTimeoutMs,
             MaxTimeoutMs: _settings.MaxTimeoutMs,
             MaxOutputCharacters: _settings.MaxOutputCharacters,
             AllowedCommandCount: _settings.AllowedCommands.Count,
-            Environment: DetectEnvironment());
+            Environment: DetectEnvironment(),
+            DefaultWorkingDirectory: _defaultWorkingDirectory,
+            DefaultWorkingDirectoryRelative: ToWorkspaceRelativePath(_defaultWorkingDirectory),
+            AllowedWorkingRootsRelative: allowedWorkingRoots
+                .Select(ToWorkspaceRelativePath)
+                .Where(static path => !string.IsNullOrWhiteSpace(path))
+                .Cast<string>()
+                .ToArray());
+    }
 
     public string BuildCmdRunToolDescription()
     {
@@ -279,6 +291,9 @@ public sealed class CommandPolicy
 
         return candidate;
     }
+
+    public string? ToWorkspaceRelativePath(string? path)
+        => GnOuGoWorkspace.ToWorkspaceRelativePath(path, _defaultWorkingDirectory);
 
     public int ResolveTimeoutMs(AllowedCommandSettings command, int? requestedTimeoutMs)
     {
@@ -679,7 +694,10 @@ public sealed record CmdPolicyInfo(
     int MaxTimeoutMs,
     int MaxOutputCharacters,
     int AllowedCommandCount,
-    CmdEnvironmentInfo Environment);
+    CmdEnvironmentInfo Environment,
+    string? DefaultWorkingDirectory = null,
+    string? DefaultWorkingDirectoryRelative = null,
+    IReadOnlyList<string>? AllowedWorkingRootsRelative = null);
 
 public sealed record CmdEnvironmentInfo(
     string OperatingSystem,
@@ -697,7 +715,8 @@ public sealed record CmdAllowedCommandInfo(
     string? Description,
     string Shell,
     string WorkingDirectory,
-    IReadOnlyList<string> Parameters);
+    IReadOnlyList<string> Parameters,
+    string? WorkingDirectoryRelative = null);
 
 public sealed record ShellLaunchInfo(
     string LogicalName,

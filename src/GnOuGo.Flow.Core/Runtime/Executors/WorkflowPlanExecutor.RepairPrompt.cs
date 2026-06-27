@@ -101,10 +101,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Emit booleans and numbers as unquoted YAML scalars: `required: false`, `strict: true`, `timeout_ms: 1200000`, `perPage: 30`, `append: false`. Do not emit `\"false\"`, `\"true\"`, `\"1200000\"`, or `\"30\"` for typed scalar fields.");
         sb.AppendLine("- Use single quotes inside expressions that compare strings, for example `${data.steps.close.status == 'ok'}`.");
         sb.AppendLine("- Use YAML literal block scalars (`|`) for multiline prompts/templates or strings containing JSON/double quotes; do not put unescaped nested double quotes inside a double-quoted YAML scalar.");
-        sb.AppendLine("GitHub issue workflow rules:");
-        sb.AppendLine("- Derive `owner` and `repo` once from `repository_url`, expose them with a typed `set.output_schema`, and pass those values into every GitHub action workflow; never pass empty strings for required `owner` or `repo`.");
-        sb.AppendLine("- Preserve issue context across normalization: include `number` or `issue_number`, `title`, `url` or `html_url`, and `body` on the issue object before classification, commenting, closing, or pull-request creation.");
-        sb.AppendLine("- If a GitHub MCP response is opaque, add an `llm.call` normalization step with strict `structured_output` to extract `body`, `owner`, `repo`, `number`, `title`, and URL fields before later steps read them.");
+        sb.AppendLine("MCP workspace path rules:");
+        sb.AppendLine("- For path-like MCP request fields, follow the MCP schema and tool description exactly. When the contract says the path is workspace-relative or relative, never invent absolute paths such as `/workspace/...`, `/Users/...`, `C:\\...`, or `~/...`.");
+        sb.AppendLine("- When chaining path outputs between MCP tools, use only fields documented as relative for later relative path arguments. Treat fields documented as absolute or diagnostic as non-portable.");
         AppendPromptSectionEnd(sb, "workflow_plan_generation_guardrails");
     }
 

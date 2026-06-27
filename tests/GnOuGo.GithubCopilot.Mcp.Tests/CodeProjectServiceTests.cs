@@ -24,6 +24,7 @@ public sealed class CodeProjectServiceTests : IDisposable
         var summary = service.GetSummary(_root);
 
         Assert.Equal(_root, summary.RootPath);
+        Assert.Equal(".", summary.RootPathRelative);
         Assert.Contains("App.sln", summary.SolutionFiles);
         Assert.Contains("src\\App.csproj", summary.ProjectFiles.Select(p => p.Replace('/', '\\')));
         Assert.True(summary.CodeFileCount >= 2);
@@ -52,6 +53,7 @@ public sealed class CodeProjectServiceTests : IDisposable
 
         Assert.True(File.Exists(Path.Combine(_root, "src", "NewFile.cs")));
         Assert.Equal("src\\NewFile.cs", result.Path.Replace('/', '\\'));
+        Assert.Equal("src/NewFile.cs", result.RelativePath);
     }
 
     private CodeProjectService CreateService(CodeServerSettings? settings = null)
@@ -77,5 +79,4 @@ public sealed class CodeProjectServiceTests : IDisposable
         catch { }
     }
 }
-
 

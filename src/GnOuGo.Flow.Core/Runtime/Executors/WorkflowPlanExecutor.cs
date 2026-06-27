@@ -33,7 +33,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         "3. If a required MCP argument is missing, add it to skill.inputs and workflow.inputs with the exact MCP schema type.",
         "4. Never satisfy a missing required MCP argument with data.env.*, empty string, fake values, or casts.",
         "5. Never convert a string input to a number just to satisfy an MCP schema.",
-        "6. Prefer the exact MCP argument name and type."
+        "6. For path-like MCP request fields, follow the MCP schema and tool description exactly. When the contract says the path is workspace-relative or relative, never invent absolute paths such as /workspace/..., /Users/..., C:\\..., or ~/... literals.",
+        "7. When chaining MCP outputs into path request fields, use only fields documented as relative for later relative path arguments. Treat fields documented as absolute or diagnostic as non-portable.",
+        "8. Prefer the exact MCP argument name and type."
     };
 
     public string StepType => "workflow.plan";

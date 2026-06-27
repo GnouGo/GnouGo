@@ -55,6 +55,8 @@ public class CommandPolicyTests
         var info = policy.DescribePolicy();
 
         Assert.Contains(Path.GetFullPath(defaultRoot), info.AllowedWorkingRoots, StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(".", info.DefaultWorkingDirectoryRelative);
+        Assert.Contains(".", info.AllowedWorkingRootsRelative ?? []);
     }
 
     [Fact]
@@ -135,6 +137,9 @@ public class CommandPolicyTests
         Assert.Contains("parameters=path", description);
         Assert.Contains("For frozen workflow.plan requests, call cmd_run directly", description);
         Assert.DoesNotContain("Get-ChildItem", description);
+
+        var command = Assert.Single(policy.ListAllowedCommands());
+        Assert.Equal(".", command.WorkingDirectoryRelative);
     }
 
     [Fact]

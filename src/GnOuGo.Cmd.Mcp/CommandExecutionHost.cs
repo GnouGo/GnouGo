@@ -165,7 +165,8 @@ public sealed class CommandExecutionHost
                     FinishedAtUtc: finishedAt,
                     DurationMs: (finishedAt - startedAt).TotalMilliseconds,
                     ErrorCode: errorCode,
-                    ErrorMessage: errorMessage);
+                    ErrorMessage: errorMessage,
+                    WorkingDirectoryRelative: _policy.ToWorkspaceRelativePath(workingDirectory));
             }
         }
         finally
@@ -249,7 +250,8 @@ public sealed record CmdRunResult(
     DateTimeOffset? FinishedAtUtc,
     double DurationMs,
     string? ErrorCode = null,
-    string? ErrorMessage = null)
+    string? ErrorMessage = null,
+    string? WorkingDirectoryRelative = null)
 {
     /// <summary>
     /// Creates a structured error result without a process execution.
@@ -271,4 +273,3 @@ public sealed record CmdRunResult(
             ErrorCode: errorCode,
             ErrorMessage: errorMessage);
 }
-

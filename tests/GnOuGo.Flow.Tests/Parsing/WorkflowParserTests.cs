@@ -316,7 +316,7 @@ workflows:
         properties:
           name: { type: string }
           score: { type: number }
-        required: [name]
+        required_properties: [name]
 ";
         var doc = WorkflowParser.Parse(yaml);
         var outputs = doc.Workflows["main"].Outputs;
@@ -629,7 +629,7 @@ workflows:
           port:
             type: number
             default: 8080
-        required:
+        required_properties:
           - host
     steps:
       - id: s1

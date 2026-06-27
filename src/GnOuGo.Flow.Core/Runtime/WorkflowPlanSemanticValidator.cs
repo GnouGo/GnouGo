@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using GnOuGo.Flow.Core.Expressions;
@@ -60,6 +61,12 @@ internal static class WorkflowPlanSemanticValidator
     private static readonly Regex FunctionParameterIdentifierRegex = new(
         @"[A-Za-z_$][A-Za-z0-9_$]*",
         RegexOptions.Compiled);
+    private static readonly Regex WindowsAbsolutePathRegex = new(
+        @"^[A-Za-z]:(?:[\\/]|$)",
+        RegexOptions.Compiled);
+    private static readonly Regex DiagnosticAbsolutePathFieldRegex = new(
+        @"(?:^|[.\[])(?<field>repositoryRootAbsolute|rootPathAbsolute|fullPathAbsolute|filePathAbsolute|workingDirectoryAbsolute|repositoryRoot|rootPath|fullPath|filePath|workingDirectory|defaultWorkingDirectory|allowedWorkingRoots|allowedRoots|originalPath)(?:\b|[\]\)])",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex LoopResultsFunctionCallRegex = new(
         @"\bfunctions\.(?<function>[A-Za-z_][A-Za-z0-9_]*)\s*\(\s*data\.steps\.(?<loop>[A-Za-z_][A-Za-z0-9_-]*)\.results\s*\)",
         RegexOptions.Compiled);
@@ -105,6 +112,7 @@ internal static class WorkflowPlanSemanticValidator
         foreach (var (workflowName, workflow) in document.Workflows)
         {
             var allStepIds = CollectStepIds(workflow.Steps).ToHashSet(StringComparer.Ordinal);
+            var knownEmptyStringReferences = CollectKnownEmptySetStringReferences(workflow.Steps);
             var knownContracts = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
             var symbols = WorkflowSymbolTable.Create(workflowName, workflow.Inputs, allStepIds);
             ValidateFunctionJsDoc(workflow.Functions, workflowName, errors);
@@ -120,6 +128,7 @@ internal static class WorkflowPlanSemanticValidator
                 symbols,
                 allStepIds,
                 allowedFunctionNames,
+                knownEmptyStringReferences,
                 mcpContracts,
                 stepContracts,
                 errors);
@@ -461,6 +470,63 @@ internal static class WorkflowPlanSemanticValidator
         }
     }
 
+    private static IReadOnlySet<string> CollectKnownEmptySetStringReferences(IEnumerable<StepDef> steps)
+    {
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        AddKnownEmptySetStringReferences(steps, result);
+        return result;
+    }
+
+    private static void AddKnownEmptySetStringReferences(
+        IEnumerable<StepDef> steps,
+        HashSet<string> result)
+    {
+        foreach (var step in steps)
+        {
+            if (string.Equals(step.Type, "set", StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(step.Id)
+                && step.Input != null)
+            {
+                AddKnownEmptyStringReferences(step.Input, $"data.steps.{step.Id}", result);
+            }
+
+            if (step.Steps != null)
+                AddKnownEmptySetStringReferences(step.Steps, result);
+
+            if (step.Branches != null)
+                foreach (var branch in step.Branches)
+                    AddKnownEmptySetStringReferences(branch.Steps, result);
+
+            if (step.Cases != null)
+                foreach (var @case in step.Cases)
+                    AddKnownEmptySetStringReferences(@case.Steps, result);
+
+            if (step.Default != null)
+                AddKnownEmptySetStringReferences(step.Default, result);
+        }
+    }
+
+    private static void AddKnownEmptyStringReferences(
+        JsonNode? node,
+        string path,
+        HashSet<string> result)
+    {
+        switch (node)
+        {
+            case JsonValue value when value.TryGetValue<string>(out var text) && text.Length == 0:
+                result.Add(path);
+                break;
+            case JsonObject obj:
+                foreach (var (propertyName, propertyValue) in obj)
+                    AddKnownEmptyStringReferences(propertyValue, $"{path}.{propertyName}", result);
+                break;
+            case JsonArray array:
+                for (var i = 0; i < array.Count; i++)
+                    AddKnownEmptyStringReferences(array[i], $"{path}[{i}]", result);
+                break;
+        }
+    }
+
     private static void ValidateLoopResultsFunctionCalls(
         IReadOnlyList<StepDef> steps,
         string workflowName,
@@ -667,12 +733,13 @@ internal static class WorkflowPlanSemanticValidator
         WorkflowSymbolTable symbols,
         HashSet<string> allStepIds,
         HashSet<string> allowedFunctionNames,
+        IReadOnlySet<string> knownEmptyStringReferences,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
         IReadOnlyDictionary<string, StepContract> stepContracts,
         List<WorkflowSemanticValidationError> errors)
     {
         foreach (var step in steps)
-            ValidateStep(step, workflowName, workflows, workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
+            ValidateStep(step, workflowName, workflows, workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
     }
 
     private static int NormalizeMcpCallInputRequests(
@@ -740,6 +807,7 @@ internal static class WorkflowPlanSemanticValidator
         WorkflowSymbolTable symbols,
         HashSet<string> allStepIds,
         HashSet<string> allowedFunctionNames,
+        IReadOnlySet<string> knownEmptyStringReferences,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
         IReadOnlyDictionary<string, StepContract> stepContracts,
         List<WorkflowSemanticValidationError> errors)
@@ -748,8 +816,8 @@ internal static class WorkflowPlanSemanticValidator
         ValidateString(step.Expr, workflowName, step.Id, "expr", symbols, allowedFunctionNames, errors);
         ValidateJson(step.Input, workflowName, step.Id, "input", symbols, allowedFunctionNames, errors);
         var nonNullReferences = StepExpressionTypeValidator.InferNonNullReferencesFromGuard(step.If);
-        ValidateMcpCallInputRequest(step, workflowName, workflowInputs, symbols, nonNullReferences, mcpContracts, errors);
-        ValidateLocalWorkflowCallInput(step, workflowName, workflows, workflowInputs, symbols, nonNullReferences, errors);
+        ValidateMcpCallInputRequest(step, workflowName, workflowInputs, symbols, nonNullReferences, knownEmptyStringReferences, mcpContracts, errors);
+        ValidateLocalWorkflowCallInput(step, workflowName, workflows, workflowInputs, symbols, nonNullReferences, knownEmptyStringReferences, errors);
         ValidateSetOutputSchema(step, workflowName, symbols, nonNullReferences, errors);
         if (stepContracts.TryGetValue(step.Type, out var stepContract))
         {
@@ -806,7 +874,7 @@ internal static class WorkflowPlanSemanticValidator
             {
                 var branchKnown = CloneContracts(knownContracts);
                 var branchSymbols = symbols.Clone();
-                ValidateStepList(branch.Steps, workflowName, workflows, workflowInputs, branchKnown, branchSymbols, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
+                ValidateStepList(branch.Steps, workflowName, workflows, workflowInputs, branchKnown, branchSymbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 foreach (var produced in branchKnown.Where(kv => !knownContracts.ContainsKey(kv.Key)))
                     branchProducedContracts[produced.Key] = produced.Value?.DeepClone();
             }
@@ -843,7 +911,7 @@ internal static class WorkflowPlanSemanticValidator
                     // guaranteed mappings after the switch. Validate each branch independently.
                     var caseKnown = CloneContracts(knownContracts);
                     var caseSymbols = symbols.Clone();
-                    ValidateStepList(@case.Steps, workflowName, workflows, workflowInputs, caseKnown, caseSymbols, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
+                    ValidateStepList(@case.Steps, workflowName, workflows, workflowInputs, caseKnown, caseSymbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 }
             }
 
@@ -851,7 +919,7 @@ internal static class WorkflowPlanSemanticValidator
             {
                 var defaultKnown = CloneContracts(knownContracts);
                 var defaultSymbols = symbols.Clone();
-                ValidateStepList(step.Default, workflowName, workflows, workflowInputs, defaultKnown, defaultSymbols, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
+                ValidateStepList(step.Default, workflowName, workflows, workflowInputs, defaultKnown, defaultSymbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
             }
         }
         else if (step.Type is "loop.sequential" or "loop.parallel")
@@ -863,7 +931,7 @@ internal static class WorkflowPlanSemanticValidator
                 var loopKnown = CloneContracts(knownContracts);
                 var loopSymbols = symbols.Clone();
                 AddLoopScopedDataVariables(step, loopSymbols, symbols);
-                ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, loopKnown, loopSymbols, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
+                ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, loopKnown, loopSymbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 resolvedStepOutputType = BuildLoopOutputType(loopSymbols);
             }
         }
@@ -875,11 +943,11 @@ internal static class WorkflowPlanSemanticValidator
                 {
                     var conditionalKnown = CloneContracts(knownContracts);
                     var conditionalSymbols = symbols.Clone();
-                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, conditionalKnown, conditionalSymbols, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, conditionalKnown, conditionalSymbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 }
                 else
                 {
-                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, mcpContracts, stepContracts, errors);
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 }
             }
         }
@@ -999,6 +1067,18 @@ internal static class WorkflowPlanSemanticValidator
 
         var schemaErrors = new List<SchemaValidationError>();
         ValidateJsonNodeAgainstSchema(step.Input, outputSchema, "", schemaErrors);
+        AddRequiredStringLiteralErrors(
+            step.Input,
+            outputSchema,
+            "SET_REQUIRED_STRING_EMPTY",
+            workflowName,
+            step.Id,
+            "input",
+            "input",
+            EnumerateAllowedPaths("input", outputSchema).Take(64).ToArray(),
+            "Provide real values for required set string fields; do not use empty string placeholders.",
+            "set input",
+            errors);
         foreach (var schemaError in schemaErrors)
         {
             var invalidPath = string.IsNullOrEmpty(schemaError.Path)
@@ -1289,6 +1369,7 @@ internal static class WorkflowPlanSemanticValidator
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
         WorkflowSymbolTable symbols,
         IReadOnlySet<string>? nonNullReferences,
+        IReadOnlySet<string> knownEmptyStringReferences,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
         List<WorkflowSemanticValidationError> errors)
     {
@@ -1366,9 +1447,21 @@ internal static class WorkflowPlanSemanticValidator
                 "input.request",
                 "input.request",
                 EnumerateAllowedPaths("input.request", inputSchema).Take(64).ToArray(),
-                $"Provide real values for required MCP string fields for '{serverName}/{methodName}'. Derive owner/repo/body from workflow inputs, repository metadata, or normalized issue data; do not use empty string placeholders.",
+                $"Provide real values for required MCP string fields for '{serverName}/{methodName}'; do not use empty string placeholders.",
                 "mcp.call request",
-                EmptyStringLiteralPolicy.ExplicitNonEmptyOrMcpActionField,
+                errors);
+            AddRequiredStringKnownEmptyReferenceErrors(
+                requestValue,
+                inputSchema,
+                "MCP_REQUIRED_STRING_EMPTY",
+                workflowName,
+                step.Id,
+                "input.request",
+                "input.request",
+                EnumerateAllowedPaths("input.request", inputSchema).Take(64).ToArray(),
+                $"Provide real values for required MCP string fields for '{serverName}/{methodName}'; do not pass known-empty placeholders.",
+                "mcp.call request",
+                knownEmptyStringReferences,
                 errors);
             if (schemaErrors.Count == 0)
                 continue;
@@ -1416,6 +1509,7 @@ internal static class WorkflowPlanSemanticValidator
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
         WorkflowSymbolTable symbols,
         IReadOnlySet<string>? nonNullReferences,
+        IReadOnlySet<string> knownEmptyStringReferences,
         List<WorkflowSemanticValidationError> errors)
     {
         if (!string.Equals(step.Type, "workflow.call", StringComparison.Ordinal)
@@ -1471,9 +1565,21 @@ internal static class WorkflowPlanSemanticValidator
             "input.args",
             "input.args",
             EnumerateAllowedPaths("input.args", inputSchema).Take(64).ToArray(),
-            $"Pass values compatible with local workflow '{targetName}' input string constraints. Empty strings are allowed unless the target contract explicitly requires non-empty text.",
+            $"Pass values compatible with local workflow '{targetName}' input string constraints. Required string inputs must be non-empty.",
             $"workflow.call args for local workflow '{targetName}'",
-            EmptyStringLiteralPolicy.ExplicitNonEmptyOnly,
+            errors);
+        AddRequiredStringKnownEmptyReferenceErrors(
+            argsNode,
+            inputSchema,
+            "WORKFLOW_CALL_REQUIRED_STRING_EMPTY",
+            workflowName,
+            step.Id,
+            "input.args",
+            "input.args",
+            EnumerateAllowedPaths("input.args", inputSchema).Take(64).ToArray(),
+            $"Pass real values for required local workflow string inputs for '{targetName}'; do not pass known-empty placeholders.",
+            $"workflow.call args for local workflow '{targetName}'",
+            knownEmptyStringReferences,
             errors);
         if (schemaErrors.Count == 0)
             return;
@@ -1676,15 +1782,18 @@ internal static class WorkflowPlanSemanticValidator
 
     private sealed record SchemaValidationError(string Path, string Message);
 
-    private enum EmptyStringLiteralPolicy
-    {
-        ExplicitNonEmptyOnly,
-        ExplicitNonEmptyOrMcpActionField
-    }
-
     internal static IReadOnlyList<string> ValidateResolvedMcpRequest(JsonNode? request, JsonNode? inputSchema)
     {
-        return JsonSchemaContractValidator.ValidateInstance(request ?? new JsonObject(), inputSchema);
+        var errors = JsonSchemaContractValidator.ValidateInstance(request ?? new JsonObject(), inputSchema).ToList();
+        if (request is JsonObject requestObject && inputSchema is JsonObject schemaObject)
+        {
+            var conventionErrors = new List<SchemaValidationError>();
+            ValidateMcpRequestCompatibilityConventions(requestObject, schemaObject, "", conventionErrors);
+            errors.AddRange(conventionErrors.Select(static error =>
+                string.IsNullOrEmpty(error.Path) ? error.Message : $"{error.Path}: {error.Message}"));
+        }
+
+        return errors;
     }
 
     private static void AddRequiredStringLiteralErrors(
@@ -1698,11 +1807,10 @@ internal static class WorkflowPlanSemanticValidator
         IReadOnlyList<string> allowedPaths,
         string suggestion,
         string subject,
-        EmptyStringLiteralPolicy policy,
         List<WorkflowSemanticValidationError> errors)
     {
         var emptyStringErrors = new List<SchemaValidationError>();
-        ValidateRequiredStringLiteralsNotEmpty(value, schema, "", emptyStringErrors, policy);
+        ValidateRequiredStringLiteralsNotEmpty(value, schema, "", emptyStringErrors);
         foreach (var emptyStringError in emptyStringErrors)
         {
             var invalidPath = string.IsNullOrEmpty(emptyStringError.Path)
@@ -1723,12 +1831,177 @@ internal static class WorkflowPlanSemanticValidator
         }
     }
 
+    private static void AddRequiredStringKnownEmptyReferenceErrors(
+        JsonNode? value,
+        JsonObject schema,
+        string code,
+        string workflowName,
+        string? stepId,
+        string field,
+        string invalidPathPrefix,
+        IReadOnlyList<string> allowedPaths,
+        string suggestion,
+        string subject,
+        IReadOnlySet<string> knownEmptyStringReferences,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        if (knownEmptyStringReferences.Count == 0)
+            return;
+
+        var emptyStringErrors = new List<SchemaValidationError>();
+        ValidateRequiredStringReferencesNotKnownEmpty(value, schema, "", emptyStringErrors, knownEmptyStringReferences);
+        foreach (var emptyStringError in emptyStringErrors)
+        {
+            var invalidPath = string.IsNullOrEmpty(emptyStringError.Path)
+                ? invalidPathPrefix
+                : $"{invalidPathPrefix}.{emptyStringError.Path}";
+
+            errors.Add(new WorkflowSemanticValidationError
+            {
+                Code = code,
+                WorkflowName = workflowName,
+                StepId = stepId,
+                Field = field,
+                InvalidPath = invalidPath,
+                AllowedPaths = allowedPaths,
+                Suggestion = suggestion,
+                Message = $"{subject} is invalid: {emptyStringError.Message}"
+            });
+        }
+    }
+
+    private static void ValidateRequiredStringReferencesNotKnownEmpty(
+        JsonNode? value,
+        JsonNode? schema,
+        string path,
+        List<SchemaValidationError> errors,
+        IReadOnlySet<string> knownEmptyStringReferences)
+    {
+        if (schema is not JsonObject schemaObject)
+            return;
+
+        if (schemaObject["allOf"] is JsonArray allOf)
+        {
+            foreach (var variant in allOf)
+                ValidateRequiredStringReferencesNotKnownEmpty(value, variant, path, errors, knownEmptyStringReferences);
+        }
+
+        if (schemaObject["anyOf"] is JsonArray anyOf)
+        {
+            foreach (var variant in anyOf)
+                ValidateRequiredStringReferencesNotKnownEmpty(value, variant, path, errors, knownEmptyStringReferences);
+        }
+
+        if (schemaObject["oneOf"] is JsonArray oneOf)
+        {
+            foreach (var variant in oneOf)
+                ValidateRequiredStringReferencesNotKnownEmpty(value, variant, path, errors, knownEmptyStringReferences);
+        }
+
+        var typeName = ReadApplicableSchemaType(schemaObject, value);
+        switch (typeName)
+        {
+            case "object":
+                ValidateRequiredObjectStringReferencesNotKnownEmpty(value, schemaObject, path, errors, knownEmptyStringReferences);
+                break;
+            case "array":
+                if (value is JsonArray array && schemaObject["items"] != null)
+                {
+                    for (var i = 0; i < array.Count; i++)
+                    {
+                        var itemPath = string.IsNullOrEmpty(path) ? $"[{i}]" : $"{path}[{i}]";
+                        ValidateRequiredStringReferencesNotKnownEmpty(array[i], schemaObject["items"], itemPath, errors, knownEmptyStringReferences);
+                    }
+                }
+                break;
+        }
+    }
+
+    private static void ValidateRequiredObjectStringReferencesNotKnownEmpty(
+        JsonNode? value,
+        JsonObject schema,
+        string path,
+        List<SchemaValidationError> errors,
+        IReadOnlySet<string> knownEmptyStringReferences)
+    {
+        if (value is not JsonObject obj)
+            return;
+
+        var properties = schema["properties"] as JsonObject;
+        var requiredNames = ReadRequiredPropertyNames(schema);
+        if (properties != null)
+        {
+            foreach (var requiredName in requiredNames)
+            {
+                if (!properties.TryGetPropertyValue(requiredName, out var propertySchema)
+                    || !SchemaAllowsString(propertySchema)
+                    || !obj.TryGetPropertyValue(requiredName, out var propertyValue)
+                    || propertyValue == null
+                    || !TryFindKnownEmptyStringReference(propertyValue, knownEmptyStringReferences, out var reference))
+                {
+                    continue;
+                }
+
+                var requiredPath = string.IsNullOrEmpty(path) ? requiredName : $"{path}.{requiredName}";
+                errors.Add(new SchemaValidationError(
+                    requiredPath,
+                    $"required string property '{requiredPath}' references known-empty value '{reference}'"));
+            }
+        }
+
+        foreach (var (propertyName, propertyValue) in obj)
+        {
+            JsonNode? propertySchema = null;
+            if (properties != null)
+                properties.TryGetPropertyValue(propertyName, out propertySchema);
+
+            propertySchema ??= schema["additionalProperties"] as JsonObject;
+            if (propertySchema == null)
+                continue;
+
+            var propertyPath = string.IsNullOrEmpty(path) ? propertyName : $"{path}.{propertyName}";
+            ValidateRequiredStringReferencesNotKnownEmpty(propertyValue, propertySchema, propertyPath, errors, knownEmptyStringReferences);
+        }
+    }
+
+    private static bool TryFindKnownEmptyStringReference(
+        JsonNode? value,
+        IReadOnlySet<string> knownEmptyStringReferences,
+        out string reference)
+    {
+        reference = "";
+        if (value is not JsonValue jsonValue
+            || !jsonValue.TryGetValue<string>(out var text)
+            || string.IsNullOrWhiteSpace(text)
+            || !text.Contains("${", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        foreach (Match expressionMatch in ExpressionRegex.Matches(text))
+        {
+            var expression = expressionMatch.Groups[1].Value;
+            foreach (Match pathMatch in DataStepsPathRegex.Matches(expression))
+            {
+                var referencedStepId = pathMatch.Groups[1].Value;
+                var propertyPath = SplitPath(pathMatch.Groups["path"].Value);
+                var candidate = "data.steps." + referencedStepId + (propertyPath.Count == 0 ? "" : "." + string.Join('.', propertyPath));
+                if (!knownEmptyStringReferences.Contains(candidate))
+                    continue;
+
+                reference = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void ValidateRequiredStringLiteralsNotEmpty(
         JsonNode? value,
         JsonNode? schema,
         string path,
         List<SchemaValidationError> errors,
-        EmptyStringLiteralPolicy policy,
         bool allowDynamicExpressions = true)
     {
         if (schema is not JsonObject schemaObject)
@@ -1737,19 +2010,19 @@ internal static class WorkflowPlanSemanticValidator
         if (schemaObject["allOf"] is JsonArray allOf)
         {
             foreach (var variant in allOf)
-                ValidateRequiredStringLiteralsNotEmpty(value, variant, path, errors, policy, allowDynamicExpressions);
+                ValidateRequiredStringLiteralsNotEmpty(value, variant, path, errors, allowDynamicExpressions);
         }
 
         if (schemaObject["anyOf"] is JsonArray anyOf)
         {
             foreach (var variant in anyOf)
-                ValidateRequiredStringLiteralsNotEmpty(value, variant, path, errors, policy, allowDynamicExpressions);
+                ValidateRequiredStringLiteralsNotEmpty(value, variant, path, errors, allowDynamicExpressions);
         }
 
         if (schemaObject["oneOf"] is JsonArray oneOf)
         {
             foreach (var variant in oneOf)
-                ValidateRequiredStringLiteralsNotEmpty(value, variant, path, errors, policy, allowDynamicExpressions);
+                ValidateRequiredStringLiteralsNotEmpty(value, variant, path, errors, allowDynamicExpressions);
         }
 
         if (allowDynamicExpressions && IsDynamicExpressionString(value))
@@ -1759,7 +2032,7 @@ internal static class WorkflowPlanSemanticValidator
         switch (typeName)
         {
             case "object":
-                ValidateRequiredObjectStringLiteralsNotEmpty(value, schemaObject, path, errors, policy, allowDynamicExpressions);
+                ValidateRequiredObjectStringLiteralsNotEmpty(value, schemaObject, path, errors, allowDynamicExpressions);
                 break;
             case "array":
                 if (value is JsonArray array && schemaObject["items"] != null)
@@ -1767,7 +2040,7 @@ internal static class WorkflowPlanSemanticValidator
                     for (var i = 0; i < array.Count; i++)
                     {
                         var itemPath = string.IsNullOrEmpty(path) ? $"[{i}]" : $"{path}[{i}]";
-                        ValidateRequiredStringLiteralsNotEmpty(array[i], schemaObject["items"], itemPath, errors, policy, allowDynamicExpressions);
+                        ValidateRequiredStringLiteralsNotEmpty(array[i], schemaObject["items"], itemPath, errors, allowDynamicExpressions);
                     }
                 }
                 break;
@@ -1779,7 +2052,6 @@ internal static class WorkflowPlanSemanticValidator
         JsonObject schema,
         string path,
         List<SchemaValidationError> errors,
-        EmptyStringLiteralPolicy policy,
         bool allowDynamicExpressions)
     {
         if (value is not JsonObject obj)
@@ -1801,13 +2073,9 @@ internal static class WorkflowPlanSemanticValidator
                 }
 
                 var requiredPath = string.IsNullOrEmpty(path) ? requiredName : $"{path}.{requiredName}";
-                var message = BuildEmptyStringLiteralMessage(requiredName, requiredPath, propertySchema, policy);
-                if (message == null)
-                    continue;
-
                 errors.Add(new SchemaValidationError(
                     requiredPath,
-                    message));
+                    $"required string property '{requiredPath}' must not be an empty string literal"));
             }
         }
 
@@ -1822,64 +2090,8 @@ internal static class WorkflowPlanSemanticValidator
                 continue;
 
             var propertyPath = string.IsNullOrEmpty(path) ? propertyName : $"{path}.{propertyName}";
-            ValidateRequiredStringLiteralsNotEmpty(propertyValue, propertySchema, propertyPath, errors, policy, allowDynamicExpressions);
+            ValidateRequiredStringLiteralsNotEmpty(propertyValue, propertySchema, propertyPath, errors, allowDynamicExpressions);
         }
-    }
-
-    private static string? BuildEmptyStringLiteralMessage(
-        string propertyName,
-        string path,
-        JsonNode? propertySchema,
-        EmptyStringLiteralPolicy policy)
-    {
-        if (SchemaRequiresNonEmptyString(propertySchema))
-            return $"required string property '{path}' must not be an empty string literal because the schema declares minLength greater than 0";
-
-        if (policy == EmptyStringLiteralPolicy.ExplicitNonEmptyOrMcpActionField
-            && IsMcpActionIdentityOrContentField(propertyName))
-        {
-            return $"required MCP action string property '{path}' must not be an empty string literal";
-        }
-
-        return null;
-    }
-
-    private static bool SchemaRequiresNonEmptyString(JsonNode? schema)
-    {
-        if (schema is not JsonObject schemaObject)
-            return false;
-
-        if (TryReadPositiveInteger(schemaObject["minLength"], out _)
-            && SchemaAllowsString(schemaObject))
-        {
-            return true;
-        }
-
-        if (schemaObject["allOf"] is JsonArray allOf)
-            return allOf.Any(SchemaRequiresNonEmptyString);
-
-        if (schemaObject["anyOf"] is JsonArray anyOf)
-            return AllStringVariantsRequireNonEmpty(anyOf);
-
-        if (schemaObject["oneOf"] is JsonArray oneOf)
-            return AllStringVariantsRequireNonEmpty(oneOf);
-
-        return false;
-    }
-
-    private static bool AllStringVariantsRequireNonEmpty(JsonArray variants)
-    {
-        var stringVariants = variants
-            .Where(SchemaAllowsString)
-            .ToArray();
-        return stringVariants.Length > 0 && stringVariants.All(SchemaRequiresNonEmptyString);
-    }
-
-    private static bool IsMcpActionIdentityOrContentField(string propertyName)
-    {
-        return propertyName.Equals("owner", StringComparison.OrdinalIgnoreCase)
-            || propertyName.Equals("repo", StringComparison.OrdinalIgnoreCase)
-            || propertyName.Equals("body", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool TryReadPositiveInteger(JsonNode? node, out long value)
@@ -1900,14 +2112,25 @@ internal static class WorkflowPlanSemanticValidator
 
     private static IReadOnlyList<string> ReadRequiredPropertyNames(JsonObject schema)
     {
-        if (schema["required"] is not JsonArray required)
-            return Array.Empty<string>();
+        var names = ReadStringArray(schema["required"]);
+        names.AddRange(ReadStringArray(schema["required_properties"]));
 
-        return required
+        return names
+            .Where(static name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static List<string> ReadStringArray(JsonNode? node)
+    {
+        if (node is not JsonArray array)
+            return new List<string>();
+
+        return array
             .Select(static node => node is JsonValue value && value.TryGetValue<string>(out var name) ? name : null)
             .Where(static name => !string.IsNullOrWhiteSpace(name))
             .Select(static name => name!)
-            .ToArray();
+            .ToList();
     }
 
     private static bool SchemaAllowsString(JsonNode? schema)
@@ -1965,21 +2188,209 @@ internal static class WorkflowPlanSemanticValidator
 
         foreach (var (propertyName, propertySchema) in properties)
         {
-            if (!IsExplicitPaginationNumberProperty(propertyName, propertySchema))
-                continue;
-
             var propertyPath = string.IsNullOrEmpty(path) ? propertyName : $"{path}.{propertyName}";
             if (!request.TryGetPropertyValue(propertyName, out var value) || value is null)
             {
-                errors.Add(new SchemaValidationError(
-                    propertyPath,
-                    "missing explicit numeric pagination property; send an unquoted number such as 30 instead of omitting it"));
+                if (IsExplicitPaginationNumberProperty(propertyName, propertySchema))
+                {
+                    errors.Add(new SchemaValidationError(
+                        propertyPath,
+                        "missing explicit numeric pagination property; send an unquoted number such as 30 instead of omitting it"));
+                }
+
                 continue;
             }
 
+            ValidateMcpWorkspacePathConvention(propertyName, propertySchema, value, propertyPath, errors);
+
             if (value is JsonObject childObject && propertySchema is JsonObject childSchema)
                 ValidateMcpRequestCompatibilityConventions(childObject, childSchema, propertyPath, errors);
+
+            if (value is JsonArray array && propertySchema is JsonObject arraySchema && arraySchema["items"] is JsonObject itemSchema)
+            {
+                for (var i = 0; i < array.Count; i++)
+                {
+                    if (array[i] is JsonObject itemObject)
+                        ValidateMcpRequestCompatibilityConventions(itemObject, itemSchema, $"{propertyPath}[{i}]", errors);
+                }
+            }
         }
+    }
+
+    private static void ValidateMcpWorkspacePathConvention(
+        string propertyName,
+        JsonNode? propertySchema,
+        JsonNode value,
+        string propertyPath,
+        List<SchemaValidationError> errors)
+    {
+        if (!IsMcpWorkspacePathProperty(propertyName, propertySchema))
+            return;
+
+        if (value is JsonValue jsonValue && jsonValue.TryGetValue<string>(out var text))
+        {
+            ValidateMcpWorkspacePathString(propertyName, propertyPath, text, errors);
+            return;
+        }
+
+        if (value is JsonArray array)
+        {
+            for (var i = 0; i < array.Count; i++)
+            {
+                if (array[i] is JsonValue itemValue && itemValue.TryGetValue<string>(out var itemText))
+                    ValidateMcpWorkspacePathString(propertyName, $"{propertyPath}[{i}]", itemText, errors);
+            }
+        }
+    }
+
+    private static void ValidateMcpWorkspacePathString(
+        string propertyName,
+        string propertyPath,
+        string text,
+        List<SchemaValidationError> errors)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        if (IsDynamicExpressionString(JsonValue.Create(text)))
+        {
+            if (TryFindDiagnosticAbsolutePathFieldReference(text, out var fieldName))
+            {
+                errors.Add(new SchemaValidationError(
+                    propertyPath,
+                    $"workspace path expression references diagnostic absolute path field '{fieldName}'; use a relative sibling such as repositoryRootRelative/rootPathRelative/relativePath, reuse the original relative request value, or omit/null optional projectRoot"));
+            }
+
+            return;
+        }
+
+        if (IsJsonPathListProperty(propertyName) && TryParseJsonStringArray(text, out var pathItems))
+        {
+            for (var i = 0; i < pathItems.Count; i++)
+                ValidateLiteralWorkspacePath($"{propertyPath}[{i}]", pathItems[i], errors);
+            return;
+        }
+
+        ValidateLiteralWorkspacePath(propertyPath, text, errors);
+    }
+
+    private static void ValidateLiteralWorkspacePath(
+        string propertyPath,
+        string text,
+        List<SchemaValidationError> errors)
+    {
+        var trimmed = text.Trim();
+        if (trimmed.Length == 0)
+            return;
+
+        if (LooksLikeAbsoluteWorkspacePath(trimmed))
+        {
+            errors.Add(new SchemaValidationError(
+                propertyPath,
+                $"workspace path '{trimmed}' must be relative; do not use /workspace/..., /Users/..., drive-qualified, file URI, or home-relative paths in MCP requests"));
+            return;
+        }
+
+        if (ContainsParentTraversalSegment(trimmed))
+        {
+            errors.Add(new SchemaValidationError(
+                propertyPath,
+                $"workspace path '{trimmed}' must not contain parent traversal segments"));
+        }
+    }
+
+    private static bool IsMcpWorkspacePathProperty(string propertyName, JsonNode? propertySchema)
+    {
+        if (propertyName.Contains("url", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Contains("uri", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (propertyName.Equals("projectRoot", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("targetDirectory", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("filePath", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("directoryPath", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("relativePath", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("contextFilesJson", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("pathsJson", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("path", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("paths", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return propertySchema is JsonObject schema
+            && schema["description"] is JsonValue descriptionValue
+            && descriptionValue.TryGetValue<string>(out var description)
+            && description.Contains("path", StringComparison.OrdinalIgnoreCase)
+            && (description.Contains("workspace", StringComparison.OrdinalIgnoreCase)
+                || description.Contains("relative", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsJsonPathListProperty(string propertyName)
+        => propertyName.EndsWith("Json", StringComparison.OrdinalIgnoreCase)
+           || propertyName.Equals("contextFilesJson", StringComparison.OrdinalIgnoreCase)
+           || propertyName.Equals("pathsJson", StringComparison.OrdinalIgnoreCase);
+
+    private static bool TryParseJsonStringArray(string text, out IReadOnlyList<string> values)
+    {
+        values = [];
+        try
+        {
+            var parsed = JsonNode.Parse(text);
+            if (parsed is not JsonArray array)
+                return false;
+
+            var result = new List<string>();
+            foreach (var item in array)
+            {
+                if (item is JsonValue value && value.TryGetValue<string>(out var stringValue))
+                    result.Add(stringValue);
+            }
+
+            values = result;
+            return result.Count > 0;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static bool LooksLikeAbsoluteWorkspacePath(string text)
+    {
+        if (text.StartsWith("/", StringComparison.Ordinal)
+            || text.StartsWith("\\", StringComparison.Ordinal)
+            || text.StartsWith("~/", StringComparison.Ordinal)
+            || text.StartsWith("~\\", StringComparison.Ordinal)
+            || text.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return WindowsAbsolutePathRegex.IsMatch(text);
+    }
+
+    private static bool ContainsParentTraversalSegment(string text)
+    {
+        return text
+            .Replace('\\', '/')
+            .Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Any(static segment => segment == "..");
+    }
+
+    private static bool TryFindDiagnosticAbsolutePathFieldReference(string expression, out string fieldName)
+    {
+        var match = DiagnosticAbsolutePathFieldRegex.Match(expression);
+        if (match.Success)
+        {
+            fieldName = match.Groups["field"].Value;
+            return true;
+        }
+
+        fieldName = string.Empty;
+        return false;
     }
 
     private static bool IsExplicitPaginationNumberProperty(string propertyName, JsonNode? propertySchema)
@@ -2111,15 +2522,11 @@ internal static class WorkflowPlanSemanticValidator
 
         var properties = schema["properties"] as JsonObject;
         ValidateCountConstraint(obj.Count, schema, "minProperties", "maxProperties", path, "properties", errors);
-        var required = schema["required"] as JsonArray;
-        if (required != null)
+        var required = ReadRequiredPropertyNames(schema);
+        if (required.Count > 0)
         {
-            foreach (var requiredNode in required)
+            foreach (var requiredName in required)
             {
-                var requiredName = requiredNode?.GetValue<string>();
-                if (string.IsNullOrWhiteSpace(requiredName))
-                    continue;
-
                 if (!obj.ContainsKey(requiredName))
                 {
                     var requiredPath = string.IsNullOrEmpty(path) ? requiredName : $"{path}.{requiredName}";

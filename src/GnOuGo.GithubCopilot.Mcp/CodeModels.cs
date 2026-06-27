@@ -22,13 +22,15 @@ public sealed record CodeProjectSummary(
     IReadOnlyList<string> ProjectFiles,
     IReadOnlyList<string> TopLevelDirectories,
     int CodeFileCount,
-    long ApproximateBytes);
+    long ApproximateBytes,
+    string? RootPathRelative = null);
 
 public sealed record CodeFileContent(
     string Path,
     string FullPath,
     string Content,
-    long LengthBytes);
+    long LengthBytes,
+    string? RelativePath = null);
 
 public sealed record CodeSearchResult(
     string Path,
@@ -80,11 +82,15 @@ public sealed record CodeAgentEditResult(
     string? CorrelationId = null,
     string? TraceParent = null);
 
-public sealed record CodeWriteResult(string Path, string FullPath, long BytesWritten, bool CreatedDirectory);
+public sealed record CodeWriteResult(
+    string Path,
+    string FullPath,
+    long BytesWritten,
+    bool CreatedDirectory,
+    string? RelativePath = null);
 
 public sealed record CodeErrorResult(string Code, string Message);
 
 internal sealed record CodeUsageInfo(long? OutputTokens, string? RequestId, string? InteractionId);
-
 
 

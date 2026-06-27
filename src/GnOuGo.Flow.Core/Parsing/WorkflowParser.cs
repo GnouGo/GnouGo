@@ -409,12 +409,7 @@ public static class WorkflowParser
             if (additionalNode != null)
                 def.AdditionalProperties = ParseInputDef(additionalNode);
 
-            // Required property names (for objects). "required_properties" is the
-            // generator-facing DSL key; "required" list remains accepted for
-            // backward compatibility with older workflow files.
             var requiredProperties = map.GetStringList("required_properties");
-            if (requiredProperties.Count == 0)
-                requiredProperties = map.GetStringList("required");
             def.RequiredProperties = requiredProperties.Count > 0 ? requiredProperties : null;
 
             return def;
@@ -468,11 +463,7 @@ public static class WorkflowParser
                 if (additionalNode != null)
                     def.AdditionalProperties = ParseOutputDef(additionalNode);
 
-                // Required property names (for objects). "required_properties" is
-                // preferred; "required" list is accepted for older workflow files.
                 var requiredProperties = map.GetStringList("required_properties");
-                if (requiredProperties.Count == 0)
-                    requiredProperties = map.GetStringList("required");
                 def.RequiredProperties = requiredProperties.Count > 0 ? requiredProperties : null;
 
                 return def;
@@ -509,8 +500,6 @@ public static class WorkflowParser
                     def.AdditionalProperties = ParseOutputDef(additionalNode);
 
                 var requiredProperties = map.GetStringList("required_properties");
-                if (requiredProperties.Count == 0)
-                    requiredProperties = map.GetStringList("required");
                 def.RequiredProperties = requiredProperties.Count > 0 ? requiredProperties : null;
 
                 return def;
