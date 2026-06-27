@@ -44,6 +44,7 @@ public static class BuiltInStepContracts
                 inputRequired: true),
             ["switch"] = Contract(ClosedObject(), OpenObject()),
             ["set"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
+            ["assert.non_null"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
             ["template.render"] = Contract(
                 Object(new[] { "template" },
                     ("engine", Enum("mustache")),

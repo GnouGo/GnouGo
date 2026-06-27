@@ -493,6 +493,73 @@ steps:
     }
 
     [Fact]
+    public void SemanticValidation_RejectsNullableSetOutputAssignedToRequiredString()
+    {
+        var doc = Parse("""
+inputs:
+  owner: string
+steps:
+  - id: derive
+    type: set
+    output_schema:
+      type: object
+      properties:
+        owner:
+          anyOf:
+            - type: string
+            - type: "null"
+      required: [owner]
+      additionalProperties: false
+    input:
+      owner: "${data.inputs.owner}"
+  - id: consume
+    type: llm.call
+    input:
+      prompt: "${data.steps.derive.owner}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
+        Assert.Contains("data.steps.derive.owner", exception.InnerException.Message);
+        Assert.Contains("resolves to null or string", exception.InnerException.Message);
+        Assert.Contains("requires string", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_AcceptsAssertNonNullRefinedOutputAssignedToRequiredString()
+    {
+        var doc = Parse("""
+inputs:
+  owner: string
+steps:
+  - id: derive
+    type: set
+    output_schema:
+      type: object
+      properties:
+        owner:
+          anyOf:
+            - type: string
+            - type: "null"
+      required: [owner]
+      additionalProperties: false
+    input:
+      owner: "${data.inputs.owner}"
+  - id: require_identity
+    type: assert.non_null
+    input:
+      owner: "${data.steps.derive.owner}"
+  - id: consume
+    type: llm.call
+    input:
+      prompt: "${data.steps.require_identity.owner}"
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
     public void SemanticValidation_RejectsSetOutputSchemaExpressionMismatch()
     {
         var doc = Parse("""
@@ -886,6 +953,108 @@ workflows:
         Assert.Contains("WORKFLOW_CALL_ARGS_INVALID", exception.InnerException.Message);
         Assert.Contains("input.args.name", exception.InnerException.Message);
         Assert.Contains("input.args.extra", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsNullableSetOutputAssignedToRequiredWorkflowCallArg()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Local workflow nullable input validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    inputs:
+      owner: string
+    steps:
+      - id: derive
+        type: set
+        output_schema:
+          type: object
+          properties:
+            owner:
+              anyOf:
+                - type: string
+                - type: "null"
+          required: [owner]
+          additionalProperties: false
+        input:
+          owner: "${data.inputs.owner}"
+      - id: call_helper
+        type: workflow.call
+        input:
+          ref: { kind: local, name: helper }
+          args:
+            owner: "${data.steps.derive.owner}"
+  helper:
+    inputs:
+      owner: string
+    steps:
+      - id: value
+        type: set
+        input: { ok: true }
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
+        Assert.Contains("workflow.call input.args.owner", exception.InnerException.Message);
+        Assert.Contains("data.steps.derive.owner", exception.InnerException.Message);
+        Assert.Contains("resolves to null or string", exception.InnerException.Message);
+        Assert.Contains("requires string", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_AcceptsAssertNonNullRefinedWorkflowCallArg()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Local workflow nullable input validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    inputs:
+      owner: string
+    steps:
+      - id: derive
+        type: set
+        output_schema:
+          type: object
+          properties:
+            owner:
+              anyOf:
+                - type: string
+                - type: "null"
+          required: [owner]
+          additionalProperties: false
+        input:
+          owner: "${data.inputs.owner}"
+      - id: require_identity
+        type: assert.non_null
+        input:
+          owner: "${data.steps.derive.owner}"
+      - id: call_helper
+        type: workflow.call
+        input:
+          ref: { kind: local, name: helper }
+          args:
+            owner: "${data.steps.require_identity.owner}"
+  helper:
+    inputs:
+      owner: string
+    steps:
+      - id: value
+        type: set
+        input: { ok: true }
+""");
+
+        InvokeSemanticValidation(doc);
     }
 
     [Fact]

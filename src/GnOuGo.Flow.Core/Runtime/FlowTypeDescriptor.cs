@@ -116,6 +116,39 @@ internal sealed record FlowTypeDescriptor
         return variants.Length == 0 ? Any : Union(variants);
     }
 
+    public FlowTypeDescriptor RemoveNullDeep()
+    {
+        if (Kind == FlowTypeKind.Null)
+            return Any;
+
+        if (Kind == FlowTypeKind.Union)
+        {
+            var variants = Variants
+                .Where(static variant => variant.Kind != FlowTypeKind.Null)
+                .Select(static variant => variant.RemoveNullDeep())
+                .ToArray();
+
+            return variants.Length == 0 ? Any : Union(variants);
+        }
+
+        if (Kind == FlowTypeKind.Array)
+            return this with { Items = Items?.RemoveNullDeep() };
+
+        if (Kind is FlowTypeKind.Object or FlowTypeKind.Dictionary)
+        {
+            return this with
+            {
+                Properties = Properties.ToDictionary(
+                    static pair => pair.Key,
+                    static pair => new FlowPropertyDescriptor(pair.Value.Type.RemoveNullDeep(), pair.Value.Required),
+                    StringComparer.Ordinal),
+                AdditionalProperties = AdditionalProperties?.RemoveNullDeep()
+            };
+        }
+
+        return this;
+    }
+
     public FlowTypeDescriptor? ResolvePath(IReadOnlyList<string> path)
     {
         if (path.Count == 0)

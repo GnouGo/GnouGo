@@ -17,7 +17,7 @@ public sealed class WorkflowValidator
     {
         "sequence", "parallel",
         "loop.sequential", "loop.parallel",
-        "switch", "set",
+        "switch", "set", "assert.non_null",
         "template.render",
         "llm.call",
         "workflow.call", "workflow.route", "workflow.plan", "workflow.execute",

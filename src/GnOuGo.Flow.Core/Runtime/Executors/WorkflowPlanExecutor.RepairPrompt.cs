@@ -53,7 +53,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("Function arguments are evaluated before the function runs: `coalesce`, ternaries, and helper calls do not make unavailable step references safe.");
         AppendExpressionFunctionRules(sb);
         sb.AppendLine("MCP request objects must preserve schema scalar types exactly. Numeric/integer/boolean fields must be unquoted YAML scalars when required explicitly by the MCP schema/validator.");
-        sb.AppendLine("MCP request expressions must also match the schema statically. Do not pass nullable structured_output fields into required MCP request fields unless the same step has an `if` guard proving that exact field is non-null.");
+        sb.AppendLine("MCP request expressions must also match the schema statically. Do not pass nullable structured_output fields into required MCP request fields unless the value was refined with `assert.non_null` or the same step has an `if` guard proving that exact field is non-null.");
         sb.AppendLine("Never satisfy missing MCP request arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.");
         sb.AppendLine("Workflow output expressions must resolve to their declared type on every branch.");
         sb.AppendLine("Object schemas: never duplicate the YAML key `required`. Input-level `required` is only a boolean. Required object property names must use `required_properties`, not a second `required` key.");
@@ -334,7 +334,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 sb.AppendLine("Affected MCP request field(s): " + string.Join(", ", mcpFields.Select(static field => $"`{field}`")));
             sb.AppendLine("If a field is required as string/number/boolean, do not map a nullable source such as `string|null` directly into it.");
             sb.AppendLine("Prefer fixing the upstream `structured_output` schema so the field is non-null whenever the MCP call should run.");
-            sb.AppendLine("Alternatively add an `if` guard on the same mcp.call step that proves the exact expression is non-null, for example `if: \"${data.steps.decide.json.commandName != null}\"`.");
+            sb.AppendLine("Alternatively add an `assert.non_null` step before the mcp.call and use that refined output, or add an `if` guard on the same mcp.call step that proves the exact expression is non-null, for example `if: \"${data.steps.decide.json.commandName != null}\"`.");
             sb.AppendLine("If the decision can be false, skip the mcp.call or split the workflow into a guarded branch instead of passing null.");
         }
         else

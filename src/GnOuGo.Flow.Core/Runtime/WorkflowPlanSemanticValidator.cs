@@ -1527,7 +1527,7 @@ internal static class WorkflowPlanSemanticValidator
         if (mismatch.ActualType.Split(" or ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Any(static type => string.Equals(type, "null", StringComparison.Ordinal)))
         {
-            return $"Do not pass a nullable expression into required MCP field '{field}' for '{serverName}/{methodName}'. Make the upstream structured_output non-null, add a step guard that proves the exact expression is non-null, or normalize to a guaranteed {mismatch.ExpectedType} before the mcp.call.";
+            return $"Do not pass a nullable expression into required MCP field '{field}' for '{serverName}/{methodName}'. Make the upstream structured_output non-null, refine it with assert.non_null, add a step guard that proves the exact expression is non-null, or normalize to a guaranteed {mismatch.ExpectedType} before the mcp.call.";
         }
 
         return $"Align MCP field '{field}' for '{serverName}/{methodName}' with the discovered input_schema, or add a normalization step that produces a {mismatch.ExpectedType} value.";

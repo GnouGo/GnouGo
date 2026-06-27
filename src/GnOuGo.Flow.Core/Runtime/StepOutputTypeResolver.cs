@@ -15,6 +15,7 @@ internal static class StepOutputTypeResolver
         return step.Type switch
         {
             "set" => ResolveSet(step, symbols),
+            "assert.non_null" => ResolveAssertNonNull(step, symbols),
             "template.render" => ResolveTemplateRender(step),
             "llm.call" => ResolveLlmCall(step),
             "mcp.call" => ResolveMcpCall(step, mcpContracts),
@@ -40,6 +41,23 @@ internal static class StepOutputTypeResolver
             properties[key] = Property(
                 StepExpressionTypeValidator.InferValueType(value, symbols.WorkflowInputs, symbols.StepOutputs, symbols.DataVariables)
                 ?? InferFromExample(value));
+        }
+
+        return FlowTypeDescriptor.Object(properties);
+    }
+
+    private static FlowTypeDescriptor ResolveAssertNonNull(StepDef step, WorkflowSymbolTable symbols)
+    {
+        if (step.Input is not JsonObject input)
+            return Object();
+
+        var properties = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal);
+        foreach (var (key, value) in input)
+        {
+            var inferred =
+                StepExpressionTypeValidator.InferValueType(value, symbols.WorkflowInputs, symbols.StepOutputs, symbols.DataVariables)
+                ?? InferFromExample(value);
+            properties[key] = Property(inferred.RemoveNullDeep());
         }
 
         return FlowTypeDescriptor.Object(properties);

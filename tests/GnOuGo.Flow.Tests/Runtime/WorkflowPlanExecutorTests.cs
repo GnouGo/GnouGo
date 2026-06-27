@@ -6605,6 +6605,214 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsNullableSetOutputInRequiredMcpString()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated GitHub workflow.
+                         tags: [github]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: derive_identity
+                               type: set
+                               output_schema:
+                                 type: object
+                                 properties:
+                                   owner:
+                                     anyOf:
+                                       - type: string
+                                       - type: "null"
+                                   repo:
+                                     anyOf:
+                                       - type: string
+                                       - type: "null"
+                                 required: [owner, repo]
+                                 additionalProperties: false
+                               input:
+                                 owner: "${data.inputs.owner}"
+                                 repo: "${data.inputs.repo}"
+                             - id: comment
+                               type: mcp.call
+                               input:
+                                 server: github
+                                 kind: tool
+                                 method: add_issue_comment
+                                 request:
+                                   owner: "${data.steps.derive_identity.owner}"
+                                   repo: "${data.steps.derive_identity.repo}"
+                                   issue_number: 1703
+                                   body: Investigating.
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "add_issue_comment",
+                    Description = "Add an issue comment",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "owner": { "type": "string" },
+                        "repo": { "type": "string" },
+                        "issue_number": { "type": "integer" },
+                        "body": { "type": "string" }
+                      },
+                      "required": ["owner", "repo", "issue_number", "body"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Add a GitHub issue comment
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_REQUEST_EXPR_TYPE_MISMATCH", result.Error.Message);
+        Assert.Contains("input.request.owner", result.Error.Message);
+        Assert.Contains("resolves to null or string", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_AcceptsAssertNonNullOutputInRequiredMcpString()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated GitHub workflow.
+                         tags: [github]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: derive_identity
+                               type: set
+                               output_schema:
+                                 type: object
+                                 properties:
+                                   owner:
+                                     anyOf:
+                                       - type: string
+                                       - type: "null"
+                                   repo:
+                                     anyOf:
+                                       - type: string
+                                       - type: "null"
+                                 required: [owner, repo]
+                                 additionalProperties: false
+                               input:
+                                 owner: AxaFrance
+                                 repo: oidc-client
+                             - id: require_identity
+                               type: assert.non_null
+                               input:
+                                 owner: "${data.steps.derive_identity.owner}"
+                                 repo: "${data.steps.derive_identity.repo}"
+                             - id: comment
+                               type: mcp.call
+                               input:
+                                 server: github
+                                 kind: tool
+                                 method: add_issue_comment
+                                 request:
+                                   owner: "${data.steps.require_identity.owner}"
+                                   repo: "${data.steps.require_identity.repo}"
+                                   issue_number: 1703
+                                   body: Investigating.
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "add_issue_comment",
+                    Description = "Add an issue comment",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "owner": { "type": "string" },
+                        "repo": { "type": "string" },
+                        "issue_number": { "type": "integer" },
+                        "body": { "type": "string" }
+                      },
+                      "required": ["owner", "repo", "issue_number", "body"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Add a GitHub issue comment
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Contains("assert.non_null", result.Outputs!["plan"]!["yaml"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task WorkflowPlan_SemanticValidation_RejectsEmptyRequiredMcpString()
     {
         var mockLlm = new Mock<ILLMClient>();

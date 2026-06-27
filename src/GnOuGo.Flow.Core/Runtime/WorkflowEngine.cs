@@ -846,6 +846,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.LoopParallelExecutor());
         registry.Register(new Executors.SwitchExecutor());
         registry.Register(new Executors.SetExecutor());
+        registry.Register(new Executors.AssertNonNullExecutor());
         registry.Register(new Executors.TemplateRenderExecutor());
         registry.Register(new Executors.LlmCallExecutor());
         registry.Register(new Executors.WorkflowCallExecutor());

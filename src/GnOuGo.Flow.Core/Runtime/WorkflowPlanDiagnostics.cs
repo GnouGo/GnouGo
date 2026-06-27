@@ -447,7 +447,7 @@ internal static class WorkflowPlanDiagnostics
             "OPAQUE_RESPONSE_DEEP_ACCESS" => "Do not invent fields under an opaque response. Pass the whole response or normalize it with llm.call structured_output.",
             "STEP_OUTPUT_PROPERTY_UNKNOWN" => "Use one of the allowed output paths or add a normalizer step that produces the desired property.",
             "MCP_REQUEST_SCHEMA_INVALID" => "Align input.request with the discovered MCP tool input schema.",
-            "MCP_REQUEST_EXPR_TYPE_MISMATCH" => "Use only expressions whose resolved type is compatible with the discovered MCP input_schema; nullable sources must be guarded or normalized before the mcp.call.",
+            "MCP_REQUEST_EXPR_TYPE_MISMATCH" => "Use only expressions whose resolved type is compatible with the discovered MCP input_schema; nullable sources must be refined, guarded, or normalized before the mcp.call.",
             "MCP_CALL_INPUT_FIELD_UNKNOWN" => "Move MCP tool arguments under input.request; keep only mcp.call envelope fields at input top level.",
             "MCP_METHOD_UNKNOWN" => "Use one exact MCP tool name from the discovered server catalog.",
             "MCP_SERVER_UNKNOWN" => "Use one exact MCP server name from discovery.",
@@ -508,7 +508,7 @@ internal static class WorkflowPlanDiagnostics
         {
             ErrorCodes.ExprTypeMismatch => hint + " For numeric fields, use numeric workflow inputs or structured JSON fields, not free-form LLM text.",
             "MCP_REQUEST_SCHEMA_INVALID" => hint + " Preserve exact scalar types: integers/numbers/booleans must not be quoted strings.",
-            "MCP_REQUEST_EXPR_TYPE_MISMATCH" => hint + " Do not pass `string|null`, `number|null`, or other nullable structured_output fields into required MCP request fields unless the same step has an `if` guard proving that exact field is non-null.",
+            "MCP_REQUEST_EXPR_TYPE_MISMATCH" => hint + " Do not pass `string|null`, `number|null`, or other nullable structured_output fields into required MCP request fields unless the value was refined with `assert.non_null` or the same step has an `if` guard proving that exact field is non-null.",
             _ => hint
         };
     }

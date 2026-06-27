@@ -289,6 +289,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- Put common step fields (`id`, `type`, `if`, `input`, `output`, `retry`, `on_error`) at the step level, not inside `input`.");
         basePrompt.AppendLine("- Put executor-specific arguments inside `input` only. For example `llm.call.input.prompt`, `mcp.call.input.server`, `template.render.input.template`.");
         basePrompt.AppendLine("- For non-trivial `set` steps that normalize or reshape data, declare step-level `output_schema` so later `data.steps.<id>.<field>` references have a real contract.");
+        basePrompt.AppendLine("- If a nullable derived value must feed a later non-null input, refine it first with `assert.non_null` and use the refined step output, or keep the strict call inside a guard/branch that proves the value exists.");
         basePrompt.AppendLine("- Container mappings must use their documented shape: `sequence`/`loop.*` use step-level `steps`; `parallel` uses step-level `branches[].steps`; `switch` uses step-level `cases[].steps` and optional step-level `default`.");
         basePrompt.AppendLine("- Do not reference future steps. Expressions may read `data.inputs.*` and outputs from earlier `data.steps.<id>.*` only.");
         basePrompt.AppendLine("- Do not reference `data.steps.<id>.*` produced only inside `switch` cases, `if`-guarded steps, or loop bodies from later steps unless you first map every possible path to a guaranteed value.");
