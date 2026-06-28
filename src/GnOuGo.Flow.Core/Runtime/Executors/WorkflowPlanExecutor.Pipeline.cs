@@ -926,6 +926,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Function arguments are evaluated before the function runs. Do not hide unavailable step references inside `coalesce`, ternaries, or helper calls.");
         sb.AppendLine("- For MCP schemas, required numeric/integer/boolean request fields must be literal YAML scalars when the schema or validator requires explicit values; do not use expressions, casts, empty strings, or `data.env.*` fallbacks.");
         sb.AppendLine("- Any schema with `type: object` MUST be strongly typed with a non-empty `properties` mapping. Never generate a bare `type: object` input, output, item, or nested property.");
+        sb.AppendLine("- For closed set output_schema objects or arrays, project exact declared fields before assigning custom-function results; do not pass opaque source objects through.");
         sb.AppendLine("- Any workflow output with `type: array` MUST be strongly typed with an `items` schema. Never generate an array output as a bare expression or bare `type: array` without `items`.");
         sb.AppendLine("- Array output `items` must use a concrete type. If items are objects, include every property the parent may need under `items.properties`.");
         sb.AppendLine("- Never duplicate the YAML key `required` in an object schema. Use `required: true|false` only for input-level requiredness, and use `required_properties: [field_name]` for required object property names.");
@@ -1720,6 +1721,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         - Leaf call outputs are under ${data.steps.<call_id>.outputs.<leaf_output_name>}.
         - set step outputs are under ${data.steps.<set_id>.<field>}.
         - For non-trivial set steps, declare step-level output_schema so downstream set fields have a strong contract.
+        - If a custom function feeds a closed set output_schema, project exact declared fields; do not pass through whole source objects with possible extra properties.
         - Loop variables are data.<item_var>, data.<index_var>, data._loop.index, and data._loop.item.
         - When looping over a leaf array output, only read item fields declared under that output's `items.properties` schema in `generated_leaf_contracts_yaml`.
         - Do not hide unavailable/future step references inside coalesce, ternaries, or helper calls.

@@ -6605,6 +6605,95 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsOpaqueFunctionResultInClosedSetOutputSchema()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated workflow.
+                         tags: [test]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           functions: |-
+                             /**
+                              * Selects public items.
+                              *
+                              * @param {Array<object>} items - Source items.
+                              * @returns {Array<object>} Selected source item objects.
+                              */
+                             function selectPublicItems(items) {
+                               var out = [];
+                               for (var i = 0; i < items.length; i++) {
+                                 var item = items[i];
+                                 if (item.public) out.push(item);
+                               }
+                               return out;
+                             }
+                           steps:
+                             - id: source
+                               type: set
+                               input:
+                                 items:
+                                   - id: 1
+                                     title: Alpha
+                                     public: true
+                                     internal_flag: true
+                             - id: final_items
+                               type: set
+                               output_schema:
+                                 type: object
+                                 properties:
+                                   items:
+                                     type: array
+                                     items:
+                                       type: object
+                                       properties:
+                                         id: { type: number }
+                                         title: { type: string }
+                                       required: [id, title]
+                                       additionalProperties: false
+                                 required: [items]
+                                 additionalProperties: false
+                               input:
+                                 items: "${functions.selectPublicItems(data.steps.source.items)}"
+                       """
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Generate a filtered item workflow
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("SET_OUTPUT_SCHEMA_OPAQUE_FUNCTION", result.Error.Message);
+        Assert.Contains("input.items", result.Error.Message);
+        Assert.Contains("selectPublicItems", result.Error.Message);
+    }
+
+    [Fact]
     public async Task WorkflowPlan_SemanticValidation_RejectsNullableSetOutputInRequiredMcpString()
     {
         var mockLlm = new Mock<ILLMClient>();

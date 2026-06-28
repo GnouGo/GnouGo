@@ -451,6 +451,7 @@ internal static class WorkflowPlanDiagnostics
             "MCP_CALL_INPUT_FIELD_UNKNOWN" => "Move MCP tool arguments under input.request; keep only mcp.call envelope fields at input top level.",
             "MCP_METHOD_UNKNOWN" => "Use one exact MCP tool name from the discovered server catalog.",
             "MCP_SERVER_UNKNOWN" => "Use one exact MCP server name from discovery.",
+            "SET_OUTPUT_SCHEMA_OPAQUE_FUNCTION" => "Closed set output_schema fields must be populated by values with a precise object shape. Project exact declared fields instead of passing through opaque custom-function objects.",
             "EXPRESSION_FUNCTION_UNKNOWN" => "Use only documented built-in functions, or define the custom helper in a document-level or workflow-level `functions:` block before calling it.",
             "FUNCTION_JSDOC_MISSING" => "Add a JSDoc block immediately before the custom function declaration.",
             "FUNCTION_JSDOC_PARAM_MISSING" => "Add one typed `@param {type} name` tag for every custom function parameter.",
@@ -471,6 +472,7 @@ internal static class WorkflowPlanDiagnostics
             "MCP_CALL_INPUT_FIELD_UNKNOWN" => "supported mcp.call input envelope",
             "MCP_METHOD_UNKNOWN" => "discovered MCP method",
             "MCP_SERVER_UNKNOWN" => "discovered MCP server",
+            "SET_OUTPUT_SCHEMA_OPAQUE_FUNCTION" => "custom function result projected to the closed output_schema shape",
             "EXPRESSION_FUNCTION_UNKNOWN" => "built-in or declared WFScript function",
             "FUNCTION_JSDOC_MISSING" => "JSDoc immediately preceding the function declaration",
             "FUNCTION_JSDOC_PARAM_MISSING" => "typed @param tag for each function parameter",
@@ -482,6 +484,9 @@ internal static class WorkflowPlanDiagnostics
 
     private static string BuildSemanticLlmGuidance(WorkflowSemanticValidationError error, string hint)
     {
+        if (error.Code == "SET_OUTPUT_SCHEMA_OPAQUE_FUNCTION")
+            return hint + " In the custom function, return new objects containing only the schema properties; do not `push(issue)`, `return item`, or pass source objects through when `additionalProperties: false`.";
+
         if (error.AllowedPaths.Count > 0)
             return $"{hint} Prefer one of allowed_paths when it satisfies the task.";
 

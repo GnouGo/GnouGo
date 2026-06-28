@@ -718,6 +718,112 @@ steps:
     }
 
     [Fact]
+    public void SemanticValidation_RejectsOpaqueCustomFunctionAssignedToClosedSetArraySchema()
+    {
+        var doc = Parse("""
+functions: |
+  /**
+   * Selects public items from a source array.
+   *
+   * @param {Array<object>} items - Source items.
+   * @returns {Array<object>} Selected source item objects.
+   */
+  function selectPublicItems(items) {
+    var out = [];
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      if (item.public) out.push(item);
+    }
+    return out;
+  }
+inputs:
+  items:
+    type: array
+    items:
+      type: object
+steps:
+  - id: final_items
+    type: set
+    output_schema:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: number }
+              title: { type: string }
+            required: [id, title]
+            additionalProperties: false
+      required: [items]
+      additionalProperties: false
+    input:
+      items: "${functions.selectPublicItems(data.inputs.items)}"
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains("SET_OUTPUT_SCHEMA_OPAQUE_FUNCTION", exception.InnerException!.Message);
+        Assert.Contains("input.items", exception.InnerException.Message);
+        Assert.Contains("selectPublicItems", exception.InnerException.Message);
+        Assert.Contains("opaque", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_AcceptsPreciseCustomFunctionAssignedToClosedSetArraySchema()
+    {
+        var doc = Parse("""
+functions: |
+  /**
+   * Selects public items from a source array and projects the public shape.
+   *
+   * @param {Array<object>} items - Source items.
+   * @returns {Array<{id:number,title:string}>} Projected public item objects.
+   */
+  function selectPublicItems(items) {
+    var out = [];
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      if (item.public) {
+        out.push({
+          id: item.id,
+          title: item.title
+        });
+      }
+    }
+    return out;
+  }
+inputs:
+  items:
+    type: array
+    items:
+      type: object
+steps:
+  - id: final_items
+    type: set
+    output_schema:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: number }
+              title: { type: string }
+            required: [id, title]
+            additionalProperties: false
+      required: [items]
+      additionalProperties: false
+    input:
+      items: "${functions.selectPublicItems(data.inputs.items)}"
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
     public void SemanticValidation_RejectsUnknownPathFromSetOutputSchema()
     {
         var doc = Parse("""

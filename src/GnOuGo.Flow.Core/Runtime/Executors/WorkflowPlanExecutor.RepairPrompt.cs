@@ -56,6 +56,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("MCP request expressions must also match the schema statically. Do not pass nullable structured_output fields into required MCP request fields unless the value was refined with `assert.non_null` or the same step has an `if` guard proving that exact field is non-null.");
         sb.AppendLine("Never satisfy missing MCP request arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.");
         sb.AppendLine("Workflow output expressions must resolve to their declared type on every branch.");
+        sb.AppendLine("Closed set output_schema objects and arrays require exact projection. Do not pass through opaque custom-function objects into fields with `additionalProperties: false`.");
         sb.AppendLine("Object schemas: never duplicate the YAML key `required`. Input-level `required` is only a boolean. Required object property names must use `required_properties`, not a second `required` key.");
         AppendPromptSectionEnd(sb, "minimum_dsl_context");
         sb.AppendLine();
@@ -97,6 +98,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- `loop.sequential` and `loop.parallel` output `{ results, count }`; every `results[]` item is a per-iteration `data.steps` snapshot, not the direct output of the last loop child step.");
         sb.AppendLine("- If a loop child step `build_issue_result` emits `{ handled_by_gnougo, title, ... }`, post-loop filtering must read `iteration.build_issue_result.handled_by_gnougo`, not `iteration.handled_by_gnougo`.");
         sb.AppendLine("- To produce a flat array after a loop, make the loop body end with a `set` step that has `output_schema`, then map/filter `data.steps.<loop_id>.results` through that child step id.");
+        sb.AppendLine("- If that flat array feeds a closed output_schema, custom functions must push new projected objects with exactly the declared fields. Do not push/pass through the original source object because it may contain extra properties.");
         sb.AppendLine("YAML scalar and quoting rules:");
         sb.AppendLine("- Emit booleans and numbers as unquoted YAML scalars: `required: false`, `strict: true`, `timeout_ms: 1200000`, `perPage: 30`, `append: false`. Do not emit `\"false\"`, `\"true\"`, `\"1200000\"`, or `\"30\"` for typed scalar fields.");
         sb.AppendLine("- Use single quotes inside expressions that compare strings, for example `${data.steps.close.status == 'ok'}`.");

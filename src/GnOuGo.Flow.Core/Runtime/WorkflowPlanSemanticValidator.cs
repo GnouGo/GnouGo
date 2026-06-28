@@ -55,6 +55,9 @@ internal static class WorkflowPlanSemanticValidator
     private static readonly Regex NamespacedFunctionCallRegex = new(
         @"\bfunctions\.([A-Za-z_][A-Za-z0-9_]*)\s*\(",
         RegexOptions.Compiled);
+    private static readonly Regex ExactNamespacedFunctionExpressionRegex = new(
+        @"^\s*\$\{\s*functions\.(?<function>[A-Za-z_][A-Za-z0-9_]*)\s*\([\s\S]*\)\s*\}\s*$",
+        RegexOptions.Compiled);
     private static readonly Regex FunctionDeclarationRegex = new(
         @"\bfunction\s+(?<name>[A-Za-z_$][A-Za-z0-9_$]*)\s*\((?<params>[^)]*)\)",
         RegexOptions.Compiled);
@@ -134,6 +137,7 @@ internal static class WorkflowPlanSemanticValidator
                 symbols,
                 allStepIds,
                 allowedFunctionNames,
+                functionDefinitions,
                 knownEmptyStringReferences,
                 mcpContracts,
                 stepContracts,
@@ -219,7 +223,7 @@ internal static class WorkflowPlanSemanticValidator
 
     private sealed record FunctionDeclaration(string Name, IReadOnlyList<string> Parameters, int Index, int SignatureEndIndex);
 
-    private sealed record FunctionDefinition(string Name, IReadOnlyList<string> Parameters, string Body, string SourcePath);
+    private sealed record FunctionDefinition(string Name, IReadOnlyList<string> Parameters, string Body, string SourcePath, string? ReturnType);
 
     private static IEnumerable<FunctionDeclaration> EnumerateFunctionDeclarations(string? script)
     {
@@ -256,7 +260,8 @@ internal static class WorkflowPlanSemanticValidator
                 declaration.Name,
                 declaration.Parameters,
                 body,
-                $"{sourcePath}.{declaration.Name}");
+                $"{sourcePath}.{declaration.Name}",
+                FindLeadingJsDoc(script, declaration.Index) is { } jsDoc ? ParseJsDocReturnType(jsDoc) : null);
         }
 
         return definitions;
@@ -433,8 +438,13 @@ internal static class WorkflowPlanSemanticValidator
 
     private static bool HasTypedJsDocReturn(string jsDoc)
     {
+        return !string.IsNullOrWhiteSpace(ParseJsDocReturnType(jsDoc));
+    }
+
+    private static string? ParseJsDocReturnType(string jsDoc)
+    {
         var match = JsDocReturnsRegex.Match(jsDoc);
-        return match.Success && !string.IsNullOrWhiteSpace(match.Groups["type"].Value);
+        return match.Success ? match.Groups["type"].Value.Trim() : null;
     }
 
     private static string BuildFunctionJsDocSuggestion(FunctionDeclaration declaration)
@@ -739,13 +749,14 @@ internal static class WorkflowPlanSemanticValidator
         WorkflowSymbolTable symbols,
         HashSet<string> allStepIds,
         HashSet<string> allowedFunctionNames,
+        IReadOnlyDictionary<string, FunctionDefinition> functionDefinitions,
         IReadOnlySet<string> knownEmptyStringReferences,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
         IReadOnlyDictionary<string, StepContract> stepContracts,
         List<WorkflowSemanticValidationError> errors)
     {
         foreach (var step in steps)
-            ValidateStep(step, workflowName, workflows, workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+            ValidateStep(step, workflowName, workflows, workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
     }
 
     private static int NormalizeMcpCallInputRequests(
@@ -813,6 +824,7 @@ internal static class WorkflowPlanSemanticValidator
         WorkflowSymbolTable symbols,
         HashSet<string> allStepIds,
         HashSet<string> allowedFunctionNames,
+        IReadOnlyDictionary<string, FunctionDefinition> functionDefinitions,
         IReadOnlySet<string> knownEmptyStringReferences,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
         IReadOnlyDictionary<string, StepContract> stepContracts,
@@ -824,7 +836,7 @@ internal static class WorkflowPlanSemanticValidator
         var nonNullReferences = StepExpressionTypeValidator.InferNonNullReferencesFromGuard(step.If);
         ValidateMcpCallInputRequest(step, workflowName, workflowInputs, symbols, nonNullReferences, knownEmptyStringReferences, mcpContracts, errors);
         ValidateLocalWorkflowCallInput(step, workflowName, workflows, workflowInputs, symbols, nonNullReferences, knownEmptyStringReferences, errors);
-        ValidateSetOutputSchema(step, workflowName, symbols, nonNullReferences, errors);
+        ValidateSetOutputSchema(step, workflowName, symbols, nonNullReferences, functionDefinitions, errors);
         if (stepContracts.TryGetValue(step.Type, out var stepContract))
         {
             foreach (var mismatch in StepExpressionTypeValidator.ValidateInput(
@@ -880,7 +892,7 @@ internal static class WorkflowPlanSemanticValidator
             {
                 var branchKnown = CloneContracts(knownContracts);
                 var branchSymbols = symbols.Clone();
-                ValidateStepList(branch.Steps, workflowName, workflows, workflowInputs, branchKnown, branchSymbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                ValidateStepList(branch.Steps, workflowName, workflows, workflowInputs, branchKnown, branchSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 foreach (var produced in branchKnown.Where(kv => !knownContracts.ContainsKey(kv.Key)))
                     branchProducedContracts[produced.Key] = produced.Value?.DeepClone();
             }
@@ -917,7 +929,7 @@ internal static class WorkflowPlanSemanticValidator
                     // guaranteed mappings after the switch. Validate each branch independently.
                     var caseKnown = CloneContracts(knownContracts);
                     var caseSymbols = symbols.Clone();
-                    ValidateStepList(@case.Steps, workflowName, workflows, workflowInputs, caseKnown, caseSymbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                    ValidateStepList(@case.Steps, workflowName, workflows, workflowInputs, caseKnown, caseSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 }
             }
 
@@ -925,7 +937,7 @@ internal static class WorkflowPlanSemanticValidator
             {
                 var defaultKnown = CloneContracts(knownContracts);
                 var defaultSymbols = symbols.Clone();
-                ValidateStepList(step.Default, workflowName, workflows, workflowInputs, defaultKnown, defaultSymbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                ValidateStepList(step.Default, workflowName, workflows, workflowInputs, defaultKnown, defaultSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
             }
         }
         else if (step.Type is "loop.sequential" or "loop.parallel")
@@ -937,7 +949,7 @@ internal static class WorkflowPlanSemanticValidator
                 var loopKnown = CloneContracts(knownContracts);
                 var loopSymbols = symbols.Clone();
                 AddLoopScopedDataVariables(step, loopSymbols, symbols);
-                ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, loopKnown, loopSymbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, loopKnown, loopSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 resolvedStepOutputType = BuildLoopOutputType(loopSymbols);
             }
         }
@@ -949,11 +961,11 @@ internal static class WorkflowPlanSemanticValidator
                 {
                     var conditionalKnown = CloneContracts(knownContracts);
                     var conditionalSymbols = symbols.Clone();
-                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, conditionalKnown, conditionalSymbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, conditionalKnown, conditionalSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 }
                 else
                 {
-                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 }
             }
         }
@@ -979,6 +991,7 @@ internal static class WorkflowPlanSemanticValidator
         string workflowName,
         WorkflowSymbolTable symbols,
         IReadOnlySet<string>? nonNullReferences,
+        IReadOnlyDictionary<string, FunctionDefinition> functionDefinitions,
         List<WorkflowSemanticValidationError> errors)
     {
         if (step.OutputSchema == null)
@@ -1050,6 +1063,15 @@ internal static class WorkflowPlanSemanticValidator
             return;
 
         var outputType = FlowTypeDescriptorConverter.FromJsonSchema(outputSchema);
+        ValidateClosedOutputSchemaFunctionSources(
+            step.Input,
+            outputType,
+            workflowName,
+            step.Id,
+            "input",
+            functionDefinitions,
+            errors);
+
         foreach (var mismatch in StepExpressionTypeValidator.ValidateInput(
                      step.Input,
                      outputType,
@@ -1103,6 +1125,228 @@ internal static class WorkflowPlanSemanticValidator
                 Message = $"set input does not satisfy output_schema: {schemaError.Message}"
             });
         }
+    }
+
+    private static void ValidateClosedOutputSchemaFunctionSources(
+        JsonNode? value,
+        FlowTypeDescriptor expectedType,
+        string workflowName,
+        string? stepId,
+        string field,
+        IReadOnlyDictionary<string, FunctionDefinition> functionDefinitions,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        if (expectedType.IsOpaque)
+            return;
+
+        if (TryGetExactCustomFunctionExpression(value, functionDefinitions, out var functionName, out var expression, out var definition)
+            && RequiresPreciseObjectProjection(expectedType)
+            && !HasPreciseJsDocReturnForClosedShape(definition.ReturnType, expectedType))
+        {
+            var returnType = string.IsNullOrWhiteSpace(definition.ReturnType)
+                ? "unknown"
+                : definition.ReturnType;
+            errors.Add(new WorkflowSemanticValidationError
+            {
+                Code = "SET_OUTPUT_SCHEMA_OPAQUE_FUNCTION",
+                WorkflowName = workflowName,
+                StepId = stepId,
+                Field = field,
+                InvalidPath = expression,
+                AllowedPaths = FlowTypeDescriptorConverter.EnumerateAllowedPaths(field, expectedType).Take(64).ToArray(),
+                Suggestion = "Closed set output_schema fields cannot be populated from opaque custom-function object returns. Project exactly the declared schema fields in the function result, or declare and return a precise object-shape contract.",
+                Message = $"set output_schema for '{field}' is closed, but custom function `{functionName}` declares opaque @returns {{{returnType}}}. The validator cannot prove that extra object properties are omitted before runtime."
+            });
+            return;
+        }
+
+        if (value is JsonObject obj && TrySelectObjectType(expectedType, out var objectType))
+        {
+            foreach (var (name, child) in obj)
+            {
+                var childType = objectType.Properties.TryGetValue(name, out var property)
+                    ? property.Type
+                    : objectType.AdditionalProperties ?? FlowTypeDescriptor.Any;
+                ValidateClosedOutputSchemaFunctionSources(
+                    child,
+                    childType,
+                    workflowName,
+                    stepId,
+                    $"{field}.{name}",
+                    functionDefinitions,
+                    errors);
+            }
+            return;
+        }
+
+        if (value is JsonArray array && TrySelectArrayType(expectedType, out var arrayType))
+        {
+            var itemType = arrayType.Items ?? FlowTypeDescriptor.Any;
+            for (var i = 0; i < array.Count; i++)
+            {
+                ValidateClosedOutputSchemaFunctionSources(
+                    array[i],
+                    itemType,
+                    workflowName,
+                    stepId,
+                    $"{field}[{i}]",
+                    functionDefinitions,
+                    errors);
+            }
+        }
+    }
+
+    private static bool TryGetExactCustomFunctionExpression(
+        JsonNode? value,
+        IReadOnlyDictionary<string, FunctionDefinition> functionDefinitions,
+        out string functionName,
+        out string expression,
+        out FunctionDefinition definition)
+    {
+        functionName = "";
+        expression = "";
+        definition = default!;
+
+        if (value is not JsonValue scalar || !scalar.TryGetValue<string>(out var text) || string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var match = ExactNamespacedFunctionExpressionRegex.Match(text);
+        if (!match.Success)
+            return false;
+
+        functionName = match.Groups["function"].Value;
+        if (!functionDefinitions.TryGetValue(functionName, out definition!))
+            return false;
+
+        expression = text;
+        return true;
+    }
+
+    private static bool RequiresPreciseObjectProjection(FlowTypeDescriptor type)
+    {
+        if (type.IsOpaque)
+            return false;
+
+        return type.Kind switch
+        {
+            FlowTypeKind.Union => type.Variants.Any(RequiresPreciseObjectProjection),
+            FlowTypeKind.Array => type.Items != null && RequiresPreciseObjectProjection(type.Items),
+            FlowTypeKind.Object => !type.AllowsAdditionalProperties && type.AdditionalProperties == null,
+            _ => false
+        };
+    }
+
+    private static bool HasPreciseJsDocReturnForClosedShape(string? returnType, FlowTypeDescriptor expectedType)
+    {
+        if (string.IsNullOrWhiteSpace(returnType))
+            return false;
+
+        if (expectedType.Kind == FlowTypeKind.Union)
+            return expectedType.Variants.Any(variant => HasPreciseJsDocReturnForClosedShape(returnType, variant));
+
+        var normalized = NormalizeJsDocType(returnType);
+        if (expectedType.Kind == FlowTypeKind.Array)
+        {
+            if (expectedType.Items == null || !RequiresPreciseObjectProjection(expectedType.Items))
+                return true;
+
+            return TryGetJsDocArrayItemType(normalized, out var itemType)
+                   && IsPreciseJsDocObjectShape(itemType);
+        }
+
+        if (expectedType.Kind == FlowTypeKind.Object && !expectedType.AllowsAdditionalProperties && expectedType.AdditionalProperties == null)
+            return IsPreciseJsDocObjectShape(normalized);
+
+        return true;
+    }
+
+    private static string NormalizeJsDocType(string returnType) =>
+        new(returnType
+            .Trim()
+            .Where(static c => !char.IsWhiteSpace(c))
+            .Select(static c => char.ToLowerInvariant(c))
+            .ToArray());
+
+    private static bool TryGetJsDocArrayItemType(string normalizedType, out string itemType)
+    {
+        itemType = "";
+
+        if (normalizedType.StartsWith("array<", StringComparison.Ordinal))
+        {
+            itemType = normalizedType["array<".Length..];
+            if (itemType.EndsWith('>'))
+                itemType = itemType[..^1];
+            return itemType.Length > 0;
+        }
+
+        if (normalizedType.StartsWith("array.", StringComparison.Ordinal))
+        {
+            itemType = normalizedType["array.".Length..];
+            return itemType.Length > 0;
+        }
+
+        if (normalizedType.EndsWith("[]", StringComparison.Ordinal))
+        {
+            itemType = normalizedType[..^2];
+            return itemType.Length > 0;
+        }
+
+        return false;
+    }
+
+    private static bool IsPreciseJsDocObjectShape(string normalizedType)
+    {
+        if (normalizedType is "object" or "object[]" or "array<object>" or "array.<object>" or "array" or "any" or "*" or "unknown")
+            return false;
+
+        return normalizedType.Contains(':', StringComparison.Ordinal)
+               && (normalizedType.StartsWith("{", StringComparison.Ordinal)
+                   || normalizedType.Contains("{", StringComparison.Ordinal)
+                   || normalizedType.StartsWith("object{", StringComparison.Ordinal));
+    }
+
+    private static bool TrySelectObjectType(FlowTypeDescriptor expectedType, out FlowTypeDescriptor objectType)
+    {
+        if (expectedType.Kind == FlowTypeKind.Object)
+        {
+            objectType = expectedType;
+            return true;
+        }
+
+        if (expectedType.Kind == FlowTypeKind.Union)
+        {
+            var candidate = expectedType.Variants.FirstOrDefault(static variant => variant.Kind == FlowTypeKind.Object);
+            if (candidate != null)
+            {
+                objectType = candidate;
+                return true;
+            }
+        }
+
+        objectType = default!;
+        return false;
+    }
+
+    private static bool TrySelectArrayType(FlowTypeDescriptor expectedType, out FlowTypeDescriptor arrayType)
+    {
+        if (expectedType.Kind == FlowTypeKind.Array)
+        {
+            arrayType = expectedType;
+            return true;
+        }
+
+        if (expectedType.Kind == FlowTypeKind.Union)
+        {
+            var candidate = expectedType.Variants.FirstOrDefault(static variant => variant.Kind == FlowTypeKind.Array);
+            if (candidate != null)
+            {
+                arrayType = candidate;
+                return true;
+            }
+        }
+
+        arrayType = default!;
+        return false;
     }
 
     private static bool DeclaresJsonObjectRoot(JsonObject schemaObject)
