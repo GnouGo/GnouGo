@@ -847,14 +847,14 @@ Produce the final answer strictly from the executed MCP results.
             if (string.IsNullOrWhiteSpace(name) || (allowed != null && !allowed.Contains(name)))
                 continue;
 
-            capabilities.Add(CreateToolCapability(new McpToolInfo
+            capabilities.Add(CreateToolCapability(McpToolContractEnricher.EnrichTool(new McpToolInfo
             {
                 Name = name,
                 Description = node["description"]?.GetValue<string>(),
                 InputSchema = node["input_schema"]?.DeepClone() ?? node["inputSchema"]?.DeepClone(),
                 OutputSchema = node["output_schema"]?.DeepClone() ?? node["outputSchema"]?.DeepClone(),
                 ExampleResponse = node["example_response"]?.DeepClone() ?? node["exampleResponse"]?.DeepClone()
-            }, usedNames));
+            }), usedNames));
         }
     }
 

@@ -702,7 +702,7 @@ internal sealed class McpSessionAdapter : IMcpSession
     public async Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct)
     {
         var tools = await _client.ListToolsAsync(cancellationToken: ct);
-        return tools.Select(t => new McpToolInfo
+        var mappedTools = tools.Select(t => new McpToolInfo
         {
             Name = t.Name,
             Description = t.Description,
@@ -710,6 +710,7 @@ internal sealed class McpSessionAdapter : IMcpSession
                 ? JsonNode.Parse(t.JsonSchema.GetRawText())
                 : null
         }).ToList().AsReadOnly();
+        return McpToolContractEnricher.EnrichTools(mappedTools);
     }
 
     public async Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct)

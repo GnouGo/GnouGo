@@ -106,6 +106,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("MCP workspace path rules:");
         sb.AppendLine("- For path-like MCP request fields, follow the MCP schema and tool description exactly. When the contract says the path is workspace-relative or relative, never invent absolute paths such as `/workspace/...`, `/Users/...`, `C:\\...`, or `~/...`.");
         sb.AppendLine("- When chaining path outputs between MCP tools, use only fields documented as relative for later relative path arguments. Treat fields documented as absolute or diagnostic as non-portable.");
+        sb.AppendLine("- When a contract says a workspace-relative path/root/directory must already exist, pass an exact data reference from a previous producer output or workflow input documented as that resource; do not construct it with a literal or string template.");
         AppendPromptSectionEnd(sb, "workflow_plan_generation_guardrails");
     }
 

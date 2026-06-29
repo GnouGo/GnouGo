@@ -35,7 +35,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         "5. Never convert a string input to a number just to satisfy an MCP schema.",
         "6. For path-like MCP request fields, follow the MCP schema and tool description exactly. When the contract says the path is workspace-relative or relative, never invent absolute paths such as /workspace/..., /Users/..., C:\\..., or ~/... literals.",
         "7. When chaining MCP outputs into path request fields, use only fields documented as relative for later relative path arguments. Treat fields documented as absolute or diagnostic as non-portable.",
-        "8. Prefer the exact MCP argument name and type."
+        "8. When a contract says a workspace-relative path/root/directory must already exist, pass an exact data reference from a previous producer output or workflow input documented as that resource; do not construct it with a literal or string template.",
+        "9. Prefer the exact MCP argument name and type."
     };
 
     public string StepType => "workflow.plan";

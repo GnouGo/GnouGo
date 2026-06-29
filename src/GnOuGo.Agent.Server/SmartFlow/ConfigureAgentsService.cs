@@ -160,6 +160,7 @@ public sealed class ConfigureAgentsService
         var engine = new WorkflowEngine
         {
             LLMClient = runtime.LlmClient,
+            LLMCapabilities = runtime.LlmCapabilityResolver,
             LlmDefaults = new LlmRuntimeDefaults
             {
                 Provider = runtime.Options.DefaultProvider,

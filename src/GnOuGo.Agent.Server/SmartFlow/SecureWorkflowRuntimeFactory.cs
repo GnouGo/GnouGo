@@ -14,6 +14,7 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly ILLMClient? _llmClientOverride;
     private readonly IMcpClientFactory? _mcpClientFactoryOverride;
     private readonly IMemoryCache? _backgroundModeCache;
+    private readonly ILLMCapabilityResolver? _llmCapabilityResolver;
 
     public SecureWorkflowRuntimeFactory(
         LLMRuntimeOptionsStore optionsStore,
@@ -21,7 +22,8 @@ public sealed class SecureWorkflowRuntimeFactory
         ILoggerFactory? loggerFactory = null,
         ILLMClient? llmClientOverride = null,
         IMcpClientFactory? mcpClientFactoryOverride = null,
-        IMemoryCache? backgroundModeCache = null)
+        IMemoryCache? backgroundModeCache = null,
+        ILLMCapabilityResolver? llmCapabilityResolver = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
@@ -29,6 +31,7 @@ public sealed class SecureWorkflowRuntimeFactory
         _llmClientOverride = llmClientOverride;
         _mcpClientFactoryOverride = mcpClientFactoryOverride;
         _backgroundModeCache = backgroundModeCache;
+        _llmCapabilityResolver = llmCapabilityResolver;
     }
 
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
@@ -46,6 +49,7 @@ public sealed class SecureWorkflowRuntimeFactory
         return new SecureWorkflowRuntimeSession(
             llmClient,
             mcpFactory,
+            _llmCapabilityResolver,
             options,
             http);
     }
@@ -58,11 +62,13 @@ internal sealed class SecureWorkflowRuntimeSession : IAsyncDisposable
     public SecureWorkflowRuntimeSession(
         ILLMClient llmClient,
         IMcpClientFactory mcpClientFactory,
+        ILLMCapabilityResolver? llmCapabilityResolver,
         LLMOptions options,
         HttpClient httpClient)
     {
         LlmClient = llmClient;
         McpClientFactory = mcpClientFactory;
+        LlmCapabilityResolver = llmCapabilityResolver;
         Options = options;
         _httpClient = httpClient;
     }
@@ -70,6 +76,8 @@ internal sealed class SecureWorkflowRuntimeSession : IAsyncDisposable
     public ILLMClient LlmClient { get; }
 
     public IMcpClientFactory McpClientFactory { get; }
+
+    public ILLMCapabilityResolver? LlmCapabilityResolver { get; }
 
     public LLMOptions Options { get; }
 
@@ -148,4 +156,3 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
         return response;
     }
 }
-

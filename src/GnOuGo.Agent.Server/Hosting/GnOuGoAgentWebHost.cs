@@ -383,6 +383,7 @@ public static class GnOuGoAgentWebHost
             var innerCatalog = new DynamicRoutingLLMModelCatalogAdapter(http, store, loggerFactory);
             return new CachedLlmModelCatalog(innerCatalog, store, cache, settings, logger);
         });
+        builder.Services.AddSingleton<ILLMCapabilityResolver, FlowLlmCapabilityResolver>();
         builder.Services.AddSingleton<IMcpClientFactory>(sp =>
         {
             var runtimeOptions = sp.GetRequiredService<LLMRuntimeOptionsStore>().Current;

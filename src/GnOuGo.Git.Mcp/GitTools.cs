@@ -22,8 +22,8 @@ public sealed class GitTools
         _logger = logger;
     }
 
-    [McpServerTool(Name = "git_get_policy"), Description("Returns the active Git MCP policy: allowed roots, mutation/network flags, limits, and auth source status. Call this first to discover the default workspace.")]
-    public GitPolicyInfo GetPolicy() => _policy.DescribePolicy();
+   /* [McpServerTool(Name = "git_get_policy"), Description("Returns the active Git MCP policy: allowed roots, mutation/network flags, limits, and auth source status. Call this first to discover the default workspace.")]
+    public GitPolicyInfo GetPolicy() => _policy.DescribePolicy();*/
 
     [McpServerTool(Name = "git_repository_info"), Description("Returns basic information about an existing Git repository project root. Omit projectRoot or pass null to use the default workspace; empty string is invalid.")]
     public object GitRepositoryInfo([Description("Existing project root relative to the workspace, or null/omitted to use the default workspace. Empty string is invalid. Use git_clone.response.projectRootRelative after cloning; do not invent this path before it exists.")] string? projectRoot = null)

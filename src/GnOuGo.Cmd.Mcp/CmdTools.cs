@@ -16,13 +16,13 @@ public sealed class CmdTools
         _logger = logger;
     }
 
-    [McpServerTool(Name = "cmd_list_allowed_commands"), Description("Lists the allowlisted commands that this secure command MCP server is allowed to execute. Takes no arguments. Output shape: { \"commands\": [ { \"name\": string, \"description\": string|null, \"shell\": string, \"workingDirectory\": string, \"workingDirectoryRelative\": string|null, \"parameters\": string[] } ] }. Each entry includes the exact commandName value to pass to cmd_run, its description, target shell, resolved working directory, relative working directory when available, and accepted parameters. Commands run within the default workspace.")]
+   /* [McpServerTool(Name = "cmd_list_allowed_commands"), Description("Lists the allowlisted commands that this secure command MCP server is allowed to execute. Takes no arguments. Output shape: { \"commands\": [ { \"name\": string, \"description\": string|null, \"shell\": string, \"workingDirectory\": string, \"workingDirectoryRelative\": string|null, \"parameters\": string[] } ] }. Each entry includes the exact commandName value to pass to cmd_run, its description, target shell, resolved working directory, relative working directory when available, and accepted parameters. Commands run within the default workspace.")]
     public CmdAllowedCommandsResult ListAllowedCommands()
         => new(_host.ListAllowedCommands());
 
     [McpServerTool(Name = "cmd_get_policy"), Description("Returns the active command execution policy. Takes no arguments. Output shape: { \"allowedShells\": string[], \"allowedWorkingRoots\": string[], \"allowedWorkingRootsRelative\": string[]|null, \"defaultWorkingDirectory\": string|null, \"defaultWorkingDirectoryRelative\": string|null, \"defaultTimeoutMs\": integer, \"maxTimeoutMs\": integer, \"maxOutputCharacters\": integer, \"allowedCommandCount\": integer, \"environment\": { \"operatingSystem\": string, \"architecture\": string, \"machineName\": string, \"availableShells\": [ { \"name\": string, \"available\": boolean, \"resolvedPath\": string|null } ] } }. Use it to discover execution limits; for workflow chaining prefer relative path fields over absolute roots.")]
     public CmdPolicyInfo GetPolicy()
-        => _host.GetPolicy();
+        => _host.GetPolicy();*/
 
 
     [McpServerTool(Name = "cmd_run"), Description("Runs one allowlisted command by name. Raw shell commands are not accepted; only preconfigured aliases may be executed. Commands execute within the default workspace. Returns a structured result with stdout, stderr, exit code, success flag, and error details if any.")]

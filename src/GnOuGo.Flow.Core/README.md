@@ -1262,12 +1262,14 @@ Use `mode: pipeline` when the input is a raw user automation prompt that should 
 Pipeline mode runs five traced phases:
 
 1. `normalize_user_prompt` rewrites the raw prompt as clean Markdown without changing meaning.
-2. `mark_extractable_blocks` wraps only significant algorithmic sections in `:::subworkflow name="..."` blocks and adds a `## Main workflow orchestration` section.
+2. `mark_extractable_blocks` uses strict structured extraction when the resolved model explicitly supports structured output; otherwise it falls back to annotated Markdown. Structured extraction returns metadata plus annotated Markdown: the Markdown still wraps only significant algorithmic sections in `:::subworkflow name="..."` blocks and adds a `## Main workflow orchestration` section, while the sidecar records each leaf's description, typed input/output schemas, and planned MCP tools/prompts to call.
 3. `extract_subworkflow_specs` parses those blocks as-is, builds generation prompts, and reports validation errors for nested blocks or subworkflow-call mentions.
 4. `generate_subworkflows` runs the normal `workflow.plan` generator for each leaf workflow in parallel. Each leaf prompt contains only that leaf's goal, input/output contract, and content; leaf generation forbids `workflow.call` and `workflow.plan`, preserves the configured MCP prefilter behavior, forces validation, retries failed leaf generation up to the parent repair attempt budget, and rejects bare `type: object` schemas unless they define non-empty `properties`.
 5. `assemble_main_workflow` sends a compact leaf manifest, the generated leaf contracts, and a minimal main-graph DSL context to the LLM. The LLM returns only a `document` plus orchestration `graph`; the runtime renders the real `main` workflow deterministically and grafts the validated leaf workflows before final validation.
 
-The final YAML has exactly one hierarchy level: `main` may call local leaf workflows with `workflow.call`, while leaf workflows must never contain `workflow.call` or `workflow.plan`. The returned `pipeline` object includes `normalized_markdown`, `annotated_markdown`, and parsed `specs`.
+The final YAML has exactly one hierarchy level: `main` may call local leaf workflows with `workflow.call`, while leaf workflows must never contain `workflow.call` or `workflow.plan`. The returned `pipeline` object includes `normalized_markdown`, `annotated_markdown`, and parsed `specs`; each spec includes `description`, `input_schemas`, `output_schemas`, and `planned_tools`.
+
+When structured extraction is active and `planned_tools[].required` is true, leaf generation must emit an explicit direct `mcp.call` with matching `input.server`, `input.kind`, and literal `input.method` or `input.methods`. Pipeline validation rejects a generated leaf that omits a required planned tool. If pipeline-level MCP context was built, extraction also verifies planned server/tool/prompt names against the discovered capabilities; otherwise final MCP-aware validation still checks generated calls against the runtime registry.
 
 When a generated leaf workflow contains root-level helper functions, final assembly moves those helpers into the grafted leaf workflow's own `functions:` block. They are not promoted to the final document root, so helpers remain isolated with the leaf that uses them.
 

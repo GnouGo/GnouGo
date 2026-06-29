@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using System.Globalization;
+using System.Text;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
@@ -44,6 +46,7 @@ internal sealed class WorkflowSemanticValidationException : Exception
 internal static class WorkflowPlanSemanticValidator
 {
     private const string McpRequestExpressionTypeMismatchCode = "MCP_REQUEST_EXPR_TYPE_MISMATCH";
+    private const string ExistingWorkspaceRelativePathResource = WorkflowResourceInference.ExistingWorkspaceRelativePathResource;
 
     private static readonly Regex ExpressionRegex = new(@"\$\{([^}]+)\}", RegexOptions.Compiled);
     private static readonly Regex DataStepsPathRegex = new(
@@ -57,6 +60,9 @@ internal static class WorkflowPlanSemanticValidator
         RegexOptions.Compiled);
     private static readonly Regex ExactNamespacedFunctionExpressionRegex = new(
         @"^\s*\$\{\s*functions\.(?<function>[A-Za-z_][A-Za-z0-9_]*)\s*\([\s\S]*\)\s*\}\s*$",
+        RegexOptions.Compiled);
+    private static readonly Regex ExactDataReferenceExpressionRegex = new(
+        @"^\s*\$\{\s*(?<reference>data\.(?:inputs|steps|[A-Za-z_][A-Za-z0-9_]*)(?:\.[A-Za-z_][A-Za-z0-9_-]*)*)\s*\}\s*$",
         RegexOptions.Compiled);
     private static readonly Regex FunctionDeclarationRegex = new(
         @"\bfunction\s+(?<name>[A-Za-z_$][A-Za-z0-9_$]*)\s*\((?<params>[^)]*)\)",
@@ -124,6 +130,7 @@ internal static class WorkflowPlanSemanticValidator
             var knownEmptyStringReferences = CollectKnownEmptySetStringReferences(workflow.Steps);
             var knownContracts = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
             var symbols = WorkflowSymbolTable.Create(workflowName, workflow.Inputs, allStepIds);
+            MarkWorkflowInputResources(workflow.Inputs, symbols);
             ValidateFunctionJsDoc(workflow.Functions, workflowName, errors);
             var allowedFunctionNames = BuildAllowedFunctionNames(workflow.Functions, globalFunctionNames);
             var functionDefinitions = BuildFunctionDefinitions(workflow.Functions, $"workflows.{workflowName}.functions", globalFunctionDefinitions);
@@ -981,8 +988,12 @@ internal static class WorkflowPlanSemanticValidator
             var outputSchema = FlowTypeDescriptorConverter.ToRuntimeJsonSchema(outputType);
             knownContracts[step.Id] = outputSchema;
             symbols.SetStepOutput(step.Id, outputType);
+            MarkStepOutputResources(step, workflows, symbols, mcpContracts);
             if (!string.IsNullOrWhiteSpace(step.Output))
+            {
                 symbols.SetDataVariable(step.Output, outputType);
+                symbols.CopyResourceTagsByPrefix($"steps.{step.Id}", step.Output);
+            }
         }
     }
 
@@ -1395,6 +1406,7 @@ internal static class WorkflowPlanSemanticValidator
             workflowName,
             null,
             errors);
+        ValidateWorkflowOutputResourceProvenance(outputDef, workflowName, field, symbols, errors);
 
         if (outputDef.Properties != null)
         {
@@ -1428,9 +1440,530 @@ internal static class WorkflowPlanSemanticValidator
             Field = field,
             InvalidPath = field,
             AllowedPaths = Array.Empty<string>(),
-            Suggestion = "Do not model existing workspace paths as empty-string fallbacks. Stop/guard the failure path, use null for an intentionally optional path, or return the successful MCP value such as git_clone.response.projectRootRelative.",
-            Message = $"Workflow path output '{field}' can resolve to an empty string, which later makes MCP projectRoot fall back to the default workspace."
+            Suggestion = "Do not model existing workspace paths as empty-string fallbacks. Stop/guard the failure path, use null for an intentionally optional path, or return the successful value documented by the producer contract.",
+            Message = $"Workflow path output '{field}' can resolve to an empty string, which can make downstream MCP path fields fall back to the wrong workspace."
         });
+    }
+
+    private static void MarkWorkflowInputResources(
+        IReadOnlyDictionary<string, InputDef>? inputs,
+        WorkflowSymbolTable symbols)
+    {
+        if (inputs == null)
+            return;
+
+        foreach (var (inputName, inputDef) in inputs)
+            MarkWorkflowInputResource(inputName, inputDef, $"inputs.{inputName}", symbols);
+    }
+
+    private static void MarkWorkflowInputResource(
+        string fieldName,
+        InputDef inputDef,
+        string reference,
+        WorkflowSymbolTable symbols)
+    {
+        if (InferRequiredResourceKind(fieldName, inputDef) is { } resourceKind)
+            symbols.MarkResource(reference, resourceKind);
+
+        if (inputDef.Properties != null)
+        {
+            foreach (var (propertyName, propertyDef) in inputDef.Properties)
+                MarkWorkflowInputResource(propertyName, propertyDef, $"{reference}.{propertyName}", symbols);
+        }
+
+        if (inputDef.Items != null)
+            MarkWorkflowInputResource(fieldName, inputDef.Items, reference, symbols);
+    }
+
+    private static void MarkStepOutputResources(
+        StepDef step,
+        IReadOnlyDictionary<string, WorkflowDef> workflows,
+        WorkflowSymbolTable symbols,
+        Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts)
+    {
+        if (string.IsNullOrWhiteSpace(step.Id))
+            return;
+
+        if (string.Equals(step.Type, "mcp.call", StringComparison.Ordinal))
+        {
+            MarkMcpCallOutputResources(step, symbols, mcpContracts);
+            return;
+        }
+
+        if (string.Equals(step.Type, "set", StringComparison.Ordinal)
+            || string.Equals(step.Type, "assert.non_null", StringComparison.Ordinal))
+        {
+            PropagateResourceTagsFromStepInput(step, symbols);
+            return;
+        }
+
+        if (string.Equals(step.Type, "workflow.call", StringComparison.Ordinal))
+            MarkWorkflowCallOutputResources(step, workflows, symbols);
+    }
+
+    private static void MarkMcpCallOutputResources(
+        StepDef step,
+        WorkflowSymbolTable symbols,
+        Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts)
+    {
+        var serverName = TryGetInputString(step, "server");
+        var methodName = TryGetInputString(step, "method");
+        if (string.IsNullOrWhiteSpace(serverName)
+            || string.IsNullOrWhiteSpace(methodName)
+            || !mcpContracts.TryGetValue((serverName, methodName), out var contract)
+            || contract.OutputSchema == null)
+        {
+            return;
+        }
+
+        MarkProducedResourcesFromJsonSchema(
+            contract.OutputSchema,
+            fieldName: "response",
+            reference: $"steps.{step.Id}.response",
+            symbols);
+    }
+
+    private static void MarkWorkflowCallOutputResources(
+        StepDef step,
+        IReadOnlyDictionary<string, WorkflowDef> workflows,
+        WorkflowSymbolTable symbols)
+    {
+        if (step.Input is not JsonObject input
+            || input["ref"] is not JsonObject refObject
+            || !string.Equals(TryGetLiteralString(refObject["kind"]) ?? "local", "local", StringComparison.OrdinalIgnoreCase)
+            || TryGetLiteralString(refObject["name"]) is not { } targetName
+            || !workflows.TryGetValue(targetName, out var targetWorkflow)
+            || targetWorkflow.Outputs == null)
+        {
+            return;
+        }
+
+        foreach (var (outputName, outputDef) in targetWorkflow.Outputs)
+            MarkWorkflowOutputResource(outputName, outputDef, $"steps.{step.Id}.outputs.{outputName}", symbols);
+    }
+
+    private static void MarkWorkflowOutputResource(
+        string fieldName,
+        OutputDef outputDef,
+        string reference,
+        WorkflowSymbolTable symbols)
+    {
+        if (InferProducedResourceKind(fieldName, outputDef) is { } resourceKind)
+            symbols.MarkResource(reference, resourceKind);
+
+        if (outputDef.Properties != null)
+        {
+            foreach (var (propertyName, propertyDef) in outputDef.Properties)
+                MarkWorkflowOutputResource(propertyName, propertyDef, $"{reference}.{propertyName}", symbols);
+        }
+
+        if (outputDef.Items != null)
+            MarkWorkflowOutputResource(fieldName, outputDef.Items, reference, symbols);
+    }
+
+    private static void PropagateResourceTagsFromStepInput(StepDef step, WorkflowSymbolTable symbols)
+    {
+        if (step.Input is not JsonObject input || string.IsNullOrWhiteSpace(step.Id))
+            return;
+
+        PropagateResourceTagsFromJson(input, $"steps.{step.Id}", symbols);
+    }
+
+    private static void PropagateResourceTagsFromJson(JsonNode? node, string targetReference, WorkflowSymbolTable symbols)
+    {
+        if (TryNormalizeExactDataReference(node, out var sourceReference))
+        {
+            symbols.CopyResourceTags(sourceReference, targetReference);
+            symbols.CopyResourceTagsByPrefix(sourceReference, targetReference);
+            return;
+        }
+
+        if (node is JsonObject obj)
+        {
+            foreach (var (propertyName, propertyValue) in obj)
+                PropagateResourceTagsFromJson(propertyValue, $"{targetReference}.{propertyName}", symbols);
+        }
+    }
+
+    private static void MarkProducedResourcesFromJsonSchema(
+        JsonNode? schema,
+        string fieldName,
+        string reference,
+        WorkflowSymbolTable symbols)
+    {
+        if (InferProducedResourceKind(fieldName, schema) is { } resourceKind)
+            symbols.MarkResource(reference, resourceKind);
+
+        if (schema is not JsonObject schemaObject)
+            return;
+
+        foreach (var variant in EnumerateSchemaVariants(schemaObject))
+            MarkProducedResourcesFromJsonSchema(variant, fieldName, reference, symbols);
+
+        if (schemaObject["properties"] is JsonObject properties)
+        {
+            foreach (var (propertyName, propertySchema) in properties)
+                MarkProducedResourcesFromJsonSchema(propertySchema, propertyName, $"{reference}.{propertyName}", symbols);
+        }
+
+        if (schemaObject["items"] != null)
+            MarkProducedResourcesFromJsonSchema(schemaObject["items"], fieldName, reference, symbols);
+    }
+
+    private static void ValidateWorkflowOutputResourceProvenance(
+        OutputDef outputDef,
+        string workflowName,
+        string field,
+        WorkflowSymbolTable symbols,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        if (InferProducedResourceKind(LastFieldSegment(field), outputDef) is not { } resourceKind)
+            return;
+
+        ValidateResourceValueProvenance(
+            JsonValue.Create(outputDef.Expr),
+            resourceKind,
+            workflowName,
+            stepId: null,
+            field,
+            "WORKFLOW_OUTPUT_RESOURCE_PROVENANCE",
+            "workflow output",
+            symbols,
+            errors);
+    }
+
+    private static void ValidateResourceProvenanceAgainstSchema(
+        JsonNode? value,
+        JsonNode? schema,
+        string workflowName,
+        string? stepId,
+        string field,
+        string code,
+        string consumerLabel,
+        WorkflowSymbolTable symbols,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        ValidateResourceProvenanceAgainstSchema(
+            value,
+            schema,
+            propertyName: LastFieldSegment(field),
+            workflowName,
+            stepId,
+            field,
+            code,
+            consumerLabel,
+            symbols,
+            errors);
+    }
+
+    private static void ValidateResourceProvenanceAgainstSchema(
+        JsonNode? value,
+        JsonNode? schema,
+        string propertyName,
+        string workflowName,
+        string? stepId,
+        string field,
+        string code,
+        string consumerLabel,
+        WorkflowSymbolTable symbols,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        if (schema is not JsonObject schemaObject)
+            return;
+
+        if (InferRequiredResourceKind(propertyName, schemaObject) is { } resourceKind)
+        {
+            ValidateResourceValueProvenance(value, resourceKind, workflowName, stepId, field, code, consumerLabel, symbols, errors);
+            return;
+        }
+
+        foreach (var variant in EnumerateSchemaVariants(schemaObject))
+            ValidateResourceProvenanceAgainstSchema(value, variant, propertyName, workflowName, stepId, field, code, consumerLabel, symbols, errors);
+
+        var typeName = ReadApplicableSchemaType(schemaObject, value);
+        if (string.Equals(typeName, "object", StringComparison.Ordinal)
+            && value is JsonObject obj
+            && schemaObject["properties"] is JsonObject properties)
+        {
+            foreach (var (childName, childSchema) in properties)
+            {
+                if (!obj.TryGetPropertyValue(childName, out var childValue) || childValue == null)
+                    continue;
+
+                ValidateResourceProvenanceAgainstSchema(
+                    childValue,
+                    childSchema,
+                    childName,
+                    workflowName,
+                    stepId,
+                    $"{field}.{childName}",
+                    code,
+                    consumerLabel,
+                    symbols,
+                    errors);
+            }
+        }
+
+        if (string.Equals(typeName, "array", StringComparison.Ordinal)
+            && value is JsonArray array
+            && schemaObject["items"] != null)
+        {
+            for (var i = 0; i < array.Count; i++)
+            {
+                ValidateResourceProvenanceAgainstSchema(
+                    array[i],
+                    schemaObject["items"],
+                    propertyName,
+                    workflowName,
+                    stepId,
+                    $"{field}[{i}]",
+                    code,
+                    consumerLabel,
+                    symbols,
+                    errors);
+            }
+        }
+    }
+
+    private static void ValidateResourceValueProvenance(
+        JsonNode? value,
+        string resourceKind,
+        string workflowName,
+        string? stepId,
+        string field,
+        string code,
+        string consumerLabel,
+        WorkflowSymbolTable symbols,
+        List<WorkflowSemanticValidationError> errors)
+    {
+        if (value == null)
+            return;
+
+        if (TryNormalizeExactDataReference(value, out var reference)
+            && symbols.HasResource(reference, resourceKind))
+        {
+            return;
+        }
+
+        var invalidPath = TryNormalizeExactDataReference(value, out reference)
+            ? FormatDataReference(reference)
+            : DescribeResourceValue(value);
+        var allowedPaths = symbols.ResourceReferences(resourceKind, 64)
+            .Select(FormatDataReference)
+            .ToArray();
+
+        errors.Add(new WorkflowSemanticValidationError
+        {
+            Code = code,
+            WorkflowName = workflowName,
+            StepId = stepId,
+            Field = field,
+            InvalidPath = invalidPath,
+            AllowedPaths = allowedPaths,
+            Suggestion = "Pass an exact data reference produced by a previous step or workflow input whose contract declares the required existing workspace-relative resource. Do not construct an existing path with string literals or templates.",
+            Message = $"{consumerLabel} '{field}' requires an existing workspace-relative path resource, but the provided value is not proven to come from a matching producer contract."
+        });
+    }
+
+    private static string? InferRequiredResourceKind(string fieldName, InputDef inputDef)
+        => WorkflowResourceInference.InferRequiredResourceKind(fieldName, inputDef);
+
+    private static string? InferProducedResourceKind(string fieldName, OutputDef outputDef)
+        => WorkflowResourceInference.InferProducedResourceKind(fieldName, outputDef);
+
+    private static string? InferRequiredResourceKind(string fieldName, JsonNode? schema)
+    {
+        if (schema is not JsonObject schemaObject)
+            return null;
+
+        if (ReadExplicitResourceKindForRequiredInput(schemaObject) is { } explicitKind
+            && string.Equals(explicitKind, ExistingWorkspaceRelativePathResource, StringComparison.Ordinal))
+        {
+            return explicitKind;
+        }
+
+        if (SchemaAllowsString(schemaObject)
+            && WorkflowResourceInference.LooksLikeRequiredExistingWorkspaceRelativePath(fieldName, BuildSchemaText(schemaObject)))
+        {
+            return ExistingWorkspaceRelativePathResource;
+        }
+
+        foreach (var variant in EnumerateSchemaVariants(schemaObject))
+        {
+            if (InferRequiredResourceKind(fieldName, variant) is { } variantKind)
+                return variantKind;
+        }
+
+        return null;
+    }
+
+    private static string? InferProducedResourceKind(string fieldName, JsonNode? schema)
+    {
+        if (schema is not JsonObject schemaObject)
+            return null;
+
+        if (ReadExplicitResourceKindForProducedOutput(schemaObject) is { } explicitKind
+            && string.Equals(explicitKind, ExistingWorkspaceRelativePathResource, StringComparison.Ordinal))
+        {
+            return explicitKind;
+        }
+
+        if (SchemaAllowsString(schemaObject)
+            && WorkflowResourceInference.LooksLikeProducedExistingWorkspaceRelativePath(fieldName, BuildSchemaText(schemaObject), allowNameOnlyForMcpOutput: true))
+        {
+            return ExistingWorkspaceRelativePathResource;
+        }
+
+        foreach (var variant in EnumerateSchemaVariants(schemaObject))
+        {
+            if (InferProducedResourceKind(fieldName, variant) is { } variantKind)
+                return variantKind;
+        }
+
+        return null;
+    }
+
+    private static string? ReadExplicitResourceKindForRequiredInput(JsonObject schema)
+    {
+        if (ReadExplicitResourceRole(schema) is { } role
+            && !WorkflowResourceInference.RoleAllowsRequiredExistingResource(role))
+        {
+            return null;
+        }
+
+        return ReadExplicitResourceKind(schema);
+    }
+
+    private static string? ReadExplicitResourceKindForProducedOutput(JsonObject schema)
+    {
+        if (ReadExplicitResourceRole(schema) is { } role
+            && !WorkflowResourceInference.RoleAllowsProducedExistingResource(role))
+        {
+            return null;
+        }
+
+        return ReadExplicitResourceKind(schema);
+    }
+
+    private static string? ReadExplicitResourceKind(JsonObject schema)
+    {
+        var kind = ReadStringExtension(
+            schema,
+            "x-gnougo-resource-kind",
+            "x-gnougo-resource",
+            "x-resource-kind",
+            "x-resource");
+        if (kind == null)
+            return null;
+
+        return WorkflowResourceInference.LooksLikeExistingWorkspaceRelativePathKind(kind)
+            ? ExistingWorkspaceRelativePathResource
+            : null;
+    }
+
+    private static string? ReadExplicitResourceRole(JsonObject schema)
+        => ReadStringExtension(schema, "x-gnougo-resource-role", "x-resource-role");
+
+    private static string? ReadStringExtension(JsonObject schema, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (schema.TryGetPropertyValue(name, out var node)
+                && node is JsonValue value
+                && value.TryGetValue<string>(out var text)
+                && !string.IsNullOrWhiteSpace(text))
+            {
+                return text;
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<JsonNode?> EnumerateSchemaVariants(JsonObject schema)
+    {
+        foreach (var variant in EnumerateSchemaVariantArray(schema["allOf"]))
+            yield return variant;
+        foreach (var variant in EnumerateSchemaVariantArray(schema["anyOf"]))
+            yield return variant;
+        foreach (var variant in EnumerateSchemaVariantArray(schema["oneOf"]))
+            yield return variant;
+    }
+
+    private static IEnumerable<JsonNode?> EnumerateSchemaVariantArray(JsonNode? variants)
+    {
+        if (variants is not JsonArray array)
+            yield break;
+
+        foreach (var variant in array)
+            yield return variant;
+    }
+
+    private static string BuildSchemaText(JsonObject schema)
+    {
+        var parts = new List<string>();
+        AddSchemaText(schema, parts);
+        return string.Join(' ', parts);
+    }
+
+    private static void AddSchemaText(JsonNode? schema, List<string> parts)
+    {
+        if (schema is not JsonObject obj)
+            return;
+
+        foreach (var field in new[] { "title", "description", "x-gnougo-resource", "x-gnougo-resource-kind", "x-gnougo-resource-role", "x-resource", "x-resource-kind", "x-resource-role" })
+        {
+            if (obj[field] is JsonValue value
+                && value.TryGetValue<string>(out var text)
+                && !string.IsNullOrWhiteSpace(text))
+            {
+                parts.Add(text);
+            }
+        }
+
+        foreach (var variant in EnumerateSchemaVariants(obj))
+            AddSchemaText(variant, parts);
+    }
+
+    private static bool TryNormalizeExactDataReference(JsonNode? value, out string reference)
+    {
+        reference = "";
+        return value is JsonValue jsonValue
+               && jsonValue.TryGetValue<string>(out var text)
+               && TryNormalizeExactDataReference(text, out reference);
+    }
+
+    private static bool TryNormalizeExactDataReference(string? text, out string reference)
+    {
+        reference = "";
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var match = ExactDataReferenceExpressionRegex.Match(text);
+        if (!match.Success)
+            return false;
+
+        reference = match.Groups["reference"].Value;
+        if (reference.StartsWith("data.", StringComparison.Ordinal))
+            reference = reference["data.".Length..];
+
+        return true;
+    }
+
+    private static string FormatDataReference(string reference) =>
+        reference.StartsWith("data.", StringComparison.Ordinal)
+            ? reference
+            : "data." + reference;
+
+    private static string DescribeResourceValue(JsonNode? value)
+    {
+        if (value == null)
+            return "null";
+
+        if (value is JsonValue jsonValue && jsonValue.TryGetValue<string>(out var text))
+            return text.Contains("${", StringComparison.Ordinal) ? text : "literal string";
+
+        return value.GetValueKind().ToString().ToLowerInvariant();
     }
 
     private static void AddExpressionTypeMismatch(
@@ -1738,6 +2271,16 @@ internal static class WorkflowPlanSemanticValidator
                 "mcp.call request",
                 knownEmptyStringReferences,
                 errors);
+            ValidateResourceProvenanceAgainstSchema(
+                requestValue,
+                inputSchema,
+                workflowName,
+                step.Id,
+                "input.request",
+                "MCP_REQUEST_RESOURCE_PROVENANCE",
+                "MCP request field",
+                symbols,
+                errors);
             if (schemaErrors.Count == 0)
                 continue;
 
@@ -1855,6 +2398,16 @@ internal static class WorkflowPlanSemanticValidator
             $"Pass real values for required local workflow string inputs for '{targetName}'; do not pass known-empty placeholders.",
             $"workflow.call args for local workflow '{targetName}'",
             knownEmptyStringReferences,
+            errors);
+        ValidateResourceProvenanceAgainstSchema(
+            argsNode,
+            inputSchema,
+            workflowName,
+            step.Id,
+            "input.args",
+            "WORKFLOW_CALL_RESOURCE_PROVENANCE",
+            $"workflow.call args for local workflow '{targetName}'",
+            symbols,
             errors);
         if (schemaErrors.Count == 0)
             return;
@@ -2542,7 +3095,7 @@ internal static class WorkflowPlanSemanticValidator
             {
                 errors.Add(new SchemaValidationError(
                     propertyPath,
-                    $"workspace path expression references diagnostic or planned path field '{fieldName}'; use a relative sibling such as projectRootRelative/repositoryRootRelative/rootPathRelative/relativePath, reuse a verified MCP output, or omit/null optional projectRoot"));
+                    $"workspace path expression references diagnostic or planned path field '{fieldName}'; use a sibling field documented as relative, reuse a verified producer output, or omit/null optional path fields"));
             }
 
             if (RequiresNonEmptyMcpWorkspacePathValue(propertyName)
@@ -2550,7 +3103,7 @@ internal static class WorkflowPlanSemanticValidator
             {
                 errors.Add(new SchemaValidationError(
                     propertyPath,
-                    $"workspace path expression for '{propertyPath}' can resolve to an empty string; omit/null optional projectRoot intentionally, guard the call, or pass a verified value such as git_clone.response.projectRootRelative"));
+                    $"workspace path expression for '{propertyPath}' can resolve to an empty string; omit/null optional path fields intentionally, guard the call, or pass a verified producer output"));
             }
 
             return;

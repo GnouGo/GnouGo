@@ -318,6 +318,7 @@ public sealed class SmartFlowService
             var engine = new WorkflowEngine
             {
                 LLMClient = runtime.LlmClient,
+                LLMCapabilities = runtime.LlmCapabilityResolver,
                 LlmDefaults = new LlmRuntimeDefaults
                 {
                     Provider = runtime.Options.DefaultProvider,
@@ -884,6 +885,7 @@ public sealed class SmartFlowService
         var repairEngine = new WorkflowEngine
         {
             LLMClient = runtime.LlmClient,
+            LLMCapabilities = runtime.LlmCapabilityResolver,
             LlmDefaults = new LlmRuntimeDefaults
             {
                 Provider = runtime.Options.DefaultProvider,

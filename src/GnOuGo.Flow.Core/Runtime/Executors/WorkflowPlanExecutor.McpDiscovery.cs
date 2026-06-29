@@ -187,13 +187,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             if (cachedTools != null && cachedPrompts != null)
             {
+                var enrichedCachedTools = McpToolContractEnricher.EnrichTools(cachedTools);
                 logger.LogDebug("workflow.plan: serving MCP server '{ServerName}' discovery from cache", server.Name);
                 results.Add(new McpServerDiscovery
                 {
                     Name = server.Name,
                     Description = server.Description,
                     CallTimeoutSeconds = server.CallTimeoutSeconds,
-                    Tools = cachedTools,
+                    Tools = enrichedCachedTools,
                     Prompts = cachedPrompts,
                     Discovered = true
                 });
@@ -201,7 +202,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
                 {
                     new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                        $"MCP '{server.Name}': {cachedTools.Count} tool(s), {cachedPrompts.Count} prompt(s) (cached)"),
+                        $"MCP '{server.Name}': {enrichedCachedTools.Count} tool(s), {cachedPrompts.Count} prompt(s) (cached)"),
                     new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
                 });
 
@@ -220,7 +221,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                     await using var session = await factory.GetClientAsync(server.Name, discoveryCts.Token);
 
-                    var tools = cachedTools ?? await session.ListToolsAsync(discoveryCts.Token);
+                    var tools = McpToolContractEnricher.EnrichTools(cachedTools ?? await session.ListToolsAsync(discoveryCts.Token));
                     McpCacheHelper.CacheTools(cache, server.Name, tools, ctx.Engine.McpCacheSlidingExpiration);
 
                     IReadOnlyList<McpPromptInfo> prompts;

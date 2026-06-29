@@ -84,6 +84,37 @@ public class WorkflowPlanExecutorTests
         return mcpFactory;
     }
 
+    private static LLMResponse CreateStructuredMarkExtractableBlocksResponse(
+        string annotatedMarkdown,
+        JsonArray subworkflows,
+        string mainOrchestration)
+    {
+        var json = new JsonObject
+        {
+            ["annotated_markdown"] = annotatedMarkdown,
+            ["subworkflows"] = subworkflows,
+            ["main_orchestration"] = mainOrchestration
+        };
+        return new LLMResponse
+        {
+            Json = json,
+            Text = json.ToJsonString()
+        };
+    }
+
+    private sealed class StaticLlmCapabilityResolver : ILLMCapabilityResolver
+    {
+        private readonly bool? _supportsStructuredOutput;
+
+        public StaticLlmCapabilityResolver(bool? supportsStructuredOutput)
+        {
+            _supportsStructuredOutput = supportsStructuredOutput;
+        }
+
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct)
+            => Task.FromResult(_supportsStructuredOutput);
+    }
+
     private static LLMResponse? TryRespondToPipelineMainAssembly(LLMRequest req)
     {
         if (!req.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
@@ -890,6 +921,10 @@ workflows:
         Assert.Equal(5, requests.Count);
         Assert.Contains("Correct spelling and grammar.", requests[0].Prompt);
         Assert.Contains(":::subworkflow name=\"snake_case_name\"", requests[1].Prompt);
+        Assert.Null(requests[1].StructuredOutputSchema);
+        Assert.Null(requests[1].StructuredOutputStrict);
+        Assert.Contains("Return ONLY annotated Markdown.", requests[1].Prompt);
+        Assert.DoesNotContain("Return ONLY JSON matching the requested structured output schema.", requests[1].Prompt);
         Assert.Contains("Avoid blocks with high cyclomatic complexity", requests[1].Prompt);
         Assert.Contains("Do not create one large block that mixes several responsibilities", requests[1].Prompt);
         var collectRequest = Assert.Single(requests, request => request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `collect_data`.", StringComparison.Ordinal));
@@ -1745,6 +1780,584 @@ workflows:
         Assert.Contains("Do not add MCP, LLM, template, human-input, workflow.plan, or raw workflow.call support nodes to the main graph.", assemblyPrompt);
         Assert.DoesNotContain("generated_leaf_workflows_yaml", assemblyPrompt);
         Assert.DoesNotContain("version: 1\nname: list-issues-leaf", assemblyPrompt);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_CapturesStructuredExtractionMetadataAndValidatesPlannedToolUsage()
+    {
+        var requests = new List<LLMRequest>();
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "list_issues",
+                    Description = "List repository issues.",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "repository_url": { "type": "string" }
+                      },
+                      "required": ["repository_url"],
+                      "additionalProperties": false
+                    }
+                    """),
+                    OutputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "number": { "type": "number" },
+                              "title": { "type": "string" },
+                              "html_url": { "type": "string" }
+                            },
+                            "required": ["number", "title", "html_url"],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": ["issues"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((request, _) => requests.Add(request))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Repository issues\n\nList repository issues." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    const string annotatedMarkdown = """
+                    # Repository issues
+
+                    :::subworkflow name="list_issues"
+                    goal: List repository issues.
+                    inputs:
+                      repository_url: string
+                    outputs:
+                      issues: array
+                    extract_reason: This leaf performs tool orchestration against GitHub.
+                    content:
+                      Call the GitHub list_issues MCP tool for the repository and expose the issue list.
+                    :::
+
+                    ## Main workflow orchestration
+
+                    Call list_issues with repository_url and expose issues.
+                    """;
+
+                    return CreateStructuredMarkExtractableBlocksResponse(
+                        annotatedMarkdown,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["name"] = "list_issues",
+                                ["goal"] = "List repository issues.",
+                                ["description"] = "Fetch repository issues through the GitHub MCP server.",
+                                ["inputs"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["name"] = "repository_url",
+                                        ["type"] = "string",
+                                        ["description"] = "Repository URL.",
+                                        ["required"] = true,
+                                        ["item_type"] = "",
+                                        ["properties"] = new JsonArray()
+                                    }
+                                },
+                                ["outputs"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["name"] = "issues",
+                                        ["type"] = "array",
+                                        ["description"] = "Repository issues.",
+                                        ["required"] = true,
+                                        ["item_type"] = "object",
+                                        ["properties"] = new JsonArray
+                                        {
+                                            new JsonObject
+                                            {
+                                                ["name"] = "number",
+                                                ["type"] = "number",
+                                                ["description"] = "Issue number.",
+                                                ["required"] = true,
+                                                ["item_type"] = ""
+                                            },
+                                            new JsonObject
+                                            {
+                                                ["name"] = "title",
+                                                ["type"] = "string",
+                                                ["description"] = "Issue title.",
+                                                ["required"] = true,
+                                                ["item_type"] = ""
+                                            },
+                                            new JsonObject
+                                            {
+                                                ["name"] = "html_url",
+                                                ["type"] = "string",
+                                                ["description"] = "Issue URL.",
+                                                ["required"] = true,
+                                                ["item_type"] = ""
+                                            }
+                                        }
+                                    }
+                                },
+                                ["extract_reason"] = "This leaf performs tool orchestration against GitHub.",
+                                ["content"] = "Call the GitHub list_issues MCP tool for the repository and expose the issue list.",
+                                ["planned_tools"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["server"] = "github",
+                                        ["kind"] = "tool",
+                                        ["method"] = "list_issues",
+                                        ["required"] = true,
+                                        ["purpose"] = "Fetch repository issues.",
+                                        ["consumes"] = new JsonArray { "repository_url" },
+                                        ["produces"] = new JsonArray { "issues" }
+                                    }
+                                }
+                            }
+                        },
+                        "Call list_issues with repository_url and expose issues.");
+                }
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `list_issues`.", StringComparison.Ordinal))
+                {
+                    Assert.Contains("Planned MCP tools:", request.Prompt);
+                    Assert.Contains("github/list_issues", request.Prompt);
+                    Assert.Contains("Structured output schemas:", request.Prompt);
+                    Assert.Contains("html_url", request.Prompt);
+
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: list-issues-leaf
+                        skill:
+                          description: List repository issues.
+                          tags: [github, leaf]
+                          inputs:
+                            repository_url: string
+                          outputs:
+                            issues:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  number:
+                                    type: number
+                                  title:
+                                    type: string
+                                  html_url:
+                                    type: string
+                                required_properties: [number, title, html_url]
+                        workflows:
+                          main:
+                            inputs:
+                              repository_url: string
+                            steps:
+                              - id: list
+                                type: mcp.call
+                                input:
+                                  server: github
+                                  kind: tool
+                                  method: list_issues
+                                  request:
+                                    repository_url: ${data.inputs.repository_url}
+                            outputs:
+                              issues:
+                                expr: ${data.steps.list.response.issues}
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    number:
+                                      type: number
+                                    title:
+                                      type: string
+                                    html_url:
+                                      type: string
+                                  required_properties: [number, title, html_url]
+                        """
+                    };
+                }
+
+                if (request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        document:
+                          name: repository_issues_pipeline
+                          skill:
+                            description: Build a repository issue list.
+                            tags: [github, issues]
+                            inputs:
+                              repository_url: string
+                            outputs:
+                              issues:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    number:
+                                      type: number
+                                    title:
+                                      type: string
+                                    html_url:
+                                      type: string
+                                  required_properties: [number, title, html_url]
+                        graph:
+                          inputs:
+                            repository_url: string
+                          steps:
+                            - id: call_list_issues
+                              leaf: list_issues
+                              args:
+                                repository_url: ${data.inputs.repository_url}
+                          outputs:
+                            issues:
+                              expr: ${data.steps.call_list_issues.outputs.issues}
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  number:
+                                    type: number
+                                  title:
+                                    type: string
+                                  html_url:
+                                    type: string
+                                required_properties: [number, title, html_url]
+                        """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "List repository issues."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+        """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(true),
+            McpClientFactory = mcpFactory
+        }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var planOutput = Assert.IsType<JsonObject>(result.Outputs!["plan"]);
+        var yaml = planOutput["yaml"]!.GetValue<string>();
+        Assert.Contains("method: list_issues", yaml);
+
+        var markRequest = Assert.Single(requests, request =>
+            request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal));
+        Assert.NotNull(markRequest.StructuredOutputSchema);
+        Assert.True(markRequest.StructuredOutputStrict);
+
+        var pipeline = Assert.IsType<JsonObject>(planOutput["pipeline"]);
+        var specs = Assert.IsType<JsonObject>(pipeline["specs"]);
+        var subworkflows = Assert.IsType<JsonArray>(specs["subworkflows"]);
+        var spec = Assert.IsType<JsonObject>(subworkflows[0]);
+        Assert.Equal("Fetch repository issues through the GitHub MCP server.", spec["description"]!.GetValue<string>());
+        var plannedTools = Assert.IsType<JsonArray>(spec["planned_tools"]);
+        var plannedTool = Assert.IsType<JsonObject>(plannedTools[0]);
+        Assert.Equal("github", plannedTool["server"]!.GetValue<string>());
+        Assert.Equal("list_issues", plannedTool["method"]!.GetValue<string>());
+        Assert.True(plannedTool["required"]!.GetValue<bool>());
+        Assert.Contains("html_url", spec["output_schemas"]!.ToJsonString());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_RejectsLeafThatOmitsRequiredPlannedMcpTool()
+    {
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("github", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "list_issues",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "repository_url": { "type": "string" }
+                      },
+                      "required": ["repository_url"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Repository issues\n\nList repository issues." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    const string annotatedMarkdown = """
+                    # Repository issues
+
+                    :::subworkflow name="list_issues"
+                    goal: List repository issues.
+                    inputs:
+                      repository_url: string
+                    outputs:
+                      issues: array
+                    extract_reason: This leaf performs tool orchestration against GitHub.
+                    content:
+                      Call the GitHub list_issues MCP tool for the repository and expose the issue list.
+                    :::
+
+                    ## Main workflow orchestration
+
+                    Call list_issues with repository_url and expose issues.
+                    """;
+
+                    return CreateStructuredMarkExtractableBlocksResponse(
+                        annotatedMarkdown,
+                        new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["name"] = "list_issues",
+                                ["goal"] = "List repository issues.",
+                                ["description"] = "Fetch repository issues through the GitHub MCP server.",
+                                ["inputs"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["name"] = "repository_url",
+                                        ["type"] = "string",
+                                        ["description"] = "Repository URL.",
+                                        ["required"] = true,
+                                        ["item_type"] = "",
+                                        ["properties"] = new JsonArray()
+                                    }
+                                },
+                                ["outputs"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["name"] = "issues",
+                                        ["type"] = "array",
+                                        ["description"] = "Repository issues.",
+                                        ["required"] = true,
+                                        ["item_type"] = "object",
+                                        ["properties"] = new JsonArray()
+                                    }
+                                },
+                                ["extract_reason"] = "This leaf performs tool orchestration against GitHub.",
+                                ["content"] = "Call the GitHub list_issues MCP tool for the repository and expose the issue list.",
+                                ["planned_tools"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["server"] = "github",
+                                        ["kind"] = "tool",
+                                        ["method"] = "list_issues",
+                                        ["required"] = true,
+                                        ["purpose"] = "Fetch repository issues.",
+                                        ["consumes"] = new JsonArray { "repository_url" },
+                                        ["produces"] = new JsonArray { "issues" }
+                                    }
+                                }
+                            }
+                        },
+                        "Call list_issues with repository_url and expose issues.");
+                }
+
+                if (request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `list_issues`.", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: list-issues-leaf
+                        skill:
+                          description: List repository issues.
+                          tags: [github, leaf]
+                          inputs:
+                            repository_url: string
+                          outputs:
+                            issues:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  title:
+                                    type: string
+                        workflows:
+                          main:
+                            inputs:
+                              repository_url: string
+                            steps:
+                              - id: fake
+                                type: set
+                                input:
+                                  issues: []
+                            outputs:
+                              issues:
+                                expr: ${data.steps.fake.issues}
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    title:
+                                      type: string
+                        """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "List repository issues."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+                    max_repair_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(true),
+            McpClientFactory = mcpFactory
+        }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.NotNull(result.Error);
+        Assert.Contains("did not use required planned MCP tool", result.Error!.Message);
+        Assert.Contains("github/list_issues", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_StructuredCapableModelRejectsLegacyMarkdownExtraction()
+    {
+        var requests = new List<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((request, _) => requests.Add(request))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                if (request.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nCollect data." };
+
+                if (request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                {
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="collect_data"
+                        goal: Collect data.
+                        inputs:
+                          query: string
+                        outputs:
+                          records: array
+                        extract_reason: This is reusable data collection.
+                        content:
+                          Collect records for the query.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Call collect_data.
+                        """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + request.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Collect data."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+                    max_repair_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine
+        {
+            LLMClient = mockLlm.Object,
+            LLMCapabilities = new StaticLlmCapabilityResolver(true)
+        }.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.NotNull(result.Error);
+        Assert.Contains("must be structured JSON with annotated_markdown", result.Error!.Message);
+        var markRequest = Assert.Single(requests, request =>
+            request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal));
+        Assert.NotNull(markRequest.StructuredOutputSchema);
+        Assert.True(markRequest.StructuredOutputStrict);
+        Assert.Contains("Return ONLY JSON matching the requested structured output schema.", markRequest.Prompt);
+        Assert.DoesNotContain("Return ONLY annotated Markdown.", markRequest.Prompt);
     }
 
     [Fact]
@@ -2768,6 +3381,381 @@ workflows:
         var availableMcpServers = generationRequest.Prompt[availableMcpStart..availableMcpEnd];
         Assert.Contains("list_repos", availableMcpServers);
         Assert.DoesNotContain("get_weather", availableMcpServers);
+        Assert.DoesNotContain("<pipeline_available_mcp_servers>", generationRequest.Prompt);
+
+        var markRequest = Assert.Single(requests, request =>
+            request.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal));
+        var pipelineMcpStart = markRequest.Prompt.LastIndexOf("<pipeline_available_mcp_servers>", StringComparison.Ordinal);
+        var pipelineMcpEnd = markRequest.Prompt.LastIndexOf("</pipeline_available_mcp_servers>", StringComparison.Ordinal);
+        Assert.True(pipelineMcpStart >= 0, "Expected pipeline-level MCP server section in mark_extractable_blocks prompt.");
+        Assert.True(pipelineMcpEnd > pipelineMcpStart, "Expected closing pipeline-level MCP server section in mark_extractable_blocks prompt.");
+        var pipelineMcpServers = markRequest.Prompt[pipelineMcpStart..pipelineMcpEnd];
+        Assert.Contains("list_repos", pipelineMcpServers);
+        Assert.Contains("capability_card_yaml:", pipelineMcpServers);
+        Assert.Contains("explicit input/output variables", markRequest.Prompt);
+        Assert.DoesNotContain("get_weather", pipelineMcpServers);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_MainAssemblyReceivesLeafResourceLinks()
+    {
+        string? mainAssemblyPrompt = null;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest req, CancellationToken _) =>
+            {
+                if (req.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nClone a repository and classify it." };
+
+                if (req.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="clone_repository_for_issue"
+                        goal: Clone the repository.
+                        inputs:
+                          repository_url: string
+                        outputs:
+                          project_root_relative: string
+                        extract_reason: This creates the repository workspace.
+                        content:
+                          Clone the repository and return the existing workspace-relative project root.
+                        :::
+
+                        :::subworkflow name="classify_issue"
+                        goal: Classify the issue using the cloned repository.
+                        inputs:
+                          project_root_relative: string
+                        outputs:
+                          ok: boolean
+                        extract_reason: This consumes the existing repository workspace.
+                        content:
+                          Use the existing workspace-relative project root to classify the issue.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Clone the repository, then classify the issue with that cloned project root.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `clone_repository_for_issue`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: clone-repository-leaf
+                        skill:
+                          description: Clone repository.
+                          tags: [generated, leaf]
+                          inputs:
+                            repository_url: string
+                          outputs:
+                            project_root_relative: string
+                        workflows:
+                          main:
+                            inputs:
+                              repository_url: string
+                            steps:
+                              - id: clone_repo
+                                type: mcp.call
+                                input:
+                                  server: git
+                                  kind: tool
+                                  method: clone_repo
+                                  request:
+                                    remoteUrl: ${data.inputs.repository_url}
+                                    targetDirectory: repo
+                            outputs:
+                              project_root_relative:
+                                expr: "${data.steps.clone_repo.response.project_root_relative}"
+                                type: string
+                                description: Existing workspace-relative cloned project root produced by this leaf.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `classify_issue`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: classify-issue-leaf
+                        skill:
+                          description: Classify issue.
+                          tags: [generated, leaf]
+                          inputs:
+                            project_root_relative: string
+                          outputs:
+                            ok: boolean
+                        workflows:
+                          main:
+                            inputs:
+                              project_root_relative:
+                                type: string
+                                required: true
+                                description: Existing project root relative to the workspace.
+                            steps:
+                              - id: result
+                                type: set
+                                input:
+                                  ok: true
+                            outputs:
+                              ok:
+                                expr: "${data.steps.result.ok}"
+                                type: boolean
+                        """
+                    };
+
+                if (req.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    mainAssemblyPrompt = req.Prompt;
+                    return new LLMResponse
+                    {
+                        Text = """
+                        document:
+                          name: resource_link_pipeline
+                          skill:
+                            description: Clone and classify.
+                            tags: [generated, pipeline]
+                            inputs:
+                              repository_url: string
+                            outputs:
+                              ok: boolean
+                        graph:
+                          inputs:
+                            repository_url: string
+                          steps:
+                            - id: clone_repository_for_issue_step
+                              leaf: clone_repository_for_issue
+                              args:
+                                repository_url: ${data.inputs.repository_url}
+                            - id: classify_issue_step
+                              leaf: classify_issue
+                              args:
+                                project_root_relative: ${data.steps.clone_repository_for_issue_step.outputs.project_root_relative}
+                          outputs:
+                            ok: ${data.steps.classify_issue_step.outputs.ok}
+                        """
+                    };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + req.Prompt);
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("git", new MockMcpServerConfig
+        {
+            Tools =
+            {
+                new McpToolInfo
+                {
+                    Name = "clone_repo",
+                    Description = "Clone a repository into the workspace.",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "remoteUrl": { "type": "string" },
+                        "targetDirectory": { "type": "string" }
+                      },
+                      "required": ["remoteUrl", "targetDirectory"],
+                      "additionalProperties": false
+                    }
+                    """),
+                    OutputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "project_root_relative": {
+                          "type": "string",
+                          "description": "Existing workspace-relative cloned project root created by this tool."
+                        }
+                      },
+                      "required": ["project_root_relative"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Clone and classify."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.NotNull(mainAssemblyPrompt);
+        Assert.Contains("<leaf_resource_links_yaml>", mainAssemblyPrompt);
+        Assert.Contains("resource_producers", mainAssemblyPrompt);
+        Assert.Contains("resource_consumers", mainAssemblyPrompt);
+        Assert.Contains("resource_links", mainAssemblyPrompt);
+        Assert.Contains("clone_repository_for_issue", mainAssemblyPrompt);
+        Assert.Contains("classify_issue", mainAssemblyPrompt);
+        Assert.Contains("${data.steps.<producer_call_id>.outputs.project_root_relative}", mainAssemblyPrompt);
+        Assert.Contains("existing_workspace_relative_path", mainAssemblyPrompt);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_FailsBeforeMainAssemblyWhenResourceConsumerHasOnlyNearMissProducer()
+    {
+        var mainAssemblyCalled = false;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest req, CancellationToken _) =>
+            {
+                if (req.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Automation\n\nClone a repository and classify it." };
+
+                if (req.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Automation
+
+                        :::subworkflow name="clone_repository_for_issue"
+                        goal: Derive the repository path.
+                        inputs:
+                          issue_number: number
+                        outputs:
+                          project_root_relative: string
+                        extract_reason: This prepares the repository path.
+                        content:
+                          Derive the workspace-relative project root path.
+                        :::
+
+                        :::subworkflow name="classify_issue"
+                        goal: Classify the issue using the cloned repository.
+                        inputs:
+                          project_root_relative: string
+                        outputs:
+                          ok: boolean
+                        extract_reason: This consumes the existing repository workspace.
+                        content:
+                          Use the existing workspace-relative project root to classify the issue.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Derive the repository path, then classify the issue.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `clone_repository_for_issue`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: clone-repository-leaf
+                        skill:
+                          description: Derive repository path.
+                          tags: [generated, leaf]
+                          inputs:
+                            issue_number: number
+                          outputs:
+                            project_root_relative: string
+                        workflows:
+                          main:
+                            inputs:
+                              issue_number: number
+                            steps:
+                              - id: path
+                                type: set
+                                input:
+                                  project_root_relative: "repo-${data.inputs.issue_number}"
+                            outputs:
+                              project_root_relative:
+                                expr: "${data.steps.path.project_root_relative}"
+                                type: string
+                                description: Workspace-relative project root directory string for the repository clone.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `classify_issue`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: classify-issue-leaf
+                        skill:
+                          description: Classify issue.
+                          tags: [generated, leaf]
+                          inputs:
+                            project_root_relative: string
+                          outputs:
+                            ok: boolean
+                        workflows:
+                          main:
+                            inputs:
+                              project_root_relative:
+                                type: string
+                                required: true
+                                description: Existing project root relative to the workspace.
+                            steps:
+                              - id: result
+                                type: set
+                                input:
+                                  ok: true
+                            outputs:
+                              ok:
+                                expr: "${data.steps.result.ok}"
+                                type: boolean
+                        """
+                    };
+
+                if (req.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                {
+                    mainAssemblyCalled = true;
+                    return new LLMResponse { Text = "document: {}\ngraph:\n  steps: []" };
+                }
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + req.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Clone and classify."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.False(mainAssemblyCalled);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("Pipeline leaf resource contracts are inconsistent", result.Error.Message);
+        Assert.Contains("classify_issue.project_root_relative", result.Error.Message);
+        Assert.Contains("near_miss_producers", result.Error.Details!.ToJsonString());
+        Assert.Contains("clone_repository_for_issue", result.Error.Details!.ToJsonString());
     }
 
     [Fact]
@@ -3236,6 +4224,202 @@ workflows:
             && request.Prompt.Contains("<invalid_yaml>", StringComparison.Ordinal)
             && request.Prompt.Contains("name: build-profile-leaf", StringComparison.Ordinal)
             && request.Prompt.Contains("type: object", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_RegeneratesLeafThatLeaksGeneratedTargetPathInput()
+    {
+        var requests = new List<LLMRequest>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<LLMRequest, CancellationToken>((req, _) =>
+            {
+                lock (requests)
+                    requests.Add(req);
+            })
+            .ReturnsAsync((LLMRequest req, CancellationToken _) =>
+            {
+                if (req.Prompt.Contains("preparing a raw user automation prompt", StringComparison.Ordinal))
+                    return new LLMResponse { Text = "# Clone\n\nClone a repository for an issue into a derived working directory." };
+
+                if (req.Prompt.Contains("annotate normalized automation Markdown", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        # Clone
+
+                        :::subworkflow name="clone_repository_for_issue"
+                        goal: Clone a repository for one issue.
+                        inputs:
+                          repo_url: string
+                          issue_number: number
+                          working_directory_base: string
+                        outputs:
+                          local_repo_path: string
+                        extract_reason: This prepares an isolated working directory for later code steps.
+                        content:
+                          Derive a target directory from the working directory base and issue number.
+                          Clone the repository into that derived directory and return the relative local path.
+                        :::
+
+                        ## Main workflow orchestration
+
+                        Derive working_directory_base, then call clone_repository_for_issue.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Previous generated YAML for this leaf workflow failed validation", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: clone-repository-leaf
+                        skill:
+                          description: Clone repository for one issue.
+                          tags: [generated, leaf]
+                          inputs:
+                            repo_url: string
+                            issue_number: number
+                            working_directory_base: string
+                          outputs:
+                            local_repo_path: string
+                        workflows:
+                          main:
+                            inputs:
+                              repo_url: string
+                              issue_number: number
+                              working_directory_base: string
+                            steps:
+                              - id: derive_target_directory
+                                type: set
+                                output_schema:
+                                  type: object
+                                  properties:
+                                    targetDirectory:
+                                      type: string
+                                  required: [targetDirectory]
+                                  additionalProperties: false
+                                input:
+                                  targetDirectory: "${data.inputs.working_directory_base}/issue-${toString(data.inputs.issue_number)}"
+                            outputs:
+                              local_repo_path:
+                                expr: "${data.steps.derive_target_directory.targetDirectory}"
+                                type: string
+                                description: Relative clone path for the issue.
+                        """
+                    };
+
+                if (req.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `clone_repository_for_issue`.", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        version: 1
+                        name: clone-repository-leaf
+                        skill:
+                          description: Clone repository for one issue.
+                          tags: [generated, leaf]
+                          inputs:
+                            repo_url: string
+                            issue_number: number
+                            working_directory_base: string
+                            targetDirectory:
+                              type: string
+                              required: true
+                              description: Workspace-relative empty or non-existing directory path where the repository should be created.
+                          outputs:
+                            local_repo_path: string
+                        workflows:
+                          main:
+                            inputs:
+                              repo_url: string
+                              issue_number: number
+                              working_directory_base: string
+                              targetDirectory:
+                                type: string
+                                required: true
+                                description: Workspace-relative empty or non-existing directory path where the repository should be created.
+                            steps:
+                              - id: result
+                                type: set
+                                input:
+                                  local_repo_path: "${data.inputs.targetDirectory}"
+                            outputs:
+                              local_repo_path:
+                                expr: "${data.steps.result.local_repo_path}"
+                                type: string
+                                description: Relative clone path for the issue.
+                        """
+                    };
+
+                if (req.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal))
+                    return new LLMResponse
+                    {
+                        Text = """
+                        document:
+                          name: clone_issue_pipeline
+                          skill:
+                            description: Clone a repository for one issue.
+                            inputs:
+                              repo_url: string
+                              issue_number: number
+                            outputs:
+                              local_repo_path: string
+                        graph:
+                          inputs:
+                            repo_url: string
+                            issue_number: number
+                          steps:
+                            - id: derive_working_directory_base
+                              type: set
+                              input:
+                                working_directory_base: issues
+                            - id: call_clone_repository_for_issue
+                              leaf: clone_repository_for_issue
+                              args:
+                                repo_url: ${data.inputs.repo_url}
+                                issue_number: ${data.inputs.issue_number}
+                                working_directory_base: ${data.steps.derive_working_directory_base.working_directory_base}
+                          outputs:
+                            local_repo_path: ${data.steps.call_clone_repository_for_issue.outputs.local_repo_path}
+                        """
+                    };
+
+                throw new InvalidOperationException("Unexpected LLM prompt: " + req.Prompt);
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: pipeline
+                  raw_prompt: "Clone a repository for an issue."
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  validate:
+                    compile: false
+                  on_invalid:
+                    max_attempts: 2
+        """);
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Contains(requests, request =>
+            request.Prompt.Contains("Previous generated YAML for this leaf workflow failed validation", StringComparison.Ordinal)
+            && request.Prompt.Contains("generated implementation input", StringComparison.Ordinal)
+            && request.Prompt.Contains("targetDirectory", StringComparison.Ordinal)
+            && request.Prompt.Contains("derive", StringComparison.OrdinalIgnoreCase));
+
+        var yaml = result.Outputs!["plan"]!["yaml"]!.GetValue<string>();
+        Assert.Contains("targetDirectory: \"${data.inputs.working_directory_base}/issue-${toString(data.inputs.issue_number)}\"", yaml);
+        Assert.DoesNotContain("targetDirectory:\n        type: string\n        required: true", yaml);
+        Assert.Contains("working_directory_base: ${data.steps.derive_working_directory_base.working_directory_base}", yaml);
     }
 
     [Fact]
@@ -6299,7 +7483,7 @@ workflows:
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
         Assert.Contains("repositoryRoot", result.Error.Message);
-        Assert.Contains("repositoryRootRelative", result.Error.Message);
+        Assert.Contains("sibling field documented as relative", result.Error.Message);
     }
 
     [Fact]
@@ -6602,6 +7786,398 @@ workflows:
         Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
         Assert.Contains("input.request.projectRoot", result.Error.Message);
         Assert.Contains("can resolve to an empty string", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsInventedExistingWorkspacePathForMcpRequest()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated workspace workflow.
+                         tags: [workspace]
+                         inputs:
+                           item_id: string
+                         outputs: {}
+                       workflows:
+                         main:
+                           inputs:
+                             item_id: string
+                           steps:
+                             - id: prepare
+                               type: set
+                               input:
+                                 local_path: "repos/item-${data.inputs.item_id}"
+                             - id: summarize
+                               type: mcp.call
+                               input:
+                                 server: workspace
+                                 kind: tool
+                                 method: summarize_project
+                                 request:
+                                   workspaceRoot: "${data.steps.prepare.local_path}"
+                                   task: Summarize the project
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("workspace", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "summarize_project",
+                    Description = "Summarize an existing project workspace",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "workspaceRoot": {
+                          "type": "string",
+                          "description": "Existing workspace-relative project root. The directory must already exist; pass a previous producer output."
+                        },
+                        "task": { "type": "string" }
+                      },
+                      "required": ["workspaceRoot", "task"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Summarize an existing workspace
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject { ["item_id"] = "1703" }, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_REQUEST_RESOURCE_PROVENANCE", result.Error.Message);
+        Assert.Contains("input.request.workspaceRoot", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_AllowsExistingWorkspacePathFromMcpProducerOutput()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated workspace workflow.
+                         tags: [workspace]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: create_workspace
+                               type: mcp.call
+                               input:
+                                 server: workspace
+                                 kind: tool
+                                 method: create_workspace
+                                 request:
+                                   name: item-1703
+                             - id: summarize
+                               type: mcp.call
+                               input:
+                                 server: workspace
+                                 kind: tool
+                                 method: summarize_project
+                                 request:
+                                   workspaceRoot: "${data.steps.create_workspace.response.workspaceRootRelative}"
+                                   task: Summarize the project
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("workspace", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "create_workspace",
+                    Description = "Create a workspace directory",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": { "type": "string" }
+                      },
+                      "required": ["name"],
+                      "additionalProperties": false
+                    }
+                    """),
+                    OutputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "workspaceRootRelative": {
+                          "type": "string",
+                          "description": "Workspace-relative existing project root created by this tool."
+                        }
+                      },
+                      "required": ["workspaceRootRelative"],
+                      "additionalProperties": false
+                    }
+                    """)
+                },
+                new()
+                {
+                    Name = "summarize_project",
+                    Description = "Summarize an existing project workspace",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "workspaceRoot": {
+                          "type": "string",
+                          "description": "Existing workspace-relative project root. The directory must already exist; pass a previous producer output."
+                        },
+                        "task": { "type": "string" }
+                      },
+                      "required": ["workspaceRoot", "task"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Create and summarize a workspace
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_AllowsCreationTargetLiteralAndDocumentedResponseProducer()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated clone workflow.
+                         tags: [git, code]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: clone_repo
+                               type: mcp.call
+                               input:
+                                 server: git
+                                 kind: tool
+                                 method: git_clone
+                                 request:
+                                   remoteUrl: https://github.com/AxaFrance/oidc-client
+                                   targetDirectory: issue-1676
+                             - id: suggest
+                               type: mcp.call
+                               input:
+                                 server: code
+                                 kind: tool
+                                 method: code_suggest_change
+                                 request:
+                                   projectRoot: "${data.steps.clone_repo.response.projectRootRelative}"
+                                   task: Fix the issue
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("git", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "git_clone",
+                    Description = "Clones a Git repository into a new workspace target directory. targetDirectory is a creation target, not an existing projectRoot before clone. After success, pass response.projectRootRelative to projectRoot inputs.",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "remoteUrl": { "type": "string" },
+                        "targetDirectory": {
+                          "type": "string",
+                          "description": "Clone target directory relative to the workspace root only. Must be empty or non-existing. After clone succeeds, use response.projectRootRelative as the existing projectRoot for later tools."
+                        }
+                      },
+                      "required": ["remoteUrl", "targetDirectory"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+        mcpFactory.RegisterServer("code", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "code_suggest_change",
+                    Description = "Suggest code changes",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "projectRoot": {
+                          "type": "string",
+                          "description": "Existing project root relative to the workspace. The directory must already exist; pass a previous producer output."
+                        },
+                        "task": { "type": "string" }
+                      },
+                      "required": ["projectRoot", "task"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Clone a repo and suggest a code fix
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsInventedExistingWorkspacePathForLocalWorkflowCall()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated workspace workflow.
+                         tags: [workspace]
+                         inputs:
+                           issue_number: integer
+                         outputs: {}
+                       workflows:
+                         main:
+                           inputs:
+                             issue_number: integer
+                           steps:
+                             - id: prepare
+                               type: set
+                               input:
+                                 local_repository_path: "repos/issue-${data.inputs.issue_number}"
+                             - id: analyze
+                               type: workflow.call
+                               input:
+                                 ref:
+                                   kind: local
+                                   name: analyze_workspace
+                                 args:
+                                   local_repository_path: "${data.steps.prepare.local_repository_path}"
+                         analyze_workspace:
+                           inputs:
+                             local_repository_path:
+                               type: string
+                               description: Existing workspace-relative project root created by a previous step.
+                           steps:
+                             - id: done
+                               type: set
+                               input:
+                                 ok: true
+                       """
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Analyze an existing workspace with a local workflow
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject { ["issue_number"] = 1703 }, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("WORKFLOW_CALL_RESOURCE_PROVENANCE", result.Error.Message);
+        Assert.Contains("input.args.local_repository_path", result.Error.Message);
     }
 
     [Fact]
