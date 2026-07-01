@@ -162,6 +162,15 @@ internal static class WorkflowPlanDryRunValidator
         };
     }
 
+    internal static JsonNode? CreateSuccessfulMcpSampleFromJsonSchema(JsonNode? schema)
+    {
+        var sample = CreateSampleFromJsonSchema(schema);
+        if (sample is JsonObject obj && schema is JsonObject schemaObj)
+            NormalizeSuccessfulMcpEnvelope(obj, schemaObj);
+
+        return sample;
+    }
+
     private static JsonObject BuildSampleInputs(Dictionary<string, InputDef>? inputs)
     {
         var sample = new JsonObject();
@@ -253,6 +262,212 @@ internal static class WorkflowPlanDryRunValidator
                 obj[name] = CreateSampleFromJsonSchema(propertySchema);
         }
         return obj;
+    }
+
+    private static void NormalizeSuccessfulMcpEnvelope(JsonObject sample, JsonObject schema)
+    {
+        if (schema["properties"] is not JsonObject properties)
+            return;
+
+        var hasSuccessMarker = false;
+        if (TryGetProperty(sample, "success", out var successKey))
+        {
+            sample[successKey] = JsonValue.Create(true);
+            hasSuccessMarker = true;
+        }
+
+        if (TryGetProperty(sample, "ok", out var okKey))
+        {
+            sample[okKey] = JsonValue.Create(true);
+            hasSuccessMarker = true;
+        }
+
+        if (TryGetProperty(sample, "status", out var statusKey)
+            && TryGetPropertySchema(properties, statusKey, out var statusSchema)
+            && TryCreateSuccessfulStatusValue(statusSchema, out var statusValue))
+        {
+            sample[statusKey] = statusValue;
+            hasSuccessMarker = true;
+        }
+
+        if (!hasSuccessMarker)
+            return;
+
+        foreach (var property in properties)
+        {
+            if (!TryGetProperty(sample, property.Key, out var sampleKey))
+                continue;
+
+            if (!IsMcpEnvelopeErrorProperty(property.Key, sample))
+                continue;
+
+            SetNeutralErrorSampleValue(sample, sampleKey, property.Value, schema);
+        }
+    }
+
+    private static bool TryCreateSuccessfulStatusValue(JsonNode? schema, out JsonNode value)
+    {
+        value = JsonValue.Create("ok");
+        if (schema is not JsonObject obj)
+            return true;
+
+        if (obj["enum"] is JsonArray enumValues && enumValues.Count > 0)
+        {
+            foreach (var preferred in new[] { "ok", "success", "succeeded", "done", "completed" })
+            {
+                foreach (var enumValue in enumValues.OfType<JsonValue>())
+                {
+                    if (enumValue.TryGetValue<string>(out var text)
+                        && string.Equals(text, preferred, StringComparison.OrdinalIgnoreCase))
+                    {
+                        value = JsonValue.Create(text);
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        var type = ReadSchemaType(obj);
+        return string.IsNullOrWhiteSpace(type) || string.Equals(type, "string", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void SetNeutralErrorSampleValue(JsonObject sample, string key, JsonNode? propertySchema, JsonObject objectSchema)
+    {
+        if (SchemaAcceptsNull(propertySchema))
+        {
+            sample[key] = null;
+            return;
+        }
+
+        if (!IsRequiredProperty(objectSchema, key))
+        {
+            sample.Remove(key);
+            return;
+        }
+
+        if (propertySchema is JsonObject schemaObj
+            && string.Equals(ReadSchemaType(schemaObj), "string", StringComparison.OrdinalIgnoreCase))
+        {
+            sample[key] = JsonValue.Create(string.Empty);
+            return;
+        }
+
+        sample[key] = null;
+    }
+
+    private static bool SchemaAcceptsNull(JsonNode? schema)
+    {
+        if (schema is not JsonObject obj)
+            return true;
+
+        if (string.Equals(ReadSchemaTypeIncludingNull(obj), "null", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        foreach (var keyword in new[] { "anyOf", "oneOf", "allOf" })
+        {
+            if (obj[keyword] is not JsonArray schemas)
+                continue;
+
+            foreach (var candidate in schemas.OfType<JsonObject>())
+            {
+                if (SchemaAcceptsNull(candidate))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string? ReadSchemaTypeIncludingNull(JsonObject obj)
+    {
+        if (obj["type"] is JsonValue value)
+            return value.GetValue<string>();
+
+        if (obj["type"] is JsonArray types)
+        {
+            foreach (var typeNode in types.OfType<JsonValue>())
+            {
+                var type = typeNode.GetValue<string>();
+                if (string.Equals(type, "null", StringComparison.OrdinalIgnoreCase))
+                    return type;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsRequiredProperty(JsonObject schema, string propertyName)
+    {
+        if (schema["required"] is JsonArray required
+            && required.OfType<JsonValue>().Any(value =>
+                value.TryGetValue<string>(out var text)
+                && string.Equals(text, propertyName, StringComparison.Ordinal)))
+        {
+            return true;
+        }
+
+        if (schema["required_properties"] is JsonArray requiredProperties
+            && requiredProperties.OfType<JsonValue>().Any(value =>
+                value.TryGetValue<string>(out var text)
+                && string.Equals(text, propertyName, StringComparison.Ordinal)))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsMcpEnvelopeErrorProperty(string key, JsonObject sample)
+    {
+        if (EqualsAnyIgnoreCase(key, "error", "errorCode", "error_code", "errorMessage", "error_message"))
+            return true;
+
+        if (string.Equals(key, "code", StringComparison.OrdinalIgnoreCase))
+            return TryGetProperty(sample, "message", out _)
+                || TryGetProperty(sample, "errorMessage", out _)
+                || TryGetProperty(sample, "error_message", out _);
+
+        if (string.Equals(key, "message", StringComparison.OrdinalIgnoreCase))
+            return TryGetProperty(sample, "code", out _)
+                || TryGetProperty(sample, "errorCode", out _)
+                || TryGetProperty(sample, "error_code", out _);
+
+        return false;
+    }
+
+    private static bool EqualsAnyIgnoreCase(string value, params string[] candidates)
+        => candidates.Any(candidate => string.Equals(value, candidate, StringComparison.OrdinalIgnoreCase));
+
+    private static bool TryGetProperty(JsonObject obj, string name, out string actualName)
+    {
+        foreach (var property in obj)
+        {
+            if (string.Equals(property.Key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                actualName = property.Key;
+                return true;
+            }
+        }
+
+        actualName = string.Empty;
+        return false;
+    }
+
+    private static bool TryGetPropertySchema(JsonObject properties, string name, out JsonNode? schema)
+    {
+        foreach (var property in properties)
+        {
+            if (string.Equals(property.Key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                schema = property.Value;
+                return true;
+            }
+        }
+
+        schema = null;
+        return false;
     }
 
     private static JsonArray CreateSampleArray(JsonObject schema)

@@ -120,34 +120,15 @@ internal static class McpToolContractEnricher
             schema = new JsonObject();
         }
 
-        AddProducedResourceExtensions(schema, fieldName, description: null);
         return schema;
     }
 
     private static JsonObject BuildStringPropertySchema(string fieldName, string description)
-    {
-        var schema = new JsonObject
+        => new()
         {
             ["type"] = "string",
             ["description"] = description
         };
-        AddProducedResourceExtensions(schema, fieldName, description);
-        return schema;
-    }
-
-    private static void AddProducedResourceExtensions(JsonObject schema, string fieldName, string? description)
-    {
-        if (!WorkflowResourceInference.LooksLikeProducedExistingWorkspaceRelativePath(
-                fieldName,
-                description,
-                allowNameOnlyForMcpOutput: true))
-        {
-            return;
-        }
-
-        schema["x-gnougo-resource-kind"] = WorkflowResourceInference.ExistingWorkspaceRelativePathResource;
-        schema["x-gnougo-resource-role"] = WorkflowResourceInference.ProducedOutputResourceRole;
-    }
 
     private static void AddSchemaDocumentedResponseFields(Dictionary<string, string> fields, JsonNode? schema)
     {

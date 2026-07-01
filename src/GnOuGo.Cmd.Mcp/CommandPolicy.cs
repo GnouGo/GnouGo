@@ -509,6 +509,9 @@ public sealed class CommandPolicy
     {
         var normalizedValue = NormalizeRequiredValue(parameterValue, parameterName);
 
+        if (normalizedValue.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Parameter '{parameterName}' must not use file URI paths.");
+
         if (normalizedValue.StartsWith('~'))
             throw new InvalidOperationException($"Parameter '{parameterName}' must not use home-directory shortcuts.");
 
@@ -520,11 +523,6 @@ public sealed class CommandPolicy
 
         if (HasDriveRelativePrefix(normalizedValue) && !Path.IsPathFullyQualified(normalizedValue))
             throw new InvalidOperationException($"Parameter '{parameterName}' must not use drive-relative paths.");
-
-        if (!parameterSettings.AllowAbsolutePath && (Path.IsPathRooted(normalizedValue) || HasDriveRelativePrefix(normalizedValue)))
-        {
-            throw new InvalidOperationException($"Parameter '{parameterName}' must be a relative path inside the workspace.");
-        }
 
         var candidatePath = Path.GetFullPath(Path.IsPathRooted(normalizedValue)
             ? normalizedValue

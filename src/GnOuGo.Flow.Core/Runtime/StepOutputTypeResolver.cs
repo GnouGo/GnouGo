@@ -38,9 +38,11 @@ internal static class StepOutputTypeResolver
         var properties = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal);
         foreach (var (key, value) in input)
         {
+            var inferred = StepExpressionTypeValidator.InferValueType(value, symbols.WorkflowInputs, symbols.StepOutputs, symbols.DataVariables);
             properties[key] = Property(
-                StepExpressionTypeValidator.InferValueType(value, symbols.WorkflowInputs, symbols.StepOutputs, symbols.DataVariables)
-                ?? InferFromExample(value));
+                inferred == null || inferred.IsOpaque
+                    ? InferFromExample(value)
+                    : inferred);
         }
 
         return FlowTypeDescriptor.Object(properties);
@@ -54,9 +56,9 @@ internal static class StepOutputTypeResolver
         var properties = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal);
         foreach (var (key, value) in input)
         {
-            var inferred =
-                StepExpressionTypeValidator.InferValueType(value, symbols.WorkflowInputs, symbols.StepOutputs, symbols.DataVariables)
-                ?? InferFromExample(value);
+            var inferred = StepExpressionTypeValidator.InferValueType(value, symbols.WorkflowInputs, symbols.StepOutputs, symbols.DataVariables);
+            if (inferred == null || inferred.IsOpaque)
+                inferred = InferFromExample(value);
             properties[key] = Property(inferred.RemoveNullDeep());
         }
 

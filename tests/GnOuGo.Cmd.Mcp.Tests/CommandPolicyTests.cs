@@ -247,7 +247,7 @@ public class CommandPolicyTests
     }
 
     [Fact]
-    public void RenderScript_RejectsWorkspacePathParameterWhenAbsolutePathsAreNotAllowed()
+    public void RenderScript_AcceptsWorkspacePathParameterAbsolutePathInsideDefaultWorkspace()
     {
         var root = CreateTempDirectory();
         var settings = CreateSettings(root, "Get-ChildItem {{path}}", parameters: new Dictionary<string, CommandParameterSettings>
@@ -264,10 +264,110 @@ public class CommandPolicyTests
         var command = policy.GetRequiredCommand("test");
         var absolutePath = Path.Combine(root, "notes");
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            policy.RenderScript(command, new JsonObject { ["path"] = absolutePath }, root));
+        var rendered = policy.RenderScript(command, new JsonObject { ["path"] = absolutePath }, root);
 
-        Assert.Contains("must be a relative path inside the workspace", ex.Message);
+        Assert.Equal($"Get-ChildItem '{absolutePath}'", rendered);
+    }
+
+    [Fact]
+    public void RenderScript_AcceptsWorkspacePathParameterAbsolutePathInsideConfiguredAllowedRoot()
+    {
+        var root = CreateTempDirectory();
+        var allowedRoot = Directory.CreateDirectory(Path.Combine(root, "exports")).FullName;
+        var settings = CreateSettings(root, "Get-ChildItem {{path}}", parameters: new Dictionary<string, CommandParameterSettings>
+        {
+            ["path"] = new()
+            {
+                Required = true,
+                Pattern = "^.+$",
+                MaxLength = 260,
+                IsWorkspacePath = true
+            }
+        });
+        settings.AllowedWorkingRoots = [allowedRoot];
+        var policy = new CommandPolicy(settings, root);
+        var command = policy.GetRequiredCommand("test");
+        var absolutePath = Path.Combine(allowedRoot, "notes");
+
+        var rendered = policy.RenderScript(command, new JsonObject { ["path"] = absolutePath }, root);
+
+        Assert.Equal($"Get-ChildItem '{absolutePath}'", rendered);
+    }
+
+    [Fact]
+    public void RenderScript_RejectsWorkspacePathParameterAbsolutePathOutsideAllowedRoots()
+    {
+        var root = CreateTempDirectory();
+        var outside = CreateTempDirectory();
+        var settings = CreateSettings(root, "Get-ChildItem {{path}}", parameters: new Dictionary<string, CommandParameterSettings>
+        {
+            ["path"] = new()
+            {
+                Required = true,
+                Pattern = "^.+$",
+                MaxLength = 260,
+                IsWorkspacePath = true
+            }
+        });
+        var policy = new CommandPolicy(settings, root);
+        var command = policy.GetRequiredCommand("test");
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            policy.RenderScript(command, new JsonObject { ["path"] = Path.Combine(outside, "notes") }, root));
+
+        Assert.Contains("outside the allowed workspace roots", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("file:///tmp/project", "file URI")]
+    [InlineData("~/project", "home-directory")]
+    [InlineData("~\\project", "home-directory")]
+    [InlineData("C:temp\\note.md", "drive-relative")]
+    [InlineData("workspace/*", "wildcard")]
+    [InlineData("../secrets.txt", "parent directory traversal")]
+    public void RenderScript_RejectsWorkspacePathParameterUnsupportedForms(string path, string expectedMessage)
+    {
+        var root = CreateTempDirectory();
+        var settings = CreateSettings(root, "Get-ChildItem {{path}}", parameters: new Dictionary<string, CommandParameterSettings>
+        {
+            ["path"] = new()
+            {
+                Required = true,
+                Pattern = "^.+$",
+                MaxLength = 260,
+                IsWorkspacePath = true
+            }
+        });
+        var policy = new CommandPolicy(settings, root);
+        var command = policy.GetRequiredCommand("test");
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            policy.RenderScript(command, new JsonObject { ["path"] = path }, root));
+
+        Assert.Contains(expectedMessage, ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void RenderScript_RejectsWorkspacePathParameterEmptyValue()
+    {
+        var root = CreateTempDirectory();
+        var settings = CreateSettings(root, "Get-ChildItem {{path}}", parameters: new Dictionary<string, CommandParameterSettings>
+        {
+            ["path"] = new()
+            {
+                Required = true,
+                Pattern = "^.*$",
+                MaxLength = 260,
+                IsWorkspacePath = true
+            }
+        });
+        var policy = new CommandPolicy(settings, root);
+        var command = policy.GetRequiredCommand("test");
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            policy.RenderScript(command, new JsonObject { ["path"] = "" }, root));
+
+        Assert.Contains("Missing required parameter 'path'", ex.Message);
     }
 
     [Fact]

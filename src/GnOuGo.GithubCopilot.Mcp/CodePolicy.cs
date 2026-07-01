@@ -54,16 +54,17 @@ public sealed class CodePolicy
         if (string.IsNullOrWhiteSpace(projectRoot))
         {
             throw new InvalidOperationException(
-                "projectRoot is required and must be a non-empty workspace-relative existing project root such as git_clone.response.projectRootRelative.");
+                "projectRoot is required and must resolve to an existing directory inside the allowed workspace roots.");
         }
 
-        if (LooksLikeAbsolutePath(projectRoot))
+        var trimmedProjectRoot = projectRoot.Trim();
+        if (LooksLikeUnsupportedProjectRoot(trimmedProjectRoot))
         {
             throw new InvalidOperationException(
-                "projectRoot must be relative to the default workspace; absolute, file URI, home-relative, and drive-qualified paths are invalid.");
+                "projectRoot must resolve to an existing directory inside the allowed workspace roots; file URI and home-relative paths are invalid.");
         }
 
-        var candidate = ResolvePath(projectRoot, mustExist: true, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
+        var candidate = ResolvePath(trimmedProjectRoot, mustExist: true, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
 
         if (!Directory.Exists(candidate))
             throw new InvalidOperationException($"Project root '{candidate}' does not exist.");
@@ -171,6 +172,8 @@ public sealed class CodePolicy
     {
         if (ContainsParentTraversalSegment(configuredPath) || configuredPath.IndexOfAny(['*', '?']) >= 0)
             throw new InvalidOperationException("Paths must not contain parent traversal segments or wildcard characters.");
+        if (IsRootedButNotFullyQualified(configuredPath))
+            throw new InvalidOperationException("Paths must be fully qualified or relative to the workspace; rooted drive-relative paths are invalid.");
 
         var basePath = relativeBasePath ?? _workspaceRootPath ?? _contentRootPath;
         var path = Path.GetFullPath(Path.IsPathRooted(configuredPath) ? configuredPath : Path.Combine(basePath, configuredPath));
@@ -246,19 +249,18 @@ public sealed class CodePolicy
     private static bool HasDriveRelativePrefix(string path)
         => path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':';
 
-    private static bool LooksLikeAbsolutePath(string path)
+    private static bool LooksLikeUnsupportedProjectRoot(string path)
     {
         var trimmed = path.Trim();
-        if (Path.IsPathRooted(trimmed)
-            || trimmed.StartsWith("/", StringComparison.Ordinal)
-            || trimmed.StartsWith("\\", StringComparison.Ordinal)
-            || trimmed.StartsWith("~/", StringComparison.Ordinal)
+        return trimmed.StartsWith("~/", StringComparison.Ordinal)
             || trimmed.StartsWith("~\\", StringComparison.Ordinal)
-            || trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
+            || trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase);
+    }
 
-        return HasDriveRelativePrefix(trimmed);
+    private static bool IsRootedButNotFullyQualified(string path)
+    {
+        var trimmed = path.Trim();
+        return (Path.IsPathRooted(trimmed) || HasDriveRelativePrefix(trimmed))
+            && !Path.IsPathFullyQualified(trimmed);
     }
 }

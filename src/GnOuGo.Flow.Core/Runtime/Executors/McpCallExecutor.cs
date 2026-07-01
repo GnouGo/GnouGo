@@ -1444,15 +1444,20 @@ Produce the final answer strictly from the executed MCP results.
         if (content is not JsonObject obj)
             return false;
 
-        if (GetBoolProperty(obj, "success", "Success") == false)
+        var success = GetBoolProperty(obj, "success", "Success");
+        if (success == false)
             return true;
 
-        if (GetBoolProperty(obj, "ok", "Ok") == false)
+        var ok = GetBoolProperty(obj, "ok", "Ok");
+        if (ok == false)
             return true;
 
-        var status = GetStringProperty(obj, "status");
+        var status = GetStringProperty(obj, "status")?.Trim().ToLowerInvariant();
         if (status is "error" or "failed" or "failure")
             return true;
+
+        if (success == true || ok == true || status is "ok" or "success" or "succeeded")
+            return false;
 
         if (!string.IsNullOrWhiteSpace(ExtractErrorCode(content)))
             return true;

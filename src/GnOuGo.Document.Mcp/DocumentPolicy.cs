@@ -36,6 +36,13 @@ public sealed class DocumentPolicy
     public string ResolveFilePath(string filePath)
     {
         var normalized = NormalizeRequired(filePath, nameof(filePath));
+        if (LooksLikeUnsupportedPath(normalized))
+            throw new InvalidOperationException("filePath must resolve inside allowed roots; file URI and home-relative paths are invalid.");
+        if (ContainsParentTraversalSegment(normalized) || ContainsWildcardCharacters(normalized))
+            throw new InvalidOperationException("filePath must not contain parent traversal segments or wildcard characters.");
+        if (IsRootedButNotFullyQualified(normalized))
+            throw new InvalidOperationException("filePath must be fully qualified or relative to the workspace; rooted drive-relative paths are invalid.");
+
         var fullPath = Path.IsPathRooted(normalized)
             ? Path.GetFullPath(normalized)
             : Path.GetFullPath(Path.Combine(_defaultWorkingDirectory, normalized));
@@ -134,6 +141,25 @@ public sealed class DocumentPolicy
             throw new InvalidOperationException($"{param} must not be empty.");
         return v;
     }
+
+    private static bool LooksLikeUnsupportedPath(string path)
+        => path.StartsWith("~/", StringComparison.Ordinal)
+            || path.StartsWith("~\\", StringComparison.Ordinal)
+            || path.StartsWith("file:", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ContainsParentTraversalSegment(string path)
+        => path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries)
+            .Any(static segment => string.Equals(segment, "..", StringComparison.Ordinal));
+
+    private static bool ContainsWildcardCharacters(string path)
+        => path.IndexOfAny(['*', '?']) >= 0;
+
+    private static bool HasDriveRelativePrefix(string path)
+        => path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':';
+
+    private static bool IsRootedButNotFullyQualified(string path)
+        => (Path.IsPathRooted(path) || HasDriveRelativePrefix(path))
+            && !Path.IsPathFullyQualified(path);
 }
 
 public sealed record DocumentPolicyInfo(

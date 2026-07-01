@@ -88,6 +88,41 @@ public sealed class GitPolicyTests : IDisposable
     }
 
     [Fact]
+    public void ResolveCloneTargetDirectory_AllowsAbsoluteTargetInsideAllowedRoots()
+    {
+        var policy = new GitPolicy(CreateSettings(), _root);
+        var absoluteTarget = Path.GetFullPath(Path.Combine(_root, "issue-544"));
+
+        var target = policy.ResolveCloneTargetDirectory(absoluteTarget);
+
+        Assert.Equal(absoluteTarget, target);
+    }
+
+    [Fact]
+    public void ResolveCloneTargetDirectory_RejectsAbsoluteTargetOutsideAllowedRoots()
+    {
+        var policy = new GitPolicy(CreateSettings(), _root);
+        var outsideTarget = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "gnougo-git-policy-outside-" + Guid.NewGuid().ToString("N")));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveCloneTargetDirectory(outsideTarget));
+
+        Assert.Contains("outside the allowed roots", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ResolveCloneTargetDirectory_RejectsNonEmptyTargetDirectory()
+    {
+        var policy = new GitPolicy(CreateSettings(), _root);
+        var targetDirectory = Path.Combine(_root, "existing-target");
+        Directory.CreateDirectory(targetDirectory);
+        File.WriteAllText(Path.Combine(targetDirectory, "README.md"), "not empty");
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveCloneTargetDirectory(targetDirectory));
+
+        Assert.Contains("already exists and is not empty", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ResolveCloneTargetDirectory_RejectsTraversalOutsideDefaultWorkingDirectory()
     {
         var desktop = Path.Combine(_root, "Desktop");

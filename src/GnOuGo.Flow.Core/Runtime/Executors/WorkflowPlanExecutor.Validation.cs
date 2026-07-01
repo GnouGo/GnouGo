@@ -138,13 +138,17 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         IReadOnlyList<McpServerDiscovery>? validationDiscovered,
         StepExecutionContext ctx,
         ITelemetrySpan validationSpan,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool validateGeneratedOutputSchemas = true)
     {
         if (policy != null)
             EnforcePolicy(generatedDoc, policy);
 
         if (limits != null)
             EnforceLimits(generatedDoc, limits);
+
+        if (validateGeneratedOutputSchemas)
+            ValidateGeneratedWorkflowStrongOutputSchemas(generatedDoc);
 
         var dryRunValidation = validate?["dry_run"]?.GetValue<bool>() ?? false;
         validationSpan.SetAttribute("gnougo-flow.plan.validation.mode", "strict");
@@ -163,6 +167,52 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 ctx.Engine.Logger,
                 ct);
         }
+    }
+
+    private static void ValidateGeneratedWorkflowStrongOutputSchemas(WorkflowDocument generatedDoc)
+    {
+        var diagnostics = new JsonArray();
+
+        if (generatedDoc.Skill?.Outputs != null)
+        {
+            foreach (var (name, output) in generatedDoc.Skill.Outputs)
+                WorkflowPlanContractNormalizer.CollectWeakOutputSchemaDiagnostics(output, $"skill.outputs.{name}", diagnostics, allowSkillScalarTypeShorthand: true);
+        }
+
+        foreach (var (workflowName, workflow) in generatedDoc.Workflows)
+        {
+            if (workflow.Outputs == null)
+                continue;
+
+            foreach (var (name, output) in workflow.Outputs)
+                WorkflowPlanContractNormalizer.CollectWeakOutputSchemaDiagnostics(output, $"workflows.{workflowName}.outputs.{name}", diagnostics, allowSkillScalarTypeShorthand: false);
+        }
+
+        if (diagnostics.Count == 0)
+            return;
+
+        var details = new JsonObject
+        {
+            ["ok"] = false,
+            ["phase"] = "output_schema_validation",
+            ["summary"] = $"{diagnostics.Count} weak generated output schema diagnostic(s)",
+            ["diagnostics"] = diagnostics,
+            ["llm_guidance"] = new JsonArray(
+                (JsonNode)JsonValue.Create("Every generated skill output and workflow output must be strongly typed.")!,
+                (JsonNode)JsonValue.Create("Replace any, bare object, and bare array outputs with concrete schemas. Arrays require items; object items require properties.")!)
+        };
+
+        var invalidPaths = diagnostics
+            .Select(static diagnostic => diagnostic?["location"]?.GetValue<string>())
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Take(8)
+            .ToArray();
+
+        throw new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            $"Generated workflow uses weak output schemas: {string.Join(", ", invalidPaths)} | repair diagnostics: "
+            + WorkflowPlanDiagnostics.ToPromptJson(details),
+            details: details);
     }
 
     private static void ValidateMcpDiscoveryCoverage(
@@ -338,7 +388,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 {
                     IsError = false,
                     Content = exampleResponse?.DeepClone()
-                        ?? WorkflowPlanDryRunValidator.CreateSampleFromJsonSchema(outputSchema),
+                        ?? WorkflowPlanDryRunValidator.CreateSuccessfulMcpSampleFromJsonSchema(outputSchema),
                     Model = "dry-run-mcp",
                     Usage = new JsonObject
                     {

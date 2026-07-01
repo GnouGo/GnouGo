@@ -409,9 +409,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("When using LLM-assisted mcp.call, put the natural-language instruction in input.prompt and pass candidate capabilities through input.tools and/or input.prompts, typically from mcp.list outputs.");
         sb.AppendLine("If a server lists a recommended mcp.call timeout, include at least that value as `input.timeout_ms` for generated calls to that server.");
         sb.AppendLine("When building `mcp.call.input.request`, preserve JSON schema scalar types exactly: numbers/integers/booleans must be unquoted YAML scalars, while strings may be quoted.");
-        sb.AppendLine("For path-like MCP request fields, follow the MCP schema and tool description exactly. When the contract says the path is workspace-relative or relative, never invent absolute paths such as `/workspace/...`, `/Users/...`, `C:\\...`, or `~/...`.");
-        sb.AppendLine("When chaining path outputs between MCP tools, use only fields documented as relative for later relative path arguments. Treat fields documented as absolute or diagnostic as non-portable.");
-        sb.AppendLine("When a contract says a workspace-relative path/root/directory must already exist, pass an exact data reference from a previous producer output or workflow input documented as that resource; do not construct it with a literal or string template.");
+        sb.AppendLine("Follow the discovered MCP schema and tool description exactly; do not add Flow-specific conventions for request fields.");
         sb.AppendLine("Prefer adapting each `capability_card_yaml` example when it matches the task; the JSON schemas remain authoritative for exact validation.");
         sb.AppendLine("If a string field must contain JSON text, prefer a YAML literal block (`|`) so nested quotes remain valid YAML.");
         sb.AppendLine("For `mcp.call` single-tool outputs, access `data.steps.<id>.response.<field>` only when that field is documented in `output_schema` or `example_response` above. Otherwise the response is opaque: use `json(data.steps.<id>.response)` or normalize it with `llm.call` + `structured_output`.");
@@ -759,16 +757,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             if (enumValues.Count > 0)
                 return FormatYamlScalar(enumValues[0]);
 
-            if (IsNumericJsonSchema(obj))
-            {
-                if (string.Equals(name, "page", StringComparison.OrdinalIgnoreCase))
-                    return "1";
-                if (string.Equals(name, "perPage", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(name, "per_page", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(name, "pageSize", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(name, "limit", StringComparison.OrdinalIgnoreCase))
-                    return "30";
-            }
         }
 
         return FormatYamlScalar("${" + BuildInputReference(name) + "}");

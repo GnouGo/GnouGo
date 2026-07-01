@@ -131,15 +131,72 @@ public sealed class CodePolicyTests : IDisposable
     }
 
     [Fact]
-    public void ResolveProjectRoot_RejectsAbsolutePath()
+    public void ResolveProjectRoot_AllowsAbsolutePathInsideDefaultWorkingDirectory()
     {
         var policy = CreatePolicy();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(_root));
+        var projectRoot = policy.ResolveProjectRoot(_root);
 
-        Assert.Contains("must be relative", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(Path.GetFullPath(_root), projectRoot);
     }
 
+    [Fact]
+    public void ResolveProjectRoot_AllowsAbsolutePathInsideConfiguredAllowedRoot()
+    {
+        var defaultRoot = Path.Combine(_root, "default");
+        var allowedRoot = Path.Combine(_root, "allowed");
+        var expectedProjectRoot = Path.Combine(allowedRoot, "project");
+        Directory.CreateDirectory(expectedProjectRoot);
+        var settings = CreateSettings();
+        settings.DefaultWorkingDirectory = defaultRoot;
+        settings.AllowedWorkingRoots = ["allowed"];
+        var policy = new CodePolicy(settings, _root);
+
+        var projectRoot = policy.ResolveProjectRoot(expectedProjectRoot);
+
+        Assert.Equal(Path.GetFullPath(expectedProjectRoot), projectRoot);
+    }
+
+    [Fact]
+    public void ResolveProjectRoot_RejectsAbsolutePathOutsideAllowedRoots()
+    {
+        var defaultRoot = Path.Combine(_root, "default");
+        var outsideRoot = Path.Combine(_root, "outside");
+        Directory.CreateDirectory(outsideRoot);
+        var settings = CreateSettings();
+        settings.DefaultWorkingDirectory = defaultRoot;
+        settings.AllowedWorkingRoots = [];
+        var policy = new CodePolicy(settings, _root);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(outsideRoot));
+
+        Assert.Contains("outside the allowed roots", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("file:///tmp/project")]
+    [InlineData("~/project")]
+    [InlineData("~\\project")]
+    public void ResolveProjectRoot_RejectsUriAndHomeRelativeForms(string projectRoot)
+    {
+        var policy = CreatePolicy();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(projectRoot));
+
+        Assert.Contains("file URI and home-relative", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("../project")]
+    [InlineData("workspace/*")]
+    public void ResolveProjectRoot_RejectsTraversalAndWildcards(string projectRoot)
+    {
+        var policy = CreatePolicy();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(projectRoot));
+
+        Assert.Contains("parent traversal segments or wildcard", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
 
     private CodePolicy CreatePolicy() => new(CreateSettings(), _root);
 

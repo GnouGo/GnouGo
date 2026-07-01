@@ -33,10 +33,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         "3. If a required MCP argument is missing, add it to skill.inputs and workflow.inputs with the exact MCP schema type.",
         "4. Never satisfy a missing required MCP argument with data.env.*, empty string, fake values, or casts.",
         "5. Never convert a string input to a number just to satisfy an MCP schema.",
-        "6. For path-like MCP request fields, follow the MCP schema and tool description exactly. When the contract says the path is workspace-relative or relative, never invent absolute paths such as /workspace/..., /Users/..., C:\\..., or ~/... literals.",
-        "7. When chaining MCP outputs into path request fields, use only fields documented as relative for later relative path arguments. Treat fields documented as absolute or diagnostic as non-portable.",
-        "8. When a contract says a workspace-relative path/root/directory must already exist, pass an exact data reference from a previous producer output or workflow input documented as that resource; do not construct it with a literal or string template.",
-        "9. Prefer the exact MCP argument name and type."
+        "6. Follow the discovered MCP schema and tool description exactly without adding Flow-specific request conventions.",
+        "7. Prefer the exact MCP argument name and type."
     };
 
     public string StepType => "workflow.plan";
@@ -307,6 +305,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AppendExpressionFunctionRules(basePrompt);
         basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");
         basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
+        basePrompt.AppendLine("- Every generated `skill.outputs.*` and `workflows.*.outputs.*` entry must be strongly typed. Never emit `type: any`, bare `type: object`, or bare `type: array`.");
+        basePrompt.AppendLine("- Array outputs must declare `items`; if items are objects, `items.properties` must list the concrete fields. Object outputs must declare non-empty `properties`.");
         basePrompt.AppendLine("- Workflow output expressions must match the declared output contract type exactly. A string output must resolve to a string; a boolean output must resolve to a boolean.");
         basePrompt.AppendLine("- Comparison/predicate expressions such as `${a == b}`, `${a != b}`, `${contains(...)}`, and `${exists(...)}` return boolean. Use them only for boolean outputs or `if`/`switch.when` conditions.");
         basePrompt.AppendLine("- For string outputs such as classification/status/level/severity, return a string-valued field or quoted string literal. Invalid for a string output: `${data.steps.classify.json.classification == 'bug'}`. Valid: `${data.steps.classify.json.classification}`.");
@@ -575,7 +575,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             validationDiscovered,
                             ctx,
                             validationSpan.Span,
-                            ct);
+                            ct,
+                            validateGeneratedOutputSchemas: string.IsNullOrWhiteSpace(pipelineLeafName));
                     }
                     catch (Exception ex)
                     {

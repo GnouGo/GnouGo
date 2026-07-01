@@ -19,6 +19,35 @@ public class DocumentPolicyTests
     }
 
     [Fact]
+    public void ResolveFilePath_AcceptsAbsolutePathInsideWorkingRoot()
+    {
+        var root = CreateTempDir();
+        var file = Path.Combine(root, "test.docx");
+        var policy = CreatePolicy(root);
+
+        var resolved = policy.ResolveFilePath(file);
+
+        Assert.Equal(file, resolved);
+    }
+
+    [Fact]
+    public void ResolveFilePath_AcceptsAbsolutePathInsideConfiguredAllowedRoot()
+    {
+        var root = CreateTempDir();
+        var exports = Directory.CreateDirectory(Path.Combine(root, "exports")).FullName;
+        var file = Path.Combine(exports, "test.docx");
+        var policy = new DocumentPolicy(new DocumentServerSettings
+        {
+            DefaultWorkingDirectory = root,
+            AllowedWorkingRoots = [exports]
+        }, root);
+
+        var resolved = policy.ResolveFilePath(file);
+
+        Assert.Equal(file, resolved);
+    }
+
+    [Fact]
     public void ResolveFilePath_RejectsPathOutsideAllowedRoots()
     {
         var root = CreateTempDir();
@@ -29,6 +58,44 @@ public class DocumentPolicyTests
             policy.ResolveFilePath(Path.Combine(outside, "test.docx")));
 
         Assert.Contains("outside allowed roots", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("file:///tmp/report.md", "file URI")]
+    [InlineData("~/report.md", "home-relative")]
+    [InlineData("~\\report.md", "home-relative")]
+    public void ResolveFilePath_RejectsUriAndHomeRelativeForms(string filePath, string expectedMessage)
+    {
+        var root = CreateTempDir();
+        var policy = CreatePolicy(root);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveFilePath(filePath));
+
+        Assert.Contains(expectedMessage, ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("../report.md", "parent traversal")]
+    [InlineData("reports/*.md", "wildcard")]
+    public void ResolveFilePath_RejectsTraversalAndWildcards(string filePath, string expectedMessage)
+    {
+        var root = CreateTempDir();
+        var policy = CreatePolicy(root);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveFilePath(filePath));
+
+        Assert.Contains(expectedMessage, ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ResolveFilePath_RejectsDriveRelativePath()
+    {
+        var root = CreateTempDir();
+        var policy = CreatePolicy(root);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveFilePath("C:temp\\report.md"));
+
+        Assert.Contains("drive-relative", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]

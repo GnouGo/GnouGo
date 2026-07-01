@@ -56,6 +56,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("MCP request expressions must also match the schema statically. Do not pass nullable structured_output fields into required MCP request fields unless the value was refined with `assert.non_null` or the same step has an `if` guard proving that exact field is non-null.");
         sb.AppendLine("Never satisfy missing MCP request arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.");
         sb.AppendLine("Workflow output expressions must resolve to their declared type on every branch.");
+        sb.AppendLine("Every `skill.outputs.*` and `workflows.*.outputs.*` entry must be strongly typed: no `any`, no bare `object`, and no bare `array` without `items`.");
+        sb.AppendLine("Array outputs need concrete `items`; object outputs and object array items need non-empty `properties`.");
         sb.AppendLine("Closed set output_schema objects and arrays require exact projection. Do not pass through opaque custom-function objects into fields with `additionalProperties: false`.");
         sb.AppendLine("Object schemas: never duplicate the YAML key `required`. Input-level `required` is only a boolean. Required object property names must use `required_properties`, not a second `required` key.");
         AppendPromptSectionEnd(sb, "minimum_dsl_context");
@@ -103,13 +105,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- `switch` output is a path-dependent step snapshot. Do not read flattened child fields such as `data.steps.route.pr_url` when `pr_url` is produced inside a case/default child step.");
         sb.AppendLine("- Prefer writing the same output alias in every case/default branch and read `data.<alias>.<field>` after the switch.");
         sb.AppendLine("YAML scalar and quoting rules:");
-        sb.AppendLine("- Emit booleans and numbers as unquoted YAML scalars: `required: false`, `strict: true`, `timeout_ms: 1200000`, `perPage: 30`, `append: false`. Do not emit `\"false\"`, `\"true\"`, `\"1200000\"`, or `\"30\"` for typed scalar fields.");
+        sb.AppendLine("- Emit booleans and numbers as unquoted YAML scalars: `required: false`, `strict: true`, `timeout_ms: 1200000`, `append: false`. Do not emit `\"false\"`, `\"true\"`, or `\"1200000\"` for typed scalar fields.");
         sb.AppendLine("- Use single quotes inside expressions that compare strings, for example `${data.steps.close.status == 'ok'}`.");
         sb.AppendLine("- Use YAML literal block scalars (`|`) for multiline prompts/templates or strings containing JSON/double quotes; do not put unescaped nested double quotes inside a double-quoted YAML scalar.");
-        sb.AppendLine("MCP workspace path rules:");
-        sb.AppendLine("- For path-like MCP request fields, follow the MCP schema and tool description exactly. When the contract says the path is workspace-relative or relative, never invent absolute paths such as `/workspace/...`, `/Users/...`, `C:\\...`, or `~/...`.");
-        sb.AppendLine("- When chaining path outputs between MCP tools, use only fields documented as relative for later relative path arguments. Treat fields documented as absolute or diagnostic as non-portable.");
-        sb.AppendLine("- When a contract says a workspace-relative path/root/directory must already exist, pass an exact data reference from a previous producer output or workflow input documented as that resource; do not construct it with a literal or string template.");
+        sb.AppendLine("MCP request rules:");
+        sb.AppendLine("- Follow the discovered MCP schema and tool description exactly; do not add Flow-specific conventions for request fields.");
         AppendPromptSectionEnd(sb, "workflow_plan_generation_guardrails");
     }
 

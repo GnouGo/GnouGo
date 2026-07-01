@@ -135,8 +135,8 @@ Values are:
 
 For path-bearing parameters, enable the built-in workspace guardrails on the parameter itself:
 
-- `IsWorkspacePath`: treat the value as a workspace-relative or explicitly allowed absolute path
-- `AllowAbsolutePath`: allow fully-qualified absolute paths (still restricted to allowed roots)
+- `IsWorkspacePath`: treat the value as a workspace-relative or fully-qualified absolute path restricted to allowed roots
+- `AllowAbsolutePath`: retained for older configs; safe absolute paths no longer require this opt-in
 - `MustExist`: require the referenced file or directory to already exist
 - `PathKind`: `Any`, `File`, or `Directory`
 

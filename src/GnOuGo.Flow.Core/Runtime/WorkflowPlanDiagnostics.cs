@@ -165,12 +165,6 @@ internal static class WorkflowPlanDiagnostics
         if (lower.Contains("mcp_request_expr_type_mismatch", StringComparison.Ordinal)
             || lower.Contains("mcp.call request field", StringComparison.Ordinal) && lower.Contains("input_schema requires", StringComparison.Ordinal))
             return "MCP_REQUEST_EXPR_TYPE_MISMATCH";
-        if (lower.Contains("mcp_request_resource_provenance", StringComparison.Ordinal))
-            return "MCP_REQUEST_RESOURCE_PROVENANCE";
-        if (lower.Contains("workflow_call_resource_provenance", StringComparison.Ordinal))
-            return "WORKFLOW_CALL_RESOURCE_PROVENANCE";
-        if (lower.Contains("workflow_output_resource_provenance", StringComparison.Ordinal))
-            return "WORKFLOW_OUTPUT_RESOURCE_PROVENANCE";
         if (lower.Contains("expr_type_mismatch", StringComparison.Ordinal)
             || lower.Contains("resolves to", StringComparison.Ordinal) && lower.Contains("contract requires", StringComparison.Ordinal))
             return ErrorCodes.ExprTypeMismatch;
@@ -454,9 +448,6 @@ internal static class WorkflowPlanDiagnostics
             "STEP_OUTPUT_PROPERTY_UNKNOWN" => "Use one of the allowed output paths or add a normalizer step that produces the desired property.",
             "MCP_REQUEST_SCHEMA_INVALID" => "Align input.request with the discovered MCP tool input schema.",
             "MCP_REQUEST_EXPR_TYPE_MISMATCH" => "Use only expressions whose resolved type is compatible with the discovered MCP input_schema; nullable sources must be refined, guarded, or normalized before the mcp.call.",
-            "MCP_REQUEST_RESOURCE_PROVENANCE" => "For MCP inputs that require an existing workspace-relative resource, pass an exact data reference from a producer contract or workflow input; do not invent the path.",
-            "WORKFLOW_CALL_RESOURCE_PROVENANCE" => "For local workflow inputs that require an existing workspace-relative resource, pass an exact data reference from a producer contract or workflow input; do not invent the path.",
-            "WORKFLOW_OUTPUT_RESOURCE_PROVENANCE" => "Workflow outputs documented as existing workspace-relative resources must return an exact data reference from a producer contract or workflow input.",
             "MCP_CALL_INPUT_FIELD_UNKNOWN" => "Move MCP tool arguments under input.request; keep only mcp.call envelope fields at input top level.",
             "MCP_METHOD_UNKNOWN" => "Use one exact MCP tool name from the discovered server catalog.",
             "MCP_SERVER_UNKNOWN" => "Use one exact MCP server name from discovery.",
@@ -478,9 +469,6 @@ internal static class WorkflowPlanDiagnostics
             "OPAQUE_RESPONSE_DEEP_ACCESS" or "STEP_OUTPUT_PROPERTY_UNKNOWN" => "documented output path",
             "MCP_REQUEST_SCHEMA_INVALID" => "request matching MCP input_schema",
             "MCP_REQUEST_EXPR_TYPE_MISMATCH" => "non-null MCP request expression matching input_schema",
-            "MCP_REQUEST_RESOURCE_PROVENANCE" => "existing workspace-relative resource from a producer contract",
-            "WORKFLOW_CALL_RESOURCE_PROVENANCE" => "existing workspace-relative resource from a producer contract",
-            "WORKFLOW_OUTPUT_RESOURCE_PROVENANCE" => "existing workspace-relative resource from a producer contract",
             "MCP_CALL_INPUT_FIELD_UNKNOWN" => "supported mcp.call input envelope",
             "MCP_METHOD_UNKNOWN" => "discovered MCP method",
             "MCP_SERVER_UNKNOWN" => "discovered MCP server",
@@ -510,7 +498,7 @@ internal static class WorkflowPlanDiagnostics
         if (code == ErrorCodes.ExprTypeMismatch || message.Contains("requires", StringComparison.OrdinalIgnoreCase))
             return "Change the expression or declared contract so the runtime value type matches the expected type.";
 
-        if (code is "MCP_REQUEST_SCHEMA_INVALID" or "MCP_REQUEST_EXPR_TYPE_MISMATCH" or "MCP_REQUEST_RESOURCE_PROVENANCE" or "MCP_METHOD_UNKNOWN" or "MCP_SERVER_UNKNOWN")
+        if (code is "MCP_REQUEST_SCHEMA_INVALID" or "MCP_REQUEST_EXPR_TYPE_MISMATCH" or "MCP_METHOD_UNKNOWN" or "MCP_SERVER_UNKNOWN")
             return "Fix the mcp.call server, method, and input.request against the discovered MCP catalog.";
 
         if (message.Contains("data.steps.", StringComparison.Ordinal))
@@ -526,7 +514,6 @@ internal static class WorkflowPlanDiagnostics
             ErrorCodes.ExprTypeMismatch => hint + " For numeric fields, use numeric workflow inputs or structured JSON fields, not free-form LLM text.",
             "MCP_REQUEST_SCHEMA_INVALID" => hint + " Preserve exact scalar types: integers/numbers/booleans must not be quoted strings.",
             "MCP_REQUEST_EXPR_TYPE_MISMATCH" => hint + " Do not pass `string|null`, `number|null`, or other nullable structured_output fields into required MCP request fields unless the value was refined with `assert.non_null` or the same step has an `if` guard proving that exact field is non-null.",
-            "MCP_REQUEST_RESOURCE_PROVENANCE" => hint + " Use the discovered tool output schema/description to find the step output that produces the required resource, then pass that exact reference.",
             _ => hint
         };
     }
