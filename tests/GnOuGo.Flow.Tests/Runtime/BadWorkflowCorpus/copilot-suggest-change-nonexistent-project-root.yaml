@@ -1,0 +1,64 @@
+version: "1"
+name: "bad_copilot_suggest_change_nonexistent_project_root"
+skill:
+  description: "Regression fixture for a generated workflow that calls Copilot before proving the project root exists."
+  tags: [regression, workflow-plan, pipeline, mcp]
+  inputs:
+    repository_url:
+      type: "string"
+      description: "Target repository URL."
+      required: false
+      default: "https://github.com/AxaFrance/oidc-client"
+    issue_number:
+      type: "number"
+      description: "Issue number to process."
+      required: false
+      default: "1703"
+  outputs:
+    suggestion:
+      type: "string"
+      description: "Suggested response or implementation guidance."
+entrypoint: "main"
+workflows:
+  main:
+    inputs:
+      repository_url:
+        type: "string"
+        required: false
+        default: "https://github.com/AxaFrance/oidc-client"
+      issue_number:
+        type: "number"
+        required: false
+        default: "1703"
+    steps:
+      - id: "derive_project_context"
+        type: "set"
+        output_schema:
+          type: "object"
+          properties:
+            project_root:
+              type: "string"
+            issue_task:
+              type: "string"
+          required:
+            - "project_root"
+            - "issue_task"
+          additionalProperties: false
+        input:
+          project_root: "clones/AxaFrance-oidc-client-issue-${toString(data.inputs.issue_number)}"
+          issue_task: "Analyze issue #${toString(data.inputs.issue_number)} in ${data.inputs.repository_url}."
+      - id: "copilot_code_suggest_change"
+        type: "mcp.call"
+        input:
+          server: "GnOuGo.GithubCopilot.Mcp"
+          kind: "tool"
+          method: "code_suggest_change"
+          timeout_ms: 1200000
+          request:
+            projectRoot: "${data.steps.derive_project_context.project_root}"
+            task: "${data.steps.derive_project_context.issue_task}"
+            provider: "Anthropic"
+    outputs:
+      suggestion:
+        expr: "${data.steps.copilot_code_suggest_change.response.suggestion}"
+        type: "string"
