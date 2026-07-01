@@ -19,7 +19,7 @@ public sealed class CodeProjectService
 
     public CodePolicyInfo GetPolicy() => _policy.DescribePolicy();
 
-    public CodeProjectSummary GetSummary(string? projectRoot)
+    public CodeProjectSummary GetSummary(string projectRoot)
     {
         var root = _policy.ResolveProjectRoot(projectRoot);
         var solutionFiles = Directory.EnumerateFiles(root, "*.sln", SearchOption.TopDirectoryOnly)
@@ -51,10 +51,10 @@ public sealed class CodeProjectService
             RootPathRelative: ToWorkspaceRelativePath(root));
     }
 
-    public CodeFileContent ReadFile(string? projectRoot, string relativePath)
+    public CodeFileContent ReadFile(string projectRoot, string relativePath)
     {
         var root = _policy.ResolveProjectRoot(projectRoot);
-        var file = _policy.ResolveReadableFile(root, relativePath);
+        var file = _policy.ResolveReadableFileFromResolvedRoot(root, relativePath);
         var normalizedRelativePath = GnOuGoWorkspace.NormalizePortablePath(Path.GetRelativePath(root, file));
         return new CodeFileContent(
             Path: normalizedRelativePath,
@@ -64,7 +64,7 @@ public sealed class CodeProjectService
             RelativePath: normalizedRelativePath);
     }
 
-    public CodeSearchResults Search(string? projectRoot, string query, string? glob = null, bool caseSensitive = false)
+    public CodeSearchResults Search(string projectRoot, string query, string? glob = null, bool caseSensitive = false)
     {
         if (string.IsNullOrWhiteSpace(query))
             throw new InvalidOperationException("query must not be empty.");
@@ -95,11 +95,11 @@ public sealed class CodeProjectService
         return new CodeSearchResults(results, Truncated: false);
     }
 
-    public CodeWriteResult WriteFile(string? projectRoot, string relativePath, string content)
+    public CodeWriteResult WriteFile(string projectRoot, string relativePath, string content)
     {
         _policy.EnsurePromptWithinLimit(content, nameof(content));
         var root = _policy.ResolveProjectRoot(projectRoot);
-        var file = _policy.ResolveWritableFile(root, relativePath);
+        var file = _policy.ResolveWritableFileFromResolvedRoot(root, relativePath);
         var directory = Path.GetDirectoryName(file)!;
         var createdDirectory = !Directory.Exists(directory);
         Directory.CreateDirectory(directory);
@@ -108,7 +108,7 @@ public sealed class CodeProjectService
         return new CodeWriteResult(normalizedRelativePath, file, Encoding.UTF8.GetByteCount(content), createdDirectory, normalizedRelativePath);
     }
 
-    public IReadOnlyList<CodeFileContent> ReadContextFiles(string? projectRoot, IEnumerable<string> relativePaths, int maxFiles = 8)
+    public IReadOnlyList<CodeFileContent> ReadContextFiles(string projectRoot, IEnumerable<string> relativePaths, int maxFiles = 8)
     {
         var files = new List<CodeFileContent>();
         foreach (var relativePath in relativePaths.Where(static p => !string.IsNullOrWhiteSpace(p)).Take(Math.Max(1, maxFiles)))

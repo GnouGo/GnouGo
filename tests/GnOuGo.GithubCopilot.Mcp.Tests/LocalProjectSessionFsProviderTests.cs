@@ -77,8 +77,7 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
         return new LocalProjectSessionFsProvider(
             new CodePolicy(settings, _root),
             settings,
-            _root,
+            ".",
             NullLogger<LocalProjectSessionFsProvider>.Instance);
     }
 }
-

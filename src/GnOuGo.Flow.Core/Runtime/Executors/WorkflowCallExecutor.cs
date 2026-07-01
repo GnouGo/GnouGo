@@ -124,12 +124,11 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         JsonNode? outputs;
         if (subWorkflow.Outputs != null)
         {
-            var outputObj = new JsonObject();
-            foreach (var kv in subWorkflow.Outputs)
-            {
-                outputObj[kv.Key] = ctx.Engine.EvaluateOutputDef(kv.Value, subData, executionScope);
-            }
-            outputs = outputObj;
+            outputs = ctx.Engine.EvaluateWorkflowOutputs(
+                subWorkflow.Outputs,
+                subData,
+                executionScope,
+                resolution.WorkflowName);
         }
         else
         {
@@ -143,7 +142,6 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         };
     }
 }
-
 
 
 

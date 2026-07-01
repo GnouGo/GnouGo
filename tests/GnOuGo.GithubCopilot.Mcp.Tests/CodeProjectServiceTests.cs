@@ -21,7 +21,7 @@ public sealed class CodeProjectServiceTests : IDisposable
     {
         var service = CreateService();
 
-        var summary = service.GetSummary(_root);
+        var summary = service.GetSummary(".");
 
         Assert.Equal(_root, summary.RootPath);
         Assert.Equal(".", summary.RootPathRelative);
@@ -36,7 +36,7 @@ public sealed class CodeProjectServiceTests : IDisposable
     {
         var service = CreateService();
 
-        var results = service.Search(_root, "Console", "*.cs");
+        var results = service.Search(".", "Console", "*.cs");
 
         var result = Assert.Single(results.Results);
         Assert.Equal("src\\Program.cs", result.Path.Replace('/', '\\'));
@@ -50,7 +50,7 @@ public sealed class CodeProjectServiceTests : IDisposable
         settings.AllowWrites = true;
         var service = CreateService(settings);
 
-        var result = service.WriteFile(_root, "src/NewFile.cs", "public class NewFile {}\n");
+        var result = service.WriteFile(".", "src/NewFile.cs", "public class NewFile {}\n");
 
         Assert.True(File.Exists(Path.Combine(_root, "src", "NewFile.cs")));
         Assert.Equal("src\\NewFile.cs", result.Path.Replace('/', '\\'));

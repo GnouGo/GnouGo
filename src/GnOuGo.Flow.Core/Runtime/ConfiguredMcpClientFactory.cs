@@ -708,6 +708,9 @@ internal sealed class McpSessionAdapter : IMcpSession
             Description = t.Description,
             InputSchema = t.JsonSchema.ValueKind != JsonValueKind.Undefined
                 ? JsonNode.Parse(t.JsonSchema.GetRawText())
+                : null,
+            OutputSchema = t.ReturnJsonSchema.HasValue
+                ? JsonNode.Parse(t.ReturnJsonSchema.Value.GetRawText())
                 : null
         }).ToList().AsReadOnly();
         return McpToolContractEnricher.EnrichTools(mappedTools);

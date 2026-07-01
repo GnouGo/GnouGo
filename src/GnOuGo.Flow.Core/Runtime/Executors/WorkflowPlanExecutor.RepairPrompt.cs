@@ -99,6 +99,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- If a loop child step `build_issue_result` emits `{ handled_by_gnougo, title, ... }`, post-loop filtering must read `iteration.build_issue_result.handled_by_gnougo`, not `iteration.handled_by_gnougo`.");
         sb.AppendLine("- To produce a flat array after a loop, make the loop body end with a `set` step that has `output_schema`, then map/filter `data.steps.<loop_id>.results` through that child step id.");
         sb.AppendLine("- If that flat array feeds a closed output_schema, custom functions must push new projected objects with exactly the declared fields. Do not push/pass through the original source object because it may contain extra properties.");
+        sb.AppendLine("Switch output shape:");
+        sb.AppendLine("- `switch` output is a path-dependent step snapshot. Do not read flattened child fields such as `data.steps.route.pr_url` when `pr_url` is produced inside a case/default child step.");
+        sb.AppendLine("- Prefer writing the same output alias in every case/default branch and read `data.<alias>.<field>` after the switch.");
         sb.AppendLine("YAML scalar and quoting rules:");
         sb.AppendLine("- Emit booleans and numbers as unquoted YAML scalars: `required: false`, `strict: true`, `timeout_ms: 1200000`, `perPage: 30`, `append: false`. Do not emit `\"false\"`, `\"true\"`, `\"1200000\"`, or `\"30\"` for typed scalar fields.");
         sb.AppendLine("- Use single quotes inside expressions that compare strings, for example `${data.steps.close.status == 'ok'}`.");

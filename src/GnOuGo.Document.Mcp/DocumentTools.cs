@@ -16,11 +16,11 @@ public sealed class DocumentTools
         _logger = logger;
     }
 
-    [McpServerTool(Name = "document_get_policy"), Description(
+    [McpServerTool(Name = "document_get_policy", UseStructuredContent = true, OutputSchemaType = typeof(DocumentPolicyInfo)), Description(
         "Returns the active document server policy: allowed file extensions, working roots, max file size. Call this first to discover the default workspace.")]
     public DocumentPolicyInfo GetPolicy() => _host.GetPolicy();
 
-    [McpServerTool(Name = "document_list"), Description(
+    [McpServerTool(Name = "document_list", UseStructuredContent = true, OutputSchemaType = typeof(DocumentListResult)), Description(
         "Lists files with allowed extensions in a directory inside the workspace. " +
         "Returns relative paths, sizes, and last-modified timestamps. " +
         "Use relative paths only from the workspace root; omit directoryPath to use the default workspace (recommended — only the default workspace is authorized).")]
@@ -44,7 +44,7 @@ public sealed class DocumentTools
         }
     }
 
-    [McpServerTool(Name = "document_read"), Description(
+    [McpServerTool(Name = "document_read", UseStructuredContent = true, OutputSchemaType = typeof(DocumentReadResult)), Description(
         "Reads a document (PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, XML, YAML) " +
         "and returns its text content. For Office/PDF formats, extracts text and optionally " +
         "formats it as markdown. Returns structured sections (pages, sheets, slides). " +
@@ -69,7 +69,7 @@ public sealed class DocumentTools
         }
     }
 
-    [McpServerTool(Name = "document_write"), Description(
+    [McpServerTool(Name = "document_write", UseStructuredContent = true, OutputSchemaType = typeof(DocumentWriteResult)), Description(
         "Writes text content to a file. For .docx, automatically detects Markdown and maps headings, lists, emphasis, code, links, blockquotes, and tables to Word structures. " +
         "For .pdf, generates a readable A4 PDF and automatically renders Markdown headings, lists, emphasis, code, links, blockquotes, tables, and separators. " +
         "For .xlsx, generates a spreadsheet from tab/comma-separated text. " +

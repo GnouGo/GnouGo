@@ -74,7 +74,7 @@ internal static class WorkflowPlanSemanticValidator
         @"^[A-Za-z]:(?:[\\/]|$)",
         RegexOptions.Compiled);
     private static readonly Regex DiagnosticAbsolutePathFieldRegex = new(
-        @"(?:^|[.\[])(?<field>repositoryRootAbsolute|rootPathAbsolute|fullPathAbsolute|filePathAbsolute|workingDirectoryAbsolute|repositoryRoot|rootPath|fullPath|filePath|workingDirectory|defaultWorkingDirectory|allowedWorkingRoots|allowedRoots|originalPath|repository_root_absolute|root_path_absolute|full_path_absolute|file_path_absolute|working_directory_absolute|repository_root|root_path|full_path|file_path|working_directory|default_working_directory|allowed_working_roots|allowed_roots|original_path)(?:\b|[\]\)])",
+        @"(?:^|[.\[])(?<field>rootPathAbsolute|fullPathAbsolute|filePathAbsolute|workingDirectoryAbsolute|rootPath|fullPath|filePath|workingDirectory|defaultWorkingDirectory|allowedWorkingRoots|allowedRoots|originalPath|root_path_absolute|full_path_absolute|file_path_absolute|working_directory_absolute|root_path|full_path|file_path|working_directory|default_working_directory|allowed_working_roots|allowed_roots|original_path)(?:\b|[\]\)])",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex EmptyStringTernaryBranchRegex = new(
         @"(?:\?|:)\s*(?<quote>['""])\k<quote>",
@@ -894,27 +894,21 @@ internal static class WorkflowPlanSemanticValidator
 
         if (step.Type == "parallel" && step.Branches != null)
         {
-            var branchProducedContracts = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
+            var branchSnapshots = new List<FlowTypeDescriptor>();
             foreach (var branch in step.Branches)
             {
                 var branchKnown = CloneContracts(knownContracts);
                 var branchSymbols = symbols.Clone();
                 ValidateStepList(branch.Steps, workflowName, workflows, workflowInputs, branchKnown, branchSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
-                foreach (var produced in branchKnown.Where(kv => !knownContracts.ContainsKey(kv.Key)))
-                    branchProducedContracts[produced.Key] = produced.Value?.DeepClone();
+                branchSnapshots.Add(BuildStepSnapshotOutputType(branchSymbols));
             }
 
-            if (!stepIsConditional)
-            {
-                foreach (var produced in branchProducedContracts)
-                {
-                    knownContracts[produced.Key] = produced.Value?.DeepClone();
-                    symbols.SetStepOutput(produced.Key, FlowTypeDescriptorConverter.FromJsonSchema(produced.Value));
-                }
-            }
+            if (branchSnapshots.Count > 0)
+                resolvedStepOutputType = BuildParallelOutputType(branchSnapshots);
         }
         else if (step.Type == "switch")
         {
+            var branchSnapshots = new List<FlowTypeDescriptor>();
             if (step.Cases != null)
             {
                 foreach (var @case in step.Cases)
@@ -937,15 +931,19 @@ internal static class WorkflowPlanSemanticValidator
                     var caseKnown = CloneContracts(knownContracts);
                     var caseSymbols = symbols.Clone();
                     ValidateStepList(@case.Steps, workflowName, workflows, workflowInputs, caseKnown, caseSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                    branchSnapshots.Add(BuildStepSnapshotOutputType(caseSymbols));
                 }
             }
 
-            if (step.Default != null)
+            if (step.Default is { Count: > 0 })
             {
                 var defaultKnown = CloneContracts(knownContracts);
                 var defaultSymbols = symbols.Clone();
                 ValidateStepList(step.Default, workflowName, workflows, workflowInputs, defaultKnown, defaultSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                branchSnapshots.Add(BuildStepSnapshotOutputType(defaultSymbols));
             }
+
+            resolvedStepOutputType = BuildSwitchOutputType(branchSnapshots, hasDefault: step.Default is { Count: > 0 });
         }
         else if (step.Type is "loop.sequential" or "loop.parallel")
         {
@@ -958,6 +956,25 @@ internal static class WorkflowPlanSemanticValidator
                 AddLoopScopedDataVariables(step, loopSymbols, symbols);
                 ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, loopKnown, loopSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
                 resolvedStepOutputType = BuildLoopOutputType(loopSymbols);
+            }
+        }
+        else if (step.Type == "sequence")
+        {
+            if (step.Steps != null)
+            {
+                var beforeStepIds = symbols.StepOutputs.Keys.ToHashSet(StringComparer.Ordinal);
+                if (stepIsConditional)
+                {
+                    var conditionalKnown = CloneContracts(knownContracts);
+                    var conditionalSymbols = symbols.Clone();
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, conditionalKnown, conditionalSymbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                    resolvedStepOutputType = BuildSequenceOutputType(conditionalSymbols, beforeStepIds);
+                }
+                else
+                {
+                    ValidateStepList(step.Steps, workflowName, workflows, workflowInputs, knownContracts, symbols, allStepIds, allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors);
+                    resolvedStepOutputType = BuildSequenceOutputType(symbols, beforeStepIds);
+                }
             }
         }
         else
@@ -3173,18 +3190,11 @@ internal static class WorkflowPlanSemanticValidator
             return false;
         }
 
-        if (propertyName.Equals("projectRoot", StringComparison.OrdinalIgnoreCase)
-            || propertyName.Equals("projectRootRelative", StringComparison.OrdinalIgnoreCase)
-            || propertyName.Equals("targetDirectory", StringComparison.OrdinalIgnoreCase)
+        if (propertyName.Equals("targetDirectory", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("filePath", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("directoryPath", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("relativePath", StringComparison.OrdinalIgnoreCase)
-            || propertyName.Equals("repositoryRootRelative", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("rootPathRelative", StringComparison.OrdinalIgnoreCase)
-            || propertyName.Equals("local_repo_path", StringComparison.OrdinalIgnoreCase)
-            || propertyName.Equals("project_root", StringComparison.OrdinalIgnoreCase)
-            || propertyName.Equals("project_root_relative", StringComparison.OrdinalIgnoreCase)
-            || propertyName.Equals("repository_root_relative", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("root_path_relative", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("full_path", StringComparison.OrdinalIgnoreCase)
             || propertyName.Equals("contextFilesJson", StringComparison.OrdinalIgnoreCase)
@@ -3212,9 +3222,7 @@ internal static class WorkflowPlanSemanticValidator
         return !string.IsNullOrWhiteSpace(description)
                && description.Contains("path", StringComparison.OrdinalIgnoreCase)
                && (description.Contains("workspace", StringComparison.OrdinalIgnoreCase)
-                   || description.Contains("relative", StringComparison.OrdinalIgnoreCase)
-                   || description.Contains("repository", StringComparison.OrdinalIgnoreCase)
-                   || description.Contains("project", StringComparison.OrdinalIgnoreCase));
+                   || description.Contains("relative", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string LastFieldSegment(string field)
@@ -3958,8 +3966,18 @@ internal static class WorkflowPlanSemanticValidator
                 return new SchemaPathValidationResult(false, $"Output path '{string.Join('.', path)}' crosses a null value.");
 
             var variantResults = nonNullVariants.Select(variant => ValidateSchemaPath(variant, path)).ToArray();
-            if (variantResults.Any(static result => result.IsValid))
+            if (variantResults.All(static result => result.IsValid)
+                && nonNullVariants.Length == schema.Variants.Count)
+            {
                 return new SchemaPathValidationResult(true, "");
+            }
+
+            if (variantResults.Any(static result => result.IsValid))
+            {
+                return new SchemaPathValidationResult(
+                    false,
+                    $"Output path '{string.Join('.', path)}' is not available on every possible runtime path.");
+            }
 
             return variantResults.FirstOrDefault(static result => result.IsOpaqueResponse)
                 ?? variantResults.First();
@@ -4122,6 +4140,55 @@ internal static class WorkflowPlanSemanticValidator
             ["results"] = new(FlowTypeDescriptor.Array(FlowTypeDescriptor.Object(iterationStepOutputs)), Required: true),
             ["count"] = new(FlowTypeDescriptor.Integer, Required: true)
         });
+    }
+
+    private static FlowTypeDescriptor BuildSwitchOutputType(
+        IReadOnlyList<FlowTypeDescriptor> branchSnapshots,
+        bool hasDefault)
+    {
+        var variants = new List<FlowTypeDescriptor>(branchSnapshots);
+        if (!hasDefault)
+            variants.Add(FlowTypeDescriptor.Null);
+
+        return variants.Count == 0
+            ? FlowTypeDescriptor.Null
+            : FlowTypeDescriptor.Union(variants);
+    }
+
+    private static FlowTypeDescriptor BuildParallelOutputType(IReadOnlyList<FlowTypeDescriptor> branchSnapshots)
+    {
+        var branchItemType = branchSnapshots.Count == 0
+            ? FlowTypeDescriptor.Object()
+            : FlowTypeDescriptor.Union(branchSnapshots);
+
+        return FlowTypeDescriptor.Object(new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal)
+        {
+            ["branches"] = new(FlowTypeDescriptor.Array(branchItemType), Required: true)
+        });
+    }
+
+    private static FlowTypeDescriptor BuildSequenceOutputType(
+        WorkflowSymbolTable sequenceSymbols,
+        IReadOnlySet<string> stepIdsBeforeSequence)
+    {
+        var sequenceStepOutputs = sequenceSymbols.StepOutputs
+            .Where(pair => !stepIdsBeforeSequence.Contains(pair.Key))
+            .ToDictionary(
+                static pair => pair.Key,
+                static pair => new FlowPropertyDescriptor(pair.Value, Required: true),
+                StringComparer.Ordinal);
+
+        return FlowTypeDescriptor.Object(sequenceStepOutputs);
+    }
+
+    private static FlowTypeDescriptor BuildStepSnapshotOutputType(WorkflowSymbolTable symbols)
+    {
+        var stepOutputs = symbols.StepOutputs.ToDictionary(
+            static pair => pair.Key,
+            static pair => new FlowPropertyDescriptor(pair.Value, Required: true),
+            StringComparer.Ordinal);
+
+        return FlowTypeDescriptor.Object(stepOutputs);
     }
 
     private static FlowTypeDescriptor BuildStepOutputType(

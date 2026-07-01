@@ -49,17 +49,21 @@ public sealed class CodePolicy
             HasConfiguredToken: !string.IsNullOrWhiteSpace(ResolveConfiguredToken()),
             TokenEnvironmentVariables: _settings.Copilot.TokenEnvironmentVariables);
 
-    public string ResolveProjectRoot(string? projectRoot)
+    public string ResolveProjectRoot(string projectRoot)
     {
-        if (projectRoot is not null && string.IsNullOrWhiteSpace(projectRoot))
+        if (string.IsNullOrWhiteSpace(projectRoot))
         {
             throw new InvalidOperationException(
-                "projectRoot must be null/omitted to use the default workspace, or a non-empty workspace-relative existing project root such as git_clone.response.projectRootRelative.");
+                "projectRoot is required and must be a non-empty workspace-relative existing project root such as git_clone.response.projectRootRelative.");
         }
 
-        var candidate = projectRoot is null
-            ? _defaultWorkingDirectory
-            : ResolvePath(projectRoot, mustExist: true, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
+        if (LooksLikeAbsolutePath(projectRoot))
+        {
+            throw new InvalidOperationException(
+                "projectRoot must be relative to the default workspace; absolute, file URI, home-relative, and drive-qualified paths are invalid.");
+        }
+
+        var candidate = ResolvePath(projectRoot, mustExist: true, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
 
         if (!Directory.Exists(candidate))
             throw new InvalidOperationException($"Project root '{candidate}' does not exist.");
@@ -70,6 +74,12 @@ public sealed class CodePolicy
     public string ResolveReadableFile(string projectRoot, string relativePath)
     {
         var resolvedRoot = ResolveProjectRoot(projectRoot);
+        return ResolveReadableFileFromResolvedRoot(resolvedRoot, relativePath);
+    }
+
+    internal string ResolveReadableFileFromResolvedRoot(string resolvedRoot, string relativePath)
+    {
+        EnsureResolvedProjectRoot(resolvedRoot);
         var path = ResolveRelativePath(resolvedRoot, relativePath);
         EnsureAllowedFile(path);
         if (!File.Exists(path))
@@ -85,6 +95,14 @@ public sealed class CodePolicy
         if (!_settings.AllowWrites)
             throw new InvalidOperationException("Writes are disabled by policy. Set Code:AllowWrites=true to enable code_write_file.");
         var resolvedRoot = ResolveProjectRoot(projectRoot);
+        return ResolveWritableFileFromResolvedRoot(resolvedRoot, relativePath);
+    }
+
+    internal string ResolveWritableFileFromResolvedRoot(string resolvedRoot, string relativePath)
+    {
+        if (!_settings.AllowWrites)
+            throw new InvalidOperationException("Writes are disabled by policy. Set Code:AllowWrites=true to enable code_write_file.");
+        EnsureResolvedProjectRoot(resolvedRoot);
         var path = ResolveRelativePath(resolvedRoot, relativePath);
         EnsureAllowedFile(path);
         return path;
@@ -190,6 +208,13 @@ public sealed class CodePolicy
             throw new InvalidOperationException($"Extension '{extension}' is not allowed. Allowed: {string.Join(", ", allowed)}.");
     }
 
+    private void EnsureResolvedProjectRoot(string resolvedRoot)
+    {
+        if (string.IsNullOrWhiteSpace(resolvedRoot) || !Directory.Exists(resolvedRoot))
+            throw new InvalidOperationException($"Project root '{resolvedRoot}' does not exist.");
+        EnsureWithinAllowedRoots(resolvedRoot);
+    }
+
     private void EnsureWithinAllowedRoots(string path, bool includeDefault = true)
     {
         var roots = includeDefault ? ResolveAllowedWorkingRoots() : ResolveAllowedWorkingRootsWithoutDefault();
@@ -220,4 +245,20 @@ public sealed class CodePolicy
 
     private static bool HasDriveRelativePrefix(string path)
         => path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':';
+
+    private static bool LooksLikeAbsolutePath(string path)
+    {
+        var trimmed = path.Trim();
+        if (Path.IsPathRooted(trimmed)
+            || trimmed.StartsWith("/", StringComparison.Ordinal)
+            || trimmed.StartsWith("\\", StringComparison.Ordinal)
+            || trimmed.StartsWith("~/", StringComparison.Ordinal)
+            || trimmed.StartsWith("~\\", StringComparison.Ordinal)
+            || trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return HasDriveRelativePrefix(trimmed);
+    }
 }

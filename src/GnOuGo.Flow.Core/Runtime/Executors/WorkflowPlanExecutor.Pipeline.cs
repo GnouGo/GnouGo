@@ -2936,6 +2936,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         - loop result item shape: each element of `${data.steps.<loop_id>.results}` is a per-iteration step-output object. If a loop child step `build_issue_result` produced fields, read them as `iteration.build_issue_result.<field>` when flattening/filtering, not `iteration.<field>`.
         - To flatten loop results, add a `set` support node with an `output_schema` after the loop or use a typed child `set` inside the loop and map/filter through that child step id.
         - switch output is path-dependent. Do not reference case/default child step ids after the switch unless the reference remains inside that same case/default path.
+        - Do not flatten switch child fields onto the switch step. Invalid: `${data.steps.route.pr_url}` when `pr_url` is produced by a child `set` inside a case/default branch.
         - For final graph.outputs after containers, prefer returning the whole safe container output, such as `${data.steps.process_items.results}` or `${data.steps.fanout.branches}`, rather than deep paths that may not exist on every path.
 
         set shape:

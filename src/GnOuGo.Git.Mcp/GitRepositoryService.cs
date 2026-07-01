@@ -18,7 +18,7 @@ public sealed class GitRepositoryService
         _settings = settings.Value;
     }
 
-    public GitRepositoryInfo GetRepositoryInfo(string? projectRoot)
+    public GitRepositoryInfo GetRepositoryInfo(string projectRoot)
     {
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
         var displayRoot = DisplayWorkspacePath(repositoryRoot);
@@ -33,7 +33,7 @@ public sealed class GitRepositoryService
             ToWorkspaceRelativePath(repository.Info.WorkingDirectory));
     }
 
-    public GitStatusResult GetStatus(string? projectRoot)
+    public GitStatusResult GetStatus(string projectRoot)
     {
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
         var entries = repository.RetrieveStatus(new StatusOptions())
@@ -57,7 +57,7 @@ public sealed class GitRepositoryService
             ToWorkspaceRelativePath(repositoryRoot));
     }
 
-    public GitDiffResult GetDiff(string? projectRoot, string? relativePath = null, bool staged = false)
+    public GitDiffResult GetDiff(string projectRoot, string? relativePath = null, bool staged = false)
     {
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
         var paths = BuildOptionalPathFilter(relativePath);
@@ -78,7 +78,7 @@ public sealed class GitRepositoryService
         return new GitDiffResult(repositoryRoot, relativePath, staged, text, truncated, output, ToWorkspaceRelativePath(repositoryRoot));
     }
 
-    public GitLogResult GetLog(string? projectRoot, int maxCount = 20)
+    public GitLogResult GetLog(string projectRoot, int maxCount = 20)
     {
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
         var limit = Math.Clamp(maxCount, 1, Math.Max(1, _settings.MaxLogCount));
@@ -102,7 +102,7 @@ public sealed class GitRepositoryService
         return new GitLogResult(repositoryRoot, visibleCommits, commits.Length > limit, output, ToWorkspaceRelativePath(repositoryRoot));
     }
 
-    public GitBranchesResult ListBranches(string? projectRoot)
+    public GitBranchesResult ListBranches(string projectRoot)
     {
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
         var branches = repository.Branches
@@ -125,7 +125,7 @@ public sealed class GitRepositoryService
         return new GitBranchesResult(repositoryRoot, repository.Head.FriendlyName, branches, output, ToWorkspaceRelativePath(repositoryRoot));
     }
 
-    public GitOperationResult CreateBranch(string? projectRoot, string branchName, string? startPoint = null, bool checkout = false)
+    public GitOperationResult CreateBranch(string projectRoot, string branchName, string? startPoint = null, bool checkout = false)
     {
         _policy.EnsureGitMutationsAllowed("create_branch");
         EnsureSafeBranchName(branchName);
@@ -140,7 +140,7 @@ public sealed class GitRepositoryService
         return CreateOperationResult(repositoryRoot, "create_branch", message);
     }
 
-    public GitOperationResult DeleteBranch(string? projectRoot, string branchName)
+    public GitOperationResult DeleteBranch(string projectRoot, string branchName)
     {
         _policy.EnsureGitMutationsAllowed("delete_branch");
         EnsureSafeBranchName(branchName);
@@ -156,7 +156,7 @@ public sealed class GitRepositoryService
         return CreateOperationResult(repositoryRoot, "delete_branch", message);
     }
 
-    public GitOperationResult Checkout(string? projectRoot, string branchOrCommit, bool createBranch = false, string? newBranchName = null)
+    public GitOperationResult Checkout(string projectRoot, string branchOrCommit, bool createBranch = false, string? newBranchName = null)
     {
         _policy.EnsureGitMutationsAllowed("checkout");
         if (string.IsNullOrWhiteSpace(branchOrCommit))
@@ -186,7 +186,7 @@ public sealed class GitRepositoryService
         return CreateOperationResult(repositoryRoot, "checkout", checkoutMessage);
     }
 
-    public GitOperationResult SwitchBranch(string? projectRoot, string branchName, string? startPoint = null, string? remoteName = null)
+    public GitOperationResult SwitchBranch(string projectRoot, string branchName, string? startPoint = null, string? remoteName = null)
     {
         _policy.EnsureGitMutationsAllowed("switch_branch");
         EnsureSafeBranchName(branchName);
@@ -227,7 +227,7 @@ public sealed class GitRepositoryService
         return CreateOperationResult(repositoryRoot, "switch_branch", message);
     }
 
-    public GitOperationResult Stage(string? projectRoot, IReadOnlyList<string> paths)
+    public GitOperationResult Stage(string projectRoot, IReadOnlyList<string> paths)
     {
         _policy.EnsureGitMutationsAllowed("stage");
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
@@ -243,7 +243,7 @@ public sealed class GitRepositoryService
         return CreateOperationResult(repositoryRoot, "stage", message);
     }
 
-    public GitOperationResult Unstage(string? projectRoot, IReadOnlyList<string> paths)
+    public GitOperationResult Unstage(string projectRoot, IReadOnlyList<string> paths)
     {
         _policy.EnsureGitMutationsAllowed("unstage");
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
@@ -253,7 +253,7 @@ public sealed class GitRepositoryService
         return CreateOperationResult(repositoryRoot, "unstage", message);
     }
 
-    public GitCommitInfo Commit(string? projectRoot, string message, string? authorName = null, string? authorEmail = null)
+    public GitCommitInfo Commit(string projectRoot, string message, string? authorName = null, string? authorEmail = null)
     {
         _policy.EnsureGitMutationsAllowed("commit");
         if (string.IsNullOrWhiteSpace(message))
@@ -267,7 +267,7 @@ public sealed class GitRepositoryService
         return new GitCommitInfo(commit.Sha, shortSha, commit.MessageShort, commit.Author.Name, commit.Author.Email, commit.Author.When, output);
     }
 
-    public GitMergeResult Merge(string? projectRoot, string branchName, string? authorName = null, string? authorEmail = null)
+    public GitMergeResult Merge(string projectRoot, string branchName, string? authorName = null, string? authorEmail = null)
     {
         _policy.EnsureGitMutationsAllowed("merge");
         if (string.IsNullOrWhiteSpace(branchName))
@@ -295,13 +295,13 @@ public sealed class GitRepositoryService
             ToWorkspaceRelativePath(repositoryRoot));
     }
 
-    public IReadOnlyList<GitConflictInfo> GetConflicts(string? projectRoot)
+    public IReadOnlyList<GitConflictInfo> GetConflicts(string projectRoot)
     {
         using var repository = OpenRepository(projectRoot, out _);
         return ListConflicts(repository);
     }
 
-    public GitOperationResult ResolveConflict(string? projectRoot, string relativePath, string strategy)
+    public GitOperationResult ResolveConflict(string projectRoot, string relativePath, string strategy)
     {
         _policy.EnsureGitMutationsAllowed("resolve_conflict");
         if (string.IsNullOrWhiteSpace(relativePath))
@@ -356,10 +356,19 @@ public sealed class GitRepositoryService
         var relativeWorkingDirectory = ToWorkspaceRelativePath(workingDirectory) ?? requestedTargetDirectoryRelative;
         var displayWorkingDirectory = relativeWorkingDirectory ?? workingDirectory;
         var output = $"Cloned '{remoteUrl}' into '{displayWorkingDirectory}'{(string.IsNullOrWhiteSpace(branch) ? string.Empty : $" on branch '{branch}'")}.";
-        return new GitCloneResult(workingDirectory, remoteUrl, branch, output, relativeWorkingDirectory);
+        if (string.IsNullOrWhiteSpace(relativeWorkingDirectory))
+            throw new InvalidOperationException("git_clone could not produce a workspace-relative projectRootRelative for the cloned repository.");
+
+        return new GitCloneResult(
+            RepositoryRoot: workingDirectory,
+            RemoteUrl: remoteUrl,
+            Branch: branch,
+            ProjectRootRelative: relativeWorkingDirectory,
+            Output: output,
+            RepositoryRootRelative: relativeWorkingDirectory);
     }
 
-    public GitOperationResult Fetch(string? projectRoot, string? remoteName = null, string? refSpec = null)
+    public GitOperationResult Fetch(string projectRoot, string? remoteName = null, string? refSpec = null)
     {
         _policy.EnsureGitNetworkAllowed("fetch");
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
@@ -376,7 +385,7 @@ public sealed class GitRepositoryService
         return CreateOperationResult(repositoryRoot, "fetch", message);
     }
 
-    public GitMergeResult Pull(string? projectRoot, string? remoteName = null, string? authorName = null, string? authorEmail = null)
+    public GitMergeResult Pull(string projectRoot, string? remoteName = null, string? authorName = null, string? authorEmail = null)
     {
         _policy.EnsureGitNetworkAllowed("pull");
         _policy.EnsureGitMutationsAllowed("pull");
@@ -403,7 +412,7 @@ public sealed class GitRepositoryService
             ToWorkspaceRelativePath(repositoryRoot));
     }
 
-    public GitPushResult Push(string? projectRoot, string? remoteName = null, string? branchName = null, bool setUpstream = true)
+    public GitPushResult Push(string projectRoot, string? remoteName = null, string? branchName = null, bool setUpstream = true)
     {
         _policy.EnsureGitNetworkAllowed("push");
         _policy.EnsureGitMutationsAllowed("push");
@@ -441,7 +450,7 @@ public sealed class GitRepositoryService
             ToWorkspaceRelativePath(repositoryRoot));
     }
 
-    public GitOperationResult DeleteRemoteBranch(string? projectRoot, string? remoteName, string branchName)
+    public GitOperationResult DeleteRemoteBranch(string projectRoot, string? remoteName, string branchName)
     {
         _policy.EnsureGitNetworkAllowed("delete_remote_branch");
         _policy.EnsureGitMutationsAllowed("delete_remote_branch");
@@ -476,7 +485,7 @@ public sealed class GitRepositoryService
     private string? ToWorkspaceRelativePath(string? path)
         => GnOuGoWorkspace.ToWorkspaceRelativePath(path, _policy.DefaultWorkingDirectory);
 
-    private Repository OpenRepository(string? projectRoot, out string repositoryRoot)
+    private Repository OpenRepository(string projectRoot, out string repositoryRoot)
     {
         var root = _policy.ResolveProjectRoot(projectRoot);
         var discovered = Repository.Discover(root);

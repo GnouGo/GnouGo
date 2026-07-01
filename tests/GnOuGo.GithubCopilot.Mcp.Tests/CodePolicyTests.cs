@@ -18,7 +18,7 @@ public sealed class CodePolicyTests : IDisposable
     {
         var policy = CreatePolicy();
 
-        var file = policy.ResolveReadableFile(_root, "sample.cs");
+        var file = policy.ResolveReadableFile(".", "sample.cs");
 
         Assert.Equal(Path.Combine(_root, "sample.cs"), file);
     }
@@ -28,7 +28,7 @@ public sealed class CodePolicyTests : IDisposable
     {
         var policy = CreatePolicy();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveReadableFile(_root, "..\\outside.cs"));
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveReadableFile(".", "..\\outside.cs"));
 
         Assert.Contains("parent traversal", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -38,7 +38,7 @@ public sealed class CodePolicyTests : IDisposable
     {
         var policy = CreatePolicy();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveReadableFile(_root, "secret.bin"));
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveReadableFile(".", "secret.bin"));
 
         Assert.Contains("not allowed", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -58,7 +58,7 @@ public sealed class CodePolicyTests : IDisposable
     {
         var policy = CreatePolicy();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveWritableFile(_root, "new.cs"));
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveWritableFile(".", "new.cs"));
 
         Assert.Contains("Writes are disabled", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -90,7 +90,8 @@ public sealed class CodePolicyTests : IDisposable
         var policy = new CodePolicy(settings, _root, desktop);
         var expected = Path.GetFullPath(Path.Combine(desktop, "GnOuGo"));
 
-        Assert.Equal(expected, policy.ResolveProjectRoot(null));
+        Assert.Equal(expected, policy.DefaultWorkingDirectory);
+        Assert.True(Directory.Exists(expected));
     }
 
     [Fact]
@@ -116,7 +117,27 @@ public sealed class CodePolicyTests : IDisposable
 
         var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(""));
 
-        Assert.Contains("projectRoot must be null/omitted", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("projectRoot is required", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ResolveProjectRoot_RejectsNull()
+    {
+        var policy = CreatePolicy();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(null!));
+
+        Assert.Contains("projectRoot is required", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ResolveProjectRoot_RejectsAbsolutePath()
+    {
+        var policy = CreatePolicy();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(_root));
+
+        Assert.Contains("must be relative", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
 
@@ -143,4 +164,3 @@ public sealed class CodePolicyTests : IDisposable
         catch (UnauthorizedAccessException) { }
     }
 }
-

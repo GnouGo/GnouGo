@@ -100,12 +100,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             // Evaluate outputs
             if (workflow.Outputs != null)
             {
-                var outputObj = new JsonObject();
-                foreach (var kv in workflow.Outputs)
-                {
-                    outputObj[kv.Key] = EvaluateOutputDef(kv.Value, data, executionScope);
-                }
-                result.Outputs = outputObj;
+                result.Outputs = EvaluateWorkflowOutputs(workflow.Outputs, data, executionScope, workflow.Name);
             }
             else
             {
@@ -213,10 +208,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             // Evaluate outputs
             if (workflow.Outputs != null)
             {
-                var outputObj = new JsonObject();
-                foreach (var kv in workflow.Outputs)
-                    outputObj[kv.Key] = EvaluateOutputDef(kv.Value, data, executionScope);
-                result.Outputs = outputObj;
+                result.Outputs = EvaluateWorkflowOutputs(workflow.Outputs, data, executionScope, workflow.Name);
             }
             else
             {
@@ -324,10 +316,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
 
             if (workflow.Outputs != null)
             {
-                var outputObj = new JsonObject();
-                foreach (var kv in workflow.Outputs)
-                    outputObj[kv.Key] = EvaluateOutputDef(kv.Value, data, executionScope);
-                result.Outputs = outputObj;
+                result.Outputs = EvaluateWorkflowOutputs(workflow.Outputs, data, executionScope, workflow.Name);
             }
             else
             {
@@ -836,6 +825,56 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         }
 
         return null;
+    }
+
+    internal JsonObject EvaluateWorkflowOutputs(
+        IReadOnlyDictionary<string, Models.OutputDef> outputs,
+        JsonObject data,
+        WorkflowExecutionScope executionScope,
+        string workflowName)
+    {
+        var outputObj = new JsonObject();
+        foreach (var (name, definition) in outputs)
+        {
+            var value = EvaluateOutputDef(definition, data, executionScope);
+            ValidateWorkflowOutputValue(workflowName, name, definition, value);
+            outputObj[name] = value?.DeepClone();
+        }
+
+        return outputObj;
+    }
+
+    private static void ValidateWorkflowOutputValue(
+        string workflowName,
+        string outputName,
+        Models.OutputDef definition,
+        JsonNode? value)
+    {
+        if (string.Equals(definition.Type, "any", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (value == null && WorkflowOutputAllowsNull(definition))
+            return;
+
+        var schema = FlowTypeDescriptorConverter.ToRuntimeJsonSchema(
+            FlowTypeDescriptorConverter.FromOutputDef(definition));
+        var errors = JsonSchemaContractValidator.ValidateInstance(value, schema);
+        if (errors.Count == 0)
+            return;
+
+        throw new WorkflowRuntimeException(
+            ErrorCodes.InputValidation,
+            $"Workflow '{workflowName}' output '{outputName}' does not satisfy declared output type '{definition.Type}': {string.Join("; ", errors)}");
+    }
+
+    private static bool WorkflowOutputAllowsNull(Models.OutputDef definition)
+    {
+        if (string.Equals(definition.Type, "any", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return definition.Expr.Contains("?.", StringComparison.Ordinal)
+               || definition.Expr.Contains("?? null", StringComparison.Ordinal)
+               || definition.Expr.Contains(": null", StringComparison.Ordinal);
     }
 
     private static StepExecutorRegistry CreateDefaultRegistry()

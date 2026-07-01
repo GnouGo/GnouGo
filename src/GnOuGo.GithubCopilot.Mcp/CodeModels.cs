@@ -27,7 +27,7 @@ public sealed record CodeProjectSummary(
     long ApproximateBytes,
     string? RootPathRelative = null)
 {
-    [Description("Workspace-relative existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RootPath.")]
+    [Description("Workspace-relative path to an existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RootPath.")]
     public string? ProjectRootRelative => RootPathRelative;
 }
 

@@ -45,17 +45,21 @@ public sealed class GitPolicy
             HasConfiguredToken: !string.IsNullOrWhiteSpace(ResolveGitToken()),
             TokenEnvironmentVariables: _settings.TokenEnvironmentVariables);
 
-    public string ResolveProjectRoot(string? projectRoot)
+    public string ResolveProjectRoot(string projectRoot)
     {
-        if (projectRoot is not null && string.IsNullOrWhiteSpace(projectRoot))
+        if (string.IsNullOrWhiteSpace(projectRoot))
         {
             throw new InvalidOperationException(
-                "projectRoot must be null/omitted to use the default workspace, or a non-empty workspace-relative existing project root such as git_clone.response.projectRootRelative.");
+                "projectRoot is required and must be a non-empty workspace-relative existing project root such as git_clone.response.projectRootRelative.");
         }
 
-        var candidate = projectRoot is null
-            ? _defaultWorkingDirectory
-            : ResolvePath(projectRoot, mustExist: true, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
+        if (LooksLikeAbsolutePath(projectRoot))
+        {
+            throw new InvalidOperationException(
+                "projectRoot must be relative to the default workspace; absolute, file URI, home-relative, and drive-qualified paths are invalid.");
+        }
+
+        var candidate = ResolvePath(projectRoot, mustExist: true, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
 
         if (!Directory.Exists(candidate))
             throw new InvalidOperationException($"Project root '{candidate}' does not exist.");
@@ -166,4 +170,20 @@ public sealed class GitPolicy
 
     private static bool ContainsParentTraversalSegment(string path)
         => path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).Any(static segment => string.Equals(segment, "..", StringComparison.Ordinal));
+
+    private static bool LooksLikeAbsolutePath(string path)
+    {
+        var trimmed = path.Trim();
+        if (Path.IsPathRooted(trimmed)
+            || trimmed.StartsWith("/", StringComparison.Ordinal)
+            || trimmed.StartsWith("\\", StringComparison.Ordinal)
+            || trimmed.StartsWith("~/", StringComparison.Ordinal)
+            || trimmed.StartsWith("~\\", StringComparison.Ordinal)
+            || trimmed.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return trimmed.Length >= 2 && char.IsAsciiLetter(trimmed[0]) && trimmed[1] == ':';
+    }
 }

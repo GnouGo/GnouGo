@@ -44,13 +44,13 @@ public sealed class GitPolicyTests : IDisposable
     }
 
     [Fact]
-    public void ResolveProjectRoot_UsesDefaultWorkingDirectoryWhenNull()
+    public void ResolveProjectRoot_RejectsNull()
     {
         var policy = new GitPolicy(CreateSettings(), _root);
 
-        var projectRoot = policy.ResolveProjectRoot(null);
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(null!));
 
-        Assert.Equal(Path.GetFullPath(_root), projectRoot);
+        Assert.Contains("projectRoot is required", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -60,7 +60,17 @@ public sealed class GitPolicyTests : IDisposable
 
         var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(""));
 
-        Assert.Contains("projectRoot must be null/omitted", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("projectRoot is required", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ResolveProjectRoot_RejectsAbsolutePath()
+    {
+        var policy = new GitPolicy(CreateSettings(), _root);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveProjectRoot(_root));
+
+        Assert.Contains("must be relative", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

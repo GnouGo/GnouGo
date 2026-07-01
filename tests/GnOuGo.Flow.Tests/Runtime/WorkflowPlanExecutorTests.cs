@@ -7308,7 +7308,7 @@ workflows:
                                  kind: tool
                                  method: code_suggest_change
                                  request:
-                                   projectRoot: /workspace/issue-issue-1676
+                                   workspacePath: /workspace/issue-issue-1676
                                    task: Fix the issue
                        """
             });
@@ -7326,10 +7326,10 @@ workflows:
                     {
                       "type": "object",
                       "properties": {
-                        "projectRoot": { "type": "string", "description": "Project root override or null to use the default workspace." },
+                        "workspacePath": { "type": "string", "description": "Existing workspace-relative path. The directory must already exist." },
                         "task": { "type": "string" }
                       },
-                      "required": ["projectRoot", "task"],
+                      "required": ["workspacePath", "task"],
                       "additionalProperties": false
                     }
                     """)
@@ -7361,7 +7361,7 @@ workflows:
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
         Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
-        Assert.Contains("input.request.projectRoot", result.Error.Message);
+        Assert.Contains("input.request.workspacePath", result.Error.Message);
         Assert.Contains("must be relative", result.Error.Message);
     }
 
@@ -7398,7 +7398,7 @@ workflows:
                                  kind: tool
                                  method: code_suggest_change
                                  request:
-                                   projectRoot: "${data.steps.clone.response.repositoryRoot}"
+                                   workspacePath: "${data.steps.clone.response.rootPath}"
                                    task: Fix the issue
                        """
             });
@@ -7427,10 +7427,10 @@ workflows:
                     {
                       "type": "object",
                       "properties": {
-                        "repositoryRoot": { "type": "string" },
-                        "repositoryRootRelative": { "type": "string" }
+                        "rootPath": { "type": "string" },
+                        "rootPathRelative": { "type": "string" }
                       },
-                      "required": ["repositoryRoot", "repositoryRootRelative"]
+                      "required": ["rootPath", "rootPathRelative"]
                     }
                     """)
                 }
@@ -7448,10 +7448,10 @@ workflows:
                     {
                       "type": "object",
                       "properties": {
-                        "projectRoot": { "type": "string", "description": "Project root override or null to use the default workspace." },
+                        "workspacePath": { "type": "string", "description": "Existing workspace-relative path. The directory must already exist." },
                         "task": { "type": "string" }
                       },
-                      "required": ["projectRoot", "task"],
+                      "required": ["workspacePath", "task"],
                       "additionalProperties": false
                     }
                     """)
@@ -7482,12 +7482,12 @@ workflows:
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
-        Assert.Contains("repositoryRoot", result.Error.Message);
+        Assert.Contains("rootPath", result.Error.Message);
         Assert.Contains("sibling field documented as relative", result.Error.Message);
     }
 
     [Fact]
-    public async Task WorkflowPlan_SemanticValidation_RejectsExplicitEmptyOptionalMcpProjectRoot()
+    public async Task WorkflowPlan_SemanticValidation_RejectsExplicitEmptyMcpWorkspacePath()
     {
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
@@ -7510,7 +7510,7 @@ workflows:
                                  kind: tool
                                  method: code_suggest_change
                                  request:
-                                   projectRoot: ""
+                                   workspacePath: ""
                                    task: Fix the issue
                        """
             });
@@ -7528,15 +7528,10 @@ workflows:
                     {
                       "type": "object",
                       "properties": {
-                        "projectRoot": {
-                          "anyOf": [
-                            { "type": "string", "description": "Existing project root relative to the workspace." },
-                            { "type": "null" }
-                          ]
-                        },
+                        "workspacePath": { "type": "string", "description": "Existing workspace-relative path." },
                         "task": { "type": "string" }
                       },
-                      "required": ["task"],
+                      "required": ["workspacePath", "task"],
                       "additionalProperties": false
                     }
                     """)
@@ -7568,8 +7563,89 @@ workflows:
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
         Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
-        Assert.Contains("input.request.projectRoot", result.Error.Message);
+        Assert.Contains("input.request.workspacePath", result.Error.Message);
         Assert.Contains("empty string is invalid", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsExplicitNullRequiredMcpString()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       skill:
+                         description: Generated code workflow.
+                         tags: [code]
+                         inputs: {}
+                         outputs: {}
+                       workflows:
+                         main:
+                           steps:
+                             - id: suggest
+                               type: mcp.call
+                               input:
+                                 server: code
+                                 kind: tool
+                                 method: code_suggest_change
+                                 request:
+                                   workspacePath: null
+                                   task: Fix the issue
+                       """
+            });
+
+        var mcpFactory = new InMemoryMcpClientFactory();
+        mcpFactory.RegisterServer("code", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "code_suggest_change",
+                    Description = "Suggest code changes",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "workspacePath": { "type": "string", "description": "Existing workspace-relative path." },
+                        "task": { "type": "string" }
+                      },
+                      "required": ["workspacePath", "task"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            }
+        });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: basic
+                  generator:
+                    model: gpt-4
+                    instruction: Suggest a code fix
+                    prefilter: false
+                  on_invalid:
+                    action: stop
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object, McpClientFactory = mcpFactory }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
+        Assert.Contains("input.request.workspacePath", result.Error.Message);
+        Assert.Contains("string", result.Error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -7611,18 +7687,18 @@ workflows:
                                  properties:
                                    success:
                                      type: boolean
-                                   projectRootRelative:
+                                   workspacePathRelative:
                                      type: string
-                                 required: [success, projectRootRelative]
+                                 required: [success, workspacePathRelative]
                                  additionalProperties: false
                                input:
                                  success: true
-                                 projectRootRelative: "${data.steps.clone_repo.response.projectRootRelative}"
+                                 workspacePathRelative: "${data.steps.clone_repo.response.workspacePathRelative}"
                            outputs:
-                             local_repo_path:
-                               expr: "${data.steps.clone_result.success ? data.steps.clone_result.projectRootRelative : ''}"
+                             local_workspace_path:
+                               expr: "${data.steps.clone_result.success ? data.steps.clone_result.workspacePathRelative : ''}"
                                type: string
-                               description: "Workspace-relative path to the cloned repository, or empty string if the operation failed."
+                               description: "Workspace-relative path to the created workspace, or empty string if the operation failed."
                        """
             });
 
@@ -7650,11 +7726,11 @@ workflows:
                     {
                       "type": "object",
                       "properties": {
-                        "repositoryRoot": { "type": "string" },
-                        "repositoryRootRelative": { "type": "string" },
-                        "projectRootRelative": { "type": "string" }
+                        "rootPath": { "type": "string" },
+                        "rootPathRelative": { "type": "string" },
+                        "workspacePathRelative": { "type": "string" }
                       },
-                      "required": ["repositoryRoot", "repositoryRootRelative", "projectRootRelative"]
+                      "required": ["rootPath", "rootPathRelative", "workspacePathRelative"]
                     }
                     """)
                 }
@@ -7685,11 +7761,11 @@ workflows:
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
         Assert.Contains("WORKFLOW_PATH_OUTPUT_EMPTY_FALLBACK", result.Error.Message);
-        Assert.Contains("outputs.local_repo_path", result.Error.Message);
+        Assert.Contains("outputs.local_workspace_path", result.Error.Message);
     }
 
     [Fact]
-    public async Task WorkflowPlan_SemanticValidation_RejectsMcpProjectRootExpressionWithEmptyFallback()
+    public async Task WorkflowPlan_SemanticValidation_RejectsMcpWorkspacePathExpressionWithEmptyFallback()
     {
         var mockLlm = new Mock<ILLMClient>();
         mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
@@ -7712,13 +7788,13 @@ workflows:
                                  properties:
                                    success:
                                      type: boolean
-                                   projectRootRelative:
+                                   workspacePathRelative:
                                      type: string
-                                 required: [success, projectRootRelative]
+                                 required: [success, workspacePathRelative]
                                  additionalProperties: false
                                input:
                                  success: true
-                                 projectRootRelative: issue-1676
+                                 workspacePathRelative: issue-1676
                              - id: suggest
                                type: mcp.call
                                input:
@@ -7726,7 +7802,7 @@ workflows:
                                  kind: tool
                                  method: code_suggest_change
                                  request:
-                                   projectRoot: "${data.steps.clone_result.success ? data.steps.clone_result.projectRootRelative : ''}"
+                                   workspacePath: "${data.steps.clone_result.success ? data.steps.clone_result.workspacePathRelative : ''}"
                                    task: Fix the issue
                        """
             });
@@ -7744,15 +7820,10 @@ workflows:
                     {
                       "type": "object",
                       "properties": {
-                        "projectRoot": {
-                          "anyOf": [
-                            { "type": "string", "description": "Existing project root relative to the workspace." },
-                            { "type": "null" }
-                          ]
-                        },
+                        "workspacePath": { "type": "string", "description": "Existing workspace-relative path." },
                         "task": { "type": "string" }
                       },
-                      "required": ["task"],
+                      "required": ["workspacePath", "task"],
                       "additionalProperties": false
                     }
                     """)
@@ -7784,7 +7855,7 @@ workflows:
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
         Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
-        Assert.Contains("input.request.projectRoot", result.Error.Message);
+        Assert.Contains("input.request.workspacePath", result.Error.Message);
         Assert.Contains("can resolve to an empty string", result.Error.Message);
     }
 
@@ -7819,7 +7890,7 @@ workflows:
                                  kind: tool
                                  method: summarize_project
                                  request:
-                                   workspaceRoot: "${data.steps.prepare.local_path}"
+                                   workspacePath: "${data.steps.prepare.local_path}"
                                    task: Summarize the project
                        """
             });
@@ -7837,13 +7908,13 @@ workflows:
                     {
                       "type": "object",
                       "properties": {
-                        "workspaceRoot": {
+                        "workspacePath": {
                           "type": "string",
-                          "description": "Existing workspace-relative project root. The directory must already exist; pass a previous producer output."
+                          "description": "Existing workspace-relative path. The directory must already exist; pass a previous producer output."
                         },
                         "task": { "type": "string" }
                       },
-                      "required": ["workspaceRoot", "task"],
+                      "required": ["workspacePath", "task"],
                       "additionalProperties": false
                     }
                     """)
@@ -7875,7 +7946,7 @@ workflows:
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
         Assert.Contains("MCP_REQUEST_RESOURCE_PROVENANCE", result.Error.Message);
-        Assert.Contains("input.request.workspaceRoot", result.Error.Message);
+        Assert.Contains("input.request.workspacePath", result.Error.Message);
     }
 
     [Fact]
@@ -7910,7 +7981,7 @@ workflows:
                                  kind: tool
                                  method: summarize_project
                                  request:
-                                   workspaceRoot: "${data.steps.create_workspace.response.workspaceRootRelative}"
+                                   workspacePath: "${data.steps.create_workspace.response.workspacePathRelative}"
                                    task: Summarize the project
                        """
             });
@@ -7938,12 +8009,12 @@ workflows:
                     {
                       "type": "object",
                       "properties": {
-                        "workspaceRootRelative": {
+                        "workspacePathRelative": {
                           "type": "string",
-                          "description": "Workspace-relative existing project root created by this tool."
+                          "description": "Workspace-relative path created by this tool."
                         }
                       },
-                      "required": ["workspaceRootRelative"],
+                      "required": ["workspacePathRelative"],
                       "additionalProperties": false
                     }
                     """)
@@ -7956,13 +8027,13 @@ workflows:
                     {
                       "type": "object",
                       "properties": {
-                        "workspaceRoot": {
+                        "workspacePath": {
                           "type": "string",
-                          "description": "Existing workspace-relative project root. The directory must already exist; pass a previous producer output."
+                          "description": "Existing workspace-relative path. The directory must already exist; pass a previous producer output."
                         },
                         "task": { "type": "string" }
                       },
-                      "required": ["workspaceRoot", "task"],
+                      "required": ["workspacePath", "task"],
                       "additionalProperties": false
                     }
                     """)
@@ -8027,7 +8098,7 @@ workflows:
                                  kind: tool
                                  method: code_suggest_change
                                  request:
-                                   projectRoot: "${data.steps.clone_repo.response.projectRootRelative}"
+                                   workspacePath: "${data.steps.clone_repo.response.workspacePathRelative}"
                                    task: Fix the issue
                        """
             });
@@ -8040,7 +8111,7 @@ workflows:
                 new()
                 {
                     Name = "git_clone",
-                    Description = "Clones a Git repository into a new workspace target directory. targetDirectory is a creation target, not an existing projectRoot before clone. After success, pass response.projectRootRelative to projectRoot inputs.",
+                    Description = "Creates a workspace directory. targetDirectory is a creation target, not an existing path before the call. After success, pass response.workspacePathRelative to existing workspace path inputs.",
                     InputSchema = JsonNode.Parse("""
                     {
                       "type": "object",
@@ -8048,10 +8119,23 @@ workflows:
                         "remoteUrl": { "type": "string" },
                         "targetDirectory": {
                           "type": "string",
-                          "description": "Clone target directory relative to the workspace root only. Must be empty or non-existing. After clone succeeds, use response.projectRootRelative as the existing projectRoot for later tools."
+                          "description": "Creation target directory path relative to the workspace root only. Must be empty or non-existing. After success, use response.workspacePathRelative as the existing workspace path for later tools."
                         }
                       },
                       "required": ["remoteUrl", "targetDirectory"],
+                      "additionalProperties": false
+                    }
+                    """),
+                    OutputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "workspacePathRelative": {
+                          "type": "string",
+                          "description": "Workspace-relative path created by this tool."
+                        }
+                      },
+                      "required": ["workspacePathRelative"],
                       "additionalProperties": false
                     }
                     """)
@@ -8070,13 +8154,13 @@ workflows:
                     {
                       "type": "object",
                       "properties": {
-                        "projectRoot": {
+                        "workspacePath": {
                           "type": "string",
-                          "description": "Existing project root relative to the workspace. The directory must already exist; pass a previous producer output."
+                          "description": "Existing workspace-relative path. The directory must already exist; pass a previous producer output."
                         },
                         "task": { "type": "string" }
                       },
-                      "required": ["projectRoot", "task"],
+                      "required": ["workspacePath", "task"],
                       "additionalProperties": false
                     }
                     """)
@@ -8131,7 +8215,7 @@ workflows:
                              - id: prepare
                                type: set
                                input:
-                                 local_repository_path: "repos/issue-${data.inputs.issue_number}"
+                                 local_workspace_path: "repos/issue-${data.inputs.issue_number}"
                              - id: analyze
                                type: workflow.call
                                input:
@@ -8139,12 +8223,12 @@ workflows:
                                    kind: local
                                    name: analyze_workspace
                                  args:
-                                   local_repository_path: "${data.steps.prepare.local_repository_path}"
+                                   local_workspace_path: "${data.steps.prepare.local_workspace_path}"
                          analyze_workspace:
                            inputs:
-                             local_repository_path:
+                             local_workspace_path:
                                type: string
-                               description: Existing workspace-relative project root created by a previous step.
+                               description: Existing workspace-relative path created by a previous step.
                            steps:
                              - id: done
                                type: set
@@ -8177,7 +8261,7 @@ workflows:
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
         Assert.Contains("WORKFLOW_CALL_RESOURCE_PROVENANCE", result.Error.Message);
-        Assert.Contains("input.args.local_repository_path", result.Error.Message);
+        Assert.Contains("input.args.local_workspace_path", result.Error.Message);
     }
 
     [Fact]
@@ -9185,6 +9269,88 @@ workflows:
         Assert.Contains("data.steps.set_fix_result.pr_link", result.Error.Message);
         Assert.Contains("data.steps.set_question_result.pr_link", result.Error.Message);
         Assert.Contains("data.steps.set_complex_result.pr_link", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_SemanticValidation_RejectsSwitchStepDirectFieldMapping()
+    {
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                Text = """
+                       version: 1
+                       workflows:
+                         main:
+                           steps:
+                             - id: classify
+                               type: set
+                               output_schema:
+                                 type: object
+                                 properties:
+                                   classification:
+                                     type: string
+                                 required: [classification]
+                                 additionalProperties: false
+                               input:
+                                 classification: bug
+                             - id: compute_pr_result
+                               type: switch
+                               cases:
+                                 - when: "${data.steps.classify.classification == 'bug'}"
+                                   steps:
+                                     - id: pr_success
+                                       type: set
+                                       output_schema:
+                                         type: object
+                                         properties:
+                                           pr_url:
+                                             type: string
+                                         required: [pr_url]
+                                         additionalProperties: false
+                                       input:
+                                         pr_url: "https://example.test/pull/1"
+                               default:
+                                 - id: pr_failure
+                                   type: set
+                                   output_schema:
+                                     type: object
+                                     properties:
+                                       pr_url:
+                                         type: string
+                                     required: [pr_url]
+                                     additionalProperties: false
+                                   input:
+                                     pr_url: "PR creation failed"
+                           outputs:
+                             pr_url:
+                               expr: "${data.steps.compute_pr_result.pr_url}"
+                               type: string
+                       """
+            });
+
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: plan
+        type: workflow.plan
+        input:
+          mode: basic
+          generator:
+            model: gpt-4
+            instruction: Build a PR workflow
+");
+
+        var engine = new WorkflowEngine { LLMClient = mockLlm.Object };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Contains("STEP_OUTPUT_PROPERTY_UNKNOWN", result.Error.Message);
+        Assert.Contains("data.steps.compute_pr_result.pr_url", result.Error.Message);
     }
 
     [Fact]

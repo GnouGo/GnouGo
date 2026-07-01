@@ -990,6 +990,92 @@ workflows:
         Assert.True(result.Success);
     }
 
+    [Fact]
+    public async Task Execute_DeclaredWorkflowOutputTypeMismatch_FailsAtOutputBoundary()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: value
+        type: set
+        input:
+          answer: 123
+    outputs:
+      answer:
+        expr: ""${data.steps.value.answer}""
+        type: string
+");
+
+        var engine = CreateEngine();
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("output 'answer'", result.Error.Message);
+        Assert.Contains("declared output type 'string'", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task Execute_DeclaredWorkflowOutputWithOptionalExpression_AllowsNull()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: value
+        type: set
+        input:
+          answer: ok
+    outputs:
+      optional_text:
+        expr: ""${data.steps.missing?.text}""
+        type: string
+");
+
+        var engine = CreateEngine();
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Null(result.Outputs!["optional_text"]);
+    }
+
+    [Fact]
+    public async Task Execute_WorkflowCallValidatesCalledWorkflowDeclaredOutputs()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call_helper
+        type: workflow.call
+        input:
+          ref:
+            kind: local
+            name: helper
+  helper:
+    steps:
+      - id: compute
+        type: set
+        input:
+          status: done
+    outputs:
+      pr_url:
+        expr: ""${data.steps.compute.pr_url}""
+        type: string
+");
+
+        var engine = CreateEngine();
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("Workflow 'helper' output 'pr_url'", result.Error.Message);
+    }
+
     // === OnError Tests ===
 
     [Fact]
