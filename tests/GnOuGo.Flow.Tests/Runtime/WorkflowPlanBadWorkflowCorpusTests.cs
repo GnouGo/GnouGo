@@ -5,6 +5,7 @@ using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Runtime.Executors;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
@@ -22,11 +23,11 @@ public sealed class WorkflowPlanBadWorkflowCorpusTests
             .Where(testCase => string.Equals(testCase.ExpectedStage, "dry_run", StringComparison.Ordinal))
             .Select(testCase => new object[] { testCase });
 
-    public static IEnumerable<object[]> DocumentedRuntimeFailures()
+    public static IEnumerable<object[]> PipelineQualityCases()
         => LoadCases()
             .Where(testCase =>
-                string.Equals(testCase.ExpectedStage, "runtime", StringComparison.Ordinal)
-                && string.Equals(testCase.CurrentCoverage, "documented_runtime_failure", StringComparison.Ordinal))
+                string.Equals(testCase.ExpectedStage, "pipeline_quality", StringComparison.Ordinal)
+                && string.Equals(testCase.CurrentCoverage, "caught_by_pipeline_quality", StringComparison.Ordinal))
             .Select(testCase => new object[] { testCase });
 
     [Theory]
@@ -63,19 +64,39 @@ public sealed class WorkflowPlanBadWorkflowCorpusTests
             Assert.Contains(expected, ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Theory]
-    [MemberData(nameof(DocumentedRuntimeFailures))]
-    public void BadWorkflowCorpus_RuntimeFailuresStayDocumented(BadWorkflowCase testCase)
+    [Fact]
+    public void BadWorkflowCorpus_RuntimeFailuresStayDocumented()
     {
-        var yaml = ReadYaml(testCase);
-        var document = WorkflowParser.Parse(yaml);
+        foreach (var testCase in LoadCases()
+                     .Where(testCase =>
+                         string.Equals(testCase.ExpectedStage, "runtime", StringComparison.Ordinal)
+                         && string.Equals(testCase.CurrentCoverage, "documented_runtime_failure", StringComparison.Ordinal)))
+        {
+            var yaml = ReadYaml(testCase);
+            var document = WorkflowParser.Parse(yaml);
 
-        Assert.Contains("mcp.call", yaml, StringComparison.Ordinal);
-        Assert.NotEmpty(testCase.ReportedErrorContains);
+            Assert.Contains("mcp.call", yaml, StringComparison.Ordinal);
+            Assert.NotEmpty(testCase.ReportedErrorContains);
+            Assert.Contains(testCase.Notes, note => note.Contains("without adding server-specific Flow heuristics", StringComparison.Ordinal));
+            Assert.Contains(
+                document.Workflows.Values.SelectMany(workflow => workflow.Steps),
+                step => step.Type == "mcp.call");
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(PipelineQualityCases))]
+    public void BadWorkflowCorpus_PipelineQualityCasesStayRejected(BadWorkflowCase testCase)
+    {
+        var document = WorkflowParser.Parse(ReadYaml(testCase));
+
+        var ex = Assert.Throws<WorkflowRuntimeException>(() =>
+            WorkflowPlanPipelineQualityAnalyzer.ValidateExternalArtifactReadiness(document));
+
+        foreach (var expected in testCase.ExpectedErrorContains)
+            Assert.Contains(expected, ex.Message, StringComparison.OrdinalIgnoreCase);
+
         Assert.Contains(testCase.Notes, note => note.Contains("without adding server-specific Flow heuristics", StringComparison.Ordinal));
-        Assert.Contains(
-            document.Workflows.Values.SelectMany(workflow => workflow.Steps),
-            step => step.Type == "mcp.call");
     }
 
     [Fact]
@@ -85,8 +106,9 @@ public sealed class WorkflowPlanBadWorkflowCorpusTests
             string.Equals(candidate.Id, "copilot-suggest-change-nonexistent-project-root", StringComparison.Ordinal));
 
         Assert.NotNull(testCase);
-        Assert.Equal("runtime", testCase.ExpectedStage);
-        Assert.Equal("documented_runtime_failure", testCase.CurrentCoverage);
+        Assert.Equal("pipeline_quality", testCase.ExpectedStage);
+        Assert.Equal("caught_by_pipeline_quality", testCase.CurrentCoverage);
+        Assert.Contains(testCase.ExpectedErrorContains, value => value.Contains(WorkflowPlanPipelineQualityAnalyzer.UnprovenExternalArtifactCode, StringComparison.Ordinal));
         Assert.Contains(testCase.ReportedErrorContains, value => value.Contains("code_suggest_change", StringComparison.Ordinal));
         Assert.Contains(testCase.ReportedErrorContains, value => value.Contains("does not exist", StringComparison.Ordinal));
     }

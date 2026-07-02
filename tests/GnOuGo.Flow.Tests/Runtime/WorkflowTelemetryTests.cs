@@ -632,6 +632,17 @@ workflows:
                     3 => new LLMResponse
                     {
                         Text = """
+                        {
+                          "score": 92,
+                          "verdict": "pass",
+                          "diagnostics": [],
+                          "retry_guidance": "Extraction is faithful and can proceed."
+                        }
+                        """
+                    },
+                    4 => new LLMResponse
+                    {
+                        Text = """
                         version: 1
                         name: collect-data-leaf
                         skill:

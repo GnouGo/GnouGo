@@ -101,7 +101,11 @@ public sealed record GitCloneResult(
     [property: Description("Required workspace-relative path to an existing project root created by git_clone. Pass this value to MCP projectRoot inputs after clone succeeds; do not reuse targetDirectory before clone.")]
     string ProjectRootRelative,
     string? Output = null,
-    string? RepositoryRootRelative = null);
+    string? RepositoryRootRelative = null,
+    string? ResolvedBranch = null,
+    int HistoryDepth = 1,
+    bool FetchAllBranches = false,
+    string TagFetchMode = "none");
 
 public sealed record GitMergeResult(
     string RepositoryRoot,

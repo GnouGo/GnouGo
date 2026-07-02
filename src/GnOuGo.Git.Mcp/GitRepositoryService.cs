@@ -9,6 +9,8 @@ public sealed class GitRepositoryService
 {
     private const string DefaultExcludedRootDirectory = ".GnOuGo";
 
+    private readonly record struct CloneTagFetchMode(TagFetchMode Mode, string Name);
+
     private readonly GitPolicy _policy;
     private readonly GitServerSettings _settings;
 
@@ -337,35 +339,238 @@ public sealed class GitRepositoryService
         return CreateOperationResult(repositoryRoot, "resolve_conflict", message);
     }
 
-    public GitCloneResult Clone(string remoteUrl, string targetDirectory, string? branch = null)
+    public GitCloneResult Clone(
+        string remoteUrl,
+        string targetDirectory,
+        string? branch = null,
+        int historyDepth = 1,
+        bool fetchAllBranches = false,
+        string tagFetchMode = "none")
     {
         _policy.EnsureGitNetworkAllowed("clone");
         _policy.EnsureGitMutationsAllowed("clone");
         if (string.IsNullOrWhiteSpace(remoteUrl))
             throw new InvalidOperationException("remoteUrl must not be empty.");
+        if (historyDepth < 0)
+            throw new InvalidOperationException("historyDepth must be 0 or greater. Use 0 to fetch full history.");
 
+        var resolvedTagFetchMode = ParseCloneTagFetchMode(tagFetchMode);
+        var requestedBranch = NormalizeOptionalCloneBranch(branch);
         var target = _policy.ResolveCloneTargetDirectory(targetDirectory);
-        var options = new CloneOptions();
-        if (!string.IsNullOrWhiteSpace(branch))
-            options.BranchName = branch;
-        ApplyCredentials(options.FetchOptions);
+        var credentialsProvider = CreateCredentialsProvider();
+
+        return fetchAllBranches
+            ? CloneAllBranches(remoteUrl, targetDirectory, target, requestedBranch, historyDepth, resolvedTagFetchMode, credentialsProvider)
+            : CloneSingleBranch(remoteUrl, targetDirectory, target, requestedBranch, historyDepth, resolvedTagFetchMode, credentialsProvider);
+    }
+
+    private GitCloneResult CloneAllBranches(
+        string remoteUrl,
+        string targetDirectory,
+        string target,
+        string? requestedBranch,
+        int historyDepth,
+        CloneTagFetchMode tagFetchMode,
+        CredentialsHandler? credentialsProvider)
+    {
+        var options = new CloneOptions(CreateCloneFetchOptions(historyDepth, tagFetchMode.Mode, credentialsProvider));
+        if (!string.IsNullOrWhiteSpace(requestedBranch))
+            options.BranchName = requestedBranch;
 
         var repositoryPath = Repository.Clone(remoteUrl, target, options);
         var workingDirectory = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(repositoryPath)) ?? target;
+        var resolvedBranch = ResolveCheckedOutBranchName(workingDirectory) ?? requestedBranch;
+
+        return CreateCloneResult(
+            remoteUrl,
+            targetDirectory,
+            workingDirectory,
+            requestedBranch,
+            resolvedBranch,
+            historyDepth,
+            fetchAllBranches: true,
+            tagFetchMode.Name);
+    }
+
+    private GitCloneResult CloneSingleBranch(
+        string remoteUrl,
+        string targetDirectory,
+        string target,
+        string? requestedBranch,
+        int historyDepth,
+        CloneTagFetchMode tagFetchMode,
+        CredentialsHandler? credentialsProvider)
+    {
+        var resolvedBranch = requestedBranch ?? ResolveRemoteDefaultBranchName(remoteUrl, credentialsProvider);
+        var fetchRefSpec = BuildSingleBranchFetchRefSpec(resolvedBranch);
+        var repositoryPath = Repository.Init(target);
+        using (var repository = new Repository(repositoryPath))
+        {
+            var remote = repository.Network.Remotes.Add(_settings.DefaultRemoteName, remoteUrl, fetchRefSpec);
+            var fetchOptions = CreateCloneFetchOptions(historyDepth, tagFetchMode.Mode, credentialsProvider);
+            Commands.Fetch(repository, remote.Name, [fetchRefSpec], fetchOptions, "clone from Git MCP");
+
+            var remoteBranchName = $"{remote.Name}/{resolvedBranch}";
+            var remoteBranch = repository.Branches[remoteBranchName]
+                ?? throw new InvalidOperationException($"Remote branch '{remoteBranchName}' was not found after clone fetch.");
+
+            var localBranch = repository.Branches[resolvedBranch] ?? repository.CreateBranch(resolvedBranch, remoteBranch.Tip);
+            repository.Branches.Update(localBranch, updater =>
+            {
+                updater.Remote = remote.Name;
+                updater.UpstreamBranch = $"refs/heads/{resolvedBranch}";
+            });
+            Commands.Checkout(repository, localBranch);
+        }
+
+        return CreateCloneResult(
+            remoteUrl,
+            targetDirectory,
+            target,
+            requestedBranch,
+            resolvedBranch,
+            historyDepth,
+            fetchAllBranches: false,
+            tagFetchMode.Name);
+    }
+
+    private GitCloneResult CreateCloneResult(
+        string remoteUrl,
+        string targetDirectory,
+        string workingDirectory,
+        string? requestedBranch,
+        string? resolvedBranch,
+        int historyDepth,
+        bool fetchAllBranches,
+        string tagFetchMode)
+    {
         var requestedTargetDirectoryRelative = Path.IsPathRooted(targetDirectory) ? null : NormalizeRelativePath(targetDirectory);
         var relativeWorkingDirectory = ToWorkspaceRelativePath(workingDirectory) ?? requestedTargetDirectoryRelative;
         var displayWorkingDirectory = relativeWorkingDirectory ?? workingDirectory;
-        var output = $"Cloned '{remoteUrl}' into '{displayWorkingDirectory}'{(string.IsNullOrWhiteSpace(branch) ? string.Empty : $" on branch '{branch}'")}.";
+        var branchMessage = !string.IsNullOrWhiteSpace(resolvedBranch)
+            ? $" on branch '{resolvedBranch}'"
+            : string.Empty;
+        var output = $"Cloned '{remoteUrl}' into '{displayWorkingDirectory}'{branchMessage} (historyDepth={historyDepth}, fetchAllBranches={fetchAllBranches.ToString().ToLowerInvariant()}, tagFetchMode={tagFetchMode}).";
         if (string.IsNullOrWhiteSpace(relativeWorkingDirectory))
             throw new InvalidOperationException("git_clone could not produce a workspace-relative projectRootRelative for the cloned repository.");
 
         return new GitCloneResult(
             RepositoryRoot: workingDirectory,
             RemoteUrl: remoteUrl,
-            Branch: branch,
+            Branch: requestedBranch,
             ProjectRootRelative: relativeWorkingDirectory,
             Output: output,
-            RepositoryRootRelative: relativeWorkingDirectory);
+            RepositoryRootRelative: relativeWorkingDirectory,
+            ResolvedBranch: resolvedBranch,
+            HistoryDepth: historyDepth,
+            FetchAllBranches: fetchAllBranches,
+            TagFetchMode: tagFetchMode);
+    }
+
+    private FetchOptions CreateCloneFetchOptions(int historyDepth, TagFetchMode tagFetchMode, CredentialsHandler? credentialsProvider)
+        => new()
+        {
+            Depth = historyDepth,
+            TagFetchMode = tagFetchMode,
+            CredentialsProvider = credentialsProvider
+        };
+
+    private string ResolveRemoteDefaultBranchName(string remoteUrl, CredentialsHandler? credentialsProvider)
+    {
+        var references = ListRemoteReferences(remoteUrl, credentialsProvider);
+        var head = references.FirstOrDefault(static reference => string.Equals(reference.CanonicalName, "HEAD", StringComparison.Ordinal));
+        var branchName = TryGetBranchNameFromReferenceName(head?.TargetIdentifier);
+        if (!string.IsNullOrWhiteSpace(branchName))
+        {
+            EnsureSafeBranchName(branchName);
+            return branchName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(head?.TargetIdentifier))
+        {
+            var matchingBranches = references
+                .Where(reference => IsHeadReference(reference.CanonicalName)
+                                    && string.Equals(reference.TargetIdentifier, head.TargetIdentifier, StringComparison.OrdinalIgnoreCase))
+                .Select(static reference => TryGetBranchNameFromReferenceName(reference.CanonicalName))
+                .Where(static name => !string.IsNullOrWhiteSpace(name))
+                .Select(static name => name!)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            var selectedBranch = SelectDefaultBranchCandidate(matchingBranches);
+            if (!string.IsNullOrWhiteSpace(selectedBranch))
+            {
+                EnsureSafeBranchName(selectedBranch);
+                return selectedBranch;
+            }
+        }
+
+        throw new InvalidOperationException("git_clone could not resolve the remote default branch while fetchAllBranches=false. Pass branch explicitly or set fetchAllBranches=true.");
+    }
+
+    private static IReadOnlyList<Reference> ListRemoteReferences(string remoteUrl, CredentialsHandler? credentialsProvider)
+        => credentialsProvider is null
+            ? Repository.ListRemoteReferences(remoteUrl).ToArray()
+            : Repository.ListRemoteReferences(remoteUrl, credentialsProvider).ToArray();
+
+    private string BuildSingleBranchFetchRefSpec(string branchName)
+        => NormalizeFetchRefSpec($"refs/heads/{branchName}:refs/remotes/{_settings.DefaultRemoteName}/{branchName}");
+
+    private static string? NormalizeOptionalCloneBranch(string? branch)
+    {
+        if (string.IsNullOrWhiteSpace(branch))
+            return null;
+
+        var normalized = branch.Trim();
+        EnsureSafeBranchName(normalized);
+        return normalized;
+    }
+
+    private static string? ResolveCheckedOutBranchName(string workingDirectory)
+    {
+        using var repository = new Repository(workingDirectory);
+        return repository.Info.IsHeadDetached || string.IsNullOrWhiteSpace(repository.Head.FriendlyName)
+            ? null
+            : repository.Head.FriendlyName;
+    }
+
+    private static bool IsHeadReference(string referenceName)
+        => referenceName.StartsWith("refs/heads/", StringComparison.Ordinal);
+
+    private static string? TryGetBranchNameFromReferenceName(string? referenceName)
+    {
+        const string Prefix = "refs/heads/";
+        return referenceName != null && referenceName.StartsWith(Prefix, StringComparison.Ordinal) && referenceName.Length > Prefix.Length
+            ? referenceName[Prefix.Length..]
+            : null;
+    }
+
+    private static string? SelectDefaultBranchCandidate(IReadOnlyList<string> branchNames)
+    {
+        if (branchNames.Count == 0)
+            return null;
+
+        foreach (var preferred in new[] { "main", "master" })
+        {
+            if (branchNames.Contains(preferred, StringComparer.Ordinal))
+                return preferred;
+        }
+
+        return branchNames.Count == 1 ? branchNames[0] : null;
+    }
+
+    private static CloneTagFetchMode ParseCloneTagFetchMode(string? tagFetchMode)
+    {
+        var normalized = string.IsNullOrWhiteSpace(tagFetchMode)
+            ? "none"
+            : tagFetchMode.Trim().ToLowerInvariant();
+
+        return normalized switch
+        {
+            "none" => new CloneTagFetchMode(TagFetchMode.None, "none"),
+            "auto" => new CloneTagFetchMode(TagFetchMode.Auto, "auto"),
+            "all" => new CloneTagFetchMode(TagFetchMode.All, "all"),
+            _ => throw new InvalidOperationException("tagFetchMode must be one of: none, auto, all.")
+        };
     }
 
     public GitOperationResult Fetch(string projectRoot, string? remoteName = null, string? refSpec = null)

@@ -271,6 +271,94 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void Clone_DefaultFetchesOnlyDefaultBranchWithMinimalMetadata()
+    {
+        var source = Path.Combine(_root, "source-minimal");
+        var target = Path.Combine(_root, "target-minimal");
+        Directory.CreateDirectory(source);
+        Repository.Init(source);
+        var sourceService = CreateService(source, allowNetwork: true);
+        WriteCommit(sourceService, "README.md", "source\n", "source initial", root: source);
+        string defaultBranch;
+        using (var sourceRepository = new Repository(source))
+        {
+            defaultBranch = sourceRepository.Head.FriendlyName;
+        }
+        sourceService.CreateBranch(".", "feature/extra", checkout: true);
+        WriteCommit(sourceService, "feature.txt", "feature\n", "feature commit", root: source);
+        sourceService.Checkout(".", defaultBranch);
+        var service = CreateService(allowNetwork: true);
+
+        var clone = service.Clone(source, "target-minimal");
+
+        Assert.Equal(NormalizePath(target), NormalizePath(clone.RepositoryRoot));
+        Assert.Equal(1, clone.HistoryDepth);
+        Assert.False(clone.FetchAllBranches);
+        Assert.Equal("none", clone.TagFetchMode);
+        Assert.False(string.IsNullOrWhiteSpace(clone.ResolvedBranch));
+        using var repository = new Repository(target);
+        Assert.NotNull(repository.Branches[clone.ResolvedBranch]);
+        Assert.NotNull(repository.Branches[$"origin/{clone.ResolvedBranch}"]);
+        Assert.Null(repository.Branches["origin/feature/extra"]);
+        Assert.Equal(clone.ResolvedBranch, repository.Head.FriendlyName);
+    }
+
+    [Fact]
+    public void Clone_FetchAllBranchesKeepsRemoteBranches()
+    {
+        var source = Path.Combine(_root, "source-all-branches");
+        var target = Path.Combine(_root, "target-all-branches");
+        Directory.CreateDirectory(source);
+        Repository.Init(source);
+        var sourceService = CreateService(source, allowNetwork: true);
+        WriteCommit(sourceService, "README.md", "source\n", "source initial", root: source);
+        sourceService.CreateBranch(".", "feature/extra", checkout: true);
+        WriteCommit(sourceService, "feature.txt", "feature\n", "feature commit", root: source);
+        var service = CreateService(allowNetwork: true);
+
+        var clone = service.Clone(source, "target-all-branches", historyDepth: 0, fetchAllBranches: true);
+
+        Assert.True(clone.FetchAllBranches);
+        Assert.Equal(0, clone.HistoryDepth);
+        Assert.Equal("none", clone.TagFetchMode);
+        using var repository = new Repository(target);
+        Assert.NotNull(repository.Branches["origin/feature/extra"]);
+    }
+
+    [Fact]
+    public void Clone_HistoryDepthZeroFetchesFullHistory()
+    {
+        var source = Path.Combine(_root, "source-full-history");
+        var target = Path.Combine(_root, "target-full-history");
+        Directory.CreateDirectory(source);
+        Repository.Init(source);
+        var sourceService = CreateService(source, allowNetwork: true);
+        WriteCommit(sourceService, "README.md", "one\n", "first", root: source);
+        WriteCommit(sourceService, "README.md", "two\n", "second", root: source);
+        var service = CreateService(allowNetwork: true);
+
+        var clone = service.Clone(source, "target-full-history", historyDepth: 0);
+
+        Assert.Equal(0, clone.HistoryDepth);
+        using var repository = new Repository(target);
+        Assert.Equal(2, repository.Commits.Count());
+    }
+
+    [Fact]
+    public void Clone_RejectsInvalidHistoryDepthAndTagFetchMode()
+    {
+        var service = CreateService(allowNetwork: true);
+
+        var depthError = Assert.Throws<InvalidOperationException>(() =>
+            service.Clone("https://example.invalid/repo.git", "invalid-depth", historyDepth: -1));
+        var tagError = Assert.Throws<InvalidOperationException>(() =>
+            service.Clone("https://example.invalid/repo.git", "invalid-tag", tagFetchMode: "everything"));
+
+        Assert.Contains("historyDepth", depthError.Message, StringComparison.Ordinal);
+        Assert.Contains("tagFetchMode", tagError.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MutationOperation_IsRejectedWhenDisabled()
     {
         File.WriteAllText(Path.Combine(_root, "README.md"), "hello\n");

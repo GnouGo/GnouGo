@@ -126,8 +126,11 @@ public sealed class GitTools
     public GitCloneResult GitClone(
         [Description("Remote Git URL to clone.")] string remoteUrl,
         [Description("Clone target directory relative to the workspace root only. Must be empty or non-existing. After clone succeeds, use response.projectRootRelative as the existing projectRoot for later tools.")] string targetDirectory,
-        [Description("Optional branch to checkout during clone.")] string? branch = null)
-        => Execute(() => _gitRepositoryService.Clone(remoteUrl, targetDirectory, branch));
+        [Description("Optional branch to checkout during clone. When omitted and fetchAllBranches=false, Git MCP resolves the remote default branch.")] string? branch = null,
+        [Description("Commit history depth to fetch. 1 fetches the latest commit only; 0 fetches full history. Defaults to 1 for minimal clones.")] int historyDepth = 1,
+        [Description("When false, fetch only the selected/default branch. When true, fetch all remote branches. Defaults to false.")] bool fetchAllBranches = false,
+        [Description("Tag fetch mode: none, auto, or all. Defaults to none for minimal clones.")] string tagFetchMode = "none")
+        => Execute(() => _gitRepositoryService.Clone(remoteUrl, targetDirectory, branch, historyDepth, fetchAllBranches, tagFetchMode));
 
     [McpServerTool(Name = "git_fetch", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Fetches from a remote for an existing repository project root. Requires Git:AllowNetworkOperations=true." + RequiredProjectRootToolSuffix)]
     public GitOperationResult GitFetch(
