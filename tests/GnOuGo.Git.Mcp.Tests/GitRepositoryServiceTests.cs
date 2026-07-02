@@ -81,7 +81,8 @@ public sealed class GitRepositoryServiceTests : IDisposable
         var conflicts = service.GetConflicts(".");
 
         Assert.Equal("Conflicts", merge.Status);
-        Assert.Contains(conflicts, conflict => conflict.Path.Replace('\\', '/') == "app.txt");
+        Assert.True(conflicts.Success);
+        Assert.Contains(conflicts.Conflicts, conflict => conflict.Path.Replace('\\', '/') == "app.txt");
     }
 
     [Fact]

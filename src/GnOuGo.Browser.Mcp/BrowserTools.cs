@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Microsoft.Extensions.Logging;
+using Microsoft.Playwright;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
@@ -44,7 +45,7 @@ public sealed class BrowserTools
                 correlation.RunId,
                 correlation.TraceParent);
 
-            throw new McpException($"{ex.GetType().Name}: {ex.Message}", ex);
+            return BrowserToolFailure.Content(url, selector, format, ex);
         }
     }
 
@@ -62,7 +63,7 @@ public sealed class BrowserTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "browser_click failed for selector={Selector}", selector);
-            throw;
+            return BrowserToolFailure.Action("click", selector, ex);
         }
     }
 
@@ -81,7 +82,7 @@ public sealed class BrowserTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "browser_fill failed for selector={Selector}", selector);
-            throw;
+            return BrowserToolFailure.Action(submit ? "fill_submit" : "fill", selector, ex);
         }
     }
 
@@ -100,7 +101,7 @@ public sealed class BrowserTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "browser_click_text failed for text={Text}", text);
-            throw;
+            return BrowserToolFailure.Action("click_text", text, ex);
         }
     }
 
@@ -119,7 +120,7 @@ public sealed class BrowserTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "browser_press failed for selector={Selector}, key={Key}", selector, key);
-            throw;
+            return BrowserToolFailure.KeyAction("press", selector, key, ex);
         }
     }
 
@@ -137,7 +138,7 @@ public sealed class BrowserTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "browser_select failed for selector={Selector}, value={Value}", selector, value);
-            throw;
+            return BrowserToolFailure.Select(selector, ex);
         }
     }
 
@@ -156,7 +157,7 @@ public sealed class BrowserTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "browser_wait failed for selector={Selector}", selector);
-            throw;
+            return BrowserToolFailure.Wait(selector, state, delayMs, ex);
         }
     }
 
@@ -174,7 +175,7 @@ public sealed class BrowserTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "browser_screenshot failed");
-            throw;
+            return BrowserToolFailure.Screenshot(fullPage, type, ex);
         }
     }
 
@@ -189,9 +190,133 @@ public sealed class BrowserTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "browser_close failed");
-            throw;
+            return BrowserToolFailure.Close(ex);
         }
     }
+}
+
+internal static class BrowserToolFailure
+{
+    public static BrowserContentResult Content(string? url, string? selector, string format, Exception exception)
+    {
+        var (code, message) = Describe(exception);
+        return new BrowserContentResult(
+            Url: url ?? string.Empty,
+            Title: null,
+            StatusCode: null,
+            Selector: selector,
+            ResolvedSelector: selector ?? string.Empty,
+            FallbackApplied: false,
+            FallbackReason: null,
+            Format: format,
+            Content: string.Empty,
+            Truncated: false,
+            MaxCharacters: 0,
+            Success: false,
+            ErrorCode: code,
+            ErrorMessage: message);
+    }
+
+    public static BrowserActionResult Action(string action, string selector, Exception exception)
+    {
+        var (code, message) = Describe(exception);
+        return new BrowserActionResult(
+            Action: action,
+            Url: string.Empty,
+            Title: null,
+            Selector: selector,
+            Submitted: false,
+            TriggeredNavigation: false,
+            NavigationType: "none",
+            Success: false,
+            ErrorCode: code,
+            ErrorMessage: message);
+    }
+
+    public static BrowserKeyActionResult KeyAction(string action, string selector, string key, Exception exception)
+    {
+        var (code, message) = Describe(exception);
+        return new BrowserKeyActionResult(
+            Action: action,
+            Url: string.Empty,
+            Title: null,
+            Selector: selector,
+            Key: key,
+            TriggeredNavigation: false,
+            NavigationType: "none",
+            Success: false,
+            ErrorCode: code,
+            ErrorMessage: message);
+    }
+
+    public static BrowserSelectResult Select(string selector, Exception exception)
+    {
+        var (code, message) = Describe(exception);
+        return new BrowserSelectResult(
+            Url: string.Empty,
+            Title: null,
+            Selector: selector,
+            SelectedValues: [],
+            Success: false,
+            ErrorCode: code,
+            ErrorMessage: message);
+    }
+
+    public static BrowserWaitResult Wait(string? selector, string? state, int? delayMs, Exception exception)
+    {
+        var (code, message) = Describe(exception);
+        return new BrowserWaitResult(
+            Url: string.Empty,
+            Title: null,
+            Selector: selector,
+            State: state,
+            DelayMs: delayMs ?? 0,
+            Completed: false,
+            Success: false,
+            ErrorCode: code,
+            ErrorMessage: message);
+    }
+
+    public static BrowserScreenshotResult Screenshot(bool fullPage, string type, Exception exception)
+    {
+        var (code, message) = Describe(exception);
+        return new BrowserScreenshotResult(
+            Url: string.Empty,
+            Title: null,
+            MimeType: string.Equals(type, "jpeg", StringComparison.OrdinalIgnoreCase) ? "image/jpeg" : "image/png",
+            DataBase64: string.Empty,
+            FullPage: fullPage,
+            Success: false,
+            ErrorCode: code,
+            ErrorMessage: message);
+    }
+
+    public static BrowserCloseResult Close(Exception exception)
+    {
+        var (code, message) = Describe(exception);
+        return new BrowserCloseResult(
+            Closed: false,
+            Success: false,
+            ErrorCode: code,
+            ErrorMessage: message);
+    }
+
+    private static (string Code, string Message) Describe(Exception exception)
+        => (Classify(exception), exception is OperationCanceledException
+            ? "The operation was cancelled by the client."
+            : $"{exception.GetType().Name}: {exception.Message}");
+
+    private static string Classify(Exception exception)
+        => exception switch
+        {
+            OperationCanceledException => "CANCELLED",
+            TimeoutException => "TIMEOUT",
+            PlaywrightException => "BROWSER_ERROR",
+            ArgumentException or InvalidOperationException => "INVALID_INPUT",
+            UnauthorizedAccessException => "ACCESS_DENIED",
+            IOException => "IO_ERROR",
+            _ => "INTERNAL_ERROR"
+        };
 }
 
 public sealed record BrowserToolErrorResult(

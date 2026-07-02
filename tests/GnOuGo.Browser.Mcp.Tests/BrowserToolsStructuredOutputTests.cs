@@ -61,6 +61,18 @@ public sealed class BrowserToolsStructuredOutputTests
         Assert.All(tools, tool => Assert.NotNull(tool.ProtocolTool.OutputSchema));
     }
 
+    [Fact]
+    public void BrowserToolFailure_ReturnsStructuredFailure()
+    {
+        var result = BrowserToolFailure.Action("click", "#missing", new InvalidOperationException("selector missing"));
+
+        Assert.False(result.Success);
+        Assert.False(result.Ok);
+        Assert.Equal("INVALID_INPUT", result.ErrorCode);
+        Assert.Contains("selector missing", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("#missing", result.Selector);
+    }
+
     private static Type UnwrapToolReturnType(Type returnType)
         => returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>)
             ? returnType.GetGenericArguments()[0]

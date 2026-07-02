@@ -1164,7 +1164,7 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 - id: plan
   type: workflow.plan
   input:
-    mode: auto                    # auto | basic | pipeline
+    mode: auto                    # auto | basic | pipeline | repair
     generator:
       model: gpt-4o                 # LLM model for planning
       provider: openai              # Optional — LLM provider
@@ -1218,7 +1218,38 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 
 `mode: auto` is the default. It performs one classifier LLM call before generation and returns the classifier result under `meta.mode_selection`. The classifier estimates complexity by counting meaningful branches such as conditions, switch/case paths, loops, retries, error handling, cleanup paths, validation branches, tool-orchestration choices, and state transitions.
 
-Use `mode: basic` to skip classification and run the original single workflow-generation path directly. Use `mode: pipeline` to force decomposition.
+Use `mode: basic` to skip classification and run the original single workflow-generation path directly. Use `mode: pipeline` to force decomposition. Use `mode: repair` to make a targeted patch-style repair to an existing workflow while still returning a complete replacement YAML document.
+
+#### Repair mode
+
+Use `mode: repair` when a workflow already exists and should be minimally changed because of a runtime error or an explicit repair instruction. The LLM receives the existing YAML, optional failed input, optional runtime error details, and optional user repair instructions. It must preserve public inputs, outputs, workflow identity, behavior, and MCP choices unless the repair evidence proves they are wrong.
+
+```yaml
+- id: repair_plan
+  type: workflow.plan
+  input:
+    mode: repair
+    generator:
+      model: gpt-4o
+      reasoning: medium
+      prefilter: true
+      context: "Keep this compatible with persisted chat-agent workflows."
+    repair:
+      existing_yaml: "${data.inputs.current_workflow}"
+      prompt: "${data.inputs.user_repair_instruction}"   # Optional when error.message is present
+      failed_input: "${data.inputs.failed_user_prompt}"   # Optional
+      error:                                             # Optional when prompt is present
+        code: "${data.inputs.error_code}"
+        type: "${data.inputs.error_type}"
+        message: "${data.inputs.error_message}"
+        details: "${data.inputs.error_details}"
+    validate:
+      mode: strict
+      dry_run: true
+      max_repair_attempts: 3
+```
+
+`repair.existing_yaml` is required. At least one of `repair.prompt` or `repair.error.message` must be present. When `repair.error` is present, `repair.error.message` is required. The returned shape is the same as other modes: `{ workflow, yaml, meta, diagnostics }`, with `meta.mode: repair`.
 
 #### Pipeline mode
 

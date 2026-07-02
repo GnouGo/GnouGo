@@ -74,6 +74,22 @@ public sealed class CodeToolsTests : IDisposable
 	}
 
 	[Fact]
+	public async Task SuggestChangeAsync_WhenInputJsonFails_ReturnsStructuredFailure()
+	{
+		var settings = CreateSettings();
+		var assistant = new CapturingAssistantClient();
+		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
+
+		var result = await tools.SuggestChangeAsync(".", "Plan this change.", "{");
+
+		Assert.False(result.Success);
+		Assert.False(result.Ok);
+		Assert.Equal("INVALID_INPUT", result.ErrorCode);
+		Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+		Assert.Empty(result.ProgressEvents);
+	}
+
+	[Fact]
 	public async Task AgentEditAsync_ReadsContextAndDelegatesToAssistantInEditMode()
 	{
 		var settings = CreateSettings();

@@ -14,6 +14,8 @@ When `git_stage` is called without explicit paths, it stages all current changes
 
 `git_clone` defaults to a minimal clone: one branch, one commit of history, and no tags. Use `branch` to select a specific branch, `historyDepth: 0` to fetch full history, `fetchAllBranches: true` to fetch every remote branch, and `tagFetchMode: "auto"` or `"all"` when tags are required. When `branch` is omitted with `fetchAllBranches: false`, the tool resolves the remote default branch; if that cannot be determined, pass `branch` explicitly or set `fetchAllBranches: true`.
 
+Git tool failures return structured content in the advertised result type with `success: false`, `ok: false`, `error_code`, and `error_message`.
+
 To reproduce a pull request branch checkout equivalent to:
 
 ```bash

@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Xunit;
@@ -66,6 +67,23 @@ public sealed class CmdToolsStructuredOutputTests : IDisposable
 
         Assert.NotEmpty(tools);
         Assert.All(tools, tool => Assert.NotNull(tool.ProtocolTool.OutputSchema));
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenPolicyInputFails_ReturnsStructuredFailure()
+    {
+        var settings = CreateSettings();
+        var policy = new CommandPolicy(settings, _root);
+        var host = new CommandExecutionHost(policy, NullLogger<CommandExecutionHost>.Instance);
+        var tools = new CmdTools(host, NullLogger<CmdTools>.Instance);
+
+        var result = await tools.RunAsync("echo_test", "{", cancellationToken: CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.False(result.Ok);
+        Assert.Equal("INVALID_INPUT", result.ErrorCode);
+        Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+        Assert.Equal(result.ErrorMessage, result.Message);
     }
 
     private static Type UnwrapToolReturnType(Type returnType)

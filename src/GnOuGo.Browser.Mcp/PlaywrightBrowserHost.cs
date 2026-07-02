@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
@@ -877,7 +878,13 @@ public sealed record BrowserContentResult(
     string Format,
     string Content,
     bool Truncated,
-    int MaxCharacters);
+    int MaxCharacters,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
 internal sealed record LocatorResolution(ILocator? Locator, string? FailureReason);
 
@@ -894,7 +901,13 @@ public sealed record BrowserActionResult(
     string Selector,
     bool Submitted,
     bool TriggeredNavigation,
-    string NavigationType);
+    string NavigationType,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
 public sealed record BrowserKeyActionResult(
     string Action,
@@ -903,13 +916,25 @@ public sealed record BrowserKeyActionResult(
     string Selector,
     string Key,
     bool TriggeredNavigation,
-    string NavigationType);
+    string NavigationType,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
 public sealed record BrowserSelectResult(
     string Url,
     string? Title,
     string Selector,
-    IReadOnlyList<string> SelectedValues);
+    IReadOnlyList<string> SelectedValues,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
 public sealed record BrowserWaitResult(
     string Url,
@@ -917,16 +942,35 @@ public sealed record BrowserWaitResult(
     string? Selector,
     string? State,
     int DelayMs,
-    bool Completed);
+    bool Completed,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
 public sealed record BrowserScreenshotResult(
     string Url,
     string? Title,
     string MimeType,
     string DataBase64,
-    bool FullPage);
+    bool FullPage,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
-public sealed record BrowserCloseResult(bool Closed);
+public sealed record BrowserCloseResult(
+    bool Closed,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
 internal sealed class NavigationObservation : IDisposable
 {
@@ -964,4 +1008,3 @@ internal sealed class NavigationObservation : IDisposable
             Triggered = true;
     }
 }
-

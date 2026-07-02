@@ -20,6 +20,10 @@ Persistence is handled by `KeyVaultService` from `GnOuGo.KeyVault.Core` using En
 
 This MCP surface stays intentionally narrow. Tenant deletion, audit log access, and secret version history remain outside this MCP contract.
 
+## Structured Error Handling
+
+All hosted tools return structured content. Failures use the shared GnOuGo MCP shape with `success: false`, `ok: false`, `error_code`, and `error_message`; older clients can still read the `error` field.
+
 ## Configuration
 
 `appsettings.json`

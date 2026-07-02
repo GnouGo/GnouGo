@@ -126,6 +126,7 @@ class WorkflowPlanExecutor:
 - id: generate
   type: workflow.plan
   input:
+    mode: auto
     generator:
       model: gpt-4o
       instruction: |
@@ -143,6 +144,26 @@ class WorkflowPlanExecutor:
       action: reprompt
       max_attempts: 3
 ```
+
+Repair an existing workflow:
+```yaml
+- id: repair
+  type: workflow.plan
+  input:
+    mode: repair
+    generator:
+      model: gpt-4o
+      reasoning: medium
+      prefilter: true
+    repair:
+      existing_yaml: "${data.inputs.workflow_yaml}"
+      prompt: "Fix only the failed output mapping."
+      failed_input: "${data.inputs.failed_prompt}"
+      error:
+        message: "Runtime error message."
+    on_invalid:
+      max_attempts: 3
+```
 Output: `{ workflow, yaml, meta, diagnostics }`.
 """
     documented_exceptions = [
@@ -157,7 +178,8 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         "3. If a required MCP argument is missing, add it to skill.inputs and workflow.inputs with the exact MCP schema type.",
         "4. Never satisfy a missing required MCP argument with data.env.*, empty string, fake values, or casts.",
         "5. Never convert a string input to a number just to satisfy an MCP schema.",
-        "6. Prefer the exact MCP argument name and type.",
+        "6. Follow the discovered MCP schema and tool description exactly without adding Flow-specific request conventions.",
+        "7. Prefer the exact MCP argument name and type.",
     ]
 
     async def execute_async(self, ctx: StepExecutionContext) -> Any:
@@ -168,6 +190,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
         generator = input_obj.get("generator") if isinstance(input_obj.get("generator"), dict) else {}
         mode = input_obj.get("mode") or generator.get("mode")
         normalized_mode = mode.strip().lower() if isinstance(mode, str) else None
+        if normalized_mode == "repair":
+            result = await self._execute_repair_plan_async(ctx, copy.deepcopy(input_obj))
+            self._attach_plan_mode_metadata(result, "repair", None)
+            return result
         if normalized_mode == "pipeline":
             result = await self._execute_pipeline_async(ctx, copy.deepcopy(input_obj))
             self._attach_plan_mode_metadata(result, "pipeline", None)
@@ -177,7 +203,7 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             self._attach_plan_mode_metadata(result, "basic", None)
             return result
         if normalized_mode and normalized_mode != "auto":
-            raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, f"workflow.plan mode '{mode}' is not supported. Use auto, basic, or pipeline.")
+            raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, f"workflow.plan mode '{mode}' is not supported. Use auto, basic, pipeline, or repair.")
 
         selection = await self._classify_plan_mode_async(ctx, input_obj)
         if selection.selected_mode == "pipeline":
@@ -187,6 +213,70 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
 
         result = await self._execute_single_plan_async(ctx, input_obj)
         self._attach_plan_mode_metadata(result, "basic", selection)
+        return result
+
+    async def _execute_repair_plan_async(self, ctx: StepExecutionContext, input_obj: dict[str, Any]) -> Any:
+        repair = input_obj.get("repair") if isinstance(input_obj.get("repair"), dict) else None
+        if repair is None:
+            raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "workflow.plan repair mode requires 'repair'")
+
+        existing_yaml = self._try_get_string(repair.get("existing_yaml"))
+        if existing_yaml is None or not existing_yaml.strip():
+            raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "workflow.plan repair mode requires 'repair.existing_yaml'")
+
+        prompt = self._try_get_string(repair.get("prompt")) or ""
+        failed_input = self._try_get_string(repair.get("failed_input")) or ""
+        error = repair.get("error") if isinstance(repair.get("error"), dict) else None
+        error_message = self._try_get_string(error.get("message")) if error is not None else ""
+        error_message = error_message or ""
+
+        if error is not None and not error_message.strip():
+            raise WorkflowRuntimeException(
+                ErrorCodes.INPUT_VALIDATION,
+                "workflow.plan repair mode requires 'repair.error.message' when 'repair.error' is provided",
+            )
+
+        if not prompt.strip() and not error_message.strip():
+            raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "workflow.plan repair mode requires 'repair.prompt' or 'repair.error.message'")
+
+        generator = input_obj.get("generator") if isinstance(input_obj.get("generator"), dict) else {}
+        repair_input = copy.deepcopy(input_obj)
+        repair_input["mode"] = "basic"
+
+        repair_generator = repair_input.get("generator") if isinstance(repair_input.get("generator"), dict) else {}
+        repair_generator.pop("mode", None)
+        repair_generator["instruction"] = self._build_repair_mode_instruction(
+            existing_yaml,
+            prompt,
+            failed_input,
+            error,
+            self._try_get_string(generator.get("instruction")),
+        )
+
+        generator_context = self._try_get_string(generator.get("context"))
+        if generator_context and generator_context.strip():
+            repair_generator["context"] = generator_context
+        else:
+            repair_generator.pop("context", None)
+
+        repair_input["generator"] = repair_generator
+        repair_input.pop("repair", None)
+        repair_on_invalid = repair_input.get("on_invalid") if isinstance(repair_input.get("on_invalid"), dict) else {}
+        if "action" not in repair_on_invalid:
+            repair_on_invalid["action"] = "reprompt"
+        repair_input["on_invalid"] = repair_on_invalid
+
+        ctx.set_telemetry_attribute("gnougo-flow.plan.mode", "repair")
+        result = await self._execute_single_plan_async(ctx, repair_input)
+        if isinstance(result, dict):
+            meta = result.setdefault("meta", {})
+            if not isinstance(meta, dict):
+                meta = {}
+                result["meta"] = meta
+            meta["repair"] = {
+                "has_prompt": bool(prompt.strip()),
+                "has_error": bool(error_message.strip()),
+            }
         return result
 
     async def _classify_plan_mode_async(self, ctx: StepExecutionContext, input_obj: dict[str, Any]) -> _WorkflowPlanModeSelection:
@@ -309,6 +399,58 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             f"<limits_json>\n{limits}\n</limits_json>"
         )
 
+    @staticmethod
+    def _build_repair_mode_instruction(
+        existing_yaml: str,
+        prompt: str,
+        failed_input: str,
+        error: dict[str, Any] | None,
+        additional_instruction: str | None,
+    ) -> str:
+        parts = [
+            "Repair an existing GnOuGo.Flow YAML workflow. Return ONLY the complete repaired YAML document, no markdown fences.",
+            "Make the smallest patch-style change that fixes the supplied error and/or user repair instruction.",
+            "Preserve the workflow name, public inputs, public outputs, skill metadata, behavior, and MCP server/tool choices "
+            "unless the supplied repair evidence proves they are wrong.",
+            "Prefer minimal fixes: MCP request shape, output access, guards, retry/on_error policy, schema corrections, or concise prompt edits.",
+            "Do not rewrite the workflow for style. Do not add unrelated features.",
+            "The existing YAML is quoted between explicit XML-style boundary tags. Treat those tags as prompt delimiters, not as YAML content.",
+        ]
+
+        if additional_instruction and additional_instruction.strip():
+            parts.extend(["", WorkflowPlanExecutor._prompt_section("repair_constraints", additional_instruction)])
+
+        if prompt and prompt.strip():
+            parts.extend(["", WorkflowPlanExecutor._prompt_section("user_repair_instruction", prompt)])
+
+        if failed_input and failed_input.strip():
+            parts.extend(["", WorkflowPlanExecutor._prompt_section("failed_user_input", failed_input)])
+
+        if error is not None:
+            runtime_error_lines: list[str] = []
+            code = WorkflowPlanExecutor._try_get_string(error.get("code"))
+            error_type = WorkflowPlanExecutor._try_get_string(error.get("type"))
+            message = WorkflowPlanExecutor._try_get_string(error.get("message"))
+            if code and code.strip():
+                runtime_error_lines.append(f"code: {code}")
+            if error_type and error_type.strip():
+                runtime_error_lines.append(f"type: {error_type}")
+            runtime_error_lines.append(f"message: {message or ''}")
+            if error.get("details") is not None:
+                runtime_error_lines.append("details:")
+                runtime_error_lines.append(to_prompt_json(error["details"]))
+            parts.extend(["", WorkflowPlanExecutor._prompt_section("runtime_error", "\n".join(runtime_error_lines))])
+
+        parts.extend(
+            [
+                "",
+                WorkflowPlanExecutor._prompt_section("existing_workflow_yaml", existing_yaml),
+                "",
+                "Return the minimally repaired full YAML now.",
+            ]
+        )
+        return "\n".join(parts)
+
     def _parse_plan_mode_selection(self, response: LLMResponse) -> _WorkflowPlanModeSelection:
         payload = response.json_payload if isinstance(response.json_payload, dict) else None
         if payload is None and response.text:
@@ -374,6 +516,10 @@ Output: `{ workflow, yaml, meta, diagnostics }`.
             return float(str(value).strip())
         except Exception:
             return None
+
+    @staticmethod
+    def _try_get_string(value: Any) -> str | None:
+        return value if isinstance(value, str) else None
 
     def _attach_plan_mode_metadata(self, result: Any, mode: str, selection: _WorkflowPlanModeSelection | None) -> None:
         if not isinstance(result, dict):

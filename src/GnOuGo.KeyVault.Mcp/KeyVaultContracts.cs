@@ -4,10 +4,20 @@ using GnOuGo.KeyVault.Core.Models;
 
 namespace GnOuGo.KeyVault.Mcp;
 
-public sealed record KeyVaultResult<T>(bool Success, T? Data, string? Error = null)
+public sealed record KeyVaultResult<T>(
+    bool Success,
+    T? Data,
+    string? Error = null,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
 {
-    public static KeyVaultResult<T> Ok(T data) => new(true, data);
-    public static KeyVaultResult<T> NotFound(string message) => new(false, default, message);
+    public bool Ok => Success;
+
+    public string? Message => ErrorMessage ?? Error;
+
+    public static KeyVaultResult<T> FromData(T data) => new(true, data);
+    public static KeyVaultResult<T> NotFound(string message) => Fail("NOT_FOUND", message);
+    public static KeyVaultResult<T> Fail(string errorCode, string errorMessage) => new(false, default, errorMessage, errorCode, errorMessage);
 }
 
 public sealed record KeyVaultSecretMetadataResult(
@@ -59,5 +69,3 @@ internal static class KeyVaultMcpJson
 internal sealed partial class KeyVaultMcpJsonContext : JsonSerializerContext
 {
 }
-
-

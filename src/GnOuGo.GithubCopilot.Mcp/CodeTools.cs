@@ -29,13 +29,13 @@ public sealed class CodeTools
 
     [McpServerTool(Name = "code_project_summary", UseStructuredContent = true, OutputSchemaType = typeof(CodeProjectSummary)), Description("Summarizes and verifies an existing project root: solution files, project files, top-level directories, and approximate allowed code file counts." + RequiredProjectRootToolSuffix)]
     public CodeProjectSummary GetProjectSummary([Description(RequiredProjectRootDescription)] string projectRoot)
-        => Execute(() => _projectService.GetSummary(projectRoot));
+        => Execute("code_project_summary", () => _projectService.GetSummary(projectRoot));
 
     [McpServerTool(Name = "code_read_file", UseStructuredContent = true, OutputSchemaType = typeof(CodeFileContent)), Description("Reads one allowlisted text/code file inside an existing project root." + RequiredProjectRootToolSuffix)]
     public CodeFileContent ReadFile(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("File path relative to the existing projectRoot, for example 'src/Program.cs'.")] string relativePath)
-        => Execute(() => _projectService.ReadFile(projectRoot, relativePath));
+        => Execute("code_read_file", () => _projectService.ReadFile(projectRoot, relativePath));
 
     [McpServerTool(Name = "code_search_text", UseStructuredContent = true, OutputSchemaType = typeof(CodeSearchResults)), Description("Searches text in allowlisted files inside an existing project root." + RequiredProjectRootToolSuffix)]
     public CodeSearchResults SearchText(
@@ -43,7 +43,7 @@ public sealed class CodeTools
         [Description("Literal text to search for.")] string query,
         [Description("Optional filename glob, for example *.cs. Directory globs are intentionally ignored for safety.")] string? glob = null,
         [Description("Whether matching is case-sensitive.")] bool caseSensitive = false)
-        => Execute(() => _projectService.Search(projectRoot, query, glob, caseSensitive));
+        => Execute("code_search_text", () => _projectService.Search(projectRoot, query, glob, caseSensitive));
 
     [McpServerTool(Name = "code_suggest_change", UseStructuredContent = true, OutputSchemaType = typeof(CodeSuggestionResult)), Description("Asks GitHub Copilot/GitHub Models for a code-change plan or patch suggestion inside an existing project root. This tool does not write files." + RequiredProjectRootToolSuffix)]
     public async Task<CodeSuggestionResult> SuggestChangeAsync(
@@ -52,7 +52,7 @@ public sealed class CodeTools
         [Description("Optional JSON array of file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] string? contextFilesJson = null,
         [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
         CancellationToken cancellationToken = default)
-        => await ExecuteAsync(async () =>
+        => await ExecuteAsync("code_suggest_change", async () =>
         {
             var contextFiles = ParseContextFiles(contextFilesJson);
             var files = _projectService.ReadContextFiles(projectRoot, contextFiles);
@@ -67,7 +67,7 @@ public sealed class CodeTools
         [Description("Optional JSON array of file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] string? contextFilesJson = null,
         [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
         CancellationToken cancellationToken = default)
-        => await ExecuteAsync(async () =>
+        => await ExecuteAsync("code_agent_edit", async () =>
         {
             var contextFiles = ParseContextFiles(contextFilesJson);
             var files = _projectService.ReadContextFiles(projectRoot, contextFiles);
@@ -80,27 +80,32 @@ public sealed class CodeTools
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("File path relative to the existing projectRoot, for example 'src/NewFile.cs'.")] string relativePath,
         [Description("UTF-8 text content to write.")] string content)
-        => Execute(() => _projectService.WriteFile(projectRoot, relativePath, content));
+        => Execute("code_write_file", () => _projectService.WriteFile(projectRoot, relativePath, content));
 
-    private T Execute<T>(Func<T> action)
+    private T Execute<T>(string toolName, Func<T> action)
     {
         try
         {
             return action()!;
         }
-        catch (Exception ex) when (ex is InvalidOperationException or FileNotFoundException or UnauthorizedAccessException or IOException)
+        catch (McpException ex)
+        {
+            _logger.LogWarning(ex, "Code MCP tool error for {ToolName}", toolName);
+            return CodeToolFailure.Create<T>(toolName, "MCP_TOOL_ERROR", ex.Message);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or JsonException or FileNotFoundException or DirectoryNotFoundException or UnauthorizedAccessException or IOException)
         {
             _logger.LogWarning(ex, "Code MCP tool policy/input error");
-            throw new McpException(ex.Message, ex);
+            return CodeToolFailure.Create<T>(toolName, CodeToolFailure.Classify(ex), ex.Message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Code MCP tool unexpected error");
-            throw new McpException($"{ex.GetType().Name}: {ex.Message}", ex);
+            return CodeToolFailure.Create<T>(toolName, "INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 
-    private async Task<T> ExecuteAsync<T>(Func<Task<T>> action)
+    private async Task<T> ExecuteAsync<T>(string toolName, Func<Task<T>> action)
     {
         try
         {
@@ -108,21 +113,23 @@ public sealed class CodeTools
         }
         catch (OperationCanceledException ex)
         {
-            throw new McpException("The operation was cancelled by the client.", ex);
+            _logger.LogWarning(ex, "Code MCP async tool cancelled for {ToolName}", toolName);
+            return CodeToolFailure.Create<T>(toolName, "CANCELLED", "The operation was cancelled by the client.");
         }
-        catch (McpException)
+        catch (McpException ex)
         {
-            throw;
+            _logger.LogWarning(ex, "Code MCP async tool error for {ToolName}", toolName);
+            return CodeToolFailure.Create<T>(toolName, "MCP_TOOL_ERROR", ex.Message);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or FileNotFoundException or UnauthorizedAccessException or IOException or HttpRequestException)
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or JsonException or FileNotFoundException or DirectoryNotFoundException or UnauthorizedAccessException or IOException or HttpRequestException)
         {
             _logger.LogWarning(ex, "Code MCP async tool policy/input/provider error");
-            throw new McpException(ex.Message, ex);
+            return CodeToolFailure.Create<T>(toolName, CodeToolFailure.Classify(ex), ex.Message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Code MCP async tool unexpected error");
-            throw new McpException($"{ex.GetType().Name}: {ex.Message}", ex);
+            return CodeToolFailure.Create<T>(toolName, "INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 
@@ -142,6 +149,90 @@ public sealed class CodeTools
         }
 
         return result;
+    }
+}
+
+internal static class CodeToolFailure
+{
+    public static string Classify(Exception exception)
+        => exception switch
+        {
+            ArgumentException or InvalidOperationException or JsonException => "INVALID_INPUT",
+            FileNotFoundException or DirectoryNotFoundException => "FILE_NOT_FOUND",
+            UnauthorizedAccessException => "ACCESS_DENIED",
+            HttpRequestException => "PROVIDER_ERROR",
+            IOException => "IO_ERROR",
+            _ => "INTERNAL_ERROR"
+        };
+
+    public static T Create<T>(string toolName, string errorCode, string errorMessage)
+    {
+        object result = typeof(T) switch
+        {
+            var type when type == typeof(CodeProjectSummary) => new CodeProjectSummary(
+                RootPath: string.Empty,
+                SolutionFiles: [],
+                ProjectFiles: [],
+                TopLevelDirectories: [],
+                CodeFileCount: 0,
+                ApproximateBytes: 0,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(CodeFileContent) => new CodeFileContent(
+                Path: string.Empty,
+                FullPath: string.Empty,
+                Content: string.Empty,
+                LengthBytes: 0,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(CodeSearchResults) => new CodeSearchResults(
+                Results: [],
+                Truncated: false,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(CodeSuggestionResult) => new CodeSuggestionResult(
+                Task: toolName,
+                Files: [],
+                Suggestion: string.Empty,
+                Model: null,
+                UsageJson: null,
+                ProgressEvents: [],
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(CodeAgentEditResult) => new CodeAgentEditResult(
+                Task: toolName,
+                ContextFiles: [],
+                ModifiedFiles: [],
+                Summary: errorMessage,
+                Model: null,
+                UsageJson: null,
+                ProgressEvents: [],
+                Output: errorMessage,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(CodeWriteResult) => new CodeWriteResult(
+                Path: string.Empty,
+                FullPath: string.Empty,
+                BytesWritten: 0,
+                CreatedDirectory: false,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            _ => throw new InvalidOperationException($"Code MCP cannot create a structured error result for {typeof(T).Name}.")
+        };
+
+        return (T)result;
     }
 }
 

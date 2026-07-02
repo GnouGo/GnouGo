@@ -30,28 +30,28 @@ public sealed class GitTools
 
     [McpServerTool(Name = "git_repository_info", UseStructuredContent = true, OutputSchemaType = typeof(GitRepositoryInfo)), Description("Returns basic information about an existing Git repository project root." + RequiredProjectRootToolSuffix)]
     public GitRepositoryInfo GitRepositoryInfo([Description(RequiredProjectRootDescription)] string projectRoot)
-        => Execute(() => _gitRepositoryService.GetRepositoryInfo(projectRoot));
+        => Execute("git_repository_info", () => _gitRepositoryService.GetRepositoryInfo(projectRoot));
 
     [McpServerTool(Name = "git_status", UseStructuredContent = true, OutputSchemaType = typeof(GitStatusResult)), Description("Returns Git working tree and index status for an existing repository project root." + RequiredProjectRootToolSuffix)]
     public GitStatusResult GitStatus([Description(RequiredProjectRootDescription)] string projectRoot)
-        => Execute(() => _gitRepositoryService.GetStatus(projectRoot));
+        => Execute("git_status", () => _gitRepositoryService.GetStatus(projectRoot));
 
     [McpServerTool(Name = "git_diff", UseStructuredContent = true, OutputSchemaType = typeof(GitDiffResult)), Description("Returns a truncated Git patch for an existing repository project root, optionally limited to one relative path." + RequiredProjectRootToolSuffix)]
     public GitDiffResult GitDiff(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Optional relative path only, from the workspace root, to diff.")] string? relativePath = null,
         [Description("When true, returns staged/index changes instead of unstaged working tree changes.")] bool staged = false)
-        => Execute(() => _gitRepositoryService.GetDiff(projectRoot, relativePath, staged));
+        => Execute("git_diff", () => _gitRepositoryService.GetDiff(projectRoot, relativePath, staged));
 
     [McpServerTool(Name = "git_log", UseStructuredContent = true, OutputSchemaType = typeof(GitLogResult)), Description("Returns recent commits for an existing repository project root." + RequiredProjectRootToolSuffix)]
     public GitLogResult GitLog(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Maximum number of commits to return.")] int maxCount = 20)
-        => Execute(() => _gitRepositoryService.GetLog(projectRoot, maxCount));
+        => Execute("git_log", () => _gitRepositoryService.GetLog(projectRoot, maxCount));
 
     [McpServerTool(Name = "git_branches", UseStructuredContent = true, OutputSchemaType = typeof(GitBranchesResult)), Description("Lists local and remote Git branches for an existing repository project root." + RequiredProjectRootToolSuffix)]
     public GitBranchesResult GitBranches([Description(RequiredProjectRootDescription)] string projectRoot)
-        => Execute(() => _gitRepositoryService.ListBranches(projectRoot));
+        => Execute("git_branches", () => _gitRepositoryService.ListBranches(projectRoot));
 
     [McpServerTool(Name = "git_create_branch", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Creates a local Git branch in an existing repository project root, optionally from a start point and optionally checks it out. Requires Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]
     public GitOperationResult GitCreateBranch(
@@ -59,13 +59,13 @@ public sealed class GitTools
         [Description("Name of the branch to create.")] string branchName,
         [Description("Optional start point commit, branch, or tag.")] string? startPoint = null,
         [Description("Whether to checkout the new branch immediately.")] bool checkout = false)
-        => Execute(() => _gitRepositoryService.CreateBranch(projectRoot, branchName, startPoint, checkout));
+        => Execute("git_create_branch", () => _gitRepositoryService.CreateBranch(projectRoot, branchName, startPoint, checkout));
 
     [McpServerTool(Name = "git_delete_branch", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Deletes a local Git branch in an existing repository project root. Requires Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]
     public GitOperationResult GitDeleteBranch(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Name of the local branch to delete.")] string branchName)
-        => Execute(() => _gitRepositoryService.DeleteBranch(projectRoot, branchName));
+        => Execute("git_delete_branch", () => _gitRepositoryService.DeleteBranch(projectRoot, branchName));
 
     [McpServerTool(Name = "git_checkout", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Checks out an existing branch/commit in an existing repository project root, or creates a branch from a start point. Requires Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]
     public GitOperationResult GitCheckout(
@@ -73,7 +73,7 @@ public sealed class GitTools
         [Description("Branch name, tag, or commit SHA to checkout.")] string branchOrCommit,
         [Description("Create a new branch from branchOrCommit instead of checking it out directly.")] bool createBranch = false,
         [Description("New branch name when createBranch=true. If omitted, branchOrCommit is used.")] string? newBranchName = null)
-        => Execute(() => _gitRepositoryService.Checkout(projectRoot, branchOrCommit, createBranch, newBranchName));
+        => Execute("git_checkout", () => _gitRepositoryService.Checkout(projectRoot, branchOrCommit, createBranch, newBranchName));
 
     [McpServerTool(Name = "git_switch_branch", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Switches an existing repository project root to a local branch with git switch -C semantics. Requires Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]
     public GitOperationResult GitSwitchBranch(
@@ -81,19 +81,19 @@ public sealed class GitTools
         [Description("Local branch name to create/reset and switch to, equivalent to git switch -C <branchName>.")] string branchName,
         [Description("Optional start point commit, branch, tag, or remote-tracking branch. Defaults to <remoteName>/<branchName>.")] string? startPoint = null,
         [Description("Remote name used for the default start point and upstream tracking. Defaults to Git:DefaultRemoteName.")] string? remoteName = null)
-        => Execute(() => _gitRepositoryService.SwitchBranch(projectRoot, branchName, startPoint, remoteName));
+        => Execute("git_switch_branch", () => _gitRepositoryService.SwitchBranch(projectRoot, branchName, startPoint, remoteName));
 
     [McpServerTool(Name = "git_stage", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Stages pathspecs in an existing repository project root. pathsJson is a JSON array of relative paths only; empty/null stages all changes. Requires Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]
     public GitOperationResult GitStage(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Optional JSON array of relative paths only, for example [\"src/App.cs\"]. Empty/null means all changes.")] string? pathsJson = null)
-        => Execute(() => _gitRepositoryService.Stage(projectRoot, ParseGitPaths(pathsJson)));
+        => Execute("git_stage", () => _gitRepositoryService.Stage(projectRoot, ParseGitPaths(pathsJson)));
 
     [McpServerTool(Name = "git_unstage", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Unstages pathspecs in an existing repository project root. pathsJson is a JSON array of relative paths only; empty/null unstages all changes. Requires Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]
     public GitOperationResult GitUnstage(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Optional JSON array of relative paths only. Empty/null means all changes.")] string? pathsJson = null)
-        => Execute(() => _gitRepositoryService.Unstage(projectRoot, ParseGitPaths(pathsJson)));
+        => Execute("git_unstage", () => _gitRepositoryService.Unstage(projectRoot, ParseGitPaths(pathsJson)));
 
     [McpServerTool(Name = "git_commit", UseStructuredContent = true, OutputSchemaType = typeof(GitCommitInfo)), Description("Creates a Git commit from staged changes in an existing repository project root. Requires Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]
     public GitCommitInfo GitCommit(
@@ -101,7 +101,7 @@ public sealed class GitTools
         [Description("Commit message.")] string message,
         [Description("Optional author name.")] string? authorName = null,
         [Description("Optional author email.")] string? authorEmail = null)
-        => Execute(() => _gitRepositoryService.Commit(projectRoot, message, authorName, authorEmail));
+        => Execute("git_commit", () => _gitRepositoryService.Commit(projectRoot, message, authorName, authorEmail));
 
     [McpServerTool(Name = "git_merge", UseStructuredContent = true, OutputSchemaType = typeof(GitMergeResult)), Description("Merges another branch into the current branch of an existing repository project root and reports conflicts. Requires Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]
     public GitMergeResult GitMerge(
@@ -109,18 +109,18 @@ public sealed class GitTools
         [Description("Branch to merge into the current branch.")] string branchName,
         [Description("Optional merge author name.")] string? authorName = null,
         [Description("Optional merge author email.")] string? authorEmail = null)
-        => Execute(() => _gitRepositoryService.Merge(projectRoot, branchName, authorName, authorEmail));
+        => Execute("git_merge", () => _gitRepositoryService.Merge(projectRoot, branchName, authorName, authorEmail));
 
-    [McpServerTool(Name = "git_conflicts", UseStructuredContent = true, OutputSchemaType = typeof(IReadOnlyList<GitConflictInfo>)), Description("Lists current Git merge conflicts in an existing repository project root, if any." + RequiredProjectRootToolSuffix)]
-    public IReadOnlyList<GitConflictInfo> GitConflicts([Description(RequiredProjectRootDescription)] string projectRoot)
-        => Execute(() => _gitRepositoryService.GetConflicts(projectRoot));
+    [McpServerTool(Name = "git_conflicts", UseStructuredContent = true, OutputSchemaType = typeof(GitConflictsResult)), Description("Lists current Git merge conflicts in an existing repository project root, if any." + RequiredProjectRootToolSuffix)]
+    public GitConflictsResult GitConflicts([Description(RequiredProjectRootDescription)] string projectRoot)
+        => Execute("git_conflicts", () => _gitRepositoryService.GetConflicts(projectRoot));
 
     [McpServerTool(Name = "git_resolve_conflict", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Marks a conflict as resolved in an existing repository project root using 'ours', 'theirs', or 'stage_existing' after manual editing. Requires Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]
     public GitOperationResult GitResolveConflict(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Relative path only, from the workspace root, of the conflicted file.")] string relativePath,
         [Description("Resolution strategy: ours, theirs, or stage_existing.")] string strategy)
-        => Execute(() => _gitRepositoryService.ResolveConflict(projectRoot, relativePath, strategy));
+        => Execute("git_resolve_conflict", () => _gitRepositoryService.ResolveConflict(projectRoot, relativePath, strategy));
 
     [McpServerTool(Name = "git_clone", UseStructuredContent = true, OutputSchemaType = typeof(GitCloneResult)), Description("Clones a Git repository into a new workspace target directory. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true. targetDirectory is a creation target, not an existing projectRoot before clone. After success, pass response.projectRootRelative to Git/Code projectRoot inputs.")]
     public GitCloneResult GitClone(
@@ -130,14 +130,14 @@ public sealed class GitTools
         [Description("Commit history depth to fetch. 1 fetches the latest commit only; 0 fetches full history. Defaults to 1 for minimal clones.")] int historyDepth = 1,
         [Description("When false, fetch only the selected/default branch. When true, fetch all remote branches. Defaults to false.")] bool fetchAllBranches = false,
         [Description("Tag fetch mode: none, auto, or all. Defaults to none for minimal clones.")] string tagFetchMode = "none")
-        => Execute(() => _gitRepositoryService.Clone(remoteUrl, targetDirectory, branch, historyDepth, fetchAllBranches, tagFetchMode));
+        => Execute("git_clone", () => _gitRepositoryService.Clone(remoteUrl, targetDirectory, branch, historyDepth, fetchAllBranches, tagFetchMode));
 
     [McpServerTool(Name = "git_fetch", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Fetches from a remote for an existing repository project root. Requires Git:AllowNetworkOperations=true." + RequiredProjectRootToolSuffix)]
     public GitOperationResult GitFetch(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName = null,
         [Description("Optional fetch refspec, for example refs/heads/my-branch:refs/remotes/origin/my-branch.")] string? refSpec = null)
-        => Execute(() => _gitRepositoryService.Fetch(projectRoot, remoteName, refSpec));
+        => Execute("git_fetch", () => _gitRepositoryService.Fetch(projectRoot, remoteName, refSpec));
 
     [McpServerTool(Name = "git_pull", UseStructuredContent = true, OutputSchemaType = typeof(GitMergeResult)), Description("Pulls the current branch of an existing repository project root from its configured remote. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]
     public GitMergeResult GitPull(
@@ -145,7 +145,7 @@ public sealed class GitTools
         [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName = null,
         [Description("Optional merge author name.")] string? authorName = null,
         [Description("Optional merge author email.")] string? authorEmail = null)
-        => Execute(() => _gitRepositoryService.Pull(projectRoot, remoteName, authorName, authorEmail));
+        => Execute("git_pull", () => _gitRepositoryService.Pull(projectRoot, remoteName, authorName, authorEmail));
 
     [McpServerTool(Name = "git_push", UseStructuredContent = true, OutputSchemaType = typeof(GitPushResult)), Description("Pushes a local branch from an existing repository project root and optionally sets upstream. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]
     public GitPushResult GitPush(
@@ -153,34 +153,40 @@ public sealed class GitTools
         [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName = null,
         [Description("Branch name. Defaults to the current branch.")] string? branchName = null,
         [Description("Whether to configure upstream after push.")] bool setUpstream = true)
-        => Execute(() => _gitRepositoryService.Push(projectRoot, remoteName, branchName, setUpstream));
+        => Execute("git_push", () => _gitRepositoryService.Push(projectRoot, remoteName, branchName, setUpstream));
 
     [McpServerTool(Name = "git_delete_remote_branch", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Deletes a branch on a remote from an existing repository project root. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]
     public GitOperationResult GitDeleteRemoteBranch(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName,
         [Description("Name of the remote branch to delete.")] string branchName)
-        => Execute(() => _gitRepositoryService.DeleteRemoteBranch(projectRoot, remoteName, branchName));
+        => Execute("git_delete_remote_branch", () => _gitRepositoryService.DeleteRemoteBranch(projectRoot, remoteName, branchName));
 
-    private T Execute<T>(Func<T> action)
+    private T Execute<T>(string toolName, Func<T> action)
     {
         try
         {
             return action()!;
         }
-        catch (McpException)
+        catch (OperationCanceledException ex)
         {
-            throw;
+            _logger.LogWarning(ex, "Git MCP tool cancelled for {ToolName}", toolName);
+            return GitToolFailure.Create<T>(toolName, "CANCELLED", "The operation was cancelled by the client.");
         }
-        catch (Exception ex) when (ex is InvalidOperationException or FileNotFoundException or UnauthorizedAccessException or IOException or JsonException or LibGit2SharpException)
+        catch (McpException ex)
+        {
+            _logger.LogWarning(ex, "Git MCP tool error for {ToolName}", toolName);
+            return GitToolFailure.Create<T>(toolName, "MCP_TOOL_ERROR", ex.Message);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FileNotFoundException or DirectoryNotFoundException or UnauthorizedAccessException or IOException or JsonException or LibGit2SharpException)
         {
             _logger.LogWarning(ex, "Git MCP tool policy/input error");
-            throw new McpException(ex.Message, ex);
+            return GitToolFailure.Create<T>(toolName, GitToolFailure.Classify(ex), ex.Message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Git MCP tool unexpected error");
-            throw new McpException($"{ex.GetType().Name}: {ex.Message}", ex);
+            return GitToolFailure.Create<T>(toolName, "INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 
@@ -190,6 +196,140 @@ public sealed class GitTools
             return [];
         var values = JsonSerializer.Deserialize(pathsJson, GitMcpJsonContext.Default.ListString);
         return values?.Where(static value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() ?? [];
+    }
+}
+
+internal static class GitToolFailure
+{
+    public static string Classify(Exception exception)
+        => exception switch
+        {
+            ArgumentException or InvalidOperationException or JsonException => "INVALID_INPUT",
+            FileNotFoundException or DirectoryNotFoundException => "FILE_NOT_FOUND",
+            UnauthorizedAccessException => "ACCESS_DENIED",
+            LibGit2SharpException => "GIT_ERROR",
+            IOException => "IO_ERROR",
+            _ => "INTERNAL_ERROR"
+        };
+
+    public static T Create<T>(string toolName, string errorCode, string errorMessage)
+    {
+        object result = typeof(T) switch
+        {
+            var type when type == typeof(GitRepositoryInfo) => new GitRepositoryInfo(
+                RootPath: string.Empty,
+                WorkingDirectory: string.Empty,
+                IsBare: false,
+                Output: errorMessage,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(GitStatusResult) => new GitStatusResult(
+                RepositoryRoot: string.Empty,
+                HeadBranch: null,
+                IsDetachedHead: false,
+                IsDirty: false,
+                Entries: [],
+                Output: errorMessage,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(GitDiffResult) => new GitDiffResult(
+                RepositoryRoot: string.Empty,
+                Path: null,
+                Staged: false,
+                Patch: string.Empty,
+                Truncated: false,
+                Output: errorMessage,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(GitCommitInfo) => new GitCommitInfo(
+                Sha: string.Empty,
+                ShortSha: string.Empty,
+                MessageShort: string.Empty,
+                AuthorName: string.Empty,
+                AuthorEmail: string.Empty,
+                When: DateTimeOffset.UnixEpoch,
+                Output: errorMessage,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(GitLogResult) => new GitLogResult(
+                RepositoryRoot: string.Empty,
+                Commits: [],
+                Truncated: false,
+                Output: errorMessage,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(GitBranchesResult) => new GitBranchesResult(
+                RepositoryRoot: string.Empty,
+                HeadBranch: null,
+                Branches: [],
+                Output: errorMessage,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(GitOperationResult) => new GitOperationResult(
+                RepositoryRoot: string.Empty,
+                Operation: toolName,
+                Message: errorMessage,
+                Success: false,
+                Output: errorMessage,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(GitCloneResult) => new GitCloneResult(
+                RepositoryRoot: string.Empty,
+                RemoteUrl: string.Empty,
+                Branch: null,
+                ProjectRootRelative: string.Empty,
+                Output: errorMessage,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(GitMergeResult) => new GitMergeResult(
+                RepositoryRoot: string.Empty,
+                Branch: string.Empty,
+                Status: "error",
+                CommitSha: null,
+                Conflicts: [],
+                Output: errorMessage,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(GitPushResult) => new GitPushResult(
+                RepositoryRoot: string.Empty,
+                RemoteName: string.Empty,
+                BranchName: string.Empty,
+                SetUpstream: false,
+                Message: errorMessage,
+                Output: errorMessage,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            var type when type == typeof(GitConflictsResult) => new GitConflictsResult(
+                RepositoryRoot: string.Empty,
+                Conflicts: [],
+                Output: errorMessage,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
+            _ => throw new InvalidOperationException($"Git MCP cannot create a structured error result for {typeof(T).Name}.")
+        };
+
+        return (T)result;
     }
 }
 
@@ -224,6 +364,7 @@ internal static class GitMcpJson
 [JsonSerializable(typeof(GitCloneResult))]
 [JsonSerializable(typeof(GitConflictInfo))]
 [JsonSerializable(typeof(IReadOnlyList<GitConflictInfo>))]
+[JsonSerializable(typeof(GitConflictsResult))]
 [JsonSerializable(typeof(GitMergeResult))]
 [JsonSerializable(typeof(GitPushResult))]
 internal sealed partial class GitMcpJsonContext : JsonSerializerContext;

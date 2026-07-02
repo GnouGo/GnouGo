@@ -53,6 +53,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         var mode = GetConfiguredPlanMode(input);
 
+        if (string.Equals(mode, "repair", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = await ExecuteRepairPlanAsync(ctx, input, ct);
+            AttachPlanModeMetadata(result, "repair", null);
+            return result;
+        }
+
         if (string.Equals(mode, "pipeline", StringComparison.OrdinalIgnoreCase))
         {
             var result = await ExecutePipelineAsync(ctx, input, ct);
@@ -68,7 +75,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
 
         if (!string.IsNullOrWhiteSpace(mode) && !string.Equals(mode, "auto", StringComparison.OrdinalIgnoreCase))
-            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"workflow.plan mode '{mode}' is not supported. Use auto, basic, or pipeline.");
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"workflow.plan mode '{mode}' is not supported. Use auto, basic, pipeline, or repair.");
 
         var selection = await ClassifyPlanModeAsync(ctx, input, ct);
         if (string.Equals(selection.SelectedMode, "pipeline", StringComparison.OrdinalIgnoreCase))

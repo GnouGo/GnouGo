@@ -122,7 +122,8 @@ internal sealed class RecordingLlmClient : ILLMClient
         }
 
         if (request.Prompt.Contains("Generate a valid GnOuGo.Flow YAML workflow", StringComparison.OrdinalIgnoreCase)
-            || request.Prompt.Contains("Return only a complete workflow YAML document", StringComparison.OrdinalIgnoreCase))
+            || request.Prompt.Contains("Return only a complete workflow YAML document", StringComparison.OrdinalIgnoreCase)
+            || request.Prompt.Contains("Repair an existing GnOuGo.Flow YAML workflow", StringComparison.OrdinalIgnoreCase))
         {
             return """
                 version: 1

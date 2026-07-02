@@ -297,10 +297,17 @@ public sealed class GitRepositoryService
             ToWorkspaceRelativePath(repositoryRoot));
     }
 
-    public IReadOnlyList<GitConflictInfo> GetConflicts(string projectRoot)
+    public GitConflictsResult GetConflicts(string projectRoot)
     {
-        using var repository = OpenRepository(projectRoot, out _);
-        return ListConflicts(repository);
+        using var repository = OpenRepository(projectRoot, out var repositoryRoot);
+        var conflicts = ListConflicts(repository);
+        return new GitConflictsResult(
+            repositoryRoot,
+            conflicts,
+            conflicts.Count == 0
+                ? "No Git conflicts are currently recorded in the index."
+                : $"Found {conflicts.Count} Git conflict(s).",
+            ToWorkspaceRelativePath(repositoryRoot));
     }
 
     public GitOperationResult ResolveConflict(string projectRoot, string relativePath, string strategy)

@@ -47,9 +47,12 @@ public sealed class GitToolsTests : IDisposable
         var policy = new GitPolicy(settings, _root);
         var tools = new GitTools(policy, new GitRepositoryService(policy, Options.Create(settings)), NullLogger<GitTools>.Instance);
 
-        var error = Assert.Throws<ModelContextProtocol.McpException>(() => tools.GitStatus("."));
+        var error = tools.GitStatus(".");
 
-        Assert.False(string.IsNullOrWhiteSpace(error.Message));
+        Assert.False(error.Success);
+        Assert.False(error.Ok);
+        Assert.Equal("INVALID_INPUT", error.ErrorCode);
+        Assert.False(string.IsNullOrWhiteSpace(error.ErrorMessage));
     }
 
     [Fact]
@@ -59,9 +62,12 @@ public sealed class GitToolsTests : IDisposable
         var policy = new GitPolicy(settings, _root);
         var tools = new GitTools(policy, new GitRepositoryService(policy, Options.Create(settings)), NullLogger<GitTools>.Instance);
 
-        var error = Assert.Throws<ModelContextProtocol.McpException>(() => tools.GitStage(".", "{"));
+        var error = tools.GitStage(".", "{");
 
-        Assert.False(string.IsNullOrWhiteSpace(error.Message));
+        Assert.False(error.Success);
+        Assert.False(error.Ok);
+        Assert.Equal("INVALID_INPUT", error.ErrorCode);
+        Assert.False(string.IsNullOrWhiteSpace(error.ErrorMessage));
     }
 
     [Fact]

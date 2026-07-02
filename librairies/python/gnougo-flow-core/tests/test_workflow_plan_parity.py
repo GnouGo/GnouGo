@@ -234,6 +234,27 @@ class FlakyDocsMcpFactory(DocsMcpFactory):
         return DocsMcpSession(self.tool)
 
 
+VALID_REPAIRED_WORKFLOW_YAML = """
+version: 1
+name: existing-agent
+skill:
+  description: Existing agent workflow.
+  tags: [agent]
+  inputs: {}
+  outputs:
+    answer: string
+workflows:
+  main:
+    steps:
+      - id: answer
+        type: set
+        input:
+          text: ok
+    outputs:
+      answer: "${data.steps.answer.text}"
+"""
+
+
 @pytest.mark.asyncio
 async def test_workflow_plan_default_auto_mode_classifies_and_runs_basic_plan() -> None:
     source = """
@@ -341,6 +362,409 @@ async def test_workflow_plan_prompt_contains_dotnet_like_sections() -> None:
     assert "1. Inspect every MCP tool used by this workflow." in prompt
     assert "Never satisfy a missing required MCP argument with data.env.*, empty string, fake values, or casts." in prompt
     assert "Prefer the exact MCP argument name and type." in prompt
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_repair_mode_prompt_only_generates_valid_replacement() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: repair
+              generator:
+                model: fake
+                prefilter: false
+                instruction: "Keep Agent.Server workflow behavior stable."
+                context: "Persisted agent repair."
+              repair:
+                existing_yaml: |
+                  version: 1
+                  name: existing-agent
+                  skill:
+                    description: Existing agent workflow.
+                    tags: [agent]
+                    inputs: {}
+                    outputs:
+                      answer: string
+                  workflows:
+                    main:
+                      steps: []
+                prompt: "Fix the answer output mapping."
+              validate:
+                compile: true
+              on_invalid:
+                max_attempts: 1
+    """
+
+    llm = CapturePlanLlm(VALID_REPAIRED_WORKFLOW_YAML)
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    plan = result.outputs["plan"]
+    assert plan["meta"]["mode"] == "repair"
+    assert plan["meta"]["repair"] == {"has_prompt": True, "has_error": False}
+    assert plan["meta"]["attempt"] == 1
+    prompt = llm.prompts[0]
+    assert "Fix the answer output mapping." in prompt
+    assert "<existing_workflow_yaml>" in prompt
+    assert "Make the smallest patch-style change" in prompt
+    assert "<repair_constraints>" in prompt
+    assert "Keep Agent.Server workflow behavior stable." in prompt
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_repair_mode_error_only_includes_runtime_error_and_failed_input() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: repair
+              generator:
+                model: fake
+                prefilter: false
+              repair:
+                existing_yaml: |
+                  version: 1
+                  name: existing-agent
+                  workflows:
+                    main:
+                      steps: []
+                failed_input: "summarize issue 42"
+                error:
+                  code: MCP_CALL_ERROR
+                  type: mcp.call
+                  message: "Tool request used the wrong field name."
+                  details:
+                    tool: issue_get
+              validate:
+                compile: true
+              on_invalid:
+                max_attempts: 1
+    """
+
+    llm = CapturePlanLlm(VALID_REPAIRED_WORKFLOW_YAML)
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    assert result.outputs["plan"]["meta"]["repair"] == {"has_prompt": False, "has_error": True}
+    prompt = llm.prompts[0]
+    assert "<runtime_error>" in prompt
+    assert "MCP_CALL_ERROR" in prompt
+    assert "Tool request used the wrong field name." in prompt
+    assert "tool" in prompt
+    assert "issue_get" in prompt
+    assert "<failed_user_input>" in prompt
+    assert "summarize issue 42" in prompt
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_repair_mode_prompt_plus_error_marks_both_sources() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: repair
+              generator:
+                model: fake
+                prefilter: false
+              repair:
+                existing_yaml: |
+                  version: 1
+                  name: existing-agent
+                  workflows:
+                    main:
+                      steps: []
+                prompt: "Keep retry but fix the request field."
+                error:
+                  message: "Request missing required id."
+              validate:
+                compile: true
+              on_invalid:
+                max_attempts: 1
+    """
+
+    llm = CapturePlanLlm(VALID_REPAIRED_WORKFLOW_YAML)
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    assert result.outputs["plan"]["meta"]["repair"] == {"has_prompt": True, "has_error": True}
+    assert "<user_repair_instruction>" in llm.prompts[0]
+    assert "Keep retry but fix the request field." in llm.prompts[0]
+    assert "<runtime_error>" in llm.prompts[0]
+    assert "Request missing required id." in llm.prompts[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "repair_input",
+    [
+        {"prompt": "Fix it."},
+        {"existing_yaml": "version: 1"},
+        {"existing_yaml": "version: 1", "error": {"code": "MCP_CALL_ERROR"}},
+    ],
+)
+async def test_workflow_plan_repair_mode_validates_required_repair_fields(repair_input) -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        inputs:
+          plan_input:
+            type: object
+            required: true
+        steps:
+          - id: plan
+            type: workflow.plan
+            input: "${data.inputs.plan_input}"
+    """
+    plan_input = {
+        "mode": "repair",
+        "generator": {
+            "model": "fake",
+            "prefilter": False,
+        },
+        "repair": repair_input,
+    }
+    llm = CapturePlanLlm(VALID_REPAIRED_WORKFLOW_YAML)
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {"plan_input": plan_input})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "INPUT_VALIDATION"
+    assert llm.prompts == []
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_repair_mode_invalid_replacement_uses_bounded_validation_repair() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: repair
+              generator:
+                model: fake
+                prefilter: false
+              repair:
+                existing_yaml: |
+                  version: 1
+                  name: existing-agent
+                  workflows:
+                    main:
+                      steps: []
+                prompt: "Restore the missing workflow body."
+              validate:
+                compile: true
+              on_invalid:
+                max_attempts: 2
+    """
+    invalid_yaml = """
+    version: 1
+    name: invalid
+    workflows: {}
+    """
+
+    llm = SequencePlanLlm([invalid_yaml, VALID_REPAIRED_WORKFLOW_YAML])
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    assert len(llm.prompts) == 2
+    assert result.outputs["plan"]["meta"]["mode"] == "repair"
+    assert result.outputs["plan"]["meta"]["attempt"] == 2
+    assert "Repair an existing GnOuGo.Flow YAML workflow" in llm.prompts[0]
+    assert "<previous_error>" in llm.prompts[1]
+    assert "<invalid_yaml>" in llm.prompts[1]
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_repair_mode_reuses_policy_validation() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: repair
+              generator:
+                model: fake
+                prefilter: false
+              repair:
+                existing_yaml: |
+                  version: 1
+                  name: existing-agent
+                  workflows:
+                    main:
+                      steps: []
+                prompt: "Fix it."
+              policy:
+                denied_step_types: [workflow.plan]
+              validate:
+                compile: false
+              on_invalid:
+                max_attempts: 1
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: nested_plan
+            type: workflow.plan
+            input:
+              mode: basic
+              generator:
+                instruction: nested
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_POLICY"
+    assert "workflow.plan" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_repair_mode_reuses_semantic_validation() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: repair
+              generator:
+                model: fake
+                prefilter: false
+              repair:
+                existing_yaml: |
+                  version: 1
+                  name: existing-agent
+                  workflows:
+                    main:
+                      steps: []
+                prompt: "Fix the guarded step reference."
+              on_invalid:
+                max_attempts: 1
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: maybe_answer
+            type: set
+            if: "${data.inputs.enabled}"
+            input:
+              text: ok
+          - id: use_answer
+            type: set
+            input:
+              text: "${data.steps.maybe_answer.text}"
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "STEP_REFERENCE_NOT_AVAILABLE" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_repair_mode_reuses_dry_run_validation() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: repair
+              generator:
+                model: fake
+                prefilter: false
+              repair:
+                existing_yaml: |
+                  version: 1
+                  name: existing-agent
+                  workflows:
+                    main:
+                      steps: []
+                prompt: "Fix runtime max_tokens usage."
+              validate:
+                dry_run: true
+              on_invalid:
+                max_attempts: 1
+    """
+    generated_yaml = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: extract
+            type: llm.call
+            input:
+              prompt: "Return a token budget"
+          - id: answer
+            type: llm.call
+            input:
+              prompt: "Answer briefly"
+              max_tokens: "${data.steps.extract.text}"
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "dry_run" in result.error.message
+    assert result.error.details is not None
+    assert result.error.details["phase"] == "dry_run"
 
 
 @pytest.mark.asyncio

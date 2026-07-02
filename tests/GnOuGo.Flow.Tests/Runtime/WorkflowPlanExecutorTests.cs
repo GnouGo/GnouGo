@@ -213,6 +213,227 @@ public class WorkflowPlanExecutorTests
         };
     }
 
+    [Fact]
+    public async Task WorkflowPlan_RepairMode_WithPromptOnly_ReturnsValidatedReplacementYaml()
+    {
+        string? capturedPrompt = null;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                capturedPrompt = request.Prompt;
+                return new LLMResponse { Text = ValidGeneratedTemplateWorkflowYaml };
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: repair
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  repair:
+                    existing_yaml: |
+                      version: 1
+                      name: existing-agent
+                      workflows:
+                        main:
+                          steps: []
+                    prompt: "Fix the answer output mapping."
+                  validate:
+                    compile: true
+                  on_invalid:
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var plan = Assert.IsType<JsonObject>(result.Outputs!["plan"]);
+        Assert.Equal("repair", plan["meta"]?["mode"]?.GetValue<string>());
+        Assert.Equal(1, plan["meta"]?["attempt"]?.GetValue<int>());
+        Assert.Contains("Fix the answer output mapping.", capturedPrompt);
+        Assert.Contains("<existing_workflow_yaml>", capturedPrompt);
+        Assert.Contains("Make the smallest patch-style change", capturedPrompt);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_RepairMode_WithErrorOnly_IncludesRuntimeErrorAndFailedInput()
+    {
+        string? capturedPrompt = null;
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                capturedPrompt = request.Prompt;
+                return new LLMResponse { Text = ValidGeneratedTemplateWorkflowYaml };
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: repair
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  repair:
+                    existing_yaml: |
+                      version: 1
+                      name: existing-agent
+                      workflows:
+                        main:
+                          steps: []
+                    failed_input: "summarize issue 42"
+                    error:
+                      code: MCP_CALL_ERROR
+                      type: mcp.call
+                      message: "Tool request used the wrong field name."
+                      details:
+                        tool: issue_get
+                  validate:
+                    compile: true
+                  on_invalid:
+                    max_attempts: 1
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Contains("<runtime_error>", capturedPrompt);
+        Assert.Contains("MCP_CALL_ERROR", capturedPrompt);
+        Assert.Contains("Tool request used the wrong field name.", capturedPrompt);
+        Assert.Contains("<failed_user_input>", capturedPrompt);
+        Assert.Contains("summarize issue 42", capturedPrompt);
+    }
+
+    [Theory]
+    [InlineData("missing_yaml")]
+    [InlineData("missing_prompt_and_error")]
+    [InlineData("error_without_message")]
+    public async Task WorkflowPlan_RepairMode_ValidatesRequiredRepairFields(string scenario)
+    {
+        var repairInput = scenario switch
+        {
+            "missing_yaml" => new JsonObject
+            {
+                ["prompt"] = "Fix it."
+            },
+            "missing_prompt_and_error" => new JsonObject
+            {
+                ["existing_yaml"] = "version: 1"
+            },
+            _ => new JsonObject
+            {
+                ["existing_yaml"] = "version: 1",
+                ["error"] = new JsonObject
+                {
+                    ["code"] = "MCP_CALL_ERROR"
+                }
+            }
+        };
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            inputs:
+              plan_input:
+                type: object
+                required: true
+            steps:
+              - id: plan
+                type: workflow.plan
+                input: "${data.inputs.plan_input}"
+        """);
+
+        var planInput = new JsonObject
+        {
+            ["mode"] = "repair",
+            ["generator"] = new JsonObject
+            {
+                ["model"] = "gpt-4",
+                ["prefilter"] = false
+            },
+            ["repair"] = repairInput
+        };
+
+        var mockLlm = new Mock<ILLMClient>();
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject { ["plan_input"] = planInput }, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        mockLlm.Verify(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_RepairMode_InvalidReplacementUsesBoundedValidationRepair()
+    {
+        var callCount = 0;
+        var prompts = new List<string>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                callCount++;
+                prompts.Add(request.Prompt);
+                return new LLMResponse
+                {
+                    Text = callCount == 1
+                        ? "version: 1\nname: invalid\nworkflows: {}"
+                        : ValidGeneratedTemplateWorkflowYaml
+                };
+            });
+
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: plan
+                type: workflow.plan
+                input:
+                  mode: repair
+                  generator:
+                    model: gpt-4
+                    prefilter: false
+                  repair:
+                    existing_yaml: |
+                      version: 1
+                      name: existing-agent
+                      workflows:
+                        main:
+                          steps: []
+                    prompt: "Restore the missing workflow body."
+                  validate:
+                    compile: true
+                  on_invalid:
+                    max_attempts: 2
+        """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, callCount);
+        var plan = Assert.IsType<JsonObject>(result.Outputs!["plan"]);
+        Assert.Equal(2, plan["meta"]?["attempt"]?.GetValue<int>());
+        Assert.Contains("<previous_error>", prompts[1]);
+        Assert.Contains("<invalid_yaml>", prompts[1]);
+    }
+
     private sealed class StaticLlmCapabilityResolver : ILLMCapabilityResolver
     {
         private readonly bool? _supportsStructuredOutput;

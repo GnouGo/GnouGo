@@ -39,18 +39,18 @@ public sealed class CmdTools
         }
         catch (OperationCanceledException ex)
         {
-            _logger.LogWarning("cmd_run cancelled for command={CommandName}", commandName);
-            throw new McpException("The operation was cancelled by the client.", ex);
+            _logger.LogWarning(ex, "cmd_run cancelled for command={CommandName}", commandName);
+            return CmdRunResult.FromError(commandName, "CANCELLED", "The operation was cancelled by the client.");
         }
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning(ex, "cmd_run policy violation for command={CommandName}", commandName);
-            throw new McpException(ex.Message, ex);
+            return CmdRunResult.FromError(commandName, "INVALID_INPUT", ex.Message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "cmd_run unexpected error for command={CommandName}", commandName);
-            throw new McpException($"{ex.GetType().Name}: {ex.Message}", ex);
+            return CmdRunResult.FromError(commandName, "INTERNAL_ERROR", $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 }

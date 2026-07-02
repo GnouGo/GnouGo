@@ -66,14 +66,15 @@ This gives `workflow.plan` enough context to generate frozen `mcp.call` requests
 | `success`      | `bool`   | `true` only if exit code is 0 and no timeout. |
 | `exitCode`     | `int`    | Process exit code, or `-1` on error/timeout. |
 | `timedOut`     | `bool`   | `true` if the process was killed after the timeout. |
-| `errorCode`    | `string?`| Machine-readable error category (see below). |
-| `errorMessage` | `string?`| Human-readable explanation. |
+| `ok`           | `bool`   | Mirrors `success` for the shared GnOuGo MCP error contract. |
+| `error_code`   | `string?`| Machine-readable error category (see below). |
+| `error_message`| `string?`| Human-readable explanation. |
 
 Error codes:
 
 | Code                   | Cause |
 |------------------------|-------|
-| `POLICY_VIOLATION`     | Unknown command, bad parameters, shell not allowed, directory outside roots. |
+| `INVALID_INPUT`        | Unknown command, bad parameters, shell not allowed, directory outside roots. |
 | `PROCESS_SETUP_FAILED` | Could not configure the process (e.g., missing environment). |
 | `PROCESS_START_FAILED` | Shell executable not found or access denied. |
 | `TIMEOUT`              | Command exceeded the allowed timeout and was killed. |
@@ -229,7 +230,7 @@ dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuG
 
 ## Security Notes
 
-- If an allowed shell is not available (`sh` on Windows, `cmd` on Linux), the alias fails gracefully with a `POLICY_VIOLATION` error
+- If an allowed shell is not available (`sh` on Windows, `cmd` on Linux), the alias fails gracefully with an `INVALID_INPUT` error
 - The `cmd_run` tool never executes a raw command provided by the caller
 - All errors are returned as structured results — the MCP client always gets a valid JSON response
 - To allow a new command, it must be explicitly added in `src/GnOuGo.Cmd.Mcp/appsettings.json`

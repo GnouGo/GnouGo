@@ -127,6 +127,11 @@
   `tests/test_workflow_plan_contract_normalizer.py`,
   `tests/test_workflow_plan_pipeline_quality_analyzer.py`, and expanded
   `tests/test_workflow_plan_parity.py`.
+- ✅ **Phase 9** — `workflow.plan` repair mode parity. Python now accepts
+  `mode: repair` with `repair.existing_yaml`, optional user prompt, failed
+  input, and structured runtime error details, then reuses the strict
+  single-plan validation/reprompt path. New tests in
+  `tests/test_workflow_plan_parity.py`.
 
 ---
 
@@ -220,6 +225,7 @@
 | H42 | ✅ | `workflow.plan` — defaults `reasoning="medium"`, passes on main + prefilter calls | `WorkflowPlanExecutor.cs` |
 | H43 | ✅ | `workflow.execute` — parse YAML returned by `workflow.plan`, compile, validate args/defaults, run under a sub-workflow telemetry span, propagate outputs/errors | `WorkflowExecuteExecutor.cs` |
 | H44 | ✅ | `assert.non_null` — fail on null inputs and expose the same object as non-null refined output | `AssertNonNullExecutor.cs` |
+| H45 | ✅ | `workflow.plan` — `mode: repair` for targeted full-YAML workflow replacement, with required repair fields and strict validation reuse | `WorkflowPlanExecutor.RepairMode.cs` |
 
 ## I. Interfaces / DTOs / integrations
 

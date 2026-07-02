@@ -46,7 +46,11 @@ The section must contain at least `url`; `model` is recommended and falls back t
 For local Agent/Desktop usage, LLM provider secrets saved by `/llm add` are stored in KeyVault with keys such as `LLM--Models--OpenAi` and legacy `gnougo_llm_OpenAi`. This MCP resolves those same default-tenant KeyVault secrets from `KeyVault:DatabasePath` (default `.GnOuGo/data/gnougo-keyvault.db`, mapped by `KeyVaultDatabasePathResolver` under the default `Desktop/GnOuGo` workspace). If both configuration and KeyVault define a provider, non-empty configuration values override KeyVault values, while empty configuration values such as `apiKey = ""` allow the KeyVault secret to supply the key.
 
 Anthropic providers with `provider`/`type` set to `anthropic` are supported as custom SDK providers. They map to SDK provider type `anthropic` and default `wireApi` to `messages`; API-key auth is passed through as `ApiKey` for the Anthropic Messages API. The legacy `claude` provider/type values are still accepted as compatibility aliases.
-If the requested provider does not exist, the tool returns a standard MCP tool error.
+If the requested provider does not exist, the tool returns structured content with `success: false`, `ok: false`, `error_code`, and `error_message`.
+
+## Structured Error Handling
+
+Policy, input, provider, cancellation, and unexpected tool failures are returned in the advertised tool result type with `success: false`, `ok: false`, `error_code`, and `error_message`. The shared MCP normalizer remains registered as a fallback for transport/SDK error results.
 
 ## Agent edit mode
 

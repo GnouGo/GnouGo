@@ -30,6 +30,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
 | Model metadata catalog (pricing, token limits, capabilities, overrides) | Yes |
 | `workflow.plan` default `mode="auto"` classifier | Yes |
 | `workflow.plan` defaults `reasoning="medium"` | Yes |
+| `workflow.plan` repair mode for persisted workflow fixes | Yes |
 | `workflow.plan` pipeline decomposition, structured extraction, quality reports, and strict semantic checks | Yes |
 | MCP tool `output_schema` / `example_response` planning contracts | Yes |
 | Workflow source telemetry (`source_text` / `source_format`) | Yes |
@@ -1045,7 +1046,7 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 - id: plan
   type: workflow.plan
   input:
-    mode: auto                    # auto | basic | pipeline
+    mode: auto                    # auto | basic | pipeline | repair
     generator:
       model: gpt-4o                 # LLM model for planning
       provider: openai              # Optional — LLM provider
@@ -1098,6 +1099,39 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 
 Use `mode: basic` to skip classification and run the original single workflow-generation path directly. Use `mode: pipeline` to force decomposition.
 
+#### Repair mode
+
+Use `mode: repair` to repair an existing persisted workflow. The LLM receives the current YAML plus a user repair instruction and/or structured runtime error details, then returns a full replacement YAML document. The prompt asks for the smallest patch-style change and the result still goes through parse, policy, limits, compile, semantic validation, MCP discovery coverage, and optional dry-run validation.
+
+```yaml
+- id: repair_plan
+  type: workflow.plan
+  input:
+    mode: repair
+    generator:
+      model: gpt-4o
+      reasoning: medium
+      prefilter: true
+    repair:
+      existing_yaml: "${data.inputs.workflow_yaml}"
+      prompt: "Fix the final output mapping without changing public inputs."
+      failed_input: "${data.inputs.failed_prompt}"
+      error:
+        code: MCP_CALL_ERROR
+        type: mcp.call
+        message: "Tool request used the wrong field name."
+        details:
+          tool: issue_get
+    validate:
+      compile: true
+      dry_run: true
+    on_invalid:
+      action: reprompt
+      max_attempts: 3
+```
+
+`repair.existing_yaml` is required, and at least one of `repair.prompt` or `repair.error.message` must be present. If `repair.error` is provided, `repair.error.message` is required. In repair mode, `on_invalid.max_attempts` bounds validation repair retries for invalid replacement YAML.
+
 #### Pipeline mode
 
 Pipeline mode normalizes the user prompt, asks the LLM to mark extractable `:::subworkflow` leaf blocks, generates each leaf as an independently valid workflow, then asks for a compact parent orchestration graph:
@@ -1123,7 +1157,7 @@ When `engine.llm_capabilities` is configured and reports that the selected provi
 
 Pipeline mode is intentionally stricter than older Python releases: main assembly may orchestrate, branch, loop, derive deterministic values, and call generated leaves, but external work, LLM calls, raw MCP calls, human input, templates, and nested planning must stay inside leaf workflows. External-work leaves with required planned MCP tools must emit matching `mcp.call` steps.
 
-**Output:** `{ workflow: { dsl, name, workflows: [...] }, yaml: "...", meta: { model, attempt?, mode, mode_selection? } }`
+**Output:** `{ workflow: { dsl, name, workflows: [...] }, yaml: "...", meta: { model, attempt?, mode, mode_selection?, repair? } }`
 
 **Features:**
 

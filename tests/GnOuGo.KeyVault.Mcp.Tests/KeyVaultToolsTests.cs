@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Core.Services;
+using ModelContextProtocol.Server;
 
 namespace GnOuGo.KeyVault.Mcp.Tests;
 
@@ -60,7 +61,10 @@ public sealed class KeyVaultToolsTests : IAsyncDisposable
         var result = await _tools.GetSecretAsync("missing", "tester");
 
         Assert.False(result.Success);
+        Assert.False(result.Ok);
         Assert.Equal("Secret 'missing' not found.", result.Error);
+        Assert.Equal("NOT_FOUND", result.ErrorCode);
+        Assert.Equal("Secret 'missing' not found.", result.ErrorMessage);
     }
 
     [Fact]
@@ -99,7 +103,9 @@ public sealed class KeyVaultToolsTests : IAsyncDisposable
 
         var get = await _tools.GetSecretAsync("default-demo", "tester");
         Assert.False(get.Success);
+        Assert.False(get.Ok);
         Assert.Equal("Secret 'default-demo' not found.", get.Error);
+        Assert.Equal("NOT_FOUND", get.ErrorCode);
     }
 
     [Fact]
@@ -109,6 +115,33 @@ public sealed class KeyVaultToolsTests : IAsyncDisposable
         Assert.Null(typeof(KeyVaultTools).GetMethod("GetAuditLogAsync"));
         Assert.Null(typeof(KeyVaultTools).GetMethod("GetSecretVersionsAsync"));
     }
+
+    [Fact]
+    public void AllKeyVaultMcpTools_DeclareStructuredOutputSchemas()
+    {
+        var toolMethods = typeof(KeyVaultTools)
+            .GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly)
+            .Select(method => new
+            {
+                Method = method,
+                Attribute = method.GetCustomAttributes(typeof(McpServerToolAttribute), inherit: false).Cast<McpServerToolAttribute>().SingleOrDefault()
+            })
+            .Where(item => item.Attribute != null)
+            .ToArray();
+
+        Assert.NotEmpty(toolMethods);
+        Assert.All(toolMethods, item =>
+        {
+            Assert.True(item.Attribute!.UseStructuredContent, item.Method.Name);
+            Assert.NotNull(item.Attribute.OutputSchemaType);
+            Assert.Equal(UnwrapToolReturnType(item.Method.ReturnType), item.Attribute.OutputSchemaType);
+        });
+    }
+
+    private static Type UnwrapToolReturnType(Type returnType)
+        => returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>)
+            ? returnType.GetGenericArguments()[0]
+            : returnType;
 
     private static void TryDelete(string path)
     {
