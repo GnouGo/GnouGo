@@ -49,4 +49,6 @@ select = ["E", "F", "I"]
 # runtime_steps/*.py intentionally re-export the runtime module via `from gnougo_flow_core.runtime import *`
 # to keep executor stubs minimal. Suppress the resulting "may be undefined from star import" noise.
 "src/gnougo_flow_core/runtime_steps/*.py" = ["F405"]
-
+# workflow_plan/*.py is a private mechanical split of workflow_plan_executor.py. The mixins intentionally
+# share the old executor context through shared.py to keep this refactor behavior-preserving.
+"src/gnougo_flow_core/runtime_steps/workflow_plan/*.py" = ["E501", "F401", "F403", "F405", "I001"]
