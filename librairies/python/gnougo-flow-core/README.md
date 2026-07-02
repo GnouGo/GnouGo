@@ -22,14 +22,16 @@ This Python package mirrors its public surface as closely as Python idioms allow
 | Mustache `template.render` engine | Yes |
 | WFScript (`functions:` block) | Yes multi-statement (`var`/`let`/`const`, `if`/`else`, `return`) |
 | Runtime engine + step registry | Yes |
-| Step types: `set`, `emit`, `sequence`, `parallel`, `loop.sequential`, `loop.parallel`, `switch`, `template.render`, `llm.call`, `mcp.list`, `mcp.call`, `human.input`, `workflow.call`, `workflow.plan`, `workflow.execute` | Yes |
+| Step types: `set`, `assert.non_null`, `emit`, `sequence`, `parallel`, `loop.sequential`, `loop.parallel`, `switch`, `template.render`, `llm.call`, `mcp.list`, `mcp.call`, `human.input`, `workflow.call`, `workflow.plan`, `workflow.execute` | Yes |
 | MCP integrations (`InMemoryMcpClientFactory`, `ConfiguredMcpClientFactory`, cache helper) | Yes |
 | MCP `progressEvents` -> thinking telemetry + stdio JSONL real-time progress | Yes |
 | MCP server-level `DiscoveryTimeoutSeconds` / `CallTimeoutSeconds` metadata | Yes |
 | `LLMRequest.reasoning` field | Yes |
 | Model metadata catalog (pricing, token limits, capabilities, overrides) | Yes |
+| `workflow.plan` default `mode="auto"` classifier | Yes |
 | `workflow.plan` defaults `reasoning="medium"` | Yes |
-| `workflow.plan` validator + semantic mapping checks | Yes |
+| `workflow.plan` repair mode for persisted workflow fixes | Yes |
+| `workflow.plan` pipeline decomposition, structured extraction, quality reports, and strict semantic checks | Yes |
 | MCP tool `output_schema` / `example_response` planning contracts | Yes |
 | Workflow source telemetry (`source_text` / `source_format`) | Yes |
 | `JsonSchemaConverter` (inputs/outputs to JSON Schema) | Yes |
@@ -51,6 +53,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
   - [mcp.list](#mcplist--discover-mcp-server-capabilities)
   - [mcp.call](#mcpcall--call-mcp-tools-or-prompts)
   - [set](#set--initialize-or-modify-variables)
+  - [assert.non_null](#assertnon_null--require-values-before-using-them)
   - [emit](#emit--send-progress-messages-to-the-ui)
   - [human.input](#humaninput--pause-and-wait-for-user-input)
   - [sequence](#sequence--run-steps-sequentially)
@@ -635,6 +638,27 @@ Sets variables in the workflow data context using expressions.
 
 ---
 
+### `assert.non_null` — Require Values Before Using Them
+
+Fails if any resolved input value is `null`, and exposes the same object as output for downstream steps. Use it to refine nullable structured-output fields before passing them into strict MCP or workflow inputs.
+
+```yaml
+- id: require_doc
+  type: assert.non_null
+  input:
+    id: "${data.steps.derive_doc.json.id}"
+
+- id: fetch
+  type: mcp.call
+  input:
+    server: docs
+    method: get_doc
+    request:
+      id: "${data.steps.require_doc.id}"
+```
+
+---
+
 ### `emit` — Send Progress Messages to the UI
 
 Pushes real-time feedback to the user interface during long-running workflows.
@@ -1001,12 +1025,15 @@ Use this same shape for every resolver-supported reference. The built-in resolve
 
 The most powerful step type: asks an LLM to **generate a complete YAML workflow** from a natural-language instruction, then validates and compiles it before execution.
 
+`mode` defaults to `auto`. Auto mode first asks the configured LLM to estimate the request's cyclomatic complexity and choose `basic` or `pipeline`. It chooses `basic` for requests under 10 meaningful branches, and `pipeline` when the request should be decomposed into leaf workflows before assembly.
+
 #### Basic usage
 
 ```yaml
 - id: plan
   type: workflow.plan
   input:
+    mode: auto                    # default; use basic to force the single-plan path
     generator:
       model: gpt-4o
       instruction: "Build a workflow that fetches weather for Paris and summarizes it."
@@ -1019,6 +1046,7 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 - id: plan
   type: workflow.plan
   input:
+    mode: auto                    # auto | basic | pipeline | repair
     generator:
       model: gpt-4o                 # LLM model for planning
       provider: openai              # Optional — LLM provider
@@ -1026,11 +1054,11 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
       context: "${json(data.inputs)}"
 
       # Reasoning effort for the planning LLM call (and the MCP pre-filter).
-      # Defaults to "high" (max) because planning is heavy reasoning work.
+      # Defaults to "medium" because planning is reasoning-heavy work.
       # Set to "auto" to let the provider decide, or any of:
       # "minimal" | "low" | "medium" | "high" | "max" | "auto".
       # Models without thinking support ignore this field.
-      reasoning: high
+      reasoning: medium
 
       # MCP pre-filter: uses an LLM to select only relevant MCP servers/tools
       # before injecting them into the planning prompt (reduces prompt size)
@@ -1065,7 +1093,71 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
       max_attempts: 3               # Number of attempts before giving up
 ```
 
-**Output:** `{ workflow: { dsl, name, workflows: [...] }, yaml: "...", meta: { model, attempt } }`
+#### Auto and basic modes
+
+`mode: auto` is the default. It performs one classifier LLM call before generation and returns the classifier result under `meta.mode_selection`. The classifier estimates complexity by counting meaningful branches such as conditions, switch/case paths, loops, retries, error handling, cleanup paths, validation branches, tool-orchestration choices, and state transitions.
+
+Use `mode: basic` to skip classification and run the original single workflow-generation path directly. Use `mode: pipeline` to force decomposition.
+
+#### Repair mode
+
+Use `mode: repair` to repair an existing persisted workflow. The LLM receives the current YAML plus a user repair instruction and/or structured runtime error details, then returns a full replacement YAML document. The prompt asks for the smallest patch-style change and the result still goes through parse, policy, limits, compile, semantic validation, MCP discovery coverage, and optional dry-run validation.
+
+```yaml
+- id: repair_plan
+  type: workflow.plan
+  input:
+    mode: repair
+    generator:
+      model: gpt-4o
+      reasoning: medium
+      prefilter: true
+    repair:
+      existing_yaml: "${data.inputs.workflow_yaml}"
+      prompt: "Fix the final output mapping without changing public inputs."
+      failed_input: "${data.inputs.failed_prompt}"
+      error:
+        code: MCP_CALL_ERROR
+        type: mcp.call
+        message: "Tool request used the wrong field name."
+        details:
+          tool: issue_get
+    validate:
+      compile: true
+      dry_run: true
+    on_invalid:
+      action: reprompt
+      max_attempts: 3
+```
+
+`repair.existing_yaml` is required, and at least one of `repair.prompt` or `repair.error.message` must be present. If `repair.error` is provided, `repair.error.message` is required. In repair mode, `on_invalid.max_attempts` bounds validation repair retries for invalid replacement YAML.
+
+#### Pipeline mode
+
+Pipeline mode normalizes the user prompt, asks the LLM to mark extractable `:::subworkflow` leaf blocks, generates each leaf as an independently valid workflow, then asks for a compact parent orchestration graph:
+
+```yaml
+document:
+  name: generated-pipeline-workflow
+graph:
+  inputs:
+    query: string
+  steps:
+    - id: call_collect_data
+      leaf: collect_data
+      args:
+        query: ${data.inputs.query}
+  outputs:
+    collect_data_outputs: ${data.steps.call_collect_data.outputs}
+```
+
+The runtime renders graph leaf nodes into local `workflow.call` steps, grafts the validated leaf workflows, moves leaf document-level `functions:` into that leaf workflow scope, checks required leaf arguments, and validates the final YAML. If extractable-block annotation fails validation, `workflow.plan` reprompts with the invalid annotated Markdown and exact validation errors.
+
+When `engine.llm_capabilities` is configured and reports that the selected provider/model supports structured output, pipeline extraction uses strict structured output for the extractable-block phase and rejects markdown-only extraction. Pipeline output includes `pipeline.specs`, `pipeline.quality_report`, and `pipeline.inspection` with leaf contracts, planned MCP tools, main graph inspection, and validation metadata.
+
+Pipeline mode is intentionally stricter than older Python releases: main assembly may orchestrate, branch, loop, derive deterministic values, and call generated leaves, but external work, LLM calls, raw MCP calls, human input, templates, and nested planning must stay inside leaf workflows. External-work leaves with required planned MCP tools must emit matching `mcp.call` steps.
+
+**Output:** `{ workflow: { dsl, name, workflows: [...] }, yaml: "...", meta: { model, attempt?, mode, mode_selection?, repair? } }`
 
 **Features:**
 
@@ -1074,9 +1166,11 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 - **Full DSL reference injection**: The LLM receives the complete DSL documentation (step types, expressions, error handling) so it can generate valid workflows.
 - **Policy enforcement**: Generated workflows are validated against allowed/denied step types and max step limits.
 - **Full validation before acceptance**: `workflow.plan` runs the validator, compiler, and semantic checks before returning a plan. This catches non-fatal validator diagnostics such as unknown step types, invalid container shapes, future step references, conditional branch/loop mapping errors, and invalid `data.steps.<id>.response.<field>` mappings.
+- **Structured repair diagnostics**: Validation and `dry_run` failures include machine-readable `details["diagnostics"]` entries with stable codes, locations, hints, expected shapes, allowed paths when available, and `llm_guidance` for reprompt repair.
 - **Optional dry-run validation**: Set `validate.dry_run: true` to execute the generated workflow once with deterministic fake LLM, MCP, human-input, and routing providers. This catches runtime input-resolution errors such as free-form `llm.call.text` being used where a number is required. The dry-run never calls real LLMs or MCP tools.
 - **MCP output contracts**: MCP discovery injects complete `input_schema`, `output_schema`, and `example_response` metadata into the planning prompt. `output_schema` / `example_response` define which fields may be read from `mcp.call` single-tool `response` objects.
 - **MCP request normalization**: During `workflow.plan` validation, static `mcp.call.input.request` values are normalized against discovered `input_schema` contracts. Numeric, integer, and boolean YAML strings are converted to typed JSON values when the schema allows it, including nested objects, arrays, additional properties, and matching `oneOf` / `anyOf` object variants.
+- **Nullable MCP request guardrails**: Required MCP request fields reject nullable structured-output expressions such as `string|null` unless the exact value is first refined with `assert.non_null` or guarded on the same call.
 - **Self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error, or semantic mapping error), the error is sent back to the LLM for automatic correction.
 - **OpenTelemetry tracing**: Full GenAI convention traces for the planning LLM call, MCP discovery, and pre-filter phases.
 
@@ -1284,18 +1378,32 @@ Increase these limits only for trusted workflows; prefer simplifying expressions
 
 ## WFScript — Custom JavaScript Functions
 
-Define reusable functions in the `functions:` block (document-level or workflow-level):
+Define reusable functions in the `functions:` block (document-level or workflow-level).
+When `workflow.plan` generates custom functions, each generated `function` must be immediately preceded by JSDoc with typed `@param` entries for every parameter and a typed `@returns` entry for the output:
 
 ```yaml
 version: 1
 name: smart-triage
 functions: |
+  /**
+   * Classifies a message by urgency and issue type.
+   *
+   * @param {string} text - Message text to classify.
+   * @returns {string} Routing label: "critical", "bug", or "general".
+   */
   function classify(text) {
     if (contains(lower(text), "urgent")) return "critical";
     if (contains(lower(text), "bug")) return "bug";
     return "general";
   }
 
+  /**
+   * Truncates text to a maximum visible length.
+   *
+   * @param {string} text - Text to truncate.
+   * @param {number} maxLen - Maximum number of characters.
+   * @returns {string} Original or truncated text.
+   */
   function truncate(text, maxLen) {
     if (len(text) <= maxLen) return text;
     return text.substring(0, maxLen) + "...";
@@ -1508,7 +1616,7 @@ The Python package is not a NativeAOT binary; it is a Python 3.10+ library and C
   - `InMemoryMcpClientFactory` and `MockMcpServerConfig` for tests and demos.
   - `ConfiguredMcpClientFactory` and `McpSessionAdapter` for injected MCP sessions.
   - `RoutingLLMClientAdapter` for adapting a routing LLM client.
-- `WorkflowEngine.mcp_cache` defaults to `McpCacheHelper`, a 5-minute sliding TTL cache for MCP tools/resources/prompts per server. Set it to `None` to disable capability caching.
+- `WorkflowEngine.mcp_cache` defaults to `McpCacheHelper`, a 1-hour sliding TTL cache for MCP tools/resources/prompts per server. Set it to `None` to disable capability caching.
 - `WorkflowEngine.resume_async`, `WorkflowCheckpointer`, and `limits.run_id` support resumable workflow execution.
 Development commands:
 

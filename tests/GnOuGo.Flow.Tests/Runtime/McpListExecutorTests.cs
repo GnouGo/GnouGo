@@ -856,8 +856,9 @@ workflows:
 
         Assert.True(result.Success);
 
-        // Verify: mcp.list called ListToolsAsync exactly once
-        Assert.Equal(1, listToolsCalls);
+        // mcp.list discovers once; every parallel mcp.call revalidates its method against
+        // the current catalog before crossing the transport boundary.
+        Assert.Equal(4, listToolsCalls);
 
         // Verify: mcp.call called CallToolAsync 3 times (one per discovered tool)
         Assert.Equal(3, callToolCalls);
@@ -1022,6 +1023,5 @@ workflows:
         Assert.Contains("summarize", text);
     }
 }
-
 
 

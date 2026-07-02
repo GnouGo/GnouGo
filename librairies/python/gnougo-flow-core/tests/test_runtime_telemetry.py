@@ -285,6 +285,7 @@ async def test_workflow_plan_mcp_server_prefilter_emits_genai_telemetry_events()
           - id: plan
             type: workflow.plan
             input:
+              mode: basic
               generator:
                 model: gpt-4
                 instruction: list repositories

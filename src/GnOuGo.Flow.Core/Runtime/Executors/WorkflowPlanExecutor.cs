@@ -19,9 +19,22 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private const int DefaultMcpDiscoveryTimeoutSeconds = 30;
     private const int MinMcpDiscoveryTimeoutSeconds = 1;
     private const int MaxMcpDiscoveryTimeoutSeconds = 300;
+    private const int McpDiscoveryMaxAttempts = 3;
+    private const int McpDiscoveryRetryBaseDelayMilliseconds = 500;
+    private const int DefaultPlanRepairMaxAttempts = 3;
     private static readonly JsonSerializerOptions PromptJsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
+    };
+    private static readonly string[] McpInputContractChecklist =
+    {
+        "1. Inspect every MCP tool used by this workflow.",
+        "2. For each required MCP argument, ensure the workflow has a matching input or a previous step that produces it.",
+        "3. If a required MCP argument is missing, add it to skill.inputs and workflow.inputs with the exact MCP schema type.",
+        "4. Never satisfy a missing required MCP argument with data.env.*, empty string, fake values, or casts.",
+        "5. Never convert a string input to a number just to satisfy an MCP schema.",
+        "6. Follow the discovered MCP schema and tool description exactly without adding Flow-specific request conventions.",
+        "7. Prefer the exact MCP argument name and type."
     };
 
     public string StepType => "workflow.plan";
@@ -35,11 +48,82 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
     {
-        var llmClient = ctx.Engine.LLMClient
-            ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "No LLM client configured");
-
         var input = ctx.Engine.GetResolvedInput(ctx) as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan input must be object");
+
+        var mode = GetConfiguredPlanMode(input);
+
+        if (string.Equals(mode, "repair", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = await ExecuteRepairPlanAsync(ctx, input, ct);
+            AttachPlanModeMetadata(result, "repair", null);
+            return result;
+        }
+
+        if (string.Equals(mode, "pipeline", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = await ExecutePipelineAsync(ctx, input, ct);
+            AttachPlanModeMetadata(result, "pipeline", null);
+            return result;
+        }
+
+        if (string.Equals(mode, "basic", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = await ExecuteSinglePlanAsync(ctx, input, ct);
+            AttachPlanModeMetadata(result, "basic", null);
+            return result;
+        }
+
+        if (!string.IsNullOrWhiteSpace(mode) && !string.Equals(mode, "auto", StringComparison.OrdinalIgnoreCase))
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"workflow.plan mode '{mode}' is not supported. Use auto, basic, pipeline, or repair.");
+
+        var selection = await ClassifyPlanModeAsync(ctx, input, ct);
+        if (string.Equals(selection.SelectedMode, "pipeline", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = await ExecutePipelineAsync(ctx, input, ct);
+            AttachPlanModeMetadata(result, "pipeline", selection);
+            return result;
+        }
+
+        var autoResult = await ExecuteSinglePlanAsync(ctx, input, ct);
+        AttachPlanModeMetadata(autoResult, "basic", selection);
+        return autoResult;
+    }
+
+    private static void AppendMcpInputContractChecklist(StringBuilder sb)
+    {
+        sb.AppendLine("MCP input contract rules:");
+        foreach (var rule in McpInputContractChecklist)
+            sb.AppendLine(rule);
+    }
+
+    private static void AppendExpressionFunctionRules(StringBuilder sb)
+    {
+        var builtIns = string.Join(
+            ", ",
+            BuiltInFunctions.All.Keys
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .Select(static name => $"`{name}`"));
+
+        sb.AppendLine("Expression function rules:");
+        sb.AppendLine($"- Built-in expression functions are exactly: {builtIns}.");
+        sb.AppendLine("- Call only documented built-ins, or custom functions that you define in a document-level or workflow-level `functions:` block.");
+        sb.AppendLine("- Every `functions.<name>(...)` call must refer to a built-in or to a matching `function <name>(...)` declaration in `functions:`.");
+        sb.AppendLine("- Every generated custom `function name(...)` declaration MUST be immediately preceded by JSDoc (`/** ... */`).");
+        sb.AppendLine("- That JSDoc MUST include one typed `@param {type} name - meaning` tag for every function parameter.");
+        sb.AppendLine("- That JSDoc MUST include a typed `@returns {type} - meaning` tag for the function output, including `{void}` when it intentionally returns nothing.");
+        sb.AppendLine("- Use semantic JSDoc types such as `{string}`, `{number}`, `{boolean}`, `{object}`, `{Array<string>}`, or a concise object shape when it clarifies the contract.");
+        sb.AppendLine("- Do not invent helpers such as `functions.parseRepoUrl`, `functions.clampNumber`, `functions.take`, or `functions.filterUnprocessedIssues`; implement them in `functions:` or replace them with built-ins, structured_output normalization, or explicit workflow steps.");
+    }
+
+    private async Task<JsonNode?> ExecuteSinglePlanAsync(
+        StepExecutionContext ctx,
+        JsonObject input,
+        CancellationToken ct,
+        ITelemetrySpan? parentSpan = null)
+    {
+        var llmClient = ctx.Engine.LLMClient
+            ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "No LLM client configured");
 
         var generator = input["generator"] as JsonObject
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan requires 'generator'");
@@ -55,6 +139,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         model ??= "gpt-4";
         var instruction = generator["instruction"]?.GetValue<string>() ?? "";
         var generatorContext = generator["context"]?.GetValue<string>() ?? "";
+        var pipelineLeafName = generator["pipeline_leaf_name"]?.GetValue<string>();
 
         // Reasoning effort: workflow planning is reasoning-heavy, default to "medium".
         // Authors can override via `generator.reasoning: auto|minimal|low|medium|high|max`.
@@ -114,10 +199,25 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             generatorContext,
             ctx.Engine.McpClientFactory?.ServerMetadata);
 
+        var generationAttributes = new List<KeyValuePair<string, object?>>
+        {
+            new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
+            new KeyValuePair<string, object?>("gen_ai.system", provider ?? "openai"),
+            new KeyValuePair<string, object?>("gen_ai.request.model", model),
+            new KeyValuePair<string, object?>("gen_ai.request.background", true),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.background_requested", true)
+        };
+        if (!string.IsNullOrWhiteSpace(pipelineLeafName))
+            generationAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.leaf_name", pipelineLeafName));
+
+        using var generationSpan = parentSpan == null
+            ? ctx.BeginTelemetrySpan("workflow.plan.generate", "generation", generationAttributes)
+            : ctx.BeginTelemetrySpan(parentSpan, "workflow.plan.generate", "generation", generationAttributes);
+
         var candidateMcpServers = shouldPrefilter
             ? await PrefilterMcpServerMetadataAsync(
                 llmClient, ctx.Engine.McpClientFactory, instruction, generatorContext,
-                prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, ct)
+                prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, generationSpan.Span, ct)
             : null;
 
         candidateMcpServers = MergeRequiredMcpServerMetadata(
@@ -129,19 +229,19 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var validateDryRun = validate?["dry_run"]?.GetValue<bool>() ?? false;
         var validationDiscovered = validateDryRun
             ? await DiscoverMcpServersAsync(
-                ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateServers: null, ct)
+                ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateServers: null, generationSpan.Span, ct)
             : null;
 
         var discovered = SelectDiscoveredServers(validationDiscovered, candidateMcpServers)
             ?? await DiscoverMcpServersAsync(
-            ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateMcpServers, ct);
+            ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateMcpServers, generationSpan.Span, ct);
 
         if (shouldPrefilter && discovered != null && discovered.Count > 0)
         {
             var prefilterSource = discovered;
             discovered = await PrefilterMcpServersAsync(
                 llmClient, discovered, instruction, generatorContext,
-                prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, ct);
+                prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, generationSpan.Span, ct);
             discovered = MergeRequiredMcpServerDiscovery(
                 discovered,
                 prefilterSource,
@@ -158,6 +258,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         // Build the base prompt with full DSL reference
         var basePrompt = new StringBuilder();
         basePrompt.AppendLine("You are a GnOuGo.Flow YAML workflow generator. Return ONLY valid YAML, no explanation or markdown fences.");
+        basePrompt.AppendLine("Strict plan validation is mandatory: invalid YAML will be rejected, repaired automatically within the bounded attempt budget, and never returned as a successful plan.");
         basePrompt.AppendLine();
         AppendPromptSection(basePrompt, "dsl_reference", RemoveMarkdownFenceLines(DslReference.CommonReference));
         basePrompt.AppendLine();
@@ -193,19 +294,36 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- Every step has a unique non-empty `id` and a non-empty `type`.");
         basePrompt.AppendLine("- Put common step fields (`id`, `type`, `if`, `input`, `output`, `retry`, `on_error`) at the step level, not inside `input`.");
         basePrompt.AppendLine("- Put executor-specific arguments inside `input` only. For example `llm.call.input.prompt`, `mcp.call.input.server`, `template.render.input.template`.");
+        basePrompt.AppendLine("- For non-trivial `set` steps that normalize or reshape data, declare step-level `output_schema` so later `data.steps.<id>.<field>` references have a real contract.");
+        basePrompt.AppendLine("- When a `set` field has a closed object/array `output_schema` (`additionalProperties: false`), do not assign opaque custom-function objects directly. Project exactly the declared fields before returning or assigning the value.");
+        basePrompt.AppendLine("- If a nullable derived value must feed a later non-null input, refine it first with `assert.non_null` and use the refined step output, or keep the strict call inside a guard/branch that proves the value exists.");
         basePrompt.AppendLine("- Container mappings must use their documented shape: `sequence`/`loop.*` use step-level `steps`; `parallel` uses step-level `branches[].steps`; `switch` uses step-level `cases[].steps` and optional step-level `default`.");
         basePrompt.AppendLine("- Do not reference future steps. Expressions may read `data.inputs.*` and outputs from earlier `data.steps.<id>.*` only.");
         basePrompt.AppendLine("- Do not reference `data.steps.<id>.*` produced only inside `switch` cases, `if`-guarded steps, or loop bodies from later steps unless you first map every possible path to a guaranteed value.");
         basePrompt.AppendLine("- Function arguments are evaluated before the function runs: `coalesce(data.steps.branch_a.value, data.steps.branch_b.value)` is invalid if either branch step may not exist.");
         basePrompt.AppendLine("- After a `switch`, prefer writing a common result object via the same workflow-level output alias in every case/default branch, or add one guaranteed normalization step that receives the whole switch/branch context and emits a stable schema.");
+        basePrompt.AppendLine("- A `switch` step output is a path-dependent step snapshot, not a flattened object. Invalid: `data.steps.route.pr_url` when `pr_url` is produced by `set_pr_success` inside a case.");
         basePrompt.AppendLine("- Use documented output shapes exactly: `template.render` text is `data.steps.<id>.text`; `llm.call` text is `data.steps.<id>.text` and structured JSON is `data.steps.<id>.json`; `mcp.call` single-tool response is `data.steps.<id>.response`.");
         basePrompt.AppendLine("- Do not assume nested fields inside opaque MCP `response` unless the tool schema/description explicitly documents them; pass the whole response onward when uncertain.");
         basePrompt.AppendLine("- NEVER invent properties under `data.steps.<id>.response`. Access `response.<field>` only when an `output_schema` or `example_response` explicitly documents that field.");
         basePrompt.AppendLine("- If an MCP response is opaque, use `json(data.steps.<id>.response)` to pass the whole response to another step.");
         basePrompt.AppendLine("- If precise fields are needed from an opaque response, add an `llm.call` normalization step with `structured_output`, then read fields from `data.steps.<normalizer>.json`.");
+        AppendMcpInputContractChecklist(basePrompt);
+        AppendExpressionFunctionRules(basePrompt);
         basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");
         basePrompt.AppendLine("- Workflow `outputs` should use either the short expression form or the long form with `expr` and `type`. Do not map arbitrary objects there unless using nested expression properties intentionally.");
+        basePrompt.AppendLine("- Every generated `skill.outputs.*` and `workflows.*.outputs.*` entry must be strongly typed. Never emit `type: any`, bare `type: object`, or bare `type: array`.");
+        basePrompt.AppendLine("- Array outputs must declare `items`; if items are objects, `items.properties` must list the concrete fields. Object outputs must declare non-empty `properties`.");
+        basePrompt.AppendLine("- Workflow output expressions must match the declared output contract type exactly. A string output must resolve to a string; a boolean output must resolve to a boolean.");
+        basePrompt.AppendLine("- Comparison/predicate expressions such as `${a == b}`, `${a != b}`, `${contains(...)}`, and `${exists(...)}` return boolean. Use them only for boolean outputs or `if`/`switch.when` conditions.");
+        basePrompt.AppendLine("- For string outputs such as classification/status/level/severity, return a string-valued field or quoted string literal. Invalid for a string output: `${data.steps.classify.json.classification == 'bug'}`. Valid: `${data.steps.classify.json.classification}`.");
+        basePrompt.AppendLine("- If a string output must be derived from an MCP/LLM response, first normalize it with `llm.call` or `mcp.call` `structured_output`, then map `data.steps.<normalizer>.json.<field>` to the workflow output.");
+        basePrompt.AppendLine("- For input/output object schemas, never duplicate the YAML key `required`. Use input-level `required: true|false` only as a boolean. Use `required_properties: [field_name]` for required object property names.");
         AppendPromptSectionEnd(basePrompt, "generation_validation_checklist");
+        basePrompt.AppendLine();
+        AppendWorkflowPlanGenerationGuardrails(basePrompt);
+        basePrompt.AppendLine();
+        AppendStructuredOutputStrictSchemaRules(basePrompt);
 
         basePrompt.AppendLine();
         AppendPromptSectionStart(basePrompt, "llm_model_parameters");
@@ -286,8 +404,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine();
         AppendUserTaskBlock(basePrompt, instruction, generatorContext);
 
-        var maxAttempts = onInvalid?["max_attempts"]?.GetValue<int>() ?? 3;
-        var failAction = onInvalid?["action"]?.GetValue<string>() ?? "fail";
+        var maxAttempts = GetWorkflowPlanRepairMaxAttempts(onInvalid, validate);
         string? lastError = null;
         string? lastInvalidYaml = null;
         string? lastRepairContext = null;
@@ -340,7 +457,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
 
             LLMResponse response;
-            using (var generationSpan = ctx.BeginTelemetrySpan("workflow.plan.generate", "generation", new[]
+            generationSpan.SetAttribute("gnougo-flow.plan.attempt", attempt + 1);
+            var llmCallAttributes = new List<KeyValuePair<string, object?>>
             {
                 new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
                 new KeyValuePair<string, object?>("gen_ai.system", provider ?? "openai"),
@@ -348,10 +466,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 new KeyValuePair<string, object?>("gen_ai.request.background", true),
                 new KeyValuePair<string, object?>("gnougo-flow.plan.background_requested", true),
                 new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1)
-            }))
+            };
+            if (!string.IsNullOrWhiteSpace(pipelineLeafName))
+                llmCallAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.leaf_name", pipelineLeafName));
+
+            using (var llmCallSpan = ctx.BeginTelemetrySpan(generationSpan.Span, "workflow.plan.generate.llm_call", "generation_llm", llmCallAttributes))
             {
                 if (ctx.Limits.LogStepContent)
-                    generationSpan.AddEvent("gen_ai.content.prompt", new[]
+                    llmCallSpan.AddEvent("gen_ai.content.prompt", new[]
                     {
                         new KeyValuePair<string, object?>("gen_ai.prompt", promptText),
                         new KeyValuePair<string, object?>("prompt.role", "user"),
@@ -391,10 +513,27 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "generation")
                         });
                     }
+
+                    llmCallSpan.SetAttribute("gen_ai.response.model", model);
+                    llmCallSpan.SetAttribute("gen_ai.response.finish_reason", "stop");
+                    AddUsageAttributes(llmCallSpan, response.Usage, model, provider);
+                    llmCallSpan.SetAttribute("gnougo-flow.plan.generated_yaml_length", response.Text?.Length ?? 0);
+                    if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
+                    {
+                        llmCallSpan.AddEvent("gen_ai.content.completion", new[]
+                        {
+                            new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
+                            new KeyValuePair<string, object?>("completion.role", "assistant"),
+                            new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
+                            new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1),
+                            new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "generation")
+                        });
+                    }
                 }
                 catch (Exception ex)
                 {
                     generationSpan.Fail(ex);
+                    llmCallSpan.Fail(ex);
                     throw;
                 }
             }
@@ -416,52 +555,45 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             try
             {
-                string yaml;
+                var yaml = StripMarkdownFences(response.Text ?? string.Empty);
                 WorkflowDocument generatedDoc;
-                using (var validationSpan = ctx.BeginTelemetrySpan("workflow.plan.validate", "validation", new[]
+                var validationAttributes = new List<KeyValuePair<string, object?>>
                 {
                     new KeyValuePair<string, object?>("gnougo-flow.plan.attempt", attempt + 1)
-                }))
+                };
+                if (!string.IsNullOrWhiteSpace(pipelineLeafName))
+                    validationAttributes.Add(new KeyValuePair<string, object?>("gnougo-flow.plan.pipeline.leaf_name", pipelineLeafName));
+
+                using (var validationSpan = ctx.BeginTelemetrySpan(generationSpan.Span, "workflow.plan.validate", "validation", validationAttributes))
                 {
                     try
                     {
-                        // Strip markdown fences if the LLM wrapped the YAML
-                        yaml = StripMarkdownFences(response.Text);
                         validationSpan.SetAttribute("gnougo-flow.plan.yaml_length", yaml.Length);
 
                         // Parse + validate minimal required shape before policy/limits/compile checks.
                         generatedDoc = ParseAndValidateGeneratedWorkflow(yaml);
                         validationSpan.SetAttribute("gnougo-flow.plan.workflow_count", generatedDoc.Workflows.Count);
 
-                        // Policy enforcement
-                        if (policy != null)
-                            EnforcePolicy(generatedDoc, policy);
-
-                        // Limits enforcement
-                        if (limits != null)
-                            EnforceLimits(generatedDoc, limits);
-
-                        // Compile + semantic validation
-                        if (validate?["compile"]?.GetValue<bool>() ?? true)
-                        {
-                            ValidateGeneratedWorkflowForPlan(generatedDoc, validationDiscovered);
-                        }
-
-                        // Optional runtime dry-run with deterministic fake providers.
-                        if (validate?["dry_run"]?.GetValue<bool>() ?? false)
-                        {
-                            validationSpan.SetAttribute("gnougo-flow.plan.dry_run", true);
-                            await WorkflowPlanDryRunValidator.ValidateAsync(
-                                generatedDoc,
-                                BuildDryRunMcpClientFactory(validationDiscovered),
-                                ctx.Engine.Logger,
-                                ct);
-                        }
+                        await RunStandardPlanValidationSequenceAsync(
+                            generatedDoc,
+                            policy,
+                            limits,
+                            validate,
+                            validationDiscovered,
+                            ctx,
+                            validationSpan.Span,
+                            ct,
+                            validateGeneratedOutputSchemas: string.IsNullOrWhiteSpace(pipelineLeafName));
                     }
                     catch (Exception ex)
                     {
-                        validationSpan.Fail(ex);
-                        throw;
+                        var enriched = AttachGeneratedYamlToPlanException(ex, yaml);
+                        validationSpan.AddEvent(
+                            "gnougo-flow.plan.validation.error",
+                            BuildPlanErrorTelemetryAttributes(enriched, attempt + 1, "validation", pipelineLeafName));
+                        validationSpan.Fail(enriched);
+                        generationSpan.Fail(enriched);
+                        throw enriched;
                     }
                 }
 
@@ -476,6 +608,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     wfNames.Add((JsonNode)JsonValue.Create(wfName)!);
                 workflowInfo["workflows"] = wfNames;
 
+                generationSpan.Complete();
                 return new JsonObject
                 {
                     ["workflow"] = workflowInfo,
@@ -484,7 +617,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     ["diagnostics"] = new JsonArray()
                 };
             }
-            catch (Exception ex) when (attempt < maxAttempts - 1 && failAction == "reprompt")
+            catch (Exception ex) when (attempt < maxAttempts - 1)
             {
                 // Capture the error for injection into the next prompt
                 ctx.Engine.Logger.LogWarning(ex, "workflow.plan: attempt {Attempt}/{MaxAttempts} failed, reprompting", attempt + 1, maxAttempts);
@@ -501,7 +634,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         ctx);
 
                 lastError = BuildStructuredPlanError(ex, attempt + 1);
-                lastInvalidYaml = StripMarkdownFences(response.Text);
+                lastInvalidYaml = StripMarkdownFences(response.Text ?? string.Empty);
                 lastRepairContext = BuildMinimalRepairContext(
                     ctx.Engine.Registry,
                     allowedTypes,
@@ -512,1813 +645,72 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
 
         ctx.Engine.Logger.LogError("workflow.plan: failed to generate valid workflow after {MaxAttempts} attempts", maxAttempts);
-        throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan,
-            $"Failed to generate valid workflow after {maxAttempts} attempts");
+        var finalException = new WorkflowRuntimeException(ErrorCodes.TemplatePlan,
+            string.IsNullOrWhiteSpace(lastError)
+                ? $"Failed to generate valid workflow after {maxAttempts} attempts"
+                : $"Failed to generate valid workflow after {maxAttempts} attempts. Last strict validation error: {lastError}");
+        generationSpan.Fail(finalException);
+        throw finalException;
     }
 
-    // ── MCP discovery data ──────────────────────────────────────────────
-
-    /// <summary>
-    /// Holds the result of discovering tools and prompts from one MCP server.
-    /// </summary>
-    private sealed class McpServerDiscovery
+    private static int GetWorkflowPlanRepairMaxAttempts(JsonObject? onInvalid, JsonObject? validate)
     {
-        public required string Name { get; init; }
-        public string? Description { get; init; }
-        public int? CallTimeoutSeconds { get; init; }
-        public IReadOnlyList<McpToolInfo> Tools { get; init; } = Array.Empty<McpToolInfo>();
-        public IReadOnlyList<McpPromptInfo> Prompts { get; init; } = Array.Empty<McpPromptInfo>();
-        /// <summary>True when the server was reachable and listing succeeded.</summary>
-        public bool Discovered { get; init; }
+        var configured = TryGetPositiveInteger(validate, "max_repair_attempts")
+            ?? TryGetPositiveInteger(onInvalid, "max_attempts")
+            ?? DefaultPlanRepairMaxAttempts;
+
+        return Math.Max(1, configured);
     }
 
-    private static HashSet<string> ExtractRequiredMcpServerNames(
-        string instruction,
-        string? context,
-        IReadOnlyList<McpServerMetadata>? configuredServers)
+    private static int? TryGetPositiveInteger(JsonObject? obj, string propertyName)
     {
-        var required = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (configuredServers == null || configuredServers.Count == 0)
-            return required;
-
-        var configuredByName = configuredServers.ToDictionary(server => server.Name, StringComparer.OrdinalIgnoreCase);
-        var text = string.IsNullOrWhiteSpace(context)
-            ? instruction
-            : instruction + "\n" + context;
-
-        foreach (Match match in Regex.Matches(text, @"(?im)^\s*server\s*:\s*[""']?([^""'\r\n#]+)"))
-        {
-            var candidate = match.Groups[1].Value.Trim().TrimEnd(',', ']');
-            if (configuredByName.TryGetValue(candidate, out var server))
-                required.Add(server.Name);
-        }
-
-        foreach (Match match in Regex.Matches(text, @"(?im)^\s*servers\s*:\s*\[([^\]\r\n#]+)\]"))
-        {
-            foreach (var raw in match.Groups[1].Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                var candidate = raw.Trim().Trim('"', '\'');
-                if (configuredByName.TryGetValue(candidate, out var server))
-                    required.Add(server.Name);
-            }
-        }
-
-        return required;
-    }
-
-    private static IReadOnlyList<McpServerMetadata>? MergeRequiredMcpServerMetadata(
-        IReadOnlyList<McpServerMetadata>? selected,
-        IReadOnlyList<McpServerMetadata>? allServers,
-        IReadOnlySet<string> requiredServerNames,
-        StepExecutionContext ctx)
-    {
-        if (requiredServerNames.Count == 0 || allServers == null || allServers.Count == 0 || selected == null)
-            return selected;
-
-        var merged = selected.ToList();
-        var seen = merged.Select(server => server.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var server in allServers)
-        {
-            if (requiredServerNames.Contains(server.Name) && seen.Add(server.Name))
-                merged.Add(server);
-        }
-
-        if (merged.Count != selected.Count)
-        {
-            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.required_servers", new[]
-            {
-                new KeyValuePair<string, object?>("mcp.server.names", string.Join(",", requiredServerNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase))),
-                new KeyValuePair<string, object?>("mcp.servers_selected", merged.Count)
-            });
-        }
-
-        return merged;
-    }
-
-    private static List<McpServerDiscovery>? SelectDiscoveredServers(
-        IReadOnlyList<McpServerDiscovery>? source,
-        IReadOnlyList<McpServerMetadata>? selectedServers)
-    {
-        if (source == null)
-            return null;
-        if (selectedServers == null)
-            return source.ToList();
-        if (selectedServers.Count == 0)
-            return new List<McpServerDiscovery>();
-
-        var selectedNames = selectedServers.Select(server => server.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return source.Where(server => selectedNames.Contains(server.Name)).ToList();
-    }
-
-    private static List<McpServerDiscovery>? MergeRequiredMcpServerDiscovery(
-        IReadOnlyList<McpServerDiscovery>? selected,
-        IReadOnlyList<McpServerDiscovery>? allServers,
-        IReadOnlySet<string> requiredServerNames,
-        StepExecutionContext ctx)
-    {
-        if (selected == null || requiredServerNames.Count == 0)
-            return selected?.ToList();
-
-        var merged = selected.ToList();
-        if (allServers == null || allServers.Count == 0)
-            return merged;
-
-        var seen = merged.Select(server => server.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var server in allServers)
-        {
-            if (requiredServerNames.Contains(server.Name) && seen.Add(server.Name))
-                merged.Add(server);
-        }
-
-        if (merged.Count != selected.Count)
-        {
-            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.required_servers", new[]
-            {
-                new KeyValuePair<string, object?>("mcp.server.names", string.Join(",", requiredServerNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase))),
-                new KeyValuePair<string, object?>("mcp.servers_selected", merged.Count)
-            });
-        }
-
-        return merged;
-    }
-
-    /// <summary>
-    /// Connects to each configured MCP server and lists its tools/prompts.
-    /// Returns null when no servers are configured.
-    /// </summary>
-    private static async Task<List<McpServerDiscovery>?> DiscoverMcpServersAsync(
-        IMcpClientFactory? factory,
-        Microsoft.Extensions.Caching.Memory.IMemoryCache? cache,
-        ILogger logger,
-        StepExecutionContext ctx,
-        IReadOnlyList<McpServerMetadata>? candidateServers,
-        CancellationToken ct)
-    {
-        if (factory?.ServerMetadata == null || factory.ServerMetadata.Count == 0)
+        if (obj == null || !obj.TryGetPropertyValue(propertyName, out var node) || node == null)
             return null;
 
-        var serverMetadata = candidateServers ?? factory.ServerMetadata;
-        if (serverMetadata.Count == 0)
-            return new List<McpServerDiscovery>();
-
-        var serverCount = serverMetadata.Count;
-
-        using var discoverySpan = ctx.BeginTelemetrySpan("workflow.plan.mcp_discovery", "mcp_discovery", new[]
-        {
-            new KeyValuePair<string, object?>("mcp.servers_total", serverCount)
-        });
-
-        // ── Thinking: MCP discovery start ──
-        ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-        {
-            new KeyValuePair<string, object?>("gnougo-flow.thinking.message", $"Discovering {serverCount} MCP server(s)…"),
-            new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "thinking")
-        });
-
-        var results = new List<McpServerDiscovery>();
-
-        foreach (var server in serverMetadata)
-        {
-            // ── Try cache first: skip session entirely when both tools & prompts are cached ──
-            var cachedTools = McpCacheHelper.GetCachedTools(cache, server.Name);
-            var cachedPrompts = McpCacheHelper.GetCachedPrompts(cache, server.Name);
-
-            if (cachedTools != null && cachedPrompts != null)
-            {
-                logger.LogDebug("workflow.plan: serving MCP server '{ServerName}' discovery from cache", server.Name);
-                results.Add(new McpServerDiscovery
-                {
-                    Name = server.Name,
-                    Description = server.Description,
-                    CallTimeoutSeconds = server.CallTimeoutSeconds,
-                    Tools = cachedTools,
-                    Prompts = cachedPrompts,
-                    Discovered = true
-                });
-
-                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-                {
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                        $"MCP '{server.Name}': {cachedTools.Count} tool(s), {cachedPrompts.Count} prompt(s) (cached)"),
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-                });
-
-                continue;
-            }
-
-            try
-            {
-                var discoveryTimeout = GetMcpDiscoveryTimeout(server);
-                using var discoveryCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                discoveryCts.CancelAfter(discoveryTimeout);
-
-                await using var session = await factory.GetClientAsync(server.Name, discoveryCts.Token);
-
-                var tools = cachedTools ?? await session.ListToolsAsync(discoveryCts.Token);
-                McpCacheHelper.CacheTools(cache, server.Name, tools);
-
-                IReadOnlyList<McpPromptInfo> prompts;
-                if (cachedPrompts != null)
-                {
-                    prompts = cachedPrompts;
-                }
-                else
-                {
-                    try { prompts = await session.ListPromptsAsync(discoveryCts.Token); }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, "workflow.plan: prompts/list not supported on MCP server '{ServerName}'", server.Name);
-                        prompts = Array.Empty<McpPromptInfo>();
-                    }
-                    McpCacheHelper.CachePrompts(cache, server.Name, prompts);
-                }
-
-                results.Add(new McpServerDiscovery
-                {
-                    Name = server.Name,
-                    Description = server.Description,
-                    CallTimeoutSeconds = server.CallTimeoutSeconds,
-                    Tools = tools,
-                    Prompts = prompts,
-                    Discovered = true
-                });
-
-                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-                {
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                        $"MCP '{server.Name}': {tools.Count} tool(s), {prompts.Count} prompt(s)"),
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-                });
-            }
-            catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
-            {
-                var discoveryTimeout = GetMcpDiscoveryTimeout(server);
-                logger.LogWarning(ex,
-                    "workflow.plan: MCP server '{ServerName}' discovery timed out after {TimeoutSeconds}s",
-                    server.Name,
-                    discoveryTimeout.TotalSeconds);
-                results.Add(new McpServerDiscovery
-                {
-                    Name = server.Name,
-                    Description = server.Description,
-                    CallTimeoutSeconds = server.CallTimeoutSeconds,
-                    Discovered = false
-                });
-
-                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-                {
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                        $"MCP '{server.Name}': discovery timed out after {discoveryTimeout.TotalSeconds:0.#}s"),
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-                });
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "workflow.plan: failed to discover MCP server '{ServerName}'", server.Name);
-                results.Add(new McpServerDiscovery
-                {
-                    Name = server.Name,
-                    Description = server.Description,
-                    CallTimeoutSeconds = server.CallTimeoutSeconds,
-                    Discovered = false
-                });
-
-                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-                {
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                        $"MCP '{server.Name}': discovery failed — {ex.Message}"),
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-                });
-            }
-        }
-
-        // ── Thinking: MCP discovery summary ──
-        var discoveredCount = results.Count(r => r.Discovered);
-        var totalTools = results.Sum(r => r.Tools.Count);
-        var totalPrompts = results.Sum(r => r.Prompts.Count);
-        discoverySpan.SetAttribute("mcp.servers_discovered", discoveredCount);
-        discoverySpan.SetAttribute("mcp.tools_total", totalTools);
-        discoverySpan.SetAttribute("mcp.prompts_total", totalPrompts);
-        ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-        {
-            new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                $"MCP discovery complete: {discoveredCount}/{serverCount} server(s), {totalTools} tool(s), {totalPrompts} prompt(s)"),
-            new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-        });
-
-        return results;
-    }
-
-    private static TimeSpan GetMcpDiscoveryTimeout(McpServerMetadata server)
-    {
-        var seconds = server.DiscoveryTimeoutSeconds ?? DefaultMcpDiscoveryTimeoutSeconds;
-        seconds = Math.Clamp(seconds, MinMcpDiscoveryTimeoutSeconds, MaxMcpDiscoveryTimeoutSeconds);
-        return TimeSpan.FromSeconds(seconds);
-    }
-
-    /// <summary>
-    /// Calls an LLM with a strict structured-output schema to select relevant MCP servers
-    /// from static server descriptions before opening MCP sessions for tool discovery.
-    /// Returns null when no factory/metadata is available, and returns the full metadata list on failure.
-    /// </summary>
-    private static async Task<IReadOnlyList<McpServerMetadata>?> PrefilterMcpServerMetadataAsync(
-        ILLMClient llmClient,
-        IMcpClientFactory? factory,
-        string instruction,
-        string context,
-        string model,
-        string? provider,
-        double? temperature,
-        string? planReasoning,
-        StepExecutionContext ctx,
-        CancellationToken ct)
-    {
-        if (factory?.ServerMetadata == null || factory.ServerMetadata.Count == 0)
-            return null;
-
-        var allServers = factory.ServerMetadata;
-        using var prefilterSpan = ctx.BeginTelemetrySpan("workflow.plan.mcp_server_prefilter", "mcp_server_prefilter", new[]
-        {
-            new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
-            new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unknown"),
-            new KeyValuePair<string, object?>("gen_ai.request.model", model),
-            new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count)
-        });
-        var catalogSb = new StringBuilder();
-        foreach (var server in allServers)
-            catalogSb.AppendLine($"- {server.Name}: {(string.IsNullOrWhiteSpace(server.Description) ? "(no description)" : server.Description)}");
-
-        var prefilterPrompt = $$"""
-            You are an MCP server-selection assistant. Given a task description and a catalog of MCP server descriptions, select only the servers likely to contain relevant capabilities.
-
-            Return ONLY a JSON object matching this shape:
-            {
-              "servers": [
-                { "name": "server-name", "reason": "short relevance reason" }
-              ]
-            }
-
-            Rules:
-            - Use only exact server names from the catalog.
-            - Base the decision only on server descriptions, not on imagined tools.
-            - Include every plausibly relevant server; exclude clearly unrelated servers.
-            - If no server is relevant, return {"servers": []}.
-
-            <server_catalog>
-            {{catalogSb}}
-            </server_catalog>
-
-            {{BuildUserTaskBlock(instruction, context)}}
-            """;
-
-        try
-        {
-            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-            {
-                new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                    $"Pre-filtering MCP server descriptions with {model} ({allServers.Count} server(s))…"),
-                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "thinking")
-            });
-
-            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.servers.start", new[]
-            {
-                new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter"),
-                new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
-                new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unknown"),
-                new KeyValuePair<string, object?>("gen_ai.request.model", model),
-                new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count)
-            });
-
-            if (ctx.Limits.LogStepContent)
-            {
-                prefilterSpan.AddEvent("gen_ai.content.prompt", new[]
-                {
-                    new KeyValuePair<string, object?>("gen_ai.prompt", prefilterPrompt),
-                    new KeyValuePair<string, object?>("prompt.role", "user"),
-                    new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
-                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter")
-                });
-                ctx.AddTelemetryEvent("gen_ai.content.prompt", new[]
-                {
-                    new KeyValuePair<string, object?>("gen_ai.prompt", prefilterPrompt),
-                    new KeyValuePair<string, object?>("prompt.role", "user"),
-                    new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
-                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter")
-                });
-            }
-
-            var response = await llmClient.CallAsync(new LLMRequest
-            {
-                Provider = provider,
-                Model = model,
-                Prompt = prefilterPrompt,
-                Temperature = temperature,
-                StructuredOutputSchema = JsonNode.Parse("""
-                {
-                  "type": "object",
-                  "properties": {
-                    "servers": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "name": { "type": "string" },
-                          "reason": { "type": "string" }
-                        },
-                        "required": ["name", "reason"],
-                        "additionalProperties": false
-                      }
-                    }
-                  },
-                  "required": ["servers"],
-                  "additionalProperties": false
-                }
-                """),
-                StructuredOutputStrict = true,
-                Reasoning = planReasoning,
-            }, ct);
-
-            if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
-            {
-                prefilterSpan.AddEvent("gen_ai.content.completion", new[]
-                {
-                    new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
-                    new KeyValuePair<string, object?>("completion.role", "assistant"),
-                    new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
-                    new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
-                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter")
-                });
-                ctx.AddTelemetryEvent("gen_ai.content.completion", new[]
-                {
-                    new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
-                    new KeyValuePair<string, object?>("completion.role", "assistant"),
-                    new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
-                    new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
-                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter")
-                });
-            }
-
-            AddUsageAttributes(prefilterSpan, response.Usage, model, provider);
-            AddPrefilterUsageEvent(ctx, response.Usage, model, provider, "mcp_server_prefilter", "gnougo-flow.plan.prefilter.servers.usage");
-
-            var payload = response.Json as JsonObject;
-            if (payload == null && !string.IsNullOrWhiteSpace(response.Text))
-                payload = JsonNode.Parse(StripMarkdownFences(response.Text).Trim()) as JsonObject;
-
-            var serversArr = payload?["servers"] as JsonArray
-                ?? throw new InvalidOperationException("MCP server prefilter response did not contain a servers array.");
-
-            var byName = allServers.ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
-            var selected = new List<McpServerMetadata>();
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var entry in serversArr)
-            {
-                var name = entry is JsonObject obj ? obj["name"]?.GetValue<string>() : entry?.GetValue<string>();
-                if (string.IsNullOrWhiteSpace(name) || !byName.TryGetValue(name, out var metadata) || !seen.Add(metadata.Name))
-                    continue;
-                selected.Add(metadata);
-            }
-
-            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.servers.result", new[]
-            {
-                new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter"),
-                new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
-                new KeyValuePair<string, object?>("gen_ai.request.model", model),
-                new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count),
-                new KeyValuePair<string, object?>("mcp.servers_selected", selected.Count),
-                new KeyValuePair<string, object?>("mcp.server.names", string.Join(",", selected.Select(s => s.Name)))
-            });
-            prefilterSpan.SetAttribute("mcp.servers_selected", selected.Count);
-            prefilterSpan.SetAttribute("mcp.server.names", string.Join(",", selected.Select(s => s.Name)));
-
-            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-            {
-                new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                    $"MCP server pre-filter: {selected.Count}/{allServers.Count} server(s) selected before discovery."),
-                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-            });
-
-            return selected;
-        }
-        catch (Exception ex)
-        {
-            prefilterSpan.Fail(ex);
-            ctx.Engine.Logger.LogWarning(ex, "workflow.plan: MCP server prefilter failed, falling back to full server list");
-            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.servers.fallback", new[]
-            {
-                new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_server_prefilter"),
-                new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
-                new KeyValuePair<string, object?>("gen_ai.request.model", model),
-                new KeyValuePair<string, object?>("error.type", ex.GetType().Name),
-                new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count)
-            });
-
-            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-            {
-                new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                    $"MCP server pre-filter failed ({ex.Message}), discovering all {allServers.Count} server(s)."),
-                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-            });
-
-            return allServers;
-        }
-    }
-
-    private static void AddPrefilterUsageEvent(
-        StepExecutionContext ctx,
-        JsonNode? usage,
-        string model,
-        string? provider,
-        string phase,
-        string eventName)
-    {
-        if (usage is not JsonObject usageObject)
-            return;
-
-        var attrs = new List<KeyValuePair<string, object?>>
-        {
-            new("gnougo-flow.plan.phase", phase),
-            new("gen_ai.operation.name", "chat"),
-            new("gen_ai.system", provider ?? "unknown"),
-            new("gen_ai.request.model", model)
-        };
-
-        var inputTokens = ReadUsageLong(usageObject, "prompt_tokens", "input_tokens");
-        var outputTokens = ReadUsageLong(usageObject, "completion_tokens", "output_tokens");
-        var totalTokens = ReadUsageLong(usageObject, "total_tokens", null);
-
-        if (inputTokens.HasValue)
-            attrs.Add(new("gen_ai.usage.input_tokens", inputTokens.Value));
-        if (outputTokens.HasValue)
-            attrs.Add(new("gen_ai.usage.output_tokens", outputTokens.Value));
-        if (totalTokens.HasValue)
-            attrs.Add(new("gen_ai.usage.total_tokens", totalTokens.Value));
-
-        var estimatedCost = EstimateUsageCost(model, provider, inputTokens, outputTokens);
-        if (estimatedCost.HasValue)
-            attrs.Add(new("gen_ai.usage.cost", (double)estimatedCost.Value));
-
-        ctx.AddTelemetryEvent(eventName, attrs.ToArray());
-    }
-
-    private static void AddUsageAttributes(TelemetrySpanScope span, JsonNode? usage, string model, string? provider)
-    {
-        if (usage is not JsonObject usageObject)
-            return;
-
-        var inputTokens = ReadUsageLong(usageObject, "prompt_tokens", "input_tokens");
-        var outputTokens = ReadUsageLong(usageObject, "completion_tokens", "output_tokens");
-        var totalTokens = ReadUsageLong(usageObject, "total_tokens", null);
-
-        if (inputTokens.HasValue)
-            span.SetAttribute("gen_ai.usage.input_tokens", inputTokens.Value);
-        if (outputTokens.HasValue)
-            span.SetAttribute("gen_ai.usage.output_tokens", outputTokens.Value);
-        if (totalTokens.HasValue)
-            span.SetAttribute("gen_ai.usage.total_tokens", totalTokens.Value);
-
-        var estimatedCost = EstimateUsageCost(model, provider, inputTokens, outputTokens);
-        if (estimatedCost.HasValue)
-            span.SetAttribute("gen_ai.usage.cost", (double)estimatedCost.Value);
-    }
-
-    private static void SetStepUsageTelemetry(StepExecutionContext ctx, JsonNode? usage, string model, string? provider)
-    {
-        if (usage is not JsonObject usageObject)
-            return;
-
-        var inputTokens = ReadUsageLong(usageObject, "prompt_tokens", "input_tokens");
-        var outputTokens = ReadUsageLong(usageObject, "completion_tokens", "output_tokens");
-        var totalTokens = ReadUsageLong(usageObject, "total_tokens", null);
-
-        if (inputTokens.HasValue)
-            ctx.SetTelemetryAttribute("gen_ai.usage.input_tokens", inputTokens.Value);
-        if (outputTokens.HasValue)
-            ctx.SetTelemetryAttribute("gen_ai.usage.output_tokens", outputTokens.Value);
-        if (totalTokens.HasValue)
-            ctx.SetTelemetryAttribute("gen_ai.usage.total_tokens", totalTokens.Value);
-        else if (inputTokens.HasValue || outputTokens.HasValue)
-            ctx.SetTelemetryAttribute("gen_ai.usage.total_tokens", (inputTokens ?? 0) + (outputTokens ?? 0));
-
-        var estimatedCost = EstimateUsageCost(model, provider, inputTokens, outputTokens);
-        if (estimatedCost.HasValue)
-            ctx.SetTelemetryAttribute("gen_ai.usage.cost", (double)estimatedCost.Value);
-    }
-
-    private static decimal? EstimateUsageCost(string model, string? provider, long? inputTokens, long? outputTokens)
-    {
-        if (inputTokens is null && outputTokens is null)
-            return null;
-
-        return ModelMetadataCatalog.EstimateCost(model, inputTokens ?? 0, outputTokens ?? 0, providerType: provider);
-    }
-
-    private static long? ReadUsageLong(JsonObject usageObject, string primaryKey, string? secondaryKey)
-    {
-        if (usageObject.TryGetPropertyValue(primaryKey, out var primary) && primary != null)
-            return CoerceLong(primary);
-        if (secondaryKey != null && usageObject.TryGetPropertyValue(secondaryKey, out var secondary) && secondary != null)
-            return CoerceLong(secondary);
-        return null;
-    }
-
-    private static long? CoerceLong(JsonNode value)
-    {
-        if (value is JsonValue jsonValue)
-        {
-            if (jsonValue.TryGetValue<long>(out var parsedLong))
-                return parsedLong;
-            if (jsonValue.TryGetValue<int>(out var parsedInt))
-                return parsedInt;
-            if (jsonValue.TryGetValue<double>(out var parsedDouble))
-                return (long)parsedDouble;
-            if (jsonValue.TryGetValue<string>(out var parsedString)
-                && long.TryParse(parsedString, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedText))
-                return parsedText;
-        }
+        if (node is JsonValue value && value.TryGetValue<int>(out var parsed) && parsed > 0)
+            return parsed;
 
         return null;
     }
 
-    /// <summary>
-    /// Calls an LLM to select only the MCP servers and tools relevant to the task instruction.
-    /// Returns a filtered copy of <paramref name="allServers"/>.
-    /// On failure, returns the original list unchanged.
-    /// </summary>
-    private static async Task<List<McpServerDiscovery>> PrefilterMcpServersAsync(
-        ILLMClient llmClient,
-        List<McpServerDiscovery> allServers,
-        string instruction,
-        string context,
-        string model,
-        string? provider,
-        double? temperature,
-        string? planReasoning,
-        StepExecutionContext ctx,
-        CancellationToken ct)
+    private static Exception AttachGeneratedYamlToPlanException(Exception ex, string? yaml)
     {
-        // Build a compact catalog for the pre-filter prompt
-        var catalogSb = new StringBuilder();
-        foreach (var srv in allServers)
+        if (string.IsNullOrWhiteSpace(yaml))
+            return ex;
+
+        var details = new JsonObject
         {
-            catalogSb.Append($"server: {srv.Name}");
-            if (!string.IsNullOrWhiteSpace(srv.Description))
-                catalogSb.Append($" — {srv.Description}");
-            catalogSb.AppendLine();
-
-            if (!srv.Discovered)
-            {
-                catalogSb.AppendLine("  (discovery unavailable)");
-                continue;
-            }
-
-            foreach (var t in srv.Tools)
-            {
-                catalogSb.Append($"  tool: {t.Name}");
-                if (!string.IsNullOrWhiteSpace(t.Description))
-                    catalogSb.Append($" — {t.Description}");
-                catalogSb.AppendLine();
-            }
-            foreach (var p in srv.Prompts)
-            {
-                catalogSb.Append($"  prompt: {p.Name}");
-                if (!string.IsNullOrWhiteSpace(p.Description))
-                    catalogSb.Append($" — {p.Description}");
-                catalogSb.AppendLine();
-            }
-        }
-
-        var prefilterPrompt = $$"""
-            You are a tool-selection assistant. Given a task description and a catalog of MCP servers with their tools/prompts, return ONLY a JSON object listing the servers and tools/prompts that are relevant for the task.
-
-            Return format (strict JSON, no explanation):
-            {
-              "servers": [
-                {
-                  "name": "server-name",
-                  "tools": ["tool1", "tool2"],
-                  "prompts": ["prompt1"]
-                }
-              ]
-            }
-
-            Rules:
-            - Include only servers that have at least one relevant tool or prompt.
-            - Include only the specific tools/prompts needed for the task, not all of them.
-            - If a server has "(discovery unavailable)", include it if its description seems relevant (with empty tools/prompts arrays).
-            - If no server is relevant, return {"servers": []}.
-
-            <catalog>
-            {{catalogSb}}
-            </catalog>
-
-            {{BuildUserTaskBlock(instruction, context)}}
-            """;
-
-        using var prefilterSpan = ctx.BeginTelemetrySpan("workflow.plan.mcp_capability_prefilter", "mcp_capability_prefilter", new[]
-        {
-            new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
-            new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unknown"),
-            new KeyValuePair<string, object?>("gen_ai.request.model", model),
-            new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count),
-            new KeyValuePair<string, object?>("mcp.tools_total", allServers.Sum(s => s.Tools.Count))
-        });
-
-        try
-        {
-            // ── Thinking: prefilter start ──
-            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-            {
-                new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                    $"Pre-filtering MCP servers with {model} ({allServers.Count} server(s), {allServers.Sum(s => s.Tools.Count)} tool(s))…"),
-                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "thinking")
-            });
-        
-            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.start", new[]
-            {
-                new KeyValuePair<string, object?>("mcp.servers_total", allServers.Count),
-                new KeyValuePair<string, object?>("mcp.tools_total", allServers.Sum(s => s.Tools.Count)),
-                new KeyValuePair<string, object?>("gen_ai.request.model", model)
-            });
-
-            // ── GenAI: log prefilter prompt ──
-            if (ctx.Limits.LogStepContent)
-            {
-                prefilterSpan.AddEvent("gen_ai.content.prompt", new[]
-                {
-                    new KeyValuePair<string, object?>("gen_ai.prompt", prefilterPrompt),
-                    new KeyValuePair<string, object?>("prompt.role", "user"),
-                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_capability_prefilter")
-                });
-                ctx.AddTelemetryEvent("gen_ai.content.prompt", new[]
-                {
-                    new KeyValuePair<string, object?>("gen_ai.prompt", prefilterPrompt),
-                    new KeyValuePair<string, object?>("prompt.role", "user"),
-                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "prefilter")
-                });
-            }
-
-            var response = await llmClient.CallAsync(new LLMRequest
-            {
-                Provider = provider,
-                Model = model,
-                Prompt = prefilterPrompt,
-                Temperature = temperature,
-                StructuredOutputSchema = JsonNode.Parse("""
-                {
-                  "type": "object",
-                  "properties": {
-                    "servers": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "name": { "type": "string" },
-                          "tools": { "type": "array", "items": { "type": "string" } },
-                          "prompts": { "type": "array", "items": { "type": "string" } }
-                        },
-                        "required": ["name", "tools", "prompts"],
-                        "additionalProperties": false
-                      }
-                    }
-                  },
-                  "required": ["servers"],
-                  "additionalProperties": false
-                }
-                """),
-                StructuredOutputStrict = true,
-                Reasoning = planReasoning,
-            }, ct);
-
-            // ── GenAI: log prefilter completion + usage ──
-            if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
-            {
-                prefilterSpan.AddEvent("gen_ai.content.completion", new[]
-                {
-                    new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
-                    new KeyValuePair<string, object?>("completion.role", "assistant"),
-                    new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
-                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "mcp_capability_prefilter")
-                });
-                ctx.AddTelemetryEvent("gen_ai.content.completion", new[]
-                {
-                    new KeyValuePair<string, object?>("gen_ai.completion", response.Text),
-                    new KeyValuePair<string, object?>("completion.role", "assistant"),
-                    new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
-                    new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "prefilter")
-                });
-            }
-
-            AddUsageAttributes(prefilterSpan, response.Usage, model, provider);
-            AddPrefilterUsageEvent(ctx, response.Usage, model, provider, "prefilter", "gnougo-flow.plan.prefilter.usage");
-
-            var filterResult = response.Json as JsonObject;
-            if (filterResult == null)
-            {
-                var jsonText = StripMarkdownFences(response.Text).Trim();
-                filterResult = JsonNode.Parse(jsonText) as JsonObject;
-            }
-            var serversArr = filterResult?["servers"] as JsonArray;
-
-            if (serversArr == null || serversArr.Count == 0)
-            {
-                ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.result", new[]
-                {
-                    new KeyValuePair<string, object?>("mcp.servers_selected", 0),
-                    new KeyValuePair<string, object?>("mcp.tools_selected", 0)
-                });
-                prefilterSpan.SetAttribute("mcp.servers_selected", 0);
-                prefilterSpan.SetAttribute("mcp.tools_selected", 0);
-
-                // ── Thinking: prefilter result (none selected) ──
-                ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-                {
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                        "MCP pre-filter: no servers selected as relevant for this task."),
-                    new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-                });
-
-                return new List<McpServerDiscovery>();
-            }
-
-            // Build lookup: server name → set of selected tools/prompts
-            var selectionMap = new Dictionary<string, (HashSet<string> tools, HashSet<string> prompts)>(
-                StringComparer.OrdinalIgnoreCase);
-            foreach (var entry in serversArr)
-            {
-                if (entry is not JsonObject entryObj) continue;
-                var name = entryObj["name"]?.GetValue<string>();
-                if (string.IsNullOrWhiteSpace(name)) continue;
-
-                var selectedTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (entryObj["tools"] is JsonArray toolsArr)
-                    foreach (var t in toolsArr)
-                    {
-                        var tn = t?.GetValue<string>();
-                        if (!string.IsNullOrEmpty(tn)) selectedTools.Add(tn);
-                    }
-
-                var selectedPrompts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (entryObj["prompts"] is JsonArray promptsArr)
-                    foreach (var p in promptsArr)
-                    {
-                        var pn = p?.GetValue<string>();
-                        if (!string.IsNullOrEmpty(pn)) selectedPrompts.Add(pn);
-                    }
-
-                selectionMap[name] = (selectedTools, selectedPrompts);
-            }
-
-            // Filter the full discovery list
-            var filtered = new List<McpServerDiscovery>();
-            foreach (var srv in allServers)
-            {
-                if (!selectionMap.TryGetValue(srv.Name, out var selection))
-                    continue;
-
-                // Filter tools and prompts to only selected ones
-                var filteredTools = selection.tools.Count > 0
-                    ? srv.Tools.Where(t => selection.tools.Contains(t.Name)).ToList()
-                    : (IReadOnlyList<McpToolInfo>)Array.Empty<McpToolInfo>();
-
-                var filteredPrompts = selection.prompts.Count > 0
-                    ? srv.Prompts.Where(p => selection.prompts.Contains(p.Name)).ToList()
-                    : (IReadOnlyList<McpPromptInfo>)Array.Empty<McpPromptInfo>();
-
-                // If the LLM selected a server but listed no specific tools/prompts,
-                // keep all tools/prompts from that server (it means "the whole server is relevant")
-                if (selection.tools.Count == 0 && selection.prompts.Count == 0)
-                {
-                    filteredTools = srv.Tools;
-                    filteredPrompts = srv.Prompts;
-                }
-
-                filtered.Add(new McpServerDiscovery
-                {
-                    Name = srv.Name,
-                    Description = srv.Description,
-                    CallTimeoutSeconds = srv.CallTimeoutSeconds,
-                    Tools = filteredTools,
-                    Prompts = filteredPrompts,
-                    Discovered = srv.Discovered
-                });
-            }
-
-            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.result", new[]
-            {
-                new KeyValuePair<string, object?>("mcp.servers_selected", filtered.Count),
-                new KeyValuePair<string, object?>("mcp.tools_selected", filtered.Sum(s => s.Tools.Count))
-            });
-            prefilterSpan.SetAttribute("mcp.servers_selected", filtered.Count);
-            prefilterSpan.SetAttribute("mcp.tools_selected", filtered.Sum(s => s.Tools.Count));
-
-            // ── Thinking: prefilter result summary ──
-            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-            {
-                new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                    $"MCP pre-filter: {filtered.Count} server(s), {filtered.Sum(s => s.Tools.Count)} tool(s) selected for planning."),
-                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-            });
-
-            return filtered;
-        }
-        catch (Exception ex)
-        {
-            prefilterSpan.Fail(ex);
-            // On any failure, fall back to the full unfiltered list
-            ctx.Engine.Logger.LogWarning(ex, "workflow.plan: MCP prefilter failed, falling back to full server list");
-            ctx.AddTelemetryEvent("gnougo-flow.plan.prefilter.fallback", Array.Empty<KeyValuePair<string, object?>>());
-
-            // ── Thinking: prefilter fallback ──
-            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
-            {
-                new KeyValuePair<string, object?>("gnougo-flow.thinking.message",
-                    $"MCP pre-filter failed ({ex.Message}), using all {allServers.Count} server(s)."),
-                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info")
-            });
-
-            return allServers;
-        }
-    }
-
-    /// <summary>
-    /// Formats MCP server discovery results into the prompt text for <available_mcp_servers>.
-    /// </summary>
-    private static string FormatMcpServersDoc(List<McpServerDiscovery> servers)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("Use the exact server name in mcp.call input.server and in mcp.list input.servers.");
-
-        bool anyToolsDiscovered = false;
-
-        foreach (var server in servers)
-        {
-            sb.Append("- ");
-            sb.Append(server.Name);
-            if (!string.IsNullOrWhiteSpace(server.Description))
-            {
-                sb.Append(": ");
-                sb.Append(server.Description);
-            }
-            sb.AppendLine();
-
-            if (server.CallTimeoutSeconds is > 0)
-                sb.AppendLine($"  Recommended mcp.call timeout: timeout_ms: {server.CallTimeoutSeconds.Value * 1000}");
-
-            if (!server.Discovered)
-            {
-                sb.AppendLine("  (tool discovery unavailable)");
-                continue;
-            }
-
-            if (server.Tools.Count > 0)
-            {
-                anyToolsDiscovered = true;
-                sb.AppendLine($"  Tools ({server.Tools.Count}):");
-                foreach (var t in server.Tools)
-                {
-                    sb.Append($"    - {t.Name}");
-                    if (!string.IsNullOrWhiteSpace(t.Description))
-                        sb.Append($": {t.Description}");
-                    sb.AppendLine();
-                    if (t.InputSchema != null)
-                        AppendJsonBlock(sb, "      ", "input_schema", t.InputSchema);
-                    if (t.OutputSchema != null)
-                        AppendJsonBlock(sb, "      ", "output_schema", t.OutputSchema);
-                    if (t.ExampleResponse != null)
-                        AppendJsonBlock(sb, "      ", "example_response", t.ExampleResponse);
-                }
-            }
-
-            if (server.Prompts.Count > 0)
-            {
-                anyToolsDiscovered = true;
-                sb.AppendLine($"  Prompts ({server.Prompts.Count}):");
-                foreach (var p in server.Prompts)
-                {
-                    sb.Append($"    - {p.Name}");
-                    if (!string.IsNullOrWhiteSpace(p.Description))
-                        sb.Append($": {p.Description}");
-                    if (p.Arguments is { Count: > 0 })
-                    {
-                        var args = string.Join(", ", p.Arguments.Select(a =>
-                            a.Required ? $"{a.Name} (required)" : a.Name));
-                        sb.Append($" [{args}]");
-                    }
-                    sb.AppendLine();
-                }
-            }
-        }
-
-        sb.AppendLine();
-        if (anyToolsDiscovered)
-        {
-            sb.AppendLine("Preferred MCP planning pattern: when tool names and input schemas are listed above, use `mcp.call` directly with explicit `method` and `request` — no `mcp.list` step needed.");
-            sb.AppendLine("Fallback pattern: if a server lists `(tool discovery unavailable)`, use `mcp.list` first to inspect capabilities, then `mcp.call`.");
-        }
-        else
-        {
-            sb.AppendLine("Required MCP planning pattern: discover candidate servers from these descriptions -> choose one server -> use mcp.list to inspect capabilities -> either (a) choose the exact tool/prompt and call mcp.call with explicit method/methods, or (b) pass tools/prompts from mcp.list into mcp.call and use prompt/model for LLM-assisted selection; include temperature only for an explicit sampling override.");
-        }
-        sb.AppendLine("Choose servers from these static descriptions only; do not assume any global initialize/probing step across all servers.");
-        sb.AppendLine("Do NOT generate mcp.call with only input.server as the default plan. That runtime auto-discovery mode is only for explicit call-everything scenarios on the chosen server.");
-        sb.AppendLine("If the exact tool or prompt name is unknown, use mcp.list first, then either add an intermediate explicit selection step or use mcp.call with prompt + model (+ optional temperature) and pass the discovered tools/prompts.");
-        sb.AppendLine("When using LLM-assisted mcp.call, put the natural-language instruction in input.prompt and pass candidate capabilities through input.tools and/or input.prompts, typically from mcp.list outputs.");
-        sb.AppendLine("If a server lists a recommended mcp.call timeout, include at least that value as `input.timeout_ms` for generated calls to that server.");
-        sb.AppendLine("When building `mcp.call.input.request`, preserve JSON schema scalar types exactly: numbers/integers/booleans must be unquoted YAML scalars, while strings may be quoted.");
-        sb.AppendLine("If a string field must contain JSON text, prefer a YAML literal block (`|`) so nested quotes remain valid YAML.");
-        sb.AppendLine("For `mcp.call` single-tool outputs, access `data.steps.<id>.response.<field>` only when that field is documented in `output_schema` or `example_response` above. Otherwise the response is opaque: use `json(data.steps.<id>.response)` or normalize it with `llm.call` + `structured_output`.");
-        return sb.ToString().TrimEnd();
-    }
-
-    /// <summary>
-    /// Strips markdown code fences (```yaml ... ``` or ``` ... ```) from LLM output.
-    /// </summary>
-    private static string StripMarkdownFences(string text)
-    {
-        var trimmed = text.Trim();
-        if (trimmed.StartsWith("```"))
-        {
-            // Remove first line (```yaml or ```)
-            var firstNewline = trimmed.IndexOf('\n');
-            if (firstNewline >= 0)
-                trimmed = trimmed[(firstNewline + 1)..];
-            // Remove trailing ```
-            if (trimmed.EndsWith("```"))
-                trimmed = trimmed[..^3].TrimEnd();
-        }
-        return trimmed;
-    }
-
-    private static WorkflowDocument ParseAndValidateGeneratedWorkflow(string yaml)
-    {
-        var generatedDoc = Parsing.WorkflowParser.Parse(yaml);
-
-        if (generatedDoc.Workflows.Count == 0)
-            throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "Validation failed: required root key 'workflows' must be a non-empty object.");
-
-        return generatedDoc;
-    }
-
-    private static void ValidateGeneratedWorkflowForPlan(WorkflowDocument generatedDoc, IReadOnlyList<McpServerDiscovery>? discovered)
-    {
-        var validator = new WorkflowValidator();
-        var errors = validator.Validate(generatedDoc);
-        WorkflowSemanticValidationException? semanticException = null;
-        Exception? compilationException = null;
-        var mcpToolContracts = BuildMcpToolOutputContracts(discovered);
-
-        WorkflowPlanSemanticValidator.NormalizeMcpCallInputRequests(generatedDoc, mcpToolContracts);
-
-        try
-        {
-            WorkflowPlanSemanticValidator.Validate(generatedDoc, mcpToolContracts);
-        }
-        catch (WorkflowSemanticValidationException ex)
-        {
-            semanticException = ex;
-        }
-
-        if (!errors.Any(IsFatalCompilerValidationError))
-        {
-            try
-            {
-                var compiler = new WorkflowCompiler();
-                compiler.Compile(generatedDoc);
-            }
-            catch (WorkflowCompilationException ex)
-            {
-                compilationException = ex;
-            }
-            catch (Exception ex)
-            {
-                compilationException = ex;
-            }
-        }
-
-        if (errors.Count == 0 && semanticException == null && compilationException == null)
-            return;
-
-        var diagnostics = new List<string>();
-        if (errors.Count > 0)
-            diagnostics.Add("workflow validation: " + FormatValidationErrors(errors));
-        if (semanticException != null)
-            diagnostics.Add("semantic validation: " + semanticException.Message);
-        if (compilationException != null)
-            diagnostics.Add("compilation: " + compilationException.Message);
-
-        throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan,
-            "Generated workflow validation failed: " + string.Join(" | ", diagnostics));
-    }
-
-    private static bool IsFatalCompilerValidationError(ValidationError error) =>
-        error.Code is ErrorCodes.ExprParse
-            or "DSL_VERSION"
-            or "NO_WORKFLOWS"
-            or ErrorCodes.WorkflowCycleDetected
-            or "INVALID_ENTRYPOINT"
-            or "DUPLICATE_STEP_ID";
-
-    private static IReadOnlyList<McpToolOutputContract> BuildMcpToolOutputContracts(IReadOnlyList<McpServerDiscovery>? discovered)
-    {
-        if (discovered == null || discovered.Count == 0)
-            return Array.Empty<McpToolOutputContract>();
-
-        var contracts = new List<McpToolOutputContract>();
-        foreach (var server in discovered)
-        {
-            foreach (var tool in server.Tools)
-            {
-                contracts.Add(new McpToolOutputContract(
-                    server.Name,
-                    tool.Name,
-                    tool.InputSchema?.DeepClone(),
-                    tool.OutputSchema?.DeepClone(),
-                    tool.ExampleResponse?.DeepClone()));
-            }
-        }
-
-        return contracts;
-    }
-
-    private static IMcpClientFactory? BuildDryRunMcpClientFactory(IReadOnlyList<McpServerDiscovery>? discovered)
-    {
-        if (discovered == null || discovered.Count == 0)
-            return null;
-
-        var factory = new InMemoryMcpClientFactory();
-        foreach (var server in discovered)
-        {
-            var config = new MockMcpServerConfig
-            {
-                Description = server.Description,
-                CallTimeoutSeconds = server.CallTimeoutSeconds,
-                Tools = server.Tools.Select(tool => new McpToolInfo
-                {
-                    Name = tool.Name,
-                    Description = tool.Description,
-                    InputSchema = tool.InputSchema?.DeepClone(),
-                    OutputSchema = tool.OutputSchema?.DeepClone(),
-                    ExampleResponse = tool.ExampleResponse?.DeepClone()
-                }).ToList(),
-                Prompts = server.Prompts.Select(prompt => new McpPromptInfo
-                {
-                    Name = prompt.Name,
-                    Description = prompt.Description,
-                    Arguments = prompt.Arguments?.Select(argument => new McpPromptArgument
-                    {
-                        Name = argument.Name,
-                        Description = argument.Description,
-                        Required = argument.Required
-                    }).ToList()
-                }).ToList()
-            };
-
-            foreach (var tool in server.Tools)
-            {
-                var outputSchema = tool.OutputSchema?.DeepClone();
-                var exampleResponse = tool.ExampleResponse?.DeepClone();
-                config.ToolHandlers[tool.Name] = _ => new McpCallResult
-                {
-                    IsError = false,
-                    Content = exampleResponse?.DeepClone()
-                        ?? WorkflowPlanDryRunValidator.CreateSampleFromJsonSchema(outputSchema),
-                    Model = "dry-run-mcp",
-                    Usage = new JsonObject
-                    {
-                        ["prompt_tokens"] = 1,
-                        ["completion_tokens"] = 1,
-                        ["total_tokens"] = 2
-                    }
-                };
-            }
-
-            factory.RegisterServer(server.Name, config);
-        }
-
-        return factory;
-    }
-
-    private static string FormatValidationErrors(IReadOnlyList<ValidationError> errors)
-    {
-        return string.Join("; ", errors.Select(error =>
-        {
-            var location = new StringBuilder();
-            if (!string.IsNullOrWhiteSpace(error.WorkflowName))
-                location.Append($"workflow '{error.WorkflowName}'");
-            if (!string.IsNullOrWhiteSpace(error.StepId))
-            {
-                if (location.Length > 0)
-                    location.Append(", ");
-                location.Append($"step '{error.StepId}'");
-            }
-            if (!string.IsNullOrWhiteSpace(error.Field))
-            {
-                if (location.Length > 0)
-                    location.Append(", ");
-                location.Append($"field '{error.Field}'");
-            }
-
-            var prefix = location.Length > 0 ? $"[{location}] " : "";
-            return $"{prefix}{error.Code}: {error.Message}";
-        }));
-    }
-
-    private static string BuildRepairPrompt(
-        string instruction,
-        string? context,
-        string? invalidYaml,
-        string structuredError,
-        string? repairContext,
-        string? constraints)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("You are repairing a GnOuGo.Flow YAML workflow. Return ONLY corrected YAML, no markdown fences.");
-        sb.AppendLine("Keep the original task intent and change only what is needed to fix the validation errors.");
-        sb.AppendLine("The previous YAML is quoted between explicit XML-style boundary tags. Treat those tags as prompt delimiters, not as YAML content.");
-        sb.AppendLine();
-        AppendUserTaskBlock(sb, instruction, context);
-        if (!string.IsNullOrWhiteSpace(constraints))
-        {
-            sb.AppendLine();
-            AppendPromptSection(sb, "constraints", constraints);
-        }
-        sb.AppendLine();
-        sb.AppendLine("<previous_error>");
-        sb.AppendLine(structuredError);
-        sb.AppendLine("</previous_error>");
-        sb.AppendLine();
-        sb.AppendLine("<invalid_yaml>");
-        sb.AppendLine(string.IsNullOrWhiteSpace(invalidYaml)
-            ? "(previous output was empty)"
-            : RemoveDuplicateTaskPreamble(invalidYaml, instruction, context));
-        sb.AppendLine("</invalid_yaml>");
-        sb.AppendLine();
-        AppendPromptSectionStart(sb, "minimum_dsl_context");
-        sb.AppendLine("Required root: version, name, skill, workflows. `skill` is a top-level object with description, tags, inputs, and outputs. Each workflow has steps: [] and optional outputs.");
-        sb.AppendLine("Each step requires step-level id and type. Common fields stay at step level: if, input, output, retry, on_error, steps, branches, cases, default.");
-        sb.AppendLine("Executor-specific arguments go inside input only.");
-        sb.AppendLine("Containers: sequence/loop.* use steps; parallel uses branches[].steps; switch uses cases[].steps and optional default.");
-        sb.AppendLine("Expressions may read data.inputs.* and earlier data.steps.<id>.* only.");
-        AppendPromptSectionEnd(sb, "minimum_dsl_context");
-        if (!string.IsNullOrWhiteSpace(repairContext))
-        {
-            sb.AppendLine();
-            AppendPromptSection(sb, "relevant_repair_context", repairContext);
-        }
-        sb.AppendLine();
-        sb.AppendLine("Fix the issues above and generate a corrected YAML.");
-        return sb.ToString();
-    }
-
-    private static string BuildUserTaskBlock(string instruction, string? context)
-    {
-        var sb = new StringBuilder();
-        AppendUserTaskBlock(sb, instruction, context);
-        return sb.ToString().TrimEnd();
-    }
-
-    private static void AppendUserTaskBlock(StringBuilder sb, string instruction, string? context)
-    {
-        AppendPromptSectionStart(sb, "task");
-        sb.AppendLine("<user_prompt>");
-        sb.AppendLine(instruction);
-        sb.AppendLine("</user_prompt>");
-
-        if (!string.IsNullOrWhiteSpace(context))
-        {
-            sb.AppendLine("<user_context>");
-            sb.AppendLine(context);
-            sb.AppendLine("</user_context>");
-        }
-
-        AppendPromptSectionEnd(sb, "task");
-    }
-
-    private static void AppendPromptSection(StringBuilder sb, string tagName, string? content)
-    {
-        AppendPromptSectionStart(sb, tagName);
-
-        if (!string.IsNullOrEmpty(content))
-            sb.AppendLine(content.TrimEnd());
-
-        AppendPromptSectionEnd(sb, tagName);
-    }
-
-    private static void AppendPromptSectionStart(StringBuilder sb, string tagName)
-        => sb.AppendLine($"<{tagName}>");
-
-    private static void AppendPromptSectionEnd(StringBuilder sb, string tagName)
-        => sb.AppendLine($"</{tagName}>");
-
-    private static string RemoveDuplicateTaskPreamble(string invalidYaml, string instruction, string? context)
-    {
-        if (string.IsNullOrWhiteSpace(invalidYaml))
-            return invalidYaml;
-
-        var trimmed = invalidYaml.Trim();
-        var rootMatch = RootYamlKeyRegex().Match(trimmed);
-
-        if (!rootMatch.Success || rootMatch.Index == 0)
-            return trimmed;
-
-        var preamble = trimmed[..rootMatch.Index].Trim();
-        if (!IsDuplicateTaskText(preamble, instruction, context))
-            return trimmed;
-
-        return trimmed[rootMatch.Index..].TrimStart();
-    }
-
-    private static string RemoveMarkdownFenceLines(string value)
-    {
-        if (string.IsNullOrEmpty(value) || !value.Contains("```", StringComparison.Ordinal))
-            return value;
-
-        var normalized = value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
-        var lines = normalized.Split('\n');
-        return string.Join("\n", lines.Where(line => !line.TrimStart().StartsWith("```", StringComparison.Ordinal)));
-    }
-
-    private static bool IsDuplicateTaskText(string candidate, string instruction, string? context)
-    {
-        var normalizedCandidate = NormalizePromptText(candidate);
-        if (normalizedCandidate.Length < 80)
-            return false;
-
-        var normalizedTask = NormalizePromptText(string.IsNullOrWhiteSpace(context)
-            ? instruction
-            : instruction + "\n" + context);
-
-        if (normalizedTask.Contains(normalizedCandidate, StringComparison.Ordinal))
-            return true;
-
-        var candidateWords = PromptWordRegex()
-            .Matches(normalizedCandidate)
-            .Select(match => match.Value)
-            .ToArray();
-
-        if (candidateWords.Length < 20)
-            return false;
-
-        var taskWords = PromptWordRegex()
-            .Matches(normalizedTask)
-            .Select(match => match.Value)
-            .ToHashSet(StringComparer.Ordinal);
-
-        if (taskWords.Count == 0)
-            return false;
-
-        var matched = candidateWords.Count(taskWords.Contains);
-        return matched / (double)candidateWords.Length >= 0.85;
-    }
-
-    private static string NormalizePromptText(string value)
-    {
-        var normalized = WhitespaceRegex().Replace(value, " ").Trim().ToLowerInvariant();
-        return normalized;
-    }
-
-    [GeneratedRegex(@"\s+")]
-    private static partial Regex WhitespaceRegex();
-
-    [GeneratedRegex(@"[\p{L}\p{N}_-]+")]
-    private static partial Regex PromptWordRegex();
-
-    [GeneratedRegex(@"(?m)^(version|name|skill|workflows|inputs|outputs)\s*:")]
-    private static partial Regex RootYamlKeyRegex();
-
-    private static string BuildMinimalRepairContext(
-        StepExecutorRegistry registry,
-        HashSet<string>? allowedTypes,
-        string? invalidYaml,
-        Exception exception,
-        IReadOnlyList<McpServerDiscovery>? discovered)
-    {
-        var selectedTypes = ExtractRepairStepTypes(registry, invalidYaml, exception.Message);
-        if (selectedTypes.Count == 0)
-            selectedTypes.UnionWith(ExtractKnownStepTypesFromYaml(registry, invalidYaml));
-
-        if (allowedTypes != null)
-            selectedTypes.IntersectWith(allowedTypes);
-
-        var availableTypes = allowedTypes ?? registry.RegisteredTypes.ToHashSet(StringComparer.Ordinal);
-        var sb = new StringBuilder();
-        sb.AppendLine();
-        sb.AppendLine("Available step type names:");
-        sb.AppendLine(string.Join(", ", availableTypes.OrderBy(t => t, StringComparer.Ordinal)));
-
-        if (selectedTypes.Count > 0)
-        {
-            var snippets = registry.GetDslSnippets(selectedTypes).ToList();
-            if (snippets.Count > 0)
-            {
-                sb.AppendLine();
-                sb.AppendLine("DSL snippets for failed/referenced step types:");
-                sb.AppendLine(RemoveMarkdownFenceLines(string.Join("\n", snippets)));
-            }
-        }
-
-        var mcpDoc = BuildMinimalMcpRepairContext(invalidYaml, selectedTypes, discovered);
-        if (!string.IsNullOrWhiteSpace(mcpDoc))
-        {
-            sb.AppendLine();
-            sb.AppendLine("MCP docs for failed/referenced calls:");
-            sb.AppendLine(mcpDoc);
-        }
-
-        return sb.ToString().TrimEnd();
-    }
-
-    private sealed record StepRepairInfo(string Type, IReadOnlyList<string> AncestorTypes);
-
-    private static HashSet<string> ExtractRepairStepTypes(StepExecutorRegistry registry, string? invalidYaml, string errorMessage)
-    {
-        var knownSteps = BuildStepRepairLookup(invalidYaml);
-        var selectedTypes = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var stepId in ExtractErrorStepIds(errorMessage))
-        {
-            if (!knownSteps.TryGetValue(stepId, out var info))
-                continue;
-
-            if (registry.Has(info.Type))
-                selectedTypes.Add(info.Type);
-            foreach (var ancestorType in info.AncestorTypes)
-            {
-                if (registry.Has(ancestorType))
-                    selectedTypes.Add(ancestorType);
-            }
-        }
-
-        foreach (var stepType in ExtractQuotedStepTypes(errorMessage))
-        {
-            if (registry.Has(stepType))
-                selectedTypes.Add(stepType);
-        }
-
-        return selectedTypes;
-    }
-
-    private static HashSet<string> ExtractKnownStepTypesFromYaml(StepExecutorRegistry registry, string? invalidYaml)
-    {
-        var selectedTypes = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var info in BuildStepRepairLookup(invalidYaml).Values)
-        {
-            if (registry.Has(info.Type))
-                selectedTypes.Add(info.Type);
-        }
-        return selectedTypes;
-    }
-
-    private static Dictionary<string, StepRepairInfo> BuildStepRepairLookup(string? invalidYaml)
-    {
-        var lookup = new Dictionary<string, StepRepairInfo>(StringComparer.Ordinal);
-        if (string.IsNullOrWhiteSpace(invalidYaml))
-            return lookup;
-
-        try
-        {
-            var doc = Parsing.WorkflowParser.Parse(invalidYaml);
-            foreach (var workflow in doc.Workflows.Values)
-                AddStepRepairInfo(workflow.Steps, Array.Empty<string>(), lookup);
-        }
-        catch
-        {
-            return lookup;
-        }
-
-        return lookup;
-    }
-
-    private static void AddStepRepairInfo(
-        IEnumerable<StepDef> steps,
-        IReadOnlyList<string> ancestorTypes,
-        Dictionary<string, StepRepairInfo> lookup)
-    {
-        foreach (var step in steps)
-        {
-            if (!string.IsNullOrWhiteSpace(step.Id))
-                lookup[step.Id] = new StepRepairInfo(step.Type, ancestorTypes);
-
-            var childAncestors = ancestorTypes.Concat(new[] { step.Type }).ToArray();
-            if (step.Steps != null)
-                AddStepRepairInfo(step.Steps, childAncestors, lookup);
-            if (step.Branches != null)
-            {
-                foreach (var branch in step.Branches)
-                    AddStepRepairInfo(branch.Steps, childAncestors, lookup);
-            }
-            if (step.Cases != null)
-            {
-                foreach (var @case in step.Cases)
-                    AddStepRepairInfo(@case.Steps, childAncestors, lookup);
-            }
-            if (step.Default != null)
-                AddStepRepairInfo(step.Default, childAncestors, lookup);
-        }
-    }
-
-    private static IEnumerable<string> ExtractErrorStepIds(string errorMessage)
-    {
-        var ids = new HashSet<string>(StringComparer.Ordinal);
-        foreach (Match match in Regex.Matches(errorMessage, @"step '([^']+)'", RegexOptions.IgnoreCase))
-            ids.Add(match.Groups[1].Value);
-        foreach (Match match in Regex.Matches(errorMessage, @"""step"":""([^""]+)""", RegexOptions.IgnoreCase))
-            ids.Add(match.Groups[1].Value);
-        foreach (Match match in Regex.Matches(errorMessage, @"\bdata\.steps\.([A-Za-z_][A-Za-z0-9_-]*)", RegexOptions.IgnoreCase))
-            ids.Add(match.Groups[1].Value);
-        return ids;
-    }
-
-    private static IEnumerable<string> ExtractQuotedStepTypes(string errorMessage)
-    {
-        foreach (Match match in Regex.Matches(errorMessage, @"Step type '([^']+)'", RegexOptions.IgnoreCase))
-            yield return match.Groups[1].Value;
-        foreach (Match match in Regex.Matches(errorMessage, @"type '([^']+)'", RegexOptions.IgnoreCase))
-            yield return match.Groups[1].Value;
-    }
-
-    private static string? BuildMinimalMcpRepairContext(
-        string? invalidYaml,
-        HashSet<string> selectedTypes,
-        IReadOnlyList<McpServerDiscovery>? discovered)
-    {
-        if (discovered == null || discovered.Count == 0 || !selectedTypes.Contains("mcp.call") || string.IsNullOrWhiteSpace(invalidYaml))
-            return null;
-
-        WorkflowDocument doc;
-        try
-        {
-            doc = Parsing.WorkflowParser.Parse(invalidYaml);
-        }
-        catch
-        {
-            return null;
-        }
-
-        var calls = doc.Workflows.Values
-            .SelectMany(workflow => EnumerateSteps(workflow.Steps))
-            .Where(step => step.Type == "mcp.call" && step.Input is JsonObject)
-            .Select(step =>
-            {
-                var input = (JsonObject)step.Input!;
-                var server = input["server"]?.GetValue<string>();
-                var method = input["method"]?.GetValue<string>();
-                return (Server: server, Method: method);
-            })
-            .Where(call => !string.IsNullOrWhiteSpace(call.Server))
-            .Distinct()
-            .ToList();
-
-        if (calls.Count == 0)
-            return null;
-
-        var sb = new StringBuilder();
-        foreach (var call in calls)
-        {
-            var server = discovered.FirstOrDefault(s => string.Equals(s.Name, call.Server, StringComparison.Ordinal));
-            if (server == null)
-                continue;
-
-            sb.Append("- ");
-            sb.Append(server.Name);
-            if (!string.IsNullOrWhiteSpace(server.Description))
-                sb.Append($": {server.Description}");
-            sb.AppendLine();
-
-            var tools = server.Tools
-                .Where(tool => string.IsNullOrWhiteSpace(call.Method) || string.Equals(tool.Name, call.Method, StringComparison.Ordinal))
-                .ToList();
-            foreach (var tool in tools)
-            {
-                sb.Append($"  - {tool.Name}");
-                if (!string.IsNullOrWhiteSpace(tool.Description))
-                    sb.Append($": {tool.Description}");
-                sb.AppendLine();
-                if (tool.InputSchema != null)
-                    AppendJsonBlock(sb, "    ", "input_schema", tool.InputSchema);
-                if (tool.OutputSchema != null)
-                    AppendJsonBlock(sb, "    ", "output_schema", tool.OutputSchema);
-                if (tool.ExampleResponse != null)
-                    AppendJsonBlock(sb, "    ", "example_response", tool.ExampleResponse);
-            }
-        }
-
-        return sb.Length == 0 ? null : sb.ToString().TrimEnd();
-    }
-
-    private static void AppendJsonBlock(StringBuilder sb, string indent, string label, JsonNode node)
-    {
-        sb.Append(indent);
-        sb.Append(label);
-        sb.Append("_json: ");
-        sb.AppendLine(node.ToJsonString(PromptJsonOptions));
-    }
-
-    private static string BuildStructuredPlanError(Exception ex, int attempt)
-    {
-        var message = ex.Message.Trim();
-        var lower = message.ToLowerInvariant();
-
-        var errorCode = "VALIDATION_ERROR";
-        if (lower.Contains("mcp_server_not_found") || lower.Contains("mcp server") && lower.Contains("not found"))
-            errorCode = ErrorCodes.McpServerNotFound;
-        else if (lower.Contains("missing required field 'workflows'"))
-            errorCode = "MISSING_ROOT_KEY_WORKFLOWS";
-        else if (lower.Contains("missing required field 'version'"))
-            errorCode = "MISSING_ROOT_KEY_VERSION";
-        else if (lower.Contains("missing required field 'name'"))
-            errorCode = "MISSING_ROOT_KEY_NAME";
-        else if (lower.Contains("skill_required") || lower.Contains("top-level 'skill'"))
-            errorCode = "MISSING_ROOT_KEY_SKILL";
-        else if (lower.Contains("step_type_unknown"))
-            errorCode = "UNKNOWN_STEP_TYPE";
-        else if (lower.Contains("missing_steps") || lower.Contains("missing_branches") || lower.Contains("missing_cases"))
-            errorCode = "INVALID_CONTAINER_SHAPE";
-        else if (lower.Contains("step_reference_not_available") || lower.Contains("step_reference_unknown") || lower.Contains("semantic_mapping_error"))
-            errorCode = "SEMANTIC_MAPPING_ERROR";
-        else if (lower.Contains("opaque_response_deep_access"))
-            errorCode = "OPAQUE_RESPONSE_DEEP_ACCESS";
-        else if (lower.Contains("step_output_property_unknown"))
-            errorCode = "STEP_OUTPUT_PROPERTY_UNKNOWN";
-        else if (lower.Contains("yaml"))
-            errorCode = "YAML_PARSE_ERROR";
-        else if (lower.Contains("not allowed by policy") || lower.Contains("denied by policy"))
-            errorCode = "POLICY_ERROR";
-        else if (lower.Contains("exceeds limit"))
-            errorCode = "LIMIT_ERROR";
-
-        return $"attempt={attempt}; code={errorCode}; message={message}";
-    }
-
-    private static string? TryExtractMissingMcpServerName(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return null;
-
-        var match = Regex.Match(message, @"MCP server '([^']+)' not found", RegexOptions.IgnoreCase);
-        return match.Success ? match.Groups[1].Value : null;
-    }
-
-    private static void EnforcePolicy(WorkflowDocument doc, JsonObject policy)
-    {
-        var allowed = policy["allowed_step_types"] as JsonArray;
-        var denied = policy["denied_step_types"] as JsonArray;
-        var allowedSet = allowed?.Select(a => a?.GetValue<string>() ?? "").ToHashSet();
-        var deniedSet = denied?.Select(a => a?.GetValue<string>() ?? "").ToHashSet();
-
-        foreach (var step in doc.Workflows.Values.SelectMany(wf => EnumerateSteps(wf.Steps)))
-        {
-            if (allowedSet != null && !allowedSet.Contains(step.Type))
-                throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy,
-                    $"Step type '{step.Type}' not allowed by policy");
-            if (deniedSet != null && deniedSet.Contains(step.Type))
-                throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy,
-                    $"Step type '{step.Type}' denied by policy");
-        }
-
-        var allowRemote = policy["allow_remote_workflow_refs"]?.GetValue<bool>() ?? false;
-        if (!allowRemote)
-        {
-            foreach (var step in doc.Workflows.Values.SelectMany(wf => EnumerateSteps(wf.Steps)))
-            {
-                if (step.Type == "workflow.call" && step.Input is JsonObject inputObj)
-                {
-                    var refObj = inputObj["ref"] as JsonObject;
-                    if (refObj?["kind"]?.GetValue<string>() == "url")
-                        throw new WorkflowRuntimeException(ErrorCodes.WorkflowFetchPolicy,
-                            "Remote workflow references not allowed by policy");
-                }
-            }
-        }
-    }
-
-    private static void EnforceLimits(WorkflowDocument doc, JsonObject limits)
-    {
-        var maxSteps = limits["max_steps_total"]?.GetValue<int>();
-        if (maxSteps.HasValue)
-        {
-            var totalSteps = doc.Workflows.Values.Sum(wf => CountSteps(wf.Steps));
-            if (totalSteps > maxSteps.Value)
-                throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy,
-                    $"Total steps ({totalSteps}) exceeds limit ({maxSteps.Value})");
-        }
-    }
-
-    private static int CountSteps(List<StepDef> steps)
-    {
-        var count = steps.Count;
-        foreach (var step in steps)
-        {
-            if (step.Steps != null) count += CountSteps(step.Steps);
-            if (step.Branches != null)
-                count += step.Branches.Sum(b => CountSteps(b.Steps));
-            if (step.Cases != null)
-                count += step.Cases.Sum(c => CountSteps(c.Steps));
-            if (step.Default != null) count += CountSteps(step.Default);
-        }
-        return count;
-    }
-
-    private static IEnumerable<StepDef> EnumerateSteps(IEnumerable<StepDef> steps)
-    {
-        foreach (var step in steps)
-        {
-            yield return step;
-
-            if (step.Steps != null)
-            {
-                foreach (var child in EnumerateSteps(step.Steps))
-                    yield return child;
-            }
-
-            if (step.Branches != null)
-            {
-                foreach (var child in step.Branches.SelectMany(branch => EnumerateSteps(branch.Steps)))
-                    yield return child;
-            }
-
-            if (step.Cases != null)
-            {
-                foreach (var child in step.Cases.SelectMany(@case => EnumerateSteps(@case.Steps)))
-                    yield return child;
-            }
-
-            if (step.Default != null)
-            {
-                foreach (var child in EnumerateSteps(step.Default))
-                    yield return child;
-            }
-        }
-    }
-
-    private static string BuildStepExceptionsDoc(StepExecutorRegistry registry, HashSet<string>? allowedTypes)
-    {
-        var catalogs = registry.GetStepExceptionCatalogs(allowedTypes)
-            .OrderBy(c => c.StepType, StringComparer.Ordinal)
-            .ToList();
-
-        if (catalogs.Count == 0)
-            return "No task-specific exception catalog is available.";
-
-        var sb = new StringBuilder();
-        sb.AppendLine("Common notes:");
-        sb.AppendLine("- `INPUT_VALIDATION` usually means a required field is missing or has the wrong shape. It is usually non-retryable.");
-        sb.AppendLine("- Only codes marked `retryable` should normally use `retry`.");
-
-        var containerTypes = new[]
-        {
-            "sequence",
-            "parallel",
-            "loop.sequential",
-            "loop.parallel",
-            "switch",
-            "workflow.call",
-            "workflow.execute"
+            ["generated_yaml"] = yaml,
+            ["invalid_yaml"] = yaml
         };
-        var visibleContainerTypes = containerTypes
-            .Where(t => allowedTypes == null || allowedTypes.Contains(t))
-            .ToList();
-        if (visibleContainerTypes.Count > 0)
+
+        if (ex is WorkflowRuntimeException workflowEx)
         {
-            sb.AppendLine();
-            sb.AppendLine("Container child-error propagation:");
-            sb.AppendLine("- These container steps can raise both their own documented errors and errors propagated from nested child steps.");
-            foreach (var containerType in visibleContainerTypes)
+            if (workflowEx.Details is JsonObject existingDetails)
             {
-                var propagationNote = containerType switch
+                foreach (var (key, value) in existingDetails)
                 {
-                    "sequence" => "runs child steps sequentially, so any unhandled child failure can stop the container.",
-                    "parallel" => "can fail because one branch throws an unhandled child error, in addition to its own parallel-limit checks.",
-                    "loop.sequential" => "can fail because one iteration throws an unhandled child error, in addition to loop-limit checks. Supports items/over array iteration and while/times modes.",
-                    "loop.parallel" => "can fail because one parallel iteration throws an unhandled child error, in addition to loop-limit checks.",
-                    "switch" => "can fail because the selected case/default branch throws an unhandled child error.",
-                    "workflow.call" => "can fail because the called sub-workflow throws an error, in addition to workflow reference/fetch/policy errors.",
-                    "workflow.execute" => "can fail because the generated workflow throws an error, in addition to planned-YAML/entrypoint validation errors.",
-                    _ => "can propagate child-step errors."
-                };
-                sb.AppendLine($"- `{containerType}`: {propagationNote}");
+                    if (!details.ContainsKey(key))
+                        details[key] = value?.DeepClone();
+                }
             }
-        }
-
-        sb.AppendLine();
-        sb.AppendLine("Step-specific exceptions:");
-        foreach (var catalog in catalogs)
-        {
-            sb.AppendLine();
-            sb.AppendLine($"- {catalog.StepType}");
-            foreach (var exception in catalog.Exceptions
-                         .OrderBy(e => e.Code, StringComparer.Ordinal)
-                         .ThenBy(e => e.Retryable))
+            else if (workflowEx.Details != null)
             {
-                sb.Append("  - ");
-                sb.Append(exception.Code);
-                sb.Append(exception.Retryable ? " (retryable)" : " (non-retryable)");
-                sb.Append(": ");
-                sb.AppendLine(exception.Description);
+                details["details"] = workflowEx.Details.DeepClone();
             }
+
+            return new WorkflowRuntimeException(
+                workflowEx.Code,
+                workflowEx.Message,
+                workflowEx.Retryable,
+                workflowEx,
+                details);
         }
 
-        return sb.ToString().TrimEnd();
+        return new WorkflowRuntimeException(
+            ErrorCodes.TemplatePlan,
+            ex.Message,
+            inner: ex,
+            details: details);
     }
 }

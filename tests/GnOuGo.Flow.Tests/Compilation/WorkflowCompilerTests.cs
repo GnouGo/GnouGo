@@ -268,7 +268,7 @@ workflows:
         properties:
           host: { type: string }
           port: { type: number }
-        required: [host]
+        required_properties: [host]
       scores:
         type: dictionary
         additional_properties: { type: number }
@@ -292,7 +292,7 @@ workflows:
         type: object
         properties:
           host: { type: string }
-        required: [host, missing_prop]
+        required_properties: [host, missing_prop]
     steps:
       - id: s1
         type: template.render

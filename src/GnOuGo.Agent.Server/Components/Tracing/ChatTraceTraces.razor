@@ -5,6 +5,7 @@
     var selectedSpan = GetSelectedSpan();
     var summary = TraceDebugUiHelpers.BuildSummary(Trace);
     var timeline = TraceDebugUiHelpers.BuildTimeline(Trace);
+    var visibleTimeline = GetVisibleTimeline(timeline);
     <div class="gnougo-trace-summary__hero">
         <div class="gnougo-trace-summary__hero-title">Live trace for this answer</div>
         <div class="gnougo-trace-summary__hero-text">Every GnOuGo response carries a client-generated correlation identifier that is propagated through the RAG workflow and exposed here in OpenTelemetry GenAI format.</div>
@@ -63,20 +64,44 @@
                 </div>
             }
             <div class="gnougo-trace-timeline">
-                @foreach (var item in timeline)
+                @foreach (var item in visibleTimeline)
                 {
-                    <button class="gnougo-trace-timeline__item @(string.Equals(item.Span.SpanId, _localSelectedSpanId, StringComparison.OrdinalIgnoreCase) ? "gnougo-trace-timeline__item--active" : string.Empty) @(item.Span.StatusCode == 2 ? "gnougo-trace-timeline__item--error" : string.Empty)"
-                            type="button"
-                            @onclick="() => ToggleSpanAsync(item.Span.SpanId)">
-                        <div class="gnougo-trace-timeline__label" style="@TraceDebugUiHelpers.BuildPaddingLeftStyle(item.Depth)">
-                            <span class="gnougo-trace-timeline__icon">@TraceDebugUiHelpers.GetSpanIcon(item.Span)</span>
-                            <span class="gnougo-trace-timeline__name">@item.Span.Name</span>
-                            <span class="gnougo-trace-timeline__duration">@TraceDebugUiHelpers.FormatDuration(item.DurationMs)</span>
+                    var hasChildren = item.ChildCount > 0;
+                    var isCollapsed = IsCollapsed(item.Span.SpanId);
+                    var isSelectedDescendant = IsDescendantOfSelected(item, timeline);
+                    <div class="gnougo-trace-timeline__item @(string.Equals(item.Span.SpanId, _localSelectedSpanId, StringComparison.OrdinalIgnoreCase) ? "gnougo-trace-timeline__item--active" : string.Empty) @(isSelectedDescendant ? "gnougo-trace-timeline__item--active-descendant" : string.Empty) @(item.Span.StatusCode == 2 ? "gnougo-trace-timeline__item--error" : string.Empty) @(item.Depth > 0 ? "gnougo-trace-timeline__item--child" : string.Empty) @(isCollapsed ? "gnougo-trace-timeline__item--collapsed" : string.Empty)"
+                         style="@TraceDebugUiHelpers.BuildTimelineDepthStyle(item.Depth)">
+                        <div class="gnougo-trace-timeline__row">
+                            @if (hasChildren)
+                            {
+                                <button class="gnougo-trace-timeline__expander"
+                                        type="button"
+                                        title="@(isCollapsed ? "Show child spans" : "Hide child spans")"
+                                        aria-label="@(isCollapsed ? "Show child spans" : "Hide child spans")"
+                                        aria-expanded="@(!isCollapsed)"
+                                        @onclick="() => ToggleChildren(item.Span.SpanId)">
+                                    @(isCollapsed ? "+" : "-")
+                                </button>
+                            }
+                            else
+                            {
+                                <span class="gnougo-trace-timeline__expander-spacer" aria-hidden="true"></span>
+                            }
+                            <button class="gnougo-trace-timeline__main"
+                                    type="button"
+                                    @onclick="() => ToggleSpanAsync(item.Span.SpanId)">
+                                <div class="gnougo-trace-timeline__label @(item.Depth > 0 ? "gnougo-trace-timeline__label--child" : string.Empty)" style="@TraceDebugUiHelpers.BuildPaddingLeftStyle(item.Depth)">
+                                    <span class="gnougo-trace-timeline__branch" aria-hidden="true">@(item.Depth > 0 ? "|-" : hasChildren ? "*" : string.Empty)</span>
+                                    <span class="gnougo-trace-timeline__icon">@TraceDebugUiHelpers.GetSpanIcon(item.Span)</span>
+                                    <span class="gnougo-trace-timeline__name">@item.Span.Name</span>
+                                    <span class="gnougo-trace-timeline__duration">@TraceDebugUiHelpers.FormatDuration(item.DurationMs)</span>
+                                </div>
+                                <div class="gnougo-trace-timeline__track">
+                                    <div class="gnougo-trace-timeline__bar" style="@TraceDebugUiHelpers.BuildTimelineBarStyle(item)"></div>
+                                </div>
+                            </button>
                         </div>
-                        <div class="gnougo-trace-timeline__track">
-                            <div class="gnougo-trace-timeline__bar" style="@TraceDebugUiHelpers.BuildTimelineBarStyle(item)"></div>
-                        </div>
-                    </button>
+                    </div>
                 }
             </div>
         </div>
@@ -104,6 +129,7 @@
     [Parameter] public bool RenderFormatted { get; set; }
     private string? _localSelectedSpanId;
     private string? _lastTraceId;
+    private readonly HashSet<string> _collapsedSpanIds = new(StringComparer.OrdinalIgnoreCase);
 
     protected override void OnParametersSet()
     {
@@ -112,6 +138,7 @@
 
         if (traceChanged)
         {
+            _collapsedSpanIds.Clear();
             _localSelectedSpanId = SelectedSpanId;
             return;
         }
@@ -131,6 +158,81 @@
     private Task ToggleSpanAsync(string spanId)
         => SelectSpanAsync(string.Equals(_localSelectedSpanId, spanId, StringComparison.OrdinalIgnoreCase) ? null : spanId);
 
+    private void ToggleChildren(string spanId)
+    {
+        var key = NormalizeSpanId(spanId);
+        if (string.IsNullOrWhiteSpace(key))
+            return;
+
+        if (!_collapsedSpanIds.Add(key))
+            _collapsedSpanIds.Remove(key);
+    }
+
+    private bool IsCollapsed(string spanId)
+        => _collapsedSpanIds.Contains(NormalizeSpanId(spanId));
+
+    private bool IsDescendantOfSelected(FlatSpanModel item, IReadOnlyList<FlatSpanModel> timeline)
+    {
+        var selectedId = NormalizeSpanId(_localSelectedSpanId);
+        if (string.IsNullOrWhiteSpace(selectedId))
+            return false;
+
+        var itemId = NormalizeSpanId(item.Span.SpanId);
+        if (string.Equals(itemId, selectedId, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var selectedIndex = -1;
+        for (var i = 0; i < timeline.Count; i++)
+        {
+            if (string.Equals(NormalizeSpanId(timeline[i].Span.SpanId), selectedId, StringComparison.OrdinalIgnoreCase))
+            {
+                selectedIndex = i;
+                break;
+            }
+        }
+
+        if (selectedIndex < 0)
+            return false;
+
+        var selectedDepth = timeline[selectedIndex].Depth;
+        for (var i = selectedIndex + 1; i < timeline.Count; i++)
+        {
+            if (timeline[i].Depth <= selectedDepth)
+                return false;
+
+            if (string.Equals(NormalizeSpanId(timeline[i].Span.SpanId), itemId, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private List<FlatSpanModel> GetVisibleTimeline(IReadOnlyList<FlatSpanModel> timeline)
+    {
+        var visible = new List<FlatSpanModel>(timeline.Count);
+        int? collapsedDepth = null;
+
+        foreach (var item in timeline)
+        {
+            if (collapsedDepth.HasValue)
+            {
+                if (item.Depth > collapsedDepth.Value)
+                    continue;
+
+                collapsedDepth = null;
+            }
+
+            visible.Add(item);
+            if (item.ChildCount > 0 && IsCollapsed(item.Span.SpanId))
+                collapsedDepth = item.Depth;
+        }
+
+        return visible;
+    }
+
+    private static string NormalizeSpanId(string? spanId)
+        => string.IsNullOrWhiteSpace(spanId) ? string.Empty : spanId.Trim().ToLowerInvariant();
+
     private async Task SelectSpanAsync(string? spanId)
     {
         _localSelectedSpanId = spanId;
@@ -138,4 +240,3 @@
             await SelectedSpanIdChanged.InvokeAsync(spanId);
     }
 }
-

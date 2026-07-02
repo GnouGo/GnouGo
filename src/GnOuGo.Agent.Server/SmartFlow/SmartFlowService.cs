@@ -5,9 +5,12 @@ using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Services;
+using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Shared;
+using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
@@ -55,7 +58,9 @@ public sealed class SmartFlowService
     private readonly IServiceScopeFactory? _scopeFactory;
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<SmartFlowService> _logger;
+    private readonly IWorkflowTraceFileExporter? _traceFileExporter;
     private readonly string _routingWorkflowYaml;
+    private readonly TimeSpan _mcpCacheSlidingExpiration;
 
     /// <summary>Slash commands that route to the configure-providers workflow.</summary>
     private static readonly string[] ProviderCommands = { "/llm", "/embedding", "/mcp", "/status" };
@@ -73,7 +78,9 @@ public sealed class SmartFlowService
         AgentUserConfigMcpClient? userConfigClient = null,
         IWorkflowCandidateProvider? candidateProvider = null,
         InMemoryChatHistoryStore? historyStore = null,
-        IServiceScopeFactory? scopeFactory = null)
+        IServiceScopeFactory? scopeFactory = null,
+        IWorkflowTraceFileExporter? traceFileExporter = null,
+        IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null)
     {
         _llm = llm;
         _mcpCache = mcpCache;
@@ -85,8 +92,10 @@ public sealed class SmartFlowService
         _candidateProvider = candidateProvider;
         _historyStore = historyStore;
         _scopeFactory = scopeFactory;
+        _traceFileExporter = traceFileExporter;
         _otel = otel;
         _logger = logger;
+        _mcpCacheSlidingExpiration = (mcpCapabilityCacheSettings?.Value ?? new McpCapabilityCacheSettings()).SlidingExpiration;
 
         _routingWorkflowYaml = LoadEmbeddedWorkflowYaml("main-routing-agent.yaml");
     }
@@ -186,27 +195,64 @@ public sealed class SmartFlowService
             ? Guid.NewGuid().ToString("N")
             : conversationId.Trim();
 
-        using var messageTrace = _otel.StartChatMessageActivity(effectiveCorrelationId, task);
-        yield return SmartFlowEvent.TraceStarted(effectiveCorrelationId, messageTrace.TraceId);
-        yield return SmartFlowEvent.ConversationReady(effectiveConversationId).WithCorrelation(effectiveCorrelationId);
-
-        var hasError = false;
-        var finalAnswer = "";
-        var history = LoadConversationHistory(effectiveConversationId, topK: 40);
-        var mergedWorkflowInputs = MergeWorkflowInputsWithConversation(workflowInputs, effectiveConversationId, history);
-
-        await foreach (var evt in ExecuteCoreAsync(task, effectiveCorrelationId, agentName, filesIds, mergedWorkflowInputs, messageTrace.Activity, ct))
+        var messageTrace = _otel.StartChatMessageActivity(effectiveCorrelationId, task);
+        try
         {
-            hasError |= string.Equals(evt.Type, "error", StringComparison.OrdinalIgnoreCase);
-            if (evt.Type is "answer")
-                finalAnswer = evt.Text ?? "";
-            yield return evt.WithCorrelation(effectiveCorrelationId) with { ConversationId = effectiveConversationId };
+            _traceFileExporter?.BeginCapture(messageTrace.TraceId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not initialize workflow trace file capture.");
         }
 
-        if (!hasError && !string.IsNullOrWhiteSpace(finalAnswer))
-            AppendConversationTurn(effectiveConversationId, task, finalAnswer, effectiveCorrelationId);
+        var executionCompleted = false;
+        try
+        {
+            yield return SmartFlowEvent.TraceStarted(effectiveCorrelationId, messageTrace.TraceId);
+            yield return SmartFlowEvent.ConversationReady(effectiveConversationId).WithCorrelation(effectiveCorrelationId);
 
-        messageTrace.SetStatus(hasError ? ActivityStatusCode.Error : ActivityStatusCode.Ok);
+            var hasError = false;
+            var finalAnswer = "";
+            var history = LoadConversationHistory(effectiveConversationId, topK: 40);
+            var mergedWorkflowInputs = MergeWorkflowInputsWithConversation(workflowInputs, effectiveConversationId, history);
+
+            await foreach (var evt in ExecuteCoreAsync(task, effectiveCorrelationId, agentName, filesIds, mergedWorkflowInputs, messageTrace.Activity, ct))
+            {
+                hasError |= string.Equals(evt.Type, "error", StringComparison.OrdinalIgnoreCase);
+                if (evt.Type is "answer")
+                    finalAnswer = evt.Text ?? "";
+                yield return evt.WithCorrelation(effectiveCorrelationId) with { ConversationId = effectiveConversationId };
+            }
+
+            if (!hasError && !string.IsNullOrWhiteSpace(finalAnswer))
+                AppendConversationTurn(effectiveConversationId, task, finalAnswer, effectiveCorrelationId);
+
+            messageTrace.SetStatus(hasError ? ActivityStatusCode.Error : ActivityStatusCode.Ok);
+            executionCompleted = true;
+        }
+        finally
+        {
+            if (!executionCompleted)
+                messageTrace.SetStatus(ActivityStatusCode.Error, "Workflow execution did not complete.");
+
+            var traceId = messageTrace.TraceId;
+            messageTrace.Dispose();
+
+            if (_traceFileExporter is not null)
+            {
+                try
+                {
+                    await _traceFileExporter.ExportAsync(
+                        traceId,
+                        effectiveCorrelationId,
+                        CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not export workflow trace {TraceId} to a file.", traceId);
+                }
+            }
+        }
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> ExecuteCoreAsync(
@@ -272,6 +318,7 @@ public sealed class SmartFlowService
             var engine = new WorkflowEngine
             {
                 LLMClient = runtime.LlmClient,
+                LLMCapabilities = runtime.LlmCapabilityResolver,
                 LlmDefaults = new LlmRuntimeDefaults
                 {
                     Provider = runtime.Options.DefaultProvider,
@@ -279,6 +326,7 @@ public sealed class SmartFlowService
                 },
                 McpClientFactory = runtime.McpClientFactory,
                 McpCache = _mcpCache,
+                McpCacheSlidingExpiration = _mcpCacheSlidingExpiration,
                 HumanInputProvider = _humanInput,
                 WorkflowCallResolver = CreateWorkflowCallResolver(),
                 WorkflowCandidateProvider = _candidateProvider,
@@ -808,7 +856,7 @@ public sealed class SmartFlowService
         if (!IsImproveDecision(decision))
             yield break;
 
-        yield return new SmartFlowEvent("thinking:info", $"Improving workflow for agent '{agent.Name}' from the latest execution error...");
+        yield return new SmartFlowEvent("thinking:info", $"Repairing workflow for agent '{agent.Name}' from the latest execution error...");
 
         var repairWorkflow = CompileEmbeddedWorkflow(BuildRepairWorkflowYaml(), "agent-workflow-repair.yaml");
         var repairInputs = new JsonObject
@@ -837,6 +885,7 @@ public sealed class SmartFlowService
         var repairEngine = new WorkflowEngine
         {
             LLMClient = runtime.LlmClient,
+            LLMCapabilities = runtime.LlmCapabilityResolver,
             LlmDefaults = new LlmRuntimeDefaults
             {
                 Provider = runtime.Options.DefaultProvider,
@@ -844,6 +893,7 @@ public sealed class SmartFlowService
             },
             McpClientFactory = runtime.McpClientFactory,
             McpCache = _mcpCache,
+            McpCacheSlidingExpiration = _mcpCacheSlidingExpiration,
             HumanInputProvider = _humanInput,
             WorkflowCallResolver = CreateWorkflowCallResolver(),
             WorkflowCandidateProvider = _candidateProvider,
@@ -903,12 +953,64 @@ public sealed class SmartFlowService
         }
 
         var attempts = repairResult.Outputs?["attempt"]?.GetValue<int>() ?? 1;
+        var repairedWorkflow = repairResult.Outputs?["updated_yaml"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(repairedWorkflow))
+        {
+            yield return new SmartFlowEvent(
+                "error",
+                $"Workflow execution failed, and the automatic repair did not produce a replacement workflow. Original error: {failure.Message}.");
+            yield break;
+        }
+
+        yield return new SmartFlowEvent(
+            "thinking:response",
+            $"📝 Proposed repaired workflow for '{agent.Name}':\n\n```yaml\n{repairedWorkflow}\n```");
+
+        var saveRequest = new HumanInputRequest
+        {
+            RunId = $"repair-save-{Guid.NewGuid():N}",
+            StepId = "agent_workflow_repair_save",
+            Mode = HumanInputContract.ModeChoice,
+            Prompt = $"Save this repaired workflow for '{agent.Name}'?",
+            Choices = ["save", "discard"],
+            TimeoutMs = HumanInputContract.DefaultTimeoutMs,
+            Context = new JsonObject
+            {
+                ["agent"] = agent.Name,
+                ["handled"] = handledFailure,
+                ["attempts"] = attempts,
+                ["workflow"] = repairedWorkflow
+            }
+        };
+
+        JsonNode? saveDecision = null;
+        await foreach (var evt in EmitHumanInputRequestAsync(saveRequest, response => saveDecision = response, ct))
+            yield return evt;
+
+        if (!IsSaveDecision(saveDecision))
+        {
+            setRepaired(true);
+            yield return new SmartFlowEvent(
+                "answer",
+                $"Workflow repair for agent '{agent.Name}' was discarded. Original error: {failure.Message}");
+            yield break;
+        }
+
+        var saveError = await TrySaveAgentWorkflowAsync(runtime, agent, repairedWorkflow, ct);
+        if (!string.IsNullOrWhiteSpace(saveError))
+        {
+            yield return new SmartFlowEvent(
+                "error",
+                $"Workflow execution failed, and the repaired workflow could not be saved. Original error: {failure.Message}. Save error: {saveError}");
+            yield break;
+        }
+
         setRepaired(true);
         yield return new SmartFlowEvent(
             "answer",
             handledFailure
-                ? $"The workflow for agent '{agent.Name}' handled an MCP error on this run, and I improved and saved the agent workflow through {AgentMcpHostingExtensions.ServerName}. Please retry the request. Repair planning attempts: {attempts}."
-                : $"The workflow for agent '{agent.Name}' failed on this run, but I improved and saved the agent workflow through {AgentMcpHostingExtensions.ServerName}. Please retry the request. Repair planning attempts: {attempts}.");
+                ? $"The workflow for agent '{agent.Name}' handled an MCP error on this run, and I repaired and saved the agent workflow through {AgentMcpHostingExtensions.ServerName}. Please retry the request. Repair planning attempts: {attempts}."
+                : $"The workflow for agent '{agent.Name}' failed on this run, but I repaired and saved the agent workflow through {AgentMcpHostingExtensions.ServerName}. Please retry the request. Repair planning attempts: {attempts}.");
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> EmitHumanInputRequestAsync(
@@ -973,6 +1075,50 @@ public sealed class SmartFlowService
         return string.Equals(value, "improve", StringComparison.OrdinalIgnoreCase)
                || string.Equals(value, "approve", StringComparison.OrdinalIgnoreCase)
                || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSaveDecision(JsonNode? response)
+    {
+        var value = response switch
+        {
+            JsonObject obj => obj["response"]?.GetValue<string>(),
+            JsonValue jsonValue when jsonValue.TryGetValue<string>(out var text) => text,
+            _ => null
+        };
+
+        return string.Equals(value, "save", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "approve", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<string?> TrySaveAgentWorkflowAsync(
+        SecureWorkflowRuntimeSession runtime,
+        AgentDto agent,
+        string repairedWorkflow,
+        CancellationToken ct)
+    {
+        await using var session = await runtime.McpClientFactory.GetClientAsync(AgentMcpHostingExtensions.ServerName, ct);
+        var result = await session.CallToolAsync("agent_update", new JsonObject
+        {
+            ["id"] = agent.Id,
+            ["name"] = agent.Name,
+            ["workflow"] = repairedWorkflow,
+            ["originalPrompt"] = agent.OriginalPrompt ?? ""
+        }, ct);
+
+        if (result.IsError)
+            return $"The mounted {AgentMcpHostingExtensions.ServerName} update call failed.";
+
+        var payload = result.Content as JsonObject;
+        if (payload is null)
+            return $"{AgentMcpHostingExtensions.ServerName} returned an unexpected update payload.";
+
+        if ((payload["success"]?.GetValue<bool>()).GetValueOrDefault() == true)
+            return null;
+
+        return payload["error_message"]?.GetValue<string>()
+               ?? payload["error_code"]?.GetValue<string>()
+               ?? "Unknown update error.";
     }
 
     private async Task<RoutedWorkflowRepair?> TryResolveRoutedWorkflowRepairAsync(
@@ -1185,12 +1331,10 @@ public sealed class SmartFlowService
               - id: plan_repair
                 type: workflow.plan
                 input:
+                  mode: repair
                   generator:
                     reasoning: medium
                     instruction: |
-                      Repair an existing persisted GnOuGo.Flow chat-agent workflow.
-                      Return a complete replacement workflow YAML document only.
-
                       Keep the same agent name and preserve the chat-agent contract:
                       - It must be executable by GnOuGo.Agent.Server for a user chat message.
                       - It must accept a user task/prompt input such as `task`.
@@ -1199,33 +1343,20 @@ public sealed class SmartFlowService
                       - Prefer fixing the smallest root cause that explains the latest runtime error.
                       - For MCP failures, update the MCP request shape, output access, error handling, or tool choice based on the error details.
                       - `mcp.call` raises workflow errors by default; use `on_error` only when the workflow can recover intentionally.
-
-                      <agent_name>
-                      ${data.inputs.agent_name}
-                      </agent_name>
-
-                      <original_agent_prompt>
-                      ${data.inputs.original_prompt}
-                      </original_agent_prompt>
-
-                      <user_prompt_that_failed>
-                      ${data.inputs.user_prompt}
-                      </user_prompt_that_failed>
-
-                      <runtime_error>
-                      code: ${data.inputs.error_code}
-                      type: ${data.inputs.error_type}
-                      message: ${data.inputs.error_message}
-                      details: ${json(data.inputs.error_details)}
-                      </runtime_error>
-
-                      <current_workflow_yaml>
-                      ${data.inputs.current_workflow}
-                      </current_workflow_yaml>
                     context: |
                       This repair is being triggered after a real execution failure in GnOuGo.Agent.Server.
-                      The replacement YAML will be persisted through GnOuGo.Agent.Mcp `agent_update`.
+                      The replacement YAML will be shown to the user and persisted through GnOuGo.Agent.Mcp `agent_update` only after explicit confirmation.
                       Keep the generated workflow compatible with the available DSL and MCP tool contracts.
+                      Agent name: ${data.inputs.agent_name}
+                      Original agent prompt: ${data.inputs.original_prompt}
+                  repair:
+                    existing_yaml: "${data.inputs.current_workflow}"
+                    failed_input: "${data.inputs.user_prompt}"
+                    error:
+                      code: "${data.inputs.error_code}"
+                      type: "${data.inputs.error_type}"
+                      message: "${data.inputs.error_message}"
+                      details: "${data.inputs.error_details}"
                   policy:
                     allowed_step_types:
                       - emit
@@ -1254,20 +1385,9 @@ public sealed class SmartFlowService
                     action: reprompt
                     max_attempts: 10
 
-              - id: save_repaired_agent
-                type: mcp.call
-                input:
-                  server: GnOuGo.Agent.Mcp
-                  method: agent_update
-                  request:
-                    id: "${data.inputs.agent_id}"
-                    name: "${data.inputs.agent_name}"
-                    workflow: "${data.steps.plan_repair.yaml}"
-                    originalPrompt: "${data.inputs.original_prompt}"
-
             outputs:
               answer:
-                expr: "${'Updated workflow for agent ' + data.inputs.agent_name}"
+                expr: "${'Planned repaired workflow for agent ' + data.inputs.agent_name}"
                 type: string
               attempt:
                 expr: "${data.steps.plan_repair.meta.attempt}"

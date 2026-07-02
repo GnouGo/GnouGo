@@ -16,7 +16,7 @@
 
 ---
 
-## Recently shipped (Apr 2026)
+## Recently shipped (Apr-Jul 2026)
 
 - ✅ `WorkflowDocument.version` (with `dsl` alias, both at the model and the
   parser). Replaces the previous `dsl` field.
@@ -117,6 +117,21 @@
   subcommands with `-i key=value` and `-j JSON|@path.json` inputs and
   .NET-like run output. New tests: `tests/test_workflow_input_defaults.py`,
   `tests/test_resume.py`, `tests/test_cli.py`.
+- ✅ **Phase 8** — Current `workflow.plan` pipeline parity. Added optional
+  `WorkflowEngine.llm_capabilities` structured-output capability resolution,
+  strict structured extraction for supported models, C#-like
+  `pipeline.specs` / `pipeline.quality_report` / `pipeline.inspection`,
+  internal contract normalization helpers, main dataflow quality analysis,
+  planned MCP tool enforcement, stricter leaf/main boundary validation,
+  `assert.non_null`, and nullable MCP request expression checks. New tests:
+  `tests/test_workflow_plan_contract_normalizer.py`,
+  `tests/test_workflow_plan_pipeline_quality_analyzer.py`, and expanded
+  `tests/test_workflow_plan_parity.py`.
+- ✅ **Phase 9** — `workflow.plan` repair mode parity. Python now accepts
+  `mode: repair` with `repair.existing_yaml`, optional user prompt, failed
+  input, and structured runtime error details, then reuses the strict
+  single-plan validation/reprompt path. New tests in
+  `tests/test_workflow_plan_parity.py`.
 
 ---
 
@@ -209,6 +224,8 @@
 | H41 | ✅ | `workflow.call` — `ref.kind ∈ {local, url}`; remote fetch via `IWorkflowFetcher` constrained by `FetchPolicy` (HTTPS scheme parsed via `urlparse`, `allowed_hostnames` allow-list, `require_integrity`, `max_size_bytes`); export selection (`export → entrypoint → single → first`); cycle/depth checks (`MaxCallDepth`); deep-copy of args/env | `WorkflowCallExecutor.cs` |
 | H42 | ✅ | `workflow.plan` — defaults `reasoning="medium"`, passes on main + prefilter calls | `WorkflowPlanExecutor.cs` |
 | H43 | ✅ | `workflow.execute` — parse YAML returned by `workflow.plan`, compile, validate args/defaults, run under a sub-workflow telemetry span, propagate outputs/errors | `WorkflowExecuteExecutor.cs` |
+| H44 | ✅ | `assert.non_null` — fail on null inputs and expose the same object as non-null refined output | `AssertNonNullExecutor.cs` |
+| H45 | ✅ | `workflow.plan` — `mode: repair` for targeted full-YAML workflow replacement, with required repair fields and strict validation reuse | `WorkflowPlanExecutor.RepairMode.cs` |
 
 ## I. Interfaces / DTOs / integrations
 
@@ -221,6 +238,7 @@
 | I48 | ✅ | Port `JsonSchemaConverter` (`inputs_to_json_schema`, `outputs_to_json_schema`, …) → `gnougo_flow_core/json_schema.py` | `Models/JsonSchemaConverter.cs` |
 | I49 | ✅ | Port `ConfiguredMcpClientFactory`, `InMemoryMcpClientFactory`, `RoutingLLMClientAdapter` → `gnougo_flow_core/integrations/` | corresponding `.cs` files |
 | I50 | ✅ | Port `McpCacheHelper` (TTL cache for tools/prompts/resources per server) | `Runtime/McpCacheHelper.cs` |
+| I51 | ✅ | Add `ILLMCapabilityResolver` Protocol and `WorkflowEngine.llm_capabilities` for structured `workflow.plan` pipeline extraction decisions | `Runtime/Interfaces.cs` |
 
 ## J. Error codes catalogue
 
@@ -248,6 +266,8 @@
 | L60 | ✅ | Add `tests/test_json_schema.py` covering `JsonSchemaConverter` parity | `tests/.../JsonSchemaConverterTests.cs` |
 | L61 | ✅ | Add `tests/test_resume.py` covering checkpoint save+resume | new |
 | L62 | ✅ | `tests/test_reasoning_field.py` covering reasoning round-trip + `workflow.plan` default `"medium"` | new |
+| L63 | ✅ | Add focused `workflow.plan` contract normalizer and pipeline quality analyzer tests | `WorkflowPlanContractNormalizer.cs`, `WorkflowPlanPipelineQualityAnalyzer.cs` |
+| L64 | ✅ | Expand `workflow.plan` parity tests for structured extraction, strict main boundaries, planned contracts, nullable MCP request expressions, and `assert.non_null` | `WorkflowPlanExecutorTests.cs` |
 
 ---
 
@@ -260,6 +280,7 @@
 5. **Phase 5 — LLM/MCP/human executors + integrations**: H38, H39, H40, I49, I50, L55, L59
 6. **Phase 6 — workflow.plan polish + workflow.execute**: H43, J51, L56, L57
 7. **Phase 7 — CLI + checkpointer**: G24, G25, K52, K53, K54, L58, L61
+8. **Phase 8 — current workflow.plan pipeline parity**: H44, I51, L63, L64
 
 ---
 

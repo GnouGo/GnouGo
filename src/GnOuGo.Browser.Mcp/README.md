@@ -14,6 +14,8 @@
 - `browser_screenshot`: returns a base64 screenshot
 - `browser_close`: closes the current Playwright session
 
+All tools return structured content. Playwright, policy, timeout, cancellation, and unexpected failures are returned in the advertised result type with `success: false`, `ok: false`, `error_code`, and `error_message`.
+
 These tools allow building MCP scenarios such as:
 
 - opening a page via `browser_get_content(url: ...)`

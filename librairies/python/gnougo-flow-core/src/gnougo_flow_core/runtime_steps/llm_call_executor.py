@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gnougo_flow_core.runtime as _runtime
+from gnougo_flow_core.json_schema_contract_validator import validate_instance, validate_structured_output
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
 
 
@@ -18,38 +19,6 @@ def _strip_markdown_code_fences(text: str) -> str:
     if last_fence >= 0:
         body = body[:last_fence]
     return body.strip()
-
-
-def _matches_json_schema(value: Any, schema: Any) -> bool:
-    if not isinstance(schema, dict):
-        return True
-
-    schema_type = schema.get("type")
-    if isinstance(schema_type, list):
-        return any(_matches_json_schema(value, {**schema, "type": item}) for item in schema_type)
-
-    if schema_type == "object":
-        if not isinstance(value, dict):
-            return False
-        required = schema.get("required") if isinstance(schema.get("required"), list) else []
-        if any(key not in value for key in required):
-            return False
-        properties = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
-        return all(key not in value or _matches_json_schema(value[key], prop_schema) for key, prop_schema in properties.items())
-    if schema_type == "array":
-        if not isinstance(value, list):
-            return False
-        item_schema = schema.get("items")
-        return all(_matches_json_schema(item, item_schema) for item in value) if item_schema else True
-    if schema_type == "string":
-        return isinstance(value, str)
-    if schema_type in {"number", "integer"}:
-        return isinstance(value, (int, float)) and not isinstance(value, bool)
-    if schema_type == "boolean":
-        return isinstance(value, bool)
-    if schema_type == "null":
-        return value is None
-    return True
 
 
 class LlmCallExecutor:
@@ -123,7 +92,15 @@ Output: `{ text, json?, usage?, raw? }`.
         if not isinstance(prompt, str):
             raise WorkflowRuntimeException(ErrorCodes.INPUT_VALIDATION, "llm.call requires 'prompt'")
 
-        structured = input_obj.get("structured_output") if isinstance(input_obj.get("structured_output"), dict) else None
+        structured = input_obj.get("structured_output") if input_obj.get("structured_output") is not None else None
+        structured_contract = None
+        if structured is not None:
+            structured_contract = validate_structured_output(structured, allow_dynamic_schema_reference=False)
+            if structured_contract.errors:
+                raise WorkflowRuntimeException(
+                    ErrorCodes.INPUT_VALIDATION,
+                    "llm.call structured_output is invalid: " + "; ".join(structured_contract.errors),
+                )
         # Reasoning / thinking effort: "minimal"|"low"|"medium"|"high"|"max"|"auto".
         # When omitted, providers fall back to their own defaults ("auto").
         reasoning_raw = input_obj.get("reasoning")
@@ -136,8 +113,8 @@ Output: `{ text, json?, usage?, raw? }`.
             model=model,
             prompt=prompt,
             temperature=float(input_obj["temperature"]) if "temperature" in input_obj and input_obj["temperature"] is not None else None,
-            structured_output_schema=(structured.get("schema_inline") or structured.get("schema_ref")) if structured else None,
-            structured_output_strict=bool(structured.get("strict")) if structured and "strict" in structured else None,
+            structured_output_schema=structured_contract.schema if structured_contract is not None else None,
+            structured_output_strict=structured_contract.strict if structured_contract is not None else None,
             reasoning=reasoning,
             max_tokens=max_tokens,
         )
@@ -207,10 +184,12 @@ Output: `{ text, json?, usage?, raw? }`.
                 structured_json = json.loads(_strip_markdown_code_fences(response.text))
             except Exception:
                 structured_json = None
-        if schema is not None and (structured_json is None or not _matches_json_schema(structured_json, schema)):
+        schema_errors = validate_instance(structured_json, schema) if schema is not None and structured_json is not None else []
+        if schema is not None and (structured_json is None or schema_errors):
             raise WorkflowRuntimeException(
                 ErrorCodes.LLM_SCHEMA,
-                "llm.call structured_output expected valid JSON but the LLM returned an incompatible response",
+                "llm.call structured_output expected valid JSON but the LLM returned an incompatible response"
+                + (": " + "; ".join(schema_errors) if schema_errors else ""),
                 retryable=True,
             )
 

@@ -1,4 +1,7 @@
-﻿namespace GnOuGo.GithubCopilot.Mcp;
+﻿using System.ComponentModel;
+using System.Text.Json.Serialization;
+
+namespace GnOuGo.GithubCopilot.Mcp;
 
 public sealed record CodePolicyInfo(
     string DefaultWorkingDirectory,
@@ -22,20 +25,45 @@ public sealed record CodeProjectSummary(
     IReadOnlyList<string> ProjectFiles,
     IReadOnlyList<string> TopLevelDirectories,
     int CodeFileCount,
-    long ApproximateBytes);
+    long ApproximateBytes,
+    string? RootPathRelative = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+
+    [Description("Workspace-relative path to an existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RootPath.")]
+    public string? ProjectRootRelative => RootPathRelative;
+}
 
 public sealed record CodeFileContent(
     string Path,
     string FullPath,
     string Content,
-    long LengthBytes);
+    long LengthBytes,
+    string? RelativePath = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
 public sealed record CodeSearchResult(
     string Path,
     int Line,
     string Text);
 
-public sealed record CodeSearchResults(IReadOnlyList<CodeSearchResult> Results, bool Truncated);
+public sealed record CodeSearchResults(
+    IReadOnlyList<CodeSearchResult> Results,
+    bool Truncated,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
 /// <summary>
 /// Stable GnOuGo progress contract emitted by code tools and consumed by Flow/UI.
@@ -65,7 +93,13 @@ public sealed record CodeSuggestionResult(
     string Suggestion,
     string? Model,
     string? UsageJson,
-    IReadOnlyList<CodeProgressEvent> ProgressEvents = null!);
+    IReadOnlyList<CodeProgressEvent> ProgressEvents = null!,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
 public sealed record CodeAgentEditResult(
     string Task,
@@ -78,13 +112,27 @@ public sealed record CodeAgentEditResult(
     string? Output = null,
     string? TraceId = null,
     string? CorrelationId = null,
-    string? TraceParent = null);
+    string? TraceParent = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
-public sealed record CodeWriteResult(string Path, string FullPath, long BytesWritten, bool CreatedDirectory);
+public sealed record CodeWriteResult(
+    string Path,
+    string FullPath,
+    long BytesWritten,
+    bool CreatedDirectory,
+    string? RelativePath = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
 public sealed record CodeErrorResult(string Code, string Message);
 
 internal sealed record CodeUsageInfo(long? OutputTokens, string? RequestId, string? InteractionId);
-
-
-

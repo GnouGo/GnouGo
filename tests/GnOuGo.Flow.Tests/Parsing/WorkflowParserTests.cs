@@ -146,6 +146,52 @@ workflows:
     }
 
     [Fact]
+    public void Parse_QuotedJsonScalarsRemainStrings()
+    {
+        var yaml = """
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: call
+                type: mcp.call
+                input:
+                  server: github
+                  timeout_ms: "1200000"
+                  raise_on_error: "false"
+                  request:
+                    perPage: "30"
+        """;
+
+        var doc = WorkflowParser.Parse(yaml);
+        var input = Assert.IsType<JsonObject>(doc.Workflows["main"].Steps[0].Input);
+        Assert.Equal("1200000", input["timeout_ms"]!.GetValue<string>());
+        Assert.Equal("false", input["raise_on_error"]!.GetValue<string>());
+        Assert.Equal("30", input["request"]!["perPage"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Parse_QuotedTypedWorkflowField_Throws()
+    {
+        var yaml = """
+        version: 1
+        workflows:
+          main:
+            inputs:
+              name:
+                type: string
+                required: "false"
+            steps:
+              - id: s1
+                type: template.render
+        """;
+
+        var ex = Assert.Throws<WorkflowParseException>(() => WorkflowParser.Parse(yaml));
+        Assert.Contains("required", ex.Message);
+        Assert.Contains("unquoted boolean", ex.Message);
+    }
+
+    [Fact]
     public void Parse_StepWithOnError_ParsesOnError()
     {
         var yaml = """
@@ -270,7 +316,7 @@ workflows:
         properties:
           name: { type: string }
           score: { type: number }
-        required: [name]
+        required_properties: [name]
 ";
         var doc = WorkflowParser.Parse(yaml);
         var outputs = doc.Workflows["main"].Outputs;
@@ -464,6 +510,33 @@ workflows:
     }
 
     [Fact]
+    public void Parse_Set_ParsesOutputSchema()
+    {
+        var yaml = @"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: normalize
+        type: set
+        output_schema:
+          type: object
+          properties:
+            count: { type: integer }
+          required: [count]
+          additionalProperties: false
+        input:
+          count: 1
+";
+        var doc = WorkflowParser.Parse(yaml);
+        var step = doc.Workflows["main"].Steps[0];
+        var schema = Assert.IsType<System.Text.Json.Nodes.JsonObject>(step.OutputSchema);
+
+        Assert.Equal("object", schema["type"]!.GetValue<string>());
+        Assert.Equal("integer", schema["properties"]!["count"]!["type"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void Parse_MultipleWorkflows_AllParsed()
     {
         var yaml = @"
@@ -556,7 +629,7 @@ workflows:
           port:
             type: number
             default: 8080
-        required:
+        required_properties:
           - host
     steps:
       - id: s1
@@ -674,5 +747,35 @@ workflows:
         Assert.Equal("object", env.AdditionalProperties!.Type);
         Assert.Equal("string", env.AdditionalProperties.Properties!["url"].Type);
         Assert.Equal("number", env.AdditionalProperties.Properties["port"].Type);
+    }
+
+    [Fact]
+    public void Parse_ObjectSchema_WithRequiredPropertiesKey_ParsesRequiredPropertyNames()
+    {
+        var yaml = @"
+version: 1
+workflows:
+  main:
+    inputs:
+      payload:
+        type: object
+        properties:
+          title: { type: string }
+        required_properties: [title]
+    outputs:
+      result:
+        type: object
+        properties:
+          title: { type: string }
+        required_properties: [title]
+    steps:
+      - id: s1
+        type: template.render
+";
+
+        var doc = WorkflowParser.Parse(yaml);
+
+        Assert.Equal(new[] { "title" }, doc.Workflows["main"].Inputs!["payload"].RequiredProperties);
+        Assert.Equal(new[] { "title" }, doc.Workflows["main"].Outputs!["result"].RequiredProperties);
     }
 }

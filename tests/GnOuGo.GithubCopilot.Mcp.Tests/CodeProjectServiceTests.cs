@@ -21,9 +21,11 @@ public sealed class CodeProjectServiceTests : IDisposable
     {
         var service = CreateService();
 
-        var summary = service.GetSummary(_root);
+        var summary = service.GetSummary(".");
 
         Assert.Equal(_root, summary.RootPath);
+        Assert.Equal(".", summary.RootPathRelative);
+        Assert.Equal(".", summary.ProjectRootRelative);
         Assert.Contains("App.sln", summary.SolutionFiles);
         Assert.Contains("src\\App.csproj", summary.ProjectFiles.Select(p => p.Replace('/', '\\')));
         Assert.True(summary.CodeFileCount >= 2);
@@ -34,7 +36,7 @@ public sealed class CodeProjectServiceTests : IDisposable
     {
         var service = CreateService();
 
-        var results = service.Search(_root, "Console", "*.cs");
+        var results = service.Search(".", "Console", "*.cs");
 
         var result = Assert.Single(results.Results);
         Assert.Equal("src\\Program.cs", result.Path.Replace('/', '\\'));
@@ -48,10 +50,11 @@ public sealed class CodeProjectServiceTests : IDisposable
         settings.AllowWrites = true;
         var service = CreateService(settings);
 
-        var result = service.WriteFile(_root, "src/NewFile.cs", "public class NewFile {}\n");
+        var result = service.WriteFile(".", "src/NewFile.cs", "public class NewFile {}\n");
 
         Assert.True(File.Exists(Path.Combine(_root, "src", "NewFile.cs")));
         Assert.Equal("src\\NewFile.cs", result.Path.Replace('/', '\\'));
+        Assert.Equal("src/NewFile.cs", result.RelativePath);
     }
 
     private CodeProjectService CreateService(CodeServerSettings? settings = null)
@@ -77,5 +80,3 @@ public sealed class CodeProjectServiceTests : IDisposable
         catch { }
     }
 }
-
-

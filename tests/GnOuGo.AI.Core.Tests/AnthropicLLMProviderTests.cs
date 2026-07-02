@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.AI.Core.Tests;
@@ -359,7 +360,8 @@ public sealed class AnthropicLlmProviderTests
 
         var logger = new CapturingLogger<AnthropicLLMProvider>();
         using var http = new HttpClient(handler);
-        var provider = new AnthropicLLMProvider(http, logger);
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var provider = new AnthropicLLMProvider(http, logger, cache);
 
         var response = await provider.CallAsync(
             "claude-sonnet-4-20250514",
@@ -370,11 +372,26 @@ public sealed class AnthropicLlmProviderTests
                 UseBackgroundMode = true
             },
             CancellationToken.None);
+        var secondResponse = await provider.CallAsync(
+            "claude-sonnet-4-20250514",
+            new ModelProviderOptions { Url = "https://api.anthropic.test/v1", ApiKey = "sk-ant", Type = "anthropic" },
+            new LLMClientRequest
+            {
+                Prompt = "Hello again",
+                UseBackgroundMode = true
+            },
+            CancellationToken.None);
 
         Assert.Equal("sync ok", response.Text);
+        Assert.Equal("sync ok", secondResponse.Text);
         Assert.Equal(
-            ["https://api.anthropic.test/v1/messages/batches", "https://api.anthropic.test/v1/messages"],
+            [
+                "https://api.anthropic.test/v1/messages/batches",
+                "https://api.anthropic.test/v1/messages",
+                "https://api.anthropic.test/v1/messages"
+            ],
             calls);
+        Assert.Single(calls, call => call.EndsWith("/messages/batches", StringComparison.Ordinal));
 
         var warning = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Warning);
         Assert.Contains("Anthropic batch API not available", warning.Message);
@@ -383,6 +400,9 @@ public sealed class AnthropicLlmProviderTests
         Assert.Contains("ReasonPhrase: Not Found", warning.Message);
         Assert.Contains("not_found_error", warning.Message);
         Assert.Contains("Not found: /v1/messages/batches", warning.Message);
+        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Information
+            && entry.Message.Contains("previously returned unsupported", StringComparison.Ordinal)
+            && entry.Message.Contains("skipping background mode", StringComparison.Ordinal));
     }
 
     [Theory]

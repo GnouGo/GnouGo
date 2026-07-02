@@ -43,7 +43,7 @@ internal sealed class LocalProjectSessionFsProvider : SessionFsProvider
     {
         cancellationToken.ThrowIfCancellationRequested();
         var relativePath = NormalizeRelativeSessionPath(path, allowEmpty: false);
-        var resolvedFile = _policy.ResolveReadableFile(_projectRoot, relativePath);
+        var resolvedFile = _policy.ResolveReadableFileFromResolvedRoot(_projectRoot, relativePath);
         return Task.FromResult(File.ReadAllText(resolvedFile, Encoding.UTF8));
     }
 
@@ -53,7 +53,7 @@ internal sealed class LocalProjectSessionFsProvider : SessionFsProvider
         var relativePath = NormalizeRelativeSessionPath(path, allowEmpty: false);
         EnsureWritesAllowed();
         _policy.EnsurePromptWithinLimit(content, nameof(content));
-        var resolvedFile = _policy.ResolveWritableFile(_projectRoot, relativePath);
+        var resolvedFile = _policy.ResolveWritableFileFromResolvedRoot(_projectRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(resolvedFile)!);
         File.WriteAllText(resolvedFile, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         TrackModifiedFile(resolvedFile);
@@ -67,7 +67,7 @@ internal sealed class LocalProjectSessionFsProvider : SessionFsProvider
         var relativePath = NormalizeRelativeSessionPath(path, allowEmpty: false);
         EnsureWritesAllowed();
         _policy.EnsurePromptWithinLimit(content, nameof(content));
-        var resolvedFile = _policy.ResolveWritableFile(_projectRoot, relativePath);
+        var resolvedFile = _policy.ResolveWritableFileFromResolvedRoot(_projectRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(resolvedFile)!);
         File.AppendAllText(resolvedFile, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         TrackModifiedFile(resolvedFile);
@@ -232,7 +232,7 @@ internal sealed class LocalProjectSessionFsProvider : SessionFsProvider
     private void EnsureAllowedWritableFile(string fullPath)
     {
         var relativePath = Path.GetRelativePath(_projectRoot, fullPath);
-        _ = _policy.ResolveWritableFile(_projectRoot, relativePath);
+        _ = _policy.ResolveWritableFileFromResolvedRoot(_projectRoot, relativePath);
     }
 
     private string ResolveExistingOrPotentialPath(string path, bool allowEmpty)
@@ -283,5 +283,4 @@ internal sealed class LocalProjectSessionFsProvider : SessionFsProvider
     private static bool HasDriveRelativePrefix(string path)
         => path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':';
 }
-
 

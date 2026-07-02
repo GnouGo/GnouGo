@@ -66,7 +66,16 @@ public sealed class ParallelExecutor : IStepExecutor
                 try
                 {
                     var result = new RunResult { Success = true };
-                    await ctx.Engine.ExecuteStepsAsync(branch, branchData, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
+                    await ctx.Engine.ExecuteStepsAsync(
+                        branch,
+                        branchData,
+                        result,
+                        ctx.Limits,
+                        ctx.CallDepth,
+                        ctx.CallStack,
+                        ctx.EffectiveExecutionScope,
+                        ct,
+                        ctx.TelemetrySpan);
                     return (branchIndex, branchData);
                 }
                 finally

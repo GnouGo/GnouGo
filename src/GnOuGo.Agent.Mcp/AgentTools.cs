@@ -20,7 +20,7 @@ public sealed class AgentTools
 
     // ── Add Agent ────────────────────────────────────────────────────
 
-    [McpServerTool(Name = "agent_add"), Description(
+    [McpServerTool(Name = "agent_add", UseStructuredContent = true, OutputSchemaType = typeof(AgentToolResult)), Description(
         "Create a new agent with a name and workflow definition. " +
         "Returns { success, agent } or { success: false, error_code, error_message }.")]
     public async Task<AgentToolResult> AgentAdd(
@@ -56,7 +56,7 @@ public sealed class AgentTools
 
     // ── Update Agent ─────────────────────────────────────────────────
 
-    [McpServerTool(Name = "agent_update"), Description(
+    [McpServerTool(Name = "agent_update", UseStructuredContent = true, OutputSchemaType = typeof(AgentToolResult)), Description(
         "Update an existing agent's name and workflow. " +
         "Returns { success, agent } or { success: false, error_code, error_message }.")]
     public async Task<AgentToolResult> AgentUpdate(
@@ -102,7 +102,7 @@ public sealed class AgentTools
 
     // ── List Agents ──────────────────────────────────────────────────
 
-    [McpServerTool(Name = "agent_list"), Description(
+    [McpServerTool(Name = "agent_list", UseStructuredContent = true, OutputSchemaType = typeof(AgentListToolResult)), Description(
         "List all agents. Returns { success, agents: [...] }.")]
     public async Task<AgentListToolResult> AgentList()
     {
@@ -120,7 +120,7 @@ public sealed class AgentTools
 
     // ── Delete Agent ─────────────────────────────────────────────────
 
-    [McpServerTool(Name = "agent_delete"), Description(
+    [McpServerTool(Name = "agent_delete", UseStructuredContent = true, OutputSchemaType = typeof(AgentDeleteToolResult)), Description(
         "Delete an agent by its identifier. Returns { success } or { success: false, error_code, error_message }.")]
     public async Task<AgentDeleteToolResult> AgentDelete(
         [Description("Agent identifier (GUID, required).")]
@@ -154,7 +154,7 @@ public sealed class AgentTools
 
     // ── Get Agent By Name ────────────────────────────────────────────
 
-    [McpServerTool(Name = "agent_get_by_name"), Description(
+    [McpServerTool(Name = "agent_get_by_name", UseStructuredContent = true, OutputSchemaType = typeof(AgentToolResult)), Description(
         "Get an agent by its name (case-insensitive). " +
         "Returns { success, agent } or { success: false, error_code, error_message }.")]
     public async Task<AgentToolResult> AgentGetByName(
@@ -199,4 +199,3 @@ public sealed class AgentTools
     private static AgentDeleteToolResult DeleteErrorResult(string errorCode, string errorMessage)
         => new(false, ErrorCode: errorCode, ErrorMessage: errorMessage);
 }
-

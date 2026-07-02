@@ -527,6 +527,118 @@ workflows:
         Assert.Equal("got: hello", result.Outputs!["result"]!.GetValue<string>());
     }
 
+    [Fact]
+    public async Task Execute_WorkflowCall_Local_PreservesDecimalInputAsChildNumber()
+    {
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            inputs:
+              number_of_issues_to_process: number
+            steps:
+              - id: list_and_filter_issues
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: list_and_filter_issues }
+                  args:
+                    max_issues_to_process: ${data.inputs.number_of_issues_to_process}
+            outputs:
+              limit: ${data.steps.list_and_filter_issues.outputs.limit}
+          list_and_filter_issues:
+            inputs:
+              max_issues_to_process:
+                type: number
+                required: true
+            steps:
+              - id: compute_limit
+                type: set
+                input:
+                  limit: ${data.inputs.max_issues_to_process}
+            outputs:
+              limit: ${data.steps.compute_limit.limit}
+        """);
+
+        var result = await CreateEngine().ExecuteAsync(
+            wf,
+            new JsonObject { ["number_of_issues_to_process"] = 2m },
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, result.Outputs!["limit"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task Execute_WorkflowCall_Local_AppliesDefaultsAndValidatesChildInputs()
+    {
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: call_helper
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: helper }
+                  args: {}
+            outputs:
+              count: ${data.steps.call_helper.outputs.count}
+          helper:
+            inputs:
+              count:
+                type: number
+                required: false
+                default: 3
+            steps:
+              - id: result
+                type: set
+                input:
+                  count: ${data.inputs.count}
+            outputs:
+              count: ${data.steps.result.count}
+        """);
+
+        var result = await CreateEngine().ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(3, result.Outputs!["count"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task Execute_WorkflowCall_Local_RejectsMissingRequiredChildInput()
+    {
+        var wf = CompileMain("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: call_helper
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: helper }
+                  args: {}
+          helper:
+            inputs:
+              count:
+                type: number
+                required: true
+            steps:
+              - id: result
+                type: set
+                input:
+                  count: ${data.inputs.count}
+        """);
+
+        var result = await CreateEngine().ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+        var error = Assert.IsType<WorkflowError>(result.Error);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, error.Code);
+        Assert.Contains("called workflow 'helper'", error.Message);
+        Assert.Contains("Input 'count' is required", error.Message);
+        Assert.Equal("helper", error.Details!["workflow"]!.GetValue<string>());
+    }
+
     // === WFScript (Jint) Integration Tests ===
 
     [Fact]
@@ -559,6 +671,40 @@ workflows:
     }
 
     [Fact]
+    public async Task Execute_WithGlobalFunctions_CanUseUrlConstructor()
+    {
+        var wf = CompileMain(@"
+version: 1
+functions: |
+  function parseGithubRepoUrl(url) {
+    const u = new URL(url);
+    const parts = u.pathname.replace(/^\/+/, '').split('/');
+    return { owner: parts[0], repo: parts[1] };
+  }
+workflows:
+  main:
+    steps:
+      - id: parsed
+        type: set
+        input:
+          owner: ""${functions.parseGithubRepoUrl(data.inputs.repo_url).owner}""
+          repo: ""${functions.parseGithubRepoUrl(data.inputs.repo_url).repo}""
+    outputs:
+      owner: ""${data.steps.parsed.owner}""
+      repo: ""${data.steps.parsed.repo}""
+");
+
+        var result = await CreateEngine().ExecuteAsync(
+            wf,
+            new JsonObject { ["repo_url"] = "https://github.com/AxaFrance/oidc-client" },
+            CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("AxaFrance", result.Outputs!["owner"]!.GetValue<string>());
+        Assert.Equal("oidc-client", result.Outputs["repo"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Execute_WithLocalFunctions_ShadowsGlobal()
     {
         var wf = CompileMain(@"
@@ -585,6 +731,131 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
         Assert.True(result.Success);
         Assert.Equal("local", result.Outputs!["val"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Execute_WorkflowCall_UsesCalledWorkflowLocalFunctions()
+    {
+        var wf = CompileMain(@"
+version: 1
+functions: |
+  function tag() { return ""global""; }
+workflows:
+  main:
+    functions: |
+      function tag() { return ""main""; }
+    steps:
+      - id: call_helper
+        type: workflow.call
+        input:
+          ref: { kind: local, name: helper }
+          args: {}
+      - id: caller_tag
+        type: set
+        input:
+          value: ""${functions.tag()}""
+    outputs:
+      helper_tag: ""${data.steps.call_helper.outputs.tag}""
+      caller_tag: ""${data.steps.caller_tag.value}""
+  helper:
+    functions: |
+      function tag() { return ""helper""; }
+    steps:
+      - id: value
+        type: set
+        input:
+          tag: ""${functions.tag()}""
+    outputs:
+      tag: ""${data.steps.value.tag}""
+");
+        var result = await CreateEngine().ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("helper", result.Outputs!["helper_tag"]!.GetValue<string>());
+        Assert.Equal("main", result.Outputs!["caller_tag"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Execute_WorkflowCall_DoesNotLeakCallerFunctionsIntoCalledWorkflow()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    functions: |
+      function callerOnly() { return ""caller""; }
+    steps:
+      - id: call_helper
+        type: workflow.call
+        input:
+          ref: { kind: local, name: helper }
+          args: {}
+  helper:
+    steps:
+      - id: value
+        type: set
+        input:
+          val: ""${functions.callerOnly()}""
+");
+        var result = await CreateEngine().ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.EvalError, result.Error!.Code);
+        Assert.Contains("callerOnly", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task Execute_ParallelWorkflowCalls_KeepLocalFunctionScopesIsolated()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: fanout
+        type: parallel
+        branches:
+          - steps:
+              - id: call_a
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: a }
+                  args: {}
+          - steps:
+              - id: call_b
+                type: workflow.call
+                input:
+                  ref: { kind: local, name: b }
+                  args: {}
+    outputs:
+      a: ""${data.steps.fanout.branches[0].call_a.outputs.tag}""
+      b: ""${data.steps.fanout.branches[1].call_b.outputs.tag}""
+  a:
+    functions: |
+      function tag() { return ""a""; }
+    steps:
+      - id: value
+        type: set
+        input:
+          tag: ""${functions.tag()}""
+    outputs:
+      tag: ""${data.steps.value.tag}""
+  b:
+    functions: |
+      function tag() { return ""b""; }
+    steps:
+      - id: value
+        type: set
+        input:
+          tag: ""${functions.tag()}""
+    outputs:
+      tag: ""${data.steps.value.tag}""
+");
+        var result = await CreateEngine().ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("a", result.Outputs!["a"]!.GetValue<string>());
+        Assert.Equal("b", result.Outputs!["b"]!.GetValue<string>());
     }
 
     // === Error Handling Tests ===
@@ -717,6 +988,92 @@ workflows:
         var engine = CreateEngine();
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
         Assert.True(result.Success);
+    }
+
+    [Fact]
+    public async Task Execute_DeclaredWorkflowOutputTypeMismatch_FailsAtOutputBoundary()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: value
+        type: set
+        input:
+          answer: 123
+    outputs:
+      answer:
+        expr: ""${data.steps.value.answer}""
+        type: string
+");
+
+        var engine = CreateEngine();
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("output 'answer'", result.Error.Message);
+        Assert.Contains("declared output type 'string'", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task Execute_DeclaredWorkflowOutputWithOptionalExpression_AllowsNull()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: value
+        type: set
+        input:
+          answer: ok
+    outputs:
+      optional_text:
+        expr: ""${data.steps.missing?.text}""
+        type: string
+");
+
+        var engine = CreateEngine();
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Null(result.Outputs!["optional_text"]);
+    }
+
+    [Fact]
+    public async Task Execute_WorkflowCallValidatesCalledWorkflowDeclaredOutputs()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call_helper
+        type: workflow.call
+        input:
+          ref:
+            kind: local
+            name: helper
+  helper:
+    steps:
+      - id: compute
+        type: set
+        input:
+          status: done
+    outputs:
+      pr_url:
+        expr: ""${data.steps.compute.pr_url}""
+        type: string
+");
+
+        var engine = CreateEngine();
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("Workflow 'helper' output 'pr_url'", result.Error.Message);
     }
 
     // === OnError Tests ===

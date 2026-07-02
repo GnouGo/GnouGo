@@ -88,7 +88,7 @@ workflows:
             allow_remote_workflow_refs: false
           
           limits:
-            max_steps_total: 20
+            max_steps_total: 100
           
           validate:
             compile: true

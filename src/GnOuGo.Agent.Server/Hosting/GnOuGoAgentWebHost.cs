@@ -213,6 +213,8 @@ public static class GnOuGoAgentWebHost
             builder.Configuration.GetSection(OpenTelemetrySettings.SectionName));
         builder.Services.Configure<TraceDebugSettings>(
             builder.Configuration.GetSection(TraceDebugSettings.SectionName));
+        builder.Services.Configure<WorkflowTraceExportSettings>(
+            builder.Configuration.GetSection(WorkflowTraceExportSettings.SectionName));
         builder.Services.Configure<OtlpCollectorEndpointSettings>(
             builder.Configuration.GetSection(OtlpCollectorEndpointSettings.SectionName));
 
@@ -313,6 +315,8 @@ public static class GnOuGoAgentWebHost
         });
         builder.Services.Configure<ModelCatalogCacheSettings>(
             builder.Configuration.GetSection(ModelCatalogCacheSettings.SectionName));
+        builder.Services.Configure<McpCapabilityCacheSettings>(
+            builder.Configuration.GetSection(McpCapabilityCacheSettings.SectionName));
         builder.Services.Configure<BundledMcpSettings>(
             builder.Configuration.GetSection(BundledMcpSettings.SectionName));
         builder.Services.Configure<KeyVaultSettings>(
@@ -338,6 +342,7 @@ public static class GnOuGoAgentWebHost
         });
         builder.Services.AddSingleton<AppVersionInfo>();
         builder.Services.AddSingleton<LocalTraceDebugStore>();
+        builder.Services.AddSingleton<IWorkflowTraceFileExporter, WorkflowTraceFileExporter>();
         builder.Services.AddSingleton<LLMRuntimeOptionsStore>(sp =>
         {
             var initialOptions = sp.GetRequiredService<IOptions<LLMOptions>>();
@@ -357,12 +362,13 @@ public static class GnOuGoAgentWebHost
         {
             var store = sp.GetRequiredService<LLMRuntimeOptionsStore>();
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+            var cache = sp.GetRequiredService<IMemoryCache>();
             var sslLogger = loggerFactory.CreateLogger("GnOuGo.AI.Core.SSL");
             var dangerousCert = store.Current.DangerousAcceptAnyServerCertificate;
             var http = LLMHttpClientFactory.Create(dangerousCert, LLMHttpClientDefaults.MinimumTimeout, sslLogger);
             // DynamicRoutingLLMClientAdapter reads the LATEST options from the store on every call,
             // so a /llm wizard update takes effect for the very next message.
-            return new DynamicRoutingLLMClientAdapter(http, store, loggerFactory);
+            return new DynamicRoutingLLMClientAdapter(http, store, loggerFactory, cache);
         });
         builder.Services.AddSingleton<ILLMModelCatalog>(sp =>
         {
@@ -377,6 +383,7 @@ public static class GnOuGoAgentWebHost
             var innerCatalog = new DynamicRoutingLLMModelCatalogAdapter(http, store, loggerFactory);
             return new CachedLlmModelCatalog(innerCatalog, store, cache, settings, logger);
         });
+        builder.Services.AddSingleton<ILLMCapabilityResolver, FlowLlmCapabilityResolver>();
         builder.Services.AddSingleton<IMcpClientFactory>(sp =>
         {
             var runtimeOptions = sp.GetRequiredService<LLMRuntimeOptionsStore>().Current;
@@ -393,7 +400,11 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<TraceDebugService>();
 
         builder.Services.AddRazorComponents()
-            .AddInteractiveServerComponents();
+            .AddInteractiveServerComponents(options =>
+            {
+                options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromHours(12);
+                options.DisconnectedCircuitMaxRetained = 256;
+            });
 
         builder.Services.AddSingleton<WordChunker>();
         var capturedArgs = args;

@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Diagnostics;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 
 namespace GnOuGo.Flow.Core.Runtime;
@@ -14,6 +15,13 @@ public interface IStepExecutor
 {
     string StepType { get; }
     Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct);
+
+    /// <summary>
+    /// Declarative input/output contract used by compile-time and workflow.plan validation.
+    /// Custom executors should override this property; built-in executors are resolved from
+    /// <see cref="BuiltInStepContracts"/> by default.
+    /// </summary>
+    StepContract? Contract => BuiltInStepContracts.Get(StepType);
 
     /// <summary>
     /// Returns a short DSL reference snippet for this step type.
@@ -42,6 +50,13 @@ public sealed class StepExecutionContext
     public ExecutionLimits Limits { get; init; } = new();
     public int CallDepth { get; init; }
     public HashSet<string> CallStack { get; init; } = new();
+    internal WorkflowExecutionScope? ExecutionScope { get; init; }
+    internal WorkflowExecutionScope EffectiveExecutionScope =>
+        ExecutionScope ?? new WorkflowExecutionScope(null, Engine.Evaluator, Engine.Interpolator);
+
+    public ExpressionEvaluator Evaluator => ExecutionScope?.Evaluator ?? Engine.Evaluator;
+    public StringInterpolator Interpolator => ExecutionScope?.Interpolator ?? Engine.Interpolator;
+    public CompiledDocument? ActiveDocument => ExecutionScope?.Workflow?.Document ?? Engine.CompiledDocument;
 
     /// <summary>
     /// The active telemetry span for this step.
@@ -91,6 +106,20 @@ public sealed class StepExecutionContext
         string? phase = null,
         IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
     {
+        var parent = TelemetrySpan ?? NullTelemetrySpan.Instance;
+        return BeginTelemetrySpan(parent, name, phase, attributes);
+    }
+
+    /// <summary>
+    /// Starts an internal child span under an explicit parent span. This is useful when an
+    /// executor has nested phases that should be grouped under one logical operation span.
+    /// </summary>
+    public TelemetrySpanScope BeginTelemetrySpan(
+        ITelemetrySpan parent,
+        string name,
+        string? phase = null,
+        IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
+    {
         var allAttributes = new List<KeyValuePair<string, object?>>
         {
             new("gnougo-flow.step.id", Step.Id),
@@ -102,7 +131,6 @@ public sealed class StepExecutionContext
         if (attributes != null)
             allAttributes.AddRange(attributes);
 
-        var parent = TelemetrySpan ?? NullTelemetrySpan.Instance;
         var span = Engine.Telemetry.SpanStart(parent, new TelemetrySpanInfo
         {
             Name = name,
@@ -114,6 +142,23 @@ public sealed class StepExecutionContext
         });
         return new TelemetrySpanScope(Engine.Telemetry, span);
     }
+}
+
+internal sealed class WorkflowExecutionScope
+{
+    public WorkflowExecutionScope(
+        CompiledWorkflow? workflow,
+        ExpressionEvaluator evaluator,
+        StringInterpolator interpolator)
+    {
+        Workflow = workflow;
+        Evaluator = evaluator;
+        Interpolator = interpolator;
+    }
+
+    public CompiledWorkflow? Workflow { get; }
+    public ExpressionEvaluator Evaluator { get; }
+    public StringInterpolator Interpolator { get; }
 }
 
 /// <summary>
@@ -139,6 +184,8 @@ public sealed class TelemetrySpanScope : IDisposable
 
     public void AddEvent(string name, IReadOnlyList<KeyValuePair<string, object?>>? attributes = null)
         => _span.AddEvent(name, attributes);
+
+    internal ITelemetrySpan Span => _span;
 
     public void Fail(Exception ex)
     {
@@ -188,6 +235,18 @@ public sealed class StepExecutorRegistry
     public bool Has(string stepType) => _executors.ContainsKey(stepType);
 
     public IEnumerable<string> RegisteredTypes => _executors.Keys;
+
+    public IReadOnlyDictionary<string, StepContract> GetContracts()
+    {
+        var contracts = new Dictionary<string, StepContract>(StringComparer.Ordinal);
+        foreach (var executor in _executors.Values)
+        {
+            if (executor.Contract != null)
+                contracts[executor.StepType] = executor.Contract;
+        }
+
+        return contracts;
+    }
 
     /// <summary>
     /// Collects DSL snippets from all registered executors.

@@ -402,7 +402,8 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             Ref = candidate.Ref,
             Kind = kind,
             CallDepth = ctx.CallDepth,
-            CallStack = ctx.CallStack
+            CallStack = ctx.CallStack,
+            ActiveDocument = ctx.ActiveDocument
         }, ct);
 
         if (!string.IsNullOrWhiteSpace(resolution.CallStackKey) && ctx.CallStack.Contains(resolution.CallStackKey))
@@ -424,7 +425,8 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             FetchPolicy = ctx.Engine.FetchPolicy,
             Limits = CreateChildLimits(ctx.Limits, candidate),
             Logger = ctx.Engine.Logger,
-            McpCache = ctx.Engine.McpCache
+            McpCache = ctx.Engine.McpCache,
+            McpCacheSlidingExpiration = ctx.Engine.McpCacheSlidingExpiration
         };
 
         var candidateArgs = args.DeepClone() as JsonObject ?? new JsonObject();

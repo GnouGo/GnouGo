@@ -36,9 +36,26 @@ Shell availability is auto-detected at runtime. The `cmd_get_environment` tool r
 
 | Tool                         | Description |
 |------------------------------|-------------|
-| `cmd_list_allowed_commands`  | Lists allowed command aliases with description, shell, working directory, and parameters. |
+| `cmd_list_allowed_commands`  | Returns the allowlist as structured data for clients, diagnostics, and workflows that need to inspect aliases programmatically. |
 | `cmd_get_policy`             | Returns the active policy: shells, roots, timeouts, limits, **and** OS/architecture/available shells. |
-| `cmd_run`                    | Executes an allowlisted alias. Returns structured result with stdout, stderr, exit code, and error details. |
+| `cmd_run`                    | Executes an allowlisted alias. Its advertised tool description includes the configured command aliases and accepted parameter names so planners can choose valid `commandName` values without a separate discovery step. |
+
+## Tool Discovery
+
+`cmd_run` is the primary execution tool. During MCP `tools/list`, its description is enriched from the active `AllowedCommands` configuration with:
+
+- allowed `commandName` aliases
+- each alias description
+- accepted `parametersJson` field names
+- required/optional markers and workspace-path hints
+
+This is intended to help planning workflows generate valid `cmd_run` calls directly.
+
+`cmd_get_policy` and `cmd_list_allowed_commands` are also enriched during MCP `tools/list`.
+Their descriptions include the returned JSON shape plus the current policy roots, limits, shell availability, and allowlisted command aliases.
+This gives `workflow.plan` enough context to generate frozen `mcp.call` requests without first adding discovery calls to the generated workflow.
+
+`cmd_list_allowed_commands` is still kept as a structured introspection endpoint. Use it when a client or workflow needs machine-readable command metadata at runtime rather than prose embedded in the discovery metadata.
 
 ## Structured Error Handling
 
@@ -49,14 +66,15 @@ Shell availability is auto-detected at runtime. The `cmd_get_environment` tool r
 | `success`      | `bool`   | `true` only if exit code is 0 and no timeout. |
 | `exitCode`     | `int`    | Process exit code, or `-1` on error/timeout. |
 | `timedOut`     | `bool`   | `true` if the process was killed after the timeout. |
-| `errorCode`    | `string?`| Machine-readable error category (see below). |
-| `errorMessage` | `string?`| Human-readable explanation. |
+| `ok`           | `bool`   | Mirrors `success` for the shared GnOuGo MCP error contract. |
+| `error_code`   | `string?`| Machine-readable error category (see below). |
+| `error_message`| `string?`| Human-readable explanation. |
 
 Error codes:
 
 | Code                   | Cause |
 |------------------------|-------|
-| `POLICY_VIOLATION`     | Unknown command, bad parameters, shell not allowed, directory outside roots. |
+| `INVALID_INPUT`        | Unknown command, bad parameters, shell not allowed, directory outside roots. |
 | `PROCESS_SETUP_FAILED` | Could not configure the process (e.g., missing environment). |
 | `PROCESS_START_FAILED` | Shell executable not found or access denied. |
 | `TIMEOUT`              | Command exceeded the allowed timeout and was killed. |
@@ -118,8 +136,8 @@ Values are:
 
 For path-bearing parameters, enable the built-in workspace guardrails on the parameter itself:
 
-- `IsWorkspacePath`: treat the value as a workspace-relative or explicitly allowed absolute path
-- `AllowAbsolutePath`: allow fully-qualified absolute paths (still restricted to allowed roots)
+- `IsWorkspacePath`: treat the value as a workspace-relative or fully-qualified absolute path restricted to allowed roots
+- `AllowAbsolutePath`: retained for older configs; safe absolute paths no longer require this opt-in
 - `MustExist`: require the referenced file or directory to already exist
 - `PathKind`: `Any`, `File`, or `Directory`
 
@@ -212,7 +230,7 @@ dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuG
 
 ## Security Notes
 
-- If an allowed shell is not available (`sh` on Windows, `cmd` on Linux), the alias fails gracefully with a `POLICY_VIOLATION` error
+- If an allowed shell is not available (`sh` on Windows, `cmd` on Linux), the alias fails gracefully with an `INVALID_INPUT` error
 - The `cmd_run` tool never executes a raw command provided by the caller
 - All errors are returned as structured results — the MCP client always gets a valid JSON response
 - To allow a new command, it must be explicitly added in `src/GnOuGo.Cmd.Mcp/appsettings.json`

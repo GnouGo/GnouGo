@@ -3,6 +3,7 @@ using DocIngestor.Core.Models;
 using DocIngestor.Core.Pipeline;
 using GnOuGo.DocIngestor.Mcp.Data;
 using GnOuGo.DocIngestor.Mcp.Models;
+using GnOuGo.Workspace;
 
 namespace GnOuGo.DocIngestor.Mcp.Services;
 
@@ -133,8 +134,17 @@ public sealed class DocsIngestorMcpService
         return results;
     }
 
-    public Task<IReadOnlyList<StoredDocumentRecord>> ListFilesAsync(string? tenantId, string? collection, CancellationToken ct = default)
-        => _repository.ListAsync(tenantId, collection, ct);
+    public async Task<IReadOnlyList<StoredDocumentRecord>> ListFilesAsync(string? tenantId, string? collection, CancellationToken ct = default)
+    {
+        var records = await _repository.ListAsync(tenantId, collection, ct);
+        var workspaceRoot = GnOuGoWorkspace.ResolveDefaultWorkingDirectorySafe(contentRootPath: AppContext.BaseDirectory);
+        return records
+            .Select(record => record with
+            {
+                OriginalPathRelative = GnOuGoWorkspace.ToWorkspaceRelativePath(record.OriginalPath, workspaceRoot)
+            })
+            .ToArray();
+    }
 
     public async Task<IReadOnlyList<SearchHitDto>> SearchAsync(
         string query,
@@ -351,5 +361,4 @@ public sealed class DocsIngestorMcpService
             request.OcrDpi);
     }
 }
-
 

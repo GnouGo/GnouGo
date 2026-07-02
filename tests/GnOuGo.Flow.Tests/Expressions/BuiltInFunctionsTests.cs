@@ -128,6 +128,15 @@ public class BuiltInFunctionsTests
         Assert.Equal(42, result!.GetValue<int>());
     }
 
+    [Theory]
+    [InlineData("string(42)")]
+    [InlineData("toString(42)")]
+    public void String_ConvertsValueToString(string expression)
+    {
+        var result = Eval(expression, null);
+        Assert.Equal("42", result!.GetValue<string>());
+    }
+
     [Fact]
     public void Json_SerializesValue()
     {
@@ -356,4 +365,3 @@ public class BuiltInFunctionsTests
         Assert.Equal(5, result!.GetValue<int>());
     }
 }
-

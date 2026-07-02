@@ -23,6 +23,10 @@ class ILLMClient(Protocol):
     async def call_async(self, request: LLMRequest) -> LLMResponse: ...
 
 
+class ILLMCapabilityResolver(Protocol):
+    async def supports_structured_output_async(self, provider: str | None, model: str) -> bool | None: ...
+
+
 class IWorkflowFetcher(Protocol):
     async def fetch_async(self, url: str, integrity: str | None) -> str: ...
 

@@ -1,3 +1,4 @@
+using System.Text;
 using GnOuGo.Workspace;
 using Microsoft.Extensions.Options;
 
@@ -30,11 +31,18 @@ public sealed class DocumentPolicy
     public long MaxFileSizeBytes => _settings.MaxFileSizeBytes;
 
     /// <summary>
-    /// Resolve a file path (relative or absolute) and ensure it is inside an allowed root.
+    /// Resolve a file path and ensure it is inside an allowed root.
     /// </summary>
     public string ResolveFilePath(string filePath)
     {
         var normalized = NormalizeRequired(filePath, nameof(filePath));
+        if (LooksLikeUnsupportedPath(normalized))
+            throw new InvalidOperationException("filePath must resolve inside allowed roots; file URI and home-relative paths are invalid.");
+        if (ContainsParentTraversalSegment(normalized) || ContainsWildcardCharacters(normalized))
+            throw new InvalidOperationException("filePath must not contain parent traversal segments or wildcard characters.");
+        if (IsRootedButNotFullyQualified(normalized))
+            throw new InvalidOperationException("filePath must be fully qualified or relative to the workspace; rooted drive-relative paths are invalid.");
+
         var fullPath = Path.IsPathRooted(normalized)
             ? Path.GetFullPath(normalized)
             : Path.GetFullPath(Path.Combine(_defaultWorkingDirectory, normalized));
@@ -67,6 +75,32 @@ public sealed class DocumentPolicy
             AllowedExtensions: [.. _settings.AllowedExtensions.Distinct(StringComparer.OrdinalIgnoreCase)],
             MaxFileSizeBytes: _settings.MaxFileSizeBytes);
 
+    public string BuildDocumentWriteToolDescription()
+    {
+        var policy = DescribePolicy();
+        var sb = new StringBuilder();
+        sb.AppendLine("Writes text content to a file. For .docx, automatically detects Markdown and maps headings, lists, emphasis, code, links, blockquotes, and tables to Word structures.");
+        sb.AppendLine("For .pdf, generates a readable A4 PDF and automatically renders Markdown headings, lists, emphasis, code, links, blockquotes, tables, and separators.");
+        sb.AppendLine("For .xlsx, generates a spreadsheet from tab/comma-separated text. For other allowed extensions, writes plain text.");
+        sb.AppendLine("Allowed targets come from document_get_policy: file paths must be relative to the workspace root, resolve inside document_get_policy.AllowedRoots, and use an extension from document_get_policy.AllowedExtensions.");
+        sb.Append("Current document_get_policy.AllowedExtensions: ");
+        sb.Append(FormatDescriptionList(policy.AllowedExtensions));
+        sb.AppendLine(".");
+        sb.Append("Current document_get_policy.AllowedRoots: ");
+        sb.Append(FormatDescriptionList(policy.AllowedRoots));
+        sb.AppendLine(".");
+        sb.Append("Current document_get_policy.DefaultWorkingDirectory for relative paths: ");
+        sb.Append(SingleLine(policy.DefaultWorkingDirectory));
+        sb.AppendLine(".");
+        sb.Append("Current document_get_policy.MaxFileSizeBytes: ");
+        sb.Append(policy.MaxFileSizeBytes);
+        sb.AppendLine(" bytes.");
+        sb.AppendLine("Use relative paths only from the workspace root; do not provide absolute paths. Only workspace-contained targets are authorized.");
+        sb.AppendLine("For long LLM workflows, initialize the document with append=false, then call document_write repeatedly with append=true as each section is ready.");
+        sb.Append("This avoids sending one very large final save payload that can exceed the model context window.");
+        return sb.ToString().TrimEnd();
+    }
+
     // ── Private helpers ─────────────────────────────────────────
 
     private List<string> ResolveAllowedRoots()
@@ -82,6 +116,18 @@ public sealed class DocumentPolicy
     private string ResolveDefaultWorkingDirectory()
         => GnOuGoWorkspace.ResolveDefaultWorkingDirectory(_settings.DefaultWorkingDirectory);
 
+    private static string FormatDescriptionList(IEnumerable<string> values)
+    {
+        var items = values
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(SingleLine)
+            .ToArray();
+        return items.Length == 0 ? "none configured" : string.Join(", ", items);
+    }
+
+    private static string SingleLine(string value)
+        => value.ReplaceLineEndings(" ").Trim();
+
     internal static string? DiscoverWorkspaceRoot(string contentRootPath)
         => GnOuGoWorkspace.DiscoverWorkspaceRoot(contentRootPath);
 
@@ -95,6 +141,25 @@ public sealed class DocumentPolicy
             throw new InvalidOperationException($"{param} must not be empty.");
         return v;
     }
+
+    private static bool LooksLikeUnsupportedPath(string path)
+        => path.StartsWith("~/", StringComparison.Ordinal)
+            || path.StartsWith("~\\", StringComparison.Ordinal)
+            || path.StartsWith("file:", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ContainsParentTraversalSegment(string path)
+        => path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries)
+            .Any(static segment => string.Equals(segment, "..", StringComparison.Ordinal));
+
+    private static bool ContainsWildcardCharacters(string path)
+        => path.IndexOfAny(['*', '?']) >= 0;
+
+    private static bool HasDriveRelativePrefix(string path)
+        => path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':';
+
+    private static bool IsRootedButNotFullyQualified(string path)
+        => (Path.IsPathRooted(path) || HasDriveRelativePrefix(path))
+            && !Path.IsPathFullyQualified(path);
 }
 
 public sealed record DocumentPolicyInfo(

@@ -34,12 +34,32 @@ try
         .AddMcpServer(options =>
         {
             options.ServerInfo = new Implementation
+            {
+                Name = "GnOuGo.Cmd.Mcp",
+                Version = "1.0.0"
+            };
+            options.AddGnOuGoToolErrorNormalizer();
+            options.Filters.Request.ListToolsFilters.Add(next => async (request, cancellationToken) =>
+            {
+                var result = await next(request, cancellationToken);
+                var policy = request.Services?.GetService<CommandPolicy>();
+                if (policy is null)
+                    return result;
+
+                foreach (var tool in result.Tools)
                 {
-                    Name = "GnOuGo.Cmd.Mcp",
-                    Version = "1.0.0"
-                };
-                options.AddGnOuGoToolErrorNormalizer();
-            })
+                    tool.Description = tool.Name switch
+                    {
+                        "cmd_run" => policy.BuildCmdRunToolDescription(),
+                        "cmd_get_policy" => policy.BuildGetPolicyToolDescription(),
+                        "cmd_list_allowed_commands" => policy.BuildListAllowedCommandsToolDescription(),
+                        _ => tool.Description
+                    };
+                }
+
+                return result;
+            });
+        })
         .WithStdioServerTransport()
         .WithTools<CmdTools>(CmdMcpJson.SerializerOptions);
 

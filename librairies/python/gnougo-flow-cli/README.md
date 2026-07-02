@@ -83,6 +83,17 @@ Le CLI charge automatiquement les mêmes configurations MCP que .NET depuis:
 
 Les chemins `--project` relatifs sont résolus vers la racine du workspace.
 
+MCP capability discovery is cached for one hour by default. Configure the sliding
+expiration with the same appsettings-style section used by the .NET host:
+
+```json
+{
+  "McpCapabilityCache": {
+    "SlidingExpirationSeconds": 3600
+  }
+}
+```
+
 ## OpenTelemetry
 
 Vous pouvez exporter les spans via OTLP HTTP:
@@ -123,4 +134,3 @@ Workflow root spans include the workflow source for debugging. The emitted attri
 - `run` accepte les entrées Phase 7: `-i key=value` répétable et `-j JSON|@path.json`; `--inputs` reste disponible pour compatibilité.
 - `--run-id` active les sauvegardes de checkpoint en mémoire pendant l'exécution de démonstration.
 - `workflow.plan` reçoit maintenant un contexte enrichi (types d'étapes + documentation MCP découverte) et peut utiliser les patterns MCP direct ou LLM-assisted.
-

@@ -11,9 +11,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.8" />
-    <PackageReference Include="ModelContextProtocol" Version="1.3.0" />
+    <InternalsVisibleTo Include="GnOuGo.Browser.Mcp.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.9" />
+    <PackageReference Include="ModelContextProtocol" Version="1.4.0" />
     <PackageReference Include="Microsoft.Playwright" Version="1.60.0" />
   </ItemGroup>
 
@@ -39,11 +43,13 @@
   -->
   <Target Name="InstallPublishedPlaywrightBrowsers" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
     <PropertyGroup>
-      <PublishedPlaywrightBrowsersDir>$([System.IO.Path]::Combine('$(PublishDir)', 'ms-playwright'))</PublishedPlaywrightBrowsersDir>
+      <PublishDirFullPath>$([System.IO.Path]::GetFullPath('$(PublishDir)'))</PublishDirFullPath>
+      <PublishedPlaywrightBrowsersDir>$([System.IO.Path]::Combine('$(PublishDirFullPath)', 'ms-playwright'))</PublishedPlaywrightBrowsersDir>
+      <PublishedPlaywrightCli>$([System.IO.Path]::Combine('$(PublishDirFullPath)', '.playwright', 'package', 'cli.js'))</PublishedPlaywrightCli>
     </PropertyGroup>
     <Message Importance="high" Text="Installing published Playwright Chromium browsers into $(PublishedPlaywrightBrowsersDir)..." />
     <MakeDir Directories="$(PublishedPlaywrightBrowsersDir)" />
-    <Exec Command="node &quot;$(PublishDir).playwright/package/cli.js&quot; install chromium" WorkingDirectory="$(PublishDir)" EnvironmentVariables="PLAYWRIGHT_BROWSERS_PATH=$(PublishedPlaywrightBrowsersDir)" StandardOutputImportance="low" />
+    <Exec Command="node &quot;$(PublishedPlaywrightCli)&quot; install chromium" WorkingDirectory="$(PublishDirFullPath)" EnvironmentVariables="PLAYWRIGHT_BROWSERS_PATH=$(PublishedPlaywrightBrowsersDir)" StandardOutputImportance="low" />
   </Target>
 
 </Project>

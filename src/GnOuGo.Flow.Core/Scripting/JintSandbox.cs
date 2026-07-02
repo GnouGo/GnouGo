@@ -107,6 +107,8 @@ public sealed class JintSandbox
             engine.SetValue("data", jsData);
         }
 
+        JintUrlInterop.Install(engine);
+
         // Register built-in functions via a dispatcher + JS wrappers
         // This avoids Jint delegate signature issues
 #pragma warning disable IL2026, IL2111 // Jint delegate interop
@@ -167,8 +169,16 @@ public sealed class JintSandbox
         {
             if (val.TryGetValue(out bool b)) return b ? JsBoolean.True : JsBoolean.False;
             if (val.TryGetValue(out double d)) return new JsNumber(d);
+            if (val.TryGetValue(out decimal m)) return new JsNumber((double)m);
+            if (val.TryGetValue(out float f)) return new JsNumber(f);
+            if (val.TryGetValue(out byte b8)) return new JsNumber(b8);
+            if (val.TryGetValue(out sbyte s8)) return new JsNumber(s8);
+            if (val.TryGetValue(out short s16)) return new JsNumber(s16);
+            if (val.TryGetValue(out ushort u16)) return new JsNumber(u16);
             if (val.TryGetValue(out int i)) return new JsNumber(i);
+            if (val.TryGetValue(out uint ui)) return new JsNumber(ui);
             if (val.TryGetValue(out long l)) return new JsNumber(l);
+            if (val.TryGetValue(out ulong ul)) return new JsNumber(ul);
             if (val.TryGetValue(out string? s)) return new JsString(s ?? "");
         }
 
@@ -235,8 +245,5 @@ public sealed class JintSandbox
         return null;
     }
 }
-
-
-
 
 

@@ -33,6 +33,191 @@ public class McpCallExecutorTests
     // ------ Basic mcp.call ------
 
     [Fact]
+    public async Task McpCall_ResolvedRequestIsValidatedAgainstLiveToolSchemaBeforeTransport()
+    {
+        var handlerCalled = false;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("numbers", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "double",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": { "value": { "type": "integer", "minimum": 1 } },
+                      "required": ["value"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            },
+            ToolHandlers =
+            {
+                ["double"] = _ =>
+                {
+                    handlerCalled = true;
+                    return new McpCallResult { Content = new JsonObject { ["result"] = 2 } };
+                }
+            }
+        });
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    inputs:
+      value: string
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: numbers
+          method: double
+          request:
+            value: "${data.inputs.value}"
+""", new JsonObject { ["value"] = "not-a-number" }, factory);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("runtime JSON Schema validation", result.Error.Message);
+        Assert.Contains("expected integer", result.Error.Message);
+        Assert.False(handlerCalled);
+    }
+
+    [Fact]
+    public async Task McpCall_RuntimeValidation_DoesNotEnforceWorkspacePathConventions()
+    {
+        var handlerCalled = false;
+        JsonNode? capturedArguments = null;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("files", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "write_file",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "filePath": {
+                          "type": "string",
+                          "description": "Workspace-relative path."
+                        },
+                        "content": { "type": "string" }
+                      },
+                      "required": ["filePath", "content"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            },
+            ToolHandlers =
+            {
+                ["write_file"] = args =>
+                {
+                    handlerCalled = true;
+                    capturedArguments = args?.DeepClone();
+                    return new McpCallResult { Content = new JsonObject { ["ok"] = true } };
+                }
+            }
+        });
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: write
+        type: mcp.call
+        input:
+          server: files
+          method: write_file
+          request:
+            filePath: /Users/a115vc/Desktop/GnOuGo/report.md
+            content: hello
+    outputs:
+      ok: "${data.steps.write.response.ok}"
+""", mcpFactory: factory);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(handlerCalled);
+        Assert.Equal("/Users/a115vc/Desktop/GnOuGo/report.md", capturedArguments!["filePath"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task McpCall_RuntimeValidation_DoesNotRejectAbsoluteGitCloneTargetDirectory()
+    {
+        var handlerCalled = false;
+        JsonNode? capturedArguments = null;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("GnOuGo.Git.Mcp", new MockMcpServerConfig
+        {
+            Tools = new List<McpToolInfo>
+            {
+                new()
+                {
+                    Name = "git_clone",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "remoteUrl": { "type": "string" },
+                        "targetDirectory": {
+                          "type": "string",
+                          "description": "Clone target directory relative to the workspace root only."
+                        }
+                      },
+                      "required": ["remoteUrl", "targetDirectory"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            },
+            ToolHandlers =
+            {
+                ["git_clone"] = args =>
+                {
+                    handlerCalled = true;
+                    capturedArguments = args?.DeepClone();
+                    return new McpCallResult
+                    {
+                        Content = new JsonObject
+                        {
+                            ["projectRootRelative"] = "issue-544"
+                        }
+                    };
+                }
+            }
+        });
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: clone
+        type: mcp.call
+        input:
+          server: GnOuGo.Git.Mcp
+          method: git_clone
+          request:
+            remoteUrl: https://github.com/AxaFrance/oidc-client
+            targetDirectory: /Users/a115vc/Desktop/GnOuGo/issue-544
+    outputs:
+      project_root: "${data.steps.clone.response.projectRootRelative}"
+""", mcpFactory: factory);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(handlerCalled);
+        Assert.Equal("/Users/a115vc/Desktop/GnOuGo/issue-544", capturedArguments!["targetDirectory"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task McpCall_BasicCall_ReturnsOk()
     {
         var mockSession = new Mock<IMcpSession>();
@@ -66,7 +251,7 @@ workflows:
       msg: "${data.steps.call_mcp.response.message}"
 """, mcpFactory: mockFactory.Object);
 
-        Assert.True(result.Success);
+        Assert.True(result.Success, result.Error?.Message);
         Assert.Equal("ok", result.Outputs!["status"]!.GetValue<string>());
         Assert.Equal("Hello World", result.Outputs["msg"]!.GetValue<string>());
 
@@ -422,6 +607,89 @@ workflows:
         Assert.True(result.Success);
         Assert.True(result.Outputs!["recovered"]!.GetValue<bool>());
         Assert.Equal("ALREADY_EXISTS", result.Outputs["mcp_code"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task McpCall_DefaultRaiseOnError_AllowsExplicitSuccessEnvelopeWithErrorFields()
+    {
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("srv");
+        mockSession.Setup(s => s.CallToolAsync("write", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new McpCallResult
+            {
+                IsError = false,
+                Content = new JsonObject
+                {
+                    ["success"] = true,
+                    ["filePath"] = "dry-run",
+                    ["bytesWritten"] = 1,
+                    ["errorCode"] = "dry-run",
+                    ["errorMessage"] = "dry-run"
+                }
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("srv", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: srv
+          method: write
+          request: {}
+    outputs:
+      status: "${data.steps.call.status}"
+      path: "${data.steps.call.response.filePath}"
+""", mcpFactory: mockFactory.Object);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("ok", result.Outputs!["status"]!.GetValue<string>());
+        Assert.Equal("dry-run", result.Outputs["path"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task McpCall_DefaultRaiseOnError_TransportErrorWinsOverExplicitSuccessEnvelope()
+    {
+        var mockSession = new Mock<IMcpSession>();
+        mockSession.Setup(s => s.ServerName).Returns("srv");
+        mockSession.Setup(s => s.CallToolAsync("write", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new McpCallResult
+            {
+                IsError = true,
+                Content = new JsonObject
+                {
+                    ["success"] = true,
+                    ["filePath"] = "dry-run"
+                }
+            });
+        mockSession.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IMcpClientFactory>();
+        mockFactory.Setup(f => f.GetClientAsync("srv", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mockSession.Object);
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: mcp.call
+        input:
+          server: srv
+          method: write
+          request: {}
+""", mcpFactory: mockFactory.Object);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.McpCallError, result.Error!.Code);
     }
 
     [Fact]
@@ -874,6 +1142,10 @@ workflows:
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("data-server", new MockMcpServerConfig
         {
+            Tools = new List<McpToolInfo>
+            {
+                new() { Name = "fetch_data", InputSchema = new JsonObject { ["type"] = "object" } }
+            },
             ToolHandlers = new()
             {
                 ["fetch_data"] = _ => new McpCallResult

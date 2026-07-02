@@ -99,6 +99,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: Generate a greeting
@@ -137,6 +138,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test
@@ -243,6 +245,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test
@@ -294,6 +297,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test
@@ -349,6 +353,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test
@@ -400,6 +405,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test
@@ -476,6 +482,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test
@@ -533,6 +540,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test
@@ -646,6 +654,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test
@@ -703,6 +712,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test
@@ -755,6 +765,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test
@@ -817,6 +828,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test
@@ -871,6 +883,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test
@@ -964,6 +977,7 @@ public class WorkflowExecuteExecutorTests
                   - id: generate
                     type: workflow.plan
                     input:
+                      mode: basic
                       generator:
                         model: gpt-4
                         instruction: test

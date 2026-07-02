@@ -3,7 +3,11 @@ from types import SimpleNamespace
 
 from gnougo_flow_core.models import LLMRequest
 
-from gnougo_flow_cli.openai_client import OpenAiLlmClient, _normalize_openai_json_schema
+from gnougo_flow_cli.openai_client import (
+    BackgroundModeAvailabilityCache,
+    OpenAiLlmClient,
+    _normalize_openai_json_schema,
+)
 
 
 def test_normalize_openai_json_schema_adds_additional_properties_false_in_strict_mode() -> None:
@@ -170,4 +174,48 @@ def test_openai_client_forwards_reasoning_effort() -> None:
     assert captured["reasoning_effort"] == "high"
     assert response.text == "ok"
 
+
+def test_openai_client_caches_background_404_and_skips_second_attempt() -> None:
+    calls: list[str] = []
+
+    class NotFoundError(Exception):
+        status_code = 404
+
+    class FakeResponses:
+        async def create(self, **kwargs):
+            calls.append("responses.create")
+            raise NotFoundError("404 not found")
+
+    class FakeCompletions:
+        async def create(self, **kwargs):
+            calls.append("chat.completions.create")
+            message = SimpleNamespace(content="ok", tool_calls=None)
+            choice = SimpleNamespace(message=message)
+            return SimpleNamespace(
+                choices=[choice],
+                usage=None,
+                model_dump=lambda: {"id": "chat"},
+            )
+
+    client = object.__new__(OpenAiLlmClient)
+    client._default_model = "gpt-5.4"
+    client._background_cache = BackgroundModeAvailabilityCache()
+    client._background_cache_key = "openai|test|responses"
+    client._client = SimpleNamespace(
+        responses=FakeResponses(),
+        chat=SimpleNamespace(completions=FakeCompletions()),
+    )
+
+    request = LLMRequest(model="", prompt="hello", use_background_mode=True)
+
+    first = asyncio.run(client.call_async(request))
+    second = asyncio.run(client.call_async(request))
+
+    assert first.text == "ok"
+    assert second.text == "ok"
+    assert calls == [
+        "responses.create",
+        "chat.completions.create",
+        "chat.completions.create",
+    ]
 

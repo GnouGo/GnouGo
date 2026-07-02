@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Models;
+using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
 namespace GnOuGo.Flow.Core.Parsing;
@@ -25,6 +26,7 @@ public static class WorkflowParser
 
         var doc = new WorkflowDocument();
         doc.RawYaml = yaml;
+        CollectUnknownYamlFields(root, doc.UnknownFields);
 
         // version
         doc.Version = ParseWorkflowVersion(root);
@@ -87,6 +89,175 @@ public static class WorkflowParser
         return skillNode == null ? null : ParseWorkflowSkill(skillNode);
     }
 
+    private static readonly HashSet<string> RootFields = new(StringComparer.Ordinal)
+    {
+        "version", "name", "meta", "skill", "skills", "functions", "exports", "entrypoint", "workflows"
+    };
+
+    private static readonly HashSet<string> WorkflowFields = new(StringComparer.Ordinal)
+    {
+        "inputs", "skill", "skills", "functions", "steps", "outputs"
+    };
+
+    private static readonly HashSet<string> StepFields = new(StringComparer.Ordinal)
+    {
+        "id", "type", "if", "input", "output", "output_schema", "retry", "on_error",
+        "steps", "branches", "cases", "expr", "default", "item_var", "index_var"
+    };
+
+    private static readonly HashSet<string> RetryFields = new(StringComparer.Ordinal)
+    {
+        "max", "backoff_ms", "backoff_mult", "jitter_ms"
+    };
+
+    private static readonly HashSet<string> OnErrorFields = new(StringComparer.Ordinal)
+    {
+        "cases"
+    };
+
+    private static readonly HashSet<string> OnErrorCaseFields = new(StringComparer.Ordinal)
+    {
+        "if", "action", "set_output", "retry"
+    };
+
+    private static readonly HashSet<string> BranchFields = new(StringComparer.Ordinal)
+    {
+        "id", "name", "steps"
+    };
+
+    private static readonly HashSet<string> SwitchCaseFields = new(StringComparer.Ordinal)
+    {
+        "value", "when", "steps"
+    };
+
+    private static void CollectUnknownYamlFields(YamlMappingNode root, List<UnknownYamlField> unknownFields)
+    {
+        AddUnknownFields(root, "$", RootFields, unknownFields);
+
+        var workflowsNode = root.GetMapping("workflows");
+        if (workflowsNode == null)
+            return;
+
+        foreach (var child in workflowsNode.Children)
+        {
+            if (child.Key is not YamlScalarNode workflowNameNode || child.Value is not YamlMappingNode workflowNode)
+                continue;
+
+            var workflowName = workflowNameNode.Value ?? "";
+            var workflowPath = $"workflows.{workflowName}";
+            AddUnknownFields(workflowNode, workflowPath, WorkflowFields, unknownFields);
+
+            if (workflowNode.GetSequence("steps") is { } stepsNode)
+                CollectUnknownStepListFields(stepsNode, $"{workflowPath}.steps", unknownFields);
+        }
+    }
+
+    private static void CollectUnknownStepListFields(
+        YamlSequenceNode stepsNode,
+        string path,
+        List<UnknownYamlField> unknownFields)
+    {
+        for (var i = 0; i < stepsNode.Children.Count; i++)
+        {
+            if (stepsNode.Children[i] is YamlMappingNode stepNode)
+                CollectUnknownStepFields(stepNode, $"{path}[{i}]", unknownFields);
+        }
+    }
+
+    private static void CollectUnknownStepFields(
+        YamlMappingNode stepNode,
+        string path,
+        List<UnknownYamlField> unknownFields)
+    {
+        AddUnknownFields(stepNode, path, StepFields, unknownFields);
+
+        if (stepNode.GetMapping("retry") is { } retryNode)
+            AddUnknownFields(retryNode, $"{path}.retry", RetryFields, unknownFields);
+
+        if (stepNode.GetMapping("on_error") is { } onErrorNode)
+            CollectUnknownOnErrorFields(onErrorNode, $"{path}.on_error", unknownFields);
+
+        if (stepNode.GetSequence("steps") is { } childSteps)
+            CollectUnknownStepListFields(childSteps, $"{path}.steps", unknownFields);
+
+        if (stepNode.GetSequence("branches") is { } branches)
+        {
+            for (var i = 0; i < branches.Children.Count; i++)
+            {
+                if (branches.Children[i] is not YamlMappingNode branchNode)
+                    continue;
+
+                var branchPath = $"{path}.branches[{i}]";
+                AddUnknownFields(branchNode, branchPath, BranchFields, unknownFields);
+                if (branchNode.GetSequence("steps") is { } branchSteps)
+                    CollectUnknownStepListFields(branchSteps, $"{branchPath}.steps", unknownFields);
+            }
+        }
+
+        if (stepNode.GetSequence("cases") is { } cases)
+        {
+            for (var i = 0; i < cases.Children.Count; i++)
+            {
+                if (cases.Children[i] is not YamlMappingNode caseNode)
+                    continue;
+
+                var casePath = $"{path}.cases[{i}]";
+                AddUnknownFields(caseNode, casePath, SwitchCaseFields, unknownFields);
+                if (caseNode.GetSequence("steps") is { } caseSteps)
+                    CollectUnknownStepListFields(caseSteps, $"{casePath}.steps", unknownFields);
+            }
+        }
+
+        if (stepNode.GetSequence("default") is { } defaultSteps)
+            CollectUnknownStepListFields(defaultSteps, $"{path}.default", unknownFields);
+    }
+
+    private static void CollectUnknownOnErrorFields(
+        YamlMappingNode onErrorNode,
+        string path,
+        List<UnknownYamlField> unknownFields)
+    {
+        AddUnknownFields(onErrorNode, path, OnErrorFields, unknownFields);
+
+        if (onErrorNode.GetSequence("cases") is not { } cases)
+            return;
+
+        for (var i = 0; i < cases.Children.Count; i++)
+        {
+            if (cases.Children[i] is not YamlMappingNode caseNode)
+                continue;
+
+            var casePath = $"{path}.cases[{i}]";
+            AddUnknownFields(caseNode, casePath, OnErrorCaseFields, unknownFields);
+            if (caseNode.GetMapping("retry") is { } retryNode)
+                AddUnknownFields(retryNode, $"{casePath}.retry", RetryFields, unknownFields);
+        }
+    }
+
+    private static void AddUnknownFields(
+        YamlMappingNode node,
+        string path,
+        IReadOnlySet<string> allowedFields,
+        List<UnknownYamlField> unknownFields)
+    {
+        foreach (var child in node.Children)
+        {
+            if (child.Key is not YamlScalarNode keyNode)
+                continue;
+
+            var field = keyNode.Value ?? "";
+            if (allowedFields.Contains(field))
+                continue;
+
+            unknownFields.Add(new UnknownYamlField
+            {
+                Field = field,
+                Path = path == "$" ? field : $"{path}.{field}",
+                AllowedFields = allowedFields.OrderBy(static allowed => allowed, StringComparer.Ordinal).ToArray()
+            });
+        }
+    }
+
     private static int ParseWorkflowVersion(YamlMappingNode root)
     {
         if (!root.Children.TryGetValue(new YamlScalarNode("version"), out var node))
@@ -112,6 +283,11 @@ public static class WorkflowParser
     private static WorkflowDef ParseWorkflowDef(YamlMappingNode node, string name)
     {
         var wf = new WorkflowDef();
+
+        // Optional per-workflow skill metadata (used by routers/catalogs).
+        var skillNode = node.GetMapping("skill") ?? node.GetMapping("skills");
+        if (skillNode != null)
+            wf.Skill = ParseWorkflowSkill(skillNode);
 
         // inputs
         var inputsNode = node.GetMapping("inputs");
@@ -196,10 +372,15 @@ public static class WorkflowParser
 
         if (node is YamlMappingNode map)
         {
+            var required = map.Children.TryGetValue(new YamlScalarNode("required"), out var requiredNode)
+                && requiredNode is YamlScalarNode
+                    ? map.GetBool("required")
+                    : null;
+
             var def = new InputDef
             {
                 Type = map.GetScalar("type") ?? "any",
-                Required = map.GetBool("required") ?? true,
+                Required = required ?? true,
                 Default = map.GetScalar("default"),
                 Description = map.GetScalar("description")
             };
@@ -228,10 +409,8 @@ public static class WorkflowParser
             if (additionalNode != null)
                 def.AdditionalProperties = ParseInputDef(additionalNode);
 
-            // Required property names (for objects)
-            def.RequiredProperties = map.GetStringList("required") is { Count: > 0 } reqList
-                ? reqList
-                : null;
+            var requiredProperties = map.GetStringList("required_properties");
+            def.RequiredProperties = requiredProperties.Count > 0 ? requiredProperties : null;
 
             return def;
         }
@@ -284,10 +463,8 @@ public static class WorkflowParser
                 if (additionalNode != null)
                     def.AdditionalProperties = ParseOutputDef(additionalNode);
 
-                // Required property names (for objects)
-                def.RequiredProperties = map.GetStringList("required") is { Count: > 0 } reqList
-                    ? reqList
-                    : null;
+                var requiredProperties = map.GetStringList("required_properties");
+                def.RequiredProperties = requiredProperties.Count > 0 ? requiredProperties : null;
 
                 return def;
             }
@@ -322,9 +499,8 @@ public static class WorkflowParser
                 if (additionalNode != null)
                     def.AdditionalProperties = ParseOutputDef(additionalNode);
 
-                def.RequiredProperties = map.GetStringList("required") is { Count: > 0 } reqList
-                    ? reqList
-                    : null;
+                var requiredProperties = map.GetStringList("required_properties");
+                def.RequiredProperties = requiredProperties.Count > 0 ? requiredProperties : null;
 
                 return def;
             }
@@ -387,6 +563,12 @@ public static class WorkflowParser
         {
             var inputNode = node.Children[new YamlScalarNode("input")];
             step.Input = YamlToJson(inputNode);
+        }
+
+        if (node.HasKey("output_schema"))
+        {
+            var outputSchemaNode = node.Children[new YamlScalarNode("output_schema")];
+            step.OutputSchema = YamlToJson(outputSchemaNode);
         }
 
         // retry
@@ -509,14 +691,20 @@ public static class WorkflowParser
     private static JsonNode? ParseScalarToJson(YamlScalarNode scalar)
     {
         var val = scalar.Value;
-        if (val == null || val == "null" || val == "~") return null;
+        if (val == null) return null;
+        if (!ShouldInferScalarType(scalar)) return JsonValue.Create(val);
+        if (val == "null" || val == "~") return null;
         if (val == "true" || val == "True") return JsonValue.Create(true);
         if (val == "false" || val == "False") return JsonValue.Create(false);
-        if (int.TryParse(val, out var i)) return JsonValue.Create(i);
+        if (int.TryParse(val, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var i))
+            return JsonValue.Create(i);
         if (double.TryParse(val, System.Globalization.CultureInfo.InvariantCulture, out var d))
             return JsonValue.Create(d);
         return JsonValue.Create(val);
     }
+
+    private static bool ShouldInferScalarType(YamlScalarNode scalar) =>
+        scalar.Style is ScalarStyle.Any or ScalarStyle.Plain;
 
     private static JsonObject YamlMapToJson(YamlMappingNode map)
     {

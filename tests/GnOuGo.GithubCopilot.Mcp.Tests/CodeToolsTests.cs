@@ -23,13 +23,30 @@ public sealed class CodeToolsTests : IDisposable
 	}
 
 	[Fact]
+	public void CodeMcpProjectRootParameters_AreRequiredStrings()
+	{
+		var parameters = typeof(CodeTools)
+			.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly)
+			.SelectMany(method => method.GetParameters())
+			.Where(parameter => string.Equals(parameter.Name, "projectRoot", StringComparison.Ordinal))
+			.ToArray();
+
+		Assert.NotEmpty(parameters);
+		Assert.All(parameters, parameter =>
+		{
+			Assert.Equal(typeof(string), parameter.ParameterType);
+			Assert.False(parameter.HasDefaultValue);
+		});
+	}
+
+	[Fact]
 	public async Task SuggestChangeAsync_ReadsContextAndDelegatesToAssistant()
 	{
 		var settings = CreateSettings();
 		var assistant = new CapturingAssistantClient();
 		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
 
-		var result = await tools.SuggestChangeAsync(_root, "Add a greeting method.", "[\"src/Program.cs\"]");
+		var result = await tools.SuggestChangeAsync(".", "Add a greeting method.", "[\"src/Program.cs\"]");
 
 		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
 		Assert.Equal("Add a greeting method.", suggestion.Task);
@@ -49,11 +66,27 @@ public sealed class CodeToolsTests : IDisposable
 		var assistant = new CapturingAssistantClient();
 		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
 
-		var result = await tools.SuggestChangeAsync(_root, "Use a custom provider.", provider: "CustomCopilot");
+		var result = await tools.SuggestChangeAsync(".", "Use a custom provider.", provider: "CustomCopilot");
 
 		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
 		Assert.Equal("fake suggestion", suggestion.Suggestion);
 		Assert.Equal("CustomCopilot", assistant.ProviderName);
+	}
+
+	[Fact]
+	public async Task SuggestChangeAsync_WhenInputJsonFails_ReturnsStructuredFailure()
+	{
+		var settings = CreateSettings();
+		var assistant = new CapturingAssistantClient();
+		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
+
+		var result = await tools.SuggestChangeAsync(".", "Plan this change.", "{");
+
+		Assert.False(result.Success);
+		Assert.False(result.Ok);
+		Assert.Equal("INVALID_INPUT", result.ErrorCode);
+		Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+		Assert.Empty(result.ProgressEvents);
 	}
 
 	[Fact]
@@ -64,7 +97,7 @@ public sealed class CodeToolsTests : IDisposable
 		var assistant = new CapturingAssistantClient();
 		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
 
-		var result = await tools.AgentEditAsync(_root, "Implement the change.", "[\"src/Program.cs\"]", provider: "CustomCopilot");
+		var result = await tools.AgentEditAsync(".", "Implement the change.", "[\"src/Program.cs\"]", provider: "CustomCopilot");
 
 		var edit = Assert.IsType<CodeAgentEditResult>(result);
 		Assert.Equal("Implement the change.", edit.Task);
@@ -410,4 +443,3 @@ public sealed class CodeToolsTests : IDisposable
 		}
 	}
 }
-

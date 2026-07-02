@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -165,7 +166,8 @@ public sealed class CommandExecutionHost
                     FinishedAtUtc: finishedAt,
                     DurationMs: (finishedAt - startedAt).TotalMilliseconds,
                     ErrorCode: errorCode,
-                    ErrorMessage: errorMessage);
+                    ErrorMessage: errorMessage,
+                    WorkingDirectoryRelative: _policy.ToWorkspaceRelativePath(workingDirectory));
             }
         }
         finally
@@ -248,9 +250,14 @@ public sealed record CmdRunResult(
     DateTimeOffset? StartedAtUtc,
     DateTimeOffset? FinishedAtUtc,
     double DurationMs,
-    string? ErrorCode = null,
-    string? ErrorMessage = null)
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null,
+    string? WorkingDirectoryRelative = null)
 {
+    public bool Ok => Success;
+
+    public string? Message => ErrorMessage;
+
     /// <summary>
     /// Creates a structured error result without a process execution.
     /// </summary>
@@ -271,4 +278,3 @@ public sealed record CmdRunResult(
             ErrorCode: errorCode,
             ErrorMessage: errorMessage);
 }
-

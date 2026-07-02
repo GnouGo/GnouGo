@@ -1,0 +1,81 @@
+version: "1"
+name: "bad_raw_loop_results_public_output"
+skill:
+  description: "Regression fixture for a bad pipeline main output projection."
+  tags: [regression, workflow-plan, pipeline]
+  inputs: {}
+  outputs:
+    result:
+      type: "array"
+      description: "Projected records."
+      items:
+        type: "object"
+        properties:
+          id:
+            type: "string"
+          name:
+            type: "string"
+        required_properties: [id, name]
+entrypoint: "main"
+workflows:
+  main:
+    steps:
+      - id: "source_records"
+        type: "set"
+        output_schema:
+          type: "object"
+          properties:
+            records:
+              type: "array"
+              items:
+                type: "object"
+                properties:
+                  id:
+                    type: "string"
+                  name:
+                    type: "string"
+                required:
+                  - "id"
+                  - "name"
+          required:
+            - "records"
+          additionalProperties: false
+        input:
+          records:
+            - id: "issue-1703"
+              name: "Refresh token calls are made twice"
+      - id: "process_records"
+        type: "loop.sequential"
+        input:
+          items: "${data.steps.source_records.records}"
+        item_var: "record"
+        index_var: "index"
+        steps:
+          - id: "shape_record"
+            type: "set"
+            output_schema:
+              type: "object"
+              properties:
+                id:
+                  type: "string"
+                name:
+                  type: "string"
+              required:
+                - "id"
+                - "name"
+              additionalProperties: false
+            input:
+              id: "${data.record.id}"
+              name: "${data.record.name}"
+    outputs:
+      result:
+        expr: "${data.steps.process_records.results}"
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            id:
+              type: "string"
+            name:
+              type: "string"
+          required_properties: [id, name]

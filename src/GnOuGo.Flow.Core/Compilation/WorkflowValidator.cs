@@ -11,19 +11,26 @@ namespace GnOuGo.Flow.Core.Compilation;
 /// </summary>
 public sealed class WorkflowValidator
 {
+    private readonly StepExecutorRegistry? _registry;
+
     private static readonly HashSet<string> KnownStepTypes = new()
     {
         "sequence", "parallel",
         "loop.sequential", "loop.parallel",
-        "switch", "set",
+        "switch", "set", "assert.non_null",
         "template.render",
         "llm.call",
-        "workflow.call", "workflow.plan", "workflow.execute",
+        "workflow.call", "workflow.route", "workflow.plan", "workflow.execute",
         "chat_history.get", "chat_history.append",
         "mcp.call", "mcp.list",
         "emit",
         "human.input"
     };
+
+    public WorkflowValidator(StepExecutorRegistry? registry = null)
+    {
+        _registry = registry;
+    }
 
     public List<ValidationError> Validate(WorkflowDocument doc)
     {
@@ -32,6 +39,18 @@ public sealed class WorkflowValidator
         // Workflow version
         if (doc.Version != 1)
             errors.Add(new ValidationError { Code = "DSL_VERSION", Message = $"Unsupported workflow version: {doc.Version}" });
+
+        // YAML structural shape. The parser preserves unknown keys here so typos
+        // such as step-level "inputs:" or "method:" do not silently disappear.
+        foreach (var unknown in doc.UnknownFields)
+        {
+            errors.Add(new ValidationError
+            {
+                Code = ErrorCodes.InputValidation,
+                Field = unknown.Path,
+                Message = $"Unknown YAML field '{unknown.Field}' at '{unknown.Path}'. Allowed fields here: {string.Join(", ", unknown.AllowedFields)}."
+            });
+        }
 
         // Must have at least one workflow
         if (doc.Workflows.Count == 0)
@@ -246,7 +265,8 @@ public sealed class WorkflowValidator
     private void ValidateStep(StepDef step, string wfName, WorkflowDocument doc, List<ValidationError> errors)
     {
         // Known step type
-        if (!KnownStepTypes.Contains(step.Type))
+        var isKnownStepType = _registry?.Has(step.Type) ?? KnownStepTypes.Contains(step.Type);
+        if (!isKnownStepType)
             errors.Add(new ValidationError
             {
                 Code = ErrorCodes.StepTypeUnknown,
@@ -255,6 +275,39 @@ public sealed class WorkflowValidator
                 Message = $"Unknown step type: '{step.Type}'"
             });
 
+        // Contract enforcement is registry-aware and opt-in for the general compiler to
+        // preserve its historical ability to compile deliberately invalid runtime test cases.
+        // workflow.plan always supplies its real registry and therefore validates fail-closed.
+        if (isKnownStepType && _registry != null)
+        {
+            var contract = _registry.Get(step.Type)?.Contract;
+            if (contract == null)
+            {
+                errors.Add(new ValidationError
+                {
+                    Code = ErrorCodes.InputValidation,
+                    WorkflowName = wfName,
+                    StepId = step.Id,
+                    Field = "input",
+                    Message = $"Registered step type '{step.Type}' does not declare an input/output contract."
+                });
+            }
+            else if (contract != null)
+            {
+                foreach (var violation in StepContractValidator.ValidateInput(step.Input, contract))
+                {
+                    errors.Add(new ValidationError
+                    {
+                        Code = ErrorCodes.InputValidation,
+                        WorkflowName = wfName,
+                        StepId = step.Id,
+                        Field = violation.Field,
+                        Message = $"{step.Type} {violation.Message}."
+                    });
+                }
+            }
+        }
+
         // If guard expression
         if (step.If != null)
             ValidateExpression(step.If, wfName, step.Id, "if", errors);
@@ -262,6 +315,8 @@ public sealed class WorkflowValidator
         // Expr for switch
         if (step.Expr != null)
             ValidateExpression(step.Expr, wfName, step.Id, "expr", errors);
+
+        ValidateStepOutputSchema(step, wfName, errors);
 
         // Type-specific validation
         switch (step.Type)
@@ -291,6 +346,10 @@ public sealed class WorkflowValidator
                 ValidateWorkflowCallRef(step, wfName, doc, errors);
                 break;
 
+            case "llm.call":
+                ValidateLlmCallStructuredOutput(step, wfName, errors);
+                break;
+
             case "human.input":
                 ValidateHumanInputStep(step, wfName, errors);
                 break;
@@ -315,6 +374,97 @@ public sealed class WorkflowValidator
         if (step.Default != null)
             foreach (var s in step.Default)
                 ValidateStep(s, wfName, doc, errors);
+    }
+
+    private static void ValidateStepOutputSchema(StepDef step, string wfName, List<ValidationError> errors)
+    {
+        if (step.OutputSchema == null)
+            return;
+
+        if (!string.Equals(step.Type, "set", StringComparison.Ordinal))
+        {
+            errors.Add(new ValidationError
+            {
+                Code = ErrorCodes.InputValidation,
+                WorkflowName = wfName,
+                StepId = step.Id,
+                Field = "output_schema",
+                Message = "output_schema is currently supported only on set steps."
+            });
+            return;
+        }
+
+        if (step.OutputSchema is not JsonObject schemaObject)
+        {
+            errors.Add(new ValidationError
+            {
+                Code = ErrorCodes.InputValidation,
+                WorkflowName = wfName,
+                StepId = step.Id,
+                Field = "output_schema",
+                Message = "set output_schema must be a JSON Schema object."
+            });
+            return;
+        }
+
+        foreach (var schemaError in JsonSchemaContractValidator.ValidateSchema(schemaObject, strictProfile: false))
+        {
+            errors.Add(new ValidationError
+            {
+                Code = ErrorCodes.InputValidation,
+                WorkflowName = wfName,
+                StepId = step.Id,
+                Field = "output_schema",
+                Message = $"set output_schema is invalid: {schemaError}"
+            });
+        }
+
+        if (!DeclaresJsonObjectRoot(schemaObject))
+        {
+            errors.Add(new ValidationError
+            {
+                Code = ErrorCodes.InputValidation,
+                WorkflowName = wfName,
+                StepId = step.Id,
+                Field = "output_schema",
+                Message = "set output_schema root must declare type: object."
+            });
+        }
+    }
+
+    private static bool DeclaresJsonObjectRoot(JsonObject schemaObject)
+    {
+        if (schemaObject["type"] is JsonValue typeValue
+            && typeValue.TryGetValue<string>(out var typeName))
+        {
+            return string.Equals(typeName, "object", StringComparison.Ordinal);
+        }
+
+        return schemaObject["type"] is JsonArray types
+            && types.Any(type => type is JsonValue value
+                && value.TryGetValue<string>(out var name)
+                && string.Equals(name, "object", StringComparison.Ordinal));
+    }
+
+    private static void ValidateLlmCallStructuredOutput(StepDef step, string workflowName, List<ValidationError> errors)
+    {
+        if (step.Input is not JsonObject input || !input.TryGetPropertyValue("structured_output", out var structuredOutput))
+            return;
+
+        var contract = JsonSchemaContractValidator.ValidateStructuredOutput(
+            structuredOutput,
+            allowDynamicSchemaReference: true);
+        foreach (var message in contract.Errors)
+        {
+            errors.Add(new ValidationError
+            {
+                Code = ErrorCodes.LlmSchema,
+                WorkflowName = workflowName,
+                StepId = step.Id,
+                Field = "input.structured_output",
+                Message = message
+            });
+        }
     }
 
     private void ValidateWorkflowCallRef(StepDef step, string wfName, WorkflowDocument doc, List<ValidationError> errors)
@@ -440,7 +590,7 @@ public sealed class WorkflowValidator
 
     private static readonly HashSet<string> KnownInputTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "any", "string", "number", "boolean", "array", "object", "dictionary"
+        "any", "string", "number", "integer", "boolean", "array", "object", "dictionary"
     };
 
     private void ValidateInputDef(InputDef def, string wfName, string path, List<ValidationError> errors)

@@ -66,7 +66,7 @@ public class DefaultWorkflowCallResolver : IWorkflowCallResolver
             throw new WorkflowRuntimeException(ErrorCodes.WorkflowCycleDetected,
                 $"Cycle detected: workflow '{name}' already in call stack");
 
-        var compiledDoc = context.Engine.CompiledDocument;
+        var compiledDoc = context.ActiveDocument ?? context.Engine.CompiledDocument;
         if (compiledDoc == null || !compiledDoc.Workflows.TryGetValue(name, out var workflow))
             throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"Local workflow '{name}' not found");
 
@@ -201,5 +201,4 @@ public class DefaultWorkflowCallResolver : IWorkflowCallResolver
             $"Could not resolve target workflow from {sourceDescription}");
     }
 }
-
 

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using GnOuGo.Workspace;
@@ -86,24 +87,127 @@ public sealed class CommandPolicy
             .Select(kv =>
             {
                 var effective = ApplyOsOverride(kv.Value);
+                var workingDirectory = ResolveWorkingDirectory(effective.WorkingDirectory);
                 return new CmdAllowedCommandInfo(
                     Name: kv.Key,
                     Description: effective.Description,
                     Shell: effective.Shell,
-                    WorkingDirectory: ResolveWorkingDirectory(effective.WorkingDirectory),
-                    Parameters: effective.Parameters.Keys.OrderBy(static p => p, StringComparer.OrdinalIgnoreCase).ToArray());
+                    WorkingDirectory: workingDirectory,
+                    Parameters: effective.Parameters.Keys.OrderBy(static p => p, StringComparer.OrdinalIgnoreCase).ToArray(),
+                    WorkingDirectoryRelative: ToWorkspaceRelativePath(workingDirectory));
             })
             .ToArray();
 
     public CmdPolicyInfo DescribePolicy()
-        => new(
+    {
+        var allowedWorkingRoots = ResolveAllowedWorkingRoots();
+        return new(
             AllowedShells: [.. _settings.AllowedShells.Distinct(StringComparer.OrdinalIgnoreCase)],
-            AllowedWorkingRoots: [.. ResolveAllowedWorkingRoots()],
+            AllowedWorkingRoots: [.. allowedWorkingRoots],
             DefaultTimeoutMs: _settings.DefaultTimeoutMs,
             MaxTimeoutMs: _settings.MaxTimeoutMs,
             MaxOutputCharacters: _settings.MaxOutputCharacters,
             AllowedCommandCount: _settings.AllowedCommands.Count,
-            Environment: DetectEnvironment());
+            Environment: DetectEnvironment(),
+            DefaultWorkingDirectory: _defaultWorkingDirectory,
+            DefaultWorkingDirectoryRelative: ToWorkspaceRelativePath(_defaultWorkingDirectory),
+            AllowedWorkingRootsRelative: allowedWorkingRoots
+                .Select(ToWorkspaceRelativePath)
+                .Where(static path => !string.IsNullOrWhiteSpace(path))
+                .Cast<string>()
+                .ToArray());
+    }
+
+    public string BuildCmdRunToolDescription()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Runs one allowlisted command by name. Raw shell commands are not accepted; only preconfigured aliases may be executed. Commands execute within the default workspace. Returns a structured result with stdout, stderr, exit code, success flag, and error details if any.");
+
+        if (_settings.AllowedCommands.Count == 0)
+        {
+            sb.AppendLine("Allowed commandName values: none configured.");
+            return sb.ToString().TrimEnd();
+        }
+
+        sb.AppendLine("Allowed commandName values:");
+        foreach (var commandEntry in _settings.AllowedCommands.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            var command = ApplyOsOverride(commandEntry.Value);
+            sb.Append("- ");
+            sb.Append(commandEntry.Key);
+
+            if (!string.IsNullOrWhiteSpace(command.Description))
+            {
+                sb.Append(": ");
+                sb.Append(SingleLine(command.Description));
+            }
+
+            sb.Append(" Parameters: ");
+            sb.Append(FormatParametersForDescription(command.Parameters));
+            sb.AppendLine();
+        }
+
+        sb.Append("Pass parametersJson as a JSON object string using only the declared parameter names.");
+        return sb.ToString().TrimEnd();
+    }
+
+    public string BuildListAllowedCommandsToolDescription()
+    {
+        var commands = ListAllowedCommands();
+        var sb = new StringBuilder();
+        sb.AppendLine("Lists the allowlisted commands that this secure command MCP server is allowed to execute. Takes no arguments; use input.request: {} or omit request.");
+        sb.AppendLine("Output shape: { \"commands\": [ { \"name\": string, \"description\": string|null, \"shell\": string, \"workingDirectory\": string, \"parameters\": string[] } ] }.");
+
+        if (commands.Count == 0)
+        {
+            sb.AppendLine("Current allowlisted commands: none configured.");
+            return sb.ToString().TrimEnd();
+        }
+
+        sb.AppendLine("Current allowlisted commands:");
+        foreach (var command in commands)
+        {
+            sb.Append("- ");
+            sb.Append(command.Name);
+
+            if (!string.IsNullOrWhiteSpace(command.Description))
+            {
+                sb.Append(": ");
+                sb.Append(SingleLine(command.Description));
+            }
+
+            sb.Append("; shell=");
+            sb.Append(command.Shell);
+            sb.Append("; workingDirectory=");
+            sb.Append(SingleLine(command.WorkingDirectory));
+            sb.Append("; parameters=");
+            sb.Append(FormatListForDescription(command.Parameters));
+            sb.AppendLine(".");
+        }
+
+        sb.Append("For frozen workflow.plan requests, call cmd_run directly with one exact commandName above and pass parametersJson only when the chosen command declares parameters.");
+        return sb.ToString().TrimEnd();
+    }
+
+    public string BuildGetPolicyToolDescription()
+    {
+        var policy = DescribePolicy();
+        var sb = new StringBuilder();
+        sb.AppendLine("Returns the active command execution policy. Takes no arguments; use input.request: {} or omit request.");
+        sb.AppendLine("Output shape: { \"allowedShells\": string[], \"allowedWorkingRoots\": string[], \"defaultTimeoutMs\": integer, \"maxTimeoutMs\": integer, \"maxOutputCharacters\": integer, \"allowedCommandCount\": integer, \"environment\": { \"operatingSystem\": string, \"architecture\": string, \"machineName\": string, \"availableShells\": [ { \"name\": string, \"available\": boolean, \"resolvedPath\": string|null } ] } }.");
+        sb.AppendLine("Current policy:");
+        sb.AppendLine($"- allowedShells: {FormatListForDescription(policy.AllowedShells)}");
+        sb.AppendLine($"- allowedWorkingRoots: {FormatListForDescription(policy.AllowedWorkingRoots)}");
+        sb.AppendLine($"- defaultTimeoutMs: {policy.DefaultTimeoutMs}");
+        sb.AppendLine($"- maxTimeoutMs: {policy.MaxTimeoutMs}");
+        sb.AppendLine($"- maxOutputCharacters: {policy.MaxOutputCharacters}");
+        sb.AppendLine($"- allowedCommandCount: {policy.AllowedCommandCount}");
+        sb.AppendLine($"- environment.operatingSystem: {policy.Environment.OperatingSystem}");
+        sb.AppendLine($"- environment.architecture: {policy.Environment.Architecture}");
+        sb.AppendLine($"- environment.availableShells: {FormatShellAvailabilityForDescription(policy.Environment.AvailableShells)}");
+        sb.Append("Only allowedWorkingRoots are authorized; generated workflows should not use paths outside those roots.");
+        return sb.ToString().TrimEnd();
+    }
 
     /// <summary>
     /// Detects the current OS, architecture, and which configured shells are actually available.
@@ -187,6 +291,9 @@ public sealed class CommandPolicy
 
         return candidate;
     }
+
+    public string? ToWorkspaceRelativePath(string? path)
+        => GnOuGoWorkspace.ToWorkspaceRelativePath(path, _defaultWorkingDirectory);
 
     public int ResolveTimeoutMs(AllowedCommandSettings command, int? requestedTimeoutMs)
     {
@@ -307,6 +414,59 @@ public sealed class CommandPolicy
         parameters.Remove("args");
     }
 
+    private static string FormatParametersForDescription(
+        Dictionary<string, CommandParameterSettings> parameters)
+    {
+        if (parameters.Count == 0)
+            return "none; omit parametersJson.";
+
+        var parts = parameters
+            .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kv =>
+            {
+                var parameter = kv.Value;
+                var required = parameter.Required ? "required" : "optional";
+                var pathHint = parameter.IsWorkspacePath
+                    ? $", workspace path, {parameter.PathKind.ToString().ToLowerInvariant()}"
+                    : string.Empty;
+                var description = string.IsNullOrWhiteSpace(parameter.Description)
+                    ? string.Empty
+                    : $", {SingleLine(parameter.Description)}";
+
+                return $"{kv.Key} ({required}{pathHint}{description})";
+            });
+
+        return string.Join("; ", parts) + ".";
+    }
+
+    private static string FormatListForDescription(IEnumerable<string> values)
+    {
+        var items = values
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(SingleLine)
+            .ToArray();
+
+        return items.Length == 0 ? "none" : string.Join(", ", items);
+    }
+
+    private static string FormatShellAvailabilityForDescription(IEnumerable<CmdShellAvailability> shells)
+    {
+        var items = shells
+            .Select(shell =>
+            {
+                var status = shell.Available ? "available" : "unavailable";
+                return string.IsNullOrWhiteSpace(shell.ResolvedPath)
+                    ? $"{shell.Name} ({status})"
+                    : $"{shell.Name} ({status}, {SingleLine(shell.ResolvedPath)})";
+            })
+            .ToArray();
+
+        return items.Length == 0 ? "none" : string.Join(", ", items);
+    }
+
+    private static string SingleLine(string value)
+        => string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
     internal static string EscapeForShell(string shellName, string value)
     {
         var normalized = NormalizeRequiredValue(shellName, nameof(shellName)).ToLowerInvariant();
@@ -349,6 +509,9 @@ public sealed class CommandPolicy
     {
         var normalizedValue = NormalizeRequiredValue(parameterValue, parameterName);
 
+        if (normalizedValue.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Parameter '{parameterName}' must not use file URI paths.");
+
         if (normalizedValue.StartsWith('~'))
             throw new InvalidOperationException($"Parameter '{parameterName}' must not use home-directory shortcuts.");
 
@@ -360,11 +523,6 @@ public sealed class CommandPolicy
 
         if (HasDriveRelativePrefix(normalizedValue) && !Path.IsPathFullyQualified(normalizedValue))
             throw new InvalidOperationException($"Parameter '{parameterName}' must not use drive-relative paths.");
-
-        if (!parameterSettings.AllowAbsolutePath && (Path.IsPathRooted(normalizedValue) || HasDriveRelativePrefix(normalizedValue)))
-        {
-            throw new InvalidOperationException($"Parameter '{parameterName}' must be a relative path inside the workspace.");
-        }
 
         var candidatePath = Path.GetFullPath(Path.IsPathRooted(normalizedValue)
             ? normalizedValue
@@ -534,7 +692,10 @@ public sealed record CmdPolicyInfo(
     int MaxTimeoutMs,
     int MaxOutputCharacters,
     int AllowedCommandCount,
-    CmdEnvironmentInfo Environment);
+    CmdEnvironmentInfo Environment,
+    string? DefaultWorkingDirectory = null,
+    string? DefaultWorkingDirectoryRelative = null,
+    IReadOnlyList<string>? AllowedWorkingRootsRelative = null);
 
 public sealed record CmdEnvironmentInfo(
     string OperatingSystem,
@@ -552,10 +713,10 @@ public sealed record CmdAllowedCommandInfo(
     string? Description,
     string Shell,
     string WorkingDirectory,
-    IReadOnlyList<string> Parameters);
+    IReadOnlyList<string> Parameters,
+    string? WorkingDirectoryRelative = null);
 
 public sealed record ShellLaunchInfo(
     string LogicalName,
     string ExecutablePath,
     Func<string, string> BuildArguments);
-

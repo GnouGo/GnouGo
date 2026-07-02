@@ -3,6 +3,7 @@ namespace GnOuGo.Agent.Server.Components.Tracing;
 public sealed record FlatSpanModel(
     TraceSpanDto Span,
     int Depth,
+    int ChildCount,
     double StartMs,
     double EndMs,
     double DurationMs,
@@ -42,4 +43,3 @@ public enum TraceValueFormat
     Markdown
 }
 public sealed record DisplayValue(TraceValueFormat Format, string Content);
-

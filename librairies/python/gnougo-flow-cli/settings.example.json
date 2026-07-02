@@ -13,6 +13,9 @@
     "protocol": "http/protobuf",
     "tenant_id": ""
   },
+  "McpCapabilityCache": {
+    "SlidingExpirationSeconds": 3600
+  },
   "llm": {
     "mcp_servers": {
       "GnOuGo.Browser.Mcp": {
@@ -38,4 +41,3 @@
     }
   }
 }
-

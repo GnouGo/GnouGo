@@ -20,7 +20,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
         File.WriteAllText(Path.Combine(_root, "README.md"), "hello\n");
         var service = CreateService();
 
-        var status = service.GetStatus(_root);
+        var status = service.GetStatus(".");
 
         Assert.True(status.IsDirty);
         var entry = Assert.Single(status.Entries);
@@ -34,10 +34,10 @@ public sealed class GitRepositoryServiceTests : IDisposable
         File.WriteAllText(Path.Combine(_root, "README.md"), "hello\n");
         var service = CreateService();
 
-        service.Stage(_root, ["README.md"]);
-        var commit = service.Commit(_root, "Initial commit", "Test User", "test@example.local");
-        var status = service.GetStatus(_root);
-        var log = service.GetLog(_root, 10);
+        service.Stage(".", ["README.md"]);
+        var commit = service.Commit(".", "Initial commit", "Test User", "test@example.local");
+        var status = service.GetStatus(".");
+        var log = service.GetLog(".", 10);
 
         Assert.False(status.IsDirty);
         Assert.Contains("Repository is clean", status.Output, StringComparison.OrdinalIgnoreCase);
@@ -56,8 +56,8 @@ public sealed class GitRepositoryServiceTests : IDisposable
         File.WriteAllText(Path.Combine(copilotWorkingDirectory, "temp.json"), "{}\n");
         var service = CreateService();
 
-        var result = service.Stage(_root, []);
-        var status = service.GetStatus(_root);
+        var result = service.Stage(".", []);
+        var status = service.GetStatus(".");
 
         Assert.True(result.Success);
         Assert.Contains("Staged 1 pathspec", result.Output, StringComparison.OrdinalIgnoreCase);
@@ -72,16 +72,17 @@ public sealed class GitRepositoryServiceTests : IDisposable
         var service = CreateService();
         WriteCommit(service, "app.txt", "base\n", "base");
 
-        service.CreateBranch(_root, "feature/conflict", checkout: true);
+        service.CreateBranch(".", "feature/conflict", checkout: true);
         WriteCommit(service, "app.txt", "feature\n", "feature change");
-        service.Checkout(_root, "master");
+        service.Checkout(".", "master");
         WriteCommit(service, "app.txt", "master\n", "master change");
 
-        var merge = service.Merge(_root, "feature/conflict");
-        var conflicts = service.GetConflicts(_root);
+        var merge = service.Merge(".", "feature/conflict");
+        var conflicts = service.GetConflicts(".");
 
         Assert.Equal("Conflicts", merge.Status);
-        Assert.Contains(conflicts, conflict => conflict.Path.Replace('\\', '/') == "app.txt");
+        Assert.True(conflicts.Success);
+        Assert.Contains(conflicts.Conflicts, conflict => conflict.Path.Replace('\\', '/') == "app.txt");
     }
 
     [Fact]
@@ -95,7 +96,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
             repository.ApplyTag("v1.0.0", initialCommit.Sha);
         }
 
-        var result = service.CreateBranch(_root, "release/from-tag", startPoint: "v1.0.0");
+        var result = service.CreateBranch(".", "release/from-tag", startPoint: "v1.0.0");
 
         Assert.True(result.Success);
 
@@ -110,11 +111,11 @@ public sealed class GitRepositoryServiceTests : IDisposable
     {
         var service = CreateService();
         WriteCommit(service, "README.md", "base\n", "base");
-        service.CreateBranch(_root, "feature/delete-me", checkout: true);
+        service.CreateBranch(".", "feature/delete-me", checkout: true);
         WriteCommit(service, "feature.txt", "unmerged\n", "unmerged feature");
-        service.Checkout(_root, "master");
+        service.Checkout(".", "master");
 
-        var result = service.DeleteBranch(_root, "feature/delete-me");
+        var result = service.DeleteBranch(".", "feature/delete-me");
 
         Assert.True(result.Success);
         Assert.Contains("Deleted local branch", result.Output, StringComparison.OrdinalIgnoreCase);
@@ -128,9 +129,9 @@ public sealed class GitRepositoryServiceTests : IDisposable
     {
         var service = CreateService();
         WriteCommit(service, "README.md", "base\n", "base");
-        service.CreateBranch(_root, "feature/current", checkout: true);
+        service.CreateBranch(".", "feature/current", checkout: true);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => service.DeleteBranch(_root, "feature/current"));
+        var ex = Assert.Throws<InvalidOperationException>(() => service.DeleteBranch(".", "feature/current"));
 
         Assert.Contains("currently checked-out", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -142,21 +143,21 @@ public sealed class GitRepositoryServiceTests : IDisposable
         Repository.Init(remoteRoot, isBare: true);
         var service = CreateService(allowNetwork: true);
         WriteCommit(service, "README.md", "base\n", "base");
-        service.CreateBranch(_root, "feature/remote-delete");
+        service.CreateBranch(".", "feature/remote-delete");
 
         using (var repository = new Repository(_root))
         {
             repository.Network.Remotes.Add("origin", remoteRoot);
         }
 
-        service.Push(_root, "origin", "feature/remote-delete", setUpstream: false);
+        service.Push(".", "origin", "feature/remote-delete", setUpstream: false);
 
         using (var remoteRepository = new Repository(remoteRoot))
         {
             Assert.NotNull(remoteRepository.Branches["feature/remote-delete"]);
         }
 
-        var result = service.DeleteRemoteBranch(_root, "origin", "feature/remote-delete");
+        var result = service.DeleteRemoteBranch(".", "origin", "feature/remote-delete");
 
         Assert.True(result.Success);
         Assert.Contains("Deleted remote branch", result.Output, StringComparison.OrdinalIgnoreCase);
@@ -184,10 +185,10 @@ public sealed class GitRepositoryServiceTests : IDisposable
             sourceRepository.Network.Remotes.Add("origin", remoteRoot);
         }
 
-        sourceService.Push(sourceRoot, "origin", "master", setUpstream: false);
-        sourceService.CreateBranch(sourceRoot, "feature/pr-branch", checkout: true);
+        sourceService.Push(".", "origin", "master", setUpstream: false);
+        sourceService.CreateBranch(".", "feature/pr-branch", checkout: true);
         var featureCommit = WriteCommit(sourceService, "feature.txt", "feature\n", "feature", sourceRoot);
-        sourceService.Push(sourceRoot, "origin", "feature/pr-branch", setUpstream: false);
+        sourceService.Push(".", "origin", "feature/pr-branch", setUpstream: false);
 
         Directory.CreateDirectory(clientRoot);
         Repository.Init(clientRoot);
@@ -198,10 +199,10 @@ public sealed class GitRepositoryServiceTests : IDisposable
 
         var clientService = CreateService(clientRoot, allowNetwork: true);
         var fetch = clientService.Fetch(
-            clientRoot,
+            ".",
             "origin",
             "refs/heads/feature/pr-branch:refs/remotes/origin/feature/pr-branch");
-        var switchResult = clientService.SwitchBranch(clientRoot, "feature/pr-branch", "origin/feature/pr-branch");
+        var switchResult = clientService.SwitchBranch(".", "feature/pr-branch", "origin/feature/pr-branch");
 
         Assert.True(fetch.Success);
         Assert.True(switchResult.Success);
@@ -220,12 +221,12 @@ public sealed class GitRepositoryServiceTests : IDisposable
     {
         var service = CreateService();
         WriteCommit(service, "README.md", "base\n", "base");
-        service.CreateBranch(_root, "feature/reset", checkout: true);
+        service.CreateBranch(".", "feature/reset", checkout: true);
         var oldCommit = WriteCommit(service, "feature.txt", "old\n", "old feature");
-        service.Checkout(_root, "master");
+        service.Checkout(".", "master");
         var newCommit = WriteCommit(service, "README.md", "base\nnew\n", "new master");
 
-        var result = service.SwitchBranch(_root, "feature/reset", "master");
+        var result = service.SwitchBranch(".", "feature/reset", "master");
 
         Assert.True(result.Success);
         using var repository = new Repository(_root);
@@ -240,8 +241,8 @@ public sealed class GitRepositoryServiceTests : IDisposable
         File.WriteAllText(Path.Combine(_root, "a..b.txt"), "hello\n");
         var service = CreateService();
 
-        var result = service.Stage(_root, ["a..b.txt"]);
-        var status = service.GetStatus(_root);
+        var result = service.Stage(".", ["a..b.txt"]);
+        var status = service.GetStatus(".");
 
         Assert.True(result.Success);
         Assert.Contains("Staged 1 pathspec", result.Output, StringComparison.OrdinalIgnoreCase);
@@ -259,12 +260,103 @@ public sealed class GitRepositoryServiceTests : IDisposable
         WriteCommit(sourceService, Path.Combine(source, "README.md"), "source\n", "source initial", root: source);
         var service = CreateService(allowNetwork: true);
 
-        var clone = service.Clone(source, target);
+        var clone = service.Clone(source, "target");
 
         Assert.Equal(NormalizePath(target), NormalizePath(clone.RepositoryRoot));
+        Assert.Equal("target", clone.RepositoryRootRelative);
+        Assert.Equal("target", clone.ProjectRootRelative);
         Assert.Contains("Cloned", clone.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("target", clone.Output, StringComparison.OrdinalIgnoreCase);
         Assert.True(Repository.IsValid(target));
         Assert.True(File.Exists(Path.Combine(target, "README.md")));
+    }
+
+    [Fact]
+    public void Clone_DefaultFetchesOnlyDefaultBranchWithMinimalMetadata()
+    {
+        var source = Path.Combine(_root, "source-minimal");
+        var target = Path.Combine(_root, "target-minimal");
+        Directory.CreateDirectory(source);
+        Repository.Init(source);
+        var sourceService = CreateService(source, allowNetwork: true);
+        WriteCommit(sourceService, "README.md", "source\n", "source initial", root: source);
+        string defaultBranch;
+        using (var sourceRepository = new Repository(source))
+        {
+            defaultBranch = sourceRepository.Head.FriendlyName;
+        }
+        sourceService.CreateBranch(".", "feature/extra", checkout: true);
+        WriteCommit(sourceService, "feature.txt", "feature\n", "feature commit", root: source);
+        sourceService.Checkout(".", defaultBranch);
+        var service = CreateService(allowNetwork: true);
+
+        var clone = service.Clone(source, "target-minimal");
+
+        Assert.Equal(NormalizePath(target), NormalizePath(clone.RepositoryRoot));
+        Assert.Equal(1, clone.HistoryDepth);
+        Assert.False(clone.FetchAllBranches);
+        Assert.Equal("none", clone.TagFetchMode);
+        Assert.False(string.IsNullOrWhiteSpace(clone.ResolvedBranch));
+        using var repository = new Repository(target);
+        Assert.NotNull(repository.Branches[clone.ResolvedBranch]);
+        Assert.NotNull(repository.Branches[$"origin/{clone.ResolvedBranch}"]);
+        Assert.Null(repository.Branches["origin/feature/extra"]);
+        Assert.Equal(clone.ResolvedBranch, repository.Head.FriendlyName);
+    }
+
+    [Fact]
+    public void Clone_FetchAllBranchesKeepsRemoteBranches()
+    {
+        var source = Path.Combine(_root, "source-all-branches");
+        var target = Path.Combine(_root, "target-all-branches");
+        Directory.CreateDirectory(source);
+        Repository.Init(source);
+        var sourceService = CreateService(source, allowNetwork: true);
+        WriteCommit(sourceService, "README.md", "source\n", "source initial", root: source);
+        sourceService.CreateBranch(".", "feature/extra", checkout: true);
+        WriteCommit(sourceService, "feature.txt", "feature\n", "feature commit", root: source);
+        var service = CreateService(allowNetwork: true);
+
+        var clone = service.Clone(source, "target-all-branches", historyDepth: 0, fetchAllBranches: true);
+
+        Assert.True(clone.FetchAllBranches);
+        Assert.Equal(0, clone.HistoryDepth);
+        Assert.Equal("none", clone.TagFetchMode);
+        using var repository = new Repository(target);
+        Assert.NotNull(repository.Branches["origin/feature/extra"]);
+    }
+
+    [Fact]
+    public void Clone_HistoryDepthZeroFetchesFullHistory()
+    {
+        var source = Path.Combine(_root, "source-full-history");
+        var target = Path.Combine(_root, "target-full-history");
+        Directory.CreateDirectory(source);
+        Repository.Init(source);
+        var sourceService = CreateService(source, allowNetwork: true);
+        WriteCommit(sourceService, "README.md", "one\n", "first", root: source);
+        WriteCommit(sourceService, "README.md", "two\n", "second", root: source);
+        var service = CreateService(allowNetwork: true);
+
+        var clone = service.Clone(source, "target-full-history", historyDepth: 0);
+
+        Assert.Equal(0, clone.HistoryDepth);
+        using var repository = new Repository(target);
+        Assert.Equal(2, repository.Commits.Count());
+    }
+
+    [Fact]
+    public void Clone_RejectsInvalidHistoryDepthAndTagFetchMode()
+    {
+        var service = CreateService(allowNetwork: true);
+
+        var depthError = Assert.Throws<InvalidOperationException>(() =>
+            service.Clone("https://example.invalid/repo.git", "invalid-depth", historyDepth: -1));
+        var tagError = Assert.Throws<InvalidOperationException>(() =>
+            service.Clone("https://example.invalid/repo.git", "invalid-tag", tagFetchMode: "everything"));
+
+        Assert.Contains("historyDepth", depthError.Message, StringComparison.Ordinal);
+        Assert.Contains("tagFetchMode", tagError.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -273,7 +365,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
         File.WriteAllText(Path.Combine(_root, "README.md"), "hello\n");
         var service = CreateService(allowMutations: false);
 
-        var ex = Assert.Throws<InvalidOperationException>(() => service.Stage(_root, ["README.md"]));
+        var ex = Assert.Throws<InvalidOperationException>(() => service.Stage(".", ["README.md"]));
 
         Assert.Contains("disabled by policy", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -284,8 +376,8 @@ public sealed class GitRepositoryServiceTests : IDisposable
         var path = Path.IsPathRooted(relativePath) ? relativePath : Path.Combine(repositoryRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, content);
-        service.Stage(repositoryRoot, [Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/')]);
-        return service.Commit(repositoryRoot, message, "Test User", "test@example.local");
+        service.Stage(".", [Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/')]);
+        return service.Commit(".", message, "Test User", "test@example.local");
     }
 
     private GitRepositoryService CreateService(string? defaultWorkingDirectory = null, bool allowMutations = true, bool allowNetwork = false)
