@@ -40,6 +40,7 @@ class WorkflowSemanticValidationException(Exception):
 
 
 _DATA_STEPS_PATH_RE = re.compile(r"\bdata\.steps\.([A-Za-z_][A-Za-z0-9_-]*)(?P<path>(?:\.[A-Za-z_][A-Za-z0-9_]*)*)")
+_EXACT_DATA_STEPS_EXPR_RE = re.compile(r"^\$\{\s*data\.steps\.([A-Za-z_][A-Za-z0-9_-]*)(?P<path>(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\}$")
 _FUNCTION_DECL_RE = re.compile(r"\bfunction\s+(?P<name>[A-Za-z_$][A-Za-z0-9_$]*)\s*\((?P<params>[^)]*)\)")
 _FUNCTION_PARAM_IDENT_RE = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
 _JSDOC_PARAM_RE = re.compile(
@@ -372,7 +373,7 @@ def _validate_step(
     _validate_string(step.if_, workflow_name, step.id, "if", known_contracts, all_step_ids, errors)
     _validate_string(step.expr, workflow_name, step.id, "expr", known_contracts, all_step_ids, errors)
     _validate_json(step.input, workflow_name, step.id, "input", known_contracts, all_step_ids, errors)
-    _validate_mcp_call_input_request(step, workflow_name, mcp_contracts, errors)
+    _validate_mcp_call_input_request(step, workflow_name, known_contracts, mcp_contracts, errors)
     _validate_llm_call_structured_output(step, workflow_name, errors)
     _validate_local_workflow_call_args(step, workflow_name, workflow_contracts, errors)
     step_is_conditional = bool(step.if_ and str(step.if_).strip())
@@ -418,7 +419,7 @@ def _validate_step(
                 _validate_step_list(step.steps, workflow_name, known_contracts, all_step_ids, mcp_contracts, workflow_contracts, errors)
 
     if step.id and not step_is_conditional:
-        known_contracts[step.id] = _build_step_output_schema(step, mcp_contracts, workflow_contracts)
+        known_contracts[step.id] = _build_step_output_schema(step, mcp_contracts, workflow_contracts, known_contracts)
 
 
 def _validate_output_def(
@@ -527,6 +528,7 @@ class _SchemaValidationError:
 def _validate_mcp_call_input_request(
     step: StepDef,
     workflow_name: str,
+    known_contracts: dict[str, Any],
     mcp_contracts: dict[tuple[str, str], McpToolOutputContract],
     errors: list[WorkflowSemanticValidationError],
 ) -> None:
@@ -554,6 +556,16 @@ def _validate_mcp_call_input_request(
 
         request_node = step.input.get("request")
         request_object = request_node if isinstance(request_node, dict) else {}
+        _validate_mcp_request_expression_types(
+            step,
+            workflow_name,
+            server_name,
+            method_name,
+            request_object,
+            contract.input_schema,
+            known_contracts,
+            errors,
+        )
         schema_errors = validate_instance(request_object, contract.input_schema)
         if not schema_errors:
             continue
@@ -574,6 +586,135 @@ def _validate_mcp_call_input_request(
                     message=f"mcp.call request for '{server_name}/{method_name}' is invalid: {schema_error}",
                 )
             )
+
+
+def _validate_mcp_request_expression_types(
+    step: StepDef,
+    workflow_name: str,
+    server_name: str,
+    method_name: str,
+    request_node: Any,
+    schema: Any,
+    known_contracts: dict[str, Any],
+    errors: list[WorkflowSemanticValidationError],
+    path: str = "input.request",
+    required: bool = True,
+) -> None:
+    if not isinstance(schema, dict):
+        return
+
+    schema_nullable = _schema_allows_null(schema)
+    schema = _without_null_schema(schema)
+    schema_type = _read_schema_type(schema)
+    if schema_type == "object":
+        if not isinstance(request_node, dict):
+            return
+        properties = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
+        required_names = {str(item) for item in schema.get("required", [])} if isinstance(schema.get("required"), list) else set()
+        for property_name, property_schema in properties.items():
+            child_required = property_name in required_names
+            if property_name in request_node:
+                _validate_mcp_request_expression_types(
+                    step,
+                    workflow_name,
+                    server_name,
+                    method_name,
+                    request_node[property_name],
+                    property_schema,
+                    known_contracts,
+                    errors,
+                    f"{path}.{property_name}",
+                    child_required,
+                )
+        additional = schema.get("additionalProperties")
+        if isinstance(additional, dict):
+            for property_name, value in request_node.items():
+                if property_name not in properties:
+                    _validate_mcp_request_expression_types(
+                        step,
+                        workflow_name,
+                        server_name,
+                        method_name,
+                        value,
+                        additional,
+                        known_contracts,
+                        errors,
+                        f"{path}.{property_name}",
+                        required,
+                    )
+        return
+
+    if schema_type == "array":
+        if isinstance(request_node, list) and isinstance(schema.get("items"), dict):
+            for index, item in enumerate(request_node):
+                _validate_mcp_request_expression_types(
+                    step,
+                    workflow_name,
+                    server_name,
+                    method_name,
+                    item,
+                    schema["items"],
+                    known_contracts,
+                    errors,
+                    f"{path}[{index}]",
+                    required,
+                )
+        return
+
+    if not required or schema_type not in {"string", "number", "integer", "boolean"} or schema_nullable:
+        return
+
+    if schema_type == "string" and isinstance(request_node, str) and not _is_dynamic_expression_string(request_node) and request_node == "":
+        errors.append(
+            WorkflowSemanticValidationError(
+                code="MCP_REQUEST_EMPTY_REQUIRED_STRING",
+                workflow_name=workflow_name,
+                step_id=step.id,
+                field=path,
+                invalid_path=path,
+                allowed_paths=[path],
+                suggestion=f"Provide a non-empty string for required MCP field '{path}' on '{server_name}/{method_name}'.",
+                message=f"mcp.call required string field '{path}' for '{server_name}/{method_name}' is empty.",
+            )
+        )
+        return
+
+    parsed_expr = _try_parse_exact_data_steps_expression(request_node)
+    if parsed_expr is None:
+        return
+    source_step_id, source_path = parsed_expr
+    source_schema = _get_schema_at_path(known_contracts.get(source_step_id), source_path)
+    if source_schema is None:
+        return
+    if _guard_proves_non_null(step.if_, source_step_id, source_path):
+        return
+    source_types = _schema_non_null_types(source_schema)
+    source_nullable = _schema_allows_null(source_schema)
+    expected_types = {schema_type}
+    if schema_type == "number":
+        expected_types.add("integer")
+    if source_nullable or not source_types or source_types.isdisjoint(expected_types):
+        source_text = _describe_schema_types(source_types, source_nullable)
+        errors.append(
+            WorkflowSemanticValidationError(
+                code="MCP_REQUEST_EXPR_TYPE_MISMATCH",
+                workflow_name=workflow_name,
+                step_id=step.id,
+                field=path,
+                invalid_path=path,
+                allowed_paths=[path],
+                suggestion=(
+                    f"Do not pass nullable or mismatched expression values into required MCP field '{path}' for "
+                    f"'{server_name}/{method_name}'. Refine with `assert.non_null`, add an exact non-null guard, "
+                    f"or normalize to guaranteed {schema_type} before the mcp.call."
+                ),
+                message=(
+                    f"mcp.call request field '{path}' for '{server_name}/{method_name}' expects {schema_type} "
+                    f"but expression data.steps.{source_step_id}{'.' + '.'.join(source_path) if source_path else ''} "
+                    f"resolves to {source_text}."
+                ),
+            )
+        )
 
 
 def _validate_mcp_call_input_envelope(
@@ -1004,6 +1145,126 @@ def _is_dynamic_expression_string(value: Any) -> bool:
     return isinstance(value, str) and "${" in value
 
 
+def _try_parse_exact_data_steps_expression(value: Any) -> tuple[str, list[str]] | None:
+    if not isinstance(value, str):
+        return None
+    match = _EXACT_DATA_STEPS_EXPR_RE.match(value.strip())
+    if not match:
+        return None
+    path = [part for part in match.group("path").split(".") if part]
+    return match.group(1), path
+
+
+def _get_schema_at_path(schema: Any, path: list[str]) -> Any:
+    if not path:
+        return schema
+    schema = _without_null_schema(schema)
+    if not isinstance(schema, dict):
+        return None
+    if "anyOf" in schema and isinstance(schema["anyOf"], list):
+        candidates = [_get_schema_at_path(variant, path) for variant in schema["anyOf"]]
+        candidates = [candidate for candidate in candidates if candidate is not None]
+        if not candidates:
+            return None
+        return {"anyOf": candidates} if len(candidates) > 1 else candidates[0]
+    if "oneOf" in schema and isinstance(schema["oneOf"], list):
+        candidates = [_get_schema_at_path(variant, path) for variant in schema["oneOf"]]
+        candidates = [candidate for candidate in candidates if candidate is not None]
+        if not candidates:
+            return None
+        return {"oneOf": candidates} if len(candidates) > 1 else candidates[0]
+    if _read_schema_type(schema) != "object":
+        return None
+    properties = schema.get("properties")
+    segment = path[0]
+    if isinstance(properties, dict) and segment in properties:
+        return _get_schema_at_path(properties[segment], path[1:])
+    additional = schema.get("additionalProperties")
+    if additional is True:
+        return _opaque_schema()
+    if isinstance(additional, dict):
+        return _get_schema_at_path(additional, path[1:])
+    return None
+
+
+def _without_null_schema(schema: Any) -> Any:
+    if not isinstance(schema, dict):
+        return schema
+    if isinstance(schema.get("anyOf"), list):
+        variants = [copy.deepcopy(variant) for variant in schema["anyOf"] if _read_schema_type(variant) != "null"]
+        if len(variants) == 1:
+            return variants[0]
+        if variants:
+            clone = copy.deepcopy(schema)
+            clone["anyOf"] = variants
+            return clone
+    if isinstance(schema.get("oneOf"), list):
+        variants = [copy.deepcopy(variant) for variant in schema["oneOf"] if _read_schema_type(variant) != "null"]
+        if len(variants) == 1:
+            return variants[0]
+        if variants:
+            clone = copy.deepcopy(schema)
+            clone["oneOf"] = variants
+            return clone
+    type_value = schema.get("type")
+    if isinstance(type_value, list):
+        types = [item for item in type_value if item != "null"]
+        clone = copy.deepcopy(schema)
+        if len(types) == 1:
+            clone["type"] = types[0]
+        elif types:
+            clone["type"] = types
+        return clone
+    return schema
+
+
+def _schema_allows_null(schema: Any) -> bool:
+    if not isinstance(schema, dict):
+        return False
+    type_value = schema.get("type")
+    if type_value == "null":
+        return True
+    if isinstance(type_value, list) and "null" in type_value:
+        return True
+    for union_key in ("anyOf", "oneOf"):
+        variants = schema.get(union_key)
+        if isinstance(variants, list) and any(_schema_allows_null(variant) for variant in variants):
+            return True
+    return False
+
+
+def _schema_non_null_types(schema: Any) -> set[str]:
+    if not isinstance(schema, dict):
+        return set()
+    type_value = schema.get("type")
+    if isinstance(type_value, str):
+        return set() if type_value == "null" else {type_value}
+    if isinstance(type_value, list):
+        return {str(item) for item in type_value if item != "null"}
+    result: set[str] = set()
+    for union_key in ("anyOf", "oneOf"):
+        variants = schema.get(union_key)
+        if isinstance(variants, list):
+            for variant in variants:
+                result.update(_schema_non_null_types(variant))
+    return result
+
+
+def _describe_schema_types(types: set[str], nullable: bool) -> str:
+    ordered = sorted(types)
+    if nullable:
+        ordered.append("null")
+    return " or ".join(ordered) if ordered else ("null" if nullable else "unknown")
+
+
+def _guard_proves_non_null(guard: str | None, source_step_id: str, source_path: list[str]) -> bool:
+    if not guard:
+        return False
+    expression = f"data.steps.{source_step_id}" + ("." + ".".join(source_path) if source_path else "")
+    compact = re.sub(r"\s+", "", guard)
+    return f"{expression}!=null" in compact or f"null!={expression}" in compact
+
+
 def _read_schema_type(schema: dict[str, Any]) -> str | None:
     type_value = schema.get("type")
     if isinstance(type_value, str):
@@ -1074,7 +1335,10 @@ def _build_step_output_schema(
     step: StepDef,
     mcp_contracts: dict[tuple[str, str], McpToolOutputContract],
     workflow_contracts: dict[str, Any] | None = None,
+    known_contracts: dict[str, Any] | None = None,
 ) -> Any:
+    if step.type == "assert.non_null":
+        return _build_assert_non_null_output_schema(step, known_contracts or {})
     if step.type == "set":
         return _build_set_output_schema(step)
     if step.type == "template.render":
@@ -1167,6 +1431,21 @@ def _build_set_output_schema(step: StepDef) -> Any:
     if not isinstance(step.input, dict):
         return _object_schema()
     return _object_schema(*[(str(key), _infer_schema_from_example(value) or _opaque_schema()) for key, value in step.input.items()])
+
+
+def _build_assert_non_null_output_schema(step: StepDef, known_contracts: dict[str, Any]) -> Any:
+    if not isinstance(step.input, dict):
+        return _object_schema()
+    properties: list[tuple[str, Any]] = []
+    for key, value in step.input.items():
+        parsed_expr = _try_parse_exact_data_steps_expression(value)
+        if parsed_expr is None:
+            properties.append((str(key), _infer_schema_from_example(value) or _opaque_schema()))
+            continue
+        source_step_id, source_path = parsed_expr
+        source_schema = _get_schema_at_path(known_contracts.get(source_step_id), source_path)
+        properties.append((str(key), _without_null_schema(source_schema) if source_schema is not None else _opaque_schema()))
+    return _object_schema(*properties)
 
 
 def _build_mcp_call_output_schema(step: StepDef, mcp_contracts: dict[tuple[str, str], McpToolOutputContract]) -> Any:

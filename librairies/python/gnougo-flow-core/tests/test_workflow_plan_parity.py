@@ -127,6 +127,43 @@ class RepairingExtractionPipelineLlm(PipelinePlanLlm):
         return LLMResponse(text=self.leaf_yaml)
 
 
+class StructuredCapabilityResolver:
+    async def supports_structured_output_async(self, provider, model):
+        return True
+
+
+class StructuredPipelinePlanLlm:
+    def __init__(self, leaf_yaml: str, assembly_yaml: str, extraction_payload: dict) -> None:
+        self.leaf_yaml = ensure_generated_skill(leaf_yaml)
+        self.assembly_yaml = assembly_yaml
+        self.extraction_payload = extraction_payload
+        self.requests = []
+        self.prompts: list[str] = []
+
+    async def call_async(self, request):
+        self.requests.append(request)
+        self.prompts.append(request.prompt)
+        prompt = request.prompt
+        if "preparing a raw user automation prompt" in prompt:
+            return LLMResponse(text="# Collect records\n\nCollect records for a query and return them.")
+        if "annotate normalized automation Markdown" in prompt:
+            return LLMResponse(json_payload=self.extraction_payload)
+        if "reviewing the quality of a `workflow.plan` pipeline" in prompt:
+            return LLMResponse(
+                json_payload={
+                    "score": 94,
+                    "verdict": "pass",
+                    "diagnostics": [],
+                    "retry_guidance": "",
+                }
+            )
+        if "Generate exactly one leaf GnOuGo workflow named `collect_records`" in prompt:
+            return LLMResponse(text=self.leaf_yaml)
+        if "assembling the parent `main` workflow" in prompt:
+            return LLMResponse(text=self.assembly_yaml)
+        raise AssertionError(f"unexpected prompt: {prompt[:160]}")
+
+
 class FakeMcpSession:
     server_name = "demo"
 
@@ -2110,9 +2147,9 @@ async def test_workflow_plan_pipeline_mode_final_dry_run_accepts_string_conversi
             args:
               issue_key: "${data.inputs.issue_key}"
         - id: answer
-          type: llm.call
+          type: set
           input:
-            prompt: "Issue number is ${string(data.steps.call_parse_issue.outputs.issue_number)}"
+            text: "Issue number is ${string(data.steps.call_parse_issue.outputs.issue_number)}"
       outputs:
         answer: "${data.steps.answer.text}"
     """
@@ -2123,6 +2160,155 @@ async def test_workflow_plan_pipeline_mode_final_dry_run_accepts_string_conversi
     result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
 
     assert result.success is True
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_pipeline_mode_uses_structured_extraction_when_supported() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: pipeline
+              raw_prompt: "Collect records for a query"
+              generator:
+                provider: test
+                model: structured
+                prefilter: false
+              validate:
+                compile: true
+    """
+    annotated_markdown = """
+    # Collect records
+
+    :::subworkflow name="collect_records"
+    goal: Collect records for a query.
+    inputs:
+      query: string
+    outputs:
+      records: array
+    extract_reason: Produces typed data for the main workflow.
+    content:
+      Collect records and return a typed records array.
+    :::
+
+    ## Main workflow orchestration
+
+    Call collect_records and expose its records.
+    """
+    extraction_payload = {
+        "annotated_markdown": annotated_markdown,
+        "main_orchestration": "Call collect_records and expose its records.",
+        "subworkflows": [
+            {
+                "name": "collect_records",
+                "goal": "Collect records for a query.",
+                "description": "Collect typed records.",
+                "work_kind": "external_work",
+                "contract_role": "typed_data_producer",
+                "concrete_outcome": "A typed array of record identifiers.",
+                "inputs": [
+                    {
+                        "name": "query",
+                        "type": "string",
+                        "description": "Search query.",
+                        "required": True,
+                        "item_type": "",
+                        "properties": [],
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "records",
+                        "type": "array",
+                        "description": "Collected record identifiers.",
+                        "required": True,
+                        "item_type": "string",
+                        "properties": [],
+                    }
+                ],
+                "extract_reason": "Produces typed data for the main workflow.",
+                "content": "Collect records and return a typed records array.",
+                "planned_tools": [],
+            }
+        ],
+    }
+    leaf_yaml = """
+    version: 1
+    name: collect_records_leaf
+    skill:
+      description: Collect records.
+      tags: [records]
+      inputs:
+        query: string
+      outputs:
+        records:
+          type: array
+          items:
+            type: string
+    workflows:
+      collect_records:
+        inputs:
+          query: string
+        steps:
+          - id: collected
+            type: set
+            input:
+              records: ["a", "b"]
+        outputs:
+          records:
+            expr: "${data.steps.collected.records}"
+            type: array
+            items:
+              type: string
+    """
+    assembly_yaml = """
+    document:
+      name: records_pipeline
+      skill:
+        description: Collect records.
+        tags: [records, pipeline]
+        inputs:
+          query: string
+        outputs:
+          records:
+            type: array
+            items:
+              type: string
+    graph:
+      inputs:
+        query: string
+      steps:
+        - id: call_collect_records
+          leaf: collect_records
+          args:
+            query: "${data.inputs.query}"
+      outputs:
+        records: "${data.steps.call_collect_records.outputs.records}"
+    """
+
+    engine = WorkflowEngine()
+    engine.llm_capabilities = StructuredCapabilityResolver()
+    llm = StructuredPipelinePlanLlm(leaf_yaml, assembly_yaml, extraction_payload)
+    engine.llm_client = llm
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    structured_requests = [request for request in llm.requests if request.structured_output_schema is not None]
+    assert len(structured_requests) == 2
+    assert all(request.structured_output_strict is True for request in structured_requests)
+    plan = result.outputs["plan"]
+    spec = plan["pipeline"]["specs"]["subworkflows"][0]
+    assert spec["work_kind"] == "external_work"
+    assert spec["contract_role"] == "typed_data_producer"
+    assert spec["output_schemas"]["records"]["items"]["type"] == "string"
+    assert plan["pipeline"]["quality_report"]["checks"]["extraction_quality_reviewed"] is True
+    assert plan["pipeline"]["inspection"]["summary"]["leaf_count"] == 1
+    assert plan["pipeline"]["inspection"]["generated_leaf_blueprints"]["collect_records"]["leaf"] == "collect_records"
 
 
 @pytest.mark.asyncio
@@ -2257,6 +2443,155 @@ async def test_workflow_plan_semantic_validation_rejects_invalid_llm_structured_
     assert "STRUCTURED_OUTPUT_SCHEMA_INVALID" in result.error.message
     assert "structured_output" in result.error.message
     assert "priority" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_rejects_nullable_expression_in_required_mcp_string() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: basic
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+              on_invalid:
+                action: fail
+                max_attempts: 1
+    """
+    generated_yaml = """
+    version: 1
+    skill:
+      description: Generated docs workflow.
+      tags: [docs]
+      inputs: {}
+      outputs: {}
+    workflows:
+      main:
+        steps:
+          - id: derive
+            type: llm.call
+            input:
+              prompt: "Choose document"
+              structured_output:
+                strict: true
+                schema_inline:
+                  type: object
+                  properties:
+                    id:
+                      anyOf:
+                        - type: string
+                        - type: "null"
+                  required: [id]
+                  additionalProperties: false
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: get_doc
+              request:
+                id: "${data.steps.derive.json.id}"
+    """
+    tool = McpToolInfo(
+        name="get_doc",
+        description="Get a document",
+        input_schema={
+            "type": "object",
+            "required": ["id"],
+            "properties": {"id": {"type": "string"}},
+            "additionalProperties": False,
+        },
+    )
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "TEMPLATE_PLAN"
+    assert "MCP_REQUEST_EXPR_TYPE_MISMATCH" in result.error.message
+    assert "input.request.id" in result.error.message
+    assert "string or null" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_workflow_plan_semantic_validation_accepts_assert_non_null_for_required_mcp_string() -> None:
+    source = """
+    version: 1
+    workflows:
+      main:
+        steps:
+          - id: plan
+            type: workflow.plan
+            input:
+              mode: basic
+              generator:
+                model: fake
+                instruction: "build docs workflow"
+                prefilter: false
+    """
+    generated_yaml = """
+    version: 1
+    skill:
+      description: Generated docs workflow.
+      tags: [docs]
+      inputs: {}
+      outputs: {}
+    workflows:
+      main:
+        steps:
+          - id: derive
+            type: llm.call
+            input:
+              prompt: "Choose document"
+              structured_output:
+                strict: true
+                schema_inline:
+                  type: object
+                  properties:
+                    id:
+                      anyOf:
+                        - type: string
+                        - type: "null"
+                  required: [id]
+                  additionalProperties: false
+          - id: require_doc
+            type: assert.non_null
+            input:
+              id: "${data.steps.derive.json.id}"
+          - id: fetch
+            type: mcp.call
+            input:
+              server: docs
+              method: get_doc
+              request:
+                id: "${data.steps.require_doc.id}"
+    """
+    tool = McpToolInfo(
+        name="get_doc",
+        description="Get a document",
+        input_schema={
+            "type": "object",
+            "required": ["id"],
+            "properties": {"id": {"type": "string"}},
+            "additionalProperties": False,
+        },
+    )
+    engine = WorkflowEngine()
+    engine.llm_client = CapturePlanLlm(generated_yaml)
+    engine.mcp_client_factory = DocsMcpFactory(tool)
+
+    result = await engine.execute_async(WorkflowCompiler().compile(WorkflowParser.parse(source)).workflows["main"], {})
+
+    assert result.success is True
+    assert "assert.non_null" in result.outputs["plan"]["yaml"]
 
 
 @pytest.mark.asyncio

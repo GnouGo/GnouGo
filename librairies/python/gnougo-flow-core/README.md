@@ -22,7 +22,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
 | Mustache `template.render` engine | Yes |
 | WFScript (`functions:` block) | Yes multi-statement (`var`/`let`/`const`, `if`/`else`, `return`) |
 | Runtime engine + step registry | Yes |
-| Step types: `set`, `emit`, `sequence`, `parallel`, `loop.sequential`, `loop.parallel`, `switch`, `template.render`, `llm.call`, `mcp.list`, `mcp.call`, `human.input`, `workflow.call`, `workflow.plan`, `workflow.execute` | Yes |
+| Step types: `set`, `assert.non_null`, `emit`, `sequence`, `parallel`, `loop.sequential`, `loop.parallel`, `switch`, `template.render`, `llm.call`, `mcp.list`, `mcp.call`, `human.input`, `workflow.call`, `workflow.plan`, `workflow.execute` | Yes |
 | MCP integrations (`InMemoryMcpClientFactory`, `ConfiguredMcpClientFactory`, cache helper) | Yes |
 | MCP `progressEvents` -> thinking telemetry + stdio JSONL real-time progress | Yes |
 | MCP server-level `DiscoveryTimeoutSeconds` / `CallTimeoutSeconds` metadata | Yes |
@@ -30,7 +30,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
 | Model metadata catalog (pricing, token limits, capabilities, overrides) | Yes |
 | `workflow.plan` default `mode="auto"` classifier | Yes |
 | `workflow.plan` defaults `reasoning="medium"` | Yes |
-| `workflow.plan` validator + semantic mapping checks | Yes |
+| `workflow.plan` pipeline decomposition, structured extraction, quality reports, and strict semantic checks | Yes |
 | MCP tool `output_schema` / `example_response` planning contracts | Yes |
 | Workflow source telemetry (`source_text` / `source_format`) | Yes |
 | `JsonSchemaConverter` (inputs/outputs to JSON Schema) | Yes |
@@ -52,6 +52,7 @@ This Python package mirrors its public surface as closely as Python idioms allow
   - [mcp.list](#mcplist--discover-mcp-server-capabilities)
   - [mcp.call](#mcpcall--call-mcp-tools-or-prompts)
   - [set](#set--initialize-or-modify-variables)
+  - [assert.non_null](#assertnon_null--require-values-before-using-them)
   - [emit](#emit--send-progress-messages-to-the-ui)
   - [human.input](#humaninput--pause-and-wait-for-user-input)
   - [sequence](#sequence--run-steps-sequentially)
@@ -636,6 +637,27 @@ Sets variables in the workflow data context using expressions.
 
 ---
 
+### `assert.non_null` — Require Values Before Using Them
+
+Fails if any resolved input value is `null`, and exposes the same object as output for downstream steps. Use it to refine nullable structured-output fields before passing them into strict MCP or workflow inputs.
+
+```yaml
+- id: require_doc
+  type: assert.non_null
+  input:
+    id: "${data.steps.derive_doc.json.id}"
+
+- id: fetch
+  type: mcp.call
+  input:
+    server: docs
+    method: get_doc
+    request:
+      id: "${data.steps.require_doc.id}"
+```
+
+---
+
 ### `emit` — Send Progress Messages to the UI
 
 Pushes real-time feedback to the user interface during long-running workflows.
@@ -1097,6 +1119,10 @@ graph:
 
 The runtime renders graph leaf nodes into local `workflow.call` steps, grafts the validated leaf workflows, moves leaf document-level `functions:` into that leaf workflow scope, checks required leaf arguments, and validates the final YAML. If extractable-block annotation fails validation, `workflow.plan` reprompts with the invalid annotated Markdown and exact validation errors.
 
+When `engine.llm_capabilities` is configured and reports that the selected provider/model supports structured output, pipeline extraction uses strict structured output for the extractable-block phase and rejects markdown-only extraction. Pipeline output includes `pipeline.specs`, `pipeline.quality_report`, and `pipeline.inspection` with leaf contracts, planned MCP tools, main graph inspection, and validation metadata.
+
+Pipeline mode is intentionally stricter than older Python releases: main assembly may orchestrate, branch, loop, derive deterministic values, and call generated leaves, but external work, LLM calls, raw MCP calls, human input, templates, and nested planning must stay inside leaf workflows. External-work leaves with required planned MCP tools must emit matching `mcp.call` steps.
+
 **Output:** `{ workflow: { dsl, name, workflows: [...] }, yaml: "...", meta: { model, attempt?, mode, mode_selection? } }`
 
 **Features:**
@@ -1110,6 +1136,7 @@ The runtime renders graph leaf nodes into local `workflow.call` steps, grafts th
 - **Optional dry-run validation**: Set `validate.dry_run: true` to execute the generated workflow once with deterministic fake LLM, MCP, human-input, and routing providers. This catches runtime input-resolution errors such as free-form `llm.call.text` being used where a number is required. The dry-run never calls real LLMs or MCP tools.
 - **MCP output contracts**: MCP discovery injects complete `input_schema`, `output_schema`, and `example_response` metadata into the planning prompt. `output_schema` / `example_response` define which fields may be read from `mcp.call` single-tool `response` objects.
 - **MCP request normalization**: During `workflow.plan` validation, static `mcp.call.input.request` values are normalized against discovered `input_schema` contracts. Numeric, integer, and boolean YAML strings are converted to typed JSON values when the schema allows it, including nested objects, arrays, additional properties, and matching `oneOf` / `anyOf` object variants.
+- **Nullable MCP request guardrails**: Required MCP request fields reject nullable structured-output expressions such as `string|null` unless the exact value is first refined with `assert.non_null` or guarded on the same call.
 - **Self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error, or semantic mapping error), the error is sent back to the LLM for automatic correction.
 - **OpenTelemetry tracing**: Full GenAI convention traces for the planning LLM call, MCP discovery, and pre-filter phases.
 

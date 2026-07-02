@@ -51,6 +51,7 @@ from .models import (
 from .parsing import WorkflowParser
 from .runtime_contracts import (
     IHumanInputProvider,
+    ILLMCapabilityResolver,
     ILLMClient,
     IMcpClientFactory,
     IMcpSession,
@@ -428,6 +429,7 @@ class WorkflowEngine:
         self._total_steps_executed = 0
 
         self.llm_client: ILLMClient | None = None
+        self.llm_capabilities: ILLMCapabilityResolver | None = None
         self.workflow_fetcher: IWorkflowFetcher | None = None
         self.workflow_call_resolver: Any = None
         self.workflow_candidate_provider: IWorkflowCandidateProvider | None = None
@@ -939,6 +941,7 @@ class WorkflowEngine:
     @staticmethod
     def _create_default_registry() -> StepExecutorRegistry:
         from .runtime_steps import (
+            AssertNonNullExecutor,
             EmitExecutor,
             HumanInputExecutor,
             LlmCallExecutor,
@@ -958,6 +961,7 @@ class WorkflowEngine:
         )
 
         registry = StepExecutorRegistry()
+        registry.register(AssertNonNullExecutor())
         registry.register(SequenceExecutor())
         registry.register(ParallelExecutor())
         registry.register(LoopSequentialExecutor())
