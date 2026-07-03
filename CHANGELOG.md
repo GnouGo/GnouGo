@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.11.2 - 2026-07-03
+
+- fix: workflow.route (release) (56ee336)
+
 ## v0.11.1 - 2026-07-03
 
 - fix: python lint (release) (91bd2d5)
