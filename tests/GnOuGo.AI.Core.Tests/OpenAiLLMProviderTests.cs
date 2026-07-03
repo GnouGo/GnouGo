@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.AI.Core.Tests;
@@ -53,8 +54,9 @@ public sealed class OpenAiLlmProviderTests
 
         using var http = new HttpClient(handler);
         http.Timeout = TimeSpan.FromSeconds(30);
+        using var cache = new MemoryCache(new MemoryCacheOptions());
         var logger = new CapturingLogger<OpenAiLLMProvider>();
-        var provider = new OpenAiLLMProvider(http, logger);
+        var provider = new OpenAiLLMProvider(http, logger, cache);
 
         var response = await provider.CallAsync(
             "gpt-4o-mini",
@@ -115,8 +117,9 @@ public sealed class OpenAiLlmProviderTests
         });
 
         using var http = new HttpClient(handler);
+        using var cache = new MemoryCache(new MemoryCacheOptions());
         var logger = new CapturingLogger<OpenAiLLMProvider>();
-        var provider = new OpenAiLLMProvider(http, logger);
+        var provider = new OpenAiLLMProvider(http, logger, cache);
 
         var response = await provider.CallAsync(
             "gpt-4o-mini",
@@ -127,15 +130,31 @@ public sealed class OpenAiLlmProviderTests
                 UseBackgroundMode = true
             },
             CancellationToken.None);
+        var secondResponse = await provider.CallAsync(
+            "gpt-4o-mini",
+            new ModelProviderOptions { Url = "https://proxy.example", ApiKey = "secret", Type = "openai" },
+            new LLMClientRequest
+            {
+                Prompt = "Hello again",
+                UseBackgroundMode = true
+            },
+            CancellationToken.None);
 
         Assert.Equal("fallback ok", response.Text);
+        Assert.Equal("fallback ok", secondResponse.Text);
         Assert.Equal((HttpMethod.Post, "https://proxy.example/v1/responses"), requests[0]);
         Assert.Equal((HttpMethod.Post, "https://proxy.example/v1/chat/completions"), requests[1]);
+        Assert.Equal((HttpMethod.Post, "https://proxy.example/v1/chat/completions"), requests[2]);
+        Assert.Equal(3, requests.Count);
+        Assert.Single(requests, request => request.Url == "https://proxy.example/v1/responses");
         Assert.Contains(logger.Entries, e => e.Level == LogLevel.Warning
             && e.Message.Contains("OpenAI Responses background API not available", StringComparison.Ordinal)
             && e.Message.Contains("falling back to Chat Completions", StringComparison.Ordinal)
             && e.Message.Contains("StatusCode=404", StringComparison.Ordinal)
             && e.Message.Contains("responses endpoint not found", StringComparison.Ordinal));
+        Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information
+            && e.Message.Contains("previously returned unsupported", StringComparison.Ordinal)
+            && e.Message.Contains("skipping background mode", StringComparison.Ordinal));
     }
 
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
@@ -184,4 +203,3 @@ public sealed class OpenAiLlmProviderTests
         }
     }
 }
-

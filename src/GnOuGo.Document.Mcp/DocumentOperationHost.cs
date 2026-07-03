@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using GnOuGo.Workspace;
 using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Document.Mcp;
@@ -47,7 +48,7 @@ public sealed class DocumentOperationHost
 
         try
         {
-            return ext switch
+            var result = ext switch
             {
                 ".pdf" => ReadPdf(resolved, outputFormat),
                 ".docx" => ReadDocx(resolved, outputFormat),
@@ -58,6 +59,7 @@ public sealed class DocumentOperationHost
                 _ => DocumentReadResult.Error("UNSUPPORTED_FORMAT",
                     $"No reader for extension '{ext}'.")
             };
+            return result.Success ? AttachRelativePath(result, resolved) : result;
         }
         catch (Exception ex)
         {
@@ -86,11 +88,12 @@ public sealed class DocumentOperationHost
             {
                 var info = new FileInfo(f);
                 return new DocumentFileInfo(
-                    Path.GetRelativePath(resolved, f),
+                    GnOuGoWorkspace.NormalizePortablePath(Path.GetRelativePath(resolved, f)),
                     f,
                     Path.GetExtension(f).ToLowerInvariant(),
                     info.Length,
-                    info.LastWriteTimeUtc);
+                    info.LastWriteTimeUtc,
+                    ToWorkspaceRelativePath(f));
             })
             .OrderBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -152,7 +155,7 @@ public sealed class DocumentOperationHost
             var info = new FileInfo(resolved);
             _logger.LogInformation("{Operation} {Bytes} bytes to {Path}", append ? "Appended" : "Wrote", info.Length, resolved);
 
-            return new DocumentWriteResult(true, resolved, info.Length, null, null);
+            return new DocumentWriteResult(true, resolved, info.Length, null, null, ToWorkspaceRelativePath(resolved), resolved);
         }
         catch (Exception ex)
         {
@@ -374,6 +377,16 @@ public sealed class DocumentOperationHost
         var section = new DocumentSection("text:0", Path.GetFileName(path), null, text);
         return DocumentReadResult.Ok(path, Path.GetExtension(path), [section]);
     }
+
+    private DocumentReadResult AttachRelativePath(DocumentReadResult result, string resolvedPath)
+        => result with
+        {
+            RelativePath = ToWorkspaceRelativePath(resolvedPath),
+            FilePathAbsolute = resolvedPath
+        };
+
+    private string? ToWorkspaceRelativePath(string path)
+        => GnOuGoWorkspace.ToWorkspaceRelativePath(path, _policy.DefaultWorkingDirectory);
 
     // ────────────────────────────── HELPERS ───────────────────────────────────
 

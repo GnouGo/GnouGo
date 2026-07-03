@@ -66,7 +66,7 @@ public sealed class SwitchExecutor : IStepExecutor
         JsonNode? exprValue = null;
         if (ctx.Step.Source.Expr != null)
         {
-            exprValue = ctx.Engine.Interpolator.Interpolate(ctx.Step.Source.Expr, ctx.Data);
+            exprValue = ctx.Interpolator.Interpolate(ctx.Step.Source.Expr, ctx.Data);
         }
 
         foreach (var c in cases)
@@ -83,14 +83,23 @@ public sealed class SwitchExecutor : IStepExecutor
             else if (c.Source.When != null)
             {
                 // Form B: boolean condition
-                var condResult = ctx.Engine.Interpolator.Interpolate(c.Source.When, ctx.Data);
+                var condResult = ctx.Interpolator.Interpolate(c.Source.When, ctx.Data);
                 matched = ExpressionEvaluator.GetBool(condResult);
             }
 
             if (matched)
             {
                 var result = new RunResult { Success = true };
-                await ctx.Engine.ExecuteStepsAsync(c.Steps, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
+                await ctx.Engine.ExecuteStepsAsync(
+                    c.Steps,
+                    ctx.Data,
+                    result,
+                    ctx.Limits,
+                    ctx.CallDepth,
+                    ctx.CallStack,
+                    ctx.EffectiveExecutionScope,
+                    ct,
+                    ctx.TelemetrySpan);
                 return ctx.Data["steps"]?.DeepClone();
             }
         }
@@ -99,7 +108,16 @@ public sealed class SwitchExecutor : IStepExecutor
         if (ctx.Step.Default != null && ctx.Step.Default.Count > 0)
         {
             var result = new RunResult { Success = true };
-            await ctx.Engine.ExecuteStepsAsync(ctx.Step.Default, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
+            await ctx.Engine.ExecuteStepsAsync(
+                ctx.Step.Default,
+                ctx.Data,
+                result,
+                ctx.Limits,
+                ctx.CallDepth,
+                ctx.CallStack,
+                ctx.EffectiveExecutionScope,
+                ct,
+                ctx.TelemetrySpan);
             return ctx.Data["steps"]?.DeepClone();
         }
 

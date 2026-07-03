@@ -16,12 +16,12 @@ class McpCacheHelper:
     """TTL/sliding cache for MCP capability listings.
 
     Mirrors the .NET `McpCacheHelper` behavior closely enough for the Python
-    runtime: tools/resources/prompts are cached per server with a five-minute
+    runtime: tools/resources/prompts are cached per server with a one-hour
     sliding expiration by default. Values are deep-copied on get/set so callers
     cannot mutate the cached copy by accident.
     """
 
-    DEFAULT_TTL_SECONDS = 5 * 60
+    DEFAULT_TTL_SECONDS = 60 * 60
 
     @staticmethod
     def tools_key(server_name: str) -> str:
@@ -36,9 +36,8 @@ class McpCacheHelper:
         return f"gnougo-flow:mcp:{server_name}:prompts"
 
     def __init__(self, ttl_seconds: float | None = None) -> None:
-        self.ttl_seconds = float(
-            ttl_seconds if ttl_seconds is not None else self.DEFAULT_TTL_SECONDS
-        )
+        effective_ttl = ttl_seconds if ttl_seconds is not None else self.DEFAULT_TTL_SECONDS
+        self.ttl_seconds = float(effective_ttl if effective_ttl > 0 else self.DEFAULT_TTL_SECONDS)
         self._entries: dict[str, _CacheEntry] = {}
 
     def clear(self) -> None:

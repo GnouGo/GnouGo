@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Scripting;
 using Xunit;
 
@@ -74,6 +75,27 @@ public class JintSandboxTests
         ");
         var result = funcs["test"](new JsonNode?[] { JsonValue.Create("hello world") });
         Assert.True(result!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void LoadFunctions_CanUseUrlConstructor()
+    {
+        var sandbox = new JintSandbox();
+        var funcs = sandbox.LoadFunctions(@"
+            function parseGithubRepoUrl(url) {
+                const u = new URL(url);
+                const parts = u.pathname.replace(/^\/+/, '').split('/');
+                return { owner: parts[0], repo: parts[1], hostname: u.hostname };
+            }
+        ");
+
+        var result = funcs["parseGithubRepoUrl"](
+            new JsonNode?[] { JsonValue.Create("https://github.com/AxaFrance/oidc-client") }) as JsonObject;
+
+        Assert.NotNull(result);
+        Assert.Equal("github.com", result!["hostname"]!.GetValue<string>());
+        Assert.Equal("AxaFrance", result["owner"]!.GetValue<string>());
+        Assert.Equal("oidc-client", result["repo"]!.GetValue<string>());
     }
 
     [Fact]
@@ -169,6 +191,37 @@ public class JintSandboxTests
     }
 
     [Fact]
+    public void JsonToJsValue_Decimal_ConvertsToNumber()
+    {
+        var engine = new Jint.Engine();
+        var jsValue = JintSandbox.JsonToJsValue(engine, JsonValue.Create(2.5m));
+        var roundTrip = JintSandbox.JsValueToJson(jsValue);
+
+        Assert.Equal(2.5, roundTrip!.GetValue<double>());
+    }
+
+    public static TheoryData<JsonNode, double> AdditionalNumericValues => new()
+    {
+        { JsonValue.Create((byte)8)!, 8 },
+        { JsonValue.Create((sbyte)-8)!, -8 },
+        { JsonValue.Create((short)-16)!, -16 },
+        { JsonValue.Create((ushort)16)!, 16 },
+        { JsonValue.Create((uint)32)!, 32 },
+        { JsonValue.Create((ulong)64)!, 64 }
+    };
+
+    [Theory]
+    [MemberData(nameof(AdditionalNumericValues))]
+    public void JsonToJsValue_AdditionalNumericTypes_ConvertToNumber(JsonNode value, double expected)
+    {
+        var engine = new Jint.Engine();
+        var jsValue = JintSandbox.JsonToJsValue(engine, value);
+        var roundTrip = JintSandbox.JsValueToJson(jsValue);
+
+        Assert.Equal(expected, ExpressionEvaluator.GetNumber(roundTrip));
+    }
+
+    [Fact]
     public void JsValueToJson_Null_ReturnsNull()
     {
         // Test via round-trip: null JSON → JsValue → JSON
@@ -186,5 +239,3 @@ public class JintSandboxTests
         Assert.Null(result);
     }
 }
-
-

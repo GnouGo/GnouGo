@@ -1,9 +1,11 @@
 using System.Reflection;
 using System.Diagnostics;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
+using ModelContextProtocol.Protocol;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
@@ -55,6 +57,25 @@ public class ConfiguredMcpClientFactoryTests
     public void IsUnexpectedServerExit_ReturnsFalse_ForUnrelatedErrors()
     {
         Assert.False(InvokeIsUnexpectedServerExit(new Exception("validation failed")));
+    }
+
+    [Fact]
+    public void BuildContent_PrefersStructuredContent_WhenPresent()
+    {
+        var result = new CallToolResult
+        {
+            StructuredContent = JsonSerializer.SerializeToElement(new
+            {
+                title = "Structured",
+                count = 3
+            }),
+            Content = [new TextContentBlock { Text = "fallback text" }]
+        };
+
+        var content = Assert.IsType<JsonObject>(InvokeBuildContent(result));
+
+        Assert.Equal("Structured", content["title"]!.GetValue<string>());
+        Assert.Equal(3, content["count"]!.GetValue<int>());
     }
 
     [Fact]
@@ -252,6 +273,19 @@ public class ConfiguredMcpClientFactoryTests
         return Assert.IsType<Dictionary<string, object?>>(value);
     }
 
+    private static JsonNode? InvokeBuildContent(CallToolResult result)
+    {
+        var adapterType = typeof(ConfiguredMcpClientFactory).Assembly.GetType("GnOuGo.Flow.Core.Runtime.McpSessionAdapter");
+        Assert.NotNull(adapterType);
+
+        var method = adapterType.GetMethod(
+            "BuildContent",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        return method.Invoke(null, [result]) as JsonNode;
+    }
+
     private static JsonObject? InvokeBuildCurrentCorrelationMeta()
     {
         var method = typeof(ConfiguredMcpClientFactory).GetMethod(
@@ -322,4 +356,3 @@ public class ConfiguredMcpClientFactoryTests
         return Assert.IsType<string>(value);
     }
 }
-

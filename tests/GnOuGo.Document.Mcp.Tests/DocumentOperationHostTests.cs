@@ -84,6 +84,8 @@ public class DocumentOperationHostTests
 
         Assert.True(result.Success);
         Assert.NotNull(result.FilePath);
+        Assert.Equal("output.txt", result.RelativePath);
+        Assert.Equal(result.FilePath, result.FilePathAbsolute);
         Assert.True(File.Exists(result.FilePath));
         Assert.Equal("Hello from MCP!", File.ReadAllText(result.FilePath));
     }
@@ -421,6 +423,8 @@ public class DocumentOperationHostTests
 
         var readResult = host.Read("plain.pdf", "plain");
         Assert.True(readResult.Success);
+        Assert.Equal("plain.pdf", readResult.RelativePath);
+        Assert.Equal(readResult.FilePath, readResult.FilePathAbsolute);
         Assert.Contains("Line", readResult.Sections[0].Content);
     }
 
@@ -540,6 +544,7 @@ public class DocumentOperationHostTests
         Assert.True(result.Success);
         Assert.Equal(2, result.Files.Count);
         Assert.All(result.Files, f => Assert.True(f.Extension is ".txt" or ".csv"));
+        Assert.Contains(result.Files, f => f.WorkspaceRelativePath == "doc.txt");
     }
 
     [Fact]

@@ -1,8 +1,10 @@
 ﻿
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Auth.Core;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -19,14 +21,21 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 
 	private static readonly TimeSpan BackgroundInitialPollDelay = TimeSpan.FromSeconds(2);
 	private static readonly TimeSpan BackgroundMaxPollDelay = TimeSpan.FromSeconds(15);
+	private static readonly TimeSpan BackgroundUnsupportedCacheDuration = TimeSpan.FromMinutes(65);
+	private const string BackgroundUnsupportedCacheKeyPrefix = "gnougo-ai:anthropic:background-unsupported:";
 
 	private readonly HttpClient _http;
 	private readonly ILogger<AnthropicLLMProvider> _logger;
+	private readonly IMemoryCache? _backgroundModeCache;
 
-	public AnthropicLLMProvider(HttpClient http, ILogger<AnthropicLLMProvider>? logger = null)
+	public AnthropicLLMProvider(
+		HttpClient http,
+		ILogger<AnthropicLLMProvider>? logger = null,
+		IMemoryCache? backgroundModeCache = null)
 	{
 		_http = http;
 		_logger = logger ?? NullLogger<AnthropicLLMProvider>.Instance;
+		_backgroundModeCache = backgroundModeCache;
 		LLMHttpClientDefaults.EnsureMinimumTimeout(_http);
 	}
 
@@ -87,6 +96,17 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
 	{
 		var batchUrl = BuildBatchesUrl(provider.Url);
+		var cacheKey = BuildBackgroundUnsupportedCacheKey(provider, batchUrl);
+		if (IsBackgroundUnsupportedCached(cacheKey))
+		{
+			_logger.LogInformation(
+				"Anthropic batch API previously returned unsupported; skipping background mode and using synchronous Messages API. BatchUrl={BatchUrl}; Model={Model}; CacheDuration={CacheDuration}",
+				batchUrl,
+				model,
+				BackgroundUnsupportedCacheDuration);
+			return await CallMessagesAsync(model, provider, request, ct);
+		}
+
 		var auth = await ResolveAuthAsync(provider, ct);
 		var prompt = BuildPrompt(request.Prompt, request.StructuredOutputSchema, useStructuredOutputTool: true);
 
@@ -111,6 +131,9 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			// If batches API is not available, fall back to synchronous
 			if (IsBatchUnsupported(createResp.StatusCode, createBody))
 			{
+				if (createResp.StatusCode == HttpStatusCode.NotFound)
+					CacheBackgroundUnsupported(cacheKey, batchUrl, model, createResp.StatusCode);
+
 				_logger.LogWarning(
 					"Anthropic batch API not available, falling back to synchronous call. " +
 					"BatchUrl: {BatchUrl}; StatusCode: {StatusCode}; ReasonPhrase: {ReasonPhrase}; ResponseBody: {ResponseBody}",
@@ -127,6 +150,33 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 
 		return await PollBatchUntilCompleteAsync(batchUrl, auth, createBody, request, model, ct);
 	}
+
+	private bool IsBackgroundUnsupportedCached(string cacheKey)
+		=> _backgroundModeCache?.TryGetValue(cacheKey, out bool unsupported) == true && unsupported;
+
+	private void CacheBackgroundUnsupported(string cacheKey, string batchUrl, string model, HttpStatusCode statusCode)
+	{
+		if (_backgroundModeCache == null)
+			return;
+
+		_backgroundModeCache.Set(cacheKey, true, new MemoryCacheEntryOptions
+		{
+			AbsoluteExpirationRelativeToNow = BackgroundUnsupportedCacheDuration
+		});
+		_logger.LogInformation(
+			"Cached Anthropic batch background unsupported result. BatchUrl={BatchUrl}; Model={Model}; StatusCode={StatusCode}; CacheDuration={CacheDuration}",
+			batchUrl,
+			model,
+			(int)statusCode,
+			BackgroundUnsupportedCacheDuration);
+	}
+
+	private static string BuildBackgroundUnsupportedCacheKey(ModelProviderOptions provider, string batchUrl)
+		=> string.Join("|",
+			BackgroundUnsupportedCacheKeyPrefix,
+			provider.ResolvedType,
+			provider.Url ?? "",
+			batchUrl);
 
 	private async Task<LLMClientResponse> PollBatchUntilCompleteAsync(
 		string batchUrl, AnthropicAuth auth, string responseBody,

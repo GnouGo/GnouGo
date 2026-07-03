@@ -35,6 +35,16 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task Constructor_AllowsAbsoluteProjectRootInsideWorkspace()
+    {
+        var provider = CreateProvider(_root, allowWrites: false);
+
+        var content = await provider.ReadFileForTestAsync("src/Existing.cs");
+
+        Assert.Contains("class Existing", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task WriteFileForTestAsync_RejectsWhenWritesAreDisabled()
     {
         var provider = CreateProvider(allowWrites: false);
@@ -64,6 +74,9 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
     }
 
     private LocalProjectSessionFsProvider CreateProvider(bool allowWrites)
+        => CreateProvider(".", allowWrites);
+
+    private LocalProjectSessionFsProvider CreateProvider(string projectRoot, bool allowWrites)
     {
         var settings = new CodeServerSettings
         {
@@ -77,8 +90,7 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
         return new LocalProjectSessionFsProvider(
             new CodePolicy(settings, _root),
             settings,
-            _root,
+            projectRoot,
             NullLogger<LocalProjectSessionFsProvider>.Instance);
     }
 }
-

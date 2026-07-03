@@ -15,18 +15,18 @@
   <ItemGroup>
     <PackageReference Include="YamlDotNet" Version="18.0.0" />
     <!-- Configuration -->
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.9" />
     <!-- Dependency Injection -->
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.9" />
     <!-- OpenTelemetry -->
-    <PackageReference Include="OpenTelemetry" Version="1.15.3" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry" Version="1.16.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
   </ItemGroup>
 

@@ -20,6 +20,15 @@ public interface ILLMClient
 }
 
 /// <summary>
+/// Optional model capability resolver used by planners to decide whether
+/// provider-specific request features are safe before calling the LLM.
+/// </summary>
+public interface ILLMCapabilityResolver
+{
+    Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct);
+}
+
+/// <summary>
 /// LLM request.
 /// </summary>
 public sealed class LLMRequest
@@ -134,6 +143,7 @@ public sealed class WorkflowCallResolutionContext
     public required string Kind { get; init; }
     public required int CallDepth { get; init; }
     public required IReadOnlySet<string> CallStack { get; init; }
+    public CompiledDocument? ActiveDocument { get; init; }
 }
 
 /// <summary>

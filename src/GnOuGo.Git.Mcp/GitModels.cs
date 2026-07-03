@@ -1,4 +1,7 @@
-﻿namespace GnOuGo.Git.Mcp;
+﻿using System.ComponentModel;
+using System.Text.Json.Serialization;
+
+namespace GnOuGo.Git.Mcp;
 
 public sealed record GitPolicyInfo(
     string DefaultWorkingDirectory,
@@ -14,29 +17,194 @@ public sealed record GitPolicyInfo(
 
 public sealed record GitErrorResult(string Code, string Message);
 
-public sealed record GitRepositoryInfo(string RootPath, string WorkingDirectory, bool IsBare, string? Output = null);
+public sealed record GitRepositoryInfo(
+    string RootPath,
+    string WorkingDirectory,
+    bool IsBare,
+    string? Output = null,
+    string? RootPathRelative = null,
+    string? WorkingDirectoryRelative = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+
+    [Description("Workspace-relative path to an existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RootPath.")]
+    public string? ProjectRootRelative => RootPathRelative;
+}
 
 public sealed record GitStatusEntry(string Path, string State);
 
-public sealed record GitStatusResult(string RepositoryRoot, string? HeadBranch, bool IsDetachedHead, bool IsDirty, IReadOnlyList<GitStatusEntry> Entries, string? Output = null);
+public sealed record GitStatusResult(
+    string RepositoryRoot,
+    string? HeadBranch,
+    bool IsDetachedHead,
+    bool IsDirty,
+    IReadOnlyList<GitStatusEntry> Entries,
+    string? Output = null,
+    string? RepositoryRootRelative = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
 
-public sealed record GitDiffResult(string RepositoryRoot, string? Path, bool Staged, string Patch, bool Truncated, string? Output = null);
+    [Description("Workspace-relative path to an existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
 
-public sealed record GitCommitInfo(string Sha, string ShortSha, string MessageShort, string AuthorName, string AuthorEmail, DateTimeOffset When, string? Output = null);
+public sealed record GitDiffResult(
+    string RepositoryRoot,
+    string? Path,
+    bool Staged,
+    string Patch,
+    bool Truncated,
+    string? Output = null,
+    string? RepositoryRootRelative = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
 
-public sealed record GitLogResult(string RepositoryRoot, IReadOnlyList<GitCommitInfo> Commits, bool Truncated, string? Output = null);
+    [Description("Workspace-relative path to an existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
+
+public sealed record GitCommitInfo(
+    string Sha,
+    string ShortSha,
+    string MessageShort,
+    string AuthorName,
+    string AuthorEmail,
+    DateTimeOffset When,
+    string? Output = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
+
+public sealed record GitLogResult(
+    string RepositoryRoot,
+    IReadOnlyList<GitCommitInfo> Commits,
+    bool Truncated,
+    string? Output = null,
+    string? RepositoryRootRelative = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+
+    [Description("Workspace-relative path to an existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
 
 public sealed record GitBranchInfo(string Name, string FriendlyName, string? UpstreamBranch, bool IsCurrentRepositoryHead, bool IsRemote, string? TipSha);
 
-public sealed record GitBranchesResult(string RepositoryRoot, string? HeadBranch, IReadOnlyList<GitBranchInfo> Branches, string? Output = null);
+public sealed record GitBranchesResult(
+    string RepositoryRoot,
+    string? HeadBranch,
+    IReadOnlyList<GitBranchInfo> Branches,
+    string? Output = null,
+    string? RepositoryRootRelative = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
 
-public sealed record GitOperationResult(string RepositoryRoot, string Operation, string Message, bool Success, string? Output = null);
+    [Description("Workspace-relative path to an existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
 
-public sealed record GitCloneResult(string RepositoryRoot, string RemoteUrl, string? Branch, string? Output = null);
+public sealed record GitOperationResult(
+    string RepositoryRoot,
+    string Operation,
+    string Message,
+    bool Success,
+    string? Output = null,
+    string? RepositoryRootRelative = null,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
 
-public sealed record GitMergeResult(string RepositoryRoot, string Branch, string Status, string? CommitSha, IReadOnlyList<GitConflictInfo> Conflicts, string? Output = null);
+    [Description("Workspace-relative path to an existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
+
+public sealed record GitCloneResult(
+    string RepositoryRoot,
+    string RemoteUrl,
+    string? Branch,
+    [property: Description("Required workspace-relative path to an existing project root created by git_clone. Pass this value to MCP projectRoot inputs after clone succeeds; do not reuse targetDirectory before clone.")]
+    string ProjectRootRelative,
+    string? Output = null,
+    string? RepositoryRootRelative = null,
+    string? ResolvedBranch = null,
+    int HistoryDepth = 1,
+    bool FetchAllBranches = false,
+    string TagFetchMode = "none",
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
+
+public sealed record GitMergeResult(
+    string RepositoryRoot,
+    string Branch,
+    string Status,
+    string? CommitSha,
+    IReadOnlyList<GitConflictInfo> Conflicts,
+    string? Output = null,
+    string? RepositoryRootRelative = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+
+    [Description("Workspace-relative path to an existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
 
 public sealed record GitConflictInfo(string Path, string? AncestorPath, string? OursPath, string? TheirsPath);
 
-public sealed record GitPushResult(string RepositoryRoot, string RemoteName, string BranchName, bool SetUpstream, string Message, string? Output = null);
+public sealed record GitPushResult(
+    string RepositoryRoot,
+    string RemoteName,
+    string BranchName,
+    bool SetUpstream,
+    string Message,
+    string? Output = null,
+    string? RepositoryRootRelative = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
 
+    [Description("Workspace-relative path to an existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}
+
+public sealed record GitConflictsResult(
+    string RepositoryRoot,
+    IReadOnlyList<GitConflictInfo> Conflicts,
+    string? Output = null,
+    string? RepositoryRootRelative = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+
+    [Description("Workspace-relative path to an existing project root. Pass this value to MCP projectRoot inputs; do not use absolute RepositoryRoot.")]
+    public string? ProjectRootRelative => RepositoryRootRelative;
+}

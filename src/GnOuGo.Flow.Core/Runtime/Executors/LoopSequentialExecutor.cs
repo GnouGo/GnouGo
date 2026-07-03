@@ -120,13 +120,22 @@ public sealed class LoopSequentialExecutor : IStepExecutor
                 if (inputObj?.TryGetPropertyValue("while", out var whileExpr) == true && whileExpr != null)
                 {
                     var whileStr = ExpressionEvaluator.GetString(whileExpr);
-                    var condResult = ctx.Engine.Interpolator.Interpolate(whileStr, ctx.Data);
+                    var condResult = ctx.Interpolator.Interpolate(whileStr, ctx.Data);
                     if (!ExpressionEvaluator.GetBool(condResult))
                         break;
                 }
 
                 var result = new RunResult { Success = true };
-                await ctx.Engine.ExecuteStepsAsync(subSteps, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
+                await ctx.Engine.ExecuteStepsAsync(
+                    subSteps,
+                    ctx.Data,
+                    result,
+                    ctx.Limits,
+                    ctx.CallDepth,
+                    ctx.CallStack,
+                    ctx.EffectiveExecutionScope,
+                    ct,
+                    ctx.TelemetrySpan);
 
                 iterations.Add(ctx.Data["steps"]?.DeepClone() ?? new JsonObject());
             }
@@ -169,14 +178,23 @@ public sealed class LoopSequentialExecutor : IStepExecutor
             if (inputObj?.TryGetPropertyValue("while", out var whileExpr2) == true && whileExpr2 != null)
             {
                 var whileStr = ExpressionEvaluator.GetString(whileExpr2);
-                var condResult = ctx.Engine.Interpolator.Interpolate(whileStr, ctx.Data);
+                var condResult = ctx.Interpolator.Interpolate(whileStr, ctx.Data);
                 if (!ExpressionEvaluator.GetBool(condResult))
                     break;
             }
 
             // Execute iteration
             var result2 = new RunResult { Success = true };
-            await ctx.Engine.ExecuteStepsAsync(subSteps, ctx.Data, result2, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
+            await ctx.Engine.ExecuteStepsAsync(
+                subSteps,
+                ctx.Data,
+                result2,
+                ctx.Limits,
+                ctx.CallDepth,
+                ctx.CallStack,
+                ctx.EffectiveExecutionScope,
+                ct,
+                ctx.TelemetrySpan);
 
             whileIterations.Add(ctx.Data["steps"]?.DeepClone() ?? new JsonObject());
             iteration++;

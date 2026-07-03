@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -33,8 +34,12 @@ public sealed class RoutingLLMClient
     /// Convenience constructor that creates default providers (OpenAI, Ollama, Copilot, Anthropic)
     /// using the supplied HttpClient. Backward-compatible with existing call sites.
     /// </summary>
-    public RoutingLLMClient(HttpClient http, LLMOptions options, ILoggerFactory? loggerFactory = null)
-        : this(options, CreateDefaultProviders(http, loggerFactory))
+    public RoutingLLMClient(
+        HttpClient http,
+        LLMOptions options,
+        ILoggerFactory? loggerFactory = null,
+        IMemoryCache? backgroundModeCache = null)
+        : this(options, CreateDefaultProviders(http, loggerFactory, backgroundModeCache))
     {
         LLMHttpClientDefaults.EnsureMinimumTimeout(http);
     }
@@ -138,12 +143,15 @@ public sealed class RoutingLLMClient
     /// <summary>
     /// Creates the default set of providers (OpenAI, Ollama, Copilot, Anthropic) using a shared HttpClient.
     /// </summary>
-    public static ILLMProvider[] CreateDefaultProviders(HttpClient http, ILoggerFactory? loggerFactory = null) =>
+    public static ILLMProvider[] CreateDefaultProviders(
+        HttpClient http,
+        ILoggerFactory? loggerFactory = null,
+        IMemoryCache? backgroundModeCache = null) =>
     [
-        new OpenAiLLMProvider(http, loggerFactory?.CreateLogger<OpenAiLLMProvider>()),
+        new OpenAiLLMProvider(http, loggerFactory?.CreateLogger<OpenAiLLMProvider>(), backgroundModeCache),
         new OllamaLLMProvider(http, loggerFactory?.CreateLogger<OllamaLLMProvider>()),
         new CopilotLLMProvider(http, loggerFactory?.CreateLogger<CopilotLLMProvider>()),
-        new AnthropicLLMProvider(http, loggerFactory?.CreateLogger<AnthropicLLMProvider>())
+        new AnthropicLLMProvider(http, loggerFactory?.CreateLogger<AnthropicLLMProvider>(), backgroundModeCache)
     ];
 }
 

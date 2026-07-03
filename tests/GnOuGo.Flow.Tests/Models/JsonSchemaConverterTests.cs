@@ -86,6 +86,29 @@ public class JsonSchemaConverterTests
     }
 
     [Fact]
+    public void InputsToJsonSchema_DoesNotExposeInternalClosedObjectPolicy()
+    {
+        var inputs = new Dictionary<string, InputDef>
+        {
+            ["config"] = new()
+            {
+                Type = "object",
+                Properties = new Dictionary<string, InputDef>
+                {
+                    ["host"] = new() { Type = "string" }
+                }
+            }
+        };
+
+        var schema = Assert.IsType<JsonObject>(JsonSchemaConverter.InputsToJsonSchema(inputs));
+        var props = Assert.IsType<JsonObject>(schema["properties"]);
+        var configSchema = Assert.IsType<JsonObject>(props["config"]);
+
+        Assert.False(schema.ContainsKey("additionalProperties"));
+        Assert.False(configSchema.ContainsKey("additionalProperties"));
+    }
+
+    [Fact]
     public void InputsToJsonSchema_DictionaryType_MapsToObjectWithAdditionalProperties()
     {
         var inputs = new Dictionary<string, InputDef>

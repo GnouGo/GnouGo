@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "raw-loop-results-public-output",
+      "title": "Pipeline main exposes raw loop iteration snapshots as public array output",
+      "yaml": "raw-loop-results-public-output.yaml",
+      "source": "pipeline-quality-regression",
+      "expected_stage": "dry_run",
+      "current_coverage": "caught_by_dry_run",
+      "expected_error_contains": [
+        "Generated workflow dry_run failed",
+        "Workflow 'main' output 'result'",
+        "id: missing required property"
+      ],
+      "notes": [
+        "Loop results are per-iteration step snapshots, not the projected item output.",
+        "Pipeline main assembly must add a projection step before exposing a public array contract."
+      ]
+    },
+    {
+      "id": "copilot-suggest-change-nonexistent-project-root",
+      "title": "Pipeline invokes Copilot against a derived clone path that has not been proven to exist",
+      "yaml": "copilot-suggest-change-nonexistent-project-root.yaml",
+      "source": "user-reported-generated-workflow",
+      "expected_stage": "pipeline_quality",
+      "current_coverage": "caught_by_pipeline_quality",
+      "expected_error_contains": [
+        "PIPELINE_MAIN_UNPROVEN_EXTERNAL_ARTIFACT",
+        "derive_project_context",
+        "projectRoot"
+      ],
+      "reported_error_contains": [
+        "GnOuGo.GithubCopilot.Mcp/code_suggest_change",
+        "AxaFrance-oidc-client-issue-1703",
+        "does not exist"
+      ],
+      "notes": [
+        "This is caught without adding server-specific Flow heuristics.",
+        "External-work consumers must depend on a caller-provided artifact locator or an explicit producing contract when existence is operationally required."
+      ]
+    }
+  ]
+}

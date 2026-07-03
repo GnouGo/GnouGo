@@ -79,7 +79,16 @@ public sealed class LoopParallelExecutor : IStepExecutor
                     iterData["loop"] = new JsonObject { ["index"] = JsonValue.Create(index), ["item"] = item?.DeepClone() };
 
                     var iterResult = new RunResult { Success = true };
-                    await ctx.Engine.ExecuteStepsAsync(subSteps, iterData, iterResult, ctx.Limits, ctx.CallDepth, ctx.CallStack, ct, ctx.TelemetrySpan);
+                    await ctx.Engine.ExecuteStepsAsync(
+                        subSteps,
+                        iterData,
+                        iterResult,
+                        ctx.Limits,
+                        ctx.CallDepth,
+                        ctx.CallStack,
+                        ctx.EffectiveExecutionScope,
+                        ct,
+                        ctx.TelemetrySpan);
                     return (index, iterData);
                 }
                 finally

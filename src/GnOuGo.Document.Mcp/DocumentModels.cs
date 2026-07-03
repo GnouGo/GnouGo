@@ -8,13 +8,15 @@ public sealed record DocumentReadResult(
     string? Extension,
     IReadOnlyList<DocumentSection> Sections,
     string? ErrorCode,
-    string? ErrorMessage)
+    string? ErrorMessage,
+    string? RelativePath = null,
+    string? FilePathAbsolute = null)
 {
     public static DocumentReadResult Error(string code, string message)
         => new(false, null, null, [], code, message);
 
     public static DocumentReadResult Ok(string filePath, string extension, IReadOnlyList<DocumentSection> sections)
-        => new(true, filePath, extension, sections, null, null);
+        => new(true, filePath, extension, sections, null, null, null, filePath);
 }
 
 public sealed record DocumentSection(
@@ -30,7 +32,9 @@ public sealed record DocumentWriteResult(
     string? FilePath,
     long? BytesWritten,
     string? ErrorCode,
-    string? ErrorMessage)
+    string? ErrorMessage,
+    string? RelativePath = null,
+    string? FilePathAbsolute = null)
 {
     public static DocumentWriteResult Error(string code, string message)
         => new(false, null, null, code, message);
@@ -49,6 +53,6 @@ public sealed record DocumentFileInfo(
     string FullPath,
     string Extension,
     long SizeBytes,
-    DateTimeOffset LastModifiedUtc);
-
+    DateTimeOffset LastModifiedUtc,
+    string? WorkspaceRelativePath = null);
 

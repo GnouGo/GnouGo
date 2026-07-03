@@ -24,7 +24,7 @@ public sealed class DocsIngestorTools
         _logger = logger;
     }
 
-    [McpServerTool(Name = "docs_ingestor_vectorize_files"), Description("Downloads one or more internal file URLs, extracts their binary content, vectorizes them into ordered text chunks, and returns chunks with metadata without storing them.")]
+    [McpServerTool(Name = "docs_ingestor_vectorize_files", UseStructuredContent = true, OutputSchemaType = typeof(DocsIngestorResult)), Description("Downloads one or more internal file URLs, extracts their binary content, vectorizes them into ordered text chunks, and returns chunks with metadata without storing them.")]
     public async Task<DocsIngestorResult> VectorizeFilesAsync(
         [Description("Absolute http/https URLs of files to download internally.")] string[] fileUrls,
         [Description("Tenant identifier propagated to document metadata. Omit for the configured default tenant.")] string? tenantId = null,
@@ -47,7 +47,7 @@ public sealed class DocsIngestorTools
         }
     }
 
-    [McpServerTool(Name = "docs_ingestor_ingest_files"), Description("Downloads one or more internal file URLs, resolves the embedding configuration from KeyVault, stores originals, embeds chunks, and ingests them into the vector database. Unchanged documents are skipped by SHA-256 hash.")]
+    [McpServerTool(Name = "docs_ingestor_ingest_files", UseStructuredContent = true, OutputSchemaType = typeof(DocsIngestorResult)), Description("Downloads one or more internal file URLs, resolves the embedding configuration from KeyVault, stores originals, embeds chunks, and ingests them into the vector database. Unchanged documents are skipped by SHA-256 hash.")]
     public async Task<DocsIngestorResult> IngestFilesAsync(
         [Description("Absolute http/https URLs of files to download internally.")] string[] fileUrls,
         [Description("Vector collection name.")] string? collection = null,
@@ -91,7 +91,7 @@ public sealed class DocsIngestorTools
         }
     }
 
-    [McpServerTool(Name = "docs_ingestor_list_files"), Description("Lists original files currently registered in the document ingestion vector database metadata store.")]
+    [McpServerTool(Name = "docs_ingestor_list_files", UseStructuredContent = true, OutputSchemaType = typeof(DocsIngestorResult)), Description("Lists original files currently registered in the document ingestion vector database metadata store.")]
     public async Task<DocsIngestorResult> ListFilesAsync(
         [Description("Optional tenant id filter.")] string? tenantId = null,
         [Description("Optional collection filter.")] string? collection = null,
@@ -108,7 +108,7 @@ public sealed class DocsIngestorTools
         }
     }
 
-    [McpServerTool(Name = "docs_ingestor_vector_search"), Description("Runs vector search over chunks. The query text is embedded using the embedding configuration read from KeyVault.")]
+    [McpServerTool(Name = "docs_ingestor_vector_search", UseStructuredContent = true, OutputSchemaType = typeof(DocsIngestorResult)), Description("Runs vector search over chunks. The query text is embedded using the embedding configuration read from KeyVault.")]
     public async Task<DocsIngestorResult> VectorSearchAsync(
         [Description("Text used to compute the query vector.")] string query,
         [Description("Vector collection name.")] string? collection = null,
@@ -137,7 +137,7 @@ public sealed class DocsIngestorTools
         }
     }
 
-    [McpServerTool(Name = "docs_ingestor_download_original"), Description("Downloads the original file used for embedding. The content is returned as base64 for MCP transport compatibility.")]
+    [McpServerTool(Name = "docs_ingestor_download_original", UseStructuredContent = true, OutputSchemaType = typeof(DocsIngestorResult)), Description("Downloads the original file used for embedding. The content is returned as base64 for MCP transport compatibility.")]
     public async Task<DocsIngestorResult> DownloadOriginalAsync(
         [Description("Document id returned by ingest/list/search.")] string documentId,
         CancellationToken ct = default)
@@ -156,7 +156,7 @@ public sealed class DocsIngestorTools
         }
     }
 
-    [McpServerTool(Name = "docs_ingestor_delete_file"), Description("Deletes one stored original file and all associated chunks from its vector collection.")]
+    [McpServerTool(Name = "docs_ingestor_delete_file", UseStructuredContent = true, OutputSchemaType = typeof(DocsIngestorResult)), Description("Deletes one stored original file and all associated chunks from its vector collection.")]
     public async Task<DocsIngestorResult> DeleteFileAsync(
         [Description("Document id returned by ingest/list/search.")] string documentId,
         CancellationToken ct = default)

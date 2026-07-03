@@ -51,12 +51,22 @@ internal static class InputDefaultValueConverter
         if (node is JsonObject obj)
         {
             foreach (var key in obj.Select(kv => kv.Key).ToArray())
-                obj[key] = CoerceNode(obj[key], GetChildDefinition(definition, key));
+            {
+                var child = obj[key];
+                var childResult = CoerceNode(child, GetChildDefinition(definition, key));
+                if (!ReferenceEquals(childResult, child))
+                    obj[key] = childResult;
+            }
         }
         else if (node is JsonArray array)
         {
             for (var i = 0; i < array.Count; i++)
-                array[i] = CoerceNode(array[i], definition?.Items);
+            {
+                var child = array[i];
+                var childResult = CoerceNode(child, definition?.Items);
+                if (!ReferenceEquals(childResult, child))
+                    array[i] = childResult;
+            }
         }
 
         return node;

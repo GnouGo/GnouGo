@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 namespace GnOuGo.Flow.Core.Expressions;
@@ -34,18 +35,68 @@ public sealed class StringInterpolator
             var inner = trimmed[2..^1].Trim();
             if (!inner.Contains("${"))
             {
-                return _evaluator.Evaluate(inner, context);
+                return _evaluator.Evaluate(NormalizeStringLiteralLineBreaks(inner), context);
             }
         }
         // Otherwise interpolate as string
         var result = ExprRegex.Replace(value, match =>
         {
-            var expr = match.Groups[1].Value.Trim();
+            var expr = NormalizeStringLiteralLineBreaks(match.Groups[1].Value.Trim());
             var val = _evaluator.Evaluate(expr, context);
             return val == null ? "" : ExpressionEvaluator.GetString(val);
         });
         return JsonValue.Create(result);
     }
+
+    private static string NormalizeStringLiteralLineBreaks(string expression)
+    {
+        StringBuilder? builder = null;
+        char quote = '\0';
+        var escaped = false;
+
+        for (var i = 0; i < expression.Length; i++)
+        {
+            var c = expression[i];
+            if (quote != '\0' && (c == '\r' || c == '\n'))
+            {
+                builder ??= new StringBuilder(expression.Length + 8).Append(expression, 0, i);
+                builder.Append(c == '\r' ? "\\r" : "\\n");
+                escaped = false;
+                continue;
+            }
+
+            builder?.Append(c);
+
+            if (quote == '\0')
+            {
+                if (c is '\'' or '"')
+                {
+                    quote = c;
+                    escaped = false;
+                }
+
+                continue;
+            }
+
+            if (escaped)
+            {
+                escaped = false;
+                continue;
+            }
+
+            if (c == '\\')
+            {
+                escaped = true;
+                continue;
+            }
+
+            if (c == quote)
+                quote = '\0';
+        }
+
+        return builder?.ToString() ?? expression;
+    }
+
     /// <summary>
     /// Recursively resolve expressions in a JsonNode tree.
     /// </summary>
@@ -54,7 +105,7 @@ public sealed class StringInterpolator
         if (node == null) return null;
         if (node is JsonValue val && val.TryGetValue(out string? s) && HasExpressions(s))
         {
-            return Interpolate(s, context);
+            return Interpolate(s, context)?.DeepClone();
         }
         if (node is JsonObject obj)
         {

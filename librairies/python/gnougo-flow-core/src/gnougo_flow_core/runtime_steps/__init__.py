@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .assert_non_null_executor import AssertNonNullExecutor
 from .emit_executor import EmitExecutor
 from .human_input_executor import HumanInputExecutor
 from .llm_call_executor import LlmCallExecutor
@@ -18,6 +19,7 @@ from .workflow_plan_executor import WorkflowPlanExecutor
 from .workflow_route_executor import WorkflowRouteExecutor
 
 _EXECUTOR_CLASSES = [
+    AssertNonNullExecutor,
     SequenceExecutor,
     ParallelExecutor,
     LoopSequentialExecutor,
@@ -39,6 +41,7 @@ _EXECUTOR_CLASSES = [
 STEP_TYPES = frozenset(cls.step_type for cls in _EXECUTOR_CLASSES)
 
 __all__ = [
+    "AssertNonNullExecutor",
     "SequenceExecutor",
     "ParallelExecutor",
     "LoopSequentialExecutor",

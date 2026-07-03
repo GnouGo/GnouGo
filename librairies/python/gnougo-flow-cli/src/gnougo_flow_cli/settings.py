@@ -64,6 +64,17 @@ class TelemetrySettings(SettingsModel):
     )
 
 
+class McpCapabilityCacheSettings(SettingsModel):
+    sliding_expiration_seconds: float = Field(
+        default=3600.0,
+        validation_alias=AliasChoices("sliding_expiration_seconds", "SlidingExpirationSeconds"),
+    )
+
+    @property
+    def ttl_seconds(self) -> float:
+        return max(1.0, float(self.sliding_expiration_seconds))
+
+
 class FlowCliSettings(SettingsModel):
     openai: OpenAiSettings = Field(default_factory=OpenAiSettings)
     llm: LlmSettings = Field(
@@ -73,6 +84,10 @@ class FlowCliSettings(SettingsModel):
     telemetry: TelemetrySettings = Field(
         default_factory=TelemetrySettings,
         validation_alias=AliasChoices("telemetry", "Telemetry", "open_telemetry", "OpenTelemetry"),
+    )
+    mcp_capability_cache: McpCapabilityCacheSettings = Field(
+        default_factory=McpCapabilityCacheSettings,
+        validation_alias=AliasChoices("mcp_capability_cache", "McpCapabilityCache"),
     )
     mcp_servers: dict[str, McpServerSettings] = Field(default_factory=dict)
     workspace_root: str | None = None
@@ -141,4 +156,3 @@ def load_settings(settings_path: Path | None = None) -> FlowCliSettings:
     settings.workspace_root = str(workspace_root)
     _normalize_mcp_servers(settings, workspace_root)
     return settings
-

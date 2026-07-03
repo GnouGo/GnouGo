@@ -78,6 +78,8 @@ public sealed class ExpressionEvaluator
             engine.SetValue("data", JsValue.Null);
         }
 
+        JintUrlInterop.Install(engine);
+
         // Register built-in + custom functions
         RegisterFunctions(engine);
 
@@ -167,8 +169,16 @@ public sealed class ExpressionEvaluator
         if (node is JsonValue val)
         {
             if (val.TryGetValue(out double d)) return d;
+            if (val.TryGetValue(out decimal m)) return (double)m;
+            if (val.TryGetValue(out float f)) return f;
+            if (val.TryGetValue(out byte b8)) return b8;
+            if (val.TryGetValue(out sbyte s8)) return s8;
+            if (val.TryGetValue(out short s16)) return s16;
+            if (val.TryGetValue(out ushort u16)) return u16;
             if (val.TryGetValue(out int i)) return i;
+            if (val.TryGetValue(out uint ui)) return ui;
             if (val.TryGetValue(out long l)) return l;
+            if (val.TryGetValue(out ulong ul)) return ul;
             if (val.TryGetValue(out string? s) && double.TryParse(s, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
                 return parsed;
         }
@@ -208,10 +218,17 @@ public sealed class ExpressionEvaluator
         null => null,
         bool b => JsonValue.Create(b),
         double d => JsonValue.Create(d),
+        decimal m => JsonValue.Create(m),
+        float f => JsonValue.Create(f),
+        byte b8 => JsonValue.Create(b8),
+        sbyte s8 => JsonValue.Create(s8),
+        short s16 => JsonValue.Create(s16),
+        ushort u16 => JsonValue.Create(u16),
         int i => JsonValue.Create(i),
+        uint ui => JsonValue.Create(ui),
         long l => JsonValue.Create(l),
+        ulong ul => JsonValue.Create(ul),
         string s => JsonValue.Create(s),
         _ => JsonValue.Create(value.ToString())
     };
 }
-

@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using GnOuGo.Workspace;
 using Microsoft.Extensions.Options;
 
 namespace GnOuGo.GithubCopilot.Mcp;
@@ -18,7 +19,7 @@ public sealed class CodeProjectService
 
     public CodePolicyInfo GetPolicy() => _policy.DescribePolicy();
 
-    public CodeProjectSummary GetSummary(string? projectRoot)
+    public CodeProjectSummary GetSummary(string projectRoot)
     {
         var root = _policy.ResolveProjectRoot(projectRoot);
         var solutionFiles = Directory.EnumerateFiles(root, "*.sln", SearchOption.TopDirectoryOnly)
@@ -28,7 +29,7 @@ public sealed class CodeProjectService
             .OrderBy(static n => n, StringComparer.OrdinalIgnoreCase)
             .ToArray();
         var projectFiles = EnumerateAllowedFiles(root, "*.csproj")
-            .Select(path => Path.GetRelativePath(root, path))
+            .Select(path => GnOuGoWorkspace.NormalizePortablePath(Path.GetRelativePath(root, path)))
             .OrderBy(static n => n, StringComparer.OrdinalIgnoreCase)
             .ToArray();
         var topDirs = Directory.EnumerateDirectories(root)
@@ -46,18 +47,21 @@ public sealed class CodeProjectService
             ProjectFiles: projectFiles,
             TopLevelDirectories: topDirs,
             CodeFileCount: codeFiles.Length,
-            ApproximateBytes: codeFiles.Sum(static path => new FileInfo(path).Length));
+            ApproximateBytes: codeFiles.Sum(static path => new FileInfo(path).Length),
+            RootPathRelative: ToWorkspaceRelativePath(root));
     }
 
     public CodeFileContent ReadFile(string projectRoot, string relativePath)
     {
         var root = _policy.ResolveProjectRoot(projectRoot);
-        var file = _policy.ResolveReadableFile(root, relativePath);
+        var file = _policy.ResolveReadableFileFromResolvedRoot(root, relativePath);
+        var normalizedRelativePath = GnOuGoWorkspace.NormalizePortablePath(Path.GetRelativePath(root, file));
         return new CodeFileContent(
-            Path: Path.GetRelativePath(root, file),
+            Path: normalizedRelativePath,
             FullPath: file,
             Content: File.ReadAllText(file, Encoding.UTF8),
-            LengthBytes: new FileInfo(file).Length);
+            LengthBytes: new FileInfo(file).Length,
+            RelativePath: normalizedRelativePath);
     }
 
     public CodeSearchResults Search(string projectRoot, string query, string? glob = null, bool caseSensitive = false)
@@ -81,7 +85,7 @@ public sealed class CodeProjectService
                 lineNumber++;
                 if (line.Contains(query, comparison))
                 {
-                    results.Add(new CodeSearchResult(Path.GetRelativePath(root, file), lineNumber, TrimLine(line)));
+                    results.Add(new CodeSearchResult(GnOuGoWorkspace.NormalizePortablePath(Path.GetRelativePath(root, file)), lineNumber, TrimLine(line)));
                     if (results.Count >= limit)
                         return new CodeSearchResults(results, Truncated: true);
                 }
@@ -95,12 +99,13 @@ public sealed class CodeProjectService
     {
         _policy.EnsurePromptWithinLimit(content, nameof(content));
         var root = _policy.ResolveProjectRoot(projectRoot);
-        var file = _policy.ResolveWritableFile(root, relativePath);
+        var file = _policy.ResolveWritableFileFromResolvedRoot(root, relativePath);
         var directory = Path.GetDirectoryName(file)!;
         var createdDirectory = !Directory.Exists(directory);
         Directory.CreateDirectory(directory);
         File.WriteAllText(file, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        return new CodeWriteResult(Path.GetRelativePath(root, file), file, Encoding.UTF8.GetByteCount(content), createdDirectory);
+        var normalizedRelativePath = GnOuGoWorkspace.NormalizePortablePath(Path.GetRelativePath(root, file));
+        return new CodeWriteResult(normalizedRelativePath, file, Encoding.UTF8.GetByteCount(content), createdDirectory, normalizedRelativePath);
     }
 
     public IReadOnlyList<CodeFileContent> ReadContextFiles(string projectRoot, IEnumerable<string> relativePaths, int maxFiles = 8)
@@ -162,5 +167,7 @@ public sealed class CodeProjectService
         var trimmed = line.Trim();
         return trimmed.Length <= 300 ? trimmed : trimmed[..300] + "…";
     }
-}
 
+    private string? ToWorkspaceRelativePath(string path)
+        => GnOuGoWorkspace.ToWorkspaceRelativePath(path, _policy.DefaultWorkingDirectory);
+}

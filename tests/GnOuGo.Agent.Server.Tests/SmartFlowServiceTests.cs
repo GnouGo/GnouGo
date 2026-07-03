@@ -7,6 +7,7 @@ using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Models;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
 using OtlpTenantCollector.Models;
@@ -35,6 +36,43 @@ public sealed class SmartFlowServiceTests
         Assert.Contains("`/gnougo add`", answer.Text);
         Assert.Contains("`/status`", answer.Text);
         Assert.Equal(0, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AfterCompletion_ExportsAssociatedTrace()
+    {
+        var llm = new RecordingLlmClient();
+        var exporter = new RecordingWorkflowTraceFileExporter();
+        var service = SmartFlowTestFactory.CreateSmartFlowService(
+            llm,
+            new FakeMcpClientFactory(),
+            SmartFlowTestFactory.CreateProvidersService(llm),
+            SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory()),
+            traceFileExporter: exporter);
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            service.ExecuteAsync("/help", correlationId: "corr-export", agentName: null, CancellationToken.None));
+
+        var started = Assert.Single(events, evt => evt.Type == "trace.started");
+        var exported = Assert.Single(exporter.Exports);
+        Assert.Equal(started.TraceId, Assert.Single(exporter.StartedTraceIds));
+        Assert.Equal(started.TraceId, exported.TraceId);
+        Assert.Equal("corr-export", exported.CorrelationId);
+    }
+
+    private sealed class RecordingWorkflowTraceFileExporter : IWorkflowTraceFileExporter
+    {
+        public List<string> StartedTraceIds { get; } = [];
+        public List<(string TraceId, string CorrelationId)> Exports { get; } = [];
+
+        public void BeginCapture(string traceId)
+            => StartedTraceIds.Add(traceId);
+
+        public Task ExportAsync(string traceId, string correlationId, CancellationToken cancellationToken)
+        {
+            Exports.Add((traceId, correlationId));
+            return Task.CompletedTask;
+        }
     }
 
     [Fact]
@@ -242,6 +280,15 @@ public sealed class SmartFlowServiceTests
                         request.RunId,
                         request.StepId,
                         new JsonObject { ["response"] = "improve" });
+                    continue;
+                }
+
+                if (request.StepId == "agent_workflow_repair_save")
+                {
+                    humanInput.TrySubmitResponse(
+                        request.RunId,
+                        request.StepId,
+                        new JsonObject { ["response"] = "save" });
                     break;
                 }
             }
@@ -277,7 +324,126 @@ public sealed class SmartFlowServiceTests
 
         Assert.Equal(repairedWorkflow, persistedWorkflow);
         Assert.Contains(events, evt => evt.Type == "human_input_request" && evt.Text?.Contains("agent_workflow_repair", StringComparison.Ordinal) == true);
-        Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("improved and saved", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.Contains(events, evt => evt.Type == "human_input_request" && evt.Text?.Contains("agent_workflow_repair_save", StringComparison.Ordinal) == true);
+        Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("repaired and saved", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.DoesNotContain(events, evt => evt.Type == "error");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenRepairIsGeneratedButDiscarded_DoesNotUpdateAgent()
+    {
+        const string agentId = "8d8871b7-01cf-4a42-a95a-391d633d7d37";
+        const string agentName = "discard-repair-agent";
+        var brokenWorkflow = """
+            version: 1
+            name: discard-repair-agent
+            workflows:
+              main:
+                inputs:
+                  task:
+                    type: string
+                    required: true
+                steps:
+                  - id: failing_lookup
+                    type: mcp.call
+                    input:
+                      server: GnOuGo.Agent.Mcp
+                      method: agent_get_by_name
+                      request:
+                        name: missing-agent
+                outputs:
+                  answer:
+                    expr: "${data.steps.failing_lookup.response.agent.name}"
+                    type: string
+            """;
+        var repairedWorkflow = """
+            version: 1
+            name: discard-repair-agent
+            skill:
+              description: Repaired test agent.
+              tags: [test]
+              inputs:
+                task:
+                  type: string
+                  description: User task.
+              outputs:
+                answer:
+                  type: string
+                  description: Final answer.
+            workflows:
+              main:
+                inputs:
+                  task:
+                    type: string
+                    required: true
+                steps:
+                  - id: final_answer
+                    type: set
+                    input:
+                      answer: "${'REPAIRED: ' + data.inputs.task}"
+                outputs:
+                  answer:
+                    expr: "${data.steps.final_answer.answer}"
+                    type: string
+            """;
+
+        string? persistedWorkflow = null;
+        var agentMcp = BuildAgentMcpForRepair(agentId, agentName, brokenWorkflow, value => persistedWorkflow = value);
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(cts.Token))
+            {
+                if (request.StepId == "agent_workflow_repair")
+                {
+                    humanInput.TrySubmitResponse(
+                        request.RunId,
+                        request.StepId,
+                        new JsonObject { ["response"] = "improve" });
+                    continue;
+                }
+
+                if (request.StepId == "agent_workflow_repair_save")
+                {
+                    humanInput.TrySubmitResponse(
+                        request.RunId,
+                        request.StepId,
+                        new JsonObject { ["response"] = "discard" });
+                    break;
+                }
+            }
+        }, cts.Token);
+
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = "test",
+            DefaultModel = "repair-model"
+        });
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(
+            runtimeStore,
+            new FakeKeyVaultRuntimeConfigStore(),
+            llmClientOverride: new FixedWorkflowPlanLlmClient(repairedWorkflow),
+            mcpClientFactoryOverride: new FakeMcpClientFactory(agentMcp));
+
+        var smartFlow = new SmartFlowService(
+            new RecordingLlmClient(),
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
+            runtimeFactory,
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            humanInput,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<SmartFlowService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            smartFlow.ExecuteAsync("please answer", correlationId: "corr-repair-discard", agentName: agentName, CancellationToken.None));
+
+        await responder;
+
+        Assert.Null(persistedWorkflow);
+        Assert.Contains(events, evt => evt.Type == "human_input_request" && evt.Text?.Contains("agent_workflow_repair_save", StringComparison.Ordinal) == true);
+        Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("discarded", StringComparison.OrdinalIgnoreCase) == true);
         Assert.DoesNotContain(events, evt => evt.Type == "error");
     }
 
@@ -391,7 +557,7 @@ public sealed class SmartFlowServiceTests
 
         Assert.Equal(repairedWorkflow, persistedWorkflow);
         Assert.True(llm.PrefilterCallCount > 0);
-        Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("improved and saved", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("repaired and saved", StringComparison.OrdinalIgnoreCase) == true);
         Assert.DoesNotContain(events, evt => evt.Type == "error");
     }
 
@@ -522,7 +688,7 @@ public sealed class SmartFlowServiceTests
         Assert.Contains(events, evt =>
             evt.Type == "answer" &&
             evt.Text?.Contains("handled an MCP error", StringComparison.OrdinalIgnoreCase) == true &&
-            evt.Text.Contains("improved and saved", StringComparison.OrdinalIgnoreCase));
+            evt.Text.Contains("repaired and saved", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(events, evt => evt.Type == "error");
     }
 
@@ -689,7 +855,7 @@ public sealed class SmartFlowServiceTests
         Assert.Contains(events, evt =>
             evt.Type == "answer" &&
             evt.Text?.Contains("handled an MCP error", StringComparison.OrdinalIgnoreCase) == true &&
-            evt.Text.Contains("improved and saved", StringComparison.OrdinalIgnoreCase));
+            evt.Text.Contains("repaired and saved", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(events, evt => evt.Type == "error");
     }
 
@@ -1113,6 +1279,15 @@ public sealed class SmartFlowServiceTests
                         request.RunId,
                         request.StepId,
                         new JsonObject { ["response"] = "improve" });
+                    continue;
+                }
+
+                if (request.StepId == "agent_workflow_repair_save")
+                {
+                    humanInput.TrySubmitResponse(
+                        request.RunId,
+                        request.StepId,
+                        new JsonObject { ["response"] = "save" });
                     break;
                 }
             }

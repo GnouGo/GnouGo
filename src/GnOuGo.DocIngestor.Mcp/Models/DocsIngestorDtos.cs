@@ -59,7 +59,8 @@ public sealed record StoredDocumentRecord(
     string OriginalPath,
     int ChunkCount,
     DateTimeOffset CreatedUtc,
-    DateTimeOffset UpdatedUtc);
+    DateTimeOffset UpdatedUtc,
+    string? OriginalPathRelative = null);
 
 public sealed record FileVectorizationRequest(
     IReadOnlyList<string> FileUrls,
@@ -204,4 +205,3 @@ internal static class DocsIngestorMcpJson
 [JsonSerializable(typeof(IReadOnlyList<ChunkDto>))]
 [JsonSerializable(typeof(IReadOnlyDictionary<string, string>))]
 internal partial class DocsIngestorJsonContext : JsonSerializerContext;
-

@@ -20,6 +20,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     private int _totalStepsExecuted;
 
     public ILLMClient? LLMClient { get; set; }
+    public ILLMCapabilityResolver? LLMCapabilities { get; set; }
     public IWorkflowFetcher? WorkflowFetcher { get; set; }
     public ITemplateEngine? TemplateEngine { get; set; }
     public IMcpClientFactory? McpClientFactory { get; set; }
@@ -39,6 +40,9 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     /// <summary>Optional memory cache for MCP server capability listings.</summary>
     public IMemoryCache? McpCache { get; set; }
 
+    /// <summary>Sliding expiration for cached MCP server capability listings.</summary>
+    public TimeSpan McpCacheSlidingExpiration { get; set; } = TimeSpan.FromMinutes(5);
+
     /// <summary>Additional functions registered from Jint scripts.</summary>
     public Dictionary<string, Func<JsonNode?[], JsonNode?>> ScriptFunctions { get; } = new();
 
@@ -54,7 +58,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         _totalStepsExecuted = 0;
         CompiledDocument = workflow.Document;
 
-        PrepareEvaluator(workflow);
+        var executionScope = PrepareEvaluator(workflow);
 
         var data = new JsonObject
         {
@@ -91,17 +95,12 @@ public sealed class WorkflowEngine : IWorkflowRuntime
 
         try
         {
-            await ExecuteStepsAsync(workflow.Steps, data, result, Limits, 0, new HashSet<string>(), ct, workflowSpan);
+            await ExecuteStepsAsync(workflow.Steps, data, result, Limits, 0, new HashSet<string>(), executionScope, ct, workflowSpan);
 
             // Evaluate outputs
             if (workflow.Outputs != null)
             {
-                var outputObj = new JsonObject();
-                foreach (var kv in workflow.Outputs)
-                {
-                    outputObj[kv.Key] = EvaluateOutputDef(kv.Value, data);
-                }
-                result.Outputs = outputObj;
+                result.Outputs = EvaluateWorkflowOutputs(workflow.Outputs, data, executionScope, workflow.Name);
             }
             else
             {
@@ -176,7 +175,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         CompiledDocument = workflow.Document;
         Limits.RunId = runId;
 
-        PrepareEvaluator(workflow);
+        var executionScope = PrepareEvaluator(workflow);
 
         // Restore data from checkpoint
         var data = new JsonObject
@@ -204,15 +203,12 @@ public sealed class WorkflowEngine : IWorkflowRuntime
 
         try
         {
-            await ExecuteStepsAsync(workflow.Steps, data, result, Limits, 0, new HashSet<string>(), ct, workflowSpan, checkpoint.NextStepIndex);
+            await ExecuteStepsAsync(workflow.Steps, data, result, Limits, 0, new HashSet<string>(), executionScope, ct, workflowSpan, checkpoint.NextStepIndex);
 
             // Evaluate outputs
             if (workflow.Outputs != null)
             {
-                var outputObj = new JsonObject();
-                foreach (var kv in workflow.Outputs)
-                    outputObj[kv.Key] = EvaluateOutputDef(kv.Value, data);
-                result.Outputs = outputObj;
+                result.Outputs = EvaluateWorkflowOutputs(workflow.Outputs, data, executionScope, workflow.Name);
             }
             else
             {
@@ -279,7 +275,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     {
         _totalStepsExecuted = 0;
         CompiledDocument = workflow.Document;
-        PrepareEvaluator(workflow);
+        var executionScope = PrepareEvaluator(workflow);
 
         var data = new JsonObject
         {
@@ -316,14 +312,11 @@ public sealed class WorkflowEngine : IWorkflowRuntime
 
         try
         {
-            await ExecuteStepsAsync(workflow.Steps, data, result, limits, callDepth, callStack, ct, workflowSpan);
+            await ExecuteStepsAsync(workflow.Steps, data, result, limits, callDepth, callStack, executionScope, ct, workflowSpan);
 
             if (workflow.Outputs != null)
             {
-                var outputObj = new JsonObject();
-                foreach (var kv in workflow.Outputs)
-                    outputObj[kv.Key] = EvaluateOutputDef(kv.Value, data);
-                result.Outputs = outputObj;
+                result.Outputs = EvaluateWorkflowOutputs(workflow.Outputs, data, executionScope, workflow.Name);
             }
             else
             {
@@ -392,6 +385,22 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         ITelemetrySpan? parentSpan = null,
         int startFromIndex = 0)
     {
+        var executionScope = new WorkflowExecutionScope(null, _evaluator, _interpolator);
+        await ExecuteStepsAsync(steps, data, result, limits, callDepth, callStack, executionScope, ct, parentSpan, startFromIndex);
+    }
+
+    internal async Task ExecuteStepsAsync(
+        List<CompiledStep> steps,
+        JsonObject data,
+        RunResult result,
+        ExecutionLimits limits,
+        int callDepth,
+        HashSet<string> callStack,
+        WorkflowExecutionScope executionScope,
+        CancellationToken ct,
+        ITelemetrySpan? parentSpan = null,
+        int startFromIndex = 0)
+    {
         parentSpan ??= NullWorkflowTelemetry.Instance.WorkflowStart(new WorkflowTelemetryInfo());
 
         for (var stepIndex = startFromIndex; stepIndex < steps.Count; stepIndex++)
@@ -421,7 +430,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                 // 1. Evaluate if guard
                 if (step.Source.If != null)
                 {
-                    var guardResult = _interpolator.Interpolate(step.Source.If, data);
+                    var guardResult = executionScope.Interpolator.Interpolate(step.Source.If, data);
                     if (!ExpressionEvaluator.GetBool(guardResult))
                     {
                         stepSpan ??= Telemetry.StepStart(parentSpan, new StepTelemetryInfo
@@ -450,14 +459,14 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                         var inputClone = loopInput.DeepClone() as JsonObject ?? new JsonObject();
                         var whileExpr = inputClone["while"]?.DeepClone();
                         inputClone.Remove("while");
-                        var resolvedLoopInput = _interpolator.ResolveDeep(inputClone, data) as JsonObject ?? inputClone;
+                        var resolvedLoopInput = executionScope.Interpolator.ResolveDeep(inputClone, data) as JsonObject ?? inputClone;
                         if (whileExpr != null)
                             resolvedLoopInput["while"] = whileExpr;
                         resolvedInput = resolvedLoopInput;
                     }
                     else
                     {
-                        resolvedInput = _interpolator.ResolveDeep(step.Source.Input.DeepClone(), data);
+                        resolvedInput = executionScope.Interpolator.ResolveDeep(step.Source.Input.DeepClone(), data);
                     }
                 }
 
@@ -487,7 +496,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                 }
 
                 // 3. Execute with retry — the executor writes telemetry attributes on stepSpan
-                var output = await ExecuteWithRetryAsync(step, data, resolvedInput, limits, callDepth, callStack, ct, stepSpan);
+                var output = await ExecuteWithRetryAsync(step, data, resolvedInput, limits, callDepth, callStack, executionScope, ct, stepSpan);
 
                 // 4. Write output to data.steps.<id>
                 var stepsObj = data["steps"] as JsonObject ?? new JsonObject();
@@ -558,7 +567,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                 // Apply on_error handler
                 if (step.Source.OnError != null)
                 {
-                    var handled = HandleOnError(step.Source.OnError, ex, step, data);
+                    var handled = HandleOnError(step.Source.OnError, ex, step, data, executionScope);
                     if (handled.action == "continue")
                     {
                         stepResult.Status = StepStatus.Succeeded;
@@ -613,6 +622,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         ExecutionLimits limits,
         int callDepth,
         HashSet<string> callStack,
+        WorkflowExecutionScope executionScope,
         CancellationToken ct,
         IStepSpan? stepSpan = null)
     {
@@ -639,6 +649,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                     Limits = limits,
                     CallDepth = callDepth,
                     CallStack = callStack,
+                    ExecutionScope = executionScope,
                     TelemetrySpan = stepSpan
                 };
 
@@ -671,7 +682,11 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     }
 
     private (string action, JsonNode? output) HandleOnError(
-        OnErrorDef onError, WorkflowRuntimeException ex, CompiledStep step, JsonObject data)
+        OnErrorDef onError,
+        WorkflowRuntimeException ex,
+        CompiledStep step,
+        JsonObject data,
+        WorkflowExecutionScope executionScope)
     {
         // Build error context
         var errorContext = data.DeepClone() as JsonObject ?? new JsonObject();
@@ -696,7 +711,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             // Evaluate case condition
             if (c.If != null)
             {
-                var guardResult = _interpolator.Interpolate(c.If, errorContext);
+                var guardResult = executionScope.Interpolator.Interpolate(c.If, errorContext);
                 if (!ExpressionEvaluator.GetBool(guardResult))
                     continue;
             }
@@ -704,7 +719,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             // Match found
             JsonNode? output = null;
             if (c.SetOutput != null)
-                output = _interpolator.ResolveDeep(c.SetOutput.DeepClone(), errorContext);
+                output = executionScope.Interpolator.ResolveDeep(c.SetOutput.DeepClone(), errorContext);
 
             return (c.Action, output);
         }
@@ -740,7 +755,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public StringInterpolator Interpolator => _interpolator;
     public StepExecutorRegistry Registry => _registry;
 
-    private void PrepareEvaluator(CompiledWorkflow workflow)
+    internal WorkflowExecutionScope CreateExecutionScopeForWorkflow(CompiledWorkflow workflow)
     {
         var scriptFunctions = new Dictionary<string, Func<JsonNode?[], JsonNode?>>();
         var jint = new JintSandbox();
@@ -762,8 +777,16 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         foreach (var kv in ScriptFunctions)
             scriptFunctions[kv.Key] = kv.Value;
 
-        _evaluator = CreateExpressionEvaluator(scriptFunctions, Limits);
-        _interpolator = new StringInterpolator(_evaluator);
+        var evaluator = CreateExpressionEvaluator(scriptFunctions, Limits);
+        return new WorkflowExecutionScope(workflow, evaluator, new StringInterpolator(evaluator));
+    }
+
+    private WorkflowExecutionScope PrepareEvaluator(CompiledWorkflow workflow)
+    {
+        var executionScope = CreateExecutionScopeForWorkflow(workflow);
+        _evaluator = executionScope.Evaluator;
+        _interpolator = executionScope.Interpolator;
+        return executionScope;
     }
 
     private static ExpressionEvaluator CreateExpressionEvaluator(
@@ -782,10 +805,13 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     /// Handles both simple expression outputs and nested object outputs (backward-compat).
     /// </summary>
     internal JsonNode? EvaluateOutputDef(Models.OutputDef def, JsonObject data)
+        => EvaluateOutputDef(def, data, new WorkflowExecutionScope(null, _evaluator, _interpolator));
+
+    internal JsonNode? EvaluateOutputDef(Models.OutputDef def, JsonObject data, WorkflowExecutionScope executionScope)
     {
         // Simple expression output
         if (!string.IsNullOrEmpty(def.Expr))
-            return _interpolator.Interpolate(def.Expr, data);
+            return executionScope.Interpolator.Interpolate(def.Expr, data)?.DeepClone();
 
         // Nested object output (backward-compat: outputs without expr, with properties containing expressions)
         if (def.Properties != null)
@@ -793,7 +819,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             var obj = new JsonObject();
             foreach (var (key, propDef) in def.Properties)
             {
-                obj[key] = EvaluateOutputDef(propDef, data);
+                obj[key] = EvaluateOutputDef(propDef, data, executionScope)?.DeepClone();
             }
             return obj;
         }
@@ -801,12 +827,54 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         return null;
     }
 
-    internal CompiledDocument? ReplaceCompiledDocumentForWorkflowCall(CompiledDocument? document)
+    internal JsonObject EvaluateWorkflowOutputs(
+        IReadOnlyDictionary<string, Models.OutputDef> outputs,
+        JsonObject data,
+        WorkflowExecutionScope executionScope,
+        string workflowName)
     {
-        var previous = CompiledDocument;
-        if (document is not null)
-            CompiledDocument = document;
-        return previous;
+        var outputObj = new JsonObject();
+        foreach (var (name, definition) in outputs)
+        {
+            var value = EvaluateOutputDef(definition, data, executionScope);
+            ValidateWorkflowOutputValue(workflowName, name, definition, value);
+            outputObj[name] = value?.DeepClone();
+        }
+
+        return outputObj;
+    }
+
+    private static void ValidateWorkflowOutputValue(
+        string workflowName,
+        string outputName,
+        Models.OutputDef definition,
+        JsonNode? value)
+    {
+        if (string.Equals(definition.Type, "any", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (value == null && WorkflowOutputAllowsNull(definition))
+            return;
+
+        var schema = FlowTypeDescriptorConverter.ToRuntimeJsonSchema(
+            FlowTypeDescriptorConverter.FromOutputDef(definition));
+        var errors = JsonSchemaContractValidator.ValidateInstance(value, schema);
+        if (errors.Count == 0)
+            return;
+
+        throw new WorkflowRuntimeException(
+            ErrorCodes.InputValidation,
+            $"Workflow '{workflowName}' output '{outputName}' does not satisfy declared output type '{definition.Type}': {string.Join("; ", errors)}");
+    }
+
+    private static bool WorkflowOutputAllowsNull(Models.OutputDef definition)
+    {
+        if (string.Equals(definition.Type, "any", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return definition.Expr.Contains("?.", StringComparison.Ordinal)
+               || definition.Expr.Contains("?? null", StringComparison.Ordinal)
+               || definition.Expr.Contains(": null", StringComparison.Ordinal);
     }
 
     private static StepExecutorRegistry CreateDefaultRegistry()
@@ -818,6 +886,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.LoopParallelExecutor());
         registry.Register(new Executors.SwitchExecutor());
         registry.Register(new Executors.SetExecutor());
+        registry.Register(new Executors.AssertNonNullExecutor());
         registry.Register(new Executors.TemplateRenderExecutor());
         registry.Register(new Executors.LlmCallExecutor());
         registry.Register(new Executors.WorkflowCallExecutor());

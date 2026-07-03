@@ -162,7 +162,8 @@ workflows:
 """, mockFactory.Object, mockLlm.Object);
 
         Assert.True(result.Success);
-        mockSession.Verify(s => s.ListToolsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        // mcp.list discovers once, then mcp.call revalidates against a fresh runtime catalog.
+        mockSession.Verify(s => s.ListToolsAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
         mockSession.Verify(s => s.CallToolAsync("repo_stats", It.IsAny<JsonNode?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -582,4 +583,3 @@ workflows:
             It.IsAny<CancellationToken>()), Times.Once);
     }
 }
-

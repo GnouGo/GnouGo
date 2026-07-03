@@ -6,7 +6,9 @@ using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using GnOuGo.AI.Core;
+using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
@@ -31,6 +33,7 @@ public sealed class ConfigureAgentsService
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<ConfigureAgentsService> _logger;
     private readonly string _workflowYaml;
+    private readonly TimeSpan _mcpCacheSlidingExpiration;
 
     public ConfigureAgentsService(
         ILLMClient llm,
@@ -42,7 +45,8 @@ public sealed class ConfigureAgentsService
         LLMRuntimeOptionsStore optionsStore,
         AgentOTelTelemetry otel,
         ILogger<ConfigureAgentsService> logger,
-        AgentUserConfigMcpClient? userConfigClient = null)
+        AgentUserConfigMcpClient? userConfigClient = null,
+        IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null)
     {
         _llm = llm;
         _mcpFactory = mcpFactory;
@@ -54,6 +58,7 @@ public sealed class ConfigureAgentsService
         _userConfigClient = userConfigClient;
         _otel = otel;
         _logger = logger;
+        _mcpCacheSlidingExpiration = (mcpCapabilityCacheSettings?.Value ?? new McpCapabilityCacheSettings()).SlidingExpiration;
 
         // Load the embedded workflow YAML
         var asm = typeof(ConfigureAgentsService).Assembly;
@@ -155,6 +160,7 @@ public sealed class ConfigureAgentsService
         var engine = new WorkflowEngine
         {
             LLMClient = runtime.LlmClient,
+            LLMCapabilities = runtime.LlmCapabilityResolver,
             LlmDefaults = new LlmRuntimeDefaults
             {
                 Provider = runtime.Options.DefaultProvider,
@@ -162,6 +168,7 @@ public sealed class ConfigureAgentsService
             },
             McpClientFactory = runtime.McpClientFactory,
             McpCache = _mcpCache,
+            McpCacheSlidingExpiration = _mcpCacheSlidingExpiration,
             Telemetry = telemetry,
             HumanInputProvider = _humanInput,
             Logger = _logger,

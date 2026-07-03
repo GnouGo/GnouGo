@@ -31,15 +31,16 @@
     <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.KeyVault.Mcp\GnOuGo.KeyVault.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.OtlpCollector.Server\GnOuGo.OtlpCollector.Server.csproj" AdditionalProperties="SkipClientBuild=true" />
+    <ProjectReference Include="..\GnOuGo.Workspace\GnOuGo.Workspace.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="GnOuGo.Agent.Server.Tests" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Markdig" Version="1.2.0" />
-    <PackageReference Include="OpenTelemetry" Version="1.15.3" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageReference Include="Markdig" Version="1.3.2" />
+    <PackageReference Include="OpenTelemetry" Version="1.16.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
     <PackageReference Include="YamlDotNet" Version="18.0.0" />

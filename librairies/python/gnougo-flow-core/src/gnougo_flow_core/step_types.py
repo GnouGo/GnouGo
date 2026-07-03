@@ -9,6 +9,7 @@ STEP_TYPES = frozenset(
         "loop.parallel",
         "switch",
         "set",
+        "assert.non_null",
         "template.render",
         "llm.call",
         "workflow.call",

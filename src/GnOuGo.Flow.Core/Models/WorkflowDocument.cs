@@ -31,6 +31,25 @@ public sealed class WorkflowDocument
 
     /// <summary>Original YAML source text (preserved for checkpoint/resume).</summary>
     public string? RawYaml { get; set; }
+
+    /// <summary>
+    /// Structural YAML fields that the parser did not map into the workflow model.
+    /// They are collected instead of ignored so validation can fail with a precise
+    /// diagnostic when generated YAML places a key at the wrong level.
+    /// </summary>
+    public List<UnknownYamlField> UnknownFields { get; } = new();
+}
+
+/// <summary>
+/// A YAML mapping key found at a structural level where the DSL does not define it.
+/// Free-form maps such as step <c>input</c>, metadata, and JSON schemas are handled
+/// by their own validators and are not reported through this type.
+/// </summary>
+public sealed class UnknownYamlField
+{
+    public string Path { get; set; } = "";
+    public string Field { get; set; } = "";
+    public IReadOnlyList<string> AllowedFields { get; set; } = Array.Empty<string>();
 }
 
 /// <summary>

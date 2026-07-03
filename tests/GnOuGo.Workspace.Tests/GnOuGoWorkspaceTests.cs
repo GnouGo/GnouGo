@@ -137,6 +137,28 @@ public class GnOuGoWorkspaceTests
     }
 
     [Fact]
+    public void ToWorkspaceRelativePath_ReturnsPortableRelativePathForChild()
+    {
+        var root = CreateTempDirectory();
+        var file = Path.Combine(root, "src", "App.cs");
+
+        var result = GnOuGoWorkspace.ToWorkspaceRelativePath(file, root);
+
+        Assert.Equal("src/App.cs", result);
+    }
+
+    [Fact]
+    public void ToWorkspaceRelativePath_ReturnsNullForOutsidePath()
+    {
+        var root = CreateTempDirectory();
+        var outside = CreateTempDirectory();
+
+        var result = GnOuGoWorkspace.ToWorkspaceRelativePath(Path.Combine(outside, "App.cs"), root);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void ResolveDatabasePath_AbsolutePath_ReturnedAsIs()
     {
         var absolutePath = Path.Combine(Path.GetTempPath(), "test.db");

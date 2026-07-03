@@ -10,17 +10,45 @@ internal static class TraceDebugUiHelpers
         var spans = trace.Spans;
         if (spans.Count == 0)
             return [];
+
+        var spanById = spans
+            .GroupBy(span => NormalizeSpanId(span.SpanId), StringComparer.OrdinalIgnoreCase)
+            .Where(group => !string.IsNullOrWhiteSpace(group.Key))
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(span => span.StartUtc).First(),
+                StringComparer.OrdinalIgnoreCase);
+
         var byParent = spans
-            .GroupBy(span => span.ParentSpanId ?? string.Empty)
-            .ToDictionary(group => group.Key, group => group.OrderBy(span => span.StartUtc).ToList(), StringComparer.Ordinal);
-        var knownIds = spans.Select(span => span.SpanId).ToHashSet(StringComparer.Ordinal);
+            .GroupBy(span => NormalizeSpanId(span.ParentSpanId), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(span => span.StartUtc).ThenBy(span => span.Name, StringComparer.OrdinalIgnoreCase).ToList(),
+                StringComparer.OrdinalIgnoreCase);
+
         var roots = spans
-            .Where(span => string.IsNullOrWhiteSpace(span.ParentSpanId) || !knownIds.Contains(span.ParentSpanId))
+            .Where(span =>
+            {
+                var parentId = NormalizeSpanId(span.ParentSpanId);
+                return string.IsNullOrWhiteSpace(parentId) || !spanById.ContainsKey(parentId);
+            })
             .OrderBy(span => span.StartUtc)
+            .ThenBy(span => span.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
+        if (roots.Count == 0)
+        {
+            roots = spans
+                .OrderBy(span => span.StartUtc)
+                .ThenBy(span => span.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
         var flat = new List<FlatSpanModel>(spans.Count);
         foreach (var root in roots)
-            Visit(root, 0, flat, byParent);
+            Visit(root, 0, flat, byParent, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        if (flat.Count == 0)
+            return [];
+
         var minTime = flat.Min(item => item.StartMs);
         var maxTime = flat.Max(item => item.EndMs);
         var totalMs = Math.Max(1d, maxTime - minTime);
@@ -29,17 +57,39 @@ internal static class TraceDebugUiHelpers
             LeftPercent = (item.StartMs - minTime) * 100d / totalMs,
             WidthPercent = Math.Max(1d, item.EndMs - item.StartMs) * 100d / totalMs
         }).ToList();
-        static void Visit(TraceSpanDto span, int depth, List<FlatSpanModel> output, Dictionary<string, List<TraceSpanDto>> byParent)
+
+        static void Visit(
+            TraceSpanDto span,
+            int depth,
+            List<FlatSpanModel> output,
+            Dictionary<string, List<TraceSpanDto>> byParent,
+            HashSet<string> activePath)
         {
+            var spanId = NormalizeSpanId(span.SpanId);
+            if (!string.IsNullOrWhiteSpace(spanId) && !activePath.Add(spanId))
+                return;
+
             var startMs = span.StartUtc.UtcDateTime.Subtract(DateTime.UnixEpoch).TotalMilliseconds;
             var endMs = span.EndUtc.UtcDateTime.Subtract(DateTime.UnixEpoch).TotalMilliseconds;
             if (endMs <= startMs)
                 endMs = startMs + Math.Max(1d, span.DurationMs);
-            output.Add(new FlatSpanModel(span, depth, startMs, endMs, Math.Max(0d, endMs - startMs), 0d, 0d));
-            if (!byParent.TryGetValue(span.SpanId, out var children))
-                return;
+
+            var children = !string.IsNullOrWhiteSpace(spanId) && byParent.TryGetValue(spanId, out var childSpans)
+                ? childSpans
+                : [];
+            output.Add(new FlatSpanModel(span, depth, children.Count, startMs, endMs, Math.Max(0d, endMs - startMs), 0d, 0d));
             foreach (var child in children)
-                Visit(child, depth + 1, output, byParent);
+                Visit(child, depth + 1, output, byParent, activePath);
+
+            if (!string.IsNullOrWhiteSpace(spanId))
+                activePath.Remove(spanId);
+        }
+
+        static string NormalizeSpanId(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+            return value.Trim().ToLowerInvariant();
         }
     }
     public static SummaryModel BuildSummary(TraceGroupDto trace)
@@ -126,6 +176,13 @@ internal static class TraceDebugUiHelpers
         => $"width:{percentage.ToString("0.##", CultureInfo.InvariantCulture)}%";
     public static string BuildPaddingLeftStyle(int depth)
         => $"padding-left:{depth * 12 + 8}px";
+    public static string BuildTimelineDepthStyle(int depth)
+    {
+        var clampedDepth = Math.Clamp(depth, 0, 8);
+        var alpha = Math.Min(0.34d, clampedDepth * 0.035d);
+        var offset = clampedDepth * 10 + 18;
+        return $"--trace-depth:{clampedDepth.ToString(CultureInfo.InvariantCulture)};--trace-depth-alpha:{alpha.ToString("0.###", CultureInfo.InvariantCulture)};--trace-depth-offset:{offset.ToString(CultureInfo.InvariantCulture)}px";
+    }
     public static string BuildTimelineBarStyle(FlatSpanModel item)
         => $"left:{item.LeftPercent.ToString("0.##", CultureInfo.InvariantCulture)}%;width:{item.WidthPercent.ToString("0.##", CultureInfo.InvariantCulture)}%;background:{GetSpanColor(item.Span)}";
     public static string FormatDuration(double milliseconds)

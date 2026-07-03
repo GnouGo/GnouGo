@@ -301,6 +301,7 @@ workflows:
             input:
               generator:
                 prefilter: true
+                mode: auto
                 reasoning: low
                 instruction: >
                   Generate a valid GnOuGo.Flow YAML workflow for a persisted chat agent.
@@ -326,20 +327,20 @@ workflows:
                   - loop.parallel
                   - switch
                   - human.input
+                  - workflow.call
                 denied_step_types:
                   - workflow.plan
                   - workflow.execute
-                  - workflow.call
                 allow_remote_workflow_refs: false
               limits:
-                max_steps_total: 100
+                max_steps_total: 300
               validate:
+                mode: strict    
                 compile: true
                 dry_run: true
               on_invalid:
                 action: reprompt
                 max_attempts: 10
-
           - id: emit_workflow
             type: emit
             input:
@@ -685,19 +686,17 @@ workflows:
               - id: think_reprompting
                 type: emit
                 input:
-                  message: "⚙️ Improving workflow '${data.steps.find_agent.response.agent.name}' from your prompt…"
+                  message: "⚙️ Repairing workflow '${data.steps.find_agent.response.agent.name}' from your instructions…"
                   level: thinking
 
               - id: plan_reprompt
                 type: workflow.plan
                 input:
+                  mode: repair
                   generator:
                     prefilter: true
                     reasoning: medium
                     instruction: |
-                      Repair and improve an existing persisted GnOuGo.Flow chat-agent workflow.
-                      Return only a complete workflow YAML document, no markdown fences.
-
                       Keep the same agent identity unless the user explicitly asks otherwise:
                       - agent name: ${data.steps.find_agent.response.agent.name}
                       - persisted agent id: ${data.steps.find_agent.response.agent.id}
@@ -707,27 +706,16 @@ workflows:
                       - It must accept a user task/prompt input such as `task`.
                       - It must expose an `answer` output string.
                       - It must remain self-contained and must not ask the user to review its own YAML.
-
-                      Apply this user improvement request:
-                      <user_reprompt>
-                      ${data.steps.normalized_reprompt.prompt}
-                      </user_reprompt>
-
-                      Existing original agent prompt:
-                      <original_agent_prompt>
-                      ${data.steps.find_agent.response.agent.original_prompt ?? ''}
-                      </original_agent_prompt>
-
-                      Current workflow YAML:
-                      <current_workflow_yaml>
-                      ${data.steps.find_agent.response.agent.workflow}
-                      </current_workflow_yaml>
                     context: |
                       This is a manual `/gnougo reprompt` operation.
-                      Treat the current workflow as the previous version and produce the corrected replacement.
-                      Keep changes focused on the user's improvement prompt.
                       The replacement YAML will be persisted through GnOuGo.Agent.Mcp `agent_update`.
                       Keep the generated workflow compatible with the available DSL and MCP tool contracts.
+                      Existing original agent prompt:
+                      ${data.steps.find_agent.response.agent.original_prompt ?? ''}
+                  repair:
+                    existing_yaml: "${data.steps.find_agent.response.agent.workflow}"
+                    prompt: |
+                      ${data.steps.normalized_reprompt.prompt}
                   policy:
                     allowed_step_types:
                       - emit
@@ -742,10 +730,10 @@ workflows:
                       - loop.parallel
                       - switch
                       - human.input
+                      - workflow.call
                     denied_step_types:
                       - workflow.plan
                       - workflow.execute
-                      - workflow.call
                     allow_remote_workflow_refs: false
                   limits:
                     max_steps_total: 100
@@ -754,7 +742,7 @@ workflows:
                     dry_run: true
                   on_invalid:
                     action: reprompt
-                    max_attempts: 10
+                    max_attempts: 3
 
               - id: emit_reprompted_workflow
                 type: emit

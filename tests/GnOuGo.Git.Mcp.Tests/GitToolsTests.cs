@@ -47,11 +47,12 @@ public sealed class GitToolsTests : IDisposable
         var policy = new GitPolicy(settings, _root);
         var tools = new GitTools(policy, new GitRepositoryService(policy, Options.Create(settings)), NullLogger<GitTools>.Instance);
 
-        var result = tools.GitStatus(_root);
+        var error = tools.GitStatus(".");
 
-        var error = Assert.IsType<GitErrorResult>(result);
-        Assert.Equal("POLICY_OR_INPUT_ERROR", error.Code);
-        Assert.False(string.IsNullOrWhiteSpace(error.Message));
+        Assert.False(error.Success);
+        Assert.False(error.Ok);
+        Assert.Equal("INVALID_INPUT", error.ErrorCode);
+        Assert.False(string.IsNullOrWhiteSpace(error.ErrorMessage));
     }
 
     [Fact]
@@ -61,11 +62,12 @@ public sealed class GitToolsTests : IDisposable
         var policy = new GitPolicy(settings, _root);
         var tools = new GitTools(policy, new GitRepositoryService(policy, Options.Create(settings)), NullLogger<GitTools>.Instance);
 
-        var result = tools.GitStage(_root, "{");
+        var error = tools.GitStage(".", "{");
 
-        var error = Assert.IsType<GitErrorResult>(result);
-        Assert.Equal("POLICY_OR_INPUT_ERROR", error.Code);
-        Assert.False(string.IsNullOrWhiteSpace(error.Message));
+        Assert.False(error.Success);
+        Assert.False(error.Ok);
+        Assert.Equal("INVALID_INPUT", error.ErrorCode);
+        Assert.False(string.IsNullOrWhiteSpace(error.ErrorMessage));
     }
 
     [Fact]
@@ -95,6 +97,7 @@ public sealed class GitToolsTests : IDisposable
         var tools = provider.GetServices<McpServerTool>().ToArray();
 
         Assert.NotEmpty(tools);
+        Assert.All(tools, tool => Assert.NotNull(tool.ProtocolTool.OutputSchema));
     }
 
     private GitServerSettings CreateSettings() => new()
@@ -112,6 +115,3 @@ public sealed class GitToolsTests : IDisposable
         catch (UnauthorizedAccessException) { }
     }
 }
-
-
-

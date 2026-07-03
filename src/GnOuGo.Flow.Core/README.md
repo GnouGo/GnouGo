@@ -63,6 +63,13 @@ tests/
   GnOuGo.Flow.Tests/         # Unit tests
 ```
 
+Flow keeps one internal type representation for validation: `FlowTypeDescriptor`.
+Workflow `InputDef`/`OutputDef`, executor `StepContract` schemas, MCP JSON Schema, and workflow.plan contract snippets are converted into or out of this descriptor instead of being reasoned about as separate type systems.
+
+During workflow.plan semantic validation, a `WorkflowSymbolTable` is built as steps are walked. It tracks workflow inputs, scoped data variables, available step output types, and control-flow availability so expressions such as `data.steps.<id>.<field>` and loop-local `data.<item_var>.<field>` can be checked against known symbols before generated YAML is accepted.
+
+Step outputs are resolved through `StepOutputTypeResolver`: each step starts from its executor contract and can be refined by static input, such as `set.output_schema`, `llm.call.input.structured_output`, direct MCP tool output schemas, local `workflow.call` targets, `template.render` mode, `human.input` form fields, and loop body output snapshots.
+
 ---
 
 ## Skill Metadata
@@ -328,6 +335,8 @@ functions: |                  # Global WFScript functions (optional)
 
 workflows:
   main:                       # Entrypoint workflow (by convention)
+    functions: |              # Workflow-local WFScript functions (optional)
+      function localHelper(x) { return x + 1; }
     inputs:                   # Input parameters with types (optional)
       message: { type: string, required: true }
     steps:                    # Ordered list of steps (required)
@@ -339,6 +348,7 @@ workflows:
 ```
 
 You can define **multiple workflows** in the same document and call them via `workflow.call`.
+Document-level functions are inherited by every workflow. Workflow-level functions are scoped to that workflow execution and can shadow document-level functions with the same name.
 
 ### Step Common Fields
 
@@ -435,13 +445,16 @@ Sends a prompt to an LLM and returns the response. Supports structured JSON outp
           category: { type: string }
           priority: { type: string, enum: [low, medium, high, critical] }
           confidence: { type: number }
-        required: [category, priority]
+        required: [category, priority, confidence]
+        additionalProperties: false
       strict: true
 ```
 
 **Output:** `{ text: "...", json: { category: "bug", priority: "high", confidence: 0.92 }, usage: {...} }`
 
 Access: `data.steps.classify.json.category`, `data.steps.classify.json.priority`
+
+Before contacting the provider, Flow validates the `structured_output` envelope and recursively validates/normalizes its JSON Schema. `schema_inline` and `schema_ref` are mutually exclusive; `schema_ref` must resolve through an expression to a schema object. With `strict: true`, the root must be an object, every object property must be listed in `required`, every object must set `additionalProperties: false`, arrays must declare `items`, and unsupported strict composition keywords are rejected. After the LLM responds, parsed JSON is validated against the same schema before it is exposed as `data.steps.<id>.json`; failures use `LLM_SCHEMA` and include property paths.
 
 ---
 
@@ -550,6 +563,8 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 | LLM-assisted | `data.steps.<id>.text`, `data.steps.<id>.json` |
 
 > **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises `OutputSchema` or `ExampleResponse`. Access `data.steps.<id>.response.<field>` only for documented fields. Otherwise pass the whole response with `json(data.steps.<id>.response)` or add an `llm.call` normalization step with `structured_output`.
+>
+> When an MCP server returns protocol `structuredContent`, `mcp.call` uses that value as `response`. `workflow.plan` can include and validate fields inside that response only when the same tool is discoverable with an `OutputSchema` or representative `ExampleResponse`.
 
 #### MCP progress events → thinking telemetry
 
@@ -580,6 +595,15 @@ Sets variables in the workflow data context using expressions.
 ```yaml
 - id: init_vars
   type: set
+  output_schema:
+    type: object
+    properties:
+      total: { type: integer }
+      prefix: { type: string }
+      full_name: { type: string }
+      items_count: { type: integer }
+    required: [total, prefix, full_name, items_count]
+    additionalProperties: false
   input:
     total: 0
     prefix: "report_"
@@ -588,6 +612,8 @@ Sets variables in the workflow data context using expressions.
 ```
 
 **Output:** `{ total: 0, prefix: "report_", full_name: "...", items_count: 5 }`
+
+`output_schema` is optional, but recommended for any `set` step that normalizes or reshapes data for later steps. When present, workflow.plan validates `input` against the schema, downstream references use the declared output type, and the runtime verifies the resolved output before exposing it as `data.steps.<id>`.
 
 ---
 
@@ -762,6 +788,8 @@ Loops sequentially with `times`, `while`, or `items`. Supports `item_var` and `i
 
 **Output:** `{ results: [...], count: N }` — each element in `results` contains the step outputs (`data.steps.*`) for that iteration.
 
+During workflow.plan validation, `items`/`over` sources are used to infer `data.<item_var>` and `data._loop.item`; `data.<index_var>` and `data._loop.index` are typed as integers. For `times`/`while` loops without items, `data._loop.index` and `data.loop.index` are typed as integers inside the loop body.
+
 ---
 
 ### `loop.parallel` — Iterate in Parallel
@@ -799,6 +827,8 @@ Loops over an array of items, executing iterations concurrently.
 **Loop context:** `data._loop.index`, `data._loop.item`, `data.<item_var>`, `data.<index_var>`.
 
 **Output:** `{ results: [...], count: N }` — each element in `results` contains the step outputs for that iteration.
+
+During workflow.plan validation, the item source is used to infer `data.<item_var>` and `data._loop.item`; `data.<index_var>` and `data._loop.index` are typed as integers inside the loop body.
 
 ---
 
@@ -891,6 +921,62 @@ Resolution is delegated to `WorkflowEngine.WorkflowCallResolver` (`DefaultWorkfl
 | Parent workflow `data.steps.<call_step_id>.workflow` | Name of the workflow that was executed. |
 
 If the called workflow has no `outputs` block, the engine returns the called workflow step outputs instead. Prefer defining explicit `outputs` so the contract stays stable.
+
+Before executing the called workflow, the runtime applies defaults declared by its `inputs` schema and validates all resolved arguments. Missing required values or type mismatches fail immediately with `INPUT_VALIDATION` and identify the called workflow.
+
+#### Function scope
+
+`workflow.call` executes the called workflow with its own function scope:
+
+- Document-level `functions:` are available to every workflow in the document.
+- Workflow-level `functions:` are available only while that workflow is executing.
+- A workflow-level function with the same name as a document-level function shadows it for that workflow only.
+- Parent workflow-local functions do not leak into the called workflow, and called workflow-local functions do not leak back into the parent. Pass values through `input.args` and `outputs` instead.
+
+```yaml
+version: 1
+name: workflow-call-function-scope
+functions: |
+  function label() { return "document"; }
+
+workflows:
+  main:
+    functions: |
+      function label() { return "main"; }
+    steps:
+      - id: before
+        type: set
+        input:
+          value: "${functions.label()}"
+
+      - id: call_helper
+        type: workflow.call
+        input:
+          ref: { kind: local, name: helper }
+          args: {}
+
+      - id: after
+        type: set
+        input:
+          value: "${functions.label()}"
+    outputs:
+      before: "${data.steps.before.value}"              # "main"
+      helper: "${data.steps.call_helper.outputs.value}" # "helper"
+      after: "${data.steps.after.value}"                # "main"
+
+  helper:
+    functions: |
+      function label() { return "helper"; }
+    steps:
+      - id: local
+        type: set
+        input:
+          value: "${functions.label()}"
+    outputs:
+      value: "${data.steps.local.value}"
+```
+
+If `helper` tried to call a function defined only under `main.functions`, dry-run and runtime execution would fail with an expression error. This keeps sub-workflows independently testable: every helper they need must come from document-level `functions:`, their own workflow-level `functions:`, or host-registered `WorkflowEngine.ScriptFunctions`.
 
 #### Complete local example
 
@@ -1057,12 +1143,15 @@ Output shape:
 
 The most powerful step type: asks an LLM to **generate a complete YAML workflow** from a natural-language instruction, then validates and compiles it before execution.
 
+`mode` defaults to `auto`. Auto mode first asks the configured LLM to estimate the request's cyclomatic complexity and choose `basic` or `pipeline`. It chooses `basic` for requests under 10 meaningful branches, and `pipeline` when the request should be decomposed into leaf workflows before assembly.
+
 #### Basic usage
 
 ```yaml
 - id: plan
   type: workflow.plan
   input:
+    mode: auto                    # default; use basic to force the single-plan path
     generator:
       model: gpt-4o
       instruction: "Build a workflow that fetches weather for Paris and summarizes it."
@@ -1075,6 +1164,7 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 - id: plan
   type: workflow.plan
   input:
+    mode: auto                    # auto | basic | pipeline | repair
     generator:
       model: gpt-4o                 # LLM model for planning
       provider: openai              # Optional — LLM provider
@@ -1082,11 +1172,11 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
       context: "${json(data.inputs)}"
 
       # Reasoning effort for the planning LLM call (and the MCP pre-filter).
-      # Defaults to "high" (max) because planning is heavy reasoning work.
+      # Defaults to "medium" because planning is reasoning-heavy work.
       # Set to "auto" to let the provider decide, or any of:
       # "minimal" | "low" | "medium" | "high" | "max" | "auto".
       # Models without thinking support ignore this field.
-      reasoning: high
+      reasoning: medium
 
       # MCP pre-filter: uses an LLM to select only relevant MCP servers/tools
       # before injecting them into the planning prompt (reduces prompt size)
@@ -1112,27 +1202,202 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 
     # Validation
     validate:
-      compile: true                 # Parse + compile the generated YAML (default: true)
+      mode: strict                  # Optional marker; strict validation is mandatory
+      compile: true                 # Legacy field; compile/semantic validation is always forced
+      dry_run: true                 # Execute once with deterministic fake providers
+      repair: auto                  # Optional marker; bounded automatic repair is mandatory
+      max_repair_attempts: 3        # Preferred repair attempt budget
 
     # Self-correction on failure
     on_invalid:
-      action: reprompt              # "reprompt" (re-send error to LLM) | "fail"
-      max_attempts: 3               # Number of attempts before giving up
+      action: reprompt              # Legacy field; invalid YAML is always reprompted while attempts remain
+      max_attempts: 3               # Legacy repair attempt budget when validate.max_repair_attempts is absent
 ```
 
-**Output:** `{ workflow: { dsl, name, workflows: [...] }, yaml: "...", meta: { model, attempt } }`
+#### Auto and basic modes
+
+`mode: auto` is the default. It performs one classifier LLM call before generation and returns the classifier result under `meta.mode_selection`. The classifier estimates complexity by counting meaningful branches such as conditions, switch/case paths, loops, retries, error handling, cleanup paths, validation branches, tool-orchestration choices, and state transitions.
+
+Use `mode: basic` to skip classification and run the original single workflow-generation path directly. Use `mode: pipeline` to force decomposition. Use `mode: repair` to make a targeted patch-style repair to an existing workflow while still returning a complete replacement YAML document.
+
+#### Repair mode
+
+Use `mode: repair` when a workflow already exists and should be minimally changed because of a runtime error or an explicit repair instruction. The LLM receives the existing YAML, optional failed input, optional runtime error details, and optional user repair instructions. It must preserve public inputs, outputs, workflow identity, behavior, and MCP choices unless the repair evidence proves they are wrong.
+
+```yaml
+- id: repair_plan
+  type: workflow.plan
+  input:
+    mode: repair
+    generator:
+      model: gpt-4o
+      reasoning: medium
+      prefilter: true
+      context: "Keep this compatible with persisted chat-agent workflows."
+    repair:
+      existing_yaml: "${data.inputs.current_workflow}"
+      prompt: "${data.inputs.user_repair_instruction}"   # Optional when error.message is present
+      failed_input: "${data.inputs.failed_user_prompt}"   # Optional
+      error:                                             # Optional when prompt is present
+        code: "${data.inputs.error_code}"
+        type: "${data.inputs.error_type}"
+        message: "${data.inputs.error_message}"
+        details: "${data.inputs.error_details}"
+    validate:
+      mode: strict
+      dry_run: true
+      max_repair_attempts: 3
+```
+
+`repair.existing_yaml` is required. At least one of `repair.prompt` or `repair.error.message` must be present. When `repair.error` is present, `repair.error.message` is required. The returned shape is the same as other modes: `{ workflow, yaml, meta, diagnostics }`, with `meta.mode: repair`.
+
+#### Pipeline mode
+
+Use `mode: pipeline` when the input is a raw user automation prompt that should be cleaned up, segmented into leaf subworkflows, and assembled into one local YAML document.
+
+```yaml
+- id: plan_pipeline
+  type: workflow.plan
+  input:
+    mode: pipeline
+    name: repository-issue-report
+    skill:
+      description: Build a report from repository issues.
+      tags: [github, issues]
+      inputs:
+        target_repository_url:
+          type: string
+          required: false
+          default: https://github.com/AxaFrance/oidc-client
+        number_of_issues_to_process:
+          type: number
+          required: false
+          default: 20
+      outputs:
+        report_path: string
+    raw_prompt: "${data.inputs.prompt}"
+    generator:
+      model: gpt-4o
+      provider: openai
+      reasoning: medium
+      prefilter: false
+    validate:
+      mode: strict
+      dry_run: true
+      max_repair_attempts: 3
+    on_invalid:
+      action: reprompt
+      max_attempts: 3
+```
+
+Pipeline mode runs five traced phases:
+
+1. `normalize_user_prompt` rewrites the raw prompt as clean Markdown without changing meaning.
+2. `mark_extractable_blocks` uses strict structured extraction when the resolved model explicitly supports structured output; otherwise it falls back to annotated Markdown. Structured extraction returns metadata plus annotated Markdown: the Markdown still wraps only significant algorithmic sections in `:::subworkflow name="..."` blocks and adds a `## Main workflow orchestration` section, while the sidecar records each leaf's description, typed input/output schemas, and planned MCP tools/prompts to call.
+3. `extract_subworkflow_specs` parses those blocks as-is, builds generation prompts, and reports validation errors for nested blocks or subworkflow-call mentions.
+4. `generate_subworkflows` runs the normal `workflow.plan` generator for each leaf workflow in parallel. Each leaf prompt contains only that leaf's goal, input/output contract, and content; leaf generation forbids `workflow.call` and `workflow.plan`, preserves the configured MCP prefilter behavior, forces validation, retries failed leaf generation up to the parent repair attempt budget, and rejects bare `type: object` schemas unless they define non-empty `properties`.
+5. `assemble_main_workflow` sends a compact leaf manifest, the generated leaf contracts, and a minimal main-graph DSL context to the LLM. The LLM returns only a `document` plus orchestration `graph`; the runtime renders the real `main` workflow deterministically and grafts the validated leaf workflows before final validation.
+
+The final YAML has exactly one hierarchy level: `main` may call local leaf workflows with `workflow.call`, while leaf workflows must never contain `workflow.call` or `workflow.plan`. The returned `pipeline` object includes `normalized_markdown`, `annotated_markdown`, and parsed `specs`; each spec includes `description`, `input_schemas`, `output_schemas`, and `planned_tools`.
+
+When structured extraction is active and `planned_tools[].required` is true, leaf generation must emit an explicit direct `mcp.call` with matching `input.server`, `input.kind`, and literal `input.method` or `input.methods`. Pipeline validation rejects a generated leaf that omits a required planned tool. If pipeline-level MCP context was built, extraction also verifies planned server/tool/prompt names against the discovered capabilities; otherwise final MCP-aware validation still checks generated calls against the runtime registry.
+
+When a generated leaf workflow contains root-level helper functions, final assembly moves those helpers into the grafted leaf workflow's own `functions:` block. They are not promoted to the final document root, so helpers remain isolated with the leaf that uses them.
+
+Standalone generated leaf:
+
+```yaml
+version: 1
+name: parse-repository
+functions: |
+  function parseRepoUrl(url) {
+    var parts = url.replace(/\/$/, "").split("/");
+    return {
+      owner: parts[parts.length - 2],
+      repo: parts[parts.length - 1]
+    };
+  }
+workflows:
+  parse_repository:
+    inputs:
+      repo_url: { type: string, required: true }
+    steps:
+      - id: parsed
+        type: set
+        input:
+          value: "${functions.parseRepoUrl(data.inputs.repo_url)}"
+    outputs:
+      owner: "${data.steps.parsed.value.owner}"
+      repo: "${data.steps.parsed.value.repo}"
+```
+
+Composed pipeline document:
+
+```yaml
+version: 1
+name: repository-pipeline
+workflows:
+  main:
+    inputs:
+      repo_url: { type: string, required: true }
+    steps:
+      - id: parse
+        type: workflow.call
+        input:
+          ref: { kind: local, name: parse_repository }
+          args:
+            repo_url: "${data.inputs.repo_url}"
+    outputs:
+      owner: "${data.steps.parse.outputs.owner}"
+      repo: "${data.steps.parse.outputs.repo}"
+
+  parse_repository:
+    functions: |
+      function parseRepoUrl(url) {
+        var parts = url.replace(/\/$/, "").split("/");
+        return {
+          owner: parts[parts.length - 2],
+          repo: parts[parts.length - 1]
+        };
+      }
+    inputs:
+      repo_url: { type: string, required: true }
+    steps:
+      - id: parsed
+        type: set
+        input:
+          value: "${functions.parseRepoUrl(data.inputs.repo_url)}"
+    outputs:
+      owner: "${data.steps.parsed.value.owner}"
+      repo: "${data.steps.parsed.value.repo}"
+```
+
+Configured `name`, `skill`, and public input schemas are authoritative and are preserved exactly in the root skill and `main` workflow. Leaf inputs are call arguments and are not automatically promoted to public inputs; the main assembler maps public names to leaf argument names and derives internal values in workflow steps. When no structured contract is configured, the final assembly phase infers the public contract from the normalized user request, but leaf call arguments and available outputs come from the actual generated leaf workflows rather than the initial extraction draft. Composition rejects any `data.inputs.<name>` reference that is not declared by the resolved main input contract, and it also rejects calls that omit required arguments from the generated leaf contract.
+
+`validate.max_repair_attempts` controls the bounded automatic repair budget. When it is absent, `on_invalid.max_attempts` is used for compatibility, then the default is 3. The budget is applied to extractable-block annotation repair, each leaf generation, and the final main-workflow assembly. If block extraction validation fails, the next `mark_extractable_blocks` attempt receives the previous annotated Markdown plus exact validation feedback. If final parsing, policy, hierarchy, compilation, or semantic validation fails, the next assembly attempt receives the previous YAML response and structured validation error so it can repair the complete `document` and `graph` mapping.
+
+The final composed pipeline document uses the same validation sequence as standard `workflow.plan`: policy and limits are enforced, compiler validation and MCP-contract-aware semantic validation are always forced, and `validate.dry_run` executes the complete entrypoint with deterministic fake LLM, MCP, and human-input providers. `validate.compile: false` is accepted only as a legacy no-op and cannot disable strict validation. MCP discovery contracts are collected once for final validation, and every assembly attempt emits its own `workflow.plan.validate` telemetry span.
+
+**Output:** `{ workflow: { version, name, workflows: [...] }, yaml: "...", meta: { model, attempt?, mode, mode_selection? }, diagnostics: [...], pipeline? }`
 
 **Features:**
 
-- **Automatic MCP discovery**: Connects to all configured MCP servers, lists their tools/prompts, and injects them into the planning prompt so the LLM knows what's available.
+- **Automatic MCP discovery**: Connects to all configured MCP servers, lists their tools/prompts, and injects them into the planning prompt so the LLM knows what's available. A transient discovery failure is retried up to three total attempts with progressive 500 ms and 1,000 ms delays.
 - **MCP pre-filter**: Uses a lightweight LLM call to select only the MCP servers/tools relevant to the task instruction — reduces prompt size and cost.
 - **Full DSL reference injection**: The LLM receives the complete DSL documentation (step types, expressions, error handling) so it can generate valid workflows.
 - **Policy enforcement**: Generated workflows are validated against allowed/denied step types and max step limits.
-- **Full validation before acceptance**: `workflow.plan` runs the validator, compiler, and semantic checks before returning a plan. This catches non-fatal validator diagnostics such as unknown step types, invalid container shapes, future step references, conditional branch/loop mapping errors, and invalid `data.steps.<id>.response.<field>` mappings.
-- **Optional dry-run validation**: Set `validate.dry_run: true` to execute the generated workflow once with deterministic fake LLM, MCP, human-input, and routing providers. This catches runtime input-resolution errors such as free-form `llm.call.text` being used where a number is required. The dry-run never calls real LLMs or MCP tools.
+- **Mandatory strict validation before acceptance**: `workflow.plan` always runs the validator, compiler, and semantic checks before returning a plan. `validate.compile: false` is tolerated for older workflows but is ignored. This catches non-fatal validator diagnostics such as unknown step types, invalid container shapes, unknown YAML structural keys, future step references, conditional branch/loop mapping errors, and invalid `data.steps.<id>.response.<field>` mappings.
+- **Structured repair diagnostics**: Validation and `dry_run` failures include machine-readable `details.diagnostics[]` entries with stable codes, locations, hints, expected shapes, allowed paths when available, and `llm_guidance` for reprompt repair.
+- **Executor-owned step contracts**: Every registered executor must expose declarative JSON Schema input/output contracts. Planning validation recursively rejects missing required fields, wrong literal types, unknown keys (including nested keys), and mutually exclusive fields. A custom registered executor without a contract fails closed.
+- **Static expression type inference**: Exact `${...}` references inherit types from workflow inputs, previous step outputs, `set.output_schema`, and scoped loop variables; embedded interpolation is a string, and built-ins such as `len`, `toNumber`, `exists`, `json`, `pick`, and `omit` have known result types. Incompatible assignments such as `llm.call.text` into `max_tokens` or `data.<item_var>.title` into an integer workflow-call input fail with `EXPR_TYPE_MISMATCH` before dry-run. Opaque/custom expressions remain runtime-validated.
+- **Local workflow-call contracts**: Literal local `workflow.call` targets are validated against the called workflow's declared inputs. Missing, extra, and wrongly typed `input.args` fail during plan validation, and the called workflow's typed outputs are propagated so invented paths like `data.steps.call.outputs.unknown` are rejected.
+- **Optional dry-run validation**: Set `validate.dry_run: true` to execute the generated workflow once with deterministic fake LLM, MCP, human-input, and routing providers. This catches runtime input-resolution errors such as free-form `llm.call.text` being used where a number is required. Dry-run MCP sessions expose only discovered tools: an invented method fails instead of receiving a generic mock response. The dry-run never calls real LLMs or MCP tools.
 - **MCP output contracts**: MCP discovery injects complete `input_schema`, `output_schema`, and `example_response` metadata into the planning prompt. `output_schema` / `example_response` define which fields may be read from `mcp.call` single-tool `response` objects.
-- **MCP request normalization**: During `workflow.plan` validation, static `mcp.call.input.request` values are normalized against discovered `input_schema` contracts. Numeric, integer, and boolean YAML strings are converted to typed JSON values when the schema allows it, including nested objects, arrays, additional properties, and matching `oneOf` / `anyOf` object variants.
-- **Self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error, or semantic mapping error), the error is sent back to the LLM for automatic correction.
+- **Fail-closed MCP discovery**: A generated tool-mode `mcp.call` is rejected when its server catalog is missing, discovery failed after all retries, or the discovered catalog is empty. Dynamic server names cannot pass plan validation because their existence cannot be proven.
+- **MCP envelope, target, and request validation**: Unknown fields at `mcp.call.input` are rejected with a suggestion to move tool arguments under `input.request`. Literal `method` and every literal entry in `methods` must exist in the discovered server contract. The shared request is validated against every selected tool schema.
+- **Expanded JSON Schema checks**: MCP requests support `enum`, `const`, `allOf`, exact `oneOf`, `anyOf`, string length/pattern, numeric bounds/multiples, object/array size, `uniqueItems`, nested schemas, and schema-correct `additionalProperties` behavior. Quoted numeric, integer, and boolean YAML scalars remain strings during `workflow.plan` validation and fail when the contract requires real booleans or numbers.
+- **Runtime request validation**: Requests containing expressions or `request_template` are checked again after resolution/rendering and immediately before `CallToolAsync`. The live tool catalog proves the method exists, and the resolved request must satisfy that tool's `input_schema`.
+- **Bounded automatic self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error, semantic mapping error, or optional dry-run failure), the structured error is sent back to the LLM for repair until `validate.max_repair_attempts`, legacy `on_invalid.max_attempts`, or the default budget is exhausted. `on_invalid.action` is accepted only for compatibility and cannot disable automatic repair while attempts remain.
 - **OpenTelemetry tracing**: Full GenAI convention traces for the planning LLM call, MCP discovery, and pre-filter phases.
 
 Workflow execution traces also include injected workflow inputs on the workflow span:
@@ -1142,6 +1407,10 @@ Workflow execution traces also include injected workflow inputs on the workflow 
 - `gnougo-flow.workflow.inputs.keys`
 
 **Semantic mapping guardrails:** generated plans must not read `data.steps.<id>.*` from steps that are produced only inside a `switch` case, an `if`-guarded step, or a loop body unless that value is first mapped into a guaranteed location. Function arguments are evaluated eagerly, so `coalesce(data.steps.fix.value, data.steps.question.value)` is still unsafe when either step may not have executed. Prefer a common workflow-level output alias in every branch, or a guaranteed normalization step with a stable output schema.
+
+Loop outputs need special care: `data.steps.<loop_id>.results` is an array of per-iteration `data.steps` snapshots, not an array of the last child step's output. If a loop child `set` step named `build_issue_result` produces `handled_by_gnougo`, post-loop code must read `iteration.build_issue_result.handled_by_gnougo`. To produce a flat list, create a typed child `set` step in the loop and flatten/filter through that child step id.
+
+Generated YAML should preserve typed scalars: emit `required: false`, `strict: true`, `timeout_ms: 1200000`, and `append: false` as booleans/numbers, not quoted strings. Use literal block scalars (`|`) for multiline prompts/templates or strings containing JSON/double quotes. Required string fields must be present and non-empty; use an optional nullable string field when empty text is a valid value.
 
 ---
 
@@ -1313,6 +1582,8 @@ Expressions are embedded in strings using `${...}` syntax. They are JavaScript e
 | `replace(s, old, new)` | Replaces all occurrences |
 | `substring(s, start)` | Characters from position `start` to end |
 | `substring(s, start, len)` | `len` characters starting at `start` |
+| `string(val)` | Converts value to string |
+| `toString(val)` | Alias for `string(val)` |
 | `toNumber(val)` | Converts to number |
 | `json(val)` | Serializes value to JSON string |
 | `pick(obj, ...keys)` | Returns a new object containing only the requested keys; keys may be separate arguments or an array |
@@ -1345,18 +1616,41 @@ Increase these limits only for trusted workflows; prefer simplifying expressions
 
 ## WFScript — Custom JavaScript Functions
 
-Define reusable functions in the `functions:` block (document-level or workflow-level):
+Define reusable functions in the `functions:` block (document-level or workflow-level).
+When `workflow.plan` generates custom functions, each generated `function` must be immediately preceded by JSDoc with typed `@param` entries for every parameter and a typed `@returns` entry for the output:
+
+Scope rules:
+
+- Document-level `functions:` are loaded for every workflow in the document.
+- Workflow-level `functions:` are loaded only for the workflow currently being executed.
+- Workflow-level functions shadow document-level functions with the same name for that workflow only.
+- `workflow.call` and `workflow.execute` create an isolated execution scope for the called or executed workflow.
+- Host-registered `WorkflowEngine.ScriptFunctions` are added after YAML functions and can override YAML helpers when the host intentionally provides a function with the same name.
+- Expressions can call helpers as either `functions.name(...)` or `name(...)`; the `functions.name(...)` form is preferred in workflow YAML because it makes helper calls explicit.
 
 ```yaml
 version: 1
 name: smart-triage
 functions: |
+  /**
+   * Classifies a message by urgency and issue type.
+   *
+   * @param {string} text - Message text to classify.
+   * @returns {string} Routing label: "critical", "bug", or "general".
+   */
   function classify(text) {
     if (contains(lower(text), "urgent")) return "critical";
     if (contains(lower(text), "bug")) return "bug";
     return "general";
   }
 
+  /**
+   * Truncates text to a maximum visible length.
+   *
+   * @param {string} text - Text to truncate.
+   * @param {number} maxLen - Maximum number of characters.
+   * @returns {string} Original or truncated text.
+   */
   function truncate(text, maxLen) {
     if (len(text) <= maxLen) return text;
     return text.substring(0, maxLen) + "...";

@@ -93,7 +93,7 @@ internal sealed class InMemoryMcpSession : IMcpSession
     {
         ct.ThrowIfCancellationRequested();
         IReadOnlyList<McpToolInfo> tools = _config.Tools.AsReadOnly();
-        return Task.FromResult(tools);
+        return Task.FromResult(McpToolContractEnricher.EnrichTools(tools));
     }
 
     public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct)

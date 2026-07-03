@@ -84,9 +84,19 @@ public sealed class WorkflowExecuteExecutor : IStepExecutor
         WorkflowTelemetryInputAttributes.Apply(subWorkflowSpan, subData["inputs"]);
         var subWorkflowSw = System.Diagnostics.Stopwatch.StartNew();
         Exception? subWorkflowError = null;
+        var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(workflow);
         try
         {
-            await ctx.Engine.ExecuteStepsAsync(workflow.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, ctx.CallStack, ct, subWorkflowSpan);
+            await ctx.Engine.ExecuteStepsAsync(
+                workflow.Steps,
+                subData,
+                result,
+                ctx.Limits,
+                ctx.CallDepth + 1,
+                ctx.CallStack,
+                executionScope,
+                ct,
+                subWorkflowSpan);
         }
         catch (Exception ex)
         {
@@ -112,12 +122,11 @@ public sealed class WorkflowExecuteExecutor : IStepExecutor
         JsonNode? outputs;
         if (workflow.Outputs != null)
         {
-            var outputObj = new JsonObject();
-            foreach (var kv in workflow.Outputs)
-            {
-                outputObj[kv.Key] = ctx.Engine.EvaluateOutputDef(kv.Value, subData);
-            }
-            outputs = outputObj;
+            outputs = ctx.Engine.EvaluateWorkflowOutputs(
+                workflow.Outputs,
+                subData,
+                executionScope,
+                workflow.Name);
         }
         else
         {

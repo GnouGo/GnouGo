@@ -61,7 +61,8 @@ public sealed class WorkflowCallExecutor : IStepExecutor
             Ref = refObj,
             Kind = kind,
             CallDepth = ctx.CallDepth,
-            CallStack = ctx.CallStack
+            CallStack = ctx.CallStack,
+            ActiveDocument = ctx.ActiveDocument
         }, ct);
 
         if (!string.IsNullOrWhiteSpace(resolution.CallStackKey) && ctx.CallStack.Contains(resolution.CallStackKey))
@@ -85,34 +86,49 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         if (!string.IsNullOrWhiteSpace(resolution.CallStackKey))
             newCallStack.Add(resolution.CallStackKey);
 
+        var resolvedArgs = WorkflowInputDefaults.Apply(subWorkflow.Source, args);
+        var inputErrors = InputTypeValidator.Validate(subWorkflow.Source, resolvedArgs);
+        if (inputErrors.Count > 0)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                $"Input validation failed for called workflow '{resolution.WorkflowName}': {string.Join("; ", inputErrors)}",
+                details: new JsonObject
+                {
+                    ["workflow"] = resolution.WorkflowName,
+                    ["validation_errors"] = new JsonArray(inputErrors.Select(static error => (JsonNode)JsonValue.Create(error)!).ToArray())
+                });
+        }
+
         var result = new RunResult { Success = true };
         var subData = new JsonObject
         {
-            ["inputs"] = args?.DeepClone() ?? new JsonObject(),
+            ["inputs"] = resolvedArgs,
             ["steps"] = new JsonObject(),
             ["env"] = ctx.Data["env"]?.DeepClone() ?? new JsonObject()
         };
 
-        var previousDocument = ctx.Engine.ReplaceCompiledDocumentForWorkflowCall(subWorkflow.Document);
-        try
-        {
-            await ctx.Engine.ExecuteStepsAsync(subWorkflow.Steps, subData, result, ctx.Limits, ctx.CallDepth + 1, newCallStack, ct, ctx.TelemetrySpan);
-        }
-        finally
-        {
-            ctx.Engine.ReplaceCompiledDocumentForWorkflowCall(previousDocument);
-        }
+        var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(subWorkflow);
+        await ctx.Engine.ExecuteStepsAsync(
+            subWorkflow.Steps,
+            subData,
+            result,
+            ctx.Limits,
+            ctx.CallDepth + 1,
+            newCallStack,
+            executionScope,
+            ct,
+            ctx.TelemetrySpan);
 
         // Evaluate outputs
         JsonNode? outputs;
         if (subWorkflow.Outputs != null)
         {
-            var outputObj = new JsonObject();
-            foreach (var kv in subWorkflow.Outputs)
-            {
-                outputObj[kv.Key] = ctx.Engine.EvaluateOutputDef(kv.Value, subData);
-            }
-            outputs = outputObj;
+            outputs = ctx.Engine.EvaluateWorkflowOutputs(
+                subWorkflow.Outputs,
+                subData,
+                executionScope,
+                resolution.WorkflowName);
         }
         else
         {
@@ -126,9 +142,6 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         };
     }
 }
-
-
-
 
 
 

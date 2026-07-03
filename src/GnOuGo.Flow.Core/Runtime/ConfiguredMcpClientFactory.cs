@@ -702,14 +702,18 @@ internal sealed class McpSessionAdapter : IMcpSession
     public async Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct)
     {
         var tools = await _client.ListToolsAsync(cancellationToken: ct);
-        return tools.Select(t => new McpToolInfo
+        var mappedTools = tools.Select(t => new McpToolInfo
         {
             Name = t.Name,
             Description = t.Description,
             InputSchema = t.JsonSchema.ValueKind != JsonValueKind.Undefined
                 ? JsonNode.Parse(t.JsonSchema.GetRawText())
+                : null,
+            OutputSchema = t.ReturnJsonSchema.HasValue
+                ? JsonNode.Parse(t.ReturnJsonSchema.Value.GetRawText())
                 : null
         }).ToList().AsReadOnly();
+        return McpToolContractEnricher.EnrichTools(mappedTools);
     }
 
     public async Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct)
@@ -811,6 +815,12 @@ internal sealed class McpSessionAdapter : IMcpSession
 
     private static JsonNode? BuildContent(CallToolResult result)
     {
+        if (result.StructuredContent is JsonElement structuredContent
+            && structuredContent.ValueKind is not JsonValueKind.Undefined and not JsonValueKind.Null)
+        {
+            return JsonNode.Parse(structuredContent.GetRawText());
+        }
+
         if (result.Content is not { Count: > 0 })
             return null;
 
