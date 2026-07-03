@@ -17,7 +17,7 @@ from gnougo_flow_core.models import (
     WorkflowRouteCandidateQuery,
 )
 from gnougo_flow_core.runtime import *  # noqa: F401,F403
-from gnougo_flow_core.runtime import apply_workflow_input_defaults
+from gnougo_flow_core.runtime import apply_workflow_input_defaults, validate_input_types
 from gnougo_flow_core.workflow_call_resolver import (
     DefaultWorkflowCallResolver,
     WorkflowCallResolution,
@@ -331,11 +331,15 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
         if not config.enabled:
             return args
 
-        schema = copy.deepcopy(candidate.inputs) if candidate.inputs is not None else None
-        if schema is None and workflow.source.inputs:
+        schema = None
+        if workflow.source.inputs:
             schema = inputs_to_json_schema(workflow.source.inputs)
+        elif candidate.inputs is not None:
+            schema = copy.deepcopy(candidate.inputs)
         if schema is None:
             return args
+        allowed_keys = self._extract_argument_keys(schema)
+        mapped_args = self._filter_args_to_allowed_keys(args, allowed_keys)
         if ctx.engine.llm_client is None:
             raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, "workflow.route args.auto_extract requires an LLM client")
 
@@ -345,9 +349,9 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
                 provider=provider,
                 model=model or "",
                 temperature=0 if config.temperature is None else config.temperature,
-                prompt=self._build_argument_extraction_prompt(route_input, candidate, workflow, args, schema),
+                prompt=self._build_argument_extraction_prompt(route_input, candidate, workflow, mapped_args, schema),
                 structured_output_strict=False,
-                structured_output_schema=self._build_argument_extraction_schema(),
+                structured_output_schema=self._build_argument_extraction_schema(schema),
             )
         )
         payload = response.json_payload or self._try_parse_json_object(response.text)
@@ -357,9 +361,42 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
         if not isinstance(extracted, dict):
             raise WorkflowRuntimeException(ErrorCodes.TEMPLATE_PLAN, "workflow.route auto_extract JSON must be an object")
         for key, value in extracted.items():
-            if str(key).strip() and value is not None:
-                args[str(key)] = copy.deepcopy(value)
-        return args
+            key_text = str(key)
+            if key_text.strip() and value is not None and key_text in allowed_keys:
+                mapped_args[key_text] = copy.deepcopy(value)
+        return mapped_args
+
+    @staticmethod
+    def _filter_args_to_allowed_keys(args: dict[str, Any], allowed_keys: set[str]) -> dict[str, Any]:
+        filtered: dict[str, Any] = {}
+        for key, value in args.items():
+            key_text = str(key)
+            if key_text.strip() and value is not None and key_text in allowed_keys:
+                filtered[key_text] = copy.deepcopy(value)
+        return filtered
+
+    @staticmethod
+    def _extract_argument_keys(schema: Any) -> set[str]:
+        keys: set[str] = set()
+        WorkflowRouteExecutor._add_argument_keys(schema, keys)
+        return keys
+
+    @staticmethod
+    def _add_argument_keys(schema: Any, keys: set[str]) -> None:
+        if not isinstance(schema, dict):
+            return
+        properties = schema.get("properties")
+        if isinstance(properties, dict):
+            for key in properties.keys():
+                key_text = str(key)
+                if key_text.strip():
+                    keys.add(key_text)
+        for union_key in ("allOf", "anyOf", "oneOf"):
+            variants = schema.get(union_key)
+            if not isinstance(variants, list):
+                continue
+            for variant in variants:
+                WorkflowRouteExecutor._add_argument_keys(variant, keys)
 
     @staticmethod
     def _parse_auto_extract_config(args_input: dict[str, Any] | None) -> _AutoExtractConfig:
@@ -443,6 +480,7 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
             candidate_args,
         )
         resolved_args = apply_workflow_input_defaults(resolution.workflow.source, candidate_args)
+        self._validate_routed_inputs(resolution.workflow_name, resolution.workflow.source, resolved_args)
         self._emit_routed_inputs_telemetry(
             ctx,
             candidate,
@@ -451,7 +489,7 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
             resolved_args,
             args_input,
         )
-        result = await child_engine.execute_async(resolution.workflow, candidate_args, ctx.ct)
+        result = await child_engine.execute_async(resolution.workflow, resolved_args, ctx.ct)
         return _RouteExecutionResult(
             candidate=candidate,
             workflow_name=resolution.workflow_name,
@@ -490,25 +528,65 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
         resolved_args: dict[str, Any],
         args_input: dict[str, Any] | None,
     ) -> None:
-        if not ctx.limits.log_step_content:
-            return
-
         auto_extract_enabled = WorkflowRouteExecutor._parse_auto_extract_config(args_input).enabled
+        argument_keys = ",".join(candidate_args.keys())
+        resolved_input_keys = ",".join(resolved_args.keys())
+        attributes: list[tuple[str, Any]] = [
+            ("gnougo-flow.step.id", ctx.step.id),
+            ("gnougo-flow.step.type", ctx.step.type),
+            ("gnougo-flow.step.call_depth", ctx.call_depth),
+            ("gnougo-flow.workflow_route.candidate.id", candidate.id),
+            ("gnougo-flow.workflow_route.candidate.name", candidate.name),
+            ("gnougo-flow.workflow_route.workflow.name", workflow_name),
+            ("gnougo-flow.workflow_route.auto_extract.enabled", auto_extract_enabled),
+            ("gnougo-flow.workflow_route.arguments.keys", argument_keys),
+            ("gnougo-flow.workflow_route.resolved_inputs.keys", resolved_input_keys),
+        ]
+        if ctx.limits.log_step_content:
+            attributes.extend(
+                [
+                    ("gnougo-flow.workflow_route.arguments", _format_inputs_for_telemetry(candidate_args)),
+                    ("gnougo-flow.workflow_route.resolved_inputs", _format_inputs_for_telemetry(resolved_args)),
+                ]
+            )
         ctx.add_telemetry_event(
             "gnougo-flow.workflow_route.inputs_extracted",
-            [
-                ("gnougo-flow.step.id", ctx.step.id),
-                ("gnougo-flow.step.type", ctx.step.type),
-                ("gnougo-flow.step.call_depth", ctx.call_depth),
-                ("gnougo-flow.workflow_route.candidate.id", candidate.id),
-                ("gnougo-flow.workflow_route.candidate.name", candidate.name),
-                ("gnougo-flow.workflow_route.workflow.name", workflow_name),
-                ("gnougo-flow.workflow_route.auto_extract.enabled", auto_extract_enabled),
-                ("gnougo-flow.workflow_route.arguments.keys", ",".join(candidate_args.keys())),
-                ("gnougo-flow.workflow_route.arguments", _format_inputs_for_telemetry(candidate_args)),
-                ("gnougo-flow.workflow_route.resolved_inputs.keys", ",".join(resolved_args.keys())),
-                ("gnougo-flow.workflow_route.resolved_inputs", _format_inputs_for_telemetry(resolved_args)),
-            ],
+            attributes,
+        )
+
+        message = (
+            f"Triggering workflow '{workflow_name}' with inputs {_format_inputs_for_telemetry(resolved_args)}"
+            if ctx.limits.log_step_content
+            else f"Triggering workflow '{workflow_name}' with input keys: {resolved_input_keys}"
+        )
+        thinking_attributes: list[tuple[str, Any]] = [
+            ("gnougo-flow.thinking.message", message),
+            ("gnougo-flow.thinking.level", "progress"),
+            ("gnougo-flow.thinking.source", "workflow.route"),
+            ("gnougo-flow.workflow_route.candidate.id", candidate.id),
+            ("gnougo-flow.workflow_route.candidate.name", candidate.name),
+            ("gnougo-flow.workflow_route.workflow.name", workflow_name),
+            ("gnougo-flow.workflow_route.arguments.keys", argument_keys),
+            ("gnougo-flow.workflow_route.resolved_inputs.keys", resolved_input_keys),
+        ]
+        if ctx.limits.log_step_content:
+            thinking_attributes.append(
+                ("gnougo-flow.workflow_route.resolved_inputs", _format_inputs_for_telemetry(resolved_args))
+            )
+        ctx.add_telemetry_event(
+            "gnougo-flow.step.thinking",
+            thinking_attributes,
+        )
+
+    @staticmethod
+    def _validate_routed_inputs(workflow_name: str, workflow: WorkflowDef | None, resolved_args: dict[str, Any]) -> None:
+        input_errors = validate_input_types(workflow, resolved_args)
+        if not input_errors:
+            return
+        raise WorkflowRuntimeException(
+            ErrorCodes.INPUT_VALIDATION,
+            f"Input validation failed for routed workflow '{workflow_name}': {'; '.join(input_errors)}",
+            details={"workflow": workflow_name, "validation_errors": input_errors},
         )
 
     async def _combine_async(
@@ -598,6 +676,9 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
         lines = [
             "You extract workflow input arguments from a user prompt and recent history.",
             'Return JSON only in this shape: {"arguments":{...}}.',
+            "The selected workflow's declared YAML inputs are authoritative.",
+            "Return only keys declared in [EXPECTED WORKFLOW INPUT JSON SCHEMA].",
+            "Map natural-language data into those exact input names; do not copy parent routing aliases unless the alias is itself a declared input.",
             "Only include fields you can infer confidently or that already exist in current arguments.",
             "Use defaults from the schema or current arguments when present. Do not invent values for unknown required fields.",
             "",
@@ -611,11 +692,11 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
             lines.append(f"tags: {', '.join(candidate.tags)}")
         lines.append(f"workflow_name: {workflow.name}")
         if candidate.inputs is not None:
-            lines.extend(["", "[SKILL INPUTS]", json.dumps(candidate.inputs, ensure_ascii=False)])
+            lines.extend(["", "[CANDIDATE SKILL INPUT HINTS]", json.dumps(candidate.inputs, ensure_ascii=False)])
         lines.extend(
             [
                 "",
-                "[WORKFLOW INPUT JSON SCHEMA]",
+                "[EXPECTED WORKFLOW INPUT JSON SCHEMA]",
                 json.dumps(schema, ensure_ascii=False),
                 "",
                 "[CURRENT ARGUMENTS]",
@@ -653,18 +734,50 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
         }
 
     @staticmethod
-    def _build_argument_extraction_schema() -> dict[str, Any]:
+    def _build_argument_extraction_schema(argument_schema: Any) -> dict[str, Any]:
         return {
             "type": "object",
             "additionalProperties": False,
             "required": ["arguments"],
             "properties": {
-                "arguments": {
-                    "type": "object",
-                    "additionalProperties": True,
-                }
+                "arguments": WorkflowRouteExecutor._build_loose_extraction_argument_schema(argument_schema)
             },
         }
+
+    @staticmethod
+    def _build_loose_extraction_argument_schema(argument_schema: Any) -> dict[str, Any]:
+        schema = copy.deepcopy(argument_schema)
+        if not isinstance(schema, dict):
+            schema = {"type": "object"}
+        WorkflowRouteExecutor._remove_required_and_close_objects(schema)
+        return schema
+
+    @staticmethod
+    def _remove_required_and_close_objects(schema: Any) -> None:
+        if isinstance(schema, dict):
+            schema.pop("required", None)
+            schema_type = schema.get("type")
+            if (isinstance(schema_type, str) and schema_type.lower() == "object") or isinstance(schema.get("properties"), dict):
+                schema["additionalProperties"] = False
+
+            properties = schema.get("properties")
+            if isinstance(properties, dict):
+                for property_schema in properties.values():
+                    WorkflowRouteExecutor._remove_required_and_close_objects(property_schema)
+
+            for union_key in ("allOf", "anyOf", "oneOf"):
+                variants = schema.get(union_key)
+                if isinstance(variants, list):
+                    for variant in variants:
+                        WorkflowRouteExecutor._remove_required_and_close_objects(variant)
+
+            WorkflowRouteExecutor._remove_required_and_close_objects(schema.get("items"))
+            WorkflowRouteExecutor._remove_required_and_close_objects(schema.get("additionalProperties"))
+            return
+
+        if isinstance(schema, list):
+            for item in schema:
+                WorkflowRouteExecutor._remove_required_and_close_objects(item)
 
     @staticmethod
     def _build_selected_array(selected: list[_RouteCandidate]) -> list[dict[str, Any]]:

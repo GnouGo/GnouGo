@@ -1135,7 +1135,9 @@ Output shape:
 
 `args.passthrough: true` forwards all current `data.inputs` to each selected workflow. Extra undeclared inputs are preserved by the runtime and only declared fields are validated by the called workflow.
 
-`args.auto_extract` can be `true` or an object with optional `provider`, `model`, and `temperature`. When enabled, `workflow.route` uses the selected workflow's declared `inputs` plus candidate `skill.inputs` metadata to extract structured arguments from `prompt` and `history` before calling the workflow. If provider/model are omitted, the runtime defaults are used.
+`args.auto_extract` can be `true` or an object with optional `provider`, `model`, and `temperature`. When enabled, `workflow.route` resolves the selected workflow, treats that workflow's declared YAML `inputs` as the authoritative target contract, and asks the LLM to map `prompt` and `history` into exactly those input names. Candidate `skill.inputs` metadata is included only as a hint. Extracted fields and passthrough aliases that are not declared by the target workflow input schema are ignored. After merging extracted values with matching passthrough/additional args, defaults are applied and the selected workflow inputs are validated before execution. If provider/model are omitted, the runtime defaults are used.
+
+Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.thinking` event with level `progress`, source `workflow.route`, selected workflow metadata, and routed input keys. When `ExecutionLimits.LogStepContent` is enabled, the message also includes redacted/truncated resolved inputs using the same telemetry redaction as workflow input logging.
 
 ---
 

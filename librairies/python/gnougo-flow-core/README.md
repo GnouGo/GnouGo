@@ -1021,6 +1021,53 @@ Use this same shape for every resolver-supported reference. The built-in resolve
 
 ---
 
+### `workflow.route` — Select and Run Workflows
+
+Routes a prompt to one or more workflow candidates, resolves the selected workflows, maps inputs, executes them, and combines their outputs.
+
+```yaml
+- id: route
+  type: workflow.route
+  input:
+    prompt: "${data.inputs.prompt}"
+    candidates:
+      - ref: { kind: database }
+        tags_any: [git, documents]
+        limit: 20
+      - ref: { kind: local, name: fallback }
+        description: General fallback.
+    selection: { mode: multiple, min: 1, max: 3 }
+    args:
+      passthrough: true
+      auto_extract:
+        provider: openai
+        model: gpt-5.4-mini
+      add:
+        history: "${data.inputs.history}"
+    execution:
+      parallel: true
+      max_concurrency: 3
+    combine:
+      strategy: synthesize
+```
+
+Output shape:
+
+```json
+{
+  "selected": [{ "id": "database:DocumentAgent", "name": "DocumentAgent", "reason": "..." }],
+  "results": [{ "workflow": "DocumentAgent", "success": true, "outputs": { "answer": "..." } }],
+  "answer": "Final synthesized answer",
+  "text": "Final synthesized answer"
+}
+```
+
+`args.passthrough: true` starts from the current workflow inputs, and `args.add` can add explicit values. When `args.auto_extract` is enabled, `workflow.route` resolves the selected workflow first, treats that workflow's declared YAML `inputs` as the authoritative target contract, and asks the LLM to map `prompt` and `history` into exactly those input names. Candidate `skill.inputs` metadata may be included as a hint, but it only becomes the extraction schema when the selected workflow has no declared inputs. Extracted fields and passthrough aliases that are not declared by the target input schema are ignored.
+
+After extraction, defaults are applied and the selected workflow inputs are validated before execution. Before each selected workflow runs, `workflow.route` emits `gnougo-flow.workflow_route.inputs_extracted` plus a user-visible `gnougo-flow.step.thinking` event with level `progress`, source `workflow.route`, selected workflow metadata, argument keys, and resolved input keys. When `ExecutionLimits.log_step_content` is enabled, telemetry includes redacted/truncated resolved input values; otherwise it exposes keys only.
+
+---
+
 ### `workflow.plan` — Generate a Workflow Dynamically via LLM
 
 The most powerful step type: asks an LLM to **generate a complete YAML workflow** from a natural-language instruction, then validates and compiles it before execution.

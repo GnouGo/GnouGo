@@ -55,6 +55,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
               strategy: synthesize             # "synthesize", "first", or "raw"
         ```
         Output: `{ selected: [...], results: [...], answer?, text? }`
+        Emits `gnougo-flow.step.thinking` progress events before each selected workflow runs.
         """;
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
@@ -289,12 +290,14 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         if (!config.Enabled)
             return args;
 
-        var schema = candidate.Inputs?.DeepClone()
-            ?? (workflow.Source.Inputs is { Count: > 0 } workflowInputs
-                ? JsonSchemaConverter.InputsToJsonSchema(workflowInputs)
-                : null);
+        var schema = workflow.Source.Inputs is { Count: > 0 } workflowInputs
+            ? JsonSchemaConverter.InputsToJsonSchema(workflowInputs)
+            : candidate.Inputs?.DeepClone();
         if (schema is null)
             return args;
+
+        var allowedKeys = ExtractArgumentKeys(schema);
+        var mappedArgs = FilterArgsToAllowedKeys(args, allowedKeys);
 
         var llm = ctx.Engine.LLMClient
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "workflow.route args.auto_extract requires an LLM client");
@@ -305,9 +308,9 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             Provider = provider,
             Model = model ?? "",
             Temperature = config.Temperature ?? 0,
-            Prompt = BuildArgumentExtractionPrompt(routeInput, candidate, workflow, args, schema),
+            Prompt = BuildArgumentExtractionPrompt(routeInput, candidate, workflow, mappedArgs, schema),
             StructuredOutputStrict = false,
-            StructuredOutputSchema = BuildArgumentExtractionSchema()
+            StructuredOutputSchema = BuildArgumentExtractionSchema(schema)
         }, ct);
 
         var json = response.Json ?? TryParseJsonObject(response.Text)
@@ -319,11 +322,58 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         {
             if (string.IsNullOrWhiteSpace(key) || value is null)
                 continue;
+            if (!allowedKeys.Contains(key))
+                continue;
 
-            args[key] = value.DeepClone();
+            mappedArgs[key] = value.DeepClone();
         }
 
-        return args;
+        return mappedArgs;
+    }
+
+    private static JsonObject FilterArgsToAllowedKeys(JsonObject args, HashSet<string> allowedKeys)
+    {
+        var filtered = new JsonObject();
+        foreach (var (key, value) in args)
+        {
+            if (string.IsNullOrWhiteSpace(key) || value is null || !allowedKeys.Contains(key))
+                continue;
+
+            filtered[key] = value.DeepClone();
+        }
+
+        return filtered;
+    }
+
+    private static HashSet<string> ExtractArgumentKeys(JsonNode schema)
+    {
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        AddArgumentKeys(schema, keys);
+        return keys;
+    }
+
+    private static void AddArgumentKeys(JsonNode? schema, HashSet<string> keys)
+    {
+        if (schema is not JsonObject obj)
+            return;
+
+        if (obj["properties"] is JsonObject properties)
+        {
+            foreach (var (key, _) in properties)
+            {
+                if (!string.IsNullOrWhiteSpace(key))
+                    keys.Add(key);
+            }
+        }
+
+        foreach (var unionKey in new[] { "allOf", "anyOf", "oneOf" })
+        {
+            if (obj[unionKey] is not JsonArray variants)
+                continue;
+
+            foreach (var variant in variants)
+                AddArgumentKeys(variant, keys);
+        }
     }
 
     private static AutoExtractConfig ParseAutoExtractConfig(JsonObject? argsInput)
@@ -345,6 +395,25 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         }
 
         throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.route args.auto_extract must be boolean or object");
+    }
+
+    private static void ValidateRoutedInputs(
+        string workflowName,
+        WorkflowDef? workflow,
+        JsonObject resolvedArgs)
+    {
+        var inputErrors = InputTypeValidator.Validate(workflow, resolvedArgs);
+        if (inputErrors.Count == 0)
+            return;
+
+        throw new WorkflowRuntimeException(
+            ErrorCodes.InputValidation,
+            $"Input validation failed for routed workflow '{workflowName}': {string.Join("; ", inputErrors)}",
+            details: new JsonObject
+            {
+                ["workflow"] = workflowName,
+                ["validation_errors"] = new JsonArray(inputErrors.Select(static error => (JsonNode)JsonValue.Create(error)!).ToArray())
+            });
     }
 
     private static async Task<List<RouteExecutionResult>> ExecuteSelectedSequentialAsync(
@@ -432,6 +501,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         var candidateArgs = args.DeepClone() as JsonObject ?? new JsonObject();
         candidateArgs = await ApplyAutoExtractArgsAsync(ctx, routeInput, argsInput, candidate, resolution.Workflow, candidateArgs, ct);
         var resolvedArgs = WorkflowInputDefaults.Apply(resolution.Workflow.Source, candidateArgs);
+        ValidateRoutedInputs(resolution.WorkflowName, resolution.Workflow.Source, resolvedArgs);
         EmitRoutedInputsTelemetry(ctx, candidate, resolution.WorkflowName, candidateArgs, resolvedArgs, argsInput);
         var newCallStack = new HashSet<string>(ctx.CallStack);
         if (!string.IsNullOrWhiteSpace(resolution.CallStackKey))
@@ -466,11 +536,10 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         JsonObject resolvedArgs,
         JsonObject? argsInput)
     {
-        if (!ctx.Limits.LogStepContent)
-            return;
-
         var autoExtractEnabled = ParseAutoExtractConfig(argsInput).Enabled;
-        ctx.AddTelemetryEvent("gnougo-flow.workflow_route.inputs_extracted", new[]
+        var argumentKeys = string.Join(",", candidateArgs.Select(static kv => kv.Key));
+        var resolvedInputKeys = string.Join(",", resolvedArgs.Select(static kv => kv.Key));
+        var attributes = new List<KeyValuePair<string, object?>>
         {
             new KeyValuePair<string, object?>("gnougo-flow.step.id", ctx.Step.Id),
             new KeyValuePair<string, object?>("gnougo-flow.step.type", ctx.Step.Type),
@@ -479,11 +548,45 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             new KeyValuePair<string, object?>("gnougo-flow.workflow_route.candidate.name", candidate.Name),
             new KeyValuePair<string, object?>("gnougo-flow.workflow_route.workflow.name", workflowName),
             new KeyValuePair<string, object?>("gnougo-flow.workflow_route.auto_extract.enabled", autoExtractEnabled),
-            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.arguments.keys", string.Join(",", candidateArgs.Select(static kv => kv.Key))),
-            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.arguments", WorkflowTelemetryInputAttributes.FormatForTelemetry(candidateArgs)),
-            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.resolved_inputs.keys", string.Join(",", resolvedArgs.Select(static kv => kv.Key))),
-            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.resolved_inputs", WorkflowTelemetryInputAttributes.FormatForTelemetry(resolvedArgs))
-        });
+            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.arguments.keys", argumentKeys),
+            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.resolved_inputs.keys", resolvedInputKeys)
+        };
+
+        if (ctx.Limits.LogStepContent)
+        {
+            attributes.Add(new KeyValuePair<string, object?>(
+                "gnougo-flow.workflow_route.arguments",
+                WorkflowTelemetryInputAttributes.FormatForTelemetry(candidateArgs)));
+            attributes.Add(new KeyValuePair<string, object?>(
+                "gnougo-flow.workflow_route.resolved_inputs",
+                WorkflowTelemetryInputAttributes.FormatForTelemetry(resolvedArgs)));
+        }
+
+        ctx.AddTelemetryEvent("gnougo-flow.workflow_route.inputs_extracted", attributes);
+
+        var message = ctx.Limits.LogStepContent
+            ? $"Triggering workflow '{workflowName}' with inputs {WorkflowTelemetryInputAttributes.FormatForTelemetry(resolvedArgs)}"
+            : $"Triggering workflow '{workflowName}' with input keys: {resolvedInputKeys}";
+        var thinkingAttributes = new List<KeyValuePair<string, object?>>
+        {
+            new("gnougo-flow.thinking.message", message),
+            new("gnougo-flow.thinking.level", "progress"),
+            new("gnougo-flow.thinking.source", "workflow.route"),
+            new("gnougo-flow.workflow_route.candidate.id", candidate.Id),
+            new("gnougo-flow.workflow_route.candidate.name", candidate.Name),
+            new("gnougo-flow.workflow_route.workflow.name", workflowName),
+            new("gnougo-flow.workflow_route.arguments.keys", argumentKeys),
+            new("gnougo-flow.workflow_route.resolved_inputs.keys", resolvedInputKeys)
+        };
+
+        if (ctx.Limits.LogStepContent)
+        {
+            thinkingAttributes.Add(new KeyValuePair<string, object?>(
+                "gnougo-flow.workflow_route.resolved_inputs",
+                WorkflowTelemetryInputAttributes.FormatForTelemetry(resolvedArgs)));
+        }
+
+        ctx.AddTelemetryEvent("gnougo-flow.step.thinking", thinkingAttributes);
     }
 
     private static async Task<string?> CombineAsync(
@@ -587,6 +690,9 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         var sb = new StringBuilder();
         sb.AppendLine("You extract workflow input arguments from a user prompt and recent history.");
         sb.AppendLine("Return JSON only in this shape: {\"arguments\":{...}}.");
+        sb.AppendLine("The selected workflow's declared YAML inputs are authoritative.");
+        sb.AppendLine("Return only keys declared in [EXPECTED WORKFLOW INPUT JSON SCHEMA].");
+        sb.AppendLine("Map natural-language data into those exact input names; do not copy parent routing aliases unless the alias is itself a declared input.");
         sb.AppendLine("Only include fields you can infer confidently or that already exist in current arguments.");
         sb.AppendLine("Use defaults from the schema or current arguments when present. Do not invent values for unknown required fields.");
         sb.AppendLine();
@@ -601,11 +707,11 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         if (candidate.Inputs != null)
         {
             sb.AppendLine();
-            sb.AppendLine("[SKILL INPUTS]");
+            sb.AppendLine("[CANDIDATE SKILL INPUT HINTS]");
             sb.AppendLine(candidate.Inputs.ToJsonString());
         }
         sb.AppendLine();
-        sb.AppendLine("[WORKFLOW INPUT JSON SCHEMA]");
+        sb.AppendLine("[EXPECTED WORKFLOW INPUT JSON SCHEMA]");
         sb.AppendLine(schema.ToJsonString());
         sb.AppendLine();
         sb.AppendLine("[CURRENT ARGUMENTS]");
@@ -648,20 +754,62 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         }
     };
 
-    private static JsonObject BuildArgumentExtractionSchema() => new()
+    private static JsonObject BuildArgumentExtractionSchema(JsonNode argumentSchema) => new()
     {
         ["type"] = "object",
         ["additionalProperties"] = false,
         ["required"] = new JsonArray("arguments"),
         ["properties"] = new JsonObject
         {
-            ["arguments"] = new JsonObject
-            {
-                ["type"] = "object",
-                ["additionalProperties"] = true
-            }
+            ["arguments"] = BuildLooseExtractionArgumentSchema(argumentSchema)
         }
     };
+
+    private static JsonNode BuildLooseExtractionArgumentSchema(JsonNode argumentSchema)
+    {
+        var schema = argumentSchema.DeepClone();
+        RemoveRequiredAndCloseObjects(schema);
+        return schema;
+    }
+
+    private static void RemoveRequiredAndCloseObjects(JsonNode? schema)
+    {
+        if (schema is JsonObject obj)
+        {
+            obj.Remove("required");
+
+            var type = obj["type"] is JsonValue typeValue && typeValue.TryGetValue<string>(out var typeText)
+                ? typeText
+                : null;
+            if (string.Equals(type, "object", StringComparison.OrdinalIgnoreCase) || obj["properties"] is JsonObject)
+                obj["additionalProperties"] = false;
+
+            if (obj["properties"] is JsonObject properties)
+            {
+                foreach (var (_, propertySchema) in properties)
+                    RemoveRequiredAndCloseObjects(propertySchema);
+            }
+
+            foreach (var unionKey in new[] { "allOf", "anyOf", "oneOf" })
+            {
+                if (obj[unionKey] is not JsonArray variants)
+                    continue;
+
+                foreach (var variant in variants)
+                    RemoveRequiredAndCloseObjects(variant);
+            }
+
+            RemoveRequiredAndCloseObjects(obj["items"]);
+            RemoveRequiredAndCloseObjects(obj["additionalProperties"]);
+            return;
+        }
+
+        if (schema is JsonArray array)
+        {
+            foreach (var item in array)
+                RemoveRequiredAndCloseObjects(item);
+        }
+    }
 
     private static JsonArray BuildSelectedArray(IEnumerable<RouteCandidate> selected)
     {

@@ -210,7 +210,8 @@ workflows:
             {
                 ["repository_path"] = "/tmp/repo",
                 ["base_branch"] = "develop",
-                ["api_key"] = "secret-value"
+                ["api_key"] = "secret-value",
+                ["unexpected"] = "should be ignored"
             }
         });
         var telemetry = new RecordingTelemetry();
@@ -227,7 +228,16 @@ workflows:
             Limits = new ExecutionLimits { LogStepContent = true }
         };
 
-        var result = await engine.ExecuteAsync(workflow, new JsonObject { ["prompt"] = "compare this repo with develop" }, CancellationToken.None);
+        var result = await engine.ExecuteAsync(
+            workflow,
+            new JsonObject
+            {
+                ["prompt"] = "compare this repo with develop",
+                ["task"] = "compare this repo with develop",
+                ["query"] = "compare this repo with develop",
+                ["message"] = "compare this repo with develop"
+            },
+            CancellationToken.None);
 
         Assert.True(result.Success);
         Assert.Equal("/tmp/repo vs develop: compare this repo with develop", result.Outputs!["answer"]!.GetValue<string>());
@@ -245,13 +255,32 @@ workflows:
         var arguments = JsonNode.Parse(argumentsJson)!.AsObject();
         Assert.Equal("/tmp/repo", arguments["repository_path"]!.GetValue<string>());
         Assert.Equal("<redacted>", arguments["api_key"]!.GetValue<string>());
+        Assert.False(arguments.ContainsKey("unexpected"));
+        Assert.False(arguments.ContainsKey("task"));
+        Assert.False(arguments.ContainsKey("query"));
+        Assert.False(arguments.ContainsKey("message"));
         var resolvedInputsJson = Assert.IsType<string>(routedInputs.Attributes["gnougo-flow.workflow_route.resolved_inputs"]);
         var resolvedInputs = JsonNode.Parse(resolvedInputsJson)!.AsObject();
         Assert.Equal("develop", resolvedInputs["base_branch"]!.GetValue<string>());
+        Assert.False(resolvedInputs.ContainsKey("unexpected"));
+        Assert.False(resolvedInputs.ContainsKey("task"));
+        Assert.False(resolvedInputs.ContainsKey("query"));
+        Assert.False(resolvedInputs.ContainsKey("message"));
+
+        var thinking = Assert.Single(telemetry.Events, static evt => evt.Name == "gnougo-flow.step.thinking");
+        Assert.Equal("progress", thinking.Attributes["gnougo-flow.thinking.level"]);
+        Assert.Equal("workflow.route", thinking.Attributes["gnougo-flow.thinking.source"]);
+        var message = Assert.IsType<string>(thinking.Attributes["gnougo-flow.thinking.message"]);
+        Assert.Contains("Triggering workflow 'inspect_repo' with inputs", message);
+        Assert.Contains("repository_path", message);
+        Assert.DoesNotContain("secret-value", message);
+        var thinkingInputsJson = Assert.IsType<string>(thinking.Attributes["gnougo-flow.workflow_route.resolved_inputs"]);
+        var thinkingInputs = JsonNode.Parse(thinkingInputsJson)!.AsObject();
+        Assert.Equal("<redacted>", thinkingInputs["api_key"]!.GetValue<string>());
     }
 
     [Fact]
-    public async Task WorkflowRoute_AutoExtractsArgumentsFromCandidateSkillInputs_WhenWorkflowInputsAreIncomplete()
+    public async Task WorkflowRoute_UsesWorkflowInputsAsAuthoritativeAutoExtractTarget()
     {
         var yaml = """
 version: 1
@@ -285,6 +314,8 @@ workflows:
   issue_resolver:
     inputs:
       task: { type: string, required: true }
+      repo_url: { type: string, required: true }
+      max_issues: { type: string, required: false, default: "4" }
     steps:
       - id: render
         type: template.render
@@ -326,6 +357,73 @@ workflows:
         var request = Assert.Single(llm.Requests);
         Assert.Contains("repo_url", request.Prompt);
         Assert.Contains("max_issues", request.Prompt);
+    }
+
+    [Fact]
+    public async Task WorkflowRoute_ValidatesAutoExtractedArgumentsBeforeExecutingSelectedWorkflow()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    inputs:
+      prompt: { type: string, required: true }
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          prompt: "${data.inputs.prompt}"
+          candidates:
+            - ref: { kind: local, name: count_items }
+              description: Counts items.
+              inputs:
+                type: object
+                properties:
+                  prompt: { type: string }
+                  count: { type: integer }
+          args:
+            passthrough: true
+            auto_extract: true
+          combine:
+            strategy: first
+  count_items:
+    inputs:
+      prompt: { type: string, required: true }
+      count: { type: integer, required: true }
+    steps:
+      - id: render
+        type: template.render
+        input:
+          engine: mustache
+          mode: text
+          template: "{{count}}: {{prompt}}"
+          data:
+            count: "${data.inputs.count}"
+            prompt: "${data.inputs.prompt}"
+    outputs:
+      answer:
+        expr: "${data.steps.render.text}"
+        type: string
+""";
+
+        var llm = new ExtractingLlmClient(new JsonObject
+        {
+            ["arguments"] = new JsonObject
+            {
+                ["count"] = "five"
+            }
+        });
+        var workflow = Compile(yaml);
+        var engine = new WorkflowEngine { LLMClient = llm };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject { ["prompt"] = "count five items" }, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("Input validation failed for routed workflow 'count_items'", result.Error.Message);
+        Assert.Contains("'count': expected integer, got string", result.Error.Message);
+        Assert.Equal("count_items", result.Error.Details!["workflow"]!.GetValue<string>());
     }
 
     [Fact]

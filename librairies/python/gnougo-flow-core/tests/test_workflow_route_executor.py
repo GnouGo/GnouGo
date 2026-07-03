@@ -287,6 +287,7 @@ async def test_workflow_route_auto_extracts_selected_workflow_arguments_with_con
                 "repository_path": "/tmp/repo",
                 "base_branch": "develop",
                 "api_key": "secret-value",
+                "unexpected": "discard me",
             }
         }
     )
@@ -298,7 +299,15 @@ async def test_workflow_route_auto_extracts_selected_workflow_arguments_with_con
     engine.lm_defaults.model = "default-model"
     engine.limits.log_step_content = True
 
-    result = await engine.execute_async(_compile(yaml_text), {"prompt": "compare this repo with develop"})
+    result = await engine.execute_async(
+        _compile(yaml_text),
+        {
+            "prompt": "compare this repo with develop",
+            "task": "parent alias should not leak",
+            "query": "parent alias should not leak",
+            "message": "parent alias should not leak",
+        },
+    )
 
     assert result.success is True, result.error
     assert result.outputs["answer"] == "/tmp/repo vs develop: compare this repo with develop"
@@ -320,12 +329,34 @@ async def test_workflow_route_auto_extracts_selected_workflow_arguments_with_con
     arguments = json.loads(event["gnougo-flow.workflow_route.arguments"])
     assert arguments["repository_path"] == "/tmp/repo"
     assert arguments["api_key"] == "<redacted>"
+    assert "unexpected" not in arguments
+    assert "task" not in arguments
+    assert "query" not in arguments
+    assert "message" not in arguments
     resolved_inputs = json.loads(event["gnougo-flow.workflow_route.resolved_inputs"])
     assert resolved_inputs["base_branch"] == "develop"
+    assert "unexpected" not in resolved_inputs
+    thinking_events = [
+        dict(attributes)
+        for name, attributes in telemetry.events
+        if name == "gnougo-flow.step.thinking"
+    ]
+    assert len(thinking_events) == 1
+    thinking = thinking_events[0]
+    assert thinking["gnougo-flow.thinking.level"] == "progress"
+    assert thinking["gnougo-flow.thinking.source"] == "workflow.route"
+    assert thinking["gnougo-flow.workflow_route.workflow.name"] == "inspect_repo"
+    assert (
+        thinking["gnougo-flow.thinking.message"]
+        == "Triggering workflow 'inspect_repo' with inputs "
+        + event["gnougo-flow.workflow_route.resolved_inputs"]
+    )
+    thinking_inputs = json.loads(thinking["gnougo-flow.workflow_route.resolved_inputs"])
+    assert thinking_inputs["api_key"] == "<redacted>"
 
 
 @pytest.mark.asyncio
-async def test_workflow_route_auto_extracts_arguments_from_candidate_skill_inputs_when_workflow_inputs_are_incomplete() -> None:
+async def test_workflow_route_uses_workflow_inputs_as_authoritative_auto_extract_target() -> None:
     yaml_text = """
     version: 1
     workflows:
@@ -358,6 +389,8 @@ async def test_workflow_route_auto_extracts_arguments_from_candidate_skill_input
       issue_resolver:
         inputs:
           task: { type: string, required: true }
+          repo_url: { type: string, required: false }
+          max_issues: { type: string, required: false }
         steps:
           - id: render
             type: template.render
@@ -396,6 +429,62 @@ async def test_workflow_route_auto_extracts_arguments_from_candidate_skill_input
     assert len(llm.requests) == 1
     assert "repo_url" in llm.requests[0].prompt
     assert "max_issues" in llm.requests[0].prompt
+
+
+@pytest.mark.asyncio
+async def test_workflow_route_validation_fails_when_extracted_input_type_is_invalid() -> None:
+    yaml_text = """
+    version: 1
+    workflows:
+      main:
+        inputs:
+          prompt: { type: string, required: true }
+        steps:
+          - id: route
+            type: workflow.route
+            input:
+              prompt: "${data.inputs.prompt}"
+              candidates:
+                - ref: { kind: local, name: issue_resolver }
+                  description: Resolves GitHub issues.
+              args:
+                passthrough: false
+                auto_extract: true
+              combine:
+                strategy: first
+      issue_resolver:
+        inputs:
+          task: { type: string, required: true }
+          max_issues: { type: number, required: true }
+        steps:
+          - id: render
+            type: template.render
+            input:
+              engine: mustache
+              mode: text
+              template: "{{max_issues}} issues for {{task}}"
+              data:
+                task: "${data.inputs.task}"
+                max_issues: "${data.inputs.max_issues}"
+    """
+    llm = _ExtractingLlmClient(
+        {
+            "arguments": {
+                "task": "Resolve open issues",
+                "max_issues": "twenty",
+            }
+        }
+    )
+    engine = WorkflowEngine()
+    engine.llm_client = llm
+
+    result = await engine.execute_async(_compile(yaml_text), {"prompt": "Resolve twenty issues"})
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.code == "INPUT_VALIDATION"
+    assert "Input validation failed for routed workflow 'issue_resolver'" in result.error.message
+    assert "'max_issues': expected number, got string." in result.error.message
 
 
 @pytest.mark.asyncio
