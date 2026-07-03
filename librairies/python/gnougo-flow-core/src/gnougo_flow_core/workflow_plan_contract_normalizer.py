@@ -229,7 +229,13 @@ def _collect_weak_schema_diagnostics(schema: Any, path: str, diagnostics: list[d
     if schema_type == "object":
         properties = schema.get("properties")
         if not isinstance(properties, dict) or not properties:
-            diagnostics.append(build_weak_output_schema_diagnostic(path, "Object output schema does not declare properties.", "object with non-empty properties"))
+            diagnostics.append(
+                build_weak_output_schema_diagnostic(
+                    path,
+                    "Object output schema does not declare properties.",
+                    "object with non-empty properties",
+                )
+            )
             return
         for name, child in properties.items():
             _collect_weak_schema_diagnostics(child, f"{path}.properties.{name}", diagnostics)

@@ -161,7 +161,10 @@ async def _run_async(
                 "or settings.openai.api_key."
             )
         if openai_key:
-            engine.llm_client = OpenAiLlmClient(settings.openai, background_mode_cache=background_mode_cache)
+            engine.llm_client = OpenAiLlmClient(
+                settings.openai,
+                background_mode_cache=background_mode_cache,
+            )
         else:
             engine.llm_client = EchoLLMClient()
 
@@ -324,5 +327,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
 

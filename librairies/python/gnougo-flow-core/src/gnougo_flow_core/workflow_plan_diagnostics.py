@@ -76,7 +76,8 @@ def build_dry_run_failure_details(
         diagnostics,
         "Generated workflow dry_run failed.",
         [
-            "Dry-run executes the generated workflow with deterministic fake providers, so failures usually mean an expression, input contract, MCP request, or step dependency is invalid.",
+            "Dry-run executes the generated workflow with deterministic fake providers, so failures usually mean an expression, "
+            "input contract, MCP request, or step dependency is invalid.",
             "Fix the exact failing step or field, then re-check downstream references that consume it.",
             "Keep sample-safe values and do not replace missing required data with secrets, environment variables, empty strings, or fake production data.",
         ],
@@ -356,10 +357,16 @@ def _location(workflow_name: str | None, step_id: str | None, field: str | None)
 
 def _validation_hint(error: ValidationError) -> str:
     if error.message.lower().startswith("unknown yaml field"):
-        return "Remove the unknown YAML key, or move it to the documented location. Common fields stay at step level; executor-specific arguments go under step.input."
+        return (
+            "Remove the unknown YAML key, or move it to the documented location. Common fields stay at step level; "
+            "executor-specific arguments go under step.input."
+        )
 
     hints = {
-        ErrorCodes.SKILL_REQUIRED: "Add a top-level `skill` block with description, tags, inputs, and outputs so routers and LLM repair can understand the workflow contract.",
+        ErrorCodes.SKILL_REQUIRED: (
+            "Add a top-level `skill` block with description, tags, inputs, and outputs so routers and LLM repair can "
+            "understand the workflow contract."
+        ),
         ErrorCodes.STEP_TYPE_UNKNOWN: "Replace the step type with one exact registered step type from the available DSL snippets.",
         ErrorCodes.EXPR_PARSE: "Fix the expression syntax inside `${...}`; validate function names, parentheses, and quoted string literals.",
         ErrorCodes.INPUT_VALIDATION: "Align this field with the step input contract and preserve JSON/YAML scalar types exactly.",
@@ -409,9 +416,15 @@ def _validation_llm_guidance(error: ValidationError, hint: str) -> str:
 
 def _semantic_hint(error: WorkflowSemanticValidationError) -> str:
     hints = {
-        "STEP_REFERENCE_NOT_AVAILABLE": "Move the producing step earlier, move the consuming reference later, or create a guaranteed normalization step before reading it.",
+        "STEP_REFERENCE_NOT_AVAILABLE": (
+            "Move the producing step earlier, move the consuming reference later, or create a guaranteed normalization step "
+            "before reading it."
+        ),
         "STEP_REFERENCE_UNKNOWN": "Reference an existing previous step id, or add the missing producing step before this expression.",
-        "OPAQUE_RESPONSE_DEEP_ACCESS": "Do not invent fields under an opaque response. Pass the whole response or normalize it with llm.call structured_output.",
+        "OPAQUE_RESPONSE_DEEP_ACCESS": (
+            "Do not invent fields under an opaque response. Pass the whole response or normalize it with llm.call "
+            "structured_output."
+        ),
         "STEP_OUTPUT_PROPERTY_UNKNOWN": "Use one of the allowed output paths or add a normalizer step that produces the desired property.",
         "MCP_REQUEST_SCHEMA_INVALID": "Align input.request with the discovered MCP tool input schema.",
         "MCP_CALL_INPUT_FIELD_UNKNOWN": "Move MCP tool arguments under input.request; keep only mcp.call envelope fields at input top level.",

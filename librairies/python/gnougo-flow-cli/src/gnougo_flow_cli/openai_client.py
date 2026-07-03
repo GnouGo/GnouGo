@@ -106,7 +106,11 @@ class BackgroundModeAvailabilityCache:
             return False
         return True
 
-    def mark_unsupported(self, key: str, ttl_seconds: int = _BACKGROUND_UNSUPPORTED_TTL_SECONDS) -> None:
+    def mark_unsupported(
+        self,
+        key: str,
+        ttl_seconds: int = _BACKGROUND_UNSUPPORTED_TTL_SECONDS,
+    ) -> None:
         self._unsupported_until[key] = self._clock() + ttl_seconds
 
 
@@ -240,7 +244,11 @@ class OpenAiLlmClient:
             tool_calls=tool_calls or None,
         )
 
-    async def _call_responses_background_async(self, request: LLMRequest, model: str) -> LLMResponse:
+    async def _call_responses_background_async(
+        self,
+        request: LLMRequest,
+        model: str,
+    ) -> LLMResponse:
         responses = getattr(self._client, "responses", None)
         if responses is None:
             self._background_cache.mark_unsupported(self._background_cache_key)

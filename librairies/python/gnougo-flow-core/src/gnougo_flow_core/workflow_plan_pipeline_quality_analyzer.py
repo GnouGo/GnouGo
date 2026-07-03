@@ -92,7 +92,8 @@ def build_main_dataflow_guidance() -> list[str]:
     return [
         "Reprompt only main assembly when the diagnostic is about main dataflow wiring.",
         "Do not synthesize operational artifact locators such as project/workspace/root/path/directory/file values in main before external work uses them.",
-        "Use caller-provided workflow inputs for pre-existing artifacts, or pass a typed output from an upstream external-producing leaf/action that proves the artifact exists.",
+        "Use caller-provided workflow inputs for pre-existing artifacts, or pass a typed output from an upstream "
+        "external-producing leaf/action that proves the artifact exists.",
     ]
 
 
@@ -122,7 +123,10 @@ def _build_unproven_external_artifact_diagnostic(
         "invalid_assignment": expression,
         "source_kind": provenance.source_kind,
         "message": f"External step '{consumer.id}' receives artifact-like field '{field}' from main-synthesized value '{expression}'.",
-        "expected": "Pass a caller-provided workflow input, or pass a typed output from an upstream external-producing leaf/action that proves the artifact exists.",
+        "expected": (
+            "Pass a caller-provided workflow input, or pass a typed output from an upstream external-producing leaf/action "
+            "that proves the artifact exists."
+        ),
         "hint": "Main may shape simple scalar values, but it should not invent operational artifact locators for external consumers.",
     }
     if provenance.producer_step_id:
