@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.11.0 - 2026-07-03
+
+- feat: workflow.plan validation and pipeline mode (release) (#56) (fa611bf)
+
 ## v0.10.5 - 2026-06-16
 
 - fix: enhance reprompt (#55) (release) (b5a27b8)
