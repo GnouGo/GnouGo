@@ -32,6 +32,7 @@ public sealed class ConfigureAgentsService
     private readonly AgentUserConfigMcpClient? _userConfigClient;
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<ConfigureAgentsService> _logger;
+    private readonly WorkflowMermaidMarkdownOptions _workflowMermaidOptions;
     private readonly string _workflowYaml;
     private readonly TimeSpan _mcpCacheSlidingExpiration;
 
@@ -46,7 +47,8 @@ public sealed class ConfigureAgentsService
         AgentOTelTelemetry otel,
         ILogger<ConfigureAgentsService> logger,
         AgentUserConfigMcpClient? userConfigClient = null,
-        IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null)
+        IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null,
+        IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null)
     {
         _llm = llm;
         _mcpFactory = mcpFactory;
@@ -58,6 +60,7 @@ public sealed class ConfigureAgentsService
         _userConfigClient = userConfigClient;
         _otel = otel;
         _logger = logger;
+        _workflowMermaidOptions = workflowMermaidOptions?.Value ?? new WorkflowMermaidMarkdownOptions();
         _mcpCacheSlidingExpiration = (mcpCapabilityCacheSettings?.Value ?? new McpCapabilityCacheSettings()).SlidingExpiration;
 
         // Load the embedded workflow YAML
@@ -209,7 +212,7 @@ public sealed class ConfigureAgentsService
         // Stream events as they arrive
         await foreach (var evt in channel.Reader.ReadAllAsync(ct))
         {
-            yield return evt;
+            yield return WorkflowMermaidMarkdownFormatter.EnhanceGeneratedWorkflowEvent(evt, _logger, _workflowMermaidOptions);
         }
 
         await executionTask;

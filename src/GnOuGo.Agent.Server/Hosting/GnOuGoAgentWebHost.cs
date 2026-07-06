@@ -317,6 +317,8 @@ public static class GnOuGoAgentWebHost
             builder.Configuration.GetSection(ModelCatalogCacheSettings.SectionName));
         builder.Services.Configure<McpCapabilityCacheSettings>(
             builder.Configuration.GetSection(McpCapabilityCacheSettings.SectionName));
+        builder.Services.Configure<WorkflowMermaidMarkdownOptions>(
+            builder.Configuration.GetSection(WorkflowMermaidMarkdownOptions.SectionName));
         builder.Services.Configure<BundledMcpSettings>(
             builder.Configuration.GetSection(BundledMcpSettings.SectionName));
         builder.Services.Configure<KeyVaultSettings>(

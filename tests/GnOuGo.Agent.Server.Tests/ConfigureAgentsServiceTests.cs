@@ -85,6 +85,63 @@ public sealed class ConfigureAgentsServiceTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_AgentAdd_EmitsGeneratedWorkflowWithMermaidAsMarkdownResponse()
+    {
+        var llm = new RecordingLlmClient();
+        var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_get_by_name", new JsonObject
+            {
+                ["success"] = false,
+                ["error_code"] = "NOT_FOUND",
+                ["error_message"] = "Agent 'slimfaas' not found."
+            })
+            .OnTool("agent_add", new JsonObject
+            {
+                ["success"] = true,
+                ["agent"] = SmartFlowTestFactory.AgentSummary(
+                    "12345678-1234-1234-1234-1234567890ab",
+                    "slimfaas",
+                    "2026-04-01T12:35:00+00:00")
+            });
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId.EndsWith("input_name", StringComparison.Ordinal)
+                    ? new JsonObject { ["agent_name"] = "slimfaas" }
+                    : request.StepId.EndsWith("input_prompt", StringComparison.Ordinal)
+                        ? new JsonObject { ["description"] = "Explain SlimFaas" }
+                        : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
+                            ? new JsonObject { ["response"] = "approve" }
+                            : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId.EndsWith("review_workflow", StringComparison.Ordinal))
+                    break;
+            }
+        }, token);
+
+        var service = CreateConfigureAgentsServiceForStreaming(llm, humanInput, agentMcp);
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", token));
+        await responder;
+
+        var generated = Assert.Single(events, evt =>
+            evt.Type == "thinking:response"
+            && evt.Text?.Contains("Generated workflow", StringComparison.OrdinalIgnoreCase) == true
+            && evt.Text.Contains("## Workflow diagrams", StringComparison.Ordinal));
+
+        Assert.Contains("```mermaid", generated.Text);
+        Assert.DoesNotContain(events, evt =>
+            evt.Type == "thinking:thinking"
+            && evt.Text?.Contains("Generated workflow", StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_AgentAdd_WhenNameAlreadyExistsAfterNameEntry_EmitsConflictMessageAndStopsEarly()
     {
         var llm = new RecordingLlmClient();
@@ -669,6 +726,68 @@ public sealed class ConfigureAgentsServiceTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_AgentReprompt_EmitsProposedWorkflowWithMermaidAsMarkdownResponse()
+    {
+        var llm = new RecordingLlmClient();
+        var updateCalls = 0;
+
+        var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
+            .OnTool("agent_get_by_name", new JsonObject
+            {
+                ["success"] = true,
+                ["agent"] = new JsonObject
+                {
+                    ["id"] = "12345678-1234-1234-1234-1234567890ab",
+                    ["name"] = "slimfaas",
+                    ["workflow"] = "version: 1\nname: slimfaas\nworkflows:\n  main:\n    steps: []",
+                    ["original_prompt"] = "Explain SlimFaas",
+                    ["updated_at"] = "2026-04-01T12:35:00+00:00"
+                }
+            })
+            .OnTool("agent_update", (_, _) =>
+            {
+                updateCalls++;
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject { ["success"] = true }
+                });
+            });
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId.EndsWith("reprompt_improvement", StringComparison.Ordinal)
+                    ? new JsonObject { ["prompt"] = "Make the answer concise." }
+                    : request.StepId.EndsWith("review_reprompt_workflow", StringComparison.Ordinal)
+                        ? new JsonObject { ["response"] = "discard" }
+                        : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+
+                if (request.StepId.EndsWith("review_reprompt_workflow", StringComparison.Ordinal))
+                    break;
+            }
+        }, token);
+
+        var service = CreateConfigureAgentsServiceForStreaming(llm, humanInput, agentMcp);
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo reprompt slimfaas", token));
+        await responder;
+
+        Assert.Equal(0, updateCalls);
+        var generated = Assert.Single(events, evt =>
+            evt.Type == "thinking:response"
+            && evt.Text?.Contains("Proposed improved workflow", StringComparison.OrdinalIgnoreCase) == true
+            && evt.Text.Contains("## Workflow diagrams", StringComparison.Ordinal));
+
+        Assert.Contains("```mermaid", generated.Text);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_AgentList_ReturnsDeterministicMarkdownWithoutCallingLlm()
     {
         var llm = new RecordingLlmClient();
@@ -762,6 +881,42 @@ public sealed class ConfigureAgentsServiceTests
             new JsonObject { ["command"] = command },
             humanInput,
             sessions);
+
+    private static ConfigureAgentsService CreateConfigureAgentsServiceForStreaming(
+        RecordingLlmClient llm,
+        AgentHumanInputProvider humanInput,
+        params IMcpSession[] sessions)
+    {
+        var options = new LLMOptions
+        {
+            DefaultProvider = "openai",
+            DefaultModel = "gpt-4o-mini"
+        };
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(options);
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
+            .AddSecret(
+                KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, "openai"),
+                """
+                {"provider":"openai","model":"gpt-4o-mini"}
+                """);
+        var mcpFactory = new FakeMcpClientFactory(sessions);
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(
+            runtimeStore,
+            keyVaultStore,
+            llmClientOverride: llm,
+            mcpClientFactoryOverride: mcpFactory);
+
+        return new ConfigureAgentsService(
+            llm,
+            mcpFactory,
+            new MemoryCache(new MemoryCacheOptions()),
+            humanInput,
+            keyVaultStore,
+            runtimeFactory,
+            runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<ConfigureAgentsService>.Instance);
+    }
 
     private static async Task<(RunResult Result, List<SmartFlowEvent> Events)> ExecuteConfigureAgentsWorkflowByNameAsync(
         RecordingLlmClient llm,

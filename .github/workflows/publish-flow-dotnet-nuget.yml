@@ -42,12 +42,13 @@ jobs:
           $packageOutput = 'artifacts/packages/nuget'
           New-Item -ItemType Directory -Path $packageOutput -Force | Out-Null
 
-          dotnet restore src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj /p:SkipClientBuild=true
+          dotnet restore src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj /p:SkipClientBuild=true
 
           $projects = @(
             'src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj',
             'src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj',
-            'src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj'
+            'src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj',
+            'src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj'
           )
 
           foreach ($project in $projects) {
@@ -89,4 +90,3 @@ jobs:
               exit $LASTEXITCODE
             }
           }
-

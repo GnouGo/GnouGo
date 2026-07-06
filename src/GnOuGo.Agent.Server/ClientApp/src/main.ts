@@ -42,46 +42,116 @@ mermaid.initialize({
   startOnLoad: false,
   securityLevel: 'strict',
   theme: 'base',
+  flowchart: {
+    htmlLabels: false,
+  },
   themeVariables: {
-	primaryColor: '#0000ff',
-	primaryBorderColor: '#0000ff',
+    background: '#ffffff',
+    mainBkg: '#f8fafc',
+    nodeBkg: '#f8fafc',
+    primaryColor: '#e0f2fe',
+    primaryTextColor: '#0f172a',
+    primaryBorderColor: '#0284c7',
+    secondaryColor: '#ecfdf5',
+    secondaryTextColor: '#064e3b',
+    secondaryBorderColor: '#16a34a',
+    tertiaryColor: '#fff7ed',
+    tertiaryTextColor: '#7c2d12',
+    tertiaryBorderColor: '#f97316',
+    lineColor: '#334155',
+    defaultLinkColor: '#334155',
+    arrowheadColor: '#334155',
+    textColor: '#0f172a',
+    nodeTextColor: '#0f172a',
+    edgeLabelBackground: '#ffffff',
+    clusterBkg: '#f8fafc',
+    clusterBorder: '#cbd5e1',
+    fontFamily: 'Inter, Segoe UI, Arial, sans-serif',
   },
 });
 
 const el = (id: string) => document.getElementById(id);
+let mermaidRenderIndex = 0;
 
-function renderMermaid(id: string) {
+function isMermaidCodeBlock(code: HTMLElement) {
+  const pre = code.parentElement as HTMLElement | null;
+  const hints = [
+    code.className,
+    pre?.className ?? '',
+    code.getAttribute('data-lang') ?? '',
+    code.getAttribute('data-language') ?? '',
+    pre?.getAttribute('data-lang') ?? '',
+    pre?.getAttribute('data-language') ?? '',
+  ]
+    .join(' ')
+    .split(/\s+/)
+    .map((hint) => hint.trim().toLowerCase())
+    .filter(Boolean);
+
+  return hints.some((hint) =>
+    hint === 'mermaid' ||
+    hint === 'c4' ||
+    hint === 'language-mermaid' ||
+    hint === 'language-c4' ||
+    hint === 'lang-mermaid' ||
+    hint === 'lang-c4');
+}
+
+async function renderMermaid(id: string) {
   const c = el(id);
   if (!c) {
 	log('renderMermaid: container not found', id);
 	return;
   }
 
-  const codes = [...c.querySelectorAll('pre>code.language-mermaid,pre>code.language-c4')] as HTMLElement[];
+  const codes = [...c.querySelectorAll('pre > code')] as HTMLElement[];
   const nodes: HTMLElement[] = [];
 
   for (const code of codes) {
-	const ds = (code as any).dataset;
-	if (ds && ds.saProcessed) continue;
-	if (ds) ds.saProcessed = '1';
+    if (!isMermaidCodeBlock(code)) continue;
 
 	const pre = code.parentElement as HTMLElement | null;
 	if (!pre) continue;
 
+    const source = code.textContent || '';
 	const div = document.createElement('div');
 	div.className = 'mermaid';
-	div.textContent = code.textContent || '';
+    div.dataset.mermaidSource = source;
+	div.textContent = source;
 	pre.replaceWith(div);
 	nodes.push(div);
   }
 
+  const existing = [...c.querySelectorAll('.mermaid')] as HTMLElement[];
+  for (const node of existing) {
+    if (node.querySelector('svg')) continue;
+    if (!nodes.includes(node)) nodes.push(node);
+  }
+
   if (nodes.length) {
-	try {
-	  mermaid.run({ nodes });
-	  log('renderMermaid: rendered nodes', nodes.length);
-	} catch (e) {
-	  console.warn('[GnOuGo.Agent] mermaid render failed', e);
-	}
+    let rendered = 0;
+    for (const node of nodes) {
+      const source = (node.dataset.mermaidSource || node.textContent || '').trim();
+      if (!source) continue;
+
+      node.dataset.mermaidSource = source;
+      node.removeAttribute('data-processed');
+
+      try {
+        const renderId = `gnougo-mermaid-${Date.now()}-${mermaidRenderIndex++}`;
+        const result = await mermaid.render(renderId, source, node);
+        node.innerHTML = result.svg;
+        result.bindFunctions?.(node);
+        node.classList.remove('mermaid--error');
+        rendered++;
+      } catch (e) {
+        node.textContent = source;
+        node.classList.add('mermaid--error');
+        console.warn('[GnOuGo.Agent] mermaid render failed', e);
+      }
+    }
+
+    if (rendered) log('renderMermaid: rendered nodes', rendered);
   }
 }
 
