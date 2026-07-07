@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.12.0 - 2026-07-07
+
+- feat: generate workflow mermaid lib (#57) (release) (5d85d3b)
+
 ## v0.11.2 - 2026-07-03
 
 - fix: workflow.route (release) (56ee336)
