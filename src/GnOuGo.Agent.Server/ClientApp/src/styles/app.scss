@@ -990,12 +990,54 @@ html, body {
 .markdown-body th { background: var(--gnougo-surface-2); }
 
 .mermaid {
-  border: 1px solid var(--gnougo-border);
-  background: var(--gnougo-surface);
-  border-radius: 12px;
-  padding: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 8px;
+  color: #0f172a;
+  padding: 12px;
   overflow: auto;
   margin: 0 0 10px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.7);
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+  background: #ffffff !important;
+}
+
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node ellipse,
+.mermaid .node polygon,
+.mermaid .node path {
+  fill: #e0f2fe !important;
+  stroke: #0284c7 !important;
+  stroke-width: 1.5px !important;
+}
+
+.mermaid .nodeLabel,
+.mermaid .label,
+.mermaid text {
+  color: #0f172a !important;
+  fill: #0f172a !important;
+}
+
+.mermaid .edgePath path,
+.mermaid .flowchart-link {
+  stroke: #334155 !important;
+  stroke-width: 1.8px !important;
+}
+
+.mermaid marker path {
+  fill: #334155 !important;
+  stroke: #334155 !important;
+}
+
+.mermaid .edgeLabel,
+.mermaid .edgeLabel p {
+  color: #0f172a !important;
+  background: #ffffff !important;
 }
 
 /* ------------------------ Sidebar (blue, no x-scroll) ---------------------- */

@@ -39,6 +39,100 @@ public sealed class SmartFlowServiceTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WhenOutputsIncludeGeneratedYaml_AppendsMermaidDiagramsToAnswer()
+    {
+        const string agentName = "diagram-agent";
+        const string agentWorkflow = """
+version: 1
+name: diagram-agent
+workflows:
+  main:
+    inputs:
+      task:
+        type: string
+        required: true
+    steps:
+      - id: final_answer
+        type: set
+        input:
+          answer: "Here is the answer."
+          generated_yaml: |
+            version: 1
+            name: generated
+            workflows:
+              main:
+                steps:
+                  - id: call_helper
+                    type: workflow.call
+                    input:
+                      ref: { kind: local, name: helper }
+              helper:
+                steps:
+                  - id: helper_step
+                    type: set
+                    input:
+                      value: ok
+    outputs:
+      answer:
+        expr: "${data.steps.final_answer.answer}"
+        type: string
+      generated_yaml:
+        expr: "${data.steps.final_answer.generated_yaml}"
+        type: string
+""";
+
+        var agentMcp = new FakeMcpSession(AgentMcpHostingExtensions.ServerName)
+            .OnTool("agent_get_by_name", (arguments, _) =>
+            {
+                Assert.Equal(agentName, arguments?["name"]?.GetValue<string>());
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject
+                    {
+                        ["success"] = true,
+                        ["agent"] = new JsonObject
+                        {
+                            ["id"] = "12345678-1234-1234-1234-1234567890ab",
+                            ["name"] = agentName,
+                            ["workflow"] = agentWorkflow,
+                            ["original_prompt"] = "Generate diagrams.",
+                            ["created_at"] = "2026-04-01T12:34:00+00:00",
+                            ["updated_at"] = "2026-04-01T12:35:00+00:00"
+                        }
+                    }
+                });
+            });
+
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore();
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(
+            runtimeStore,
+            new FakeKeyVaultRuntimeConfigStore(),
+            mcpClientFactoryOverride: new FakeMcpClientFactory(agentMcp));
+
+        var smartFlow = new SmartFlowService(
+            new RecordingLlmClient(),
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
+            runtimeFactory,
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            new AgentHumanInputProvider(),
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<SmartFlowService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            smartFlow.ExecuteAsync("draw it", correlationId: "corr-diagram", agentName: agentName, CancellationToken.None));
+
+        var answer = Assert.Single(events, evt => evt.Type == "answer");
+        Assert.NotNull(answer.Text);
+        Assert.Contains("Here is the answer.", answer.Text);
+        Assert.Contains("## Workflow diagrams", answer.Text);
+        Assert.Contains("```mermaid", answer.Text);
+        Assert.Contains("### Main workflow: `main`", answer.Text);
+        Assert.DoesNotContain("### Local workflow: `helper`", answer.Text);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_AfterCompletion_ExportsAssociatedTrace()
     {
         var llm = new RecordingLlmClient();

@@ -59,6 +59,7 @@ public sealed class SmartFlowService
     private readonly AgentOTelTelemetry _otel;
     private readonly ILogger<SmartFlowService> _logger;
     private readonly IWorkflowTraceFileExporter? _traceFileExporter;
+    private readonly WorkflowMermaidMarkdownOptions _workflowMermaidOptions;
     private readonly string _routingWorkflowYaml;
     private readonly TimeSpan _mcpCacheSlidingExpiration;
 
@@ -80,7 +81,8 @@ public sealed class SmartFlowService
         InMemoryChatHistoryStore? historyStore = null,
         IServiceScopeFactory? scopeFactory = null,
         IWorkflowTraceFileExporter? traceFileExporter = null,
-        IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null)
+        IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null,
+        IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null)
     {
         _llm = llm;
         _mcpCache = mcpCache;
@@ -93,6 +95,7 @@ public sealed class SmartFlowService
         _historyStore = historyStore;
         _scopeFactory = scopeFactory;
         _traceFileExporter = traceFileExporter;
+        _workflowMermaidOptions = workflowMermaidOptions?.Value ?? new WorkflowMermaidMarkdownOptions();
         _otel = otel;
         _logger = logger;
         _mcpCacheSlidingExpiration = (mcpCapabilityCacheSettings?.Value ?? new McpCapabilityCacheSettings()).SlidingExpiration;
@@ -468,6 +471,8 @@ public sealed class SmartFlowService
                 var answer = result.Outputs["answer"]?.GetValue<string>();
                 if (!string.IsNullOrWhiteSpace(answer))
                 {
+                    var generatedYaml = result.Outputs["generated_yaml"]?.GetValue<string>();
+                    answer = WorkflowMermaidMarkdownFormatter.AppendDiagrams(answer, generatedYaml, _logger, _workflowMermaidOptions);
                     yield return new SmartFlowEvent("answer", answer);
                 }
                 else
