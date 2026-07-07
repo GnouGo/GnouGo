@@ -935,7 +935,7 @@ public sealed class SmartFlowService
         }, ct);
 
         await foreach (var evt in channel.Reader.ReadAllAsync(ct))
-            yield return evt;
+            yield return WorkflowMermaidMarkdownFormatter.EnhanceGeneratedWorkflowEvent(evt, _logger, _workflowMermaidOptions);
 
         await executionTask;
 
@@ -967,9 +967,13 @@ public sealed class SmartFlowService
             yield break;
         }
 
-        yield return new SmartFlowEvent(
-            "thinking:response",
-            $"📝 Proposed repaired workflow for '{agent.Name}':\n\n```yaml\n{repairedWorkflow}\n```");
+        var repairedWorkflowMarkdown = WorkflowMermaidMarkdownFormatter.AppendDiagrams(
+            $"📝 Proposed repaired workflow for '{agent.Name}':\n\n```yaml\n{repairedWorkflow}\n```",
+            repairedWorkflow,
+            _logger,
+            _workflowMermaidOptions);
+
+        yield return new SmartFlowEvent("thinking:response", repairedWorkflowMarkdown);
 
         var saveRequest = new HumanInputRequest
         {
@@ -979,13 +983,7 @@ public sealed class SmartFlowService
             Prompt = $"Save this repaired workflow for '{agent.Name}'?",
             Choices = ["save", "discard"],
             TimeoutMs = HumanInputContract.DefaultTimeoutMs,
-            Context = new JsonObject
-            {
-                ["agent"] = agent.Name,
-                ["handled"] = handledFailure,
-                ["attempts"] = attempts,
-                ["workflow"] = repairedWorkflow
-            }
+            Context = JsonValue.Create(repairedWorkflowMarkdown)
         };
 
         JsonNode? saveDecision = null;
