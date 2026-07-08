@@ -57,7 +57,7 @@ jobs:
     secrets: inherit
 
   publish_flow_dotnet_nuget:
-    name: Publish Flow .NET packages to NuGet
+    name: Publish .NET packages to NuGet
     needs: [tags]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/publish-flow-dotnet-nuget.yml

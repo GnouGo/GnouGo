@@ -1,4 +1,4 @@
-﻿name: Publish Flow .NET packages to NuGet
+﻿name: Publish .NET packages to NuGet
 
 on:
   workflow_call:
@@ -20,7 +20,7 @@ env:
 
 jobs:
   publish_flow_dotnet_nuget:
-    name: Publish Flow .NET packages to NuGet
+    name: Publish .NET packages to NuGet
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,7 +31,7 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Pack Flow .NET packages
+      - name: Pack .NET packages
         shell: pwsh
         run: |
           $version = '${{ inputs.version }}'
@@ -42,16 +42,20 @@ jobs:
           $packageOutput = 'artifacts/packages/nuget'
           New-Item -ItemType Directory -Path $packageOutput -Force | Out-Null
 
-          dotnet restore src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj /p:SkipClientBuild=true
-
           $projects = @(
             'src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj',
             'src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj',
+            'src/GnOuGo.Assets.Bears/GnOuGo.Assets.Bears.csproj',
             'src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj',
             'src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj'
           )
 
           foreach ($project in $projects) {
+            dotnet restore $project /p:SkipClientBuild=true
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
+
             dotnet pack $project `
               -c Release `
               --no-restore `
@@ -66,7 +70,7 @@ jobs:
             }
           }
 
-      - name: Publish Flow .NET packages to NuGet
+      - name: Publish .NET packages to NuGet
         shell: pwsh
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
