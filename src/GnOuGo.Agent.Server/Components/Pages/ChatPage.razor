@@ -4,6 +4,7 @@
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using System.Threading
+@using Microsoft.Extensions.Logging.Abstractions
 @using Microsoft.JSInterop
 @using GnOuGo.Agent.Server.Components.Tracing
 @implements IAsyncDisposable
@@ -593,7 +594,7 @@
             }
         }
 
-        if (_needsMarkdownEnhance && !_isStreaming)
+        if (_needsMarkdownEnhance && (!_isStreaming || _pendingHumanInput is not null))
         {
             _needsMarkdownEnhance = false;
             try
@@ -641,7 +642,7 @@
             if (IsJsonLanguage(language) && TryFormatJson(content, out var prettyJson))
                 return BuildFencedCode("json", prettyJson);
             if (IsYamlLanguage(language) || LooksLikeYaml(content))
-                return BuildFencedCode(string.IsNullOrWhiteSpace(language) ? "yaml" : language, content);
+                return BuildYamlContextMarkdown(content, string.IsNullOrWhiteSpace(language) ? "yaml" : language);
             return BuildFencedCode(language, content);
         }
 
@@ -649,9 +650,15 @@
             return BuildFencedCode("json", formattedJson);
 
         if (LooksLikeYaml(normalized))
-            return BuildFencedCode("yaml", normalized);
+            return BuildYamlContextMarkdown(normalized, "yaml");
 
         return normalized;
+    }
+
+    private static string BuildYamlContextMarkdown(string yaml, string language)
+    {
+        var fencedYaml = BuildFencedCode(language, yaml);
+        return WorkflowMermaidMarkdownFormatter.AppendDiagrams(fencedYaml, yaml, NullLogger.Instance);
     }
 
     private static string? FormatHumanInputContextNode(JsonNode? context)
@@ -1600,6 +1607,7 @@
                         SeedHumanInputFieldDefaults(model.Fields);
 
                         _pendingHumanInput = model;
+                        _needsMarkdownEnhance = true;
                         StateHasChanged();
                         await ScrollToBottomAsync();
                     }

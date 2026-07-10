@@ -20,8 +20,14 @@ public sealed class MermaidRenderOptions
     /// <summary>Include workflow input/output summary nodes.</summary>
     public bool IncludeInputsAndOutputs { get; set; }
 
-    /// <summary>Include step <c>if</c> guards in node labels.</summary>
+    /// <summary>Include <c>emit</c> steps as diagram nodes.</summary>
+    public bool IncludeEmitSteps { get; set; }
+
+    /// <summary>Include step <c>if</c> guards in the diagram.</summary>
     public bool IncludeConditions { get; set; } = true;
+
+    /// <summary>Controls how step <c>if</c> guards are rendered.</summary>
+    public MermaidGuardRenderMode GuardRenderMode { get; set; } = MermaidGuardRenderMode.EdgeLabel;
 
     /// <summary>Maximum Mermaid label length before truncation.</summary>
     public int MaxLabelLength { get; set; } = 120;

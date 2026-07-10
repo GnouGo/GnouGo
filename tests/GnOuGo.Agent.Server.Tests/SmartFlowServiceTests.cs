@@ -419,6 +419,14 @@ workflows:
         Assert.Equal(repairedWorkflow, persistedWorkflow);
         Assert.Contains(events, evt => evt.Type == "human_input_request" && evt.Text?.Contains("agent_workflow_repair", StringComparison.Ordinal) == true);
         Assert.Contains(events, evt => evt.Type == "human_input_request" && evt.Text?.Contains("agent_workflow_repair_save", StringComparison.Ordinal) == true);
+        Assert.Contains(events, evt =>
+            evt.Type == "thinking:response"
+            && evt.Text?.Contains("Proposed repaired workflow", StringComparison.OrdinalIgnoreCase) == true
+            && evt.Text.Contains("```mermaid", StringComparison.Ordinal));
+        var saveRequest = Assert.Single(events, evt =>
+            evt.Type == "human_input_request"
+            && evt.Text?.Contains("agent_workflow_repair_save", StringComparison.Ordinal) == true);
+        Assert.Contains("```mermaid", ReadHumanInputContext(saveRequest));
         Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("repaired and saved", StringComparison.OrdinalIgnoreCase) == true);
         Assert.DoesNotContain(events, evt => evt.Type == "error");
     }
@@ -536,7 +544,10 @@ workflows:
         await responder;
 
         Assert.Null(persistedWorkflow);
-        Assert.Contains(events, evt => evt.Type == "human_input_request" && evt.Text?.Contains("agent_workflow_repair_save", StringComparison.Ordinal) == true);
+        var saveRequest = Assert.Single(events, evt =>
+            evt.Type == "human_input_request"
+            && evt.Text?.Contains("agent_workflow_repair_save", StringComparison.Ordinal) == true);
+        Assert.Contains("```mermaid", ReadHumanInputContext(saveRequest));
         Assert.Contains(events, evt => evt.Type == "answer" && evt.Text?.Contains("discarded", StringComparison.OrdinalIgnoreCase) == true);
         Assert.DoesNotContain(events, evt => evt.Type == "error");
     }
@@ -1560,5 +1571,11 @@ workflows:
         }
 
         return spans;
+    }
+
+    private static string ReadHumanInputContext(SmartFlowEvent evt)
+    {
+        var payload = JsonNode.Parse(evt.Text ?? "{}")?.AsObject();
+        return payload?["context"]?.GetValue<string>() ?? "";
     }
 }

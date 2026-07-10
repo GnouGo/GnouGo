@@ -93,6 +93,33 @@ workflows:
     }
 
     [Fact]
+    public void AppendDiagrams_HidesEmitStepsByDefault()
+    {
+        const string yaml = """
+version: 1
+workflows:
+  main:
+    steps:
+      - id: status
+        type: emit
+        input:
+          message: "working"
+      - id: answer
+        type: set
+        input:
+          value: ok
+""";
+
+        var markdown = WorkflowMermaidMarkdownFormatter.AppendDiagrams(
+            "Generated workflow.",
+            yaml,
+            NullLogger.Instance);
+
+        Assert.DoesNotContain("status - emit", markdown);
+        Assert.Contains("answer - set", markdown);
+    }
+
+    [Fact]
     public void AppendDiagrams_InvalidWorkflowYaml_ReturnsOriginalMarkdown()
     {
         const string original = "Keep this response.";

@@ -108,7 +108,7 @@ public static class MermaidWorkflowRenderer
         var rendered = state.RenderStepList(workflow.Steps, "step");
         if (rendered.Entry != null)
         {
-            state.ConnectMany(lastExits, rendered.Entry);
+            state.ConnectMany(lastExits, rendered.Entry, rendered.EntryEdgeLabel);
             lastExits = rendered.Exits.Count == 0 ? new List<string> { rendered.Entry } : rendered.Exits.ToList();
         }
 
@@ -318,6 +318,7 @@ public static class MermaidWorkflowRenderer
         public RenderedStepList RenderStepList(IReadOnlyList<StepDef> steps, string scope)
         {
             string? entry = null;
+            string? entryEdgeLabel = null;
             var exits = new List<string>();
 
             for (var i = 0; i < steps.Count; i++)
@@ -326,16 +327,21 @@ public static class MermaidWorkflowRenderer
                 if (rendered.Entry == null)
                     continue;
 
-                entry ??= rendered.Entry;
+                if (entry == null)
+                {
+                    entry = rendered.Entry;
+                    entryEdgeLabel = rendered.EntryEdgeLabel;
+                }
+
                 if (exits.Count > 0)
-                    ConnectMany(exits, rendered.Entry);
+                    ConnectMany(exits, rendered.Entry, rendered.EntryEdgeLabel);
 
                 exits = rendered.Exits.Count == 0
                     ? new List<string> { rendered.Entry }
                     : rendered.Exits.ToList();
             }
 
-            return new RenderedStepList(entry, exits);
+            return new RenderedStepList(entry, exits, entryEdgeLabel);
         }
 
         public void ConnectMany(IReadOnlyList<string> sources, string target, string? label = null)
@@ -346,19 +352,20 @@ public static class MermaidWorkflowRenderer
 
         private RenderedStepList RenderStep(StepDef step, string scope)
         {
+            if (IsHiddenStep(step))
+                return new RenderedStepList(null, Array.Empty<string>(), null);
+
             var nodeId = NewId(step.Id);
             AppendNode(nodeId, BuildStepLabel(step), ShapeFor(step));
 
             var exits = new List<string> { nodeId };
+            var entryEdgeLabel = IncomingEdgeLabelFor(step);
 
             if (step.Steps is { Count: > 0 } childSteps)
             {
-                var child = RenderStepList(childSteps, $"{scope}_steps");
-                if (child.Entry != null)
-                {
-                    Connect(nodeId, child.Entry, ChildEdgeLabel(step));
-                    exits = child.Exits.Count == 0 ? new List<string> { child.Entry } : child.Exits.ToList();
-                }
+                exits = IsLoop(step)
+                    ? RenderLoopBody(nodeId, step, childSteps, $"{scope}_steps")
+                    : RenderChildSteps(nodeId, step, childSteps, $"{scope}_steps");
             }
 
             if (step.Branches is { Count: > 0 } branches)
@@ -367,7 +374,29 @@ public static class MermaidWorkflowRenderer
             if (step.Cases is { Count: > 0 } cases || step.Default is { Count: > 0 })
                 exits = RenderCases(nodeId, step, $"{scope}_case");
 
-            return new RenderedStepList(nodeId, exits);
+            return new RenderedStepList(nodeId, exits, entryEdgeLabel);
+        }
+
+        private List<string> RenderChildSteps(string sourceNodeId, StepDef step, IReadOnlyList<StepDef> childSteps, string scope)
+        {
+            var child = RenderStepList(childSteps, scope);
+            if (child.Entry == null)
+                return new List<string> { sourceNodeId };
+
+            Connect(sourceNodeId, child.Entry, CombineEdgeLabels(ChildEdgeLabel(step), child.EntryEdgeLabel));
+            return child.Exits.Count == 0 ? new List<string> { child.Entry } : child.Exits.ToList();
+        }
+
+        private List<string> RenderLoopBody(string sourceNodeId, StepDef step, IReadOnlyList<StepDef> childSteps, string scope)
+        {
+            var child = RenderStepList(childSteps, scope);
+            if (child.Entry == null)
+                return new List<string> { sourceNodeId };
+
+            var join = AddSyntheticNode("loop_exit", "Loop exit", NodeShape.Circle);
+            Connect(sourceNodeId, child.Entry, CombineEdgeLabels(ChildEdgeLabel(step), child.EntryEdgeLabel));
+            ConnectMany(child.Exits.Count == 0 ? new[] { child.Entry } : child.Exits, join);
+            return new List<string> { join };
         }
 
         private List<string> RenderBranches(string sourceNodeId, IReadOnlyList<BranchDef> branches, string scope, string joinName)
@@ -384,7 +413,7 @@ public static class MermaidWorkflowRenderer
                     continue;
                 }
 
-                Connect(sourceNodeId, rendered.Entry, label);
+                Connect(sourceNodeId, rendered.Entry, CombineEdgeLabels(label, rendered.EntryEdgeLabel));
                 ConnectMany(rendered.Exits.Count == 0 ? new[] { rendered.Entry } : rendered.Exits, join);
             }
 
@@ -409,7 +438,7 @@ public static class MermaidWorkflowRenderer
                         continue;
                     }
 
-                    Connect(sourceNodeId, rendered.Entry, label);
+                    Connect(sourceNodeId, rendered.Entry, CombineEdgeLabels(label, rendered.EntryEdgeLabel));
                     ConnectMany(rendered.Exits.Count == 0 ? new[] { rendered.Entry } : rendered.Exits, join);
                 }
             }
@@ -423,7 +452,7 @@ public static class MermaidWorkflowRenderer
                 }
                 else
                 {
-                    Connect(sourceNodeId, rendered.Entry, "default");
+                    Connect(sourceNodeId, rendered.Entry, CombineEdgeLabels("default", rendered.EntryEdgeLabel));
                     ConnectMany(rendered.Exits.Count == 0 ? new[] { rendered.Entry } : rendered.Exits, join);
                 }
             }
@@ -446,7 +475,7 @@ public static class MermaidWorkflowRenderer
             else if (!string.IsNullOrWhiteSpace(step.Output))
                 lines.Add("output: " + step.Output);
 
-            if (_options.IncludeConditions && !string.IsNullOrWhiteSpace(step.If))
+            if (ShouldRenderGuardInNode(step))
                 lines.Add("if: " + step.If);
 
             return TrimLabel(string.Join(" - ", lines));
@@ -495,9 +524,43 @@ public static class MermaidWorkflowRenderer
             return step.Type switch
             {
                 "switch" => NodeShape.Decision,
+                "loop.sequential" or "loop.parallel" => NodeShape.Hexagon,
+                "sequence" or "parallel" => NodeShape.Stadium,
                 "workflow.call" or "workflow.route" or "workflow.execute" or "workflow.plan" => NodeShape.Subroutine,
+                "llm.call" => NodeShape.Asymmetric,
+                "mcp.call" or "mcp.list" or "chat_history.get" or "chat_history.append" => NodeShape.Database,
+                "human.input" => NodeShape.Trapezoid,
+                "assert.non_null" => NodeShape.Decision,
+                "template.render" or "emit" => NodeShape.Document,
+                "set" => NodeShape.Rounded,
                 _ => NodeShape.Rectangle
             };
+        }
+
+        private bool IsHiddenStep(StepDef step)
+            => string.Equals(step.Type, "emit", StringComparison.Ordinal) && !_options.IncludeEmitSteps;
+
+        private static bool IsLoop(StepDef step)
+            => step.Type is "loop.sequential" or "loop.parallel";
+
+        private bool ShouldRenderGuardInNode(StepDef step)
+            => _options.IncludeConditions
+                && _options.GuardRenderMode == MermaidGuardRenderMode.NodeLabel
+                && !string.IsNullOrWhiteSpace(step.If);
+
+        private string? IncomingEdgeLabelFor(StepDef step)
+            => _options.IncludeConditions
+                && _options.GuardRenderMode == MermaidGuardRenderMode.EdgeLabel
+                && !string.IsNullOrWhiteSpace(step.If)
+                    ? "if: " + step.If
+                    : null;
+
+        private static string? CombineEdgeLabels(string? first, string? second)
+        {
+            if (string.IsNullOrWhiteSpace(first))
+                return string.IsNullOrWhiteSpace(second) ? null : second;
+
+            return string.IsNullOrWhiteSpace(second) ? first : $"{first}; {second}";
         }
 
         private static string? ChildEdgeLabel(StepDef step)
@@ -529,7 +592,13 @@ public static class MermaidWorkflowRenderer
                 NodeShape.Circle => $"{id}((\"{safeLabel}\"))",
                 NodeShape.Decision => $"{id}{{\"{safeLabel}\"}}",
                 NodeShape.Document => $"{id}[/\"{safeLabel}\"/]",
+                NodeShape.Rounded => $"{id}(\"{safeLabel}\")",
+                NodeShape.Stadium => $"{id}([\"{safeLabel}\"])",
                 NodeShape.Subroutine => $"{id}[[\"{safeLabel}\"]]",
+                NodeShape.Database => $"{id}[(\"{safeLabel}\")]",
+                NodeShape.Hexagon => $"{id}{{{{\"{safeLabel}\"}}}}",
+                NodeShape.Asymmetric => $"{id}>\"{safeLabel}\"]",
+                NodeShape.Trapezoid => $"{id}[/\"{safeLabel}\"\\]",
                 _ => $"{id}[\"{safeLabel}\"]"
             };
 
@@ -584,14 +653,20 @@ public static class MermaidWorkflowRenderer
                 .Replace("\n", " ", StringComparison.Ordinal);
     }
 
-    private sealed record RenderedStepList(string? Entry, IReadOnlyList<string> Exits);
+    private sealed record RenderedStepList(string? Entry, IReadOnlyList<string> Exits, string? EntryEdgeLabel);
 
     private enum NodeShape
     {
         Rectangle,
+        Rounded,
+        Stadium,
         Circle,
         Decision,
         Document,
-        Subroutine
+        Subroutine,
+        Database,
+        Hexagon,
+        Asymmetric,
+        Trapezoid
     }
 }

@@ -11,7 +11,9 @@ using GnOuGo.Flow.Mermaid;
 
 var result = MermaidWorkflowRenderer.Render(yaml, new MermaidRenderOptions
 {
-    SubWorkflowMode = MermaidSubWorkflowMode.ReferencedLocalOnly
+    SubWorkflowMode = MermaidSubWorkflowMode.ReferencedLocalOnly,
+    IncludeEmitSteps = false,
+    GuardRenderMode = MermaidGuardRenderMode.EdgeLabel
 });
 
 File.WriteAllText(result.Main.SuggestedFileName, result.Main.Content);
@@ -36,4 +38,6 @@ dotnet test tests/GnOuGo.Flow.Mermaid.Tests/GnOuGo.Flow.Mermaid.Tests.csproj
 
 - `kind: local` workflow references are resolved from the same YAML document.
 - `kind: workspace`, `kind: url`, database routes, and generated workflows are shown as call/router nodes but are not fetched or executed by the renderer.
+- `emit` steps are hidden by default to keep diagrams focused on execution structure. Set `IncludeEmitSteps = true` to show them.
+- Step `if` guards are rendered as incoming edge labels by default. Set `GuardRenderMode = MermaidGuardRenderMode.NodeLabel` to render them in node labels.
 - The library is pure C# and does not require a Mermaid runtime.
