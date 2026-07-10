@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.12.1 - 2026-07-10
+
+- fix mermaid workflow (#58) (release) (cdf5d8d)
+
 ## v0.12.0 - 2026-07-07
 
 - feat: generate workflow mermaid lib (#57) (release) (5d85d3b)
