@@ -37,6 +37,16 @@
           "--project",
           "src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj"
         ]
+      },
+      "GnOuGo.Document.Mcp": {
+        "type": "stdio",
+        "description": "Document read/write MCP server (PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, XML, YAML)",
+        "command": "dotnet",
+        "args": [
+          "run",
+          "--project",
+          "src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj"
+        ]
       }
     }
   }

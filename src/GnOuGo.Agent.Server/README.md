@@ -244,7 +244,7 @@ Each execution produces an indented JSON document under the workspace data direc
 <GnOuGo workspace>/.GnOuGo/traces/DD-MM-YY-HH-mm-ss.json
 ```
 
-JSON is used instead of plain text so an LLM or another diagnostic tool can reliably inspect the trace metadata, summary, spans, parent/child relationships, semantic attributes, baggage, events, and links. If concurrent workflows finish during the same second, the later filename receives a short trace-id suffix so no trace is overwritten. Capture remains available when OTLP export is disabled; setting `WorkflowTraceExport:Enabled` to `false` disables both capture and file creation.
+JSON is used instead of plain text so an LLM or another diagnostic tool can reliably inspect the trace metadata, summary, spans, parent/child relationships, semantic attributes, baggage, events, and links. The summary keeps the raw `errorSpanCount` for compatibility, but separates `recoveredErrorSpanCount`, expected MCP discovery `404`/`405` probes, and `terminalErrorSpanCount`; a successful workflow that needed retries reports `ok_with_recovered_errors` instead of `error`. If concurrent workflows finish during the same second, the later filename receives a short trace-id suffix so no trace is overwritten. Capture remains available when OTLP export is disabled; setting `WorkflowTraceExport:Enabled` to `false` disables both capture and file creation.
 
 ## OpenTelemetry HTTP visibility
 

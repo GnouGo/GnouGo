@@ -99,6 +99,58 @@ public sealed class WorkflowTraceFileExporterTests
     }
 
     [Fact]
+    public async Task ExportAsync_SuccessfulWorkflowSeparatesRecoveredAndExpectedProbeErrors()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            using var exporter = CreateExporter(root, enabled: true, TimeProvider.System);
+            using var source = new ActivitySource($"GnOuGo.Tests.{Guid.NewGuid():N}");
+            var traceId = ActivityTraceId.CreateRandom().ToHexString();
+            exporter.BeginCapture(traceId);
+
+            using var workflow = StartTraceActivity(source, traceId, "workflow");
+            Assert.NotNull(workflow);
+
+            using (var retry = source.StartActivity("workflow.plan.pipeline.generate_leaf", ActivityKind.Internal))
+            {
+                Assert.NotNull(retry);
+                retry.SetTag("gnougo-flow.plan.attempt", 1);
+                retry.SetTag("gnougo-flow.plan.pipeline.leaf_status", "retrying");
+                retry.SetStatus(ActivityStatusCode.Error, "invalid generated YAML");
+            }
+
+            using (var discovery = source.StartActivity("workflow.plan.mcp_discovery", ActivityKind.Internal))
+            {
+                Assert.NotNull(discovery);
+                using var probe = source.StartActivity("GET", ActivityKind.Client);
+                Assert.NotNull(probe);
+                probe.SetTag("error.type", "404");
+                probe.SetStatus(ActivityStatusCode.Error, "expected capability probe");
+                discovery.SetStatus(ActivityStatusCode.Ok);
+            }
+
+            workflow.SetStatus(ActivityStatusCode.Ok);
+            workflow.Dispose();
+
+            await exporter.ExportAsync(traceId, "corr-recovered", CancellationToken.None);
+
+            var path = Assert.Single(Directory.GetFiles(root, "*.json"));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path));
+            var summary = document.RootElement.GetProperty("summary");
+            Assert.Equal("ok_with_recovered_errors", summary.GetProperty("status").GetString());
+            Assert.Equal(2, summary.GetProperty("errorSpanCount").GetInt32());
+            Assert.Equal(1, summary.GetProperty("recoveredErrorSpanCount").GetInt32());
+            Assert.Equal(1, summary.GetProperty("expectedProbeErrorSpanCount").GetInt32());
+            Assert.Equal(0, summary.GetProperty("terminalErrorSpanCount").GetInt32());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Capture_IgnoresHighVolumeUnrelatedProcessActivities()
     {
         var root = CreateTempDirectory();

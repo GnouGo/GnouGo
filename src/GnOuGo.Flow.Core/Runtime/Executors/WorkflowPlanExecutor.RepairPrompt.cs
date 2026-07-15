@@ -39,7 +39,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("<invalid_yaml>");
         sb.AppendLine(string.IsNullOrWhiteSpace(invalidYaml)
             ? "(previous output was empty)"
-            : RemoveDuplicateTaskPreamble(invalidYaml, instruction, context));
+            : TruncatePlanRepairContent(RemoveDuplicateTaskPreamble(invalidYaml, instruction, context)));
         sb.AppendLine("</invalid_yaml>");
         sb.AppendLine();
         AppendPromptSectionStart(sb, "minimum_dsl_context");
@@ -799,6 +799,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static string BuildStructuredPlanError(Exception ex, int attempt)
         => WorkflowPlanDiagnostics.BuildStructuredPlanError(ex, attempt);
+
+    private static string BuildCompactStructuredPlanError(Exception ex, int attempt)
+        => WorkflowPlanDiagnostics.BuildCompactStructuredPlanError(ex, attempt);
 
     private static string? TryExtractMissingMcpServerName(string message)
     {

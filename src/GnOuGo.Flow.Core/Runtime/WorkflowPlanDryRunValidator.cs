@@ -13,6 +13,8 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// </summary>
 internal static class WorkflowPlanDryRunValidator
 {
+    private const int DryRunLoopIterationLimit = 10;
+
     public static async Task ValidateAsync(
         WorkflowDocument generatedDoc,
         IMcpClientFactory? mcpClientFactory,
@@ -71,7 +73,9 @@ internal static class WorkflowPlanDryRunValidator
             Limits = new ExecutionLimits
             {
                 MaxTotalStepsExecuted = 250,
-                MaxLoopIterations = 2,
+                // One-item samples keep collection loops cheap, while ten iterations allow
+                // ordinary bounded retry/backoff workflows to demonstrate termination.
+                MaxLoopIterations = DryRunLoopIterationLimit,
                 MaxParallelBranches = 10,
                 MaxCallDepth = 10,
                 RunId = "workflow-plan-dry-run"

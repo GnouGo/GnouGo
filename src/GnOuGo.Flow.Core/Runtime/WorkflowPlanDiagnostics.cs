@@ -9,6 +9,12 @@ namespace GnOuGo.Flow.Core.Runtime;
 
 internal static class WorkflowPlanDiagnostics
 {
+    private const int CompactDiagnosticLimit = 12;
+    private const int CompactAllowedPathLimit = 8;
+    private const int CompactMessageLimit = 2_000;
+    private const int CompactDiagnosticTextLimit = 600;
+    private const int CompactPromptLimit = 24_000;
+
     private static readonly JsonSerializerOptions DiagnosticJsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -147,6 +153,33 @@ internal static class WorkflowPlanDiagnostics
         return ToPromptJson(root);
     }
 
+    public static string BuildCompactStructuredPlanError(Exception ex, int attempt)
+    {
+        var root = new JsonObject
+        {
+            ["attempt"] = attempt,
+            ["code"] = ex is WorkflowRuntimeException workflowEx
+                ? InferPlanErrorCode(ex.Message, workflowEx.Code)
+                : InferPlanErrorCode(ex.Message),
+            ["message"] = CompactExceptionMessage(ex.Message)
+        };
+
+        if (ex is WorkflowRuntimeException { Details: JsonObject details })
+        {
+            var compactDetails = CompactPromptDetails(details);
+            if (compactDetails.Count > 0)
+                root["details"] = compactDetails;
+        }
+
+        var json = ToPromptJson(root);
+        if (json.Length <= CompactPromptLimit)
+            return json;
+
+        root.Remove("details");
+        root["details_truncated"] = true;
+        return ToPromptJson(root);
+    }
+
     public static string InferPlanErrorCode(string message, string? exceptionCode = null)
     {
         var lower = message.ToLowerInvariant();
@@ -235,6 +268,157 @@ internal static class WorkflowPlanDiagnostics
 
         return clone.Count == 0 ? null : clone;
     }
+
+    private static JsonObject CompactPromptDetails(JsonObject details)
+    {
+        var compact = new JsonObject();
+        CopyScalar(details, compact, "phase");
+        CopyScalar(details, compact, "summary");
+
+        if (details["diagnostics"] is JsonArray diagnostics)
+        {
+            var compactDiagnostics = new JsonArray();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var unavailableReferenceGroups = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+            foreach (var diagnostic in diagnostics.OfType<JsonObject>())
+            {
+                var item = CompactDiagnostic(diagnostic);
+                var unavailableGroupKey = BuildUnavailableReferenceGroupKey(item);
+                if (unavailableGroupKey != null
+                    && unavailableReferenceGroups.TryGetValue(unavailableGroupKey, out var groupedDiagnostic))
+                {
+                    AddUnavailableReferenceConsumer(groupedDiagnostic, item);
+                    continue;
+                }
+
+                var key = string.Join('|', new[]
+                {
+                    GetString(item, "code"),
+                    GetString(item, "workflow"),
+                    GetString(item, "step"),
+                    GetString(item, "field"),
+                    GetString(item, "invalid_path")
+                });
+                if (!seen.Add(key))
+                    continue;
+
+                if (unavailableGroupKey != null)
+                {
+                    item["producer_step"] = ExtractReferencedStepId(GetString(item, "invalid_path"));
+                    AddUnavailableReferenceConsumer(item, item);
+                    unavailableReferenceGroups[unavailableGroupKey] = item;
+                }
+
+                compactDiagnostics.Add((JsonNode)item);
+                if (compactDiagnostics.Count >= CompactDiagnosticLimit)
+                    break;
+            }
+
+            compact["diagnostics"] = compactDiagnostics;
+            if (diagnostics.Count > compactDiagnostics.Count)
+                compact["diagnostics_omitted"] = diagnostics.Count - compactDiagnostics.Count;
+        }
+
+        if (details["llm_guidance"] is JsonArray guidance)
+        {
+            compact["llm_guidance"] = new JsonArray(
+                guidance.Take(3).Select(static item => item?.DeepClone()).ToArray());
+        }
+
+        return compact;
+    }
+
+    private static string? BuildUnavailableReferenceGroupKey(JsonObject diagnostic)
+    {
+        if (!string.Equals(GetString(diagnostic, "code"), "STEP_REFERENCE_NOT_AVAILABLE", StringComparison.Ordinal))
+            return null;
+
+        var producer = ExtractReferencedStepId(GetString(diagnostic, "invalid_path"));
+        return string.IsNullOrWhiteSpace(producer)
+            ? null
+            : string.Join('|', GetString(diagnostic, "workflow"), producer);
+    }
+
+    private static string? ExtractReferencedStepId(string? invalidPath)
+    {
+        const string prefix = "data.steps.";
+        if (string.IsNullOrWhiteSpace(invalidPath) || !invalidPath.StartsWith(prefix, StringComparison.Ordinal))
+            return null;
+
+        var remainder = invalidPath[prefix.Length..];
+        var separator = remainder.IndexOf('.');
+        return separator < 0 ? remainder : remainder[..separator];
+    }
+
+    private static void AddUnavailableReferenceConsumer(JsonObject target, JsonObject source)
+    {
+        var affected = target["affected_references"] as JsonArray;
+        if (affected == null)
+        {
+            affected = new JsonArray();
+            target["affected_references"] = affected;
+        }
+
+        if (affected.Count >= CompactAllowedPathLimit)
+        {
+            target["affected_references_omitted"] =
+                (target["affected_references_omitted"]?.GetValue<int>() ?? 0) + 1;
+            return;
+        }
+
+        affected.Add((JsonNode)new JsonObject
+        {
+            ["consumer_step"] = GetString(source, "step"),
+            ["field"] = GetString(source, "field"),
+            ["invalid_path"] = GetString(source, "invalid_path")
+        });
+    }
+
+    private static JsonObject CompactDiagnostic(JsonObject diagnostic)
+    {
+        var compact = new JsonObject();
+        foreach (var key in new[]
+                 {
+                     "code", "phase", "message", "location", "workflow", "step", "field",
+                     "invalid_path", "expected", "hint", "llm_guidance"
+                 })
+        {
+            CopyScalar(diagnostic, compact, key, CompactDiagnosticTextLimit);
+        }
+
+        if (diagnostic["allowed_paths"] is JsonArray allowedPaths)
+        {
+            compact["allowed_paths"] = new JsonArray(
+                allowedPaths.Take(CompactAllowedPathLimit).Select(static item => item?.DeepClone()).ToArray());
+            if (allowedPaths.Count > CompactAllowedPathLimit)
+                compact["allowed_paths_omitted"] = allowedPaths.Count - CompactAllowedPathLimit;
+        }
+
+        return compact;
+    }
+
+    private static string CompactExceptionMessage(string message)
+    {
+        var repairIndex = message.IndexOf(" | repair diagnostics:", StringComparison.Ordinal);
+        if (repairIndex >= 0)
+            message = message[..repairIndex];
+
+        return Truncate(message.Trim(), CompactMessageLimit);
+    }
+
+    private static void CopyScalar(JsonObject source, JsonObject destination, string key, int maxLength = CompactMessageLimit)
+    {
+        if (source[key] is not JsonValue value)
+            return;
+
+        if (value.TryGetValue<string>(out var text))
+            destination[key] = Truncate(text, maxLength);
+        else
+            destination[key] = value.DeepClone();
+    }
+
+    private static string Truncate(string value, int maxLength)
+        => value.Length <= maxLength ? value : value[..maxLength] + "…";
 
     private static string BuildDiagnosticSummary(JsonArray diagnostics, string fallback)
     {

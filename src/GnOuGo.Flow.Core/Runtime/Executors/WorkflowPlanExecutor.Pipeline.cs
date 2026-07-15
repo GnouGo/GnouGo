@@ -35,6 +35,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private const string PipelineContractRoleAbstractPolicy = "abstract_policy";
     private const int PipelineExtractionScoreThreshold = 45;
     private const int PipelineExtractionQualityReviewThreshold = 75;
+    private const int PlanRepairContentLimit = 48_000;
 
     private static readonly HashSet<string> PipelineIntentStopWords = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -279,10 +280,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     ct.ThrowIfCancellationRequested();
                     var generatedLeafInputs = BuildGeneratedMainInputContract(currentLeaves);
                     var baseMainAssemblyPrompt = BuildMainAssemblyPrompt(
-                        input, generator, normalizedMarkdown, extraction, currentLeaves, configuredMainInputs, generatedLeafInputs, ctx.Engine.Registry);
+                        input, generator, normalizedMarkdown, extraction, currentLeaves, configuredMainInputs, generatedLeafInputs, ctx.Engine.Registry, useStructuredExtraction);
                     var mainAssemblyPrompt = previousAssemblyError == null
                         ? baseMainAssemblyPrompt
-                        : BuildMainAssemblyRepairPrompt(baseMainAssemblyPrompt, previousAssemblyResponse, previousAssemblyError);
+                        : BuildMainAssemblyRepairPrompt(baseMainAssemblyPrompt, previousAssemblyResponse, previousAssemblyError, useStructuredExtraction);
 
                     using var attemptSpan = ctx.BeginTelemetrySpan(
                         mainSpan.Span,
@@ -335,9 +336,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             Model = model,
                             Prompt = mainAssemblyPrompt,
                             Reasoning = reasoning,
-                            UseBackgroundMode = true
+                            UseBackgroundMode = true,
+                            StructuredOutputSchema = useStructuredExtraction ? BuildMainAssemblyStructuredOutputSchema() : null,
+                            StructuredOutputStrict = useStructuredExtraction ? true : null
                         }, ct);
-                        previousAssemblyResponse = mainResponse.Text;
+                        previousAssemblyResponse = GetMainAssemblyResponseText(mainResponse);
                         attemptSpan.SetAttribute("gen_ai.operation.name", "chat");
                         attemptSpan.SetAttribute("gen_ai.system", provider ?? "openai");
                         attemptSpan.SetAttribute("gen_ai.request.model", model);
@@ -345,11 +348,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         attemptSpan.SetAttribute("gen_ai.response.finish_reason", "stop");
                         AddUsageAttributes(attemptSpan, mainResponse.Usage, model, provider);
 
-                        if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(mainResponse.Text))
+                        if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(previousAssemblyResponse))
                         {
                             attemptSpan.AddEvent("gen_ai.content.completion", new[]
                             {
-                                new KeyValuePair<string, object?>("gen_ai.completion", mainResponse.Text),
+                                new KeyValuePair<string, object?>("gen_ai.completion", previousAssemblyResponse),
                                 new KeyValuePair<string, object?>("completion.role", "assistant"),
                                 new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
                                 new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "assemble_main_workflow"),
@@ -357,7 +360,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             });
                             mainSpan.AddEvent("gen_ai.content.completion", new[]
                             {
-                                new KeyValuePair<string, object?>("gen_ai.completion", mainResponse.Text),
+                                new KeyValuePair<string, object?>("gen_ai.completion", previousAssemblyResponse),
                                 new KeyValuePair<string, object?>("completion.role", "assistant"),
                                 new KeyValuePair<string, object?>("completion.finish_reason", "stop"),
                                 new KeyValuePair<string, object?>("gnougo-flow.plan.phase", "assemble_main_workflow"),
@@ -365,7 +368,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             });
                         }
 
-                        var assembly = ParseGeneratedMainAssembly(mainResponse.Text ?? string.Empty, currentLeaves);
+                        var assembly = ParseGeneratedMainAssemblyResponse(mainResponse, currentLeaves, useStructuredExtraction);
                         var mainInputs = ResolveMainInputContract(configuredMainInputs, assembly, generatedLeafInputs);
                         ForceMainWorkflowInputs(assembly.MainWorkflowNode, mainInputs);
                         EnsureMainWorkflowOutputs(assembly.MainWorkflowNode, extraction.Subworkflows);
@@ -428,7 +431,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     catch (Exception ex) when (attempt < maxAssemblyAttempts)
                     {
                         lastAssemblyException = ex;
-                        previousAssemblyError = BuildStructuredPlanError(ex, attempt);
+                        previousAssemblyError = BuildCompactStructuredPlanError(ex, attempt);
                         var contractDemand = TryAnalyzePipelineLeafContractDemand(ex, assembledDocument, currentLeaves);
                         attemptSpan.AddEvent(
                             "gnougo-flow.plan.pipeline.main_assembly.error",
@@ -486,7 +489,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             catch (Exception repairEx)
                             {
                                 lastAssemblyException = repairEx;
-                                previousAssemblyError = BuildStructuredPlanError(repairEx, attempt);
+                                previousAssemblyError = BuildCompactStructuredPlanError(repairEx, attempt);
                                 qualityEvents.Add(new PipelineQualityEvent(
                                     "leaf_contract_repair_failed",
                                     attempt,
@@ -3337,6 +3340,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Comparison/predicate expressions such as `${a == b}`, `${a != b}`, `${contains(...)}`, and `${exists(...)}` return boolean. Use them only for boolean outputs or `if`/`switch.when` conditions.");
         sb.AppendLine("- For string outputs such as classification/status/level/severity, return a string-valued field or quoted string literal. Invalid for a string output: `${data.steps.classify.json.classification == 'bug'}`. Valid: `${data.steps.classify.json.classification}`.");
         sb.AppendLine("- If a string output must be derived from an MCP/LLM response, first normalize it with `llm.call` or `mcp.call` `structured_output`, then map `data.steps.<normalizer>.json.<field>` to the workflow output.");
+        sb.AppendLine("- Step-level `output_schema` is supported only on `set` steps. Never attach it directly to `llm.call`, `mcp.call`, template, emit, or other action steps.");
+        sb.AppendLine("- Canonical action-output pattern: execute the MCP/LLM action first, then add a `set` step with `output_schema` that maps the action's documented `.json`, `.text`, or response fields into the public leaf contract.");
         AppendStructuredOutputStrictSchemaRules(sb);
         if (plannedTools.Count > 0)
         {
@@ -3789,7 +3794,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         PipelineLeafBlueprint blueprint,
         string? previousError,
         string? previousYaml,
-        string? previousPrompt,
         string? previousRepairContext)
     {
         var leafGenerator = generator.DeepClone() as JsonObject ?? new JsonObject();
@@ -3798,7 +3802,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var generationPrompt = BuildLeafYamlGenerationPrompt(spec.GenerationPrompt, blueprint);
         leafGenerator["instruction"] = string.IsNullOrWhiteSpace(previousError)
             ? generationPrompt
-            : BuildLeafRepairPrompt(generationPrompt, previousPrompt, previousYaml, previousError, previousRepairContext);
+            : BuildLeafRepairPrompt(generationPrompt, previousYaml, previousError, previousRepairContext);
         leafGenerator["context"] = "";
         leafGenerator["pipeline_leaf_name"] = spec.Name;
 
@@ -3848,7 +3852,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         Exception? lastException = null;
         string? previousError = null;
         string? previousYaml = null;
-        string? previousPrompt = null;
         string? previousRepairContext = null;
         var previousErrors = new List<string>();
         var leafQualityEvents = new List<PipelineQualityEvent>();
@@ -3873,9 +3876,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     blueprint,
                     previousError,
                     previousYaml,
-                    previousPrompt,
                     previousRepairContext);
-                var leafPrompt = ((leafInput["generator"] as JsonObject)?["instruction"] as JsonValue)?.GetValue<string>();
                 var leafCtx = new StepExecutionContext
                 {
                     Step = parentCtx.Step,
@@ -3901,7 +3902,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 catch
                 {
                     previousYaml = yaml;
-                    previousPrompt = leafPrompt;
                     throw;
                 }
             }
@@ -3912,7 +3912,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             catch (Exception ex) when (attempt < maxAttempts)
             {
                 lastException = ex;
-                previousPrompt ??= BuildLeafYamlGenerationPrompt(spec.GenerationPrompt, blueprint);
                 previousYaml ??= TryExtractGeneratedYamlFromException(ex);
                 previousError = FormatLeafGenerationError(spec.Name, attempt, ex);
                 previousErrors.Add(previousError);
@@ -3920,6 +3919,20 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     previousErrors.RemoveAt(0);
                 if (TryCreateLeafBlueprintQualityEvent(spec.Name, attempt, ex, out var qualityEvent))
                     leafQualityEvents.Add(qualityEvent);
+                leafQualityEvents.Add(new PipelineQualityEvent(
+                    "leaf_generation_retry",
+                    attempt,
+                    "generate_leaf",
+                    spec.Name,
+                    OutputName: null,
+                    ConsumerStepId: null,
+                    ConsumerField: null,
+                    InvalidPath: null,
+                    Reason: WorkflowPlanDiagnostics.InferPlanErrorCode(ex.Message, (ex as WorkflowRuntimeException)?.Code),
+                    RequiredOutputPaths: null,
+                    ExpectedType: null,
+                    ErrorType: ex.GetType().Name,
+                    Message: TruncatePipelineQualityMessage(ex.Message)));
                 previousRepairContext = await BuildPipelineLeafRepairContextAsync(
                     parentCtx,
                     pipelineInput,
@@ -3985,9 +3998,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine($"Error type: {ex.GetType().Name}");
         if (ex is WorkflowRuntimeException workflowEx)
             sb.AppendLine($"Error code: {workflowEx.Code}");
-        sb.AppendLine($"Structured error: {BuildStructuredPlanError(ex, attempt)}");
-        sb.AppendLine("Error message:");
-        sb.AppendLine(ex.Message);
+        sb.AppendLine($"Structured error: {BuildCompactStructuredPlanError(ex, attempt)}");
+        sb.AppendLine("Error summary:");
+        sb.AppendLine(TruncatePipelineQualityMessage(ex.Message, 2_000));
         return sb.ToString().TrimEnd();
     }
 
@@ -4102,7 +4115,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static string BuildLeafRepairPrompt(
         string generationPrompt,
-        string? previousPrompt,
         string? previousYaml,
         string previousError,
         string? additionalRepairContext)
@@ -4111,26 +4123,17 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         repairContext.AppendLine("Previous generated YAML for this leaf workflow failed validation.");
         repairContext.AppendLine("Regenerate only this leaf workflow and fix the YAML below.");
 
-        if (!string.IsNullOrWhiteSpace(previousPrompt))
-        {
-            repairContext.AppendLine();
-            repairContext.AppendLine("The previous prompt sent for this leaf attempt is included below so you can preserve the same task and constraints.");
-            repairContext.AppendLine("<previous_prompt>");
-            repairContext.AppendLine(previousPrompt.Trim());
-            repairContext.AppendLine("</previous_prompt>");
-        }
-
         if (!string.IsNullOrWhiteSpace(additionalRepairContext))
         {
             repairContext.AppendLine();
             repairContext.AppendLine("Additional validation repair context:");
-            repairContext.AppendLine(additionalRepairContext.Trim());
+            repairContext.AppendLine(TruncatePlanRepairContent(additionalRepairContext.Trim()));
         }
 
         return BuildRepairPrompt(
             generationPrompt,
             context: null,
-            invalidYaml: previousYaml,
+            invalidYaml: string.IsNullOrWhiteSpace(previousYaml) ? previousYaml : TruncatePlanRepairContent(previousYaml),
             structuredError: previousError,
             repairContext: repairContext.ToString(),
             constraints: "This is a pipeline leaf repair. Generate exactly one leaf workflow. Do not use workflow.call or workflow.plan.");
@@ -4176,7 +4179,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             currentLeaf.Blueprint,
             previousError,
             currentLeaf.Yaml,
-            spec.GenerationPrompt,
             repairContext);
         ForceSinglePlanAttempt(leafInput);
 
@@ -5842,11 +5844,20 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         IReadOnlyList<GeneratedLeafWorkflow> leaves,
         IReadOnlyDictionary<string, JsonNode?> configuredMainInputs,
         IReadOnlyDictionary<string, JsonNode?> generatedLeafInputs,
-        StepExecutorRegistry registry)
+        StepExecutorRegistry registry,
+        bool useStructuredOutput)
     {
         var sb = new StringBuilder();
         sb.AppendLine("You are assembling the parent `main` workflow graph for a GnOuGo.Flow pipeline.");
-        sb.AppendLine("Return ONLY one YAML mapping with `document` and `graph` keys. Do not return version, entrypoint, workflows, a full `main` workflow, or leaf workflow definitions.");
+        if (useStructuredOutput)
+        {
+            sb.AppendLine("Return ONLY JSON matching the requested strict structured-output schema.");
+            sb.AppendLine("Put the YAML value of `document` in `document_yaml` and the YAML value of `graph` in `graph_yaml`; omit the `document:` and `graph:` wrapper keys from those strings.");
+        }
+        else
+        {
+            sb.AppendLine("Return ONLY one YAML mapping with `document` and `graph` keys. Do not return version, entrypoint, workflows, a full `main` workflow, or leaf workflow definitions.");
+        }
         sb.AppendLine();
         sb.AppendLine("Hard rules:");
         sb.AppendLine("- Return a compact orchestration graph. The runtime will render the real `main` workflow and graft validated leaf workflows before final validation.");
@@ -5872,6 +5883,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Every generated `document.skill.outputs` and `graph.outputs` entry must be strongly typed: no `any`, no bare `object`, and no bare `array` without `items`.");
         sb.AppendLine("- Array outputs must declare concrete `items`; object outputs and object array items must declare non-empty `properties`.");
         sb.AppendLine("- If a leaf call is inside a switch, loop, parallel branch, or conditional path, do not reference that leaf call step from outside that container/path. Put dependent work in the same path, or expose the container step itself as the output.");
+        sb.AppendLine("- Two steps with identical `if` expressions are still independently conditional: never reference one from the other. Put the producer and every consumer in the same `switch` case or `sequence`, then project one typed branch result.");
+        sb.AppendLine("- Required string inputs must receive a real non-empty value. Do not use empty-string placeholders for unavailable branch data; design a branch-specific result contract instead.");
         if (configuredMainInputs.Count > 0)
         {
             sb.AppendLine("- `authoritative_main_inputs_yaml` is exact: preserve every name and schema and do not add or remove inputs.");
@@ -5901,7 +5914,22 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AppendPromptSection(sb, "generated_leaf_contracts_yaml", BuildGeneratedLeafContractsYaml(leaves));
         AppendPromptSection(sb, "leaf_manifest_json", BuildGeneratedLeafManifestJson(leaves, extraction).ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         sb.AppendLine();
+        AppendMainAssemblyOutputExample(sb, useStructuredOutput);
+        return sb.ToString();
+    }
+
+    private static void AppendMainAssemblyOutputExample(StringBuilder sb, bool useStructuredOutput)
+    {
         sb.AppendLine("Output shape example:");
+        if (useStructuredOutput)
+        {
+            sb.AppendLine("{");
+            sb.AppendLine("  \"document_yaml\": \"name: example_pipeline\\nskill:\\n  description: Process the user's query.\\n  tags: [example, pipeline]\\n  inputs:\\n    user_query: string\\n  outputs:\\n    result: string\",");
+            sb.AppendLine("  \"graph_yaml\": \"inputs:\\n  user_query: string\\nsteps:\\n  - id: call_example_leaf\\n    leaf: example_leaf\\n    args:\\n      query: ${data.inputs.user_query}\\noutputs:\\n  result: ${data.steps.call_example_leaf.outputs.result}\"");
+            sb.AppendLine("}");
+            return;
+        }
+
         sb.AppendLine("document:");
         sb.AppendLine("  name: example_pipeline");
         sb.AppendLine("  skill:");
@@ -5921,7 +5949,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("        query: ${data.inputs.user_query}");
         sb.AppendLine("  outputs:");
         sb.AppendLine("    result: ${data.steps.call_example_leaf.outputs.result}");
-        return sb.ToString();
     }
 
     private static void AppendMainGraphSupportStepDslSnippets(StringBuilder sb, StepExecutorRegistry registry)
@@ -6151,18 +6178,32 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static string BuildMainAssemblyRepairPrompt(
         string basePrompt,
         string? previousResponse,
-        string structuredError)
+        string structuredError,
+        bool useStructuredOutput)
     {
         var sb = new StringBuilder(basePrompt.TrimEnd());
         sb.AppendLine();
         sb.AppendLine();
         sb.AppendLine("The previous main workflow assembly failed final validation.");
-        sb.AppendLine("Return a complete corrected `document` and `graph` YAML mapping that still follows every rule above.");
+        sb.AppendLine(useStructuredOutput
+            ? "Return a complete corrected structured JSON response with `document_yaml` and `graph_yaml` that still follows every rule above."
+            : "Return a complete corrected `document` and `graph` YAML mapping that still follows every rule above.");
         sb.AppendLine("Fix the reported error without changing the user's public contract or orchestration intent.");
         if (!string.IsNullOrWhiteSpace(previousResponse))
-            AppendPromptSection(sb, "invalid_main_assembly_yaml", StripMarkdownFences(previousResponse));
+            AppendPromptSection(sb, "invalid_main_assembly_yaml", TruncatePlanRepairContent(StripMarkdownFences(previousResponse)));
         AppendPromptSection(sb, "main_assembly_validation_error", structuredError);
         return sb.ToString();
+    }
+
+    private static string TruncatePlanRepairContent(string value)
+    {
+        if (value.Length <= PlanRepairContentLimit)
+            return value;
+
+        const string marker = "\n# ... middle omitted from repair context ...\n";
+        var remaining = PlanRepairContentLimit - marker.Length;
+        var headLength = remaining * 2 / 3;
+        return value[..headLength] + marker + value[^(remaining - headLength)..];
     }
 
     private static GeneratedMainAssembly ParseGeneratedMainAssembly(string yaml, IReadOnlyList<GeneratedLeafWorkflow> leaves)
@@ -6175,6 +6216,23 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 BuildMainWorkflowNodeFromGraph(graph, leaves),
                 graphDocument?.GetScalar("name"),
                 CloneYamlMappingNodeOrNull(graphDocument?.GetMapping("skill")));
+        }
+
+        if (root.GetMapping("document") is { } nestedDocument
+            && nestedDocument.GetMapping("graph") is { } nestedGraph)
+        {
+            return new GeneratedMainAssembly(
+                BuildMainWorkflowNodeFromGraph(nestedGraph, leaves),
+                nestedDocument.GetScalar("name"),
+                CloneYamlMappingNodeOrNull(nestedDocument.GetMapping("skill")));
+        }
+
+        if (root.GetMapping("document") is { } invalidDocument
+            && invalidDocument.Children.ContainsKey(Scalar("graph")))
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.TemplatePlan,
+                "Pipeline assembly field 'document.graph' must be a YAML mapping. Prefer root-level sibling keys 'document' and 'graph'.");
         }
 
         if (root.GetMapping("document") is { } document && root.GetMapping("main") is { } wrappedMain)
@@ -6206,6 +6264,81 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         return new GeneratedMainAssembly(CloneYamlMappingNode(root), null, null);
     }
+
+    private static GeneratedMainAssembly ParseGeneratedMainAssemblyResponse(
+        LLMResponse response,
+        IReadOnlyList<GeneratedLeafWorkflow> leaves,
+        bool structuredOutputRequested)
+    {
+        if (structuredOutputRequested && TryGetStructuredMainAssembly(response, out var documentYaml, out var graphYaml))
+        {
+            var documentRoot = LoadYamlRoot(StripMarkdownFences(documentYaml));
+            var document = documentRoot.GetMapping("document") ?? documentRoot;
+            var graphRoot = LoadYamlRoot(StripMarkdownFences(graphYaml));
+            var graph = graphRoot.GetMapping("graph") ?? graphRoot;
+            return new GeneratedMainAssembly(
+                BuildMainWorkflowNodeFromGraph(graph, leaves),
+                document.GetScalar("name"),
+                CloneYamlMappingNodeOrNull(document.GetMapping("skill")));
+        }
+
+        return ParseGeneratedMainAssembly(response.Text ?? string.Empty, leaves);
+    }
+
+    private static bool TryGetStructuredMainAssembly(
+        LLMResponse response,
+        out string documentYaml,
+        out string graphYaml)
+    {
+        JsonNode? node = response.Json;
+        if (node == null && !string.IsNullOrWhiteSpace(response.Text))
+        {
+            try
+            {
+                node = JsonNode.Parse(response.Text);
+            }
+            catch (JsonException)
+            {
+                // Compatibility fallback for providers that ignore structured output and return YAML.
+            }
+        }
+
+        if (node is JsonObject obj
+            && obj["document_yaml"] is JsonValue documentValue
+            && documentValue.TryGetValue<string>(out documentYaml!)
+            && obj["graph_yaml"] is JsonValue graphValue
+            && graphValue.TryGetValue<string>(out graphYaml!))
+        {
+            return true;
+        }
+
+        documentYaml = string.Empty;
+        graphYaml = string.Empty;
+        return false;
+    }
+
+    private static string? GetMainAssemblyResponseText(LLMResponse response)
+        => !string.IsNullOrWhiteSpace(response.Text)
+            ? response.Text
+            : response.Json?.ToJsonString(PromptJsonOptions);
+
+    private static JsonNode BuildMainAssemblyStructuredOutputSchema() => JsonNode.Parse("""
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["document_yaml", "graph_yaml"],
+          "properties": {
+            "document_yaml": {
+              "type": "string",
+              "description": "YAML mapping value for document metadata and skill contract, without a document wrapper key."
+            },
+            "graph_yaml": {
+              "type": "string",
+              "description": "YAML mapping value for main graph inputs, functions, steps, and outputs, without a graph wrapper key."
+            }
+          }
+        }
+        """)!;
 
     private static YamlMappingNode BuildMainWorkflowNodeFromGraph(
         YamlMappingNode graph,
@@ -6814,6 +6947,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             .Where(static score => score != null)
             .Select(static score => score!)
             .ToArray();
+        var recoveredRetries = events
+            .Where(static item => item.Kind.EndsWith("_retry", StringComparison.Ordinal))
+            .ToArray();
 
         var summary = new JsonObject
         {
@@ -6832,6 +6968,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ["main_output_count"] = mainOutputSchemas.Count,
             ["repair_count"] = events.Count(static item => item.Kind.Contains("repair", StringComparison.Ordinal)),
             ["main_retry_count"] = events.Count(static item => string.Equals(item.Kind, "main_assembly_retry", StringComparison.Ordinal)),
+            ["leaf_generation_retry_count"] = events.Count(static item => string.Equals(item.Kind, "leaf_generation_retry", StringComparison.Ordinal)),
+            ["recovered_failure_count"] = recoveredRetries.Length,
+            ["recovered_leaf_count"] = recoveredRetries
+                .Where(static item => !string.IsNullOrWhiteSpace(item.LeafName))
+                .Select(static item => item.LeafName)
+                .Distinct(StringComparer.Ordinal)
+                .Count(),
             ["leaf_contract_repair_count"] = events.Count(static item => string.Equals(item.Kind, "leaf_contract_repair", StringComparison.Ordinal)),
             ["warning_count"] = warnings.Count,
             ["root_cause_count"] = BuildPipelineRootCauses(extraction, events, terminalException: null).Count
@@ -6851,7 +6994,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         return new JsonObject
         {
-            ["status"] = "passed",
+            ["status"] = recoveredRetries.Length == 0 ? "passed" : "passed_after_repair",
             ["summary"] = summary,
             ["checks"] = new JsonObject
             {
@@ -6879,10 +7022,36 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 ["leaf_outputs"] = BuildPipelineQualityLeafOutputsJson(leaves)
             },
             ["repairs"] = BuildPipelineQualityEventsJson(events.Where(static item => item.Kind.Contains("repair", StringComparison.Ordinal))),
+            ["recovered_failures"] = BuildRecoveredPipelineFailuresJson(recoveredRetries),
             ["events"] = BuildPipelineQualityEventsJson(events),
             ["root_causes"] = BuildPipelineRootCausesJson(BuildPipelineRootCauses(extraction, events, terminalException: null)),
             ["warnings"] = warnings
         };
+    }
+
+    private static JsonArray BuildRecoveredPipelineFailuresJson(IEnumerable<PipelineQualityEvent> retryEvents)
+    {
+        var array = new JsonArray();
+        foreach (var group in retryEvents.GroupBy(
+                     static item => new
+                     {
+                         item.Phase,
+                         item.LeafName,
+                         Code = item.Reason ?? WorkflowPlanDiagnostics.InferPlanErrorCode(item.Message ?? string.Empty)
+                     }))
+        {
+            array.Add((JsonNode)new JsonObject
+            {
+                ["phase"] = group.Key.Phase ?? "unknown",
+                ["leaf"] = group.Key.LeafName,
+                ["code"] = group.Key.Code,
+                ["attempt_count"] = group.Count(),
+                ["recovered"] = true,
+                ["last_message"] = group.Last().Message
+            });
+        }
+
+        return array;
     }
 
     private static JsonObject BuildPipelineMcpContextJson(PipelineMcpContext pipelineMcpContext)

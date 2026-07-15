@@ -292,6 +292,21 @@ public sealed class WorkflowTraceFileExporter : IWorkflowTraceFileExporter, IDis
         var startUtc = spans.Min(static span => span.StartUtc);
         var endUtc = spans.Max(static span => span.StartUtc + span.Duration);
         var errorCount = spans.Count(static span => string.Equals(span.Status, "Error", StringComparison.Ordinal));
+        var expectedProbeErrorCount = CountExpectedProbeErrors(spans);
+        var workflowOutcome = ResolveWorkflowOutcome(spans);
+        var recoveredErrorCount = string.Equals(workflowOutcome, "Ok", StringComparison.Ordinal)
+            ? Math.Max(0, errorCount - expectedProbeErrorCount)
+            : 0;
+        var terminalErrorCount = string.Equals(workflowOutcome, "Ok", StringComparison.Ordinal)
+            ? 0
+            : Math.Max(0, errorCount - expectedProbeErrorCount);
+        var summaryStatus = workflowOutcome switch
+        {
+            "Ok" when recoveredErrorCount > 0 || expectedProbeErrorCount > 0 => "ok_with_recovered_errors",
+            "Ok" => "ok",
+            "Error" => "error",
+            _ => terminalErrorCount == 0 ? "ok" : "error"
+        };
         var otelSettings = _openTelemetrySettings.CurrentValue;
 
         writer.WriteStartObject();
@@ -311,10 +326,13 @@ public sealed class WorkflowTraceFileExporter : IWorkflowTraceFileExporter, IDis
         writer.WriteStartObject("summary");
         writer.WriteNumber("spanCount", spans.Count);
         writer.WriteNumber("errorSpanCount", errorCount);
+        writer.WriteNumber("recoveredErrorSpanCount", recoveredErrorCount);
+        writer.WriteNumber("expectedProbeErrorSpanCount", expectedProbeErrorCount);
+        writer.WriteNumber("terminalErrorSpanCount", terminalErrorCount);
         writer.WriteString("startUtc", startUtc);
         writer.WriteString("endUtc", endUtc);
         writer.WriteNumber("durationMs", Math.Max(0d, (endUtc - startUtc).TotalMilliseconds));
-        writer.WriteString("status", errorCount == 0 ? "ok" : "error");
+        writer.WriteString("status", summaryStatus);
         writer.WriteEndObject();
 
         writer.WriteStartArray("spans");
@@ -325,6 +343,67 @@ public sealed class WorkflowTraceFileExporter : IWorkflowTraceFileExporter, IDis
 
         await writer.FlushAsync(cancellationToken);
         await stream.FlushAsync(cancellationToken);
+    }
+
+    private static string? ResolveWorkflowOutcome(IReadOnlyList<CapturedSpan> spans)
+    {
+        var workflowSpans = spans.Where(static span =>
+                string.Equals(span.DisplayName, "workflow", StringComparison.Ordinal)
+                || string.Equals(span.OperationName, "workflow", StringComparison.Ordinal)
+                || string.Equals(span.DisplayName, "chat.command", StringComparison.Ordinal)
+                || string.Equals(span.OperationName, "chat.command", StringComparison.Ordinal))
+            .ToArray();
+
+        if (workflowSpans.Any(static span => string.Equals(span.Status, "Error", StringComparison.Ordinal)))
+            return "Error";
+        if (workflowSpans.Any(static span => string.Equals(span.Status, "Ok", StringComparison.Ordinal)))
+            return "Ok";
+        return null;
+    }
+
+    private static int CountExpectedProbeErrors(IReadOnlyList<CapturedSpan> spans)
+    {
+        var spansById = spans.ToDictionary(static span => span.SpanId, StringComparer.Ordinal);
+        return spans.Count(span =>
+            string.Equals(span.Status, "Error", StringComparison.Ordinal)
+            && IsExpectedHttpProbeStatus(span)
+            && HasMcpDiscoveryAncestor(span, spansById));
+    }
+
+    private static bool IsExpectedHttpProbeStatus(CapturedSpan span)
+    {
+        if (!string.Equals(span.DisplayName, "GET", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(span.DisplayName, "POST", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var errorType = span.Attributes.FirstOrDefault(static attribute =>
+            string.Equals(attribute.Key, "error.type", StringComparison.Ordinal))?.Value;
+        var value = Convert.ToString(errorType, CultureInfo.InvariantCulture);
+        return value is "404" or "405";
+    }
+
+    private static bool HasMcpDiscoveryAncestor(
+        CapturedSpan span,
+        IReadOnlyDictionary<string, CapturedSpan> spansById)
+    {
+        var parentId = span.ParentSpanId;
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        while (!string.IsNullOrWhiteSpace(parentId)
+               && visited.Add(parentId)
+               && spansById.TryGetValue(parentId, out var parent))
+        {
+            if (parent.DisplayName.Contains("mcp_discovery", StringComparison.Ordinal)
+                || parent.OperationName.Contains("mcp_discovery", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            parentId = parent.ParentSpanId;
+        }
+
+        return false;
     }
 
     private static void WriteSpan(Utf8JsonWriter writer, CapturedSpan span)

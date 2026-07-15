@@ -2641,6 +2641,12 @@ workflows:
         Assert.Contains(requiredFields, field => field!.GetValue<string>() == "work_kind");
         Assert.Contains(requiredFields, field => field!.GetValue<string>() == "contract_role");
         Assert.Contains(requiredFields, field => field!.GetValue<string>() == "concrete_outcome");
+        var assemblyRequest = Assert.Single(requests, request =>
+            request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal));
+        Assert.NotNull(assemblyRequest.StructuredOutputSchema);
+        Assert.True(assemblyRequest.StructuredOutputStrict);
+        Assert.Contains("document_yaml", assemblyRequest.Prompt);
+        Assert.Contains("graph_yaml", assemblyRequest.Prompt);
 
         var pipeline = Assert.IsType<JsonObject>(planOutput["pipeline"]);
         var specs = Assert.IsType<JsonObject>(pipeline["specs"]);
@@ -5976,10 +5982,14 @@ workflows:
         Assert.DoesNotContain("type: any", yaml);
 
         var qualityReport = result.Outputs!["plan"]!["pipeline"]!["quality_report"]!;
-        Assert.Equal("passed", qualityReport["status"]!.GetValue<string>());
+        Assert.Equal("passed_after_repair", qualityReport["status"]!.GetValue<string>());
         Assert.Equal(1, qualityReport["summary"]!["repair_count"]!.GetValue<int>());
         Assert.Equal(1, qualityReport["summary"]!["leaf_contract_repair_count"]!.GetValue<int>());
         Assert.Equal(1, qualityReport["summary"]!["main_retry_count"]!.GetValue<int>());
+        Assert.Equal(1, qualityReport["summary"]!["recovered_failure_count"]!.GetValue<int>());
+        var recoveredFailure = Assert.Single(qualityReport["recovered_failures"]!.AsArray());
+        Assert.True(recoveredFailure!["recovered"]!.GetValue<bool>());
+        Assert.Equal("assemble_main_workflow", recoveredFailure["phase"]!.GetValue<string>());
         var repair = Assert.Single(qualityReport["repairs"]!.AsArray());
         Assert.Equal("leaf_contract_repair", repair!["kind"]!.GetValue<string>());
         Assert.Equal("collect_records", repair["leaf"]!.GetValue<string>());
@@ -5995,6 +6005,37 @@ workflows:
         Assert.Equal("leaf_contract_repair", inspectionRepair!["kind"]!.GetValue<string>());
         Assert.Equal("collect_records", inspectionRepair["leaf"]!.GetValue<string>());
         Assert.Equal(rootCauses.Count, inspection["summary"]!["root_cause_count"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task WorkflowPlan_PipelineMode_NormalizesGraphNestedUnderDocument()
+    {
+        var yaml = await GeneratePipelineWithMainAssemblyAsync("""
+        document:
+          name: nested-graph-pipeline
+          skill:
+            description: Collect a base value.
+            inputs:
+              query: string
+            outputs:
+              result: string
+          graph:
+            inputs:
+              query: string
+            steps:
+              - id: call_collect_base
+                leaf: collect_base
+                args:
+                  query: ${data.inputs.query}
+            outputs:
+              result: ${data.steps.call_collect_base.outputs.value}
+        """);
+
+        var document = WorkflowParser.Parse(yaml);
+        Assert.Equal("nested-graph-pipeline", document.Name);
+        var call = Assert.Single(document.Workflows["main"].Steps);
+        Assert.Equal("workflow.call", call.Type);
+        Assert.Contains("${data.steps.call_collect_base.outputs.value}", yaml);
     }
 
     [Fact]
@@ -9163,20 +9204,23 @@ workflows:
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal(6, requests.Count);
-        Assert.Contains(requests, request =>
-            request.Prompt.Contains("Previous generated YAML for this leaf workflow failed validation", StringComparison.Ordinal)
-            && request.Prompt.Contains("Cumulative leaf retry requirements:", StringComparison.Ordinal)
-            && request.Prompt.Contains("Preserve all fixes made for earlier validation failures", StringComparison.Ordinal)
-            && request.Prompt.Contains("Re-check every mcp.call in the leaf", StringComparison.Ordinal)
-            && request.Prompt.Contains("Workflow outputs must resolve to their declared type on every path.", StringComparison.Ordinal)
-            && request.Prompt.Contains("weak object schemas", StringComparison.Ordinal)
-            && request.Prompt.Contains("<user_prompt>", StringComparison.Ordinal)
-            && request.Prompt.Contains("</user_prompt>", StringComparison.Ordinal)
-            && request.Prompt.Contains("<previous_prompt>", StringComparison.Ordinal)
-            && request.Prompt.Contains("</previous_prompt>", StringComparison.Ordinal)
-            && request.Prompt.Contains("<invalid_yaml>", StringComparison.Ordinal)
-            && request.Prompt.Contains("name: build-profile-leaf", StringComparison.Ordinal)
-            && request.Prompt.Contains("type: object", StringComparison.Ordinal));
+        var repairPrompts = requests
+            .Where(request => request.Prompt.Contains("Previous generated YAML for this leaf workflow failed validation", StringComparison.Ordinal))
+            .Select(request => request.Prompt)
+            .ToArray();
+        Assert.NotEmpty(repairPrompts);
+        var repairTranscript = string.Join("\n", repairPrompts);
+        Assert.Contains("Cumulative leaf retry requirements:", repairTranscript);
+        Assert.Contains("Preserve all fixes made for earlier validation failures", repairTranscript);
+        Assert.Contains("Re-check every mcp.call in the leaf", repairTranscript);
+        Assert.Contains("Workflow outputs must resolve to their declared type on every path.", repairTranscript);
+        Assert.Contains("weak object schemas", repairTranscript);
+        Assert.Contains("<user_prompt>", repairTranscript);
+        Assert.Contains("</user_prompt>", repairTranscript);
+        Assert.DoesNotContain("<previous_prompt>", repairTranscript);
+        Assert.Contains("<invalid_yaml>", repairTranscript);
+        Assert.Contains("name: build-profile-leaf", repairTranscript);
+        Assert.Contains("type: object", repairTranscript);
     }
 
     [Fact]
