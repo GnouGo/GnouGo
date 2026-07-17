@@ -343,9 +343,38 @@ workflows:
 
         var result = MermaidWorkflowRenderer.Render(yaml);
 
-        Assert.Contains("n0_start -->|if: ${data.inputs.enabled}| n2_guarded", result.Main.Content);
+        Assert.Contains("n0_start -->|\"if: ${data.inputs.enabled}\"| n2_guarded", result.Main.Content);
         Assert.Contains("guarded - set", result.Main.Content);
         Assert.DoesNotContain("guarded - set - if:", result.Main.Content);
+    }
+
+    [Fact]
+    public void Render_IfGuard_QuotesMermaidSyntaxCharactersInEdgeLabel()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    steps:
+      - id: first
+        type: set
+        input:
+          value: ok
+      - id: guarded
+        type: set
+        if: '${data.steps.first.url != ""}'
+        input:
+          value: ok
+""";
+
+        var result = MermaidWorkflowRenderer.Render(yaml);
+
+        Assert.Contains(
+            "-->|\"if: ${data.steps.first.url != ''}\"| n3_guarded",
+            result.Main.Content);
+        Assert.DoesNotContain(
+            "-->|if: ${data.steps.first.url",
+            result.Main.Content);
     }
 
     [Fact]
@@ -398,11 +427,11 @@ workflows:
         Assert.Contains("choose{\"choose - switch\"}", result.Main.Content);
         Assert.Contains("repeat_fast{{\"repeat_fast - loop.sequential\"}}", result.Main.Content);
         Assert.Contains("Loop exit", result.Main.Content);
-        Assert.Contains("-->|fast|", result.Main.Content);
-        Assert.Contains("-->|fanout|", result.Main.Content);
-        Assert.Contains("-->|default|", result.Main.Content);
-        Assert.Contains("-->|branch 1|", result.Main.Content);
-        Assert.Contains("-->|branch 2|", result.Main.Content);
+        Assert.Contains("-->|\"fast\"|", result.Main.Content);
+        Assert.Contains("-->|\"fanout\"|", result.Main.Content);
+        Assert.Contains("-->|\"default\"|", result.Main.Content);
+        Assert.Contains("-->|\"branch 1\"|", result.Main.Content);
+        Assert.Contains("-->|\"branch 2\"|", result.Main.Content);
         Assert.Contains("done - set", result.Main.Content);
     }
 }
