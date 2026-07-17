@@ -21,6 +21,60 @@ public sealed class ModelMetadataCatalogTests
     }
 
     [Fact]
+    public void ResolveWithDetails_ReportsExactAndAliasMatches()
+    {
+        var resolver = new LLMModelMetadataResolver(new LLMOptions());
+
+        var exact = resolver.ResolveWithDetails("openai", "gpt-4o-mini");
+        var alias = resolver.ResolveWithDetails("openai", "gpt4o-mini");
+
+        Assert.Equal(LLMModelMetadataMatchKind.Exact, exact.MatchKind);
+        Assert.Equal("openai", exact.MatchedProviderType);
+        Assert.Equal("gpt-4o-mini", exact.MatchedModelId);
+        Assert.Equal(1d, exact.Similarity);
+        Assert.Equal(LLMModelMetadataMatchKind.Alias, alias.MatchKind);
+        Assert.Equal("gpt-4o-mini", alias.MatchedModelId);
+        Assert.Equal("gpt-4o-mini", alias.Metadata.Id);
+    }
+
+    [Fact]
+    public void ResolveWithDetails_FuzzyMatchesWithinProviderAndPreservesRequestedIdentity()
+    {
+        var resolver = new LLMModelMetadataResolver(new LLMOptions());
+
+        var openAi = resolver.ResolveWithDetails("openai", "gpt-4o-mni");
+        var copilot = resolver.ResolveWithDetails("copilot", "gpt-4o-mni");
+
+        Assert.Equal(LLMModelMetadataMatchKind.Fuzzy, openAi.MatchKind);
+        Assert.Equal("openai", openAi.MatchedProviderType);
+        Assert.Equal("gpt-4o-mini", openAi.MatchedModelId);
+        Assert.Equal("gpt-4o-mni", openAi.Metadata.Id);
+        Assert.Equal("openai", openAi.Metadata.ProviderType);
+        Assert.Equal(128000, openAi.Metadata.ContextWindowTokens);
+        Assert.True(openAi.Similarity > 0.8d);
+
+        Assert.Equal(LLMModelMetadataMatchKind.Fuzzy, copilot.MatchKind);
+        Assert.Equal("copilot", copilot.MatchedProviderType);
+        Assert.Equal("gpt-4o-mini", copilot.MatchedModelId);
+        Assert.Equal(64000, copilot.Metadata.ContextWindowTokens);
+    }
+
+    [Fact]
+    public void ResolveWithDetails_UsesHeuristicsWhenProviderHasNoCandidates()
+    {
+        var result = new LLMModelMetadataResolver(new LLMOptions())
+            .ResolveWithDetails("custom-provider", "new-model");
+
+        Assert.Equal(LLMModelMetadataMatchKind.Heuristic, result.MatchKind);
+        Assert.Null(result.MatchedModelId);
+        Assert.Null(result.Similarity);
+        Assert.Equal("new-model", result.Metadata.Id);
+        Assert.Equal("custom-provider", result.Metadata.ProviderType);
+        Assert.True(result.Metadata.Capabilities.SupportsTemperature);
+        Assert.False(result.Metadata.Capabilities.SupportsReasoningEffort);
+    }
+
+    [Fact]
     public void Resolve_AppliesInlineOverrides()
     {
         var options = new LLMOptions();
@@ -100,6 +154,7 @@ public sealed class ModelMetadataCatalogTests
             var resolver = new LLMModelMetadataResolver(new LLMOptions { ModelMetadataFiles = [path] });
 
             var metadata = resolver.Resolve("openai", "mine");
+            var details = resolver.ResolveWithDetails("openai", "mine");
 
             Assert.Equal("my-model", metadata.Id);
             Assert.Equal(999, metadata.ContextWindowTokens);
@@ -107,6 +162,8 @@ public sealed class ModelMetadataCatalogTests
             Assert.Equal(0.5m, metadata.Pricing!.InputPer1MTokens);
             Assert.False(metadata.Capabilities.SupportsTemperature);
             Assert.False(metadata.Capabilities.SupportsReasoningEffort);
+            Assert.Equal(LLMModelMetadataMatchKind.Alias, details.MatchKind);
+            Assert.Equal("my-model", details.MatchedModelId);
         }
         finally
         {
@@ -306,6 +363,18 @@ public sealed class ModelMetadataCatalogTests
     }
 
     [Fact]
+    public void EstimateCost_UsesSameProviderFuzzyMetadata()
+    {
+        var cost = ModelMetadataCatalog.EstimateCost(
+            "gpt-4o-mni",
+            inputTokens: 1_000_000,
+            options: new LLMOptions(),
+            providerType: "openai");
+
+        Assert.Equal(0.15m, cost);
+    }
+
+    [Fact]
     public void EstimateCost_UsesUserOverridePricing()
     {
         var options = new LLMOptions();
@@ -330,11 +399,11 @@ public sealed class ModelMetadataCatalogTests
     }
 
     [Fact]
-    public void GetMissingRequiredMetadataFields_ReturnsPricingAndLimitsForUnknownModel()
+    public void GetMissingRequiredMetadataFields_ReturnsPricingAndLimitsWhenNoProviderCandidateExists()
     {
         var missing = ModelMetadataCatalog.GetMissingRequiredMetadataFields(
             new LLMOptions(),
-            "openai",
+            "custom-provider",
             "vendor/new-model",
             out var metadata);
 
@@ -344,6 +413,103 @@ public sealed class ModelMetadataCatalogTests
         Assert.Contains("maxOutputTokens", missing);
         Assert.Contains("pricing.inputPer1MTokens", missing);
         Assert.Contains("pricing.outputPer1MTokens", missing);
+    }
+
+    [Fact]
+    public void ResolveWithDetails_FuzzyCandidateUsesExternalAndInlinePrecedence()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gnougo-model-metadata-{Guid.NewGuid():N}.json");
+        File.WriteAllText(path, """
+        {
+          "models": {
+            "provider-model": {
+              "providerType": "custom",
+              "contextWindowTokens": 1000,
+              "maxInputTokens": 1000,
+              "maxOutputTokens": 100,
+              "pricing": { "inputPer1MTokens": 1, "outputPer1MTokens": 2 },
+              "capabilities": {
+                "supportsTemperature": true,
+                "supportsReasoningEffort": false,
+                "supportsStructuredOutput": true,
+                "supportsTools": true,
+                "supportsJsonMode": true
+              }
+            }
+          }
+        }
+        """);
+
+        try
+        {
+            var options = new LLMOptions { ModelMetadataFiles = [path] };
+            options.ModelOverrides["provider-model"] = new LLMModelMetadata
+            {
+                Id = "provider-model",
+                ProviderType = "custom",
+                ContextWindowTokens = 2222
+            };
+
+            var result = new LLMModelMetadataResolver(options)
+                .ResolveWithDetails("custom", "provider-modle");
+
+            Assert.Equal(LLMModelMetadataMatchKind.Fuzzy, result.MatchKind);
+            Assert.Equal("provider-model", result.MatchedModelId);
+            Assert.Equal("provider-modle", result.Metadata.Id);
+            Assert.Equal(2222, result.Metadata.ContextWindowTokens);
+            Assert.Equal(2m, result.Metadata.Pricing!.OutputPer1MTokens);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ResolveWithDetails_FuzzyTieBreaksByModelIdOrdinally()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gnougo-model-metadata-{Guid.NewGuid():N}.json");
+        File.WriteAllText(path, """
+        {
+          "models": {
+            "test-a": { "providerType": "custom", "contextWindowTokens": 100 },
+            "test-b": { "providerType": "custom", "contextWindowTokens": 200 }
+          }
+        }
+        """);
+
+        try
+        {
+            var result = new LLMModelMetadataResolver(new LLMOptions { ModelMetadataFiles = [path] })
+                .ResolveWithDetails("custom", "test-c");
+
+            Assert.Equal(LLMModelMetadataMatchKind.Fuzzy, result.MatchKind);
+            Assert.Equal("test-a", result.MatchedModelId);
+            Assert.Equal(100, result.Metadata.ContextWindowTokens);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Sanitize_UsesFuzzyMetadataForUnknownModelVariant()
+    {
+        var metadata = new LLMModelMetadataResolver(new LLMOptions())
+            .Resolve("openai", "o4-mni");
+
+        var sanitized = LLMRequestSanitizer.Sanitize(new LLMClientRequest
+        {
+            Provider = "openai",
+            Model = "o4-mni",
+            Prompt = "test",
+            Temperature = 0.2,
+            Reasoning = "high"
+        }, metadata);
+
+        Assert.Null(sanitized.Temperature);
+        Assert.Equal("high", sanitized.Reasoning);
     }
 
     [Fact]

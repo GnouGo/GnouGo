@@ -8,6 +8,7 @@ using GnOuGo.Agent.Server.Endpoints;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Shared;
 using GnOuGo.Agent.Mcp;
+using GnOuGo.Flow.Core.Runtime;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -407,7 +408,16 @@ public sealed class ConfigureProvidersServiceTests
         {
             DefaultProvider = string.Empty,
             DefaultModel = string.Empty,
-            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase),
+            ModelOverrides = new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["openai/local/custom"] = new()
+                {
+                    Id = "local/custom",
+                    ProviderType = "openai",
+                    ContextWindowTokens = 999
+                }
+            }
         });
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -460,8 +470,10 @@ public sealed class ConfigureProvidersServiceTests
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
         await responder;
 
-        Assert.Contains(events, evt => evt.Type == "thinking:info" && evt.Text?.Contains("Metadata for model 'local/custom'", StringComparison.Ordinal) == true);
-        Assert.True(runtimeStore.Current.ModelOverrides.TryGetValue("local/custom", out var metadata));
+        Assert.Contains(events, evt => evt.Type == "thinking:info" && evt.Text?.Contains("Reviewed metadata for model 'local/custom'", StringComparison.Ordinal) == true);
+        Assert.Contains(events, evt => evt.Type == "human_input_request" && evt.Text?.Contains("Approximate same-provider match", StringComparison.Ordinal) == true);
+        Assert.True(runtimeStore.Current.ModelOverrides.TryGetValue("ollama/local/custom", out var metadata));
+        Assert.True(runtimeStore.Current.ModelOverrides.ContainsKey("openai/local/custom"));
         Assert.Equal(32768, metadata.ContextWindowTokens);
         Assert.Equal(0m, metadata.Pricing!.InputPer1MTokens);
         Assert.Null(metadata.Pricing.CachedInputPer1MTokens);
@@ -505,6 +517,7 @@ public sealed class ConfigureProvidersServiceTests
                         ["api_version"] = "2025-01-01-preview"
                     },
                     "llm_model.manual.openai" => new JsonObject { ["model"] = "gpt-4o" },
+                    _ when IsModelMetadataRequest(request) => AcceptModelMetadataDefaults(request),
                     "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -882,6 +895,7 @@ public sealed class ConfigureProvidersServiceTests
                     "llm_add.provider" => new JsonObject { ["response"] = "ollama" },
                     "llm_add.connection" => new JsonObject { ["url"] = "http://localhost:11434" },
                     "llm_model.select.ollama" => new JsonObject { ["model"] = "llama3:8b" },
+                    _ when IsModelMetadataRequest(request) => AcceptModelMetadataDefaults(request),
                     "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -950,6 +964,7 @@ public sealed class ConfigureProvidersServiceTests
                     "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
                     "llm.auth.api_key" => new JsonObject { ["api_key"] = "test-secret" },
                     "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-4o-mini" },
+                    _ when IsModelMetadataRequest(request) => AcceptModelMetadataDefaults(request),
                     "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -975,7 +990,63 @@ public sealed class ConfigureProvidersServiceTests
 
         Assert.Equal("openai", runtimeStore.Current.DefaultProvider);
         Assert.Equal("gpt-4o-mini", runtimeStore.Current.DefaultModel);
+        Assert.Contains(events, evt => evt.Type == "human_input_request" && evt.Text?.Contains("llm_model.metadata.openai", StringComparison.Ordinal) == true);
+        Assert.Contains(events, evt => evt.Type == "thinking:thinking" && evt.Text?.Contains("| Structured output | true |", StringComparison.Ordinal) == true);
+        Assert.Empty(runtimeStore.Current.ModelOverrides);
         Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "⭐ Provider 'openai' was set as the default LLM with model 'gpt-4o-mini'.");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_LlmAdd_DiscardAfterMetadataReviewDoesNotPersistConfigurationOrOverride()
+    {
+        var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
+        var humanInput = new AgentHumanInputProvider();
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = string.Empty,
+            DefaultModel = string.Empty,
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
+        });
+        var modelCatalog = new FakeModelCatalog()
+            .Add("ollama", new LLMModelDescriptor("llama3", "llama3", "ollama", "ollama"));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = cts.Token;
+        var responder = Task.Run(async () =>
+        {
+            await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
+            {
+                JsonNode response = request.StepId switch
+                {
+                    "llm_add.provider" => new JsonObject { ["response"] = "ollama" },
+                    "llm_add.connection" => new JsonObject { ["url"] = "http://localhost:11434" },
+                    "llm_model.select.ollama" => new JsonObject { ["model"] = "llama3" },
+                    _ when IsModelMetadataRequest(request) => AcceptModelMetadataDefaults(request),
+                    "llm_add.confirm_save" => new JsonObject { ["response"] = "discard" },
+                    _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
+                };
+
+                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                if (request.StepId == "llm_add.confirm_save")
+                    break;
+            }
+        }, token);
+
+        var service = new ConfigureProvidersService(
+            new RecordingLlmClient(),
+            humanInput,
+            modelCatalog,
+            keyVaultStore,
+            runtimeStore,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<ConfigureProvidersService>.Instance);
+
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm add", token), token);
+        await responder;
+
+        Assert.Contains(events, evt => evt.Type == "thinking:thinking" && evt.Text == "❌ LLM configuration discarded.");
+        Assert.Null(await keyVaultStore.GetSecretValueAsync("LLM--Models--ollama", CancellationToken.None));
+        Assert.Empty(runtimeStore.Current.ModelOverrides);
     }
 
     [Fact]
@@ -1018,6 +1089,7 @@ public sealed class ConfigureProvidersServiceTests
                         ["api_version"] = "2025-01-01-preview"
                     },
                     "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-4o-mini" },
+                    _ when IsModelMetadataRequest(request) => AcceptModelMetadataDefaults(request),
                     "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -1097,6 +1169,7 @@ public sealed class ConfigureProvidersServiceTests
                     "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
                     "llm.auth.api_key" => new JsonObject { ["api_key"] = "sk-ant-secret" },
                     "llm_model.select.anthropic" => new JsonObject { ["model"] = "claude-sonnet-4-20250514" },
+                    _ when IsModelMetadataRequest(request) => AcceptModelMetadataDefaults(request),
                     "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -1181,6 +1254,7 @@ public sealed class ConfigureProvidersServiceTests
                     "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
                     "llm.auth.api_key" => new JsonObject { ["api_key"] = "new-secret" },
                     "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-5-search-api" },
+                    _ when IsModelMetadataRequest(request) => AcceptModelMetadataDefaults(request),
                     "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -1232,6 +1306,7 @@ public sealed class ConfigureProvidersServiceTests
                     "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
                     "llm.auth.api_key" => new JsonObject { ["api_key"] = "test-secret" },
                     "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-5-search-api" },
+                    _ when IsModelMetadataRequest(request) => AcceptModelMetadataDefaults(request),
                     "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -1544,6 +1619,7 @@ public sealed class ConfigureProvidersServiceTests
                     "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
                     "llm.auth.api_key" => new JsonObject { ["api_key"] = "test-secret" },
                     "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-4o-mini" },
+                    _ when IsModelMetadataRequest(request) => AcceptModelMetadataDefaults(request),
                     "llm_add.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -1610,6 +1686,9 @@ public sealed class ConfigureProvidersServiceTests
                     "llm_edit.auth_mode" => new JsonObject { ["response"] = "api_key" },
                     "llm.auth.api_key" => new JsonObject { ["api_key"] = "new-secret" },
                     "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-5-search-api" },
+                    _ when IsModelMetadataRequest(request) => AcceptModelMetadataDefaults(
+                        request,
+                        ("supports_structured_output", "false")),
                     "llm_edit.confirm_save" => new JsonObject { ["response"] = "save" },
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
@@ -1621,22 +1700,24 @@ public sealed class ConfigureProvidersServiceTests
             }
         }, token);
 
-        var service = SmartFlowTestFactory.CreateProvidersService(
-            llm,
-            modelCatalog,
-            new LLMOptions
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = "openai",
+            DefaultModel = "gpt-4o-mini",
+            Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
             {
-                DefaultProvider = "openai",
-                DefaultModel = "gpt-4o-mini",
-                Models = new Dictionary<string, ModelProviderOptions>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "runtime-secret" }
-                },
-                ModelOverrides = TestModelOverrides("gpt-5-search-api")
+                ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "runtime-secret" }
             },
+            ModelOverrides = TestModelOverrides("gpt-5-search-api")
+        });
+        var service = new ConfigureProvidersService(
+            llm,
             humanInput,
+            modelCatalog,
             keyVaultStore,
-            telemetry: telemetryHarness.Telemetry);
+            runtimeStore,
+            telemetryHarness.Telemetry,
+            NullLogger<ConfigureProvidersService>.Instance);
 
         var correlationId = ActivityTraceId.CreateRandom().ToHexString();
         using (var chatTrace = telemetryHarness.Telemetry.StartChatMessageActivity(correlationId, "/llm edit openai"))
@@ -1647,6 +1728,9 @@ public sealed class ConfigureProvidersServiceTests
         }
 
         await responder;
+
+        Assert.True(runtimeStore.Current.ModelOverrides.TryGetValue("openai/gpt-5-search-api", out var reviewedMetadata));
+        Assert.False(reviewedMetadata.Capabilities.SupportsStructuredOutput);
 
         var spans = DrainPersistedSpans(telemetryHarness.Queue);
         Assert.Contains(spans, span => span.Name == "configure.providers.llm.edit.interactive");
@@ -1805,6 +1889,21 @@ public sealed class ConfigureProvidersServiceTests
                 }
             }
         };
+
+    private static bool IsModelMetadataRequest(HumanInputRequest request)
+        => request.StepId.StartsWith("llm_model.metadata.", StringComparison.Ordinal);
+
+    private static JsonObject AcceptModelMetadataDefaults(
+        HumanInputRequest request,
+        params (string Field, string Value)[] replacements)
+    {
+        var response = new JsonObject();
+        foreach (var field in request.Fields ?? [])
+            response[field.Name] = field.Default;
+        foreach (var replacement in replacements)
+            response[replacement.Field] = replacement.Value;
+        return response;
+    }
 
     private static Dictionary<string, LLMModelMetadata> TestModelOverrides(params string[] modelIds)
     {

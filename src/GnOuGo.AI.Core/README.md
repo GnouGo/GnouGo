@@ -25,16 +25,26 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 - OIDC client-credentials authentication is supported for both inference calls and model discovery.
 - The embedded metadata catalog adds pricing, token limits and request capabilities when known.
 - User metadata files and inline overrides can add new models or override builtin values without recompilation.
+- Unknown model ids use deterministic, provider-aware fuzzy matching to inherit the closest same-provider limits, pricing and capabilities. Cross-provider fallback is never used.
+- `LLMModelMetadataResolver.ResolveWithDetails(...)` exposes whether resolution was exact, alias-based, fuzzy, or heuristic-only, together with the matched model and similarity score. Fuzzy results retain the requested model identity.
 - `RoutingLLMClient` removes unsupported optional fields (for example `temperature` on reasoning models) before calling the provider.
 - Builtin metadata is authored in `Telemetry/model-metadata.json`; pricing is stored under each model's `pricing` object.
 - Builtin and external metadata can use provider-qualified keys such as `openai/gpt-4o`, `copilot/gpt-4o`, `claude/claude-sonnet-4-20250514`, or `ollama/llama3.1` when the same model id exists on multiple providers with different limits or pricing.
 - `scripts/update-model-metadata.ps1 -DownloadLatest` and `scripts/update-model-metadata.sh --download-latest` synchronize the builtin catalog from LiteLLM for the supported providers (`openai`, `anthropic`/`claude`, `copilot`/GitHub Models, and `ollama`) and regenerate `ModelMetadataCatalog.Generated.cs`.
 
-Metadata precedence is:
+Resolution order is:
 
 ```text
-embedded catalog < LLM.ModelMetadataFiles < LLM.ModelOverrides < provider/model heuristics for missing values
+exact id/alias -> closest normalized model id for the same provider -> provider/model heuristics
 ```
+
+Within an exact entry or fuzzy candidate, metadata precedence remains:
+
+```text
+embedded catalog < LLM.ModelMetadataFiles < LLM.ModelOverrides
+```
+
+Because fuzzy metadata also feeds request sanitization and cost estimation, callers that display estimates should use `ResolveWithDetails(...)` when they need to label approximate values.
 
 ## Architecture
 
@@ -217,7 +227,8 @@ dotnet test tests/GnOuGo.AI.Core.Tests/GnOuGo.AI.Core.Tests.csproj
 | `ILLMProvider` | Interface — implement to add a new backend |
 | `RoutingLLMClient` | Routes `LLMClientRequest` to the correct provider |
 | `LLMOptions` / `ModelProviderOptions` | Configuration model |
-| `LLMModelMetadataResolver` | Merges builtin metadata, files and inline overrides |
+| `LLMModelMetadataResolver` | Merges metadata and resolves exact, alias, same-provider fuzzy, or heuristic matches |
+| `LLMModelMetadataResolution` | Metadata plus match provenance, matched model/provider, and fuzzy similarity |
 | `LLMRequestSanitizer` | Removes unsupported optional request parameters |
 | `ChatRequestBuilder` | AOT-friendly JSON request builder |
 | `ChatResponseParser` | Response parser for all providers |
