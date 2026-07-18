@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.12.2 - 2026-07-18
+
+- fix: llm selection (#59) (release) (c19b69b)
+
 ## v0.12.1 - 2026-07-10
 
 - fix mermaid workflow (#58) (release) (cdf5d8d)
