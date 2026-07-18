@@ -454,11 +454,20 @@ public sealed class ConfigureProvidersService
 
         flowSpan.SetTag("gen_ai.request.model", model);
 
-        LLMModelMetadata? modelOverride = null;
-        await foreach (var evt in CollectModelMetadataOverrideIfNeededAsync(runId, provider, model, metadata => modelOverride = metadata, ct))
+        ModelMetadataReview? modelReview = null;
+        await foreach (var evt in CollectModelMetadataReviewAsync(
+                           runId,
+                           provider,
+                           model,
+                           ModelMetadataReviewMode.Always,
+                           review => modelReview = review,
+                           ct))
             yield return evt;
 
-        var summary = RenderLlmConfigSummary(provider, url, model, auth);
+        if (modelReview is null)
+            yield break;
+
+        var summary = RenderLlmConfigSummary(provider, url, model, auth, modelReview);
         yield return new SmartFlowEvent("thinking:thinking", summary);
 
         var configuredProvidersBeforeSave = await LoadConfiguredLlmProvidersAsync(ct);
@@ -484,7 +493,7 @@ public sealed class ConfigureProvidersService
 
         yield return new SmartFlowEvent("thinking:progress", "💾 Saving LLM provider configuration to KeyVault…");
         await SaveLlmProviderConfigAsync(provider, url, model, auth, ct);
-        await PersistModelMetadataOverrideAsync(modelOverride, ct);
+        await PersistModelMetadataOverrideAsync(modelReview, ct);
         yield return new SmartFlowEvent(
             "answer",
             $"✅ LLM provider '{provider}' saved to KeyVault as `{KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider)}`.");
@@ -577,8 +586,14 @@ public sealed class ConfigureProvidersService
         if (string.IsNullOrWhiteSpace(model))
             yield break;
 
-        LLMModelMetadata? modelOverride = null;
-        await foreach (var evt in CollectModelMetadataOverrideIfNeededAsync(runId, selectedConfig.Provider, model, metadata => modelOverride = metadata, ct))
+        ModelMetadataReview? modelReview = null;
+        await foreach (var evt in CollectModelMetadataReviewAsync(
+                           runId,
+                           selectedConfig.Provider,
+                           model,
+                           ModelMetadataReviewMode.MissingOnly,
+                           review => modelReview = review,
+                           ct))
             yield return evt;
 
         var summary = RenderDefaultProviderSummary(selectedConfig.Provider, model);
@@ -601,7 +616,7 @@ public sealed class ConfigureProvidersService
         }
 
         await SaveLlmProviderConfigAsync(selectedConfig.Provider, selectedConfig.Config.Url, model, selectedConfig.Config, ct);
-        await PersistModelMetadataOverrideAsync(modelOverride, ct);
+        await PersistModelMetadataOverrideAsync(modelReview, ct);
         _optionsStore.UpdateProvider(
             providerKey: selectedConfig.Provider,
             url: selectedConfig.Config.Url,
@@ -716,11 +731,20 @@ public sealed class ConfigureProvidersService
 
         flowSpan.SetTag("gen_ai.request.model", model);
 
-        LLMModelMetadata? modelOverride = null;
-        await foreach (var evt in CollectModelMetadataOverrideIfNeededAsync(runId, provider, model, metadata => modelOverride = metadata, ct))
+        ModelMetadataReview? modelReview = null;
+        await foreach (var evt in CollectModelMetadataReviewAsync(
+                           runId,
+                           provider,
+                           model,
+                           ModelMetadataReviewMode.Always,
+                           review => modelReview = review,
+                           ct))
             yield return evt;
 
-        var summary = RenderLlmConfigSummary(provider, url, model, auth);
+        if (modelReview is null)
+            yield break;
+
+        var summary = RenderLlmConfigSummary(provider, url, model, auth, modelReview);
         yield return new SmartFlowEvent("thinking:thinking", summary);
 
         response = null;
@@ -736,7 +760,7 @@ public sealed class ConfigureProvidersService
 
         yield return new SmartFlowEvent("thinking:progress", "💾 Saving LLM provider configuration to KeyVault…");
         await SaveLlmProviderConfigAsync(provider, url, model, auth, ct);
-        await PersistModelMetadataOverrideAsync(modelOverride, ct);
+        await PersistModelMetadataOverrideAsync(modelReview, ct);
         yield return new SmartFlowEvent("answer", $"✅ LLM provider '{provider}' updated.");
 
         var outputs = BuildSavedLlmOutputs(provider, url, model, auth);
@@ -810,12 +834,13 @@ public sealed class ConfigureProvidersService
             ct: ct);
     }
 
-    private async Task PersistModelMetadataOverrideAsync(LLMModelMetadata? metadata, CancellationToken ct)
+    private async Task PersistModelMetadataOverrideAsync(ModelMetadataReview? review, CancellationToken ct)
     {
-        if (metadata is null || string.IsNullOrWhiteSpace(metadata.Id))
+        if (review is not { ShouldPersist: true } || string.IsNullOrWhiteSpace(review.Metadata.Id))
             return;
 
-        _optionsStore.UpsertModelOverride(metadata.Id, metadata);
+        var overrideKey = BuildProviderQualifiedModelKey(review.Metadata.ProviderType, review.Metadata.Id);
+        _optionsStore.UpsertModelOverride(overrideKey, review.Metadata);
 
         if (_userConfigClient is null)
             return;
@@ -1274,8 +1299,106 @@ public sealed class ConfigureProvidersService
     private static string FormatOptionalBool(bool? value)
         => value is null ? "unknown" : value.Value.ToString().ToLowerInvariant();
 
+    private static string FormatStringList(IReadOnlyList<string>? values)
+        => values is { Count: > 0 } ? string.Join(", ", values) : string.Empty;
+
+    private static List<string>? ParseOptionalStringList(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var values = value
+            .Split([',', ';', '\n'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return values.Count == 0 ? null : values;
+    }
+
     private static string? EmptyToNull(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string RenderModelMetadataResolutionContext(
+        LLMModelMetadataResolution resolution,
+        IReadOnlyList<string> missing)
+    {
+        var source = resolution.MatchKind switch
+        {
+            LLMModelMetadataMatchKind.Exact =>
+                $"Exact catalog match: {resolution.MatchedProviderType}/{resolution.MatchedModelId}.",
+            LLMModelMetadataMatchKind.Alias =>
+                $"Catalog alias resolved to: {resolution.MatchedProviderType}/{resolution.MatchedModelId}.",
+            LLMModelMetadataMatchKind.Fuzzy =>
+                $"Approximate same-provider match: {resolution.MatchedProviderType}/{resolution.MatchedModelId} " +
+                $"({FormatSimilarity(resolution.Similarity)} similarity). Verify every value before saving.",
+            _ => "No same-provider catalog candidate was available; heuristic defaults are shown. Verify every value before saving."
+        };
+
+        if (missing.Count > 0)
+            source += $" Missing metadata before review: {string.Join(", ", missing)}.";
+
+        return source + " Changed or inferred values are saved as non-secret model metadata overrides.";
+    }
+
+    private static string FormatSimilarity(double? similarity)
+        => similarity is null
+            ? "unknown"
+            : (similarity.Value * 100d).ToString("0.0", CultureInfo.InvariantCulture) + "%";
+
+    private static bool MetadataReviewFieldsEqual(LLMModelMetadata left, LLMModelMetadata right)
+    {
+        var leftCapabilities = left.Capabilities ?? new ModelCapabilityMetadata();
+        var rightCapabilities = right.Capabilities ?? new ModelCapabilityMetadata();
+        return string.Equals(left.DisplayName, right.DisplayName, StringComparison.Ordinal)
+               && string.Equals(left.OwnedBy, right.OwnedBy, StringComparison.Ordinal)
+               && left.ContextWindowTokens == right.ContextWindowTokens
+               && left.MaxInputTokens == right.MaxInputTokens
+               && left.MaxOutputTokens == right.MaxOutputTokens
+               && string.Equals(left.Pricing?.Currency ?? "USD", right.Pricing?.Currency ?? "USD", StringComparison.OrdinalIgnoreCase)
+               && left.Pricing?.InputPer1MTokens == right.Pricing?.InputPer1MTokens
+               && left.Pricing?.OutputPer1MTokens == right.Pricing?.OutputPer1MTokens
+               && left.Pricing?.CachedInputPer1MTokens == right.Pricing?.CachedInputPer1MTokens
+               && left.Pricing?.ReasoningOutputPer1MTokens == right.Pricing?.ReasoningOutputPer1MTokens
+               && leftCapabilities.SupportsTemperature == rightCapabilities.SupportsTemperature
+               && leftCapabilities.SupportsReasoningEffort == rightCapabilities.SupportsReasoningEffort
+               && leftCapabilities.SupportsStructuredOutput == rightCapabilities.SupportsStructuredOutput
+               && leftCapabilities.SupportsTools == rightCapabilities.SupportsTools
+               && leftCapabilities.SupportsJsonMode == rightCapabilities.SupportsJsonMode
+               && leftCapabilities.SupportsVision == rightCapabilities.SupportsVision
+               && leftCapabilities.SupportsAudio == rightCapabilities.SupportsAudio
+               && leftCapabilities.SupportsEmbeddings == rightCapabilities.SupportsEmbeddings
+               && StringListsEqual(leftCapabilities.SupportedReasoningEfforts, rightCapabilities.SupportedReasoningEfforts)
+               && StringListsEqual(leftCapabilities.UnsupportedRequestParameters, rightCapabilities.UnsupportedRequestParameters);
+    }
+
+    private static bool StringListsEqual(IReadOnlyList<string>? left, IReadOnlyList<string>? right)
+    {
+        var normalizedLeft = (left ?? [])
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var normalizedRight = (right ?? [])
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return normalizedLeft.SequenceEqual(normalizedRight, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string BuildProviderQualifiedModelKey(string? providerType, string modelId)
+    {
+        var provider = NormalizeProviderTypeForConfig(providerType ?? string.Empty);
+        var id = modelId.Trim();
+        var slashIndex = id.IndexOf('/');
+        if (slashIndex > 0 && slashIndex < id.Length - 1)
+        {
+            var prefix = NormalizeProviderTypeForConfig(id[..slashIndex]);
+            if (string.Equals(prefix, provider, StringComparison.OrdinalIgnoreCase))
+                id = id[(slashIndex + 1)..];
+        }
+
+        return string.IsNullOrWhiteSpace(provider) ? id : $"{provider}/{id}";
+    }
 
     private static string RenderEmbeddingConfigSummary(EmbeddingProviderConfig config)
     {
@@ -1651,11 +1774,12 @@ public sealed class ConfigureProvidersService
         span.SetStatus(ActivityStatusCode.Ok);
     }
 
-    private async IAsyncEnumerable<SmartFlowEvent> CollectModelMetadataOverrideIfNeededAsync(
+    private async IAsyncEnumerable<SmartFlowEvent> CollectModelMetadataReviewAsync(
         string runId,
         string provider,
         string model,
-        Action<LLMModelMetadata?> setMetadata,
+        ModelMetadataReviewMode reviewMode,
+        Action<ModelMetadataReview?> setReview,
         [EnumeratorCancellation] CancellationToken ct)
     {
         using var span = StartNestedTrace("configure.providers.llm.model.metadata", "llm.model.metadata");
@@ -1663,10 +1787,20 @@ public sealed class ConfigureProvidersService
         span.SetTag("gen_ai.system", provider);
         span.SetTag("gen_ai.request.model", model);
 
-        var missing = ModelMetadataCatalog.GetMissingRequiredMetadataFields(_optionsStore.Current, provider, model, out var resolved);
-        if (missing.Count == 0)
+        var resolution = new LLMModelMetadataResolver(_optionsStore.Current).ResolveWithDetails(provider, model);
+        var resolved = resolution.Metadata;
+        var missing = ModelMetadataCatalog.GetMissingRequiredMetadataFields(resolved);
+        span.SetTag("gnougo.agent.llm.model_metadata.match_kind", resolution.MatchKind.ToString().ToLowerInvariant());
+        if (!string.IsNullOrWhiteSpace(resolution.MatchedProviderType))
+            span.SetTag("gnougo.agent.llm.model_metadata.matched_provider", resolution.MatchedProviderType);
+        if (!string.IsNullOrWhiteSpace(resolution.MatchedModelId))
+            span.SetTag("gnougo.agent.llm.model_metadata.matched_model", resolution.MatchedModelId);
+        if (resolution.Similarity is not null)
+            span.SetTag("gnougo.agent.llm.model_metadata.similarity", resolution.Similarity.Value);
+
+        if (reviewMode == ModelMetadataReviewMode.MissingOnly && missing.Count == 0)
         {
-            setMetadata(null);
+            setReview(new ModelMetadataReview(ModelMetadataCatalog.Clone(resolved), resolution, ShouldPersist: false));
             span.SetTag("gnougo.agent.llm.model_metadata.complete", true);
             span.SetStatus(ActivityStatusCode.Ok);
             yield break;
@@ -1679,7 +1813,9 @@ public sealed class ConfigureProvidersService
         var request = CreateFieldsRequest(
             runId,
             $"llm_model.metadata.{provider}",
-            $"Model '{model}' is not fully known. Please provide the metadata required for pricing, limits and request compatibility:",
+            reviewMode == ModelMetadataReviewMode.Always
+                ? $"Review the characteristics for model '{model}' before saving:"
+                : $"Model '{model}' is not fully known. Please provide the metadata required for pricing, limits and request compatibility:",
             [
                 new HumanInputFieldDef { Name = "display_name", Type = "string", Required = false, Description = "Human-readable model name", Default = resolved.DisplayName ?? model },
                 new HumanInputFieldDef { Name = "owned_by", Type = "string", Required = false, Description = "Model owner or vendor", Default = resolved.OwnedBy ?? provider },
@@ -1696,47 +1832,56 @@ public sealed class ConfigureProvidersService
                 new HumanInputFieldDef { Name = "supports_tools", Type = "select", Required = true, Description = "Whether the model supports tool/function calls", Options = ["true", "false"], Default = FormatBool(resolved.Capabilities.SupportsTools, true) },
                 new HumanInputFieldDef { Name = "supports_json_mode", Type = "select", Required = true, Description = "Whether the model supports JSON mode", Options = ["true", "false"], Default = FormatBool(resolved.Capabilities.SupportsJsonMode, true) },
                 new HumanInputFieldDef { Name = "supports_vision", Type = "select", Required = false, Description = "Whether the model supports vision inputs", Options = ["unknown", "true", "false"], Default = FormatOptionalBool(resolved.Capabilities.SupportsVision) },
-                new HumanInputFieldDef { Name = "supports_audio", Type = "select", Required = false, Description = "Whether the model supports audio inputs", Options = ["unknown", "true", "false"], Default = FormatOptionalBool(resolved.Capabilities.SupportsAudio) }
+                new HumanInputFieldDef { Name = "supports_audio", Type = "select", Required = false, Description = "Whether the model supports audio inputs", Options = ["unknown", "true", "false"], Default = FormatOptionalBool(resolved.Capabilities.SupportsAudio) },
+                new HumanInputFieldDef { Name = "supports_embeddings", Type = "select", Required = false, Description = "Whether the model supports embedding requests", Options = ["unknown", "true", "false"], Default = FormatOptionalBool(resolved.Capabilities.SupportsEmbeddings) },
+                new HumanInputFieldDef { Name = "supported_reasoning_efforts", Type = "string", Required = false, Description = "Supported reasoning efforts, comma-separated", Default = FormatStringList(resolved.Capabilities.SupportedReasoningEfforts) },
+                new HumanInputFieldDef { Name = "unsupported_request_parameters", Type = "string", Required = false, Description = "Unsupported request parameters, comma-separated", Default = FormatStringList(resolved.Capabilities.UnsupportedRequestParameters) }
             ],
-            JsonValue.Create($"Missing metadata: {string.Join(", ", missing)}. Values will be saved as an LLM model override, not as a secret."));
+            JsonValue.Create(RenderModelMetadataResolutionContext(resolution, missing)));
 
         await foreach (var evt in EmitHumanInputRequestAsync(request, r => response = r, ct))
             yield return evt;
 
         var fields = ReadFieldResponse(response, request.Fields!);
-        var metadata = new LLMModelMetadata
+        var metadata = ModelMetadataCatalog.Clone(resolved);
+        metadata.Id = resolved.Id;
+        metadata.ProviderType = NormalizeProviderTypeForConfig(provider);
+        metadata.DisplayName = EmptyToNull(fields.GetValueOrDefault("display_name")) ?? model;
+        metadata.OwnedBy = EmptyToNull(fields.GetValueOrDefault("owned_by")) ?? provider;
+        metadata.ContextWindowTokens = ReadPositiveInt(fields.GetValueOrDefault("context_window_tokens"), resolved.ContextWindowTokens ?? 128000);
+        metadata.MaxInputTokens = ReadPositiveInt(fields.GetValueOrDefault("max_input_tokens"), resolved.MaxInputTokens ?? resolved.ContextWindowTokens ?? 128000);
+        metadata.MaxOutputTokens = ReadPositiveInt(fields.GetValueOrDefault("max_output_tokens"), resolved.MaxOutputTokens ?? 4096);
+        metadata.Pricing = new ModelPricingMetadata
         {
-            Id = model,
-            ProviderType = provider,
-            DisplayName = EmptyToNull(fields.GetValueOrDefault("display_name")) ?? model,
-            OwnedBy = EmptyToNull(fields.GetValueOrDefault("owned_by")) ?? provider,
-            ContextWindowTokens = ReadPositiveInt(fields.GetValueOrDefault("context_window_tokens"), resolved.ContextWindowTokens ?? 128000),
-            MaxInputTokens = ReadPositiveInt(fields.GetValueOrDefault("max_input_tokens"), resolved.MaxInputTokens ?? resolved.ContextWindowTokens ?? 128000),
-            MaxOutputTokens = ReadPositiveInt(fields.GetValueOrDefault("max_output_tokens"), resolved.MaxOutputTokens ?? 4096),
-            Pricing = new ModelPricingMetadata
-            {
-                Currency = resolved.Pricing?.Currency ?? "USD",
-                InputPer1MTokens = ReadNonNegativeDecimal(fields.GetValueOrDefault("input_price_per_1m_tokens"), resolved.Pricing?.InputPer1MTokens ?? 0m),
-                OutputPer1MTokens = ReadNonNegativeDecimal(fields.GetValueOrDefault("output_price_per_1m_tokens"), resolved.Pricing?.OutputPer1MTokens ?? 0m),
-                CachedInputPer1MTokens = ReadOptionalNonNegativeDecimal(fields.GetValueOrDefault("cached_input_price_per_1m_tokens")),
-                ReasoningOutputPer1MTokens = ReadOptionalNonNegativeDecimal(fields.GetValueOrDefault("reasoning_output_price_per_1m_tokens"))
-            },
-            Capabilities = new ModelCapabilityMetadata
-            {
-                SupportsTemperature = ReadBool(fields.GetValueOrDefault("supports_temperature"), resolved.Capabilities.SupportsTemperature ?? true),
-                SupportsReasoningEffort = ReadBool(fields.GetValueOrDefault("supports_reasoning_effort"), resolved.Capabilities.SupportsReasoningEffort ?? false),
-                SupportsStructuredOutput = ReadBool(fields.GetValueOrDefault("supports_structured_output"), resolved.Capabilities.SupportsStructuredOutput ?? true),
-                SupportsTools = ReadBool(fields.GetValueOrDefault("supports_tools"), resolved.Capabilities.SupportsTools ?? true),
-                SupportsJsonMode = ReadBool(fields.GetValueOrDefault("supports_json_mode"), resolved.Capabilities.SupportsJsonMode ?? true),
-                SupportsVision = ReadOptionalBool(fields.GetValueOrDefault("supports_vision")),
-                SupportsAudio = ReadOptionalBool(fields.GetValueOrDefault("supports_audio")),
-                SupportedReasoningEfforts = resolved.Capabilities.SupportedReasoningEfforts is null ? null : [.. resolved.Capabilities.SupportedReasoningEfforts]
-            }
+            Currency = resolved.Pricing?.Currency ?? "USD",
+            InputPer1MTokens = ReadNonNegativeDecimal(fields.GetValueOrDefault("input_price_per_1m_tokens"), resolved.Pricing?.InputPer1MTokens ?? 0m),
+            OutputPer1MTokens = ReadNonNegativeDecimal(fields.GetValueOrDefault("output_price_per_1m_tokens"), resolved.Pricing?.OutputPer1MTokens ?? 0m),
+            CachedInputPer1MTokens = ReadOptionalNonNegativeDecimal(fields.GetValueOrDefault("cached_input_price_per_1m_tokens")),
+            ReasoningOutputPer1MTokens = ReadOptionalNonNegativeDecimal(fields.GetValueOrDefault("reasoning_output_price_per_1m_tokens"))
         };
+        metadata.Capabilities ??= new ModelCapabilityMetadata();
+        metadata.Capabilities.SupportsTemperature = ReadBool(fields.GetValueOrDefault("supports_temperature"), resolved.Capabilities.SupportsTemperature ?? true);
+        metadata.Capabilities.SupportsReasoningEffort = ReadBool(fields.GetValueOrDefault("supports_reasoning_effort"), resolved.Capabilities.SupportsReasoningEffort ?? false);
+        metadata.Capabilities.SupportsStructuredOutput = ReadBool(fields.GetValueOrDefault("supports_structured_output"), resolved.Capabilities.SupportsStructuredOutput ?? true);
+        metadata.Capabilities.SupportsTools = ReadBool(fields.GetValueOrDefault("supports_tools"), resolved.Capabilities.SupportsTools ?? true);
+        metadata.Capabilities.SupportsJsonMode = ReadBool(fields.GetValueOrDefault("supports_json_mode"), resolved.Capabilities.SupportsJsonMode ?? true);
+        metadata.Capabilities.SupportsVision = ReadOptionalBool(fields.GetValueOrDefault("supports_vision"));
+        metadata.Capabilities.SupportsAudio = ReadOptionalBool(fields.GetValueOrDefault("supports_audio"));
+        metadata.Capabilities.SupportsEmbeddings = ReadOptionalBool(fields.GetValueOrDefault("supports_embeddings"));
+        metadata.Capabilities.SupportedReasoningEfforts = ParseOptionalStringList(fields.GetValueOrDefault("supported_reasoning_efforts"));
+        metadata.Capabilities.UnsupportedRequestParameters = ParseOptionalStringList(fields.GetValueOrDefault("unsupported_request_parameters"));
 
-        setMetadata(metadata);
+        var shouldPersist = resolution.MatchKind is LLMModelMetadataMatchKind.Fuzzy or LLMModelMetadataMatchKind.Heuristic
+                            || !MetadataReviewFieldsEqual(resolved, metadata);
+        var review = new ModelMetadataReview(metadata, resolution, shouldPersist);
+        setReview(review);
+        span.SetTag("gnougo.agent.llm.model_metadata.override_required", shouldPersist);
         span.SetStatus(ActivityStatusCode.Ok);
-        yield return new SmartFlowEvent("thinking:info", $"📚 Metadata for model '{model}' will be saved with this LLM configuration.");
+        yield return new SmartFlowEvent(
+            "thinking:info",
+            shouldPersist
+                ? $"📚 Reviewed metadata for model '{model}' will be saved as a provider-specific override."
+                : $"📚 Model '{model}' will continue using its catalog metadata without an override.");
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> CollectAuthConfigAsync(
@@ -2172,8 +2317,15 @@ public sealed class ConfigureProvidersService
             ["llm_api_version"] = auth.ApiVersion
         };
 
-    private static string RenderLlmConfigSummary(string provider, string url, string model, LlmProviderConfig auth)
+    private static string RenderLlmConfigSummary(
+        string provider,
+        string url,
+        string model,
+        LlmProviderConfig auth,
+        ModelMetadataReview modelReview)
     {
+        var metadata = modelReview.Metadata;
+        var capabilities = metadata.Capabilities ?? new ModelCapabilityMetadata();
         var sb = new StringBuilder();
         sb.AppendLine("## 📋 Review before saving");
         sb.AppendLine();
@@ -2192,10 +2344,38 @@ public sealed class ConfigureProvidersService
             sb.AppendLine($"| OIDC Scopes | {EscapeMarkdownCell(auth.OidcScopes)} |");
             sb.AppendLine($"| OIDC Credential | {DescribeOidcCredential(auth)} |");
         }
+        sb.AppendLine($"| Metadata source | {EscapeMarkdownCell(DescribeModelMetadataResolution(modelReview.Resolution))} |");
+        sb.AppendLine($"| Context window | {metadata.ContextWindowTokens?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} tokens |");
+        sb.AppendLine($"| Max input | {metadata.MaxInputTokens?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} tokens |");
+        sb.AppendLine($"| Max output | {metadata.MaxOutputTokens?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} tokens |");
+        sb.AppendLine($"| Input price / 1M | {metadata.Pricing?.InputPer1MTokens?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} {EscapeMarkdownCell(metadata.Pricing?.Currency ?? "USD")} |");
+        sb.AppendLine($"| Output price / 1M | {metadata.Pricing?.OutputPer1MTokens?.ToString(CultureInfo.InvariantCulture) ?? "unknown"} {EscapeMarkdownCell(metadata.Pricing?.Currency ?? "USD")} |");
+        sb.AppendLine($"| Structured output | {FormatOptionalBool(capabilities.SupportsStructuredOutput)} |");
+        sb.AppendLine($"| Tools | {FormatOptionalBool(capabilities.SupportsTools)} |");
+        sb.AppendLine($"| JSON mode | {FormatOptionalBool(capabilities.SupportsJsonMode)} |");
+        sb.AppendLine($"| Temperature | {FormatOptionalBool(capabilities.SupportsTemperature)} |");
+        sb.AppendLine($"| Reasoning effort | {FormatOptionalBool(capabilities.SupportsReasoningEffort)} |");
+        sb.AppendLine($"| Vision | {FormatOptionalBool(capabilities.SupportsVision)} |");
+        sb.AppendLine($"| Audio | {FormatOptionalBool(capabilities.SupportsAudio)} |");
+        sb.AppendLine($"| Embeddings | {FormatOptionalBool(capabilities.SupportsEmbeddings)} |");
+        if (capabilities.SupportedReasoningEfforts is { Count: > 0 })
+            sb.AppendLine($"| Supported reasoning efforts | {EscapeMarkdownCell(FormatStringList(capabilities.SupportedReasoningEfforts))} |");
+        if (capabilities.UnsupportedRequestParameters is { Count: > 0 })
+            sb.AppendLine($"| Unsupported parameters | {EscapeMarkdownCell(FormatStringList(capabilities.UnsupportedRequestParameters))} |");
         sb.AppendLine();
         sb.Append($"Configuration will be saved as key: `{KeyVaultConfigNaming.BuildSecretKey(KeyVaultConfigSecretKind.LlmProvider, provider)}`");
         return sb.ToString();
     }
+
+    private static string DescribeModelMetadataResolution(LLMModelMetadataResolution resolution)
+        => resolution.MatchKind switch
+        {
+            LLMModelMetadataMatchKind.Exact => $"exact: {resolution.MatchedProviderType}/{resolution.MatchedModelId}",
+            LLMModelMetadataMatchKind.Alias => $"alias: {resolution.MatchedProviderType}/{resolution.MatchedModelId}",
+            LLMModelMetadataMatchKind.Fuzzy =>
+                $"fuzzy: {resolution.MatchedProviderType}/{resolution.MatchedModelId} ({FormatSimilarity(resolution.Similarity)})",
+            _ => "heuristic defaults"
+        };
 
     private static string NormalizeProviderTypeForConfig(string provider)
         => provider.Trim().ToLowerInvariant() switch
@@ -2556,6 +2736,11 @@ public sealed class ConfigureProvidersService
     }
 
     private sealed record ProviderDefaults(string Url, string Model, IReadOnlyList<string> AuthModes);
+    private enum ModelMetadataReviewMode { Always, MissingOnly }
+    private sealed record ModelMetadataReview(
+        LLMModelMetadata Metadata,
+        LLMModelMetadataResolution Resolution,
+        bool ShouldPersist);
     private sealed record LlmProviderConfig(string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret, string OidcPrivateKeyPem, string ApiVersion = "");
     private sealed record McpServerConfig(string Name, string Transport, string Description, string Url, string Command, IReadOnlyList<string> Args, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret);
     private sealed record McpListRow(string Name, string Source, string Editable, string Key, string Version, string Stored);

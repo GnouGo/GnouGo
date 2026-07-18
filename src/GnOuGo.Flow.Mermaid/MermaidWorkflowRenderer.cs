@@ -609,7 +609,7 @@ public static class MermaidWorkflowRenderer
         {
             _edges.Append("    ")
                 .Append(source)
-                .Append(string.IsNullOrWhiteSpace(label) ? " --> " : $" -->|{EscapeEdgeLabel(label)}| ")
+                .Append(string.IsNullOrWhiteSpace(label) ? " --> " : $" -->|\"{EscapeEdgeLabel(label)}\"| ")
                 .AppendLine(target);
             _edgeIndex++;
         }
@@ -649,6 +649,7 @@ public static class MermaidWorkflowRenderer
         private static string EscapeEdgeLabel(string value)
             => value
                 .Replace("|", "/", StringComparison.Ordinal)
+                .Replace("\"", "'", StringComparison.Ordinal)
                 .Replace("\r", " ", StringComparison.Ordinal)
                 .Replace("\n", " ", StringComparison.Ordinal);
     }

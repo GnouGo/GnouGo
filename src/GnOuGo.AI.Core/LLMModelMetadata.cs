@@ -49,3 +49,23 @@ public sealed class LLMModelMetadata
     public Dictionary<string, string> Extra { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
+/// <summary>
+/// Describes how model metadata was selected for a requested provider/model pair.
+/// </summary>
+public enum LLMModelMetadataMatchKind
+{
+    Exact,
+    Alias,
+    Fuzzy,
+    Heuristic
+}
+
+/// <summary>
+/// Detailed model metadata resolution result, including the catalog entry used as a fallback.
+/// </summary>
+public sealed record LLMModelMetadataResolution(
+    LLMModelMetadata Metadata,
+    LLMModelMetadataMatchKind MatchKind,
+    string? MatchedProviderType,
+    string? MatchedModelId,
+    double? Similarity);

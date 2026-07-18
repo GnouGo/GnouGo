@@ -24,17 +24,77 @@ public sealed class LLMModelMetadataResolver
 
     /// <summary>
     /// Resolves merged metadata. Precedence: embedded catalog &lt; external files &lt; inline overrides,
-    /// then provider/model heuristics fill missing capability values.
+    /// then provider-aware fuzzy matching and provider/model heuristics fill missing values.
     /// </summary>
     public LLMModelMetadata Resolve(string? providerType, string model)
+        => ResolveWithDetails(providerType, model).Metadata;
+
+    /// <summary>
+    /// Resolves merged metadata and reports whether the requested model matched an exact entry,
+    /// an alias, the closest model for the same provider, or heuristics only.
+    /// </summary>
+    public LLMModelMetadataResolution ResolveWithDetails(string? providerType, string model)
     {
         providerType = ModelMetadataCatalog.NormalizeProviderType(providerType);
+        if (string.IsNullOrWhiteSpace(providerType)
+            && ModelMetadataCatalog.TrySplitProviderQualifiedKey(model, out var providerFromModel, out _))
+        {
+            providerType = providerFromModel;
+        }
+
+        var exact = ResolveExact(providerType, model);
+        if (exact.IsRecognized)
+        {
+            return new LLMModelMetadataResolution(
+                exact.Metadata,
+                exact.MatchKind,
+                exact.Metadata.ProviderType ?? providerType,
+                exact.MatchedModelId,
+                Similarity: exact.MatchKind == LLMModelMetadataMatchKind.Exact ? 1d : null);
+        }
+
+        var cleanModel = ModelMetadataCatalog.StripVendorPrefix(model);
+        var fuzzy = FindClosestProviderModel(providerType, cleanModel);
+        var metadata = fuzzy is null
+            ? new LLMModelMetadata { Id = cleanModel, DisplayName = cleanModel }
+            : ModelMetadataCatalog.Clone(fuzzy.Metadata);
+
+        // Fuzzy matching supplies characteristics, never a replacement model identity.
+        metadata.Id = cleanModel;
+        metadata.DisplayName = cleanModel;
+        metadata.ProviderType = providerType ?? metadata.ProviderType;
+        metadata.Aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(metadata.Id))
+            metadata.Id = cleanModel;
+        if (string.IsNullOrWhiteSpace(metadata.DisplayName))
+            metadata.DisplayName = metadata.Id;
+        metadata.ProviderType = ModelMetadataCatalog.NormalizeProviderType(metadata.ProviderType) ?? metadata.ProviderType;
+        if (string.IsNullOrWhiteSpace(metadata.ProviderType) && !string.IsNullOrWhiteSpace(providerType))
+            metadata.ProviderType = providerType;
+
+        ModelMetadataCatalog.ApplyHeuristicDefaults(metadata, providerType, cleanModel);
+        return new LLMModelMetadataResolution(
+            metadata,
+            fuzzy is null ? LLMModelMetadataMatchKind.Heuristic : LLMModelMetadataMatchKind.Fuzzy,
+            fuzzy?.Metadata.ProviderType ?? providerType,
+            fuzzy?.ModelId,
+            fuzzy?.Similarity);
+    }
+
+    private ExactResolution ResolveExact(string? providerType, string model)
+    {
         var cleanModel = ModelMetadataCatalog.StripVendorPrefix(model);
         var canonicalModel = ResolveAlias(providerType, model) ?? ResolveAlias(providerType, cleanModel);
+        var directKeys = CandidateKeys(providerType, model, cleanModel, canonicalModel: null);
+        var hasDirectEntry = directKeys.Any(HasDirectEntry);
         var candidateKeys = CandidateKeys(providerType, model, cleanModel, canonicalModel);
-        var metadata = candidateKeys
+        var builtin = candidateKeys
             .Select(key => ModelMetadataCatalog.TryGetBuiltinCore(key, out var candidate) ? candidate : null)
-            .FirstOrDefault(candidate => candidate != null)
+            .FirstOrDefault(candidate => candidate != null);
+        var hasMergedEntry = candidateKeys.Any(key => _fileModels.ContainsKey(key) || _inlineOverrides.ContainsKey(key));
+        var isRecognized = hasDirectEntry || canonicalModel != null || builtin != null || hasMergedEntry;
+        var metadata = builtin
             ?? new LLMModelMetadata { Id = canonicalModel ?? cleanModel, DisplayName = canonicalModel ?? cleanModel };
 
         foreach (var key in candidateKeys.Reverse())
@@ -52,8 +112,207 @@ public sealed class LLMModelMetadataResolver
             metadata.ProviderType = providerType;
 
         ModelMetadataCatalog.ApplyHeuristicDefaults(metadata, providerType, cleanModel);
-        return metadata;
+        var matchKind = !hasDirectEntry && canonicalModel != null
+            ? LLMModelMetadataMatchKind.Alias
+            : LLMModelMetadataMatchKind.Exact;
+        return new ExactResolution(
+            metadata,
+            isRecognized,
+            matchKind,
+            isRecognized ? ModelMetadataCatalog.StripVendorPrefix(canonicalModel ?? metadata.Id) : null);
     }
+
+    private bool HasDirectEntry(string key)
+        => ModelMetadataCatalog.TryGetBuiltinModel(key, out _)
+           || (_fileModels.ContainsKey(key) && !_fileAliases.ContainsKey(key))
+           || _inlineOverrides.ContainsKey(key);
+
+    private FuzzyCandidate? FindClosestProviderModel(string? providerType, string model)
+    {
+        providerType = ModelMetadataCatalog.NormalizeProviderType(providerType);
+        if (string.IsNullOrWhiteSpace(providerType) || string.IsNullOrWhiteSpace(model))
+            return null;
+
+        var candidateLookups = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in ModelMetadataCatalog.EnumerateBuiltinModels())
+            AddFuzzyCandidate(candidateLookups, entry.Key, entry.Value, providerType);
+        foreach (var entry in _fileModels)
+            AddFuzzyCandidate(candidateLookups, entry.Key, entry.Value, providerType);
+        foreach (var entry in _inlineOverrides)
+            AddFuzzyCandidate(candidateLookups, entry.Key, entry.Value, providerType);
+
+        var normalizedRequested = NormalizeForFuzzyMatch(model);
+        if (normalizedRequested.Length == 0)
+            return null;
+
+        FuzzyCandidate? best = null;
+        foreach (var candidateEntry in candidateLookups)
+        {
+            var candidateId = candidateEntry.Key;
+            var exact = ResolveExact(providerType, candidateEntry.Value);
+            if (!exact.IsRecognized)
+                continue;
+
+            var matchTerms = new List<string> { candidateId };
+            if (!string.IsNullOrWhiteSpace(exact.Metadata.DisplayName))
+                matchTerms.Add(exact.Metadata.DisplayName);
+
+            var normalizedTerms = matchTerms
+                .Select(NormalizeForFuzzyMatch)
+                .Where(term => term.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (normalizedTerms.Length == 0)
+                continue;
+
+            var bestTerm = normalizedTerms
+                .Select(term => new
+                {
+                    Similarity = CalculateSimilarity(normalizedRequested, term),
+                    PrefixLength = LongestCommonPrefixLength(normalizedRequested, term)
+                })
+                .OrderByDescending(value => value.Similarity)
+                .ThenByDescending(value => value.PrefixLength)
+                .First();
+
+            var candidate = new FuzzyCandidate(
+                candidateId,
+                exact.Metadata,
+                bestTerm.Similarity,
+                bestTerm.PrefixLength);
+            if (best is null || IsBetterCandidate(candidate, best))
+                best = candidate;
+        }
+
+        return best;
+    }
+
+    private static void AddFuzzyCandidate(
+        IDictionary<string, string> candidateLookups,
+        string key,
+        LLMModelMetadata metadata,
+        string requestedProviderType)
+    {
+        string? candidateProvider;
+        string candidateId;
+        if (ModelMetadataCatalog.TrySplitProviderQualifiedKey(key, out var providerFromKey, out var modelFromKey))
+        {
+            candidateProvider = providerFromKey;
+            candidateId = modelFromKey;
+        }
+        else
+        {
+            candidateProvider = ModelMetadataCatalog.NormalizeProviderType(metadata.ProviderType);
+            candidateId = string.IsNullOrWhiteSpace(metadata.Id) ? key : metadata.Id;
+        }
+
+        if (string.Equals(candidateProvider, requestedProviderType, StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(candidateId))
+        {
+            candidateLookups[candidateId] = key;
+        }
+    }
+
+    private static bool IsBetterCandidate(FuzzyCandidate candidate, FuzzyCandidate current)
+    {
+        var scoreComparison = candidate.Similarity.CompareTo(current.Similarity);
+        if (scoreComparison != 0)
+            return scoreComparison > 0;
+
+        var prefixComparison = candidate.PrefixLength.CompareTo(current.PrefixLength);
+        if (prefixComparison != 0)
+            return prefixComparison > 0;
+
+        var ignoreCaseComparison = StringComparer.OrdinalIgnoreCase.Compare(candidate.ModelId, current.ModelId);
+        return ignoreCaseComparison < 0
+               || (ignoreCaseComparison == 0 && StringComparer.Ordinal.Compare(candidate.ModelId, current.ModelId) < 0);
+    }
+
+    private static string NormalizeForFuzzyMatch(string value)
+    {
+        // Provider-qualified catalog keys are stripped when candidate ids are collected.
+        // Keep inner deployment namespaces such as "azure/" because they are part of the model id.
+        var clean = value.Trim().ToLowerInvariant();
+        var builder = new System.Text.StringBuilder(clean.Length);
+        var previousWasSeparator = false;
+        foreach (var ch in clean)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                builder.Append(ch);
+                previousWasSeparator = false;
+            }
+            else if (!previousWasSeparator && builder.Length > 0)
+            {
+                builder.Append('-');
+                previousWasSeparator = true;
+            }
+        }
+
+        if (builder.Length > 0 && builder[^1] == '-')
+            builder.Length--;
+        return builder.ToString();
+    }
+
+    private static double CalculateSimilarity(string left, string right)
+    {
+        if (string.Equals(left, right, StringComparison.Ordinal))
+            return 1d;
+
+        var maxLength = Math.Max(left.Length, right.Length);
+        if (maxLength == 0)
+            return 1d;
+
+        return 1d - (double)CalculateLevenshteinDistance(left, right) / maxLength;
+    }
+
+    private static int CalculateLevenshteinDistance(string left, string right)
+    {
+        if (left.Length > right.Length)
+            (left, right) = (right, left);
+
+        var previous = new int[left.Length + 1];
+        var current = new int[left.Length + 1];
+        for (var i = 0; i <= left.Length; i++)
+            previous[i] = i;
+
+        for (var rightIndex = 1; rightIndex <= right.Length; rightIndex++)
+        {
+            current[0] = rightIndex;
+            for (var leftIndex = 1; leftIndex <= left.Length; leftIndex++)
+            {
+                var substitutionCost = left[leftIndex - 1] == right[rightIndex - 1] ? 0 : 1;
+                current[leftIndex] = Math.Min(
+                    Math.Min(current[leftIndex - 1] + 1, previous[leftIndex] + 1),
+                    previous[leftIndex - 1] + substitutionCost);
+            }
+
+            (previous, current) = (current, previous);
+        }
+
+        return previous[left.Length];
+    }
+
+    private static int LongestCommonPrefixLength(string left, string right)
+    {
+        var length = Math.Min(left.Length, right.Length);
+        var index = 0;
+        while (index < length && left[index] == right[index])
+            index++;
+        return index;
+    }
+
+    private sealed record ExactResolution(
+        LLMModelMetadata Metadata,
+        bool IsRecognized,
+        LLMModelMetadataMatchKind MatchKind,
+        string? MatchedModelId);
+
+    private sealed record FuzzyCandidate(
+        string ModelId,
+        LLMModelMetadata Metadata,
+        double Similarity,
+        int PrefixLength);
 
     private string? ResolveAlias(string? providerType, string key)
     {
@@ -350,6 +609,12 @@ public static partial class ModelMetadataCatalog
 
         metadata = default!;
         return false;
+    }
+
+    internal static IEnumerable<KeyValuePair<string, LLMModelMetadata>> EnumerateBuiltinModels()
+    {
+        foreach (var entry in BuiltinModels)
+            yield return entry;
     }
 
     private static IEnumerable<string> ProviderAwareLookupKeys(string? providerType, string modelName)
@@ -726,8 +991,3 @@ public static partial class ModelMetadataCatalog
         return values;
     }
 }
-
-
-
-
-
