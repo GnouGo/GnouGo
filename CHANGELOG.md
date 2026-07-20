@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.13.0 - 2026-07-20
+
+- feat: update gnougo svg (release) (fd127e2)
+
 ## v0.12.2 - 2026-07-18
 
 - fix: llm selection (#59) (release) (c19b69b)
