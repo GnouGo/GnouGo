@@ -104,6 +104,63 @@ public sealed class GnouGnouBearSvgGeneratorTests
     }
 
     [Fact]
+    public void Generate_MultipleAccessories_RendersFirstThreeDistinctAccessories()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Accessories =
+            [
+                GnouGnouBearAccessory.Necktie,
+                GnouGnouBearAccessory.SoccerBall,
+                GnouGnouBearAccessory.Crown,
+                GnouGnouBearAccessory.Rocket
+            ]
+        });
+
+        Assert.Contains("L141 215 L128 229", svg, StringComparison.Ordinal);
+        Assert.Contains("M190 199 L199 206", svg, StringComparison.Ordinal);
+        Assert.Contains("M96 54 L111 34", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("C205 158 207 184", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_AccessoryColorVariant_ChangesAccessoryPalette()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Accessory = GnouGnouBearAccessory.Laptop,
+            AccessoryColorVariant = 2
+        });
+
+        Assert.Contains("#527FE8", svg, StringComparison.Ordinal);
+        Assert.Contains("#315CB9", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_Beard_RendersDeterministicBeard()
+    {
+        var options = new GnouGnouBearOptions { Seed = 42, HasBeard = true };
+
+        var first = GnouGnouBearSvgGenerator.Generate(options);
+        var second = GnouGnouBearSvgGenerator.Generate(options);
+
+        Assert.Equal(first, second);
+        Assert.Contains("opacity=\"0.99\"", first, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_HeadphonesAccessory_ShowsHiddenHeadphones()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            HasHeadphones = false,
+            Accessories = [GnouGnouBearAccessory.Headphones]
+        });
+
+        Assert.Contains("rx=\"22\" ry=\"32\" fill=\"#243B86\"", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Generate_AllEnumValues_GenerateValidNonEmptySvg()
     {
         foreach (var role in Enum.GetValues<GnouGnouBearRole>())

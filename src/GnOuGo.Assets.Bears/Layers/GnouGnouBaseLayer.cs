@@ -2,7 +2,7 @@ namespace GnOuGo.Assets.Bears.Layers;
 
 internal static class GnouGnouBaseLayer
 {
-    public static string Defs(GnouGnouBearFurPalette furPalette)
+    public static string Defs(GnouGnouBearFurPalette furPalette, AccessoryPalette accessoryPalette)
     {
         var palette = FurPaletteValues.From(furPalette);
 
@@ -32,18 +32,18 @@ internal static class GnouGnouBaseLayer
       <stop offset="100%" stop-color="#120403"/>
     </radialGradient>
     <linearGradient id="blue" x1="42" y1="46" x2="218" y2="132" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#78DCFF"/>
-      <stop offset="42%" stop-color="#349CF0"/>
-      <stop offset="100%" stop-color="#254EA9"/>
+      <stop offset="0%" stop-color="{accessoryPalette.Light}"/>
+      <stop offset="42%" stop-color="{accessoryPalette.Accent}"/>
+      <stop offset="100%" stop-color="{accessoryPalette.Dark}"/>
     </linearGradient>
     <linearGradient id="blue-dark" x1="46" y1="70" x2="210" y2="138" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#2E6ED1"/>
-      <stop offset="100%" stop-color="#1F3F91"/>
+      <stop offset="0%" stop-color="{accessoryPalette.Accent}"/>
+      <stop offset="100%" stop-color="{accessoryPalette.Deep}"/>
     </linearGradient>
     <linearGradient id="bow" x1="88" y1="162" x2="168" y2="188" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#8CF7F1"/>
-      <stop offset="52%" stop-color="#44D3DD"/>
-      <stop offset="100%" stop-color="#18A6BD"/>
+      <stop offset="0%" stop-color="{accessoryPalette.Light}"/>
+      <stop offset="52%" stop-color="{accessoryPalette.Tint}"/>
+      <stop offset="100%" stop-color="{accessoryPalette.Dark}"/>
     </linearGradient>
     <filter id="drop" x="-25%" y="-25%" width="150%" height="150%">
       <feDropShadow dx="0" dy="3" stdDeviation="2.6" flood-color="#26344D" flood-opacity="0.16"/>
@@ -67,11 +67,11 @@ internal static class GnouGnouBaseLayer
 """;
     }
 
-    public static string BodyBeforeFace(bool hasHeadphones, bool hasBowTie)
+    public static string BodyBeforeFace(bool hasHeadphones, bool hasBowTie, AccessoryPalette accessoryPalette)
     {
         var headphonesBand = hasHeadphones
-            ? """
-    <path d="M58 108 C56 38 200 38 198 108" fill="none" stroke="#253B86" stroke-width="18"/>
+            ? $"""
+    <path d="M58 108 C56 38 200 38 198 108" fill="none" stroke="{accessoryPalette.Deep}" stroke-width="18"/>
     <path d="M63 105 C64 48 192 48 193 105" fill="none" stroke="url(#blue)" stroke-width="11"/>
 """
             : "";
@@ -109,28 +109,28 @@ internal static class GnouGnouBaseLayer
 """;
     }
 
-    public static string AfterFace(bool hasHeadphones, bool hasBowTie)
+    public static string AfterFace(bool hasHeadphones, bool hasBowTie, AccessoryPalette accessoryPalette)
     {
         var headphones = hasHeadphones
-            ? """
-    <ellipse cx="52" cy="105" rx="22" ry="32" fill="#243B86"/>
-    <ellipse cx="204" cy="105" rx="22" ry="32" fill="#243B86"/>
-    <ellipse cx="58" cy="105" rx="22" ry="30" fill="url(#blue)" stroke="#243B86" stroke-width="3.9"/>
-    <ellipse cx="198" cy="105" rx="22" ry="30" fill="url(#blue)" stroke="#243B86" stroke-width="3.9"/>
-    <ellipse cx="57" cy="101" rx="11" ry="19" fill="#C4F6FF" opacity="0.78"/>
-    <ellipse cx="199" cy="101" rx="11" ry="19" fill="#C4F6FF" opacity="0.78"/>
-    <path d="M47 90 C41 101 42 116 49 127" fill="none" stroke="#88E6FF" stroke-width="3" opacity="0.46"/>
-    <path d="M209 90 C215 101 214 116 207 127" fill="none" stroke="#88E6FF" stroke-width="3" opacity="0.46"/>
+            ? $"""
+    <ellipse cx="52" cy="105" rx="22" ry="32" fill="{accessoryPalette.Deep}"/>
+    <ellipse cx="204" cy="105" rx="22" ry="32" fill="{accessoryPalette.Deep}"/>
+    <ellipse cx="58" cy="105" rx="22" ry="30" fill="url(#blue)" stroke="{accessoryPalette.Deep}" stroke-width="3.9"/>
+    <ellipse cx="198" cy="105" rx="22" ry="30" fill="url(#blue)" stroke="{accessoryPalette.Deep}" stroke-width="3.9"/>
+    <ellipse cx="57" cy="101" rx="11" ry="19" fill="{accessoryPalette.Light}" opacity="0.78"/>
+    <ellipse cx="199" cy="101" rx="11" ry="19" fill="{accessoryPalette.Light}" opacity="0.78"/>
+    <path d="M47 90 C41 101 42 116 49 127" fill="none" stroke="{accessoryPalette.Tint}" stroke-width="3" opacity="0.46"/>
+    <path d="M209 90 C215 101 214 116 207 127" fill="none" stroke="{accessoryPalette.Tint}" stroke-width="3" opacity="0.46"/>
     <circle cx="67" cy="88" r="4" fill="#FFFFFF" opacity="0.86"/>
     <circle cx="189" cy="88" r="4" fill="#FFFFFF" opacity="0.86"/>
 """
             : "";
 
         var bowTie = hasBowTie
-            ? """
-    <path d="M117 169 C106 156 90 151 84 160 C77 171 87 187 99 187 C107 187 113 182 117 177 Z" fill="url(#bow)" stroke="#118795" stroke-width="3"/>
-    <path d="M139 169 C150 156 166 151 172 160 C179 171 169 187 157 187 C149 187 143 182 139 177 Z" fill="url(#bow)" stroke="#118795" stroke-width="3"/>
-    <rect x="115" y="161" width="26" height="29" rx="11" fill="#38CAD4" stroke="#118795" stroke-width="3"/>
+            ? $"""
+    <path d="M117 169 C106 156 90 151 84 160 C77 171 87 187 99 187 C107 187 113 182 117 177 Z" fill="url(#bow)" stroke="{accessoryPalette.Dark}" stroke-width="3"/>
+    <path d="M139 169 C150 156 166 151 172 160 C179 171 169 187 157 187 C149 187 143 182 139 177 Z" fill="url(#bow)" stroke="{accessoryPalette.Dark}" stroke-width="3"/>
+    <rect x="115" y="161" width="26" height="29" rx="11" fill="{accessoryPalette.Accent}" stroke="{accessoryPalette.Dark}" stroke-width="3"/>
     <path d="M98 164 C104 169 110 173 116 175" stroke="#C8FFFF" stroke-width="2" opacity="0.68"/>
     <path d="M158 164 C152 169 146 173 140 175" stroke="#C8FFFF" stroke-width="2" opacity="0.68"/>
     <path d="M121 166 C125 164 132 164 136 166" stroke="#D5FFFF" stroke-width="1.6" opacity="0.58"/>

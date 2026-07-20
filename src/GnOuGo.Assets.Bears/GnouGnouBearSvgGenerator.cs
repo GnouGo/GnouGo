@@ -18,6 +18,10 @@ public static class GnouGnouBearSvgGenerator
             throw new ArgumentOutOfRangeException(nameof(options), options.Size, "Size must be between 64 and 1024.");
 
         var stableRandom = new StableRandom(options.Seed);
+        var accessories = NormalizeAccessories(options);
+        var accessoryPalette = AccessoryPalette.FromVariant(options.AccessoryColorVariant);
+        var hasHeadphones = options.HasHeadphones || accessories.Contains(GnouGnouBearAccessory.Headphones);
+        var hasBowTie = options.HasBowTie || accessories.Contains(GnouGnouBearAccessory.BowTie);
         var title = SvgText.Escape(options.Title ?? DefaultTitle);
         var description = SvgText.Escape(options.Description ?? DefaultDescription);
 
@@ -27,20 +31,36 @@ public static class GnouGnouBearSvgGenerator
         builder.Append("  <title id=\"gnougnou-title\">").Append(title).AppendLine("</title>");
         builder.Append("  <desc id=\"gnougnou-desc\">").Append(description).AppendLine("</desc>");
         builder.AppendLine();
-        builder.Append(GnouGnouBaseLayer.Defs(options.FurPalette));
+        builder.Append(GnouGnouBaseLayer.Defs(options.FurPalette, accessoryPalette));
         builder.AppendLine();
         builder.Append(BackgroundLayer.Render(options.Theme));
         builder.Append(GnouGnouBaseLayer.OpenMascotGroup());
-        builder.Append(GnouGnouBaseLayer.BodyBeforeFace(options.HasHeadphones, options.HasBowTie));
+        builder.Append(GnouGnouBaseLayer.BodyBeforeFace(hasHeadphones, hasBowTie, accessoryPalette));
         builder.Append(EyesLayer.Render(options.Emotion, options.EyeStyle, ref stableRandom));
         builder.Append(MouthLayer.Render(options.Emotion));
-        builder.Append(GnouGnouBaseLayer.AfterFace(options.HasHeadphones, options.HasBowTie));
-        builder.Append(AccessoryLayer.Render(options.Accessory, ref stableRandom));
+        builder.Append(BeardLayer.Render(options.HasBeard, ref stableRandom));
+        builder.Append(GnouGnouBaseLayer.AfterFace(hasHeadphones, hasBowTie, accessoryPalette));
+        builder.Append(AccessoryLayer.Render(accessories, ref stableRandom, accessoryPalette));
         builder.Append(RoleBadgeLayer.Render(options.Role, ref stableRandom));
         builder.Append(StateLayer.Render(options.State, ref stableRandom));
         builder.Append(GnouGnouBaseLayer.CloseMascotGroup());
         builder.Append("</svg>");
 
         return builder.ToString();
+    }
+
+    private static IReadOnlyList<GnouGnouBearAccessory> NormalizeAccessories(GnouGnouBearOptions options)
+    {
+        var source = options.Accessories.Count > 0
+            ? options.Accessories
+            : options.Accessory == GnouGnouBearAccessory.None
+                ? []
+                : [options.Accessory];
+
+        return source
+            .Where(static accessory => accessory != GnouGnouBearAccessory.None)
+            .Distinct()
+            .Take(3)
+            .ToArray();
     }
 }

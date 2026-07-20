@@ -3,6 +3,9 @@ namespace GnOuGo.Assets.Bears;
 public enum GnouGnouBearAccessory
 {
     None,
+    Headphones,
+    BowTie,
+    Necktie,
     Glasses,
     Laptop,
     Shield,
@@ -11,5 +14,11 @@ public enum GnouGnouBearAccessory
     Magnifier,
     MagicWand,
     Stars,
-    Umbrella
+    Umbrella,
+    SoccerBall,
+    TennisRacket,
+    Crown,
+    CoffeeMug,
+    Compass,
+    Rocket
 }
