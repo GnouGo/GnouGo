@@ -55,8 +55,8 @@ and actors follow the same SVG route geometry while walking. Short bookkeeping
 steps stay in the event feed without adding desks, roads, pauses, or poses.
 
 Synthetic laptop work intentionally varies by task: MCP work can be quick or
-steady, while LLM work uses a steady or
-longer deep-focus duration. These timings remain deterministic for a seed.
+steady, while LLM work uses a steady or longer deep-focus duration. These
+timings remain deterministic for a seed.
 
 One evolving `task-root` project parcel represents the work. It falls from the
 sky, travels with the active actor, crosses workflow handoffs, gains completion

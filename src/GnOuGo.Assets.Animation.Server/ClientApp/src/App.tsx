@@ -14,6 +14,15 @@ import type {
 
 interface Position { x: number; y: number }
 interface RigTransform { angle: number; x: number; y: number; scaleX: number; scaleY: number }
+interface AmbientLife {
+  breath: number
+  look: number
+  blink: number
+  leftEar: number
+  rightEar: number
+  mouth: number
+  yawn: number
+}
 type MotionMode = 'walk' | 'arc' | 'drop' | 'work' | 'spawn' | 'merge' | 'complete' | 'sky'
 type CharacterAction = 'walk' | 'arrive' | 'pickup' | 'handoff' | 'type' | 'wait' | 'deliver' | 'think' | 'communicate' | 'write' | 'plan' | 'ask' | 'build' | 'clone' | 'merge' | 'celebrate' | 'fail'
 
@@ -48,6 +57,31 @@ function nextFrame(): Promise<void> {
 
 function easeInOut(value: number): number {
   return value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2
+}
+
+function periodicPulse(seconds: number, period: number, phaseOffset: number, halfWidth: number): number {
+  const phase = ((seconds / period + phaseOffset) % 1 + 1) % 1
+  const distance = Math.min(Math.abs(phase - .5), 1 - Math.abs(phase - .5))
+  if (distance >= halfWidth) return 0
+  const value = 1 - distance / halfWidth
+  return value * value * (3 - 2 * value)
+}
+
+function ambientLifeAt(now: number, seed: number): AmbientLife {
+  const seconds = now / 1000
+  const stableSeed = Math.abs(seed || 1)
+  const breathPeriod = 6.8 + stableSeed % 6 * .22
+  const lookPeriod = 12.5 + stableSeed % 8 * .37
+  const phase = (stableSeed % 97) / 97
+  return {
+    breath: Math.sin((seconds / breathPeriod + phase) * Math.PI * 2),
+    look: Math.sin((seconds / lookPeriod + phase * .7) * Math.PI * 2),
+    blink: periodicPulse(seconds, 6.1 + stableSeed % 7 * .43, phase * .83, .018),
+    leftEar: periodicPulse(seconds, 9.5 + stableSeed % 5 * .71, phase * .61, .055),
+    rightEar: periodicPulse(seconds, 11.3 + stableSeed % 7 * .63, phase * .37 + .29, .05),
+    mouth: Math.sin((seconds / (9.2 + stableSeed % 5 * .41) + phase) * Math.PI * 2),
+    yawn: periodicPulse(seconds, 48 + stableSeed % 19, phase * .47 + .13, .048),
+  }
 }
 
 function actionForStep(stepType?: string): CharacterAction {
@@ -221,6 +255,12 @@ export default function App() {
     poseAnimationsRef.current.clear()
     deskAnimationsRef.current.forEach(animation => animation.cancel())
     deskAnimationsRef.current = []
+    svgHostRef.current?.querySelectorAll<SVGGraphicsElement>('.gnougo-actor').forEach(actor => {
+      actor.querySelectorAll<SVGGraphicsElement>('[data-part]').forEach(part => part.removeAttribute('transform'))
+      const effects = rigPart(actor, 'action-fx')
+      if (effects) effects.setAttribute('opacity', '0')
+      actor.setAttribute('data-pose', 'idle')
+    })
   }, [])
 
   const resetCharacterPose = useCallback((actorId?: string) => {
@@ -275,10 +315,12 @@ export default function App() {
     const mouth = rigPart(actor, 'mouth')
     const bowTie = rigPart(actor, 'bow-tie')
     const effects = rigPart(actor, 'action-fx')
+    const visualSeed = Number(actor.getAttribute('data-visual-seed') ?? 1)
     const initialTransforms = new Map<SVGGraphicsElement, RigTransform>()
     actor.querySelectorAll<SVGGraphicsElement>('[data-part]').forEach(part => {
       initialTransforms.set(part, readRigTransform(part))
     })
+    const poseTargets = new Map<SVGGraphicsElement, RigTransform>()
     let poseBlend = 0
     const setRigTransform = (
       part: SVGGraphicsElement | null,
@@ -289,16 +331,25 @@ export default function App() {
       scaleY = 1,
     ) => {
       if (!part) return
-      const initial = initialTransforms.get(part) ?? { angle: 0, x: 0, y: 0, scaleX: 1, scaleY: 1 }
-      const blend = poseBlend * poseBlend * (3 - 2 * poseBlend)
-      applyRigTransform(
-        part,
-        initial.angle + (angle - initial.angle) * blend,
-        initial.x + (x - initial.x) * blend,
-        initial.y + (y - initial.y) * blend,
-        initial.scaleX + (scaleX - initial.scaleX) * blend,
-        initial.scaleY + (scaleY - initial.scaleY) * blend,
-      )
+      poseTargets.set(part, { angle, x, y, scaleX, scaleY })
+    }
+    const addRigTransform = (
+      part: SVGGraphicsElement | null,
+      angle = 0,
+      x = 0,
+      y = 0,
+      scaleX = 0,
+      scaleY = 0,
+    ) => {
+      if (!part) return
+      const target = poseTargets.get(part) ?? { angle: 0, x: 0, y: 0, scaleX: 1, scaleY: 1 }
+      poseTargets.set(part, {
+        angle: target.angle + angle,
+        x: target.x + x,
+        y: target.y + y,
+        scaleX: target.scaleX * (1 + scaleX),
+        scaleY: target.scaleY * (1 + scaleY),
+      })
     }
 
     const render = (now: number) => {
@@ -310,10 +361,13 @@ export default function App() {
       const wave = Math.sin(elapsedSeconds * Math.PI * 1.9) * gesture
       const fastWave = Math.sin(elapsedSeconds * Math.PI * 2.2) * gesture
       const bounce = Math.abs(wave)
-      const blink = actualDuration >= 700
+      const life = ambientLifeAt(now, visualSeed)
+      const actionBlink = actualDuration >= 700
         ? Math.max(0, 1 - Math.abs(progress - .62) / .035)
         : 0
-      const eyeScale = 1 - blink * .9
+      const ambientStrength = action === 'type' || action === 'wait' || action === 'think' ? .72 : .34
+      const eyeClose = Math.max(actionBlink, life.blink * ambientStrength, life.yawn * .52)
+      const eyeScale = 1 - eyeClose * .9
       let pupilX = direction * 1.4
       let pupilY = 0
       let effectOpacity = 0
@@ -529,8 +583,38 @@ export default function App() {
 
       setRigTransform(leftEye, 0, 0, 0, 1, eyeScale)
       setRigTransform(rightEye, 0, 0, 0, 1, eyeScale)
-      setRigTransform(leftPupil, 0, pupilX, pupilY)
-      setRigTransform(rightPupil, 0, pupilX, pupilY)
+      setRigTransform(leftPupil, 0, pupilX + life.look * .55 * ambientStrength, pupilY + life.breath * .12)
+      setRigTransform(rightPupil, 0, pupilX + life.look * .55 * ambientStrength, pupilY + life.breath * .12)
+
+      addRigTransform(body, life.breath * .12 * ambientStrength, 0, -Math.abs(life.breath) * .2, 0, life.breath * .002)
+      addRigTransform(head, life.look * .32 * ambientStrength - life.yawn * 2.2, 0, -Math.abs(life.breath) * .18)
+      addRigTransform(leftEar, life.leftEar * 3.8 * ambientStrength + life.breath * .35)
+      addRigTransform(rightEar, -life.rightEar * 3.4 * ambientStrength - life.breath * .28)
+      addRigTransform(
+        mouth,
+        life.mouth * .35 * ambientStrength,
+        0,
+        life.yawn * 1.8,
+        life.mouth * .012 * ambientStrength,
+        life.yawn * 1.15 + Math.abs(life.mouth) * .018 * ambientStrength,
+      )
+      if ((action === 'wait' || action === 'think') && life.yawn > 0) {
+        addRigTransform(rightArm, -36 * life.yawn)
+        addRigTransform(leftArm, 5 * life.yawn)
+      }
+
+      const blend = poseBlend * poseBlend * (3 - 2 * poseBlend)
+      poseTargets.forEach((target, part) => {
+        const initial = initialTransforms.get(part) ?? { angle: 0, x: 0, y: 0, scaleX: 1, scaleY: 1 }
+        applyRigTransform(
+          part,
+          initial.angle + (target.angle - initial.angle) * blend,
+          initial.x + (target.x - initial.x) * blend,
+          initial.y + (target.y - initial.y) * blend,
+          initial.scaleX + (target.scaleX - initial.scaleX) * blend,
+          initial.scaleY + (target.scaleY - initial.scaleY) * blend,
+        )
+      })
       if (effects) {
         effects.setAttribute('opacity', String(effectOpacity))
         effects.setAttribute('transform', `translate(0 ${-bounce * 8}) scale(${1 + bounce * .08})`)
@@ -556,22 +640,44 @@ export default function App() {
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       if (!reduced) {
         svgHostRef.current?.querySelectorAll<SVGGraphicsElement>('.gnougo-actor[data-visible="true"]').forEach(actor => {
-          if (actor.getAttribute('data-pose') !== 'idle') return
+          const pose = actor.getAttribute('data-pose')
+          if (pose !== 'idle' && pose !== 'fail') return
           const seed = Number(actor.getAttribute('data-visual-seed') ?? 1)
-          const phase = now / 1000 + (Math.abs(seed) % 37) * .19
-          const breath = Math.sin(phase * 1.35)
-          const look = Math.sin(phase * .42)
-          const twitchWave = Math.pow(Math.max(0, Math.sin(phase * .75)), 28)
-          const blink = Math.pow(Math.max(0, Math.sin(phase * .95)), 34)
+          const life = ambientLifeAt(now, seed)
+          if (pose === 'fail') {
+            applyRigTransform(rigPart(actor, 'body'), life.breath * .08, 0, 7 - Math.abs(life.breath) * .16, 1, .95 + life.breath * .002)
+            applyRigTransform(rigPart(actor, 'head'), 12 + life.look * .24, 0, 11 - Math.abs(life.breath) * .12)
+            applyRigTransform(rigPart(actor, 'arm-left'), -8 + life.breath * .18)
+            applyRigTransform(rigPart(actor, 'arm-right'), 8 - life.breath * .18)
+            applyRigTransform(rigPart(actor, 'ear-left'), -16 + life.leftEar * 2)
+            applyRigTransform(rigPart(actor, 'ear-right'), 16 - life.rightEar * 2)
+            applyRigTransform(rigPart(actor, 'eye-left'), 0, 0, 0, 1, 1 - life.blink * .9)
+            applyRigTransform(rigPart(actor, 'eye-right'), 0, 0, 0, 1, 1 - life.blink * .9)
+            applyRigTransform(rigPart(actor, 'pupil-left'), 0, life.look * .25, 5)
+            applyRigTransform(rigPart(actor, 'pupil-right'), 0, life.look * .25, 5)
+            applyRigTransform(rigPart(actor, 'mouth'), life.mouth * .16, 0, 3, 1, .7 + Math.abs(life.mouth) * .012)
+            return
+          }
+          const eyeClose = Math.max(life.blink, life.yawn * .58)
 
-          applyRigTransform(rigPart(actor, 'body'), breath * .45, 0, -Math.abs(breath) * .7, 1, 1 + breath * .004)
-          applyRigTransform(rigPart(actor, 'head'), look * .85, 0, -Math.abs(breath) * .5)
-          applyRigTransform(rigPart(actor, 'ear-left'), twitchWave * 7 + breath)
-          applyRigTransform(rigPart(actor, 'ear-right'), -twitchWave * 5 - breath)
-          applyRigTransform(rigPart(actor, 'eye-left'), 0, 0, 0, 1, 1 - blink * .9)
-          applyRigTransform(rigPart(actor, 'eye-right'), 0, 0, 0, 1, 1 - blink * .9)
-          applyRigTransform(rigPart(actor, 'pupil-left'), 0, look * 1.25, breath * .3)
-          applyRigTransform(rigPart(actor, 'pupil-right'), 0, look * 1.25, breath * .3)
+          applyRigTransform(rigPart(actor, 'body'), life.breath * .22, 0, -Math.abs(life.breath) * .45, 1, 1 + life.breath * .004)
+          applyRigTransform(rigPart(actor, 'head'), life.look * .62 - life.yawn * 3.8, 0, -Math.abs(life.breath) * .32 - life.yawn * 1.2)
+          applyRigTransform(rigPart(actor, 'arm-left'), 5 * life.yawn)
+          applyRigTransform(rigPart(actor, 'arm-right'), -58 * life.yawn)
+          applyRigTransform(rigPart(actor, 'ear-left'), life.leftEar * 7 + life.breath * .55 - life.yawn * 2)
+          applyRigTransform(rigPart(actor, 'ear-right'), -life.rightEar * 6 - life.breath * .45 + life.yawn * 2)
+          applyRigTransform(rigPart(actor, 'eye-left'), 0, 0, 0, 1, 1 - eyeClose * .9)
+          applyRigTransform(rigPart(actor, 'eye-right'), 0, 0, 0, 1, 1 - eyeClose * .9)
+          applyRigTransform(rigPart(actor, 'pupil-left'), 0, life.look * .9, life.breath * .16)
+          applyRigTransform(rigPart(actor, 'pupil-right'), 0, life.look * .9, life.breath * .16)
+          applyRigTransform(
+            rigPart(actor, 'mouth'),
+            life.mouth * .42,
+            0,
+            -1 + life.yawn * 2.4,
+            1.04 + life.mouth * .012,
+            1.08 + life.yawn * 1.42 + Math.abs(life.mouth) * .02,
+          )
         })
       }
       ambientFrameRef.current = requestAnimationFrame(renderAmbient)
@@ -1137,6 +1243,7 @@ export default function App() {
             <h2>Preview workflow</h2>
             <p>Only long-running LLM and MCP work becomes a clean isometric laptop desk. GnOuGos follow curved, translucent asphalt routes between those desks.</p>
             <p>Parallel, foreach, decision, and handoff signs appear only when they lead to visible long-running work. The demo intentionally alternates faster MCP tasks and longer LLM focus sessions.</p>
+            <p>Slow breathing, blinking, mouth movement, independent ear twitches, and rare yawns keep every visible GnOuGo alive between actions and during long tasks.</p>
             <p>This parser is intentionally independent. It resembles GnOuGo.Flow YAML but does not validate or execute Flow.Core.</p>
           </section>
 

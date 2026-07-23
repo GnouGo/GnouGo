@@ -6,11 +6,12 @@ base SVG, and streams synthetic timer-driven events as NDJSON. It has no
 database, persisted sessions, or dependency on any `GnOuGo.Flow` project.
 
 The React client displays a Mermaid-inspired, top-down canvas with one vertical
-swimlane per workflow invocation. Every atomic step is a clean isometric desk
-with an open laptop, animated keyboard, and chair. Forks, joins, loops,
-decisions, and returns use isometric signposts. Wide curved roads use rough SVG
-edges, ruts, and deterministic roadside stones; walking actors follow those
-exact paths. The full SVG has dynamic dimensions and is viewed through a
+swimlane per visible workflow invocation. Long-running LLM/MCP tasks use clean
+isometric desks with open laptops, animated keyboards, and chairs. Useful
+forks, joins, loops, decisions, and returns use isometric signposts; composites
+without long work are collapsed. Wide curved roads use semi-transparent
+asphalt, subtle wear, and deterministic roadside stones; walking actors follow
+those exact paths. The full SVG has dynamic dimensions and is viewed through a
 fixed-height, two-axis viewport with zoom, fit-width, centering, drag
 navigation, and optional active-actor auto-follow.
 
@@ -20,6 +21,11 @@ bobbing, blinking, and directional eyes. At desks they type with alternating
 hands and fingers while keyboard keys and monitors react. Calls use synchronized
 give/receive poses across workflow lanes; matrix branches split and merge;
 waiting, delivery, celebration, and failure have distinct poses.
+
+Idle actors and long-running poses share a deliberately slow ambient life
+cycle: breathing, occasional blinks, small mouth changes, independent ear
+twitches, and rare deterministic yawns. Purposeful actions remain dominant,
+and reduced-motion preferences disable ambient cycling.
 
 Demo work alternates deterministically between quick, steady, and deep-focus
 laptop sessions. One evolving project parcel falls from the sky, follows the active GnOuGo,
@@ -78,9 +84,11 @@ Scenes are `Random`, `Office`, `Meadow`, and `Kitchen`. Supported speeds are
 
 Version 1 accepts a document name, entrypoint, workflows, and steps. It
 understands `sequence`, `parallel`, `loop.sequential`, `loop.parallel`,
-`switch`, defaults, and static local `workflow.call` references. Every other
-non-empty step type is displayed as atomic work, so names such as `llm.call`,
-`mcp.call`, and future types remain visual-only.
+`switch`, defaults, and static local `workflow.call` references. The event
+stream records every non-empty atomic step type, but the canvas intentionally
+creates desks and character work only for `llm.*` and `mcp.*` tasks. Composite
+signposts and static call handoffs are collapsed when their subtree contains no
+visible LLM/MCP work. All task types remain preview-only and are never executed.
 
 ```yaml
 version: 1
@@ -107,7 +115,7 @@ workflows:
   helper:
     steps:
       - id: format
-        type: template.render
+        type: llm.call
 ```
 
 Literal loop counts and arrays are previewed up to five iterations. Runtime

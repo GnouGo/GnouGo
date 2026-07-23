@@ -158,8 +158,11 @@ public sealed class AnimationPlannerAndRendererTests
         Assert.Contains("class=\"parcel-stamp\"", svg, StringComparison.Ordinal);
         Assert.Contains("class=\"isometric-desk\"", svg, StringComparison.Ordinal);
         Assert.Contains("class=\"laptop-screen\"", svg, StringComparison.Ordinal);
+        Assert.Contains("class=\"laptop-side\"", svg, StringComparison.Ordinal);
+        Assert.Contains("class=\"laptop-trackpad\"", svg, StringComparison.Ordinal);
         Assert.Contains("class=\"isometric-sign\"", svg, StringComparison.Ordinal);
         Assert.Contains("class=\"route-surface\"", svg, StringComparison.Ordinal);
+        Assert.Contains("stroke: rgba(55,65,71,.59)", svg, StringComparison.Ordinal);
         Assert.Contains("class=\"route-stone\"", svg, StringComparison.Ordinal);
         Assert.Contains("data-route-path=\"true\"", svg, StringComparison.Ordinal);
     }
@@ -187,6 +190,44 @@ public sealed class AnimationPlannerAndRendererTests
         Assert.NotNull(mcp.StationId);
         Assert.NotNull(llm.StationId);
         Assert.Contains("without a visual workstation", quick.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build_HidesShortSubtreesButRetainsUsefulParallelAndForeachTransitions()
+    {
+        var plan = GnouGnouAnimationPlanner.Build(Valid("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: bookkeeping
+                    type: sequence
+                    steps:
+                      - id: short-parallel
+                        type: parallel
+                        branches:
+                          - { name: one, steps: [{ id: assign, type: set }] }
+                          - { name: two, steps: [{ id: notify, type: emit }] }
+                  - id: useful-foreach
+                    type: loop.sequential
+                    input: { count: 2 }
+                    steps:
+                      - { id: query-tool, type: mcp.call }
+                  - id: cleanup
+                    type: template.render
+            """), new GnouGnouAnimationOptions { Seed = 27 });
+
+        Assert.DoesNotContain(plan.Nodes, node => node.StepId is "bookkeeping" or "short-parallel" or "assign" or "notify" or "cleanup");
+        Assert.Contains(plan.Nodes, node => node.StepId == "useful-foreach" && node.Kind == AnimationFlowNodeKind.Loop);
+        Assert.Single(plan.Stations, station => station.StepId == "query-tool");
+        Assert.DoesNotContain(plan.Events, item =>
+            item.Type is SimulationEventTypes.ActorCloned or SimulationEventTypes.ActorMerged);
+        Assert.All(
+            plan.Events.Where(item => item.StepId is "assign" or "notify" or "cleanup"),
+            item => Assert.Null(item.StationId));
+        Assert.DoesNotContain(plan.Events, item =>
+            item.Type == SimulationEventTypes.ActorMoved
+            && item.StepId is "bookkeeping" or "short-parallel" or "assign" or "notify" or "cleanup");
     }
 
     [Fact]

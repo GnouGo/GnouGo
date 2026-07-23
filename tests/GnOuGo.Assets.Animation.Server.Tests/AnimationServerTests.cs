@@ -95,6 +95,8 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains("data-node-kind=\"desk\"", prepared.Svg, StringComparison.Ordinal);
         Assert.Contains("data-station-kind=\"keyboarddesk\"", prepared.Svg, StringComparison.Ordinal);
         Assert.Contains("data-station-kind=\"deliverydock\"", prepared.Svg, StringComparison.Ordinal);
+        Assert.Contains("data-step-id=\"think\"", prepared.Svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-step-id=\"finish\"", prepared.Svg, StringComparison.Ordinal);
         Assert.Equal(prepared.Svg, secondPrepared.Prepared?.Svg);
 
         var events = first.Skip(1).Select(item => Assert.IsType<SimulationEvent>(item.Event)).ToArray();
@@ -195,14 +197,18 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
 
         var manyBranches = new StringBuilder("version: 1\nworkflows:\n  main:\n    steps:\n      - id: fork\n        type: parallel\n        branches:\n");
         for (var index = 0; index < 17; index++)
-            manyBranches.Append("          - name: branch-").Append(index).Append("\n            steps:\n              - id: branch-step-").Append(index).Append("\n                type: set\n");
+            manyBranches.Append("          - name: branch-").Append(index).Append("\n            steps:\n              - id: branch-step-").Append(index).Append("\n                type: mcp.call\n");
 
         var cloneError = Assert.Throws<SimulationRequestException>(() => service.Prepare(Request(manyBranches.ToString())));
         Assert.Equal("CLONE_LIMIT", cloneError.Code);
 
         var manyCalls = new StringBuilder("version: 1\nworkflows:\n  main:\n    steps:\n");
         for (var index = 0; index < 32; index++)
-            manyCalls.Append("      - id: call-").Append(index).Append("\n        type: workflow.route\n");
+        {
+            manyCalls.Append("      - id: call-").Append(index)
+                .Append("\n        type: workflow.call\n        input:\n          ref: { kind: local, name: helper }\n");
+        }
+        manyCalls.Append("  helper:\n    steps:\n      - id: long-work\n        type: llm.call\n");
 
         var actorError = Assert.Throws<SimulationRequestException>(() => service.Prepare(Request(manyCalls.ToString())));
         Assert.Equal("ACTOR_LIMIT", actorError.Code);
