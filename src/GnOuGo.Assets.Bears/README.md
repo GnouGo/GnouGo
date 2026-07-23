@@ -31,6 +31,14 @@ var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
 - Fur palettes, eye styles, headphones, bow ties, and accessories can be varied without raster assets.
 - `Title` and `Description` are XML-escaped before being written into the SVG.
 - `Size` must be between `64` and `1024`.
+- Set `SvgIdPrefix` when embedding multiple mascots in one SVG document so every
+  gradient, filter, title, and description ID remains unique.
+- Set `EnableAnimationRig` to render opt-in semantic groups for the head,
+  independently movable left/right ears, eyes, pupils, mouth, arms, hands,
+  legs, bow tie, and action effects. Each movable group includes a stable
+  `data-part` name and pivot coordinates for a host to animate. The SVG remains
+  script-free, and the option is disabled by default to preserve the existing
+  static output byte-for-byte.
 
 ## Build
 

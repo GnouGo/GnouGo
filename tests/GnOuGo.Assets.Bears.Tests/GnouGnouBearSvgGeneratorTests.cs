@@ -261,4 +261,82 @@ public sealed class GnouGnouBearSvgGeneratorTests
         Assert.Contains("fill=\"url(#eye)\"", svg, StringComparison.Ordinal);
         Assert.Contains("fill=\"#F79AA0\"", svg, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Generate_SvgIdPrefix_NamespacesDefinitionsAndReferences()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            SvgIdPrefix = "actor-master"
+        });
+
+        Assert.Contains("id=\"actor-master-gnougnou-title\"", svg, StringComparison.Ordinal);
+        Assert.Contains("id=\"actor-master-fur\"", svg, StringComparison.Ordinal);
+        Assert.Contains("url(#actor-master-fur)", svg, StringComparison.Ordinal);
+        Assert.Contains("aria-labelledby=\"actor-master-gnougnou-title actor-master-gnougnou-desc\"", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("id=\"fur\"", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_WithoutSvgIdPrefix_PreservesLegacyIdsAndReferences()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions());
+
+        Assert.Contains("id=\"gnougnou-title\"", svg, StringComparison.Ordinal);
+        Assert.Contains("id=\"fur\"", svg, StringComparison.Ordinal);
+        Assert.Contains("url(#fur)", svg, StringComparison.Ordinal);
+        Assert.Contains("aria-labelledby=\"gnougnou-title gnougnou-desc\"", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_AnimationRig_ExposesSemanticBodyParts()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            EnableAnimationRig = true,
+            HasBeard = true
+        });
+
+        Assert.Contains("data-animation-rig=\"true\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"head\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"ear-left\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"ear-right\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"cheek-left\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"cheek-right\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"arm-left\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"arm-right\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"leg-left\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"leg-right\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"pupil-left\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"mouth\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"beard\"", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-part=\"ground-shadow\"", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_DisabledAnimationRig_PreservesDefaultOutput()
+    {
+        var implicitDefault = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions { Seed = 27 });
+        var explicitDefault = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Seed = 27,
+            EnableAnimationRig = false
+        });
+
+        Assert.Equal(implicitDefault, explicitDefault);
+        Assert.DoesNotContain("data-animation-rig", implicitDefault, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("two words")]
+    [InlineData("9actor")]
+    [InlineData("actor<script>")]
+    public void Generate_InvalidSvgIdPrefix_Throws(string prefix)
+    {
+        Assert.Throws<ArgumentException>(() => GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            SvgIdPrefix = prefix
+        }));
+    }
 }
