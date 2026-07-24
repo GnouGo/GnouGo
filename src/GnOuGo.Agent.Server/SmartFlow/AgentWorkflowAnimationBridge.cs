@@ -37,12 +37,17 @@ public sealed class AgentWorkflowAnimationBridge
 {
     private readonly WorkflowLiveAnimationSession _session;
     private readonly Action<SmartFlowEvent> _emit;
+    private readonly string _entrypoint;
+    private readonly object _sync = new();
+    private bool _hasWorkflowStarted;
 
     private AgentWorkflowAnimationBridge(
         WorkflowLiveAnimationSession session,
+        string entrypoint,
         Action<SmartFlowEvent> emit)
     {
         _session = session;
+        _entrypoint = entrypoint;
         _emit = emit;
     }
 
@@ -83,12 +88,58 @@ public sealed class AgentWorkflowAnimationBridge
             Animation: new AnimationStreamPayload(Prepared: prepared));
         return new AgentWorkflowAnimationBridge(
             new WorkflowLiveAnimationSession(plan, options),
+            plan.Entrypoint,
             emit);
     }
 
     public void Apply(AnimationExecutionSignal signal)
     {
-        foreach (var update in _session.Apply(signal))
+        lock (_sync)
+        {
+            if (signal.Kind == AnimationExecutionSignalKind.WorkflowStarted)
+                _hasWorkflowStarted = true;
+            Emit(_session.Apply(signal));
+        }
+    }
+
+    /// <summary>
+    /// Gives pre-execution validation failures a visible terminal path. Flow can
+    /// reject inputs before opening its first telemetry span; without this
+    /// fallback the prepared scene would otherwise remain permanently static.
+    /// </summary>
+    public void FailBeforeWorkflowStart(string? message)
+    {
+        lock (_sync)
+        {
+            if (_hasWorkflowStarted)
+                return;
+
+            const string instanceId = "workflow-preflight";
+            _hasWorkflowStarted = true;
+            Emit(_session.Apply(new AnimationExecutionSignal
+            {
+                Kind = AnimationExecutionSignalKind.WorkflowStarted,
+                WorkflowInstanceId = instanceId,
+                WorkflowName = _entrypoint,
+                Status = SimulationStatus.Running,
+                Message = $"Workflow '{_entrypoint}' is starting."
+            }));
+            Emit(_session.Apply(new AnimationExecutionSignal
+            {
+                Kind = AnimationExecutionSignalKind.WorkflowCompleted,
+                WorkflowInstanceId = instanceId,
+                WorkflowName = _entrypoint,
+                Status = SimulationStatus.Failed,
+                Message = string.IsNullOrWhiteSpace(message)
+                    ? "The workflow failed before its first step could start."
+                    : message
+            }));
+        }
+    }
+
+    private void Emit(IReadOnlyList<AnimationLiveUpdate> updates)
+    {
+        foreach (var update in updates)
         {
             if (update.ScenePatch is not null)
             {

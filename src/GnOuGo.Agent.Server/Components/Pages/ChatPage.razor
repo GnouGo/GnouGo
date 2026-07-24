@@ -171,7 +171,7 @@
                                         <div class="gnougo-workflow-card__stage-toolbar">
                                             <span>@execution.LaneCount lane@(execution.LaneCount == 1 ? "" : "s")</span>
                                             <span>@execution.NodeCount visual node@(execution.NodeCount == 1 ? "" : "s")</span>
-                                            <span>Live telemetry</span>
+                                            <span>Live telemetry · @execution.LastEventType</span>
                                         </div>
                                         <div id="@execution.HostId"
                                              @key="execution.HostId"
@@ -628,9 +628,10 @@
         public int LaneCount { get; set; }
         public int NodeCount { get; set; }
         public string Status { get; set; } = "Starting";
+        public string LastEventType { get; set; } = "waiting for workflow";
         public bool IsExpanded { get; set; } = true;
         public bool NeedsMount { get; set; } = true;
-        public List<AnimationLiveUpdate> PendingUpdates { get; } = [];
+        public Queue<AnimationLiveUpdate> PendingUpdates { get; } = new();
         public List<ExecutionActivityItem> Activity { get; } = [];
         public List<(string Question, string Answer)> HumanInputSummaries { get; } = [];
     }
@@ -672,6 +673,7 @@
     private string? _activeExecutionCorrelationId;
     private AppVersionDto? _appVersion;
     private bool _animationInteropRetryPending;
+    private readonly SemaphoreSlim _animationInteropGate = new(1, 1);
     private bool _disposed;
 
     /// <summary>Default typewriter pause in ms after natural text breaks.</summary>
@@ -1588,7 +1590,8 @@
                 {
                     if (GetExecution(correlationId) is { } execution)
                     {
-                        execution.PendingUpdates.Add(new AnimationLiveUpdate { ScenePatch = patch });
+                        execution.PendingUpdates.Enqueue(new AnimationLiveUpdate { ScenePatch = patch });
+                        execution.LastEventType = "scene patch";
                         execution.LaneCount += patch.Lanes.Count;
                         execution.NodeCount += patch.Nodes.Count;
                         StateHasChanged();
@@ -1600,7 +1603,8 @@
                 {
                     if (GetExecution(correlationId) is { } execution)
                     {
-                        execution.PendingUpdates.Add(new AnimationLiveUpdate { Event = animationEvent });
+                        execution.PendingUpdates.Enqueue(new AnimationLiveUpdate { Event = animationEvent });
+                        execution.LastEventType = animationEvent.Type;
                         ApplyExecutionStatus(execution, animationEvent);
                         StateHasChanged();
                     }
@@ -1845,7 +1849,8 @@
         if (GetExecution(_activeExecutionCorrelationId) is { } execution)
         {
             execution.Status = "Stopped";
-            execution.PendingUpdates.Add(new AnimationLiveUpdate
+            execution.LastEventType = SimulationEventTypes.SimulationCancelled;
+            execution.PendingUpdates.Enqueue(new AnimationLiveUpdate
             {
                 Event = new SimulationEvent
                 {
@@ -1936,65 +1941,85 @@
 
     private async Task FlushAnimationInteropAsync()
     {
-        foreach (var execution in _executions.Values)
-        {
-            try
-            {
-                if (execution.NeedsMount)
-                {
-                    var mounted = await Js.InvokeAsync<bool>(
-                        "GnOuGo.Agent.workflowAnimation.mount",
-                        execution.HostId,
-                        execution.Prepared);
-                    if (!mounted)
-                    {
-                        ScheduleAnimationInteropRetry();
-                        return;
-                    }
-                    execution.NeedsMount = false;
-                }
+        if (!await _animationInteropGate.WaitAsync(0))
+            return;
 
-                while (execution.PendingUpdates.Count > 0)
+        try
+        {
+            foreach (var execution in _executions.Values.ToArray())
+            {
+                try
                 {
-                    var update = execution.PendingUpdates[0];
-                    if (update.ScenePatch is not null)
+                    if (execution.NeedsMount)
                     {
-                        var applied = await Js.InvokeAsync<bool>(
-                            "GnOuGo.Agent.workflowAnimation.applyPatch",
+                        var mounted = await Js.InvokeAsync<bool>(
+                            "GnOuGo.Agent.workflowAnimation.mount",
                             execution.HostId,
-                            update.ScenePatch);
-                        if (!applied)
+                            execution.Prepared);
+                        if (!mounted)
                         {
-                            execution.NeedsMount = true;
                             ScheduleAnimationInteropRetry();
                             return;
                         }
+                        execution.NeedsMount = false;
                     }
-                    if (update.Event is not null)
+
+                    while (execution.PendingUpdates.TryPeek(out var update))
                     {
-                        var applied = await Js.InvokeAsync<bool>(
-                            "GnOuGo.Agent.workflowAnimation.applyEvent",
-                            execution.HostId,
-                            update.Event);
-                        if (!applied)
+                        if (update.ScenePatch is not null)
                         {
-                            execution.NeedsMount = true;
-                            ScheduleAnimationInteropRetry();
-                            return;
+                            var applied = await Js.InvokeAsync<bool>(
+                                "GnOuGo.Agent.workflowAnimation.applyPatch",
+                                execution.HostId,
+                                update.ScenePatch);
+                            if (!applied)
+                            {
+                                execution.NeedsMount = true;
+                                ScheduleAnimationInteropRetry();
+                                return;
+                            }
                         }
+                        if (update.Event is not null)
+                        {
+                            var applied = await Js.InvokeAsync<bool>(
+                                "GnOuGo.Agent.workflowAnimation.applyEvent",
+                                execution.HostId,
+                                update.Event);
+                            if (!applied)
+                            {
+                                execution.NeedsMount = true;
+                                ScheduleAnimationInteropRetry();
+                                return;
+                            }
+                        }
+                        execution.PendingUpdates.Dequeue();
                     }
-                    execution.PendingUpdates.RemoveAt(0);
                 }
-            }
-            catch (JSDisconnectedException)
-            {
-                return;
-            }
-            catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
-            {
-                return;
+                catch (JSDisconnectedException)
+                {
+                    return;
+                }
+                catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+                {
+                    return;
+                }
+                catch (JSException ex)
+                {
+                    execution.Status = "Animation error";
+                    execution.LastEventType = ex.Message;
+                    ScheduleAnimationInteropRetry();
+                    return;
+                }
             }
         }
+        finally
+        {
+            _animationInteropGate.Release();
+        }
+
+        if (_executions.Values.Any(static execution =>
+                execution.NeedsMount || execution.PendingUpdates.Count > 0))
+            ScheduleAnimationInteropRetry();
     }
 
     private void ScheduleAnimationInteropRetry()

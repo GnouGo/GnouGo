@@ -401,6 +401,7 @@ public sealed class SmartFlowService
                 catch (Exception ex)
                 {
                     error = ex;
+                    animationBridge?.FailBeforeWorkflowStart(ex.Message);
                 }
                 finally
                 {

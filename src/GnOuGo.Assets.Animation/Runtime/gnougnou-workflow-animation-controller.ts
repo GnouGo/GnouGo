@@ -103,6 +103,7 @@ export class GnouGnouWorkflowAnimationController {
   private readonly liveEventQueue: WorkflowSimulationEvent[] = []
   private readonly persistentActionTimers = new Map<string, number>()
   private liveEventTimer: number | undefined
+  private appliedEventCount = 0
   private generation = 0
 
   constructor(
@@ -113,6 +114,11 @@ export class GnouGnouWorkflowAnimationController {
 
   attach() {
     this.positions.clear()
+    this.appliedEventCount = 0
+    this.setHostDiagnostic('data-animation-state', 'attached')
+    this.setHostDiagnostic('data-animation-event-count', '0')
+    this.setHostDiagnostic('data-animation-last-event', '')
+    this.setHostDiagnostic('data-animation-error', '')
     this.characters.startAmbient()
   }
 
@@ -138,6 +144,7 @@ export class GnouGnouWorkflowAnimationController {
    */
   enqueueEvent(event: WorkflowSimulationEvent) {
     this.liveEventQueue.push(event)
+    this.setHostDiagnostic('data-animation-queued-events', String(this.liveEventQueue.length))
     if (this.liveEventTimer === undefined) this.playNextLiveEvent()
   }
 
@@ -292,14 +299,33 @@ export class GnouGnouWorkflowAnimationController {
     const event = this.liveEventQueue.shift()
     if (!event) {
       this.liveEventTimer = undefined
+      this.setHostDiagnostic('data-animation-queued-events', '0')
       return
     }
 
-    this.applyEvent(event)
-    this.liveEventTimer = window.setTimeout(() => {
-      this.liveEventTimer = undefined
-      this.playNextLiveEvent()
-    }, this.livePresentationGap(event))
+    this.setHostDiagnostic('data-animation-queued-events', String(this.liveEventQueue.length))
+    try {
+      this.applyEvent(event)
+      this.appliedEventCount += 1
+      this.setHostDiagnostic('data-animation-state', 'playing')
+      this.setHostDiagnostic('data-animation-event-count', String(this.appliedEventCount))
+      this.setHostDiagnostic('data-animation-last-event', event.type)
+      this.setHostDiagnostic('data-animation-error', '')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      this.setHostDiagnostic('data-animation-state', 'recovering')
+      this.setHostDiagnostic('data-animation-error', message)
+      console.error('[GnOuGo.Animation] Could not apply live workflow event.', event, error)
+    } finally {
+      this.liveEventTimer = window.setTimeout(() => {
+        this.liveEventTimer = undefined
+        this.playNextLiveEvent()
+      }, this.livePresentationGap(event))
+    }
+  }
+
+  private setHostDiagnostic(name: string, value: string) {
+    this.root()?.setAttribute(name, value)
   }
 
   private livePresentationGap(event: WorkflowSimulationEvent): number {
@@ -390,11 +416,18 @@ export class GnouGnouWorkflowAnimationController {
 
   private find<T extends Element>(id?: string): T | null {
     if (!id) return null
-    try {
-      return this.root()?.querySelector<T>(`#${CSS.escape(id)}`) ?? null
-    } catch {
-      return null
+    const root = this.root()
+    if (!root) return null
+    const escape = globalThis.CSS?.escape
+    if (escape) {
+      try {
+        return root.querySelector<T>(`#${escape(id)}`)
+      } catch {
+        // Fall through to an exact id comparison for older embedded webviews.
+      }
     }
+    return Array.from(root.querySelectorAll<T>('[id]'))
+      .find(element => element.id === id) ?? null
   }
 
   private readPosition(id: string): Position {

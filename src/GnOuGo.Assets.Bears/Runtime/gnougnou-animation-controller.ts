@@ -529,13 +529,20 @@ export class GnouGnouAnimationController {
   private findActor(actorId: string): SVGGraphicsElement | null {
     const root = this.root()
     if (!root) return null
-    try {
-      if (root instanceof SVGGraphicsElement && root.id === actorId)
-        return root
-      return root.querySelector<SVGGraphicsElement>(`#${CSS.escape(actorId)}`)
-    } catch {
-      return null
+    if (typeof SVGGraphicsElement !== 'undefined'
+      && root instanceof SVGGraphicsElement
+      && root.id === actorId)
+      return root
+    const escape = globalThis.CSS?.escape
+    if (escape) {
+      try {
+        return root.querySelector<SVGGraphicsElement>(`#${escape(actorId)}`)
+      } catch {
+        // Fall through to an exact id comparison for older embedded webviews.
+      }
     }
+    return Array.from(root.querySelectorAll<SVGGraphicsElement>('[id]'))
+      .find(element => element.id === actorId) ?? null
   }
 
   private resetActor(actor: SVGGraphicsElement) {

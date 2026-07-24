@@ -202,6 +202,41 @@ public sealed class WorkflowTelemetryAdapterTests
     }
 
     [Fact]
+    public void AnimationBridge_PreStartFailureDoesNotLeavePreparedSceneStatic()
+    {
+        var events = new List<SmartFlowEvent>();
+        var bridge = AgentWorkflowAnimationBridge.Create(
+            """
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - { id: model, type: llm.call }
+            """,
+            "main",
+            "1234567890abcdef1234567890abcdef",
+            events.Add,
+            out _);
+
+        bridge.FailBeforeWorkflowStart("A required workflow input is missing.");
+
+        var animationEvents = events
+            .Where(item => item.Type == "animation.event")
+            .Select(item => item.Animation?.Event)
+            .OfType<SimulationEvent>()
+            .ToArray();
+
+        Assert.Contains(animationEvents, item => item.Type == SimulationEventTypes.ActorSpawned);
+        Assert.Contains(animationEvents, item => item.Type == SimulationEventTypes.TaskDropped);
+        Assert.Contains(animationEvents, item =>
+            item.Type == SimulationEventTypes.SimulationCompleted
+            && item.Status == SimulationStatus.Failed);
+        Assert.Contains(animationEvents, item =>
+            item.Message == "A required workflow input is missing.");
+    }
+
+    [Fact]
     public void CompositeTelemetry_RoutedChildKeepsLiveAnimationMovingAfterRootStart()
     {
         const string routingYaml = """
@@ -339,10 +374,13 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("height: auto;", styles, StringComparison.Ordinal);
         Assert.Contains("max-width: none;", styles, StringComparison.Ordinal);
         Assert.Contains("InvokeAsync<bool>", chatPage, StringComparison.Ordinal);
+        Assert.Contains("_animationInteropGate", chatPage, StringComparison.Ordinal);
+        Assert.Contains("PendingUpdates.TryPeek", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("CollapseExecutionLaterAsync", chatPage, StringComparison.Ordinal);
         Assert.Contains("BeforeTargets=\"Build;PrepareForPublish\"", project, StringComparison.Ordinal);
         Assert.Contains("enqueueEvent(event: WorkflowSimulationEvent)", runtime, StringComparison.Ordinal);
         Assert.Contains("persistentActionTimers", runtime, StringComparison.Ordinal);
+        Assert.Contains("data-animation-last-event", runtime, StringComparison.Ordinal);
         Assert.Contains("durationMs < 30_000", runtime, StringComparison.Ordinal);
     }
 

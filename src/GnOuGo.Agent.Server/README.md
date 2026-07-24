@@ -132,6 +132,19 @@ Additional `animation.prepared`, `animation.scene.patch`, and
 `animation.event` events use single-line, source-generated JSON payloads.
 Workflow YAML and inputs are not included in those animation payloads.
 
+Blazor serializes animation interop through a single guarded queue so
+overlapping post-render callbacks cannot remove or reorder live events. The
+browser controller records its applied-event count, latest event, pending
+queue size, and recoverable error on the scene host for runtime diagnostics.
+One malformed visual event is logged and skipped without stopping later
+workflow motion.
+
+Flow can reject invalid or missing inputs before its first telemetry span is
+opened. In that case Agent.Server emits a short failed startup and delivery
+sequence instead of leaving the prepared scene indefinitely at its first
+frame. Once workflow telemetry has started, only real workflow and step
+signals drive the scene.
+
 The Agent Vite bundle is incrementally rebuilt by normal `dotnet build` and
 `dotnet run` builds when Agent, Animation, or Bears frontend runtime sources
 change. Set `-p:SkipClientBuild=true` only when a previously built bundle is

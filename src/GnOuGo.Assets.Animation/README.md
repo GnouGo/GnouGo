@@ -101,6 +101,12 @@ live `step.started` and human-waiting signals are rendered as calm repeated
 action cycles and stop only when the corresponding completion, resume,
 cancellation, or failure event arrives.
 
+The controller continues draining queued telemetry after a recoverable visual
+error and exposes `data-animation-event-count`, `data-animation-last-event`,
+`data-animation-queued-events`, and `data-animation-error` on its host. Exact
+ID lookup includes a compatibility fallback for embedded webviews that do not
+provide `CSS.escape`.
+
 Default safety limits are 200 simulated step occurrences, 32 workflow actors,
 16 clones per fork, and five loop iterations. Callers can lower these limits
 through `GnouGnouAnimationOptions`.
