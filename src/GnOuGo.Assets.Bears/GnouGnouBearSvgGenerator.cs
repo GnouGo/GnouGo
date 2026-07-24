@@ -21,6 +21,8 @@ public static class GnouGnouBearSvgGenerator
 
         if (options.Size is < MinSize or > MaxSize)
             throw new ArgumentOutOfRangeException(nameof(options), options.Size, "Size must be between 64 and 1024.");
+        if (!Enum.IsDefined(options.Animation))
+            throw new ArgumentOutOfRangeException(nameof(options), options.Animation, "Unsupported GnOuGo animation.");
 
         ValidateSvgIdPrefix(options.SvgIdPrefix);
 
@@ -40,8 +42,9 @@ public static class GnouGnouBearSvgGenerator
         builder.AppendLine();
         builder.Append(GnouGnouBaseLayer.Defs(options.FurPalette, accessoryPalette));
         builder.AppendLine();
+        builder.Append(GnouGnouAnimationStyleLayer.Render(options.Animation));
         builder.Append(BackgroundLayer.Render(options.Theme));
-        if (options.EnableAnimationRig)
+        if (options.EnableAnimationRig || options.Animation != GnouGnouBearAnimation.None)
         {
             builder.Append(RiggedGnouGnouLayer.Render(options, hasHeadphones, hasBowTie, accessoryPalette));
         }

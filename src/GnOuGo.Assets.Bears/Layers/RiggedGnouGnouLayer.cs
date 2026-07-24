@@ -17,8 +17,9 @@ internal static class RiggedGnouGnouLayer
         var bowTie = hasBowTie ? RenderBowTie(palette) : string.Empty;
         var beard = options.HasBeard ? RenderBeard() : string.Empty;
 
+        var animation = GnouGnouBearAnimationNames.ToToken(options.Animation);
         return $$"""
-  <g class="gnougo-rig" data-animation-rig="true" filter="url(#drop)" stroke-linecap="round" stroke-linejoin="round">
+  <g class="gnougo-rig" data-animation-rig="true" data-animation="{{animation}}" data-animation-enabled="{{(options.Animation != GnouGnouBearAnimation.None ? "true" : "false")}}" filter="url(#drop)" stroke-linecap="round" stroke-linejoin="round">
     <g class="gnougo-part gnougo-leg-left" data-part="leg-left" data-pivot-x="104" data-pivot-y="179">
       <path d="M105 174 C97 180 90 194 87 212 C84 226 92 237 105 237 C119 237 123 226 120 213 C117 196 115 182 105 174Z" fill="url(#fur-light)" stroke="#71381F" stroke-width="3.8"/>
       <ellipse cx="102" cy="226" rx="15" ry="11" fill="#FFE2C1" stroke="#B77349" stroke-width="2.2"/>
@@ -89,8 +90,15 @@ internal static class RiggedGnouGnouLayer
       <path data-part="brow-right" data-pivot-x="152" data-pivot-y="83" d="M140 83q13-9 25-1" fill="none" stroke="#71381F" stroke-width="4"/>
       <path d="M118 126 Q128 118 138 126 Q136 137 128 137 Q120 137 118 126Z" fill="#3A1511"/>
       <g data-part="mouth" data-pivot-x="128" data-pivot-y="145">
-        <path d="M128 137v7M128 144q-11 12-22 1M128 144q11 12 22 1" fill="none" stroke="#6B261D" stroke-width="3.2"/>
-        <path d="M117 153q11 10 22 0" fill="#F47E86" stroke="#6B261D" stroke-width="2"/>
+        <g data-expression="default">
+          <path d="M128 137v7M128 144q-11 12-22 1M128 144q11 12 22 1" fill="none" stroke="#6B261D" stroke-width="3.2"/>
+          <path d="M117 153q11 10 22 0" fill="#F47E86" stroke="#6B261D" stroke-width="2"/>
+        </g>
+        <g data-expression="failure" opacity="0">
+          <path d="M128 137v6" fill="none" stroke="#6B261D" stroke-width="3.2"/>
+          <path d="M109 158 Q128 137 147 158" fill="none" stroke="#6B261D" stroke-width="3.6"/>
+          <path d="M109 158l-4 3M147 158l4 3" fill="none" stroke="#6B261D" stroke-width="2.4"/>
+        </g>
       </g>
 {{beard}}
     </g>

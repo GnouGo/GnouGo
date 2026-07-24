@@ -98,6 +98,45 @@ The Blazor chat composer resolves the active/default agent workflow through `Sma
 - `array`, `object`, `dictionary`, and `any` fields accept JSON or YAML text;
 - the UI sends structured `JsonObject` workflow inputs to `SmartFlowService` while keeping a masked Markdown summary in the chat history for sensitive-looking field names such as `key`, `secret`, `password`, or `token`.
 
+## Live workflow animation in chat
+
+Regular workflow-backed chat requests render a transient
+`GnOuGo.Assets.Animation` scene between the user message and the final
+assistant response. The scene follows real workflow telemetry: stable workflow
+instances and step occurrences drive walking, laptop work, parallel clones,
+runtime workflow handoffs, parcel completion, failure, and final delivery. It
+never runs a second synthetic timer.
+
+The browser keeps a short presentation queue so very fast real events still
+produce visible walking, typing, handoff, and delivery motion without delaying
+the workflow. A long-running real step repeats a calm action cycle until its
+authoritative `step.end` arrives: routing communicates, LLM work types, MCP
+work uses its communication pose, and HITL keeps waiting. Controller mounting
+is acknowledged before events leave the Blazor queue. The card and message bubbles use the full chat width; the SVG
+keeps its complete aspect ratio, has no maximum scene height, and is resized by
+a `ResizeObserver` when the application window changes.
+
+Thinking and technical progress are kept out of `ChatMessageDto` and local chat
+history. They are held in memory for the active execution and displayed from
+the card's **Activity** drawer. The existing trace drawer remains separate.
+Animation state is also transient and is not restored after a reload.
+
+`human.input` pauses the scene at a human-input counter and keeps the GnOuGo
+alive with calm waiting motion. Text, choice, confirmation, and structured
+controls appear attached to the live card; submitted values are summarized in
+that card instead of becoming chat messages. Timeout, cancellation, and
+failure update the same parcel and execution status.
+
+`/api/chat/stream` retains its existing SSE event names and text payloads.
+Additional `animation.prepared`, `animation.scene.patch`, and
+`animation.event` events use single-line, source-generated JSON payloads.
+Workflow YAML and inputs are not included in those animation payloads.
+
+The Agent Vite bundle is incrementally rebuilt by normal `dotnet build` and
+`dotnet run` builds when Agent, Animation, or Bears frontend runtime sources
+change. Set `-p:SkipClientBuild=true` only when a previously built bundle is
+known to be current.
+
 ## Main routing workflow and conversation history
 
 When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract missing structured inputs from the prompt/history, run them in parallel, and synthesize the final response. It also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.

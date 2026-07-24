@@ -30,6 +30,9 @@
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="Runtime\gnougnou-workflow-animation-controller.ts"
+          Pack="true"
+          PackagePath="contentFiles\any\any\Runtime\gnougnou-workflow-animation-controller.ts" />
   </ItemGroup>
 
 </Project>

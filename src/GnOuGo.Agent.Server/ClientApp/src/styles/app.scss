@@ -296,12 +296,16 @@ html, body {
 /* --------------------------- Messages ------------------------------------- */
 .gnougo-chat__messages {
   flex: 1;
+  width: 100%;
+  min-width: 0;
   overflow: auto;
   padding: 16px 16px 0;
 }
 
 .gnougo-chat__message {
   display: flex;
+  width: 100%;
+  min-width: 0;
   margin-bottom: 14px;
 }
 
@@ -333,7 +337,8 @@ html, body {
   display: flex;
   align-items: center;
   gap: 8px;
-  max-width: 900px;
+  width: 100%;
+  max-width: none;
   padding: 8px 14px;
   border-radius: var(--gnougo-radius);
   background: rgba(128, 128, 128, 0.08);
@@ -363,8 +368,8 @@ html, body {
 }
 
 .gnougo-chat__bubble {
-  max-width: 900px;
-  width: fit-content;
+  width: 100%;
+  max-width: none;
   border-radius: var(--gnougo-radius);
   border: 1px solid var(--gnougo-border);
   background: var(--gnougo-surface);
@@ -894,6 +899,329 @@ html, body {
   .gnougo-chat__agent-select {
     min-width: 120px;
     max-width: 44vw;
+  }
+}
+
+/* --------------------------- Live workflow animation --------------------- */
+.gnougo-chat__message--placeholder {
+  display: none;
+}
+
+.gnougo-workflow-card-wrap {
+  width: 100%;
+}
+
+.gnougo-workflow-card {
+  width: 100%;
+  max-width: none;
+  overflow: hidden;
+  border: 1px solid rgba(37, 99, 235, .24);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(56, 189, 248, .13), transparent 28%),
+    linear-gradient(145deg, #f8fbff, #eef7f5);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, .12);
+}
+
+.gnougo-workflow-card--compact {
+  box-shadow: 0 8px 28px rgba(15, 23, 42, .08);
+}
+
+.gnougo-workflow-card__header,
+.gnougo-workflow-card__identity,
+.gnougo-workflow-card__actions,
+.gnougo-workflow-card__stage-toolbar {
+  display: flex;
+  align-items: center;
+}
+
+.gnougo-workflow-card__header {
+  min-height: 66px;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(37, 99, 235, .14);
+  background: rgba(255, 255, 255, .88);
+  backdrop-filter: blur(14px);
+}
+
+.gnougo-workflow-card--compact .gnougo-workflow-card__header {
+  border-bottom: 0;
+}
+
+.gnougo-workflow-card__identity {
+  min-width: 0;
+  gap: 11px;
+}
+
+.gnougo-workflow-card__live-dot {
+  flex: 0 0 auto;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 5px rgba(34, 197, 94, .14);
+  animation: gnougo-live-pulse 2.6s ease-in-out infinite;
+}
+
+.gnougo-workflow-card[data-status="Failed"] .gnougo-workflow-card__live-dot {
+  background: #ef4444;
+}
+
+.gnougo-workflow-card__title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.gnougo-workflow-card__meta {
+  margin-top: 3px;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gnougo-workflow-card__actions {
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.gnougo-workflow-card__button {
+  appearance: none;
+  border: 1px solid rgba(37, 99, 235, .24);
+  border-radius: 999px;
+  padding: 6px 11px;
+  background: #fff;
+  color: #1d4ed8;
+  font: 700 12px var(--gnougo-font);
+  cursor: pointer;
+}
+
+.gnougo-workflow-card__button:hover {
+  border-color: rgba(37, 99, 235, .55);
+  background: #eff6ff;
+}
+
+.gnougo-workflow-card__content[hidden] {
+  display: none;
+}
+
+.gnougo-workflow-card__stage-toolbar {
+  gap: 16px;
+  padding: 8px 14px;
+  color: #526274;
+  background: rgba(255, 255, 255, .64);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.gnougo-workflow-card__stage {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(255,255,255,.1), rgba(255,255,255,.1)),
+    #dceff1;
+}
+
+.gnougo-workflow-card__stage > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: none;
+  transform-origin: 0 0;
+}
+
+.gnougo-workflow-card__hitl-summary {
+  display: grid;
+  gap: 6px;
+  padding: 12px 16px 14px;
+  border-top: 1px solid rgba(14, 116, 144, .18);
+  background: rgba(236, 254, 255, .88);
+  color: #164e63;
+  font-size: 12px;
+}
+
+.gnougo-workflow-card__hitl-summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.gnougo-workflow-card__hitl-summary code {
+  overflow: hidden;
+  max-width: 54%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gnougo-workflow-hitl {
+  width: 100%;
+  max-width: none;
+  margin-top: -14px;
+}
+
+.gnougo-workflow-hitl__panel {
+  width: 100%;
+  max-width: none;
+  border-color: rgba(14, 116, 144, .3);
+  border-top: 0;
+  border-radius: 0 0 20px 20px;
+  padding: 16px;
+  background: linear-gradient(145deg, #ecfeff, #f0fdfa);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, .1);
+}
+
+.gnougo-execution-panel__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  border: 0;
+  background: rgba(15, 23, 42, .3);
+}
+
+.gnougo-execution-panel {
+  position: fixed;
+  z-index: 61;
+  top: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(440px, 94vw);
+  height: 100vh;
+  color: #e2e8f0;
+  background: #0f172a;
+  border-left: 1px solid rgba(148, 163, 184, .2);
+  box-shadow: -20px 0 48px rgba(15, 23, 42, .28);
+  transform: translateX(102%);
+  transition: transform 180ms ease;
+}
+
+.gnougo-execution-panel--open {
+  transform: translateX(0);
+}
+
+.gnougo-execution-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border-bottom: 1px solid rgba(148, 163, 184, .18);
+  background: linear-gradient(180deg, #1e293b, #0f172a);
+}
+
+.gnougo-execution-panel__header h2 {
+  margin: 5px 0 0;
+  color: #f8fafc;
+  font-size: 21px;
+}
+
+.gnougo-execution-panel__eyebrow {
+  color: #67e8f9;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.gnougo-execution-panel__meta {
+  margin-top: 7px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.gnougo-execution-panel__close {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(148, 163, 184, .3);
+  border-radius: 11px;
+  color: #f8fafc;
+  background: rgba(30, 41, 59, .9);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.gnougo-execution-panel__body {
+  flex: 1;
+  overflow: auto;
+  padding: 14px;
+}
+
+.gnougo-execution-panel__empty {
+  padding: 20px;
+  border: 1px dashed rgba(148, 163, 184, .28);
+  border-radius: 14px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.gnougo-execution-panel__item {
+  margin-bottom: 9px;
+  padding: 11px 12px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 13px;
+  background: rgba(30, 41, 59, .72);
+}
+
+.gnougo-execution-panel__item--error {
+  border-color: rgba(248, 113, 113, .36);
+  background: rgba(127, 29, 29, .25);
+}
+
+.gnougo-execution-panel__item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.gnougo-execution-panel__item-meta code {
+  overflow: hidden;
+  color: #bae6fd;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.gnougo-execution-panel__item-message {
+  margin-top: 6px;
+  color: #e2e8f0;
+  font-size: 13px;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+@keyframes gnougo-live-pulse {
+  0%, 100% { transform: scale(1); opacity: .82; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gnougo-workflow-card__live-dot {
+    animation: none;
+  }
+
+  .gnougo-execution-panel {
+    transition: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .gnougo-workflow-card__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .gnougo-execution-panel {
+    width: 100vw;
   }
 }
 

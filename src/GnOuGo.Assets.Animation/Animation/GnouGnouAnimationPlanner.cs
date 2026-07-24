@@ -40,6 +40,45 @@ public static class GnouGnouAnimationPlanner
         return context.Build(entrypoint);
     }
 
+    /// <summary>
+    /// Builds the deterministic scene graph used by a live execution without
+    /// exposing the autonomous preview schedule to the consumer.
+    /// </summary>
+    public static GnouGnouAnimationPlan BuildLive(
+        WorkflowPreviewDocument document,
+        GnouGnouAnimationOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        return BuildLive(WorkflowPreviewValidator.Validate(document), options);
+    }
+
+    /// <summary>
+    /// Builds the deterministic scene graph used by a live execution without
+    /// exposing the autonomous preview schedule to the consumer.
+    /// </summary>
+    public static GnouGnouAnimationPlan BuildLive(
+        WorkflowPreviewValidationResult validation,
+        GnouGnouAnimationOptions? options = null)
+    {
+        var scheduled = Build(validation, options);
+        return new GnouGnouAnimationPlan
+        {
+            Seed = scheduled.Seed,
+            Scene = scheduled.Scene,
+            Entrypoint = scheduled.Entrypoint,
+            Actors = scheduled.Actors,
+            Stations = scheduled.Stations,
+            Lanes = scheduled.Lanes,
+            Nodes = scheduled.Nodes,
+            Edges = scheduled.Edges,
+            Bounds = scheduled.Bounds,
+            Tasks = scheduled.Tasks,
+            Events = [],
+            Warnings = scheduled.Warnings,
+            DurationMs = 0
+        };
+    }
+
     private static void ValidateOptions(GnouGnouAnimationOptions options)
     {
         if (options.MoveDurationMs <= 0 || options.WorkDurationMs <= 0 || options.HandoffDurationMs <= 0 || options.EffectDurationMs <= 0)

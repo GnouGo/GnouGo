@@ -336,7 +336,19 @@ internal static class WorkflowSceneLayoutBuilder
             string? branchId,
             bool selected)
         {
-            var desk = AddDesk(lane, instance, lane.WorkflowName, step.Id, step.Type, step.Id, new AnimationPoint(centerX, y), selected, branchId);
+            var desk = AddDesk(
+                lane,
+                instance,
+                lane.WorkflowName,
+                step.Id,
+                step.Type,
+                step.Id,
+                new AnimationPoint(centerX, y),
+                selected,
+                branchId,
+                step.Type.StartsWith("human.", StringComparison.OrdinalIgnoreCase)
+                    ? AnimationStationKind.Human
+                    : AnimationStationKind.KeyboardDesk);
             _stepNodes.TryAdd(StepKey(instance, step.Id), desk.Node.Id);
             AddEdge(previousNodeId, desk.Node.Id, AnimationFlowEdgeKind.Sequence, isSelected: selected);
             return new StepLayoutResult(desk.Node.Id, y + StepPitch);

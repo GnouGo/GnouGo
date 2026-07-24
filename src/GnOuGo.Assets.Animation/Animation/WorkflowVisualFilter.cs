@@ -9,7 +9,9 @@ internal static class WorkflowVisualFilter
         && (stepType.Equals("llm", StringComparison.OrdinalIgnoreCase)
             || stepType.StartsWith("llm.", StringComparison.OrdinalIgnoreCase)
             || stepType.Equals("mcp", StringComparison.OrdinalIgnoreCase)
-            || stepType.StartsWith("mcp.", StringComparison.OrdinalIgnoreCase));
+            || stepType.StartsWith("mcp.", StringComparison.OrdinalIgnoreCase)
+            || stepType.Equals("human", StringComparison.OrdinalIgnoreCase)
+            || stepType.StartsWith("human.", StringComparison.OrdinalIgnoreCase));
 
     public static bool StepsContainVisibleWork(
         WorkflowPreviewDocument document,

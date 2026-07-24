@@ -7,6 +7,7 @@
 @using Microsoft.Extensions.Logging.Abstractions
 @using Microsoft.JSInterop
 @using GnOuGo.Agent.Server.Components.Tracing
+@using GnOuGo.Assets.Animation
 @implements IAsyncDisposable
 
 @inject IJSRuntime Js
@@ -122,6 +123,7 @@
                     var isUser = string.Equals(msg.Role, "user", StringComparison.OrdinalIgnoreCase);
                     var isThinking = string.Equals(msg.Role, "thinking", StringComparison.OrdinalIgnoreCase);
                     var isThought = string.Equals(msg.Role, "thought", StringComparison.OrdinalIgnoreCase);
+                    var execution = isUser ? null : GetExecution(msg.CorrelationId);
 
                     @if (isThinking || isThought)
                     {
@@ -134,7 +136,65 @@
                     }
                     else
                     {
-                        <article class="gnougo-chat__message @(isUser ? "gnougo-chat__message--user" : "gnougo-chat__message--assistant")">
+                        @if (execution is not null)
+                        {
+                            <article class="gnougo-chat__message gnougo-chat__message--assistant gnougo-workflow-card-wrap">
+                                <section class="gnougo-workflow-card @(execution.IsExpanded ? "gnougo-workflow-card--expanded" : "gnougo-workflow-card--compact")"
+                                         aria-label="Live GnOuGo workflow execution">
+                                    <header class="gnougo-workflow-card__header">
+                                        <div class="gnougo-workflow-card__identity">
+                                            <span class="gnougo-workflow-card__live-dot"></span>
+                                            <div>
+                                                <div class="gnougo-workflow-card__title">GnOuGo team execution</div>
+                                                <div class="gnougo-workflow-card__meta">
+                                                    @execution.Entrypoint · @execution.Scene · @execution.Status
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="gnougo-workflow-card__actions">
+                                            <button type="button"
+                                                    class="gnougo-workflow-card__button"
+                                                    title="Open execution activity"
+                                                    @onclick="() => OpenExecutionSidebar(execution)">
+                                                Activity
+                                            </button>
+                                            <button type="button"
+                                                    class="gnougo-workflow-card__button"
+                                                    aria-expanded="@execution.IsExpanded"
+                                                    @onclick="() => ToggleExecutionCard(execution)">
+                                                @(execution.IsExpanded ? "Collapse" : "Expand")
+                                            </button>
+                                        </div>
+                                    </header>
+
+                                    <div class="gnougo-workflow-card__content" hidden="@(!execution.IsExpanded)">
+                                        <div class="gnougo-workflow-card__stage-toolbar">
+                                            <span>@execution.LaneCount lane@(execution.LaneCount == 1 ? "" : "s")</span>
+                                            <span>@execution.NodeCount visual node@(execution.NodeCount == 1 ? "" : "s")</span>
+                                            <span>Live telemetry</span>
+                                        </div>
+                                        <div id="@execution.HostId"
+                                             @key="execution.HostId"
+                                             class="gnougo-workflow-card__stage"
+                                             data-status="@execution.Status"
+                                             aria-label="Animated workflow scene"></div>
+
+                                        @if (execution.HumanInputSummaries.Count > 0)
+                                        {
+                                            <div class="gnougo-workflow-card__hitl-summary">
+                                                <strong>Human input received</strong>
+                                                @foreach (var summary in execution.HumanInputSummaries)
+                                                {
+                                                    <div><span>@summary.Question</span><code>@summary.Answer</code></div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </section>
+                            </article>
+                        }
+
+                        <article class="gnougo-chat__message @(isUser ? "gnougo-chat__message--user" : "gnougo-chat__message--assistant") @(!isUser && execution is not null && string.IsNullOrWhiteSpace(msg.Content) ? "gnougo-chat__message--placeholder" : "")">
                             <div class="gnougo-chat__bubble">
                                 <div class="gnougo-chat__bubble-meta">
                                     <span class="gnougo-chat__bubble-role">@((isUser ? "You" : "GnOuGo.Agent"))</span>
@@ -161,8 +221,8 @@
 
             @if (_pendingHumanInput is not null)
             {
-                <article class="gnougo-chat__message gnougo-chat__message--assistant">
-                    <div class="gnougo-chat__bubble">
+                <article class="gnougo-chat__message gnougo-chat__message--assistant gnougo-workflow-hitl">
+                    <div class="gnougo-chat__bubble gnougo-workflow-hitl__panel">
                         <div class="gnougo-chat__bubble-meta">
                             <span class="gnougo-chat__bubble-role">⚙️ Configuration</span>
                         </div>
@@ -460,6 +520,53 @@
     <ChatTraceSidebar Message="_selectedTraceMessage"
                       IsOpen="_traceSidebarOpen"
                       OnClose="CloseTraceSidebarAsync" />
+
+    @if (_executionSidebarOpen)
+    {
+        <button class="gnougo-execution-panel__backdrop"
+                type="button"
+                aria-label="Close execution activity"
+                @onclick="CloseExecutionSidebar"></button>
+    }
+    <aside class="gnougo-execution-panel @(_executionSidebarOpen ? "gnougo-execution-panel--open" : "")"
+           aria-hidden="@(!_executionSidebarOpen)">
+        <header class="gnougo-execution-panel__header">
+            <div>
+                <div class="gnougo-execution-panel__eyebrow">Live workflow activity</div>
+                <h2>Execution details</h2>
+                @if (_selectedExecution is not null)
+                {
+                    <div class="gnougo-execution-panel__meta">
+                        @_selectedExecution.Entrypoint · @_selectedExecution.Status
+                    </div>
+                }
+            </div>
+            <button type="button" class="gnougo-execution-panel__close" @onclick="CloseExecutionSidebar">×</button>
+        </header>
+        <div class="gnougo-execution-panel__body">
+            @if (_selectedExecution is null || _selectedExecution.Activity.Count == 0)
+            {
+                <div class="gnougo-execution-panel__empty">Waiting for workflow activity…</div>
+            }
+            else
+            {
+                @foreach (var item in _selectedExecution.Activity.AsEnumerable().Reverse())
+                {
+                    <article class="gnougo-execution-panel__item gnougo-execution-panel__item--@item.Level">
+                        <div class="gnougo-execution-panel__item-meta">
+                            <time>@item.Timestamp.ToLocalTime().ToString("HH:mm:ss")</time>
+                            <span>@item.Level</span>
+                            @if (!string.IsNullOrWhiteSpace(item.StepId))
+                            {
+                                <code>@item.StepId</code>
+                            }
+                        </div>
+                        <div class="gnougo-execution-panel__item-message">@item.Message</div>
+                    </article>
+                }
+            }
+        </div>
+    </aside>
 </div>
 
 @code
@@ -504,6 +611,30 @@
         public string? Default { get; set; }
     }
 
+    private sealed record ExecutionActivityItem(
+        DateTimeOffset Timestamp,
+        string Level,
+        string Message,
+        string? WorkflowName = null,
+        string? StepId = null);
+
+    private sealed class ChatExecutionModel
+    {
+        public required string CorrelationId { get; init; }
+        public required string HostId { get; init; }
+        public required AnimationPreparedPayload Prepared { get; set; }
+        public string Entrypoint => Prepared.Entrypoint;
+        public string Scene => Prepared.Scene.ToString();
+        public int LaneCount { get; set; }
+        public int NodeCount { get; set; }
+        public string Status { get; set; } = "Starting";
+        public bool IsExpanded { get; set; } = true;
+        public bool NeedsMount { get; set; } = true;
+        public List<AnimationLiveUpdate> PendingUpdates { get; } = [];
+        public List<ExecutionActivityItem> Activity { get; } = [];
+        public List<(string Question, string Answer)> HumanInputSummaries { get; } = [];
+    }
+
     private const string DefaultWorkflowDisplayName = "Workflow GnOuGo";
 
     private static readonly JsonSerializerOptions PrettyJsonOptions = new() { WriteIndented = true };
@@ -535,11 +666,13 @@
     private readonly Dictionary<string, HashSet<string>> _multiFieldValues = new(StringComparer.Ordinal);
     private bool _traceSidebarOpen;
     private ChatMessageDto? _selectedTraceMessage;
+    private readonly Dictionary<string, ChatExecutionModel> _executions = new(StringComparer.Ordinal);
+    private ChatExecutionModel? _selectedExecution;
+    private bool _executionSidebarOpen;
+    private string? _activeExecutionCorrelationId;
     private AppVersionDto? _appVersion;
-
-    /// <summary>Accumulates all HITL prompt+response pairs so they can be grouped
-    /// into a single message at the end of the flow.</summary>
-    private readonly List<(string Question, string Answer)> _hitlLog = new();
+    private bool _animationInteropRetryPending;
+    private bool _disposed;
 
     /// <summary>Default typewriter pause in ms after natural text breaks.</summary>
     private const int TypewriterDelayMs = 12;
@@ -608,6 +741,8 @@
             {
             }
         }
+
+        await FlushAnimationInteropAsync();
     }
 
     private async Task LoadAppVersionAsync()
@@ -1431,6 +1566,47 @@
             var conversationId = string.IsNullOrWhiteSpace(_active.ConversationId) ? _active.Id : _active.ConversationId;
             await foreach (var evt in SmartFlow.ExecuteAsync(prompt, correlationId, agentName: null, filesIds, workflowInputs, conversationId, _cts.Token))
             {
+                if (evt.Type is "animation.prepared" && evt.Animation?.Prepared is { } prepared)
+                {
+                    var execution = new ChatExecutionModel
+                    {
+                        CorrelationId = correlationId,
+                        HostId = AnimationHostId(correlationId),
+                        Prepared = prepared,
+                        LaneCount = prepared.LaneCount,
+                        NodeCount = prepared.NodeCount,
+                        Status = "Running"
+                    };
+                    _executions[correlationId] = execution;
+                    _activeExecutionCorrelationId = correlationId;
+                    _selectedExecution = execution;
+                    StateHasChanged();
+                    continue;
+                }
+
+                if (evt.Type is "animation.scene.patch" && evt.Animation?.ScenePatch is { } patch)
+                {
+                    if (GetExecution(correlationId) is { } execution)
+                    {
+                        execution.PendingUpdates.Add(new AnimationLiveUpdate { ScenePatch = patch });
+                        execution.LaneCount += patch.Lanes.Count;
+                        execution.NodeCount += patch.Nodes.Count;
+                        StateHasChanged();
+                    }
+                    continue;
+                }
+
+                if (evt.Type is "animation.event" && evt.Animation?.Event is { } animationEvent)
+                {
+                    if (GetExecution(correlationId) is { } execution)
+                    {
+                        execution.PendingUpdates.Add(new AnimationLiveUpdate { Event = animationEvent });
+                        ApplyExecutionStatus(execution, animationEvent);
+                        StateHasChanged();
+                    }
+                    continue;
+                }
+
                 if (evt.Type is "trace.started")
                 {
                     assistantMsg = assistantMsg with
@@ -1466,15 +1642,8 @@
                     }
                     else
                     {
-                        if (_active is null)
-                            continue;
-
-                        // Insert a thinking message before the assistant placeholder
-                        var thinkingMsg = new ChatMessageDto("thinking", evt.Text ?? "");
-                        var lastIdx = _active.Messages.Count - 1;
-                        _active.Messages.Insert(lastIdx, thinkingMsg);
+                        AddExecutionActivity(correlationId, level, evt.Text ?? "Workflow activity");
                         StateHasChanged();
-                        await ScrollToBottomAsync();
                     }
                 }
                 else if (evt.Type is "answer" or "response")
@@ -1491,13 +1660,11 @@
                 else if (evt.Type.StartsWith("telemetry.", StringComparison.Ordinal))
                 {
                     var liveStatus = FormatLiveTelemetryEvent(evt.Type, evt.Text);
-                    if (!string.IsNullOrWhiteSpace(liveStatus) && _active is not null)
+                    if (!string.IsNullOrWhiteSpace(liveStatus))
                     {
-                        var telemetryMsg = new ChatMessageDto("thinking", liveStatus);
-                        var lastIdx = _active.Messages.Count - 1;
-                        _active.Messages.Insert(lastIdx, telemetryMsg);
+                        var (workflowName, stepId) = ReadTelemetryIdentity(evt.Text);
+                        AddExecutionActivity(correlationId, "telemetry", liveStatus, workflowName, stepId);
                         StateHasChanged();
-                        await ScrollToBottomAsync();
                     }
                 }
                 else if (evt.Type is "error")
@@ -1546,12 +1713,16 @@
                         }
 
                         ResetHumanInputState();
+                        if (GetExecution(correlationId) is { } timedOutExecution)
+                            timedOutExecution.Status = "Failed";
                         StateHasChanged();
                         await ScrollToBottomAsync();
                     }
                     else
                     {
                         _error = errText;
+                        if (GetExecution(correlationId) is { } failedExecution)
+                            failedExecution.Status = "Failed";
                     }
                 }
                 else if (evt.Type is "agent_selected")
@@ -1607,39 +1778,16 @@
                         SeedHumanInputFieldDefaults(model.Fields);
 
                         _pendingHumanInput = model;
+                        if (GetExecution(correlationId) is { } waitingExecution)
+                        {
+                            waitingExecution.Status = "Waiting for you";
+                            waitingExecution.IsExpanded = true;
+                            _selectedExecution = waitingExecution;
+                        }
                         _needsMarkdownEnhance = true;
                         StateHasChanged();
                         await ScrollToBottomAsync();
                     }
-                }
-            }
-
-            // ── Group HITL interactions into a single user message ──
-            if (_hitlLog.Count > 0 && _active is not null)
-            {
-                var sb = new System.Text.StringBuilder();
-                sb.AppendLine("⚙️ **Configuration**\n");
-                sb.AppendLine("| Step | Your choice |");
-                sb.AppendLine("|------|-------------|");
-                foreach (var (q, a) in _hitlLog)
-                {
-                    // Trim the prompt to keep the table compact
-                    var shortQ = q.Length > 60 ? q[..57] + "…" : q;
-                    sb.AppendLine($"| {shortQ} | `{a}` |");
-                }
-
-                var lastIdx = _active.Messages.Count - 1;
-                _active.Messages.Insert(lastIdx,
-                    new ChatMessageDto("user", sb.ToString()));
-            }
-
-            // Convert live thinking messages to "thought" (static, no pulse animation)
-            if (_active is not null)
-            {
-                for (var i = 0; i < _active.Messages.Count; i++)
-                {
-                    if (string.Equals(_active.Messages[i].Role, "thinking", StringComparison.OrdinalIgnoreCase))
-                        _active.Messages[i] = _active.Messages[i] with { Role = "thought" };
                 }
             }
 
@@ -1669,16 +1817,19 @@
         catch (OperationCanceledException)
         {
             // user hit Stop
+            if (GetExecution(correlationId) is { } stoppedExecution)
+                stoppedExecution.Status = "Stopped";
         }
         catch (Exception ex)
         {
             _error = ex.Message;
+            if (GetExecution(correlationId) is { } failedExecution)
+                failedExecution.Status = "Failed";
         }
         finally
         {
             _isStreaming = false;
             ResetHumanInputState();
-            _hitlLog.Clear();
             _cts?.Dispose();
             _cts = null;
 
@@ -1691,7 +1842,207 @@
 
     private void Stop()
     {
+        if (GetExecution(_activeExecutionCorrelationId) is { } execution)
+        {
+            execution.Status = "Stopped";
+            execution.PendingUpdates.Add(new AnimationLiveUpdate
+            {
+                Event = new SimulationEvent
+                {
+                    Type = SimulationEventTypes.SimulationCancelled,
+                    TaskId = "task-root",
+                    Status = SimulationStatus.Failed,
+                    DurationMs = 700,
+                    Message = "Workflow execution was stopped."
+                }
+            });
+        }
         _cts?.Cancel();
+    }
+
+    private ChatExecutionModel? GetExecution(string? correlationId)
+        => !string.IsNullOrWhiteSpace(correlationId)
+           && _executions.TryGetValue(correlationId, out var execution)
+            ? execution
+            : null;
+
+    private static string AnimationHostId(string correlationId)
+        => $"workflow-animation-{correlationId}";
+
+    private void AddExecutionActivity(
+        string correlationId,
+        string level,
+        string message,
+        string? workflowName = null,
+        string? stepId = null)
+    {
+        if (GetExecution(correlationId) is not { } execution
+            || string.IsNullOrWhiteSpace(message))
+            return;
+
+        execution.Activity.Add(new ExecutionActivityItem(
+            DateTimeOffset.UtcNow,
+            string.IsNullOrWhiteSpace(level) ? "info" : level.ToLowerInvariant(),
+            message,
+            workflowName,
+            stepId));
+        if (execution.Activity.Count > 200)
+            execution.Activity.RemoveRange(0, execution.Activity.Count - 200);
+        if (ReferenceEquals(_selectedExecution, execution))
+            _selectedExecution = execution;
+    }
+
+    private static (string? WorkflowName, string? StepId) ReadTelemetryIdentity(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+            return (null, null);
+        try
+        {
+            var obj = JsonNode.Parse(payload)?.AsObject();
+            return (
+                ReadHumanInputString(obj?["workflow.name"]),
+                ReadHumanInputString(obj?["step.id"]));
+        }
+        catch (JsonException)
+        {
+            return (null, null);
+        }
+    }
+
+    private void ApplyExecutionStatus(ChatExecutionModel execution, SimulationEvent animationEvent)
+    {
+        execution.Status = animationEvent.Type switch
+        {
+            SimulationEventTypes.HumanInputWaiting => "Waiting for you",
+            SimulationEventTypes.HumanInputResumed => "Running",
+            SimulationEventTypes.SimulationCancelled => "Stopped",
+            SimulationEventTypes.SimulationCompleted when animationEvent.Status == SimulationStatus.Failed => "Failed",
+            SimulationEventTypes.SimulationCompleted => "Completed",
+            _ when animationEvent.Status == SimulationStatus.Failed => "Failed",
+            _ => execution.Status
+        };
+
+        if (!string.IsNullOrWhiteSpace(animationEvent.Message))
+        {
+            AddExecutionActivity(
+                execution.CorrelationId,
+                animationEvent.Status == SimulationStatus.Failed ? "error" : "animation",
+                animationEvent.Message,
+                animationEvent.WorkflowName,
+                animationEvent.StepId);
+        }
+
+    }
+
+    private async Task FlushAnimationInteropAsync()
+    {
+        foreach (var execution in _executions.Values)
+        {
+            try
+            {
+                if (execution.NeedsMount)
+                {
+                    var mounted = await Js.InvokeAsync<bool>(
+                        "GnOuGo.Agent.workflowAnimation.mount",
+                        execution.HostId,
+                        execution.Prepared);
+                    if (!mounted)
+                    {
+                        ScheduleAnimationInteropRetry();
+                        return;
+                    }
+                    execution.NeedsMount = false;
+                }
+
+                while (execution.PendingUpdates.Count > 0)
+                {
+                    var update = execution.PendingUpdates[0];
+                    if (update.ScenePatch is not null)
+                    {
+                        var applied = await Js.InvokeAsync<bool>(
+                            "GnOuGo.Agent.workflowAnimation.applyPatch",
+                            execution.HostId,
+                            update.ScenePatch);
+                        if (!applied)
+                        {
+                            execution.NeedsMount = true;
+                            ScheduleAnimationInteropRetry();
+                            return;
+                        }
+                    }
+                    if (update.Event is not null)
+                    {
+                        var applied = await Js.InvokeAsync<bool>(
+                            "GnOuGo.Agent.workflowAnimation.applyEvent",
+                            execution.HostId,
+                            update.Event);
+                        if (!applied)
+                        {
+                            execution.NeedsMount = true;
+                            ScheduleAnimationInteropRetry();
+                            return;
+                        }
+                    }
+                    execution.PendingUpdates.RemoveAt(0);
+                }
+            }
+            catch (JSDisconnectedException)
+            {
+                return;
+            }
+            catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+            {
+                return;
+            }
+        }
+    }
+
+    private void ScheduleAnimationInteropRetry()
+    {
+        if (_animationInteropRetryPending || _disposed)
+            return;
+
+        _animationInteropRetryPending = true;
+        _ = RetryAnimationInteropAsync();
+    }
+
+    private async Task RetryAnimationInteropAsync()
+    {
+        await Task.Delay(120);
+        if (_disposed)
+            return;
+
+        await InvokeAsync(() =>
+        {
+            _animationInteropRetryPending = false;
+            StateHasChanged();
+        });
+    }
+
+    private void ToggleExecutionCard(ChatExecutionModel execution)
+    {
+        execution.IsExpanded = !execution.IsExpanded;
+    }
+
+    private void OpenExecutionSidebar(ChatExecutionModel execution)
+    {
+        _selectedExecution = execution;
+        _executionSidebarOpen = true;
+        CloseTraceSidebar();
+    }
+
+    private void CloseExecutionSidebar()
+    {
+        _executionSidebarOpen = false;
+    }
+
+    private void RecordHumanInput(string question, string answer)
+    {
+        if (GetExecution(_activeExecutionCorrelationId) is { } execution)
+        {
+            execution.HumanInputSummaries.Add((question, answer));
+            execution.Status = "Resuming";
+        }
     }
 
     private void SubmitHumanInputChoice(string choice)
@@ -1701,8 +2052,7 @@
         var response = new JsonObject { ["response"] = choice };
         HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
 
-        // Log the interaction for the grouped summary (instead of inserting a message)
-        _hitlLog.Add((_pendingHumanInput.Prompt, choice));
+        RecordHumanInput(_pendingHumanInput.Prompt, choice);
 
         ResetHumanInputState();
         StateHasChanged();
@@ -1718,7 +2068,7 @@
         var response = new JsonObject { ["response"] = answer };
         HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
 
-        _hitlLog.Add((_pendingHumanInput.Prompt, answer));
+        RecordHumanInput(_pendingHumanInput.Prompt, answer);
 
         ResetHumanInputState();
         StateHasChanged();
@@ -1751,7 +2101,7 @@
                                || field.Name.Contains("secret", StringComparison.OrdinalIgnoreCase)
                                || field.Name.Contains("password", StringComparison.OrdinalIgnoreCase)
                                || field.Name.Contains("token", StringComparison.OrdinalIgnoreCase);
-                _hitlLog.Add((label, isSensitive && !string.IsNullOrEmpty(value) ? "••••••••" : value));
+                RecordHumanInput(label, isSensitive && !string.IsNullOrEmpty(value) ? "••••••••" : value);
             }
         }
 
@@ -2173,6 +2523,7 @@
 
     private void OpenTraceSidebar(ChatMessageDto msg)
     {
+        _executionSidebarOpen = false;
         _selectedTraceMessage = msg;
         _traceSidebarOpen = true;
     }
@@ -2219,9 +2570,16 @@
 
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
         try
         {
             await Js.InvokeVoidAsync("GnOuGo.Agent.fileUploads.unregister", ComposerDropZoneId, ComposerFileInputId);
+            foreach (var execution in _executions.Values)
+            {
+                await Js.InvokeVoidAsync(
+                    "GnOuGo.Agent.workflowAnimation.dispose",
+                    execution.HostId);
+            }
         }
         catch (JSDisconnectedException)
         {

@@ -1,6 +1,15 @@
 import 'github-markdown-css/github-markdown.css';
 import './styles/app.scss';
 import mermaid from 'mermaid';
+import {
+  GnouGnouWorkflowAnimationController,
+  type WorkflowAnimationPrepared,
+  type WorkflowAnimationScenePatch,
+  type WorkflowSimulationEvent,
+} from '../../../GnOuGo.Assets.Animation/Runtime/gnougnou-workflow-animation-controller';
+import {
+  GnouGnouAnimationController,
+} from '../../../GnOuGo.Assets.Bears/Runtime/gnougnou-animation-controller';
 
 declare global {
   interface Window {
@@ -307,10 +316,103 @@ const fileUploads = {
   },
 };
 
+interface WorkflowAnimationHandle {
+  controller: GnouGnouWorkflowAnimationController
+  resizeObserver: ResizeObserver
+  resize: () => void
+  zoom: number
+}
+
+const workflowAnimationControllers = new Map<string, WorkflowAnimationHandle>();
+const nextAnimationFrame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+const workflowAnimation = {
+  mount: async (hostId: string, prepared: WorkflowAnimationPrepared): Promise<boolean> => {
+    workflowAnimation.dispose(hostId);
+    let host = el(hostId);
+    for (let attempt = 0; !host && attempt < 12; attempt += 1) {
+      await nextAnimationFrame();
+      host = el(hostId);
+    }
+    if (!host) return false;
+
+    host.innerHTML = prepared.svg;
+    host.dataset.status = 'Running';
+    const svg = host.querySelector<SVGSVGElement>('svg');
+    if (!svg) return false;
+
+    svg.setAttribute('preserveAspectRatio', 'xMidYMin meet');
+    const handle = {} as WorkflowAnimationHandle;
+    const resize = () => {
+      const logicalWidth = svg.viewBox.baseVal.width || Number(svg.getAttribute('width')) || prepared.width;
+      const logicalHeight = svg.viewBox.baseVal.height || Number(svg.getAttribute('height')) || prepared.height;
+      const availableWidth = Math.max(1, host!.clientWidth);
+      const renderedWidth = availableWidth * handle.zoom;
+      const renderedHeight = renderedWidth * logicalHeight / Math.max(1, logicalWidth);
+      svg.style.width = `${renderedWidth}px`;
+      svg.style.height = `${renderedHeight}px`;
+      svg.style.maxWidth = 'none';
+    };
+    const characters = new GnouGnouAnimationController(() => host);
+    const controller = new GnouGnouWorkflowAnimationController(
+      () => host,
+      characters,
+      {
+        onFocus: id => controller.focus(id),
+        onStatus: (status, message) => {
+          host.dataset.status = status;
+          if (message) host.dataset.message = message;
+        },
+      },
+    );
+    const resizeObserver = new ResizeObserver(resize);
+    Object.assign(handle, { controller, resizeObserver, resize, zoom: 1 });
+    workflowAnimationControllers.set(hostId, handle);
+    resizeObserver.observe(host);
+    resize();
+    controller.attach();
+    return true;
+  },
+
+  applyPatch: (hostId: string, patch: WorkflowAnimationScenePatch): boolean => {
+    const handle = workflowAnimationControllers.get(hostId);
+    if (!handle) return false;
+    handle.controller.applyScenePatch(patch);
+    handle.resize();
+    return true;
+  },
+
+  applyEvent: (hostId: string, event: WorkflowSimulationEvent): boolean => {
+    const handle = workflowAnimationControllers.get(hostId);
+    if (!handle) return false;
+    handle.controller.enqueueEvent(event);
+    return true;
+  },
+
+  focus: (hostId: string, elementId: string) => {
+    workflowAnimationControllers.get(hostId)?.controller.focus(elementId);
+  },
+
+  setZoom: (hostId: string, zoom: number) => {
+    const handle = workflowAnimationControllers.get(hostId);
+    if (!handle) return;
+    handle.zoom = Math.max(.25, Math.min(zoom, 4));
+    handle.resize();
+  },
+
+  dispose: (hostId: string) => {
+    const handle = workflowAnimationControllers.get(hostId);
+    handle?.resizeObserver.disconnect();
+    handle?.controller.dispose();
+    workflowAnimationControllers.delete(hostId);
+  },
+};
+
 window.GnOuGo ??= {};
 window.GnOuGo.Agent = {
   scrollToBottom,
   fileUploads,
+  workflowAnimation,
   markdown: {
 	enhance: renderMermaid,
   },

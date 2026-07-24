@@ -17,11 +17,14 @@
     <RepositoryUrl>https://github.com/GnouGo/GnouGo/</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>gnougo;assets;svg;mascot;nativeaot</PackageTags>
+    <PackageTags>gnougo;assets;svg;mascot;animation;nativeaot</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="Runtime\gnougnou-animation-controller.ts"
+          Pack="true"
+          PackagePath="contentFiles\any\any\Runtime\gnougnou-animation-controller.ts" />
   </ItemGroup>
 
 </Project>

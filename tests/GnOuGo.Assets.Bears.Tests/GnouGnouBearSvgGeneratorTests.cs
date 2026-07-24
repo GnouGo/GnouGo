@@ -1,4 +1,5 @@
 using GnOuGo.Assets.Bears;
+using System.Xml.Linq;
 using Xunit;
 
 namespace GnOuGo.Assets.Bears.Tests;
@@ -309,6 +310,8 @@ public sealed class GnouGnouBearSvgGeneratorTests
         Assert.Contains("data-part=\"leg-right\"", svg, StringComparison.Ordinal);
         Assert.Contains("data-part=\"pupil-left\"", svg, StringComparison.Ordinal);
         Assert.Contains("data-part=\"mouth\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-expression=\"default\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-expression=\"failure\"", svg, StringComparison.Ordinal);
         Assert.Contains("data-part=\"beard\"", svg, StringComparison.Ordinal);
         Assert.DoesNotContain("data-part=\"ground-shadow\"", svg, StringComparison.Ordinal);
     }
@@ -325,6 +328,103 @@ public sealed class GnouGnouBearSvgGeneratorTests
 
         Assert.Equal(implicitDefault, explicitDefault);
         Assert.DoesNotContain("data-animation-rig", implicitDefault, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_NoneAnimation_RemainsStaticByDefault()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Animation = GnouGnouBearAnimation.None
+        });
+
+        Assert.DoesNotContain("data-animation-rig", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("@keyframes gnougo-", svg, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(GnouGnouBearAnimation.Idle, "idle")]
+    [InlineData(GnouGnouBearAnimation.Walk, "walk")]
+    [InlineData(GnouGnouBearAnimation.Typing, "typing")]
+    [InlineData(GnouGnouBearAnimation.Waiting, "waiting")]
+    [InlineData(GnouGnouBearAnimation.Pickup, "pickup")]
+    [InlineData(GnouGnouBearAnimation.Handoff, "handoff")]
+    [InlineData(GnouGnouBearAnimation.Delivery, "delivery")]
+    [InlineData(GnouGnouBearAnimation.Clone, "clone")]
+    [InlineData(GnouGnouBearAnimation.Merge, "merge")]
+    [InlineData(GnouGnouBearAnimation.Celebration, "celebration")]
+    [InlineData(GnouGnouBearAnimation.Failure, "failure")]
+    public void Generate_SelectedAnimation_ProducesSelfPlayingRig(
+        GnouGnouBearAnimation animation,
+        string token)
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Animation = animation
+        });
+
+        _ = XDocument.Parse(svg);
+        Assert.Contains("data-animation-rig=\"true\"", svg, StringComparison.Ordinal);
+        Assert.Contains($"data-animation=\"{token}\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-animation-enabled=\"true\"", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-pupil-look", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-mouth-life", svg, StringComparison.Ordinal);
+        Assert.Contains("prefers-reduced-motion", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain(".gnougo-rig[data-animation] ", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_HostControlledRig_DoesNotStartStandaloneAnimation()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            EnableAnimationRig = true,
+            Animation = GnouGnouBearAnimation.None
+        });
+
+        Assert.Contains("data-animation=\"none\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-animation-enabled=\"false\"", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("@keyframes gnougo-", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_InvalidAnimation_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+            {
+                Animation = (GnouGnouBearAnimation)999
+            }));
+    }
+
+    [Fact]
+    public void Generate_WalkAnimation_UsesAlternatingLimbPhases()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Animation = GnouGnouBearAnimation.Walk
+        });
+
+        Assert.Contains("20% { transform: rotate(28deg) translateY(-3px); }", svg, StringComparison.Ordinal);
+        Assert.Contains("70% { transform: rotate(-28deg) translateY(-3px); }", svg, StringComparison.Ordinal);
+        Assert.Contains("70% { transform: rotate(18deg); }", svg, StringComparison.Ordinal);
+        Assert.Contains("20% { transform: rotate(-18deg); }", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_FailureAnimation_ShowsSadMouthAndEyes()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Animation = GnouGnouBearAnimation.Failure
+        });
+
+        Assert.Contains("M109 158 Q128 137 147 158", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-expression=\"default\"] { opacity: 0; }", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-expression=\"failure\"] { opacity: 1; }", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-fail-eye", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-part=\"brow-left\"] { transform: rotate(10deg); }", svg, StringComparison.Ordinal);
     }
 
     [Theory]

@@ -27,6 +27,12 @@ cycle: breathing, occasional blinks, small mouth changes, independent ear
 twitches, and rare deterministic yawns. Purposeful actions remain dominant,
 and reduced-motion preferences disable ambient cycling.
 
+All character pose definitions and ambient timing are owned by
+`GnOuGo.Assets.Bears/Runtime/gnougnou-animation-controller.ts`. This server
+uses the shared
+`GnOuGo.Assets.Animation/Runtime/gnougnou-workflow-animation-controller.ts`
+to map streamed workflow events to scene movement and named Bears actions.
+
 Demo work alternates deterministically between quick, steady, and deep-focus
 laptop sessions. One evolving project parcel falls from the sky, follows the active GnOuGo,
 collects colored completion stamps, crosses handoffs, and is finally sealed and
@@ -86,7 +92,8 @@ Version 1 accepts a document name, entrypoint, workflows, and steps. It
 understands `sequence`, `parallel`, `loop.sequential`, `loop.parallel`,
 `switch`, defaults, and static local `workflow.call` references. The event
 stream records every non-empty atomic step type, but the canvas intentionally
-creates desks and character work only for `llm.*` and `mcp.*` tasks. Composite
+creates desks and character work for `llm.*`, `mcp.*`, and blocking `human.*`
+tasks. Composite
 signposts and static call handoffs are collapsed when their subtree contains no
 visible LLM/MCP work. All task types remain preview-only and are never executed.
 

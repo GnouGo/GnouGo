@@ -27,7 +27,8 @@ public sealed record SmartFlowEvent(
     string? Text,
     string? CorrelationId = null,
     string? TraceId = null,
-    string? ConversationId = null)
+    string? ConversationId = null,
+    AnimationStreamPayload? Animation = null)
 {
     public static SmartFlowEvent TraceStarted(string correlationId, string traceId)
         => new("trace.started", null, correlationId, traceId);
@@ -312,36 +313,7 @@ public sealed class SmartFlowService
                 SingleWriter = false
             });
 
-            // Create a telemetry decorator that captures emit steps
-            var telemetry = new CompositeWorkflowTelemetry(
-                new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt)),
-                _otel);
-
             await using var runtime = await _runtimeFactory.CreateAsync(ct);
-            var engine = new WorkflowEngine
-            {
-                LLMClient = runtime.LlmClient,
-                LLMCapabilities = runtime.LlmCapabilityResolver,
-                LlmDefaults = new LlmRuntimeDefaults
-                {
-                    Provider = runtime.Options.DefaultProvider,
-                    Model = runtime.Options.DefaultModel
-                },
-                McpClientFactory = runtime.McpClientFactory,
-                McpCache = _mcpCache,
-                McpCacheSlidingExpiration = _mcpCacheSlidingExpiration,
-                HumanInputProvider = _humanInput,
-                WorkflowCallResolver = CreateWorkflowCallResolver(),
-                WorkflowCandidateProvider = _candidateProvider,
-                Telemetry = telemetry,
-                Logger = _logger,
-                Limits = new ExecutionLimits
-                {
-                    LogStepContent = true,
-                    RunId = correlationId
-                }
-            };
-
             RunResult? result = null;
             ResolvedWorkflow resolvedWorkflow;
             string? selectedAgentName;
@@ -367,6 +339,50 @@ public sealed class SmartFlowService
             }
 
             var workflow = resolvedWorkflow.Workflow;
+            AgentWorkflowAnimationBridge? animationBridge = null;
+            SmartFlowEvent? preparedAnimationEvent = null;
+            try
+            {
+                animationBridge = AgentWorkflowAnimationBridge.Create(
+                    workflow.Document?.Source?.RawYaml,
+                    workflow.Name,
+                    correlationId,
+                    evt => channel.Writer.TryWrite(evt),
+                    out preparedAnimationEvent);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not prepare the live workflow animation. Chat execution will continue.");
+            }
+            if (preparedAnimationEvent is not null)
+                yield return preparedAnimationEvent;
+
+            var telemetry = new CompositeWorkflowTelemetry(
+                new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt), animationBridge),
+                _otel);
+            var engine = new WorkflowEngine
+            {
+                LLMClient = runtime.LlmClient,
+                LLMCapabilities = runtime.LlmCapabilityResolver,
+                LlmDefaults = new LlmRuntimeDefaults
+                {
+                    Provider = runtime.Options.DefaultProvider,
+                    Model = runtime.Options.DefaultModel
+                },
+                McpClientFactory = runtime.McpClientFactory,
+                McpCache = _mcpCache,
+                McpCacheSlidingExpiration = _mcpCacheSlidingExpiration,
+                HumanInputProvider = _humanInput,
+                WorkflowCallResolver = CreateWorkflowCallResolver(),
+                WorkflowCandidateProvider = _candidateProvider,
+                Telemetry = telemetry,
+                Logger = _logger,
+                Limits = new ExecutionLimits
+                {
+                    LogStepContent = true,
+                    RunId = correlationId
+                }
+            };
             var inputs = BuildWorkflowInputs(task, selectedAgentName, correlationId, filesIds, workflowInputs);
             var resolvedInputs = WorkflowInputDefaults.Apply(workflow.Source, inputs);
 

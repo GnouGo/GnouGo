@@ -1,3 +1,4 @@
+using System.Text.Json;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Shared;
 using GnOuGo.Agent.Mcp;
@@ -107,8 +108,12 @@ public static class ChatEndpoints
 
             await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, correlationId: null, request.AgentName, request.FilesIds, workflowInputs: null, request.ConversationId, ct).ConfigureAwait(false))
             {
-                // SSE format: "event: <type>\ndata: <text>\n\n"
-                await ctx.Response.WriteAsync($"event: {evt.Type}\ndata: {evt.Text ?? ""}\n\n", ct).ConfigureAwait(false);
+                var data = evt.Animation is null
+                    ? evt.Text ?? ""
+                    : JsonSerializer.Serialize(
+                        evt.Animation,
+                        AgentAnimationJsonContext.Default.AnimationStreamPayload);
+                await WriteSseEventAsync(ctx.Response, evt.Type, data, ct).ConfigureAwait(false);
                 await ctx.Response.Body.FlushAsync(ct).ConfigureAwait(false);
             }
         }
@@ -129,6 +134,22 @@ public static class ChatEndpoints
                 logger.LogDebug(writeEx, "Failed to write chat stream error event to the response.");
             }
         }
+    }
+
+    private static async Task WriteSseEventAsync(
+        HttpResponse response,
+        string eventType,
+        string data,
+        CancellationToken ct)
+    {
+        await response.WriteAsync($"event: {eventType}\n", ct).ConfigureAwait(false);
+        using var reader = new StringReader(data);
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+            await response.WriteAsync($"data: {line}\n", ct).ConfigureAwait(false);
+        if (data.Length == 0)
+            await response.WriteAsync("data: \n", ct).ConfigureAwait(false);
+        await response.WriteAsync("\n", ct).ConfigureAwait(false);
     }
 
     private static string ResolvePrompt(ChatStreamRequestDto request)

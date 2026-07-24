@@ -476,7 +476,14 @@ public static class GnouGnouAnimationSvgRenderer
 
     private static void AppendTasks(StringBuilder builder, GnouGnouAnimationPlan plan)
     {
-        var totalProgress = plan.Events.Max(static item => item.ProgressTotal ?? 0);
+        var scheduledProgress = plan.Events
+            .Select(static item => item.ProgressTotal ?? 0)
+            .DefaultIfEmpty(0)
+            .Max();
+        var totalProgress = Math.Max(
+            scheduledProgress,
+            plan.Stations.Count(static station =>
+                station.Kind is AnimationStationKind.KeyboardDesk or AnimationStationKind.Human));
         builder.AppendLine("  <g id=\"task-objects\" aria-label=\"Animated task objects\">");
         foreach (var task in plan.Tasks)
         {

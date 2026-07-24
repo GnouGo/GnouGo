@@ -230,6 +230,50 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
             Assert.DoesNotContain("GnOuGo.Flow", File.ReadAllText(path), StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void ClientConsumesBearsOwnedAnimationRuntime()
+    {
+        var repository = FindRepositoryRoot();
+        var appPath = Path.Combine(
+            repository,
+            "src",
+            "GnOuGo.Assets.Animation.Server",
+            "ClientApp",
+            "src",
+            "App.tsx");
+        var runtimePath = Path.Combine(
+            repository,
+            "src",
+            "GnOuGo.Assets.Bears",
+            "Runtime",
+            "gnougnou-animation-controller.ts");
+        var workflowRuntimePath = Path.Combine(
+            repository,
+            "src",
+            "GnOuGo.Assets.Animation",
+            "Runtime",
+            "gnougnou-workflow-animation-controller.ts");
+        var app = File.ReadAllText(appPath);
+        var runtime = File.ReadAllText(runtimePath);
+        var workflowRuntime = File.ReadAllText(workflowRuntimePath);
+
+        Assert.Contains("GnOuGo.Assets.Bears/Runtime/gnougnou-animation-controller", app, StringComparison.Ordinal);
+        Assert.Contains("GnOuGo.Assets.Animation/Runtime/gnougnou-workflow-animation-controller", app, StringComparison.Ordinal);
+        Assert.Contains("workflowAnimationsRef.current?.applyEvent", app, StringComparison.Ordinal);
+        Assert.DoesNotContain("function ambientLifeAt", app, StringComparison.Ordinal);
+        Assert.DoesNotContain("case 'walk':", app, StringComparison.Ordinal);
+        Assert.Contains("export class GnouGnouAnimationController", runtime, StringComparison.Ordinal);
+        Assert.Contains("case 'walk':", runtime, StringComparison.Ordinal);
+        Assert.Contains("gaitPulse(gaitPhase, 0)", runtime, StringComparison.Ordinal);
+        Assert.Contains("setFailureExpression(actor, action === 'fail')", runtime, StringComparison.Ordinal);
+        Assert.Contains("actor?.matches('[data-animation-rig=\"true\"]')", runtime, StringComparison.Ordinal);
+        Assert.Contains("yawn:", runtime, StringComparison.Ordinal);
+        Assert.Contains("export class GnouGnouWorkflowAnimationController", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("GnouGnouWorkflowCharacterController", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("enqueueEvent(event: WorkflowSimulationEvent)", workflowRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("GnOuGo.Assets.Bears", workflowRuntime, StringComparison.Ordinal);
+    }
+
     private async Task<IReadOnlyList<SimulationStreamEnvelope>> ReadAllEnvelopes(SimulationRequest request)
     {
         using var response = await _client.SendAsync(

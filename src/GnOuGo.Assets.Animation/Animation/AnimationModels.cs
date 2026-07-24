@@ -174,6 +174,9 @@ public static class SimulationEventTypes
     public const string ParallelStarted = "parallel.started";
     public const string ParallelCompleted = "parallel.completed";
     public const string DecisionSimulated = "decision.simulated";
+    public const string HumanInputWaiting = "human_input.waiting";
+    public const string HumanInputResumed = "human_input.resumed";
+    public const string SimulationCancelled = "simulation.cancelled";
 }
 
 public sealed record SimulationEvent

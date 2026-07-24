@@ -1,4 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react'
+import {
+  GnouGnouAnimationController,
+  type GnouGnouAnimationName,
+} from '../../../GnOuGo.Assets.Bears/Runtime/gnougnou-animation-controller'
+import {
+  GnouGnouWorkflowAnimationController,
+} from '../../../GnOuGo.Assets.Animation/Runtime/gnougnou-workflow-animation-controller'
 import { streamSimulation, validatePreview } from './api'
 import { EXAMPLE_INPUTS, EXAMPLE_WORKFLOW } from './constants'
 import type {
@@ -13,18 +20,7 @@ import type {
 } from './types'
 
 interface Position { x: number; y: number }
-interface RigTransform { angle: number; x: number; y: number; scaleX: number; scaleY: number }
-interface AmbientLife {
-  breath: number
-  look: number
-  blink: number
-  leftEar: number
-  rightEar: number
-  mouth: number
-  yawn: number
-}
 type MotionMode = 'walk' | 'arc' | 'drop' | 'work' | 'spawn' | 'merge' | 'complete' | 'sky'
-type CharacterAction = 'walk' | 'arrive' | 'pickup' | 'handoff' | 'type' | 'wait' | 'deliver' | 'think' | 'communicate' | 'write' | 'plan' | 'ask' | 'build' | 'clone' | 'merge' | 'celebrate' | 'fail'
 
 interface MotionOptions {
   mode?: MotionMode
@@ -59,70 +55,10 @@ function easeInOut(value: number): number {
   return value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2
 }
 
-function periodicPulse(seconds: number, period: number, phaseOffset: number, halfWidth: number): number {
-  const phase = ((seconds / period + phaseOffset) % 1 + 1) % 1
-  const distance = Math.min(Math.abs(phase - .5), 1 - Math.abs(phase - .5))
-  if (distance >= halfWidth) return 0
-  const value = 1 - distance / halfWidth
-  return value * value * (3 - 2 * value)
-}
-
-function ambientLifeAt(now: number, seed: number): AmbientLife {
-  const seconds = now / 1000
-  const stableSeed = Math.abs(seed || 1)
-  const breathPeriod = 6.8 + stableSeed % 6 * .22
-  const lookPeriod = 12.5 + stableSeed % 8 * .37
-  const phase = (stableSeed % 97) / 97
-  return {
-    breath: Math.sin((seconds / breathPeriod + phase) * Math.PI * 2),
-    look: Math.sin((seconds / lookPeriod + phase * .7) * Math.PI * 2),
-    blink: periodicPulse(seconds, 6.1 + stableSeed % 7 * .43, phase * .83, .018),
-    leftEar: periodicPulse(seconds, 9.5 + stableSeed % 5 * .71, phase * .61, .055),
-    rightEar: periodicPulse(seconds, 11.3 + stableSeed % 7 * .63, phase * .37 + .29, .05),
-    mouth: Math.sin((seconds / (9.2 + stableSeed % 5 * .41) + phase) * Math.PI * 2),
-    yawn: periodicPulse(seconds, 48 + stableSeed % 19, phase * .47 + .13, .048),
-  }
-}
-
-function actionForStep(stepType?: string): CharacterAction {
+function actionForStep(stepType?: string): GnouGnouAnimationName {
   const normalized = stepType?.toLowerCase() ?? ''
   if (normalized.startsWith('workflow.')) return 'handoff'
   return 'type'
-}
-
-function rigPart(actor: SVGGraphicsElement, name: string): SVGGraphicsElement | null {
-  return actor.querySelector<SVGGraphicsElement>(`[data-part="${name}"]`)
-}
-
-function applyRigTransform(
-  part: SVGGraphicsElement | null,
-  angle = 0,
-  x = 0,
-  y = 0,
-  scaleX = 1,
-  scaleY = 1,
-) {
-  if (!part) return
-  const pivotX = Number(part.getAttribute('data-pivot-x') ?? 0)
-  const pivotY = Number(part.getAttribute('data-pivot-y') ?? 0)
-  part.setAttribute(
-    'transform',
-    `translate(${x} ${y}) rotate(${angle} ${pivotX} ${pivotY}) translate(${pivotX} ${pivotY}) scale(${scaleX} ${scaleY}) translate(${-pivotX} ${-pivotY})`,
-  )
-}
-
-function readRigTransform(part: SVGGraphicsElement): RigTransform {
-  const transform = part.getAttribute('transform') ?? ''
-  const translation = /translate\(([-0-9.]+) ([-0-9.]+)\)/.exec(transform)
-  const rotation = /rotate\(([-0-9.]+)/.exec(transform)
-  const scale = /scale\(([-0-9.]+) ([-0-9.]+)\)/.exec(transform)
-  return {
-    angle: Number(rotation?.[1] ?? 0),
-    x: Number(translation?.[1] ?? 0),
-    y: Number(translation?.[2] ?? 0),
-    scaleX: Number(scale?.[1] ?? 1),
-    scaleY: Number(scale?.[2] ?? 1),
-  }
 }
 
 const MotionSvgScene = memo(function MotionSvgScene({
@@ -167,11 +103,18 @@ export default function App() {
   const abortRef = useRef<AbortController | null>(null)
   const autoRunRef = useRef(false)
   const svgHostRef = useRef<HTMLDivElement>(null)
+  const gnouGnouAnimationsRef = useRef<GnouGnouAnimationController | null>(null)
+  if (gnouGnouAnimationsRef.current === null)
+    gnouGnouAnimationsRef.current = new GnouGnouAnimationController(() => svgHostRef.current)
+  const workflowAnimationsRef = useRef<GnouGnouWorkflowAnimationController | null>(null)
+  if (workflowAnimationsRef.current === null)
+    workflowAnimationsRef.current = new GnouGnouWorkflowAnimationController(
+      () => svgHostRef.current,
+      gnouGnouAnimationsRef.current,
+    )
   const positionsRef = useRef(new Map<string, Position>())
   const animationsRef = useRef(new Map<string, number>())
-  const poseAnimationsRef = useRef(new Map<string, number>())
   const deskAnimationsRef = useRef<Animation[]>([])
-  const ambientFrameRef = useRef<number | null>(null)
   const autoFollowRef = useRef(true)
   const lastFocusRef = useRef<string | null>(null)
   const dragRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
@@ -251,443 +194,19 @@ export default function App() {
     motionGenerationRef.current += 1
     animationsRef.current.forEach(frame => cancelAnimationFrame(frame))
     animationsRef.current.clear()
-    poseAnimationsRef.current.forEach(frame => cancelAnimationFrame(frame))
-    poseAnimationsRef.current.clear()
     deskAnimationsRef.current.forEach(animation => animation.cancel())
     deskAnimationsRef.current = []
-    svgHostRef.current?.querySelectorAll<SVGGraphicsElement>('.gnougo-actor').forEach(actor => {
-      actor.querySelectorAll<SVGGraphicsElement>('[data-part]').forEach(part => part.removeAttribute('transform'))
-      const effects = rigPart(actor, 'action-fx')
-      if (effects) effects.setAttribute('opacity', '0')
-      actor.setAttribute('data-pose', 'idle')
-    })
+    gnouGnouAnimationsRef.current?.cancelAll()
   }, [])
-
-  const resetCharacterPose = useCallback((actorId?: string) => {
-    const actor = findElement(actorId)
-    if (!actor) return
-    const previousFrame = actorId ? poseAnimationsRef.current.get(actorId) : undefined
-    if (previousFrame !== undefined) cancelAnimationFrame(previousFrame)
-    if (actorId) poseAnimationsRef.current.delete(actorId)
-    actor.querySelectorAll<SVGGraphicsElement>('[data-part]').forEach(part => part.removeAttribute('transform'))
-    const effects = rigPart(actor, 'action-fx')
-    if (effects) effects.setAttribute('opacity', '0')
-    actor.setAttribute('data-pose', 'idle')
-  }, [findElement])
 
   const animateCharacterPose = useCallback((
     actorId: string | undefined,
-    action: CharacterAction,
+    action: GnouGnouAnimationName,
     duration: number,
     direction = 1,
   ) => {
-    if (!actorId) return
-    const actor = findElement(actorId)
-    if (!actor?.querySelector('[data-animation-rig="true"]')) return
-    const previousFrame = poseAnimationsRef.current.get(actorId)
-    if (previousFrame !== undefined) cancelAnimationFrame(previousFrame)
-
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    // Character gestures deliberately outlive very short event timings. A
-    // following event can still replace the pose immediately, but no action
-    // tries to squeeze several movements into a few frantic frames.
-    const actualDuration = reduced ? 1 : Math.max(360, duration * 1.15)
-    const generation = motionGenerationRef.current
-    const startedAt = performance.now()
-    actor.setAttribute('data-pose', action)
-
-    const leftArm = rigPart(actor, 'arm-left')
-    const rightArm = rigPart(actor, 'arm-right')
-    const leftEar = rigPart(actor, 'ear-left')
-    const rightEar = rigPart(actor, 'ear-right')
-    const leftLeg = rigPart(actor, 'leg-left')
-    const rightLeg = rigPart(actor, 'leg-right')
-    const body = rigPart(actor, 'body')
-    const head = rigPart(actor, 'head')
-    const leftEye = rigPart(actor, 'eye-left')
-    const rightEye = rigPart(actor, 'eye-right')
-    const leftPupil = rigPart(actor, 'pupil-left')
-    const rightPupil = rigPart(actor, 'pupil-right')
-    const leftBrow = rigPart(actor, 'brow-left')
-    const rightBrow = rigPart(actor, 'brow-right')
-    const leftCheek = rigPart(actor, 'cheek-left')
-    const rightCheek = rigPart(actor, 'cheek-right')
-    const mouth = rigPart(actor, 'mouth')
-    const bowTie = rigPart(actor, 'bow-tie')
-    const effects = rigPart(actor, 'action-fx')
-    const visualSeed = Number(actor.getAttribute('data-visual-seed') ?? 1)
-    const initialTransforms = new Map<SVGGraphicsElement, RigTransform>()
-    actor.querySelectorAll<SVGGraphicsElement>('[data-part]').forEach(part => {
-      initialTransforms.set(part, readRigTransform(part))
-    })
-    const poseTargets = new Map<SVGGraphicsElement, RigTransform>()
-    let poseBlend = 0
-    const setRigTransform = (
-      part: SVGGraphicsElement | null,
-      angle = 0,
-      x = 0,
-      y = 0,
-      scaleX = 1,
-      scaleY = 1,
-    ) => {
-      if (!part) return
-      poseTargets.set(part, { angle, x, y, scaleX, scaleY })
-    }
-    const addRigTransform = (
-      part: SVGGraphicsElement | null,
-      angle = 0,
-      x = 0,
-      y = 0,
-      scaleX = 0,
-      scaleY = 0,
-    ) => {
-      if (!part) return
-      const target = poseTargets.get(part) ?? { angle: 0, x: 0, y: 0, scaleX: 1, scaleY: 1 }
-      poseTargets.set(part, {
-        angle: target.angle + angle,
-        x: target.x + x,
-        y: target.y + y,
-        scaleX: target.scaleX * (1 + scaleX),
-        scaleY: target.scaleY * (1 + scaleY),
-      })
-    }
-
-    const render = (now: number) => {
-      if (generation !== motionGenerationRef.current || !actor.isConnected) return
-      const progress = Math.max(0, Math.min(1, (now - startedAt) / actualDuration))
-      const gesture = Math.sin(progress * Math.PI)
-      const elapsedSeconds = (now - startedAt) / 1000
-      poseBlend = Math.min(1, elapsedSeconds / .22)
-      const wave = Math.sin(elapsedSeconds * Math.PI * 1.9) * gesture
-      const fastWave = Math.sin(elapsedSeconds * Math.PI * 2.2) * gesture
-      const bounce = Math.abs(wave)
-      const life = ambientLifeAt(now, visualSeed)
-      const actionBlink = actualDuration >= 700
-        ? Math.max(0, 1 - Math.abs(progress - .62) / .035)
-        : 0
-      const ambientStrength = action === 'type' || action === 'wait' || action === 'think' ? .72 : .34
-      const eyeClose = Math.max(actionBlink, life.blink * ambientStrength, life.yawn * .52)
-      const eyeScale = 1 - eyeClose * .9
-      let pupilX = direction * 1.4
-      let pupilY = 0
-      let effectOpacity = 0
-
-      setRigTransform(leftArm)
-      setRigTransform(rightArm)
-      setRigTransform(leftEar, wave * 2)
-      setRigTransform(rightEar, -wave * 2)
-      setRigTransform(leftLeg)
-      setRigTransform(rightLeg)
-      setRigTransform(body)
-      setRigTransform(head)
-      setRigTransform(leftBrow, -2)
-      setRigTransform(rightBrow, 2)
-      setRigTransform(leftCheek)
-      setRigTransform(rightCheek)
-      setRigTransform(mouth, 0, 0, -1, 1.04, 1.08)
-      setRigTransform(bowTie)
-
-      switch (action) {
-        case 'walk':
-          setRigTransform(leftLeg, wave * 29)
-          setRigTransform(rightLeg, -wave * 29)
-          setRigTransform(leftArm, -wave * 17)
-          setRigTransform(rightArm, wave * 17)
-          setRigTransform(body, wave * .8, 0, -bounce * .8)
-          setRigTransform(head, -wave * .9, direction * .8, -bounce * .8)
-          setRigTransform(leftEar, 4 + wave * 4.5)
-          setRigTransform(rightEar, -4 - wave * 4.5)
-          setRigTransform(leftCheek, 0, 0, 0, 1 + bounce * .04, 1 + bounce * .04)
-          setRigTransform(rightCheek, 0, 0, 0, 1 + bounce * .04, 1 + bounce * .04)
-          setRigTransform(mouth, wave * 1.2, 0, -1, 1.05, 1.12)
-          break
-        case 'arrive':
-          setRigTransform(leftArm, 18 * gesture)
-          setRigTransform(rightArm, -68 * gesture + fastWave * 5)
-          setRigTransform(head, -direction * 4 * gesture, 0, -bounce)
-          setRigTransform(leftEar, 10 * gesture + fastWave * 2)
-          setRigTransform(rightEar, -10 * gesture - fastWave * 2)
-          setRigTransform(leftBrow, -8 * gesture)
-          setRigTransform(rightBrow, 8 * gesture)
-          setRigTransform(leftCheek, 0, 0, 0, 1 + gesture * .12, 1 + gesture * .12)
-          setRigTransform(rightCheek, 0, 0, 0, 1 + gesture * .12, 1 + gesture * .12)
-          setRigTransform(mouth, 0, 0, -gesture * 2, 1 + gesture * .14, 1 + gesture * .22)
-          effectOpacity = gesture * .65
-          break
-        case 'pickup':
-          setRigTransform(leftArm, -41 * gesture)
-          setRigTransform(rightArm, 41 * gesture)
-          setRigTransform(leftLeg, 10 * gesture)
-          setRigTransform(rightLeg, -10 * gesture)
-          setRigTransform(body, 0, 0, 10 * gesture, 1, 1 - .06 * gesture)
-          setRigTransform(head, direction * 2.5 * gesture, 0, 9 * gesture)
-          setRigTransform(leftEar, -7 * gesture)
-          setRigTransform(rightEar, 7 * gesture)
-          pupilY = 4 * gesture
-          break
-        case 'handoff':
-          setRigTransform(leftArm, -43 * gesture + fastWave * 1.5)
-          setRigTransform(rightArm, 43 * gesture - fastWave * 1.5)
-          setRigTransform(body, direction * 3 * gesture, direction * 3 * gesture)
-          setRigTransform(head, direction * 5 * gesture, direction * 2 * gesture)
-          setRigTransform(leftEar, direction * 10 * gesture)
-          setRigTransform(rightEar, direction * 5 * gesture)
-          pupilX = direction * 3
-          effectOpacity = gesture * .55
-          break
-        case 'type':
-          setRigTransform(leftArm, -34 * gesture + fastWave * 3.5)
-          setRigTransform(rightArm, 34 * gesture - fastWave * 3.5)
-          setRigTransform(leftLeg, wave * 1.5)
-          setRigTransform(rightLeg, -wave * 1.5)
-          setRigTransform(body, wave * .6, 0, bounce * .7)
-          setRigTransform(head, wave, 0, 3.5 * gesture + bounce * .5)
-          setRigTransform(leftEar, 3 + fastWave * 2.5)
-          setRigTransform(rightEar, -3 - fastWave * 2.5)
-          setRigTransform(leftBrow, -2 + fastWave * .7)
-          setRigTransform(rightBrow, 2 - fastWave * .7)
-          setRigTransform(leftCheek, 0, 0, 0, 1 + bounce * .06, 1 + bounce * .06)
-          setRigTransform(rightCheek, 0, 0, 0, 1 + bounce * .06, 1 + bounce * .06)
-          setRigTransform(mouth, fastWave * 1.2, 0, -1, 1.06, 1.13)
-          pupilX = fastWave * .8
-          pupilY = 3 * gesture
-          effectOpacity = .12 + bounce * .22
-          break
-        case 'wait':
-          setRigTransform(leftArm, 12 * gesture + wave * 1.5)
-          setRigTransform(rightArm, -12 * gesture - wave * 1.5)
-          setRigTransform(body, wave * .6, 0, -bounce * .5)
-          setRigTransform(head, direction * (2 + wave), 0, -bounce * .5)
-          setRigTransform(leftEar, wave * 4)
-          setRigTransform(rightEar, -wave * 4)
-          pupilX = direction * (1.3 + wave)
-          break
-        case 'deliver':
-          setRigTransform(leftArm, 88 * gesture + fastWave * 2)
-          setRigTransform(rightArm, -88 * gesture - fastWave * 2)
-          setRigTransform(leftLeg, fastWave * 2)
-          setRigTransform(rightLeg, -fastWave * 2)
-          setRigTransform(body, 0, 0, -gesture * 8)
-          setRigTransform(head, -fastWave, 0, -gesture * 4)
-          setRigTransform(leftEar, 10 * gesture + fastWave * 2)
-          setRigTransform(rightEar, -10 * gesture - fastWave * 2)
-          setRigTransform(leftBrow, -10 * gesture)
-          setRigTransform(rightBrow, 10 * gesture)
-          setRigTransform(leftCheek, 0, 0, 0, 1 + gesture * .16, 1 + gesture * .16)
-          setRigTransform(rightCheek, 0, 0, 0, 1 + gesture * .16, 1 + gesture * .16)
-          setRigTransform(mouth, 0, 0, -gesture * 3, 1 + gesture * .18, 1 + gesture * .3)
-          pupilY = -2.5 * gesture
-          effectOpacity = .4 + .6 * bounce
-          break
-        case 'think':
-          setRigTransform(leftArm, -22 * gesture)
-          setRigTransform(rightArm, 82 * gesture + fastWave * 1.5)
-          setRigTransform(head, -5 * gesture + wave * .7, 0, -2 * gesture)
-          pupilX = 2 * gesture
-          pupilY = -2.5 * gesture
-          effectOpacity = .25 + .75 * bounce
-          break
-        case 'communicate':
-          setRigTransform(leftArm, -26 * gesture + fastWave * 3)
-          setRigTransform(rightArm, -94 * gesture + fastWave * 3)
-          setRigTransform(head, wave * 1.5)
-          pupilX = wave * 2
-          effectOpacity = .35 + .65 * bounce
-          break
-        case 'write':
-          setRigTransform(leftArm, -34 * gesture + fastWave * 2.5)
-          setRigTransform(rightArm, 34 * gesture - fastWave * 2.5)
-          setRigTransform(head, wave, 0, 4 * gesture + bounce * .5)
-          pupilX = fastWave
-          pupilY = 3 * gesture
-          setRigTransform(body, 0, 0, bounce * .7)
-          break
-        case 'plan':
-          setRigTransform(leftArm, 75 * gesture + fastWave * 2.5)
-          setRigTransform(rightArm, -24 * gesture)
-          setRigTransform(head, -direction * 4 * gesture)
-          pupilX = direction * 3 * gesture
-          pupilY = -2 * gesture
-          effectOpacity = .2 + .7 * bounce
-          break
-        case 'ask':
-          setRigTransform(leftArm, -22 * gesture)
-          setRigTransform(rightArm, -92 * gesture + fastWave * 7)
-          setRigTransform(head, direction * (3 + wave) * gesture)
-          pupilX = direction * 3
-          effectOpacity = gesture * .7
-          break
-        case 'build':
-          setRigTransform(leftArm, -38 * gesture)
-          setRigTransform(rightArm, -58 * gesture + fastWave * 13)
-          setRigTransform(head, -fastWave, 0, bounce)
-          setRigTransform(body, fastWave * .7)
-          effectOpacity = bounce * .45
-          break
-        case 'clone':
-          setRigTransform(leftArm, 70 * gesture)
-          setRigTransform(rightArm, -70 * gesture)
-          setRigTransform(leftLeg, -14 * gesture)
-          setRigTransform(rightLeg, 14 * gesture)
-          setRigTransform(head, fastWave * 2, 0, -gesture * 7)
-          setRigTransform(leftEar, 15 * gesture + fastWave * 2.5)
-          setRigTransform(rightEar, -15 * gesture - fastWave * 2.5)
-          setRigTransform(body, 0, 0, -gesture * 5, 1 + gesture * .08, 1 + gesture * .08)
-          effectOpacity = .35 + .65 * bounce
-          break
-        case 'merge':
-          setRigTransform(leftArm, -44 * gesture)
-          setRigTransform(rightArm, 44 * gesture)
-          setRigTransform(head, -fastWave * 1.3)
-          effectOpacity = gesture
-          break
-        case 'celebrate':
-          setRigTransform(leftArm, 90 * gesture + fastWave * 3)
-          setRigTransform(rightArm, -90 * gesture - fastWave * 3)
-          setRigTransform(leftLeg, fastWave * 3)
-          setRigTransform(rightLeg, -fastWave * 3)
-          setRigTransform(body, fastWave * .8, 0, -bounce * 5)
-          setRigTransform(head, -fastWave * 1.5, 0, -bounce * 3)
-          setRigTransform(leftEar, 13 * gesture + fastWave * 4)
-          setRigTransform(rightEar, -13 * gesture - fastWave * 4)
-          setRigTransform(leftBrow, -12 * gesture)
-          setRigTransform(rightBrow, 12 * gesture)
-          setRigTransform(leftCheek, 0, 0, 0, 1 + gesture * .2, 1 + gesture * .2)
-          setRigTransform(rightCheek, 0, 0, 0, 1 + gesture * .2, 1 + gesture * .2)
-          setRigTransform(mouth, 0, 0, -gesture * 2, 1 + gesture * .18, 1 + gesture * .28)
-          setRigTransform(bowTie, fastWave * 10)
-          pupilY = -2 * gesture
-          effectOpacity = .45 + .55 * bounce
-          break
-        case 'fail':
-          {
-            const slump = Math.min(1, progress * 3)
-            setRigTransform(leftArm, -8 * slump)
-            setRigTransform(rightArm, 8 * slump)
-            setRigTransform(leftLeg, 6 * slump)
-            setRigTransform(rightLeg, -6 * slump)
-            setRigTransform(body, 0, 0, 7 * slump, 1, 1 - .05 * slump)
-            setRigTransform(head, 12 * slump, 0, 11 * slump)
-            setRigTransform(leftEar, -16 * slump)
-            setRigTransform(rightEar, 16 * slump)
-            setRigTransform(leftBrow, 10 * slump)
-            setRigTransform(rightBrow, -10 * slump)
-            setRigTransform(leftCheek, 0, 0, 1 * slump, 1 - slump * .08, 1 - slump * .08)
-            setRigTransform(rightCheek, 0, 0, 1 * slump, 1 - slump * .08, 1 - slump * .08)
-            setRigTransform(mouth, 0, 0, 3 * slump, 1, .7)
-          }
-          pupilX = 0
-          pupilY = 5 * Math.min(1, progress * 3)
-          break
-      }
-
-      setRigTransform(leftEye, 0, 0, 0, 1, eyeScale)
-      setRigTransform(rightEye, 0, 0, 0, 1, eyeScale)
-      setRigTransform(leftPupil, 0, pupilX + life.look * .55 * ambientStrength, pupilY + life.breath * .12)
-      setRigTransform(rightPupil, 0, pupilX + life.look * .55 * ambientStrength, pupilY + life.breath * .12)
-
-      addRigTransform(body, life.breath * .12 * ambientStrength, 0, -Math.abs(life.breath) * .2, 0, life.breath * .002)
-      addRigTransform(head, life.look * .32 * ambientStrength - life.yawn * 2.2, 0, -Math.abs(life.breath) * .18)
-      addRigTransform(leftEar, life.leftEar * 3.8 * ambientStrength + life.breath * .35)
-      addRigTransform(rightEar, -life.rightEar * 3.4 * ambientStrength - life.breath * .28)
-      addRigTransform(
-        mouth,
-        life.mouth * .35 * ambientStrength,
-        0,
-        life.yawn * 1.8,
-        life.mouth * .012 * ambientStrength,
-        life.yawn * 1.15 + Math.abs(life.mouth) * .018 * ambientStrength,
-      )
-      if ((action === 'wait' || action === 'think') && life.yawn > 0) {
-        addRigTransform(rightArm, -36 * life.yawn)
-        addRigTransform(leftArm, 5 * life.yawn)
-      }
-
-      const blend = poseBlend * poseBlend * (3 - 2 * poseBlend)
-      poseTargets.forEach((target, part) => {
-        const initial = initialTransforms.get(part) ?? { angle: 0, x: 0, y: 0, scaleX: 1, scaleY: 1 }
-        applyRigTransform(
-          part,
-          initial.angle + (target.angle - initial.angle) * blend,
-          initial.x + (target.x - initial.x) * blend,
-          initial.y + (target.y - initial.y) * blend,
-          initial.scaleX + (target.scaleX - initial.scaleX) * blend,
-          initial.scaleY + (target.scaleY - initial.scaleY) * blend,
-        )
-      })
-      if (effects) {
-        effects.setAttribute('opacity', String(effectOpacity))
-        effects.setAttribute('transform', `translate(0 ${-bounce * 8}) scale(${1 + bounce * .08})`)
-      }
-
-      if (progress < 1) {
-        const frame = requestAnimationFrame(render)
-        poseAnimationsRef.current.set(actorId, frame)
-        return
-      }
-
-      poseAnimationsRef.current.delete(actorId)
-      if (action !== 'fail') resetCharacterPose(actorId)
-      else actor.setAttribute('data-pose', 'fail')
-    }
-
-    const frame = requestAnimationFrame(render)
-    poseAnimationsRef.current.set(actorId, frame)
-  }, [findElement, resetCharacterPose])
-
-  useEffect(() => {
-    const renderAmbient = (now: number) => {
-      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      if (!reduced) {
-        svgHostRef.current?.querySelectorAll<SVGGraphicsElement>('.gnougo-actor[data-visible="true"]').forEach(actor => {
-          const pose = actor.getAttribute('data-pose')
-          if (pose !== 'idle' && pose !== 'fail') return
-          const seed = Number(actor.getAttribute('data-visual-seed') ?? 1)
-          const life = ambientLifeAt(now, seed)
-          if (pose === 'fail') {
-            applyRigTransform(rigPart(actor, 'body'), life.breath * .08, 0, 7 - Math.abs(life.breath) * .16, 1, .95 + life.breath * .002)
-            applyRigTransform(rigPart(actor, 'head'), 12 + life.look * .24, 0, 11 - Math.abs(life.breath) * .12)
-            applyRigTransform(rigPart(actor, 'arm-left'), -8 + life.breath * .18)
-            applyRigTransform(rigPart(actor, 'arm-right'), 8 - life.breath * .18)
-            applyRigTransform(rigPart(actor, 'ear-left'), -16 + life.leftEar * 2)
-            applyRigTransform(rigPart(actor, 'ear-right'), 16 - life.rightEar * 2)
-            applyRigTransform(rigPart(actor, 'eye-left'), 0, 0, 0, 1, 1 - life.blink * .9)
-            applyRigTransform(rigPart(actor, 'eye-right'), 0, 0, 0, 1, 1 - life.blink * .9)
-            applyRigTransform(rigPart(actor, 'pupil-left'), 0, life.look * .25, 5)
-            applyRigTransform(rigPart(actor, 'pupil-right'), 0, life.look * .25, 5)
-            applyRigTransform(rigPart(actor, 'mouth'), life.mouth * .16, 0, 3, 1, .7 + Math.abs(life.mouth) * .012)
-            return
-          }
-          const eyeClose = Math.max(life.blink, life.yawn * .58)
-
-          applyRigTransform(rigPart(actor, 'body'), life.breath * .22, 0, -Math.abs(life.breath) * .45, 1, 1 + life.breath * .004)
-          applyRigTransform(rigPart(actor, 'head'), life.look * .62 - life.yawn * 3.8, 0, -Math.abs(life.breath) * .32 - life.yawn * 1.2)
-          applyRigTransform(rigPart(actor, 'arm-left'), 5 * life.yawn)
-          applyRigTransform(rigPart(actor, 'arm-right'), -58 * life.yawn)
-          applyRigTransform(rigPart(actor, 'ear-left'), life.leftEar * 7 + life.breath * .55 - life.yawn * 2)
-          applyRigTransform(rigPart(actor, 'ear-right'), -life.rightEar * 6 - life.breath * .45 + life.yawn * 2)
-          applyRigTransform(rigPart(actor, 'eye-left'), 0, 0, 0, 1, 1 - eyeClose * .9)
-          applyRigTransform(rigPart(actor, 'eye-right'), 0, 0, 0, 1, 1 - eyeClose * .9)
-          applyRigTransform(rigPart(actor, 'pupil-left'), 0, life.look * .9, life.breath * .16)
-          applyRigTransform(rigPart(actor, 'pupil-right'), 0, life.look * .9, life.breath * .16)
-          applyRigTransform(
-            rigPart(actor, 'mouth'),
-            life.mouth * .42,
-            0,
-            -1 + life.yawn * 2.4,
-            1.04 + life.mouth * .012,
-            1.08 + life.yawn * 1.42 + Math.abs(life.mouth) * .02,
-          )
-        })
-      }
-      ambientFrameRef.current = requestAnimationFrame(renderAmbient)
-    }
-    ambientFrameRef.current = requestAnimationFrame(renderAmbient)
-    return () => {
-      if (ambientFrameRef.current !== null) cancelAnimationFrame(ambientFrameRef.current)
-      ambientFrameRef.current = null
-    }
-  }, [svg])
+    gnouGnouAnimationsRef.current?.play(actorId, action, duration, direction)
+  }, [])
 
   const animateMotion = useCallback((
     id: string | undefined,
@@ -949,6 +468,7 @@ export default function App() {
   useEffect(() => () => {
     abortRef.current?.abort()
     cancelMotions()
+    workflowAnimationsRef.current?.dispose()
   }, [cancelMotions])
 
   const setTaskStatus = useCallback((taskId: string | undefined, status?: string) => {
@@ -1168,6 +688,7 @@ export default function App() {
       setAutoFollow(true)
       await nextFrame()
       await nextFrame()
+      workflowAnimationsRef.current?.attach()
       const viewport = svgHostRef.current
       if (viewport) {
         setZoom(Math.max(.28, Math.min(1, (viewport.clientWidth - 24) / envelope.prepared.canvasWidth)))
@@ -1175,8 +696,22 @@ export default function App() {
       }
       return
     }
-    if (envelope.event) applyEvent(envelope.event)
-  }, [applyEvent, cancelMotions])
+    if (envelope.event) {
+      workflowAnimationsRef.current?.applyEvent(envelope.event)
+      if (envelope.event.type === 'simulation.completed')
+        setRunStatus(envelope.event.status === 'Failed' ? 'Failed' : 'Completed')
+      if (envelope.event.message) {
+        setFeed(previous => [...previous.slice(-149), {
+          key: `${prepared?.simulationId ?? 'run'}-${envelope.event!.sequence}-${envelope.event!.type}`,
+          type: envelope.event!.type,
+          message: envelope.event!.message!,
+          status: envelope.event!.status,
+          stepId: envelope.event!.stepId,
+          workflowName: envelope.event!.workflowName,
+        }])
+      }
+    }
+  }, [cancelMotions, prepared?.simulationId])
 
   const run = useCallback(async () => {
     abortRef.current?.abort()
@@ -1204,6 +739,7 @@ export default function App() {
     abortRef.current?.abort()
     abortRef.current = null
     cancelMotions()
+    workflowAnimationsRef.current?.dispose()
     setRunning(false)
     setRunStatus('Stopped')
   }, [cancelMotions])

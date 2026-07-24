@@ -25,6 +25,7 @@
     <ProjectReference Include="..\GnOuGo.Agent.Shared\GnOuGo.Agent.Shared.csproj" />
     <ProjectReference Include="..\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.Assets.Animation\GnOuGo.Assets.Animation.csproj" />
     <ProjectReference Include="..\GnOuGo.DocIngestor.Mcp\GnOuGo.DocIngestor.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Mermaid\GnOuGo.Flow.Mermaid.csproj" />
@@ -56,7 +57,19 @@
     <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>
   </PropertyGroup>
 
-  <Target Name="ViteBuild" BeforeTargets="PrepareForPublish" Condition="'$(SkipClientBuild)' != 'true'">
+  <ItemGroup>
+    <AgentClientSource Include="$(ClientAppDir)\src\**\*.*" />
+    <AgentClientSource Include="$(ClientAppDir)\package.json;$(ClientAppDir)\tsconfig*.json;$(ClientAppDir)\vite.config.*" />
+    <AgentClientSource Include="$(MSBuildThisFileDirectory)..\GnOuGo.Assets.Animation\Runtime\**\*.ts" />
+    <AgentClientSource Include="$(MSBuildThisFileDirectory)..\GnOuGo.Assets.Bears\Runtime\**\*.ts" />
+    <AgentClientSource Include="$(MSBuildThisFileDirectory)..\..\pnpm-lock.yaml" />
+  </ItemGroup>
+
+  <Target Name="ViteBuild"
+          BeforeTargets="Build;PrepareForPublish"
+          Condition="'$(SkipClientBuild)' != 'true'"
+          Inputs="@(AgentClientSource)"
+          Outputs="$(MSBuildProjectDirectory)\wwwroot\ui\app.js;$(MSBuildProjectDirectory)\wwwroot\ui\app.css">
     <Message Importance="high" Text="Building GnOuGo.Agent frontend (Vite)" />
     <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; install --frozen-lockfile" />
     <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; build" />
