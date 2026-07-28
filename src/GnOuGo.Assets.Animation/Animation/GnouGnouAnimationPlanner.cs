@@ -796,7 +796,7 @@ public static class GnouGnouAnimationPlanner
             AddWarning("SIMULATED_DYNAMIC_CALL", $"Dynamic workflow transition '{step.Id}' is recorded without a visual subordinate because its runtime work is unknown.", workflowName, step.Id);
             Add(SimulationEventTypes.StepCompleted, cursor, actor: actor, workflowName: workflowName,
                 workflowInstanceId: workflowInstanceId, step: step, taskId: actor.TaskId, status: SimulationStatus.Succeeded,
-                message: $"Dynamic transition '{step.Id}' completed synthetically without a visual workstation.");
+                message: $"Dynamic transition '{step.Id}' completed synthetically without a runtime child scene.");
             return new BranchResult(cursor, false);
         }
 
@@ -817,7 +817,7 @@ public static class GnouGnouAnimationPlanner
             Add(SimulationEventTypes.StepStarted, workAt, workDuration, actor,
                 workflowName: workflowName, workflowInstanceId: workflowInstanceId, step: step,
                 stationId: station.Id, taskId: actor.TaskId, status: SimulationStatus.Running,
-                message: $"{actor.Actor.Label} begins a {workPace} pass on the '{step.Id}' laptop.");
+                message: $"{actor.Actor.Label} begins a {workPace} pass at the '{step.Id}' roundabout.");
             var end = workAt + workDuration;
             var failed = ShouldFail(workflowName, step);
             Add(SimulationEventTypes.StepCompleted, end, actor: actor, workflowName: workflowName,
@@ -838,7 +838,7 @@ public static class GnouGnouAnimationPlanner
             Add(SimulationEventTypes.StepStarted, startMs, HiddenStepDurationMs, actor,
                 workflowName: workflowName, workflowInstanceId: workflowInstanceId, step: step,
                 taskId: actor.TaskId, status: SimulationStatus.Running,
-                message: $"Short step '{step.Id}' runs without a visual workstation.");
+                message: $"Short step '{step.Id}' runs without a visual roundabout.");
             var end = startMs + HiddenStepDurationMs;
             var failed = ShouldFail(workflowName, step);
             Add(SimulationEventTypes.StepCompleted, end, actor: actor, workflowName: workflowName,

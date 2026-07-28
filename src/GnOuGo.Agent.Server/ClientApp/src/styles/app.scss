@@ -40,12 +40,13 @@ html, body {
 }
 
 .gnougo-app__sidebar {
-  width: 320px;
-  min-width: 320px;
-  border-right: 1px solid var(--gnougo-border);
-  background: var(--gnougo-surface);
+  width: 326px;
+  min-width: 326px;
+  border-right: 1px solid #e3e6ea;
+  background: #fff;
   display: flex;
   flex-direction: column;
+  box-shadow: 8px 0 24px rgba(15, 23, 42, .035);
 }
 
 .gnougo-app__main {
@@ -53,135 +54,218 @@ html, body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: var(--gnougo-surface-2);
+  background: var(--gnougo-surface);
 }
 
 /* --------------------------- Sidebar -------------------------------------- */
-.gnougo-sidebar { position: relative; }
+.gnougo-sidebar {
+  position: relative;
+  color: #252b33;
+}
 
 .gnougo-sidebar__header {
-  padding: 14px 14px 12px;
-  background: linear-gradient(180deg, var(--gnougo-accent) 0%, var(--gnougo-accent-dark) 100%);
-  color: #fff;
-  border-bottom: 1px solid rgba(255,255,255,0.25);
+  padding: 12px 16px 10px;
+  background: #fff;
+  color: #252b33;
+}
+
+.gnougo-sidebar__mascot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 118px;
+  overflow: hidden;
+}
+
+.gnougo-sidebar__mascot svg {
+  display: block;
+  width: 116px;
+  height: 116px;
+  overflow: visible;
 }
 
 .gnougo-sidebar__brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.gnougo-sidebar__logo {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.12);
-  padding: 6px;
-  object-fit: contain;
+  justify-content: center;
+  margin: -3px 0 19px;
+  text-align: center;
 }
 
 .gnougo-sidebar__brand-text { min-width: 0; }
 .gnougo-sidebar__title {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 760;
   line-height: 1.2;
 }
 .gnougo-sidebar__subtitle {
-  font-size: 12px;
-  opacity: 0.9;
+  margin-top: 3px;
+  color: #7a8492;
+  font-size: 11.5px;
   line-height: 1.2;
+}
+
+.gnougo-sidebar__chat-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  margin-bottom: 5px;
+}
+
+.gnougo-sidebar__chat-heading h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 760;
+  letter-spacing: -.01em;
+}
+
+.gnougo-sidebar__heading-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #9299a3;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.gnougo-sidebar__heading-add:hover {
+  background: #f1f2f4;
+  color: #252b33;
 }
 
 .gnougo-sidebar__new {
   width: 100%;
-  border: 1px solid rgba(255,255,255,0.45);
-  background: rgba(255,255,255,0.12);
-  color: #fff;
-  padding: 10px 10px;
-  border-radius: 10px;
+  border: 0;
+  background: #eef0f8;
+  color: #303743;
+  padding: 7px 10px;
+  border-radius: 5px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 9px;
   cursor: pointer;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset;
 }
 
 .gnougo-sidebar__new:hover {
-  background: rgba(255,255,255,0.18);
+  background: #e4e7f2;
 }
 
-.gnougo-sidebar__new-icon { font-size: 16px; line-height: 1; }
-.gnougo-sidebar__new-text { font-size: 13px; font-weight: 600; }
+.gnougo-sidebar__new-icon {
+  width: 15px;
+  color: #606a78;
+  font-size: 14px;
+  line-height: 1;
+  text-align: center;
+}
+
+.gnougo-sidebar__new-text {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 540;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .gnougo-sidebar__close {
   display: none;
 }
 
 .gnougo-sidebar__list {
-  padding: 10px;
+  flex: 1;
+  padding: 2px 14px 18px;
   overflow: auto;
   overflow-x: hidden;
+  scrollbar-color: #aab5c4 transparent;
+  scrollbar-width: thin;
+}
+
+.gnougo-sidebar__group {
+  margin-top: 10px;
+}
+
+.gnougo-sidebar__group-title {
+  margin: 0 0 5px;
+  padding: 0 2px;
+  color: #353c45;
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 1.35;
 }
 
 .gnougo-sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   width: 100%;
   text-align: left;
-  border: 1px solid transparent;
+  border: 0;
   background: transparent;
-  padding: 10px 10px;
-  border-radius: 10px;
+  padding: 7px 9px;
+  border-radius: 6px;
   cursor: pointer;
-  color: var(--gnougo-text);
+  color: #303741;
 }
 
 .gnougo-sidebar__item:hover {
-  background: var(--gnougo-surface-2);
-  border-color: var(--gnougo-border);
+  background: #f3f4f6;
 }
 
 .gnougo-sidebar__item--active {
-  background: var(--gnougo-accent-soft);
-  border-color: rgba(0,0,255,0.25);
+  background: #e8eaf5;
+}
+
+.gnougo-sidebar__item--active:hover {
+  background: #e1e4f1;
+}
+
+.gnougo-sidebar__item-icon {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #626c79;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.55;
 }
 
 .gnougo-sidebar__item-title {
+  min-width: 0;
+  flex: 1;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 470;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.gnougo-sidebar__item-meta {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--gnougo-muted);
-}
-
 .gnougo-sidebar__empty {
-  padding: 16px 10px;
+  padding: 18px 4px;
   color: var(--gnougo-muted);
   font-size: 13px;
 }
 
 .gnougo-sidebar__footer {
   margin-top: auto;
-  border-top: 1px solid var(--gnougo-border);
-  padding: 12px 12px;
-  background: var(--gnougo-surface);
+  border-top: 1px solid #eceef1;
+  padding: 11px 16px 10px;
+  background: #fff;
 }
 
-.gnougo-sidebar__hint { color: var(--gnougo-muted); font-size: 12px; }
+.gnougo-sidebar__hint { color: #7c8795; font-size: 10.5px; }
 .gnougo-sidebar__hint-strong { color: var(--gnougo-text); font-weight: 600; }
 .gnougo-sidebar__version {
-  color: #ffffff;
+  color: #929aa5;
   font-size: 10px;
-  margin-top: 6px;
-  opacity: 0.85;
-  text-align: center;
+  margin-top: 5px;
+  text-align: left;
   user-select: all;
   cursor: default;
 }
@@ -299,18 +383,25 @@ html, body {
   width: 100%;
   min-width: 0;
   overflow: auto;
-  padding: 16px 16px 0;
+  padding: clamp(24px, 4vw, 54px) clamp(18px, 6vw, 86px) 42px;
+  background: #fff;
+  scrollbar-gutter: stable;
 }
 
 .gnougo-chat__message {
   display: flex;
   width: 100%;
+  max-width: 1160px;
   min-width: 0;
-  margin-bottom: 14px;
+  margin: 0 auto 42px;
 }
 
 .gnougo-chat__message--assistant { justify-content: flex-start; }
-.gnougo-chat__message--user { justify-content: flex-end; }
+.gnougo-chat__message--user {
+  justify-content: flex-end;
+  padding-left: min(22vw, 240px);
+  margin-bottom: 46px;
+}
 
 // ── Thinking messages ──
 .gnougo-chat__message--thinking {
@@ -338,11 +429,9 @@ html, body {
   align-items: center;
   gap: 8px;
   width: 100%;
-  max-width: none;
-  padding: 8px 14px;
-  border-radius: var(--gnougo-radius);
-  background: rgba(128, 128, 128, 0.08);
-  border: 1px dashed rgba(128, 128, 128, 0.25);
+  padding: 2px 0;
+  background: transparent;
+  border: 0;
   font-size: 13px;
   color: var(--gnougo-muted);
   font-style: italic;
@@ -370,16 +459,20 @@ html, body {
 .gnougo-chat__bubble {
   width: 100%;
   max-width: none;
-  border-radius: var(--gnougo-radius);
-  border: 1px solid var(--gnougo-border);
-  background: var(--gnougo-surface);
-  padding: 10px 12px;
-  box-shadow: var(--gnougo-shadow);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
 }
 
 .gnougo-chat__message--user .gnougo-chat__bubble {
-  border-color: rgba(0,0,255,0.25);
-  background: var(--gnougo-accent-soft);
+  width: fit-content;
+  max-width: min(720px, 100%);
+  padding: 11px 16px;
+  border-radius: 15px;
+  background: #f0f0f1;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .025);
 }
 
 .gnougo-chat__bubble-meta {
@@ -396,9 +489,14 @@ html, body {
 }
 
 .gnougo-chat__bubble-text {
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 15px;
+  line-height: 1.58;
   color: var(--gnougo-text);
+}
+
+.gnougo-chat__message--user .gnougo-chat__bubble-text {
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .gnougo-chat__bubble-text.markdown-body {
@@ -413,6 +511,18 @@ html, body {
   --bgColor-neutral-muted: rgba(175, 184, 193, 0.2);
   --borderColor-default: var(--gnougo-border);
   --borderColor-muted: var(--gnougo-border);
+}
+
+.gnougo-chat__response-animation {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.gnougo-chat__response-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 14px;
 }
 
 .gnougo-hitl-context {
@@ -530,17 +640,18 @@ html, body {
 
 /* --------------------------- Composer ------------------------------------- */
 .gnougo-chat__composer {
-  border-top: 1px solid var(--gnougo-border);
-  background: var(--gnougo-surface);
-  padding: 12px 14px;
+  border-top: 0;
+  background: #fff;
+  padding: 10px clamp(18px, 6vw, 86px) 14px;
+  box-shadow: 0 -18px 38px rgba(255, 255, 255, .96);
 }
 
 .gnougo-composer {
-  max-width: 1100px;
+  max-width: 1160px;
   margin: 0 auto;
   position: relative;
   border: 1px solid transparent;
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 4px;
   transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
 }
@@ -658,24 +769,36 @@ html, body {
 
 .gnougo-composer__row {
   display: flex;
-  gap: 10px;
-  align-items: flex-end;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #e0e3e8;
+  border-radius: 17px;
+  background: #f7f8fa;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.gnougo-composer__row:focus-within {
+  border-color: rgba(0, 0, 255, .28);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(0, 0, 255, .07);
 }
 
 .gnougo-composer__attach {
-  height: 40px;
-  width: 42px;
-  border-radius: 12px;
-  border: 1px solid var(--gnougo-border);
-  background: var(--gnougo-surface);
-  color: var(--gnougo-text);
+  height: 38px;
+  width: 38px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  border: 0;
+  background: transparent;
+  color: #657080;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 17px;
 }
 
 .gnougo-composer__attach:hover {
-  background: var(--gnougo-surface-2);
-  border-color: rgba(0,0,255,0.3);
+  background: rgba(15, 23, 42, .06);
+  color: var(--gnougo-text);
 }
 
 .gnougo-composer__attach:disabled {
@@ -686,26 +809,42 @@ html, body {
 .gnougo-composer__input {
   flex: 1;
   resize: none;
-  min-height: 40px;
+  min-height: 52px;
   max-height: 220px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--gnougo-border);
+  padding: 14px 8px 8px;
+  border-radius: 10px;
+  border: 0;
   font-family: var(--gnougo-font);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.4;
   outline: none;
-  background: var(--gnougo-surface);
+  background: transparent;
 }
 
 .gnougo-composer__input:focus {
-  border-color: rgba(0,0,255,0.45);
-  box-shadow: 0 0 0 3px rgba(0,0,255,0.12);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .gnougo-composer__input:disabled {
-  background: var(--gnougo-surface-2);
+  background: transparent;
   color: var(--gnougo-muted);
+}
+
+.gnougo-workflow-hitl .gnougo-composer__input,
+.gnougo-composer__workflow .gnougo-composer__input {
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 1px solid var(--gnougo-border);
+  border-radius: 12px;
+  background: var(--gnougo-surface);
+  font-size: 14px;
+}
+
+.gnougo-workflow-hitl .gnougo-composer__input:focus,
+.gnougo-composer__workflow .gnougo-composer__input:focus {
+  border-color: rgba(0, 0, 255, .4);
+  box-shadow: 0 0 0 3px rgba(0, 0, 255, .1);
 }
 
 .gnougo-composer__workflow {
@@ -753,6 +892,10 @@ html, body {
 
 .gnougo-composer__row--actions {
   margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .gnougo-composer__workflow-action-spacer {
@@ -833,6 +976,15 @@ html, body {
 
 .gnougo-composer__send:hover { background: var(--gnougo-accent-dark); }
 
+.gnougo-composer__send--icon {
+  width: 38px;
+  min-width: 38px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 21px;
+  line-height: 1;
+}
+
 .gnougo-composer__send:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -847,8 +999,9 @@ html, body {
 
 .gnougo-composer__hint {
   margin-top: 8px;
-  font-size: 12px;
-  color: var(--gnougo-muted);
+  color: #8290a4;
+  font-size: 11.5px;
+  text-align: center;
 }
 
 /* --------------------------- Responsive ----------------------------------- */
@@ -858,8 +1011,8 @@ html, body {
     inset: 0 auto 0 0;
     transform: translateX(-100%);
     z-index: 50;
-    width: 320px;
-    min-width: 320px;
+    width: min(326px, 92vw);
+    min-width: min(326px, 92vw);
     transition: transform 180ms ease;
     box-shadow: 0 12px 28px rgba(0,0,0,0.22);
   }
@@ -873,15 +1026,20 @@ html, body {
     position: absolute;
     top: 10px;
     right: 10px;
-    border: 1px solid rgba(255,255,255,0.35);
-    background: rgba(255,255,255,0.12);
-    color: #fff;
-    border-radius: 10px;
-    width: 36px;
-    height: 34px;
+    border: 1px solid #e0e3e7;
+    background: rgba(255,255,255,.92);
+    color: #697382;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
     cursor: pointer;
     align-items: center;
     justify-content: center;
+  }
+
+  .gnougo-sidebar__close:hover {
+    background: #f1f2f4;
+    color: #252b33;
   }
 
   .gnougo-chat__menu { display: inline-flex; align-items: center; justify-content: center; }
@@ -907,114 +1065,22 @@ html, body {
   display: none;
 }
 
-.gnougo-workflow-card-wrap {
-  width: 100%;
-}
-
 .gnougo-workflow-card {
   width: 100%;
   max-width: none;
-  overflow: hidden;
-  border: 1px solid rgba(37, 99, 235, .24);
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 8% 0%, rgba(56, 189, 248, .13), transparent 28%),
-    linear-gradient(145deg, #f8fbff, #eef7f5);
-  box-shadow: 0 18px 50px rgba(15, 23, 42, .12);
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-.gnougo-workflow-card--compact {
-  box-shadow: 0 8px 28px rgba(15, 23, 42, .08);
-}
-
-.gnougo-workflow-card__header,
-.gnougo-workflow-card__identity,
-.gnougo-workflow-card__actions,
-.gnougo-workflow-card__stage-toolbar {
-  display: flex;
-  align-items: center;
-}
-
-.gnougo-workflow-card__header {
-  min-height: 66px;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(37, 99, 235, .14);
-  background: rgba(255, 255, 255, .88);
-  backdrop-filter: blur(14px);
-}
-
-.gnougo-workflow-card--compact .gnougo-workflow-card__header {
-  border-bottom: 0;
-}
-
-.gnougo-workflow-card__identity {
-  min-width: 0;
-  gap: 11px;
-}
-
-.gnougo-workflow-card__live-dot {
-  flex: 0 0 auto;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 0 5px rgba(34, 197, 94, .14);
-  animation: gnougo-live-pulse 2.6s ease-in-out infinite;
-}
-
-.gnougo-workflow-card[data-status="Failed"] .gnougo-workflow-card__live-dot {
-  background: #ef4444;
-}
-
-.gnougo-workflow-card__title {
-  font-size: 14px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.gnougo-workflow-card__meta {
-  margin-top: 3px;
-  overflow: hidden;
-  color: #64748b;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.gnougo-workflow-card__actions {
-  flex: 0 0 auto;
-  gap: 7px;
-}
-
-.gnougo-workflow-card__button {
-  appearance: none;
-  border: 1px solid rgba(37, 99, 235, .24);
-  border-radius: 999px;
-  padding: 6px 11px;
-  background: #fff;
-  color: #1d4ed8;
-  font: 700 12px var(--gnougo-font);
-  cursor: pointer;
-}
-
-.gnougo-workflow-card__button:hover {
-  border-color: rgba(37, 99, 235, .55);
-  background: #eff6ff;
+.gnougo-workflow-card--expanded {
+  margin-bottom: 24px;
 }
 
 .gnougo-workflow-card__content[hidden] {
   display: none;
-}
-
-.gnougo-workflow-card__stage-toolbar {
-  gap: 16px;
-  padding: 8px 14px;
-  color: #526274;
-  background: rgba(255, 255, 255, .64);
-  font-size: 11px;
-  font-weight: 700;
 }
 
 .gnougo-workflow-card__stage {
@@ -1024,9 +1090,7 @@ html, body {
   min-height: 0;
   height: auto;
   overflow: hidden;
-  background:
-    linear-gradient(rgba(255,255,255,.1), rgba(255,255,255,.1)),
-    #dceff1;
+  background: #fff;
 }
 
 .gnougo-workflow-card__stage > svg {
@@ -1199,25 +1263,28 @@ html, body {
   overflow-wrap: anywhere;
 }
 
-@keyframes gnougo-live-pulse {
-  0%, 100% { transform: scale(1); opacity: .82; }
-  50% { transform: scale(1.12); opacity: 1; }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .gnougo-workflow-card__live-dot {
-    animation: none;
-  }
-
   .gnougo-execution-panel {
     transition: none;
   }
 }
 
 @media (max-width: 760px) {
-  .gnougo-workflow-card__header {
-    align-items: flex-start;
-    flex-direction: column;
+  .gnougo-chat__messages {
+    padding: 22px 14px 32px;
+  }
+
+  .gnougo-chat__message {
+    margin-bottom: 32px;
+  }
+
+  .gnougo-chat__message--user {
+    padding-left: 44px;
+    margin-bottom: 36px;
+  }
+
+  .gnougo-chat__composer {
+    padding: 8px 10px 10px;
   }
 
   .gnougo-execution-panel {
@@ -1368,54 +1435,6 @@ html, body {
   background: #ffffff !important;
 }
 
-/* ------------------------ Sidebar (blue, no x-scroll) ---------------------- */
-.gnougo-app__sidebar{
-  background: linear-gradient(180deg, var(--gnougo-accent) 0%, var(--gnougo-accent-dark) 100%);
-  border-right-color: rgba(0,0,0,0.10);
-  color: #fff;
-  overflow-x: hidden;
-}
-.gnougo-sidebar__list{
-  background: transparent;
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-width: 0;
-}
-.gnougo-sidebar__item{
-  color: #fff;
-  border-color: rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.06);
-  overflow: hidden;
-}
-.gnougo-sidebar__item:hover{
-  background: rgba(255,255,255,0.12);
-  border-color: rgba(255,255,255,0.28);
-}
-.gnougo-sidebar__item--active{
-  background: rgba(255,255,255,0.18);
-  border-color: rgba(255,255,255,0.40);
-}
-.gnougo-sidebar__item-title{
-  color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-.gnougo-sidebar__item-meta{
-  color: rgba(255,255,255,0.85);
-  white-space: nowrap;
-}
-.gnougo-sidebar__empty{
-  color: rgba(255,255,255,0.85);
-}
-.gnougo-sidebar__footer{
-  background: rgba(255,255,255,0.06);
-  border-top-color: rgba(255,255,255,0.18);
-  color: rgba(255,255,255,0.90);
-}
-.gnougo-sidebar__hint-strong{ color: #fff; }
-
 /* ---------------- Diagram tabs (Mermaid/C4) -------------------------------- */
 .gnougo-diagram-tabs{
   border: 1px solid var(--gnougo-border);
@@ -1471,21 +1490,33 @@ html, body {
 
 /* --------------------------- Trace debug sidebar --------------------------- */
 .gnougo-chat__bubble-action {
-  border: 1px solid var(--gnougo-border);
-  background: var(--gnougo-surface-2);
-  color: var(--gnougo-muted);
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  color: #697586;
+  border-radius: 9px;
+  padding: 5px 8px;
+  font: 600 12px var(--gnougo-font);
   cursor: pointer;
+}
+
+.gnougo-chat__bubble-action svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
 }
 
 .gnougo-chat__bubble-action:hover,
 .gnougo-chat__bubble-action--active {
-  color: #fff;
-  background: var(--gnougo-accent);
-  border-color: rgba(0, 0, 255, 0.3);
+  color: #20262e;
+  background: #f0f1f3;
 }
 
 .gnougo-trace-panel__backdrop {

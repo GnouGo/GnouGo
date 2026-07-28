@@ -26,6 +26,7 @@
     <ProjectReference Include="..\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Assets.Animation\GnOuGo.Assets.Animation.csproj" />
+    <ProjectReference Include="..\GnOuGo.Assets.Bears\GnOuGo.Assets.Bears.csproj" />
     <ProjectReference Include="..\GnOuGo.DocIngestor.Mcp\GnOuGo.DocIngestor.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Mermaid\GnOuGo.Flow.Mermaid.csproj" />

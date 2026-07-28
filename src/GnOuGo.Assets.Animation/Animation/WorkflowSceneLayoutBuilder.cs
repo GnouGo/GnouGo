@@ -346,9 +346,7 @@ internal static class WorkflowSceneLayoutBuilder
                 new AnimationPoint(centerX, y),
                 selected,
                 branchId,
-                step.Type.StartsWith("human.", StringComparison.OrdinalIgnoreCase)
-                    ? AnimationStationKind.Human
-                    : AnimationStationKind.KeyboardDesk);
+                WorkflowVisualFilter.StationKindFor(step.Type));
             _stepNodes.TryAdd(StepKey(instance, step.Id), desk.Node.Id);
             AddEdge(previousNodeId, desk.Node.Id, AnimationFlowEdgeKind.Sequence, isSelected: selected);
             return new StepLayoutResult(desk.Node.Id, y + StepPitch);
@@ -545,7 +543,7 @@ internal static class WorkflowSceneLayoutBuilder
                 new AnimationPoint(centerX, y),
                 selected,
                 branchId,
-                AnimationStationKind.HandoffDesk,
+                WorkflowVisualFilter.StationKindFor(step.Type),
                 AnimationFlowNodeKind.WorkflowCall);
             _stepNodes.TryAdd(StepKey(instance, step.Id), desk.Node.Id);
             AddEdge(previousNodeId, desk.Node.Id, AnimationFlowEdgeKind.Sequence, isSelected: selected);

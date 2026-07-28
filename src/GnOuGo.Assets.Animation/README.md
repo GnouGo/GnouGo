@@ -38,12 +38,13 @@ The public API is intentionally flat and serialization-friendly:
 - `WorkflowPreviewParser.Parse(...)` parses version 1 preview YAML.
 - `WorkflowPreviewValidator.Validate(...)` checks its visual structure.
 - `GnouGnouAnimationPlanner.Build(...)` creates actors, workflow lanes, graph
-  nodes and edges, keyboard desks, the project parcel, diagnostics, and stable
+  nodes and edges, roundabout stations, the project parcel, diagnostics, and stable
   timeline cues.
 - `GnouGnouAnimationPlanner.BuildLive(...)` creates the same deterministic
   scene graph with no synthetic scheduled events.
 - `GnouGnouAnimationSvgRenderer.Render(...)` produces a script-free,
-  dynamically sized office, meadow, or kitchen SVG (minimum 1600x900).
+  dynamically sized white-canvas SVG (minimum 1600x900). Scene enum values are
+  retained as deterministic metadata for compatibility.
 - `WorkflowSimulationScheduler.Schedule(...)` scales cues to 0.5x, 1x, 2x, or
   4x playback.
 - `WorkflowLiveAnimationSession.Apply(...)` maps real, neutral execution
@@ -52,16 +53,22 @@ The public API is intentionally flat and serialization-friendly:
 
 The plan is laid out from top to bottom like a Mermaid workflow. Every visible
 workflow invocation receives its own vertical swimlane and actor. LLM and MCP
-tasks receive a clean isometric desk, open laptop, keyboard, and chair.
-`human.*` tasks receive a visible blocking human-input counter with persistent
+tasks receive a clean road roundabout with a semantic glyph. `human.*` tasks
+receive a visible blocking roundabout with persistent
 waiting and resume events.
-Parallel, foreach, decision, and handoff signposts are retained only when their
-subtree contains that visible long-running work. Curved, semi-transparent
-asphalt routes with deterministic roadside stones connect the remaining scene,
-and actors follow the same SVG route geometry while walking. Short bookkeeping
-steps stay in the event feed without adding desks, roads, pauses, or poses.
+Dynamic orchestration stays visible as well: `workflow.plan`, `workflow.route`,
+and `workflow.execute` use distinct planning, routing, and handoff roundabout
+glyphs. A child workflow discovered by planning or routing
+emits `workflow.discovered` before its actor spawns and receives the parcel.
+Parallel, foreach, decision, and handoff traffic markers are retained only when their
+subtree contains that visible long-running work. Smooth curved roads use a
+single centered dashed line with no shadow, texture filter, or roadside
+decoration, and actors follow the same SVG route geometry while walking. The
+background is always plain white. Short bookkeeping steps in an otherwise
+visible workflow stay in the event feed without adding roundabouts, roads,
+pauses, or poses.
 
-Synthetic laptop work intentionally varies by task: MCP work can be quick or
+Synthetic work intentionally varies by task: MCP work can be quick or
 steady, while LLM work uses a steady or longer deep-focus duration. These
 timings remain deterministic for a seed.
 
@@ -78,6 +85,10 @@ web client drives the rig with `requestAnimationFrame`: alternating arm and leg
 footfalls, breathing, independent ear twitches, head bobbing, blinking and
 directional pupils, alternating keyboard hands and fingers, pickup and handoff
 reaches, matrix duplication, waiting, delivery, celebration, and failure.
+At rest, actors are balanced across looking-around, side-sway, stretching,
+toe-tapping, pondering, and little-wave personalities. Each GnOuGo receives a
+different seeded clock offset and gesture tempo, preventing synchronized idle
+movement even when several runtime workflows appear together.
 
 ## Live execution integration
 
@@ -86,10 +97,15 @@ plan and feed it flat `AnimationExecutionSignal` records. Workflow and step
 instance IDs must remain stable for one execution. The session returns
 `AnimationLiveUpdate` values containing either a `SimulationEvent` or an
 `AnimationScenePatch` for a workflow discovered at runtime.
+Runtime YAML is parsed server-side to add only sanitized visual nodes. When a
+generated workflow contains no LLM, MCP, human, or orchestration step, up to
+eight compact leaf stations keep short `set`, template, and custom work
+visible. If source is unavailable, the first runtime step reuses the generic
+roundabout and later leaf steps arrive as bounded incremental scene patches.
 
 The package includes
 `Runtime/gnougnou-workflow-animation-controller.ts`. It owns actor movement,
-route following, desks, parcel state, scene patches, reduced motion, and
+route following, roundabouts, parcel state, scene patches, reduced motion, and
 delegates articulated character poses to the Bears controller. Workflow source
 text is used only server-side to build safe visual models and is never included
 in live browser events.

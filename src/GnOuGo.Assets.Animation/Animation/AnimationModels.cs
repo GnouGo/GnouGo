@@ -156,6 +156,7 @@ public static class SimulationEventTypes
     public const string SimulationCompleted = "simulation.completed";
     public const string WorkflowStarted = "workflow.started";
     public const string WorkflowCompleted = "workflow.completed";
+    public const string WorkflowDiscovered = "workflow.discovered";
     public const string ActorSpawned = "actor.spawned";
     public const string ActorMoved = "actor.moved";
     public const string ActorWaiting = "actor.waiting";

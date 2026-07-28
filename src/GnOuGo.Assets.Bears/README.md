@@ -63,7 +63,11 @@ dedicated frown with lowered pupils, eyelids, ears, and brows.
 - The reusable browser controller lives in
   `Runtime/gnougnou-animation-controller.ts`. It owns walking, typing, handoff,
   delivery, clone/merge, celebration/failure, breathing, blinking, mouth,
-  independent ear, and rare-yawn motion. Hosts only choose when an action plays.
+  independent ear, and rare-yawn motion. Idle actors are balanced across six
+  personalities: looking around, side-to-side swaying, stretching, toe-tapping,
+  pondering, and an occasional small wave. Seeded per-actor clocks vary every
+  gesture, blink, breath, and pause so a group does not move in sync. Hosts only
+  choose when an action plays.
 - Both animation mechanisms honor `prefers-reduced-motion`.
 - Animation is disabled by default to preserve existing static output
   byte-for-byte.

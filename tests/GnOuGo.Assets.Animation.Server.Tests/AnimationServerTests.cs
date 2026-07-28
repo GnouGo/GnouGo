@@ -92,7 +92,7 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Equal(1, prepared.LaneCount);
         Assert.True(prepared.NodeCount >= 4);
         Assert.Contains("id=\"scene-office\"", prepared.Svg, StringComparison.Ordinal);
-        Assert.Contains("data-node-kind=\"desk\"", prepared.Svg, StringComparison.Ordinal);
+        Assert.Contains("data-node-kind=\"roundabout\"", prepared.Svg, StringComparison.Ordinal);
         Assert.Contains("data-station-kind=\"keyboarddesk\"", prepared.Svg, StringComparison.Ordinal);
         Assert.Contains("data-station-kind=\"deliverydock\"", prepared.Svg, StringComparison.Ordinal);
         Assert.Contains("data-step-id=\"think\"", prepared.Svg, StringComparison.Ordinal);
@@ -145,6 +145,88 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains(failed.Events, item => item.Type == SimulationEventTypes.StepCompleted && item.StepId == "a" && item.Status == SimulationStatus.Failed);
         Assert.Contains(failed.Events, item => item.Type == SimulationEventTypes.StepSkipped && item.StepId == "after");
         Assert.Equal(SimulationStatus.Failed, failed.Events.Last(item => item.Type == SimulationEventTypes.SimulationCompleted).Status);
+    }
+
+    [Theory]
+    [InlineData("workflow.route", "fallback_general")]
+    [InlineData("workflow.execute", "generated-1")]
+    public void Prepare_DynamicallyAddsChildWorkflowAndContinuousHandoffs(
+        string dynamicStepType,
+        string expectedWorkflowName)
+    {
+        var yaml = $$"""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: dynamic
+                    type: {{dynamicStepType}}
+              fallback_general:
+                steps:
+                  - id: answer
+                    type: llm.call
+            """;
+        var prepared = new SimulationPreparationService().Prepare(Request(yaml) with
+        {
+            Seed = 23,
+            Speed = 4
+        });
+
+        var patchItem = Assert.Single(prepared.Stream, item => item.ScenePatch is not null);
+        var patch = patchItem.ScenePatch!;
+        Assert.Equal(expectedWorkflowName, Assert.Single(patch.Lanes).WorkflowName);
+        Assert.True(patch.Bounds.Width > prepared.Metadata.CanvasWidth);
+        Assert.Contains("class=\"workflow-roundabout\"", patch.SvgFragment, StringComparison.Ordinal);
+        Assert.Contains("class=\"route-centerline\"", patch.SvgFragment, StringComparison.Ordinal);
+        Assert.Contains(prepared.Events, item =>
+            item.Type == SimulationEventTypes.WorkflowDiscovered
+            && item.WorkflowName == expectedWorkflowName);
+        Assert.Contains(prepared.Events, item =>
+            item.Type == SimulationEventTypes.TaskHandedOff
+            && item.TargetActorId == patch.Actors[0].Id);
+        Assert.Contains(prepared.Events, item =>
+            item.Type == SimulationEventTypes.TaskHandedOff
+            && item.ActorId == patch.Actors[0].Id
+            && item.TargetActorId == "actor-master");
+
+        var dynamicCompleted = prepared.Events.Single(item =>
+            item.Type == SimulationEventTypes.StepCompleted
+            && item.StepId == "dynamic"
+            && item.WorkflowName == "main");
+        var childReturned = prepared.Events.Last(item =>
+            item.Type == SimulationEventTypes.TaskHandedOff
+            && item.ActorId == patch.Actors[0].Id);
+        Assert.True(dynamicCompleted.OffsetMs >= childReturned.OffsetMs);
+    }
+
+    [Fact]
+    public async Task Stream_EmitsScenePatchBeforeDynamicChildEvents()
+    {
+        var yaml = """
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - { id: route, type: workflow.route }
+              fallback_general:
+                steps:
+                  - { id: answer, type: llm.call }
+            """;
+
+        var envelopes = await ReadAllEnvelopes(Request(yaml) with { Speed = 4 });
+        var patchIndex = Array.FindIndex(
+            envelopes.ToArray(),
+            static envelope => envelope.ScenePatch is not null);
+        var discoveryIndex = Array.FindIndex(
+            envelopes.ToArray(),
+            static envelope => envelope.Event?.Type == SimulationEventTypes.WorkflowDiscovered);
+
+        Assert.True(patchIndex > 0);
+        Assert.True(discoveryIndex > patchIndex);
+        Assert.Equal("scene.patch", envelopes[patchIndex].Type);
+        Assert.Equal("fallback_general", envelopes[patchIndex].ScenePatch?.Lanes[0].WorkflowName);
     }
 
     [Fact]
@@ -260,6 +342,9 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains("GnOuGo.Assets.Bears/Runtime/gnougnou-animation-controller", app, StringComparison.Ordinal);
         Assert.Contains("GnOuGo.Assets.Animation/Runtime/gnougnou-workflow-animation-controller", app, StringComparison.Ordinal);
         Assert.Contains("workflowAnimationsRef.current?.applyEvent", app, StringComparison.Ordinal);
+        Assert.Contains("workflowAnimationsRef.current?.applyScenePatch", app, StringComparison.Ordinal);
+        Assert.Contains("const MotionSvgMarkup = memo", app, StringComparison.Ordinal);
+        Assert.Contains("<MotionSvgMarkup svg={svg} />", app, StringComparison.Ordinal);
         Assert.DoesNotContain("function ambientLifeAt", app, StringComparison.Ordinal);
         Assert.DoesNotContain("case 'walk':", app, StringComparison.Ordinal);
         Assert.Contains("export class GnouGnouAnimationController", runtime, StringComparison.Ordinal);
@@ -268,9 +353,19 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains("setFailureExpression(actor, action === 'fail')", runtime, StringComparison.Ordinal);
         Assert.Contains("actor?.matches('[data-animation-rig=\"true\"]')", runtime, StringComparison.Ordinal);
         Assert.Contains("yawn:", runtime, StringComparison.Ordinal);
+        Assert.Contains("export const GNOUNOU_IDLE_VARIANTS", runtime, StringComparison.Ordinal);
+        Assert.Contains("'look-around'", runtime, StringComparison.Ordinal);
+        Assert.Contains("'toe-tap'", runtime, StringComparison.Ordinal);
+        Assert.Contains("'little-wave'", runtime, StringComparison.Ordinal);
+        Assert.Contains("idleVariantUsage", runtime, StringComparison.Ordinal);
+        Assert.Contains("data-idle-offset-ms", runtime, StringComparison.Ordinal);
         Assert.Contains("export class GnouGnouWorkflowAnimationController", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("GnouGnouWorkflowCharacterController", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("enqueueEvent(event: WorkflowSimulationEvent)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("Array.from(parsedRoot.childNodes)", workflowRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("while (parsedRoot.firstChild)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.promoteForeground(svg)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("element.classList.contains('gnougo-actor')", workflowRuntime, StringComparison.Ordinal);
         Assert.DoesNotContain("GnOuGo.Assets.Bears", workflowRuntime, StringComparison.Ordinal);
     }
 

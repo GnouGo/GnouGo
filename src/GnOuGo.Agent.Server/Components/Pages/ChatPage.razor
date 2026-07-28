@@ -4,10 +4,10 @@
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using System.Threading
-@using Microsoft.Extensions.Logging.Abstractions
 @using Microsoft.JSInterop
 @using GnOuGo.Agent.Server.Components.Tracing
 @using GnOuGo.Assets.Animation
+@using GnOuGo.Assets.Bears
 @implements IAsyncDisposable
 
 @inject IJSRuntime Js
@@ -21,17 +21,31 @@
 <div class="gnougo-app">
     <aside class="gnougo-app__sidebar gnougo-sidebar @( _sidebarOpen ? "gnougo-sidebar--open" : "")">
         <div class="gnougo-sidebar__header">
+            <div class="gnougo-sidebar__mascot" aria-label="Animated GnOuGo mascot">
+                @SidebarMascotSvg
+            </div>
+
             <div class="gnougo-sidebar__brand">
-                <img class="gnougo-sidebar__logo" src="assets/gnougo-agent-logo.png" alt="GnOuGo.Agent" />
                 <div class="gnougo-sidebar__brand-text">
-                    <div class="gnougo-sidebar__title">GnOuGo.Agent</div>
-                    <div class="gnougo-sidebar__subtitle">Chats stored locally</div>
+                    <div class="gnougo-sidebar__title">GnOuGo</div>
+                    <div class="gnougo-sidebar__subtitle">Simple. Safe. Transparent.</div>
                 </div>
             </div>
 
-            <button class="gnougo-sidebar__new" @onclick="NewChatAsync" type="button" title="New chat">
+            <div class="gnougo-sidebar__chat-heading">
+                <h2>Chat</h2>
+                <button class="gnougo-sidebar__heading-add"
+                        @onclick="NewChatAsync"
+                        type="button"
+                        title="New conversation"
+                        aria-label="New conversation">
+                    ＋
+                </button>
+            </div>
+
+            <button class="gnougo-sidebar__new" @onclick="NewChatAsync" type="button" title="New conversation">
                 <span class="gnougo-sidebar__new-icon">＋</span>
-                <span class="gnougo-sidebar__new-text">New chat</span>
+                <span class="gnougo-sidebar__new-text">New conversation</span>
             </button>
 
             <button class="gnougo-sidebar__close" @onclick="ToggleSidebar" type="button" title="Close">
@@ -46,15 +60,26 @@
             }
             else
             {
-                @foreach (var s in _store.Sessions.OrderByDescending(x => x.UpdatedAtUnixMs))
+                @foreach (var group in SidebarConversationGrouping.Group(_store.Sessions, DateTimeOffset.Now))
                 {
-                    var isActive = string.Equals(_store.ActiveId, s.Id, StringComparison.Ordinal);
-                    <button class="gnougo-sidebar__item @(isActive ? "gnougo-sidebar__item--active" : "")"
-                            @onclick="@(() => SelectChatAsync(s.Id))"
-                            type="button">
-                        <div class="gnougo-sidebar__item-title">@s.Title</div>
-                        <div class="gnougo-sidebar__item-meta">@FormatUpdatedAt(s.UpdatedAtUnixMs)</div>
-                    </button>
+                    <section class="gnougo-sidebar__group" aria-label="@group.Label">
+                        <h3 class="gnougo-sidebar__group-title">@group.Label</h3>
+                        @foreach (var s in group.Sessions)
+                        {
+                            var isActive = string.Equals(_store.ActiveId, s.Id, StringComparison.Ordinal);
+                            <button class="gnougo-sidebar__item @(isActive ? "gnougo-sidebar__item--active" : "")"
+                                    @onclick="@(() => SelectChatAsync(s.Id))"
+                                    type="button"
+                                    title="@s.Title"
+                                    aria-current="@(isActive ? "page" : null)">
+                                <svg class="gnougo-sidebar__item-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M5 5.5h14v10H9l-4 3v-13Z"></path>
+                                    <path d="M8 9h8M8 12h6"></path>
+                                </svg>
+                                <span class="gnougo-sidebar__item-title">@s.Title</span>
+                            </button>
+                        }
+                    </section>
                 }
             }
         </nav>
@@ -136,83 +161,96 @@
                     }
                     else
                     {
-                        @if (execution is not null)
-                        {
-                            <article class="gnougo-chat__message gnougo-chat__message--assistant gnougo-workflow-card-wrap">
-                                <section class="gnougo-workflow-card @(execution.IsExpanded ? "gnougo-workflow-card--expanded" : "gnougo-workflow-card--compact")"
-                                         aria-label="Live GnOuGo workflow execution">
-                                    <header class="gnougo-workflow-card__header">
-                                        <div class="gnougo-workflow-card__identity">
-                                            <span class="gnougo-workflow-card__live-dot"></span>
-                                            <div>
-                                                <div class="gnougo-workflow-card__title">GnOuGo team execution</div>
-                                                <div class="gnougo-workflow-card__meta">
-                                                    @execution.Entrypoint · @execution.Scene · @execution.Status
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="gnougo-workflow-card__actions">
-                                            <button type="button"
-                                                    class="gnougo-workflow-card__button"
-                                                    title="Open execution activity"
-                                                    @onclick="() => OpenExecutionSidebar(execution)">
-                                                Activity
-                                            </button>
-                                            <button type="button"
-                                                    class="gnougo-workflow-card__button"
-                                                    aria-expanded="@execution.IsExpanded"
-                                                    @onclick="() => ToggleExecutionCard(execution)">
-                                                @(execution.IsExpanded ? "Collapse" : "Expand")
-                                            </button>
-                                        </div>
-                                    </header>
+                        var isTraceSelected = !isUser
+                                              && (ReferenceEquals(_selectedTraceMessage, msg)
+                                                  || (!string.IsNullOrWhiteSpace(_selectedTraceMessage?.MessageId)
+                                                      && string.Equals(_selectedTraceMessage?.MessageId, msg.MessageId, StringComparison.Ordinal)));
+                        var isPlaceholder = !isUser
+                                            && execution is null
+                                            && string.IsNullOrWhiteSpace(msg.Content);
 
-                                    <div class="gnougo-workflow-card__content" hidden="@(!execution.IsExpanded)">
-                                        <div class="gnougo-workflow-card__stage-toolbar">
-                                            <span>@execution.LaneCount lane@(execution.LaneCount == 1 ? "" : "s")</span>
-                                            <span>@execution.NodeCount visual node@(execution.NodeCount == 1 ? "" : "s")</span>
-                                            <span>Live telemetry · @execution.LastEventType</span>
-                                        </div>
-                                        <div id="@execution.HostId"
-                                             @key="execution.HostId"
-                                             class="gnougo-workflow-card__stage"
-                                             data-status="@execution.Status"
-                                             aria-label="Animated workflow scene"></div>
+                        <article class="gnougo-chat__message @(isUser ? "gnougo-chat__message--user" : "gnougo-chat__message--assistant") @(isPlaceholder ? "gnougo-chat__message--placeholder" : "")"
+                                 aria-label="@(isUser ? "Your message" : "GnOuGo.Agent response")">
+                            <div class="gnougo-chat__bubble">
+                                @if (execution is not null)
+                                {
+                                    <div class="gnougo-chat__response-animation">
+                                        <section class="gnougo-workflow-card @(execution.IsExpanded ? "gnougo-workflow-card--expanded" : "gnougo-workflow-card--compact")"
+                                                 aria-label="Live GnOuGo workflow execution">
+                                            <div class="gnougo-workflow-card__content" hidden="@(!execution.IsExpanded)">
+                                                <div id="@execution.HostId"
+                                                     @key="execution.HostId"
+                                                     class="gnougo-workflow-card__stage"
+                                                     data-status="@execution.Status"
+                                                     aria-label="Animated workflow scene"></div>
 
-                                        @if (execution.HumanInputSummaries.Count > 0)
-                                        {
-                                            <div class="gnougo-workflow-card__hitl-summary">
-                                                <strong>Human input received</strong>
-                                                @foreach (var summary in execution.HumanInputSummaries)
+                                                @if (execution.HumanInputSummaries.Count > 0)
                                                 {
-                                                    <div><span>@summary.Question</span><code>@summary.Answer</code></div>
+                                                    <div class="gnougo-workflow-card__hitl-summary">
+                                                        <strong>Human input received</strong>
+                                                        @foreach (var summary in execution.HumanInputSummaries)
+                                                        {
+                                                            <div><span>@summary.Question</span><code>@summary.Answer</code></div>
+                                                        }
+                                                    </div>
                                                 }
                                             </div>
-                                        }
+                                        </section>
                                     </div>
-                                </section>
-                            </article>
-                        }
+                                }
 
-                        <article class="gnougo-chat__message @(isUser ? "gnougo-chat__message--user" : "gnougo-chat__message--assistant") @(!isUser && execution is not null && string.IsNullOrWhiteSpace(msg.Content) ? "gnougo-chat__message--placeholder" : "")">
-                            <div class="gnougo-chat__bubble">
-                                <div class="gnougo-chat__bubble-meta">
-                                    <span class="gnougo-chat__bubble-role">@((isUser ? "You" : "GnOuGo.Agent"))</span>
-                                    @if (!isUser)
-                                    {
-                                        var isTraceSelected = ReferenceEquals(_selectedTraceMessage, msg)
-                                                              || (!string.IsNullOrWhiteSpace(_selectedTraceMessage?.MessageId)
-                                                                  && string.Equals(_selectedTraceMessage?.MessageId, msg.MessageId, StringComparison.Ordinal));
+                                @if (isUser || !string.IsNullOrWhiteSpace(msg.Content))
+                                {
+                                    <MarkdownContent Class="gnougo-chat__bubble-text" Content="@msg.Content" />
+                                }
+
+                                @if (!isUser && !string.IsNullOrWhiteSpace(msg.Content))
+                                {
+                                    <div class="gnougo-chat__response-actions" aria-label="Response actions">
+                                        <button class="gnougo-chat__bubble-action"
+                                                type="button"
+                                                title="Copy response"
+                                                @onclick="() => CopyMessageAsync(msg.Content)">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                <rect x="8" y="8" width="11" height="11" rx="2"></rect>
+                                                <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path>
+                                            </svg>
+                                            <span>Copy</span>
+                                        </button>
                                         <button class="gnougo-chat__bubble-action @(isTraceSelected && _traceSidebarOpen ? "gnougo-chat__bubble-action--active" : "")"
                                                 type="button"
                                                 title="Open trace debug sidebar"
                                                 @onclick="() => OpenTraceSidebar(msg)">
-                                            🔎 Trace
+                                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                <circle cx="11" cy="11" r="6"></circle>
+                                                <path d="m16 16 4 4"></path>
+                                            </svg>
+                                            <span>Trace</span>
                                         </button>
-                                    }
-                                </div>
-
-                                <MarkdownContent Class="gnougo-chat__bubble-text" Content="@msg.Content" />
+                                        @if (execution is not null)
+                                        {
+                                            <button class="gnougo-chat__bubble-action @(ReferenceEquals(_selectedExecution, execution) && _executionSidebarOpen ? "gnougo-chat__bubble-action--active" : "")"
+                                                    type="button"
+                                                    title="Open workflow activity"
+                                                    @onclick="() => OpenExecutionSidebar(execution)">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path d="M5 18V12M12 18V7M19 18V4"></path>
+                                                </svg>
+                                                <span>Activity</span>
+                                            </button>
+                                            <button class="gnougo-chat__bubble-action"
+                                                    type="button"
+                                                    title="@(execution.IsExpanded ? "Hide workflow diagram" : "Show workflow diagram")"
+                                                    aria-expanded="@execution.IsExpanded"
+                                                    @onclick="() => ToggleExecutionCard(execution)">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path d="@(execution.IsExpanded ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6")"></path>
+                                                </svg>
+                                                <span>@(execution.IsExpanded ? "Hide diagram" : "Show diagram")</span>
+                                            </button>
+                                        }
+                                    </div>
+                                }
                             </div>
                         </article>
                     }
@@ -229,9 +267,9 @@
                         <div class="gnougo-chat__bubble-text">
                             <p><strong>@_pendingHumanInput.Prompt</strong></p>
 
-                            @if (!string.IsNullOrWhiteSpace(_pendingHumanInput.Context))
+                            @if (!string.IsNullOrWhiteSpace(_pendingHumanInput.ContextMarkdown))
                             {
-                                <MarkdownContent Class="gnougo-hitl-context" Content="@FormatHumanInputContextAsMarkdown(_pendingHumanInput.Context)" />
+                                <MarkdownContent Class="gnougo-hitl-context" Content="@_pendingHumanInput.ContextMarkdown" />
                             }
 
                             @if (_pendingHumanInput.Choices is { Count: > 0 })
@@ -503,14 +541,18 @@
                         }
                         else
                         {
-                            <button class="gnougo-composer__send" type="submit" disabled="@(!CanSend)">
-                                <span class="gnougo-composer__send-text">Send</span>
+                            <button class="gnougo-composer__send gnougo-composer__send--icon"
+                                    type="submit"
+                                    title="Send"
+                                    aria-label="Send"
+                                    disabled="@(!CanSend)">
+                                <span aria-hidden="true">↑</span>
                             </button>
                         }
                     </div>
 
                     <div class="gnougo-composer__hint">
-                        Enter to send • Shift+Enter for newline • Drag & drop documents to upload them first
+                        Enter to send · Shift+Enter for newline · GnOuGo can make mistakes, so verify important information
                     </div>
                 }
             </EditForm>
@@ -595,7 +637,7 @@
         public string StepId { get; set; } = "";
         public string Prompt { get; set; } = "";
         public string Mode { get; set; } = "text";
-        public string? Context { get; set; }
+        public string ContextMarkdown { get; set; } = "";
         public string ResponseText { get; set; } = "";
         public List<string>? Choices { get; set; }
         public List<HumanInputFieldModel>? Fields { get; set; }
@@ -639,6 +681,25 @@
     private const string DefaultWorkflowDisplayName = "Workflow GnOuGo";
 
     private static readonly JsonSerializerOptions PrettyJsonOptions = new() { WriteIndented = true };
+    private static readonly MarkupString SidebarMascotSvg = new(
+        GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Seed = 42,
+            Size = 256,
+            SvgIdPrefix = "agent-sidebar-gnougo",
+            Theme = GnouGnouBearTheme.Transparent,
+            Role = GnouGnouBearRole.Default,
+            Emotion = GnouGnouBearEmotion.Happy,
+            State = GnouGnouBearState.Idle,
+            FurPalette = GnouGnouBearFurPalette.Classic,
+            EyeStyle = GnouGnouBearEyeStyle.BigGlossy,
+            Accessory = GnouGnouBearAccessory.None,
+            HasHeadphones = false,
+            HasBowTie = true,
+            Animation = GnouGnouBearAnimation.Idle,
+            Title = "GnOuGo.Agent",
+            Description = "Animated GnOuGo mascot for the conversation menu."
+        }));
 
     private readonly ComposeModel _model = new();
     private const string ComposerDropZoneId = "chatComposerDropZone";
@@ -671,6 +732,7 @@
     private ChatExecutionModel? _selectedExecution;
     private bool _executionSidebarOpen;
     private string? _activeExecutionCorrelationId;
+    private string? _animationScrollCorrelationId;
     private AppVersionDto? _appVersion;
     private bool _animationInteropRetryPending;
     private readonly SemaphoreSlim _animationInteropGate = new(1, 1);
@@ -729,6 +791,16 @@
             }
         }
 
+        // Animation telemetry must never wait for optional Markdown/Mermaid work.
+        await FlushAnimationInteropAsync();
+
+        if (_animationScrollCorrelationId is { } scrollCorrelationId
+            && GetExecution(scrollCorrelationId) is { NeedsMount: false })
+        {
+            _animationScrollCorrelationId = null;
+            await ScrollToBottomAsync();
+        }
+
         if (_needsMarkdownEnhance && (!_isStreaming || _pendingHumanInput is not null))
         {
             _needsMarkdownEnhance = false;
@@ -744,7 +816,6 @@
             }
         }
 
-        await FlushAnimationInteropAsync();
     }
 
     private async Task LoadAppVersionAsync()
@@ -764,38 +835,6 @@
         catch (InvalidOperationException)
         {
         }
-    }
-
-    private static string FormatHumanInputContextAsMarkdown(string? context)
-    {
-        if (string.IsNullOrWhiteSpace(context))
-            return string.Empty;
-
-        var normalized = NormalizeLineEndings(context).Trim();
-
-        if (TryExtractSingleCodeFence(normalized, out var language, out var fencedContent))
-        {
-            var content = NormalizeLineEndings(fencedContent).Trim();
-            if (IsJsonLanguage(language) && TryFormatJson(content, out var prettyJson))
-                return BuildFencedCode("json", prettyJson);
-            if (IsYamlLanguage(language) || LooksLikeYaml(content))
-                return BuildYamlContextMarkdown(content, string.IsNullOrWhiteSpace(language) ? "yaml" : language);
-            return BuildFencedCode(language, content);
-        }
-
-        if (TryFormatJson(normalized, out var formattedJson))
-            return BuildFencedCode("json", formattedJson);
-
-        if (LooksLikeYaml(normalized))
-            return BuildYamlContextMarkdown(normalized, "yaml");
-
-        return normalized;
-    }
-
-    private static string BuildYamlContextMarkdown(string yaml, string language)
-    {
-        var fencedYaml = BuildFencedCode(language, yaml);
-        return WorkflowMermaidMarkdownFormatter.AppendDiagrams(fencedYaml, yaml, NullLogger.Instance);
     }
 
     private static string? FormatHumanInputContextNode(JsonNode? context)
@@ -1009,76 +1048,6 @@
     {
         var trimmed = value.TrimStart();
         return trimmed.StartsWith('{') || trimmed.StartsWith('[');
-    }
-
-    private static bool LooksLikeYaml(string value)
-    {
-        if (value.StartsWith("version:", StringComparison.OrdinalIgnoreCase)
-            || value.StartsWith("dsl:", StringComparison.OrdinalIgnoreCase)
-            || value.StartsWith("---", StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        var lines = value.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (lines.Length < 2)
-            return false;
-
-        var yamlLikeLines = 0;
-        foreach (var line in lines)
-        {
-            if (line.StartsWith('#') || line.StartsWith("- ", StringComparison.Ordinal))
-            {
-                yamlLikeLines++;
-                continue;
-            }
-
-            var index = line.IndexOf(':', StringComparison.Ordinal);
-            if (index <= 0)
-                continue;
-
-            var key = line[..index].Trim();
-            if (key.Length == 0 || key.Contains('{') || key.Contains('['))
-                continue;
-
-            yamlLikeLines++;
-            if (yamlLikeLines >= 2)
-                return true;
-        }
-
-        return false;
-    }
-
-    private static bool TryExtractSingleCodeFence(string markdown, out string language, out string content)
-    {
-        language = string.Empty;
-        content = string.Empty;
-
-        var lines = markdown.Split('\n');
-        if (lines.Length < 2 || !lines[0].TrimStart().StartsWith("```", StringComparison.Ordinal))
-            return false;
-
-        var firstLine = lines[0].Trim();
-        if (!lines[^1].Trim().StartsWith("```", StringComparison.Ordinal))
-            return false;
-
-        language = firstLine.Length > 3 ? firstLine[3..].Trim() : string.Empty;
-        content = string.Join("\n", lines.Skip(1).Take(lines.Length - 2));
-        return true;
-    }
-
-    private static bool IsJsonLanguage(string language)
-        => language.Equals("json", StringComparison.OrdinalIgnoreCase)
-           || language.Equals("jsonc", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsYamlLanguage(string language)
-        => language.Equals("yaml", StringComparison.OrdinalIgnoreCase)
-           || language.Equals("yml", StringComparison.OrdinalIgnoreCase);
-
-    private static string BuildFencedCode(string language, string content)
-    {
-        var fence = content.Contains("```", StringComparison.Ordinal) ? "````" : "```";
-        return $"{fence}{language}\n{content}\n{fence}";
     }
 
     private static string NormalizeLineEndings(string value)
@@ -1581,6 +1550,7 @@
                     };
                     _executions[correlationId] = execution;
                     _activeExecutionCorrelationId = correlationId;
+                    _animationScrollCorrelationId = correlationId;
                     _selectedExecution = execution;
                     StateHasChanged();
                     continue;
@@ -1594,6 +1564,8 @@
                         execution.LastEventType = "scene patch";
                         execution.LaneCount += patch.Lanes.Count;
                         execution.NodeCount += patch.Nodes.Count;
+                        if (string.Equals(_activeExecutionCorrelationId, correlationId, StringComparison.Ordinal))
+                            _animationScrollCorrelationId = correlationId;
                         StateHasChanged();
                     }
                     continue;
@@ -1746,13 +1718,16 @@
                     var requestJson = JsonNode.Parse(evt.Text ?? "{}")?.AsObject();
                     if (requestJson is not null)
                     {
+                        var context = FormatHumanInputContextNode(requestJson["context"]);
                         var model = new HumanInputModel
                         {
                             RunId = ReadHumanInputString(requestJson["run_id"]) ?? "",
                             StepId = ReadHumanInputString(requestJson["step_id"]) ?? "",
                             Prompt = ReadHumanInputString(requestJson["prompt"]) ?? "",
                             Mode = ReadHumanInputString(requestJson["mode"]) ?? "text",
-                            Context = FormatHumanInputContextNode(requestJson["context"]),
+                            // Prepare once when the request arrives. Razor rendering must stay cheap
+                            // while the workflow and its persistent waiting animation remain active.
+                            ContextMarkdown = HumanInputContextMarkdownFormatter.Format(context),
                         };
 
                         if (requestJson["choices"] is JsonArray choicesArr)
@@ -2553,6 +2528,26 @@
         _traceSidebarOpen = true;
     }
 
+    private async Task CopyMessageAsync(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return;
+
+        try
+        {
+            await Js.InvokeAsync<bool>("GnOuGo.Agent.copyText", content);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+        {
+        }
+        catch (JSException)
+        {
+        }
+    }
+
     private void CloseTraceSidebar()
     {
         _traceSidebarOpen = false;
@@ -2564,15 +2559,6 @@
         CloseTraceSidebar();
         StateHasChanged();
         return Task.CompletedTask;
-    }
-
-    private static string FormatUpdatedAt(long unixMs)
-    {
-        if (unixMs <= 0) return "";
-        var dt = DateTimeOffset.FromUnixTimeMilliseconds(unixMs).ToLocalTime();
-        var now = DateTimeOffset.Now;
-        if (dt.Date == now.Date) return dt.ToString("HH:mm");
-        return dt.ToString("yyyy-MM-dd");
     }
 
     private static string FormatBytes(long bytes)

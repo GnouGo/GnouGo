@@ -75,14 +75,23 @@ app.MapPost("/api/simulations/stream", async (
     var stopwatch = Stopwatch.StartNew();
     try
     {
-        foreach (var simulationEvent in simulation.Events)
+        foreach (var item in simulation.Stream)
         {
-            var remaining = simulationEvent.OffsetMs - stopwatch.ElapsedMilliseconds;
+            var remaining = item.OffsetMs - stopwatch.ElapsedMilliseconds;
             if (remaining > 0)
                 await Task.Delay(TimeSpan.FromMilliseconds(remaining), context.RequestAborted);
+            var envelope = item.ScenePatch is not null
+                ? new SimulationStreamEnvelope(
+                    "scene.patch",
+                    DateTimeOffset.UtcNow,
+                    ScenePatch: item.ScenePatch)
+                : new SimulationStreamEnvelope(
+                    item.Event!.Type,
+                    DateTimeOffset.UtcNow,
+                    Event: item.Event);
             await WriteEventAsync(
                 context.Response,
-                new SimulationStreamEnvelope(simulationEvent.Type, DateTimeOffset.UtcNow, Event: simulationEvent),
+                envelope,
                 context.RequestAborted);
         }
     }

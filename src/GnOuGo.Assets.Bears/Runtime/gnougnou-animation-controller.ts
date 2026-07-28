@@ -55,6 +55,28 @@ interface AmbientLife {
   rightEar: number
   mouth: number
   yawn: number
+  drift: number
+  gesture: number
+  accent: number
+  rhythm: number
+  idleVariant: GnouGnouIdleVariant
+}
+
+export const GNOUNOU_IDLE_VARIANTS = [
+  'look-around',
+  'side-sway',
+  'stretch',
+  'toe-tap',
+  'ponder',
+  'little-wave',
+] as const
+
+export type GnouGnouIdleVariant = typeof GNOUNOU_IDLE_VARIANTS[number]
+
+interface IdleIdentity {
+  variant: GnouGnouIdleVariant
+  phase: number
+  timeOffsetSeconds: number
 }
 
 type SvgPart = SVGGraphicsElement | null
@@ -107,12 +129,22 @@ function gaitPulse(phase: number, start: number): number {
   return local < .46 ? Math.sin(local / .46 * Math.PI) : 0
 }
 
-function ambientLifeAt(now: number, seed: number): AmbientLife {
-  const seconds = now / 1000
+function seededUnit(seed: number, salt: number): number {
+  let value = (Math.trunc(seed) ^ Math.imul(salt, 0x9e3779b9)) >>> 0
+  value = Math.imul(value ^ value >>> 16, 0x21f0aaad)
+  value = Math.imul(value ^ value >>> 15, 0x735a2d97)
+  return ((value ^ value >>> 15) >>> 0) / 0x1_0000_0000
+}
+
+function ambientLifeAt(now: number, seed: number, identity: IdleIdentity): AmbientLife {
+  const seconds = now / 1000 + identity.timeOffsetSeconds
   const stableSeed = Math.abs(seed || 1)
   const breathPeriod = 6.8 + stableSeed % 6 * .22
   const lookPeriod = 12.5 + stableSeed % 8 * .37
-  const phase = (stableSeed % 97) / 97
+  const phase = identity.phase
+  const gesturePeriod = 13 + seededUnit(stableSeed, 31) * 9
+  const accentPeriod = 17 + seededUnit(stableSeed, 43) * 13
+  const gesture = periodicPulse(seconds, gesturePeriod, seededUnit(stableSeed, 37), .14)
   return {
     breath: Math.sin((seconds / breathPeriod + phase) * Math.PI * 2),
     look: Math.sin((seconds / lookPeriod + phase * .7) * Math.PI * 2),
@@ -121,6 +153,11 @@ function ambientLifeAt(now: number, seed: number): AmbientLife {
     rightEar: periodicPulse(seconds, 11.3 + stableSeed % 7 * .63, phase * .37 + .29, .05),
     mouth: Math.sin((seconds / (9.2 + stableSeed % 5 * .41) + phase) * Math.PI * 2),
     yawn: periodicPulse(seconds, 48 + stableSeed % 19, phase * .47 + .13, .048),
+    drift: Math.sin((seconds / (8.5 + seededUnit(stableSeed, 47) * 5) + phase * .53) * Math.PI * 2),
+    gesture,
+    accent: periodicPulse(seconds, accentPeriod, seededUnit(stableSeed, 53), .1),
+    rhythm: Math.sin(seconds * Math.PI * (2.2 + seededUnit(stableSeed, 59) * 1.4)) * gesture,
+    idleVariant: identity.variant,
   }
 }
 
@@ -133,7 +170,10 @@ function ambientLifeAt(now: number, seed: number): AmbientLife {
  */
 export class GnouGnouAnimationController {
   private readonly poseFrames = new Map<string, number>()
+  private readonly idleIdentities = new WeakMap<SVGGraphicsElement, IdleIdentity>()
+  private readonly idleVariantUsage = GNOUNOU_IDLE_VARIANTS.map(() => 0)
   private ambientFrame: number | null = null
+  private idleIdentityOrdinal = 0
   private generation = 0
 
   constructor(private readonly root: () => ParentNode | null) {}
@@ -147,7 +187,7 @@ export class GnouGnouAnimationController {
           const pose = actor.getAttribute('data-pose') ?? 'idle'
           if (pose !== 'idle' && pose !== 'fail') return
           const seed = Number(actor.getAttribute('data-visual-seed') ?? 1)
-          this.renderAmbientPose(actor, pose, ambientLifeAt(now, seed))
+          this.renderAmbientPose(actor, pose, this.ambientLife(actor, now, seed))
         })
       }
       this.ambientFrame = requestAnimationFrame(render)
@@ -251,7 +291,7 @@ export class GnouGnouAnimationController {
       const rightStep = gaitPulse(gaitPhase, .5) * gesture
       const stepLift = Math.max(leftStep, rightStep)
       const stepBalance = leftStep - rightStep
-      const life = ambientLifeAt(now, visualSeed)
+      const life = this.ambientLife(actor, now, visualSeed)
       const actionBlink = actualDuration >= 700
         ? Math.max(0, 1 - Math.abs(progress - .62) / .035)
         : 0
@@ -553,6 +593,31 @@ export class GnouGnouAnimationController {
     actor.setAttribute('data-pose', 'idle')
   }
 
+  private ambientLife(actor: SVGGraphicsElement, now: number, seed: number): AmbientLife {
+    let identity = this.idleIdentities.get(actor)
+    if (!identity) {
+      const preferred = Math.floor(seededUnit(seed, 17) * GNOUNOU_IDLE_VARIANTS.length)
+      let variantIndex = preferred
+      for (let offset = 1; offset < GNOUNOU_IDLE_VARIANTS.length; offset += 1) {
+        const candidate = (preferred + offset) % GNOUNOU_IDLE_VARIANTS.length
+        if (this.idleVariantUsage[candidate] < this.idleVariantUsage[variantIndex])
+          variantIndex = candidate
+      }
+      const ordinal = this.idleIdentityOrdinal++
+      const phase = (seededUnit(seed, 23) + ordinal * .61803398875) % 1
+      identity = {
+        variant: GNOUNOU_IDLE_VARIANTS[variantIndex],
+        phase,
+        timeOffsetSeconds: 3 + seededUnit(seed, 29) * 41 + ordinal * 1.37,
+      }
+      this.idleIdentities.set(actor, identity)
+      this.idleVariantUsage[variantIndex] += 1
+      actor.setAttribute('data-idle-variant', identity.variant)
+      actor.setAttribute('data-idle-offset-ms', String(Math.round(identity.timeOffsetSeconds * 1000)))
+    }
+    return ambientLifeAt(now, seed, identity)
+  }
+
   private setFailureExpression(actor: SVGGraphicsElement, failed: boolean) {
     actor.querySelector<SVGGraphicsElement>('[data-expression="default"]')
       ?.setAttribute('opacity', failed ? '0' : '1')
@@ -577,16 +642,103 @@ export class GnouGnouAnimationController {
     }
 
     const eyeClose = Math.max(life.blink, life.yawn * .58)
-    applyRigTransform(rigPart(actor, 'body'), life.breath * .22, 0, -Math.abs(life.breath) * .45, 1, 1 + life.breath * .004)
-    applyRigTransform(rigPart(actor, 'head'), life.look * .62 - life.yawn * 3.8, 0, -Math.abs(life.breath) * .32 - life.yawn * 1.2)
-    applyRigTransform(rigPart(actor, 'arm-left'), 5 * life.yawn)
-    applyRigTransform(rigPart(actor, 'arm-right'), -58 * life.yawn)
-    applyRigTransform(rigPart(actor, 'ear-left'), life.leftEar * 7 + life.breath * .55 - life.yawn * 2)
-    applyRigTransform(rigPart(actor, 'ear-right'), -life.rightEar * 6 - life.breath * .45 + life.yawn * 2)
+    let bodyAngle = life.breath * .22
+    let bodyX = 0
+    let bodyY = -Math.abs(life.breath) * .45
+    let headAngle = life.look * .62 - life.yawn * 3.8
+    let headX = 0
+    let headY = -Math.abs(life.breath) * .32 - life.yawn * 1.2
+    let leftArmAngle = 5 * life.yawn
+    let rightArmAngle = -58 * life.yawn
+    let leftLegAngle = 0
+    let rightLegAngle = 0
+    let rightLegY = 0
+    let leftEarAngle = life.leftEar * 7 + life.breath * .55 - life.yawn * 2
+    let rightEarAngle = -life.rightEar * 6 - life.breath * .45 + life.yawn * 2
+    let pupilX = life.look * .9
+    let pupilY = life.breath * .16
+    let leftBrowAngle = 0
+    let rightBrowAngle = 0
+    let bowTieAngle = life.drift * .35
+
+    switch (life.idleVariant) {
+      case 'look-around':
+        headAngle += life.drift * 2.4 + life.gesture * 2.8
+        headX += life.drift * .65
+        pupilX += life.drift * 1.6
+        leftEarAngle += life.gesture * 5
+        rightEarAngle -= life.accent * 4
+        leftBrowAngle -= life.gesture * 4
+        rightBrowAngle += life.gesture * 1.5
+        break
+      case 'side-sway':
+        bodyAngle += life.drift * 1.15
+        bodyX += life.drift * .75
+        headAngle -= life.drift * 1.7
+        leftArmAngle += life.drift * 3.2
+        rightArmAngle += life.drift * 3.2
+        leftLegAngle -= life.drift * 1.2
+        rightLegAngle -= life.drift * 1.2
+        bowTieAngle += life.drift * 1.6
+        break
+      case 'stretch': {
+        const stretch = Math.max(life.gesture, life.accent * .72)
+        leftArmAngle += stretch * 43
+        rightArmAngle -= stretch * 43
+        bodyY -= stretch * 2.8
+        headY -= stretch * 2
+        headAngle += life.drift * .8
+        leftEarAngle += stretch * 4
+        rightEarAngle -= stretch * 4
+        bowTieAngle += life.rhythm * 2
+        break
+      }
+      case 'toe-tap': {
+        const tap = Math.abs(life.rhythm)
+        rightLegAngle -= life.rhythm * 9
+        rightLegY -= tap * 2.4
+        bodyAngle += life.rhythm * .45
+        headAngle -= life.rhythm * .6
+        pupilY += tap * .35
+        rightEarAngle -= tap * 2
+        break
+      }
+      case 'ponder':
+        rightArmAngle += life.gesture * 58
+        leftArmAngle -= life.gesture * 7
+        headAngle -= life.gesture * 5 + life.drift * 1.1
+        pupilX += life.gesture * 1.8
+        pupilY -= life.gesture * 1.4
+        leftBrowAngle -= life.gesture * 5
+        rightBrowAngle += life.gesture * 3
+        break
+      case 'little-wave':
+        rightArmAngle -= life.gesture * (45 + life.rhythm * 11)
+        leftArmAngle += life.gesture * 5
+        headAngle += life.gesture * 2.4 + life.drift * .7
+        headX += life.gesture * .6
+        pupilX += life.gesture * 1.1
+        leftEarAngle += life.gesture * 3
+        rightEarAngle -= life.gesture * 5
+        bowTieAngle += life.rhythm * 2.5
+        break
+    }
+
+    applyRigTransform(rigPart(actor, 'body'), bodyAngle, bodyX, bodyY, 1, 1 + life.breath * .004)
+    applyRigTransform(rigPart(actor, 'head'), headAngle, headX, headY)
+    applyRigTransform(rigPart(actor, 'arm-left'), leftArmAngle)
+    applyRigTransform(rigPart(actor, 'arm-right'), rightArmAngle)
+    applyRigTransform(rigPart(actor, 'leg-left'), leftLegAngle)
+    applyRigTransform(rigPart(actor, 'leg-right'), rightLegAngle, 0, rightLegY)
+    applyRigTransform(rigPart(actor, 'ear-left'), leftEarAngle)
+    applyRigTransform(rigPart(actor, 'ear-right'), rightEarAngle)
     applyRigTransform(rigPart(actor, 'eye-left'), 0, 0, 0, 1, 1 - eyeClose * .9)
     applyRigTransform(rigPart(actor, 'eye-right'), 0, 0, 0, 1, 1 - eyeClose * .9)
-    applyRigTransform(rigPart(actor, 'pupil-left'), 0, life.look * .9, life.breath * .16)
-    applyRigTransform(rigPart(actor, 'pupil-right'), 0, life.look * .9, life.breath * .16)
+    applyRigTransform(rigPart(actor, 'pupil-left'), 0, pupilX, pupilY)
+    applyRigTransform(rigPart(actor, 'pupil-right'), 0, pupilX, pupilY)
+    applyRigTransform(rigPart(actor, 'brow-left'), leftBrowAngle)
+    applyRigTransform(rigPart(actor, 'brow-right'), rightBrowAngle)
+    applyRigTransform(rigPart(actor, 'bow-tie'), bowTieAngle)
     applyRigTransform(
       rigPart(actor, 'mouth'),
       life.mouth * .42,

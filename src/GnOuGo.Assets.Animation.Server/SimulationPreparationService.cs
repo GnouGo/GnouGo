@@ -135,6 +135,16 @@ public sealed class SimulationPreparationService
         {
             throw new SimulationRequestException("INVALID_SPEED", exception.Message);
         }
+        var stream = DynamicPreviewStreamBuilder.Build(
+            plan,
+            validation.Document,
+            request.Workflow,
+            events,
+            request.Speed);
+        events = stream
+            .Where(static item => item.Event is not null)
+            .Select(static item => item.Event!)
+            .ToArray();
         var duration = events.Count == 0 ? 0 : events.Max(static item => item.OffsetMs + item.DurationMs);
         var prepared = new SimulationPreparedData(
             SimulationId: Guid.NewGuid().ToString("N"),
@@ -149,8 +159,8 @@ public sealed class SimulationPreparationService
             CanvasHeight: svg.Height,
             LaneCount: plan.Lanes.Count,
             NodeCount: plan.Nodes.Count,
-            Warnings: plan.Warnings.Select(ToDto).ToArray());
-        return new PreparedSimulation(prepared, events);
+            Warnings: plan.Warnings.Select(ToServerWarningDto).ToArray());
+        return new PreparedSimulation(prepared, events, stream);
     }
 
     private static PreviewDiagnosticDto? ValidatePayloadSizes(SimulationRequest request)
@@ -175,6 +185,17 @@ public sealed class SimulationPreparationService
         diagnostic.StepId,
         diagnostic.Field);
 
+    private static PreviewDiagnosticDto ToServerWarningDto(WorkflowPreviewDiagnostic diagnostic) =>
+        diagnostic.Code == "SIMULATED_DYNAMIC_CALL"
+            ? new PreviewDiagnosticDto(
+                "SYNTHETIC_DYNAMIC_CHILD",
+                $"The runtime result for '{diagnostic.StepId}' is unavailable in this standalone preview; a representative child workflow will appear dynamically.",
+                diagnostic.Severity.ToString(),
+                diagnostic.WorkflowName,
+                diagnostic.StepId,
+                diagnostic.Field)
+            : ToDto(diagnostic);
+
     private static int CountSteps(IEnumerable<WorkflowPreviewStep> steps)
     {
         var count = 0;
@@ -190,7 +211,10 @@ public sealed class SimulationPreparationService
     }
 }
 
-public sealed record PreparedSimulation(SimulationPreparedData Metadata, IReadOnlyList<SimulationEvent> Events);
+public sealed record PreparedSimulation(
+    SimulationPreparedData Metadata,
+    IReadOnlyList<SimulationEvent> Events,
+    IReadOnlyList<SimulationStreamItem> Stream);
 
 public sealed class SimulationRequestException(
     string code,

@@ -125,7 +125,7 @@ public sealed class AnimationPlannerAndRendererTests
     }
 
     [Fact]
-    public void Build_UsesOneEvolvingParcelAndOnlyLongRunningTaskDesks()
+    public void Build_UsesOneEvolvingParcelAndOnlyLongRunningTaskRoundabouts()
     {
         var plan = GnouGnouAnimationPlanner.Build(Valid(TeamYaml), new GnouGnouAnimationOptions
         {
@@ -154,21 +154,25 @@ public sealed class AnimationPlannerAndRendererTests
         var svg = GnouGnouAnimationSvgRenderer.Render(plan).Svg;
         Assert.Contains("data-step-id=\"think\"", svg, StringComparison.Ordinal);
         Assert.Contains("data-task-kind=\"project-parcel\"", svg, StringComparison.Ordinal);
-        Assert.Contains("class=\"desk-key\"", svg, StringComparison.Ordinal);
         Assert.Contains("class=\"parcel-stamp\"", svg, StringComparison.Ordinal);
-        Assert.Contains("class=\"isometric-desk\"", svg, StringComparison.Ordinal);
-        Assert.Contains("class=\"laptop-screen\"", svg, StringComparison.Ordinal);
-        Assert.Contains("class=\"laptop-side\"", svg, StringComparison.Ordinal);
-        Assert.Contains("class=\"laptop-trackpad\"", svg, StringComparison.Ordinal);
-        Assert.Contains("class=\"isometric-sign\"", svg, StringComparison.Ordinal);
+        Assert.Contains("class=\"workflow-roundabout\"", svg, StringComparison.Ordinal);
+        Assert.Contains("class=\"roundabout-road\"", svg, StringComparison.Ordinal);
+        Assert.Contains("class=\"roundabout-marking\"", svg, StringComparison.Ordinal);
+        Assert.Contains("class=\"control-marker\"", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("class=\"isometric-desk\"", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("class=\"laptop-screen\"", svg, StringComparison.Ordinal);
         Assert.Contains("class=\"route-surface\"", svg, StringComparison.Ordinal);
-        Assert.Contains("stroke: rgba(55,65,71,.59)", svg, StringComparison.Ordinal);
-        Assert.Contains("class=\"route-stone\"", svg, StringComparison.Ordinal);
+        Assert.Contains("class=\"route-outline\"", svg, StringComparison.Ordinal);
+        Assert.Contains("class=\"route-centerline\"", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("class=\"route-shadow\"", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("class=\"route-stone\"", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("id=\"scene-decorations\"", svg, StringComparison.Ordinal);
+        Assert.Contains("fill=\"#fff\"", svg, StringComparison.Ordinal);
         Assert.Contains("data-route-path=\"true\"", svg, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Build_CollapsesShortStepsAndVariesVisibleLaptopDurations()
+    public void Build_CollapsesShortStepsAndVariesVisibleRoundaboutDurations()
     {
         var plan = GnouGnouAnimationPlanner.Build(Valid("""
             version: 1
@@ -189,7 +193,7 @@ public sealed class AnimationPlannerAndRendererTests
         Assert.Null(quick.StationId);
         Assert.NotNull(mcp.StationId);
         Assert.NotNull(llm.StationId);
-        Assert.Contains("without a visual workstation", quick.Message, StringComparison.Ordinal);
+        Assert.Contains("without a visual roundabout", quick.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -244,14 +248,14 @@ public sealed class AnimationPlannerAndRendererTests
         var returned = plan.Nodes.Single(node => node.WorkflowInstanceId == "workflow-master" && node.Kind == AnimationFlowNodeKind.Return);
         var fork = plan.Nodes.Single(node => node.StepId == "matrix" && node.Kind == AnimationFlowNodeKind.Fork);
         var join = plan.Nodes.Single(node => node.StepId == "matrix" && node.Kind == AnimationFlowNodeKind.Join);
-        var branchDesks = plan.Nodes.Where(node => node.StepId is "think" or "contact").ToArray();
+        var branchRoundabouts = plan.Nodes.Where(node => node.StepId is "think" or "contact").ToArray();
 
         Assert.True(childLane.X > masterLane.X);
         Assert.Equal(call.Position.Y, childStart.Position.Y);
         Assert.True(returned.Position.Y > childFinish.Position.Y);
-        Assert.Equal(2, branchDesks.Select(node => node.Position.X).Distinct().Count());
-        Assert.All(branchDesks, node => Assert.True(node.Position.Y > fork.Position.Y));
-        Assert.True(join.Position.Y > branchDesks.Max(node => node.Position.Y));
+        Assert.Equal(2, branchRoundabouts.Select(node => node.Position.X).Distinct().Count());
+        Assert.All(branchRoundabouts, node => Assert.True(node.Position.Y > fork.Position.Y));
+        Assert.True(join.Position.Y > branchRoundabouts.Max(node => node.Position.Y));
         Assert.All(
             plan.Edges.Where(edge => edge.Kind == AnimationFlowEdgeKind.Handoff),
             edge => Assert.True(plan.Nodes.Single(node => node.Id == edge.ToNodeId).Position.X

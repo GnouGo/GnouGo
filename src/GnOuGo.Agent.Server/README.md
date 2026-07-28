@@ -103,18 +103,44 @@ The Blazor chat composer resolves the active/default agent workflow through `Sma
 Regular workflow-backed chat requests render a transient
 `GnOuGo.Assets.Animation` scene between the user message and the final
 assistant response. The scene follows real workflow telemetry: stable workflow
-instances and step occurrences drive walking, laptop work, parallel clones,
+instances and step occurrences drive walking, roundabout work, parallel clones,
 runtime workflow handoffs, parcel completion, failure, and final delivery. It
 never runs a second synthetic timer.
 
+The conversation uses a document-style layout: compact right-aligned user
+prompts and borderless full-width assistant turns. A workflow scene is the first
+part of its assistant turn, followed by the textual answer and lightweight copy
+and trace actions; it is not rendered as a separate chat message. The SVG is
+drawn directly on the white response background without a card border, title,
+lane count, node count, or live-telemetry caption. Activity and diagram
+visibility controls sit in the response action row beside Trace.
+
+The left navigation uses the base `GnOuGo.Assets.Bears` SVG as an inline,
+script-free idle animation. Its stable ID prefix prevents SVG definition
+collisions with workflow actors. Conversations are ordered newest-first and
+grouped using English local-date labels such as **Today**, **Yesterday**,
+**The day before yesterday**, and **N days ago**. The compact brand is
+**GnOuGo** with the tagline **Simple. Safe. Transparent.**
+
+Dynamic planning and routing have dedicated live semantics. `workflow.plan`
+walks the main GnOuGo to a planning roundabout, `workflow.route` uses a routing
+roundabout, and `workflow.execute` uses a handoff roundabout. When a generated or
+selected workflow starts, a caller-aware `workflow.discovered` event announces
+the new lane before its GnOuGo spawns and receives the parcel. Short generated
+workflows still receive compact leaf roundabouts; source-less runtime work can
+append bounded step patches instead of leaving the actor on an anonymous node.
+
 The browser keeps a short presentation queue so very fast real events still
-produce visible walking, typing, handoff, and delivery motion without delaying
+produce visible walking, working, handoff, and delivery motion without delaying
 the workflow. A long-running real step repeats a calm action cycle until its
 authoritative `step.end` arrives: routing communicates, LLM work types, MCP
 work uses its communication pose, and HITL keeps waiting. Controller mounting
 is acknowledged before events leave the Blazor queue. The card and message bubbles use the full chat width; the SVG
 keeps its complete aspect ratio, has no maximum scene height, and is resized by
-a `ResizeObserver` when the application window changes.
+a `ResizeObserver` when the application window changes. When a later question
+creates another animation card, the chat follows it only after its SVG has
+mounted and acquired its final height. Focus events may pan inside their own
+card but cannot scroll the conversation back to an older execution.
 
 Thinking and technical progress are kept out of `ChatMessageDto` and local chat
 history. They are held in memory for the active execution and displayed from

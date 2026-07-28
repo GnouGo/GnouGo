@@ -69,6 +69,7 @@ export interface WorkflowSimulationEvent {
 export interface WorkflowAnimationControllerOptions {
   onFocus?: (id: string) => void
   onStatus?: (status: string, message?: string) => void
+  allowDocumentFocusScroll?: boolean
 }
 
 interface Position { x: number; y: number }
@@ -99,7 +100,7 @@ function actionForStep(stepType?: string): GnouGnouWorkflowCharacterAction {
 export class GnouGnouWorkflowAnimationController {
   private readonly positions = new Map<string, Position>()
   private readonly frames = new Map<string, number>()
-  private readonly deskAnimations: Animation[] = []
+  private readonly stationAnimations: Animation[] = []
   private readonly liveEventQueue: WorkflowSimulationEvent[] = []
   private readonly persistentActionTimers = new Map<string, number>()
   private liveEventTimer: number | undefined
@@ -131,7 +132,7 @@ export class GnouGnouWorkflowAnimationController {
     this.persistentActionTimers.clear()
     this.frames.forEach(frame => cancelAnimationFrame(frame))
     this.frames.clear()
-    this.deskAnimations.splice(0).forEach(animation => animation.cancel())
+    this.stationAnimations.splice(0).forEach(animation => animation.cancel())
     this.characters.cancelAll()
     this.characters.stopAmbient()
     this.positions.clear()
@@ -157,12 +158,31 @@ export class GnouGnouWorkflowAnimationController {
       'image/svg+xml',
     )
     const parsedRoot = documentNode.documentElement
-    while (parsedRoot.firstChild)
-      svg.append(document.importNode(parsedRoot.firstChild, true))
+    // Iterate over a stable snapshot. Importing clones a node and therefore
+    // does not remove parsedRoot.firstChild; a while(firstChild) loop would
+    // append forever and lock the browser on the first dynamic workflow.
+    for (const child of Array.from(parsedRoot.childNodes))
+      svg.append(document.importNode(child, true))
+    this.promoteForeground(svg)
     svg.setAttribute('viewBox', `0 0 ${patch.bounds.width} ${patch.bounds.height}`)
     svg.setAttribute('width', String(patch.bounds.width))
     svg.setAttribute('height', String(patch.bounds.height))
     this.options.onStatus?.('Running', 'A runtime workflow joined the scene.')
+  }
+
+  private promoteForeground(svg: SVGSVGElement) {
+    const rootChildren = Array.from(svg.children)
+    const fixedLayers = ['motion-trails', 'task-objects', 'gnougo-team']
+      .map(id => rootChildren.find(element => element.id === id))
+      .filter((element): element is Element => element !== undefined)
+    const runtimeActors = rootChildren.filter(element =>
+      element.classList.contains('gnougo-actor'))
+
+    // Runtime step patches arrive after their actor was created. Moving the
+    // foreground layers (rather than cloning them) keeps every GnOuGo above
+    // newly materialized roads and roundabouts without losing animation state.
+    for (const element of [...fixedLayers, ...runtimeActors])
+      svg.append(element)
   }
 
   applyEvent(event: WorkflowSimulationEvent) {
@@ -172,6 +192,15 @@ export class GnouGnouWorkflowAnimationController {
 
     switch (event.type) {
       case 'simulation.started':
+        this.options.onStatus?.('Running', event.message)
+        break
+      case 'workflow.discovered':
+        this.characters.play(
+          event.actorId,
+          actionForStep(event.stepType),
+          Math.max(700, event.durationMs),
+        )
+        this.pulseStation(event.stationId, Math.max(900, event.durationMs))
         this.options.onStatus?.('Running', event.message)
         break
       case 'actor.spawned': {
@@ -255,7 +284,7 @@ export class GnouGnouWorkflowAnimationController {
         this.setActorStatus(event.actorId, 'Running')
         this.playStepAction(event.actorId, actionForStep(event.stepType), event.durationMs)
         this.pulseStation(event.stationId, Math.min(event.durationMs, 10_000))
-        this.animateDesk(event.stationId, Math.min(event.durationMs, 60_000))
+        this.animateRoundabout(event.stationId, Math.min(event.durationMs, 60_000))
         break
       case 'step.completed':
         this.stopPersistentAction(event.actorId)
@@ -336,6 +365,7 @@ export class GnouGnouWorkflowAnimationController {
       case 'actor.spawned':
       case 'task.dropped':
       case 'task.picked_up':
+      case 'workflow.discovered':
       case 'actor.cloned':
       case 'actor.merged':
         return 380
@@ -393,6 +423,7 @@ export class GnouGnouWorkflowAnimationController {
     const hasInternalViewport = host.scrollHeight > host.clientHeight + 2
       || host.scrollWidth > host.clientWidth + 2
     if (!hasInternalViewport) {
+      if (this.options.allowDocumentFocusScroll === false) return
       element.scrollIntoView({
         behavior: resolvedBehavior,
         block: 'center',
@@ -560,23 +591,21 @@ export class GnouGnouWorkflowAnimationController {
     window.setTimeout(() => station.classList.remove('is-active'), Math.max(200, Math.min(duration, 10_000)))
   }
 
-  private animateDesk(id: string | undefined, duration: number) {
+  private animateRoundabout(id: string | undefined, duration: number) {
     const station = this.find<SVGGraphicsElement>(id)
     if (!station || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    station.querySelectorAll<SVGGraphicsElement>('[data-key]').forEach((key, index) => {
-      const animation = key.animate(
+    station.querySelectorAll<SVGGraphicsElement>('.roundabout-marking').forEach(marking => {
+      const animation = marking.animate(
         [
-          { transform: 'translateY(0)', fill: '#d9e7ef' },
-          { transform: 'translateY(2px)', fill: index % 2 === 0 ? '#72e8d0' : '#fff47b' },
-          { transform: 'translateY(0)', fill: '#d9e7ef' },
+          { strokeDashoffset: '0', opacity: .78 },
+          { strokeDashoffset: '-92', opacity: 1 },
         ],
         {
-          duration: 150 + index % 4 * 20,
-          delay: index % 9 * 20,
-          iterations: Math.max(1, Math.ceil(duration / 180)),
+          duration: 1400,
+          iterations: Math.max(1, Math.ceil(duration / 1400)),
         },
       )
-      this.deskAnimations.push(animation)
+      this.stationAnimations.push(animation)
     })
   }
 

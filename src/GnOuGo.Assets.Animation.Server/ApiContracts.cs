@@ -51,7 +51,8 @@ public sealed record SimulationStreamEnvelope(
     string Type,
     DateTimeOffset Timestamp,
     SimulationPreparedData? Prepared = null,
-    SimulationEvent? Event = null);
+    SimulationEvent? Event = null,
+    AnimationScenePatch? ScenePatch = null);
 
 public sealed record ApiError(string Code, string Message, IReadOnlyList<PreviewDiagnosticDto>? Diagnostics = null);
 
@@ -65,6 +66,7 @@ public sealed record ApiError(string Code, string Message, IReadOnlyList<Preview
 [JsonSerializable(typeof(ApiError))]
 [JsonSerializable(typeof(SimulationPreparedData))]
 [JsonSerializable(typeof(SimulationEvent))]
+[JsonSerializable(typeof(AnimationScenePatch))]
 [JsonSerializable(typeof(PreviewDiagnosticDto[]))]
 [JsonSerializable(typeof(FailureTargetDto[]))]
 [JsonSerializable(typeof(WorkflowSummaryDto[]))]

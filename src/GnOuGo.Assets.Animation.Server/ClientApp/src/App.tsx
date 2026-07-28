@@ -31,7 +31,6 @@ interface MotionOptions {
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
 
-const scenes: SceneKind[] = ['Random', 'Office', 'Meadow', 'Kitchen']
 const speeds = [0.5, 1, 2, 4]
 
 function parseInputs(value: string): unknown {
@@ -61,7 +60,16 @@ function actionForStep(stepType?: string): GnouGnouAnimationName {
   return 'type'
 }
 
-const MotionSvgScene = memo(function MotionSvgScene({
+const MotionSvgMarkup = memo(function MotionSvgMarkup({ svg }: { svg: string }) {
+  return (
+    <div
+      className="svg-frame__markup"
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  )
+})
+
+function MotionSvgScene({
   svg,
   width,
   height,
@@ -77,15 +85,16 @@ const MotionSvgScene = memo(function MotionSvgScene({
       className="svg-frame"
       aria-label="GnOuGo workflow simulation"
       style={{ width: `${width * zoom}px`, height: `${height * zoom}px` }}
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+    >
+      <MotionSvgMarkup svg={svg} />
+    </div>
   )
-})
+}
 
 export default function App() {
   const [workflow, setWorkflow] = useState(EXAMPLE_WORKFLOW)
   const [inputs, setInputs] = useState(EXAMPLE_INPUTS)
-  const [scene, setScene] = useState<SceneKind>('Random')
+  const scene: SceneKind = 'Office'
   const [seed, setSeed] = useState('42')
   const [speed, setSpeed] = useState(1)
   const [failAt, setFailAt] = useState('')
@@ -114,7 +123,7 @@ export default function App() {
     )
   const positionsRef = useRef(new Map<string, Position>())
   const animationsRef = useRef(new Map<string, number>())
-  const deskAnimationsRef = useRef<Animation[]>([])
+  const stationAnimationsRef = useRef<Animation[]>([])
   const autoFollowRef = useRef(true)
   const lastFocusRef = useRef<string | null>(null)
   const dragRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
@@ -194,8 +203,8 @@ export default function App() {
     motionGenerationRef.current += 1
     animationsRef.current.forEach(frame => cancelAnimationFrame(frame))
     animationsRef.current.clear()
-    deskAnimationsRef.current.forEach(animation => animation.cancel())
-    deskAnimationsRef.current = []
+    stationAnimationsRef.current.forEach(animation => animation.cancel())
+    stationAnimationsRef.current = []
     gnouGnouAnimationsRef.current?.cancelAll()
   }, [])
 
@@ -336,35 +345,21 @@ export default function App() {
     window.setTimeout(() => station.classList.remove('is-active'), Math.max(200, duration))
   }, [findElement])
 
-  const animateDesk = useCallback((stationId: string | undefined, duration: number) => {
+  const animateRoundabout = useCallback((stationId: string | undefined, duration: number) => {
     const station = findElement(stationId)
     if (!station || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const keys = [...station.querySelectorAll<SVGGraphicsElement>('[data-key]')]
-    keys.forEach((key, index) => {
-      const animation = key.animate(
+    station.querySelectorAll<SVGGraphicsElement>('.roundabout-marking').forEach(marking => {
+      const animation = marking.animate(
         [
-          { transform: 'translateY(0)', fill: '#d9e7ef' },
-          { transform: 'translateY(2px)', fill: index % 2 === 0 ? '#72e8d0' : '#fff47b' },
-          { transform: 'translateY(0)', fill: '#d9e7ef' },
+          { strokeDashoffset: '0', opacity: .78 },
+          { strokeDashoffset: '-92', opacity: 1 },
         ],
         {
-          duration: 125 + index % 4 * 18,
-          delay: index % 9 * 17,
-          iterations: Math.max(1, Math.ceil(duration / 150)),
+          duration: 1400,
+          iterations: Math.max(1, Math.ceil(duration / 1400)),
         },
       )
-      deskAnimationsRef.current.push(animation)
-    })
-    station.querySelectorAll<SVGGraphicsElement>('.desk-screen-line').forEach((line, index) => {
-      const animation = line.animate(
-        [{ opacity: .35 }, { opacity: 1 }, { opacity: .55 }],
-        {
-          duration: 260 + index * 80,
-          iterations: Math.max(1, Math.ceil(duration / 320)),
-          direction: 'alternate',
-        },
-      )
-      deskAnimationsRef.current.push(animation)
+      stationAnimationsRef.current.push(animation)
     })
   }, [findElement])
 
@@ -551,7 +546,7 @@ export default function App() {
         }
         animateCharacterPose(event.actorId, event.stepType ? 'wait' : 'type', Math.max(500, event.durationMs))
         pulseStation(event.stationId, event.durationMs)
-        animateDesk(event.stationId, event.durationMs)
+        animateRoundabout(event.stationId, event.durationMs)
         break
       }
       case 'actor.merged': {
@@ -627,7 +622,7 @@ export default function App() {
           setActorStatus(event.actorId, 'Running')
           animateCharacterPose(event.actorId, actionForStep(event.stepType), event.durationMs)
           pulseStation(event.stationId, event.durationMs)
-          animateDesk(event.stationId, event.durationMs)
+          animateRoundabout(event.stationId, event.durationMs)
         }
         break
       case 'step.completed':
@@ -675,7 +670,7 @@ export default function App() {
         workflowName: event.workflowName,
       }])
     }
-  }, [animateCharacterPose, animateDesk, animateMotion, drawMotionTrail, focusElement, prepared?.simulationId, pulseStation, readPosition, setActorStatus, setFlowStatus, setPosition, setTaskStatus, showElement, updateParcelProgress])
+  }, [animateCharacterPose, animateMotion, animateRoundabout, drawMotionTrail, focusElement, prepared?.simulationId, pulseStation, readPosition, setActorStatus, setFlowStatus, setPosition, setTaskStatus, showElement, updateParcelProgress])
 
   const handleEnvelope = useCallback(async (envelope: StreamEnvelope) => {
     if (envelope.prepared) {
@@ -696,6 +691,22 @@ export default function App() {
       }
       return
     }
+    if (envelope.scenePatch) {
+      workflowAnimationsRef.current?.applyScenePatch(envelope.scenePatch)
+      setPrepared(previous => previous
+        ? {
+            ...previous,
+            canvasWidth: Math.max(previous.canvasWidth, envelope.scenePatch!.bounds.width),
+            canvasHeight: Math.max(previous.canvasHeight, envelope.scenePatch!.bounds.height),
+            actorCount: previous.actorCount + envelope.scenePatch!.actors.length,
+            laneCount: previous.laneCount + envelope.scenePatch!.lanes.length,
+            nodeCount: previous.nodeCount + envelope.scenePatch!.nodes.length,
+          }
+        : previous)
+      const patchFocusId = envelope.scenePatch.actors[0]?.id ?? envelope.scenePatch.lanes[0]?.id
+      if (patchFocusId) requestAnimationFrame(() => focusElement(patchFocusId))
+      return
+    }
     if (envelope.event) {
       workflowAnimationsRef.current?.applyEvent(envelope.event)
       if (envelope.event.type === 'simulation.completed')
@@ -710,8 +721,19 @@ export default function App() {
           workflowName: envelope.event!.workflowName,
         }])
       }
+      const collapsedStep = (envelope.event.type === 'step.started' || envelope.event.type === 'step.completed')
+        && !envelope.event.targetNodeId
+        && !envelope.event.stationId
+        && !envelope.event.nodeId
+      const focusId = collapsedStep
+        ? undefined
+        : envelope.event.targetNodeId
+          ?? envelope.event.stationId
+          ?? envelope.event.nodeId
+          ?? envelope.event.actorId
+      if (focusId) requestAnimationFrame(() => focusElement(focusId))
     }
-  }, [cancelMotions, prepared?.simulationId])
+  }, [cancelMotions, focusElement, prepared?.simulationId])
 
   const run = useCallback(async () => {
     abortRef.current?.abort()
@@ -746,7 +768,8 @@ export default function App() {
 
   const downloadSvg = useCallback(() => {
     if (!svg) return
-    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
+    const renderedSvg = svgHostRef.current?.querySelector('svg')?.outerHTML ?? svg
+    const url = URL.createObjectURL(new Blob([renderedSvg], { type: 'image/svg+xml' }))
     const link = document.createElement('a')
     link.href = url
     link.download = `gnougo-team-${prepared?.seed ?? seed}.svg`
@@ -777,8 +800,8 @@ export default function App() {
         <aside className="control-panel">
           <section className="panel-section intro-card">
             <h2>Preview workflow</h2>
-            <p>Only long-running LLM and MCP work becomes a clean isometric laptop desk. GnOuGos follow curved, translucent asphalt routes between those desks.</p>
-            <p>Parallel, foreach, decision, and handoff signs appear only when they lead to visible long-running work. The demo intentionally alternates faster MCP tasks and longer LLM focus sessions.</p>
+            <p>Visible work becomes a clean roundabout on a white canvas. GnOuGos follow smooth roads whose dashed centerline uses the exact travel curve.</p>
+            <p>Dynamic routing and generated-plan execution add sub-workflow lanes beside the running diagram, with visible handoff, child work, and return exchanges.</p>
             <p>Slow breathing, blinking, mouth movement, independent ear twitches, and rare yawns keep every visible GnOuGo alive between actions and during long tasks.</p>
             <p>This parser is intentionally independent. It resembles GnOuGo.Flow YAML but does not validate or execute Flow.Core.</p>
           </section>
@@ -795,7 +818,7 @@ export default function App() {
           </section>
 
           <section className="panel-section options-grid">
-            <label>Environment<select value={scene} onChange={event => setScene(event.target.value as SceneKind)}>{scenes.map(item => <option key={item}>{item}</option>)}</select></label>
+            <label>Canvas<input type="text" value="Clean white" readOnly /></label>
             <label>Seed<div className="seed-row"><input type="number" value={seed} onChange={event => setSeed(event.target.value)} /><button type="button" onClick={() => setSeed(String(crypto.getRandomValues(new Uint32Array(1))[0] || 1))} title="Randomize seed">↻</button></div></label>
             <label>Speed<select value={speed} onChange={event => setSpeed(Number(event.target.value))}>{speeds.map(item => <option key={item} value={item}>{item}×</option>)}</select></label>
             <label>Inject failure<select value={failAt} onChange={event => setFailAt(event.target.value)}><option value="">Success</option>{validation?.failureTargets.map(target => <option key={failureValue(target)} value={failureValue(target)}>{target.label}</option>)}</select></label>
@@ -822,7 +845,7 @@ export default function App() {
         <section className="stage-panel">
           <div className="stage-toolbar">
             <div>
-              <strong>{prepared ? `${prepared.scene} · seed ${prepared.seed}` : 'Waiting for a simulation'}</strong>
+              <strong>{prepared ? `White canvas · seed ${prepared.seed}` : 'Waiting for a simulation'}</strong>
               <span>{prepared ? `${prepared.laneCount} workflow lanes · ${prepared.nodeCount} nodes · ${prepared.actorCount} actors · ${(prepared.durationMs / 1000).toFixed(1)}s` : 'Choose options and run the preview.'}</span>
             </div>
             <div className="toolbar-actions">
@@ -870,7 +893,7 @@ export default function App() {
             </section>
             <section className="legend-card">
               <h2>Visual language</h2>
-              <ul><li><span className="legend-dot running" />Active asphalt route</li><li><span className="legend-dot success" />Completed LLM/MCP desk</li><li><span className="legend-dot failed" />Failed route</li><li><span className="legend-dot matrix" />Useful transition sign</li><li><span className="legend-dot task" />Project parcel</li><li><span className="legend-dot handoff" />Workflow handoff</li></ul>
+              <ul><li><span className="legend-dot running" />Active road</li><li><span className="legend-dot success" />Completed roundabout</li><li><span className="legend-dot failed" />Failed route</li><li><span className="legend-dot matrix" />Dynamic workflow</li><li><span className="legend-dot task" />Project parcel</li><li><span className="legend-dot handoff" />Workflow handoff</li></ul>
               {prepared?.warnings.length ? <><h3>Preview decisions</h3>{prepared.warnings.map((warning, index) => <p key={`${warning.code}-${index}`}>{warning.message}</p>)}</> : null}
             </section>
           </div>

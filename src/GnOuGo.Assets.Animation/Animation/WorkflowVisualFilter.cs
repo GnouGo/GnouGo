@@ -4,6 +4,12 @@ namespace GnOuGo.Assets.Animation;
 
 internal static class WorkflowVisualFilter
 {
+    public static bool IsOrchestrationStepType(string? stepType) =>
+        stepType is not null
+        && (stepType.Equals("workflow.plan", StringComparison.OrdinalIgnoreCase)
+            || stepType.Equals("workflow.route", StringComparison.OrdinalIgnoreCase)
+            || stepType.Equals("workflow.execute", StringComparison.OrdinalIgnoreCase));
+
     public static bool IsLongRunningStepType(string? stepType) =>
         !string.IsNullOrWhiteSpace(stepType)
         && (stepType.Equals("llm", StringComparison.OrdinalIgnoreCase)
@@ -12,6 +18,22 @@ internal static class WorkflowVisualFilter
             || stepType.StartsWith("mcp.", StringComparison.OrdinalIgnoreCase)
             || stepType.Equals("human", StringComparison.OrdinalIgnoreCase)
             || stepType.StartsWith("human.", StringComparison.OrdinalIgnoreCase));
+
+    public static bool IsVisibleStepType(string? stepType) =>
+        IsLongRunningStepType(stepType) || IsOrchestrationStepType(stepType);
+
+    public static AnimationStationKind StationKindFor(string stepType)
+    {
+        if (stepType.StartsWith("human.", StringComparison.OrdinalIgnoreCase))
+            return AnimationStationKind.Human;
+        return stepType.ToLowerInvariant() switch
+        {
+            "workflow.plan" => AnimationStationKind.Planning,
+            "workflow.route" => AnimationStationKind.Mcp,
+            "workflow.call" or "workflow.execute" => AnimationStationKind.HandoffDesk,
+            _ => AnimationStationKind.KeyboardDesk
+        };
+    }
 
     public static bool StepsContainVisibleWork(
         WorkflowPreviewDocument document,
@@ -32,7 +54,7 @@ internal static class WorkflowVisualFilter
         WorkflowPreviewStep step,
         HashSet<string> visitedWorkflows)
     {
-        if (IsLongRunningStepType(step.Type))
+        if (IsVisibleStepType(step.Type))
             return true;
 
         if (string.Equals(step.Type, "workflow.call", StringComparison.Ordinal)

@@ -81,6 +81,9 @@ mermaid.initialize({
 
 const el = (id: string) => document.getElementById(id);
 let mermaidRenderIndex = 0;
+const MAX_MERMAID_SOURCE_LENGTH = 50_000;
+const activeMermaidEnhancements = new Set<string>();
+const pendingMermaidEnhancements = new Set<string>();
 
 function isMermaidCodeBlock(code: HTMLElement) {
   const pre = code.parentElement as HTMLElement | null;
@@ -145,6 +148,15 @@ async function renderMermaid(id: string) {
 
       node.dataset.mermaidSource = source;
       node.removeAttribute('data-processed');
+      if (source.length > MAX_MERMAID_SOURCE_LENGTH) {
+        node.textContent = source;
+        node.classList.add('mermaid--error');
+        console.warn(
+          '[GnOuGo.Agent] mermaid source skipped because it exceeds the safe interactive limit',
+          { length: source.length, limit: MAX_MERMAID_SOURCE_LENGTH },
+        );
+        continue;
+      }
 
       try {
         const renderId = `gnougo-mermaid-${Date.now()}-${mermaidRenderIndex++}`;
@@ -164,6 +176,31 @@ async function renderMermaid(id: string) {
   }
 }
 
+/**
+ * Mermaid is optional presentation work. In particular, ASK Human must remain
+ * interactive while a workflow is suspended, so Blazor interop must never
+ * await Mermaid parsing or layout. Repeated requests for the same container
+ * are coalesced into at most one follow-up pass.
+ */
+function scheduleMermaidRender(id: string): void {
+  if (activeMermaidEnhancements.has(id)) {
+    pendingMermaidEnhancements.add(id);
+    return;
+  }
+
+  activeMermaidEnhancements.add(id);
+  window.setTimeout(() => {
+    void renderMermaid(id)
+      .catch(error => {
+        console.warn('[GnOuGo.Agent] deferred mermaid enhancement failed', error);
+      })
+      .finally(() => {
+        activeMermaidEnhancements.delete(id);
+        if (pendingMermaidEnhancements.delete(id)) scheduleMermaidRender(id);
+      });
+  }, 0);
+}
+
 const scrollToBottom = (id: string) => {
   const c = el(id);
   if (!c) {
@@ -172,6 +209,25 @@ const scrollToBottom = (id: string) => {
   }
 
   c.scrollTop = c.scrollHeight;
+};
+
+const copyText = async (text: string): Promise<boolean> => {
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const fallback = document.createElement('textarea');
+    fallback.value = text;
+    fallback.setAttribute('readonly', '');
+    fallback.style.position = 'fixed';
+    fallback.style.opacity = '0';
+    document.body.appendChild(fallback);
+    fallback.select();
+    const copied = document.execCommand('copy');
+    fallback.remove();
+    return copied;
+  }
 };
 
 type DotNetUploadReceiver = {
@@ -359,6 +415,10 @@ const workflowAnimation = {
       characters,
       {
         onFocus: id => controller.focus(id),
+        // A chat can retain several completed workflow cards. Focus changes
+        // may pan a card's own viewport, but must never pull the conversation
+        // back to an older diagram while a newer answer is being rendered.
+        allowDocumentFocusScroll: false,
         onStatus: (status, message) => {
           host.dataset.status = status;
           if (message) host.dataset.message = message;
@@ -411,10 +471,11 @@ const workflowAnimation = {
 window.GnOuGo ??= {};
 window.GnOuGo.Agent = {
   scrollToBottom,
+  copyText,
   fileUploads,
   workflowAnimation,
   markdown: {
-	enhance: renderMermaid,
+	enhance: scheduleMermaidRender,
   },
 };
 

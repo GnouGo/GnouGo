@@ -27,6 +27,37 @@ public sealed class LiveWorkflowAnimationTests
     }
 
     [Fact]
+    public void BuildLive_RendersDedicatedOrchestrationStations()
+    {
+        var validation = WorkflowPreviewValidator.ParseAndValidate("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - { id: generate, type: workflow.plan }
+                  - { id: route, type: workflow.route }
+                  - { id: run, type: workflow.execute }
+            """);
+
+        var plan = GnouGnouAnimationPlanner.BuildLive(
+            validation,
+            new GnouGnouAnimationOptions { Seed = 21 });
+        var svg = GnouGnouAnimationSvgRenderer.Render(plan).Svg;
+
+        Assert.Contains(plan.Stations, station =>
+            station.StepId == "generate" && station.Kind == AnimationStationKind.Planning);
+        Assert.Contains(plan.Stations, station =>
+            station.StepId == "route" && station.Kind == AnimationStationKind.Mcp);
+        Assert.Contains(plan.Stations, station =>
+            station.StepId == "run" && station.Kind == AnimationStationKind.HandoffDesk);
+        Assert.True(svg.Split("class=\"workflow-roundabout\"", StringSplitOptions.None).Length - 1 >= 3);
+        Assert.Contains(">✦</text>", svg, StringComparison.Ordinal);
+        Assert.Contains(">↗</text>", svg, StringComparison.Ordinal);
+        Assert.Contains(">⇄</text>", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void HumanInput_IsVisibleAndProducesWaitingAndResumeEvents()
     {
         var validation = WorkflowPreviewValidator.ParseAndValidate("""
@@ -161,6 +192,14 @@ public sealed class LiveWorkflowAnimationTests
             WorkflowInstanceId = "root",
             WorkflowName = "main"
         });
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "root",
+            StepOccurrenceId = "route-1",
+            StepId = "route",
+            StepType = "workflow.route"
+        });
 
         const string childSource = """
             version: 1
@@ -176,14 +215,131 @@ public sealed class LiveWorkflowAnimationTests
             Kind = AnimationExecutionSignalKind.WorkflowStarted,
             WorkflowInstanceId = "dynamic-child",
             ParentWorkflowInstanceId = "root",
+            CallerStepOccurrenceId = "route-1",
             WorkflowName = "selected",
             SourceText = childSource
         });
 
         var patch = Assert.Single(updates, update => update.ScenePatch is not null).ScenePatch!;
+        var discovered = Assert.Single(updates, update =>
+            update.Event?.Type == SimulationEventTypes.WorkflowDiscovered).Event!;
         Assert.Contains(patch.Stations, station => station.StepId == "ask-user" && station.Kind == AnimationStationKind.Human);
         Assert.Contains(patch.Stations, station => station.StepId == "call-model");
+        Assert.Equal("route", discovered.StepId);
+        Assert.Equal("workflow.route", discovered.StepType);
+        Assert.NotNull(discovered.StationId);
+        Assert.Contains("router selects", discovered.Message, StringComparison.Ordinal);
+        Assert.Contains("data-live-actor=\"true\"", patch.SvgFragment, StringComparison.Ordinal);
         Assert.DoesNotContain("version: 1", patch.SvgFragment, StringComparison.Ordinal);
+        _ = XDocument.Parse($"<svg xmlns=\"http://www.w3.org/2000/svg\">{patch.SvgFragment}</svg>");
+    }
+
+    [Fact]
+    public void LiveSession_UsesCompactLeafStationsWhenGeneratedWorkflowHasOnlyShortSteps()
+    {
+        var root = WorkflowPreviewValidator.ParseAndValidate("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - { id: run, type: workflow.execute }
+            """);
+        var session = new WorkflowLiveAnimationSession(
+            GnouGnouAnimationPlanner.BuildLive(root, new GnouGnouAnimationOptions { Seed = 31 }));
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "root",
+            WorkflowName = "main"
+        });
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "root",
+            StepOccurrenceId = "run-1",
+            StepId = "run",
+            StepType = "workflow.execute"
+        });
+
+        var updates = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "generated-child",
+            ParentWorkflowInstanceId = "root",
+            CallerStepOccurrenceId = "run-1",
+            WorkflowName = "generated",
+            SourceText = """
+                version: 1
+                entrypoint: generated
+                workflows:
+                  generated:
+                    steps:
+                      - { id: prepare, type: set }
+                      - { id: format, type: template.render }
+                """
+        });
+
+        var patch = Assert.Single(updates, update => update.ScenePatch is not null).ScenePatch!;
+        var discovered = Assert.Single(updates, update =>
+            update.Event?.Type == SimulationEventTypes.WorkflowDiscovered).Event!;
+        Assert.Contains(patch.Stations, station => station.StepId == "prepare");
+        Assert.Contains(patch.Stations, station => station.StepId == "format");
+        Assert.DoesNotContain(patch.Stations, station => station.StepId == "dynamic-work");
+        Assert.Equal("workflow.execute", discovered.StepType);
+        Assert.Contains("generated blueprint", discovered.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LiveSession_AppendsRuntimeStepPatchWhenWorkflowSourceIsUnavailable()
+    {
+        var root = WorkflowPreviewValidator.ParseAndValidate("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - { id: route, type: workflow.route }
+            """);
+        var session = new WorkflowLiveAnimationSession(
+            GnouGnouAnimationPlanner.BuildLive(root, new GnouGnouAnimationOptions { Seed = 41 }));
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "root",
+            WorkflowName = "main"
+        });
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "runtime-child",
+            ParentWorkflowInstanceId = "root",
+            WorkflowName = "runtime-only"
+        });
+        var first = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "runtime-child",
+            StepOccurrenceId = "set-1",
+            StepId = "prepare",
+            StepType = "set"
+        });
+        var second = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "runtime-child",
+            StepOccurrenceId = "template-1",
+            StepId = "format",
+            StepType = "template.render"
+        });
+
+        Assert.DoesNotContain(first, update => update.ScenePatch is not null);
+        var patch = Assert.Single(second, update => update.ScenePatch is not null).ScenePatch!;
+        var stepStarted = Assert.Single(second, update =>
+            update.Event?.Type == SimulationEventTypes.StepStarted).Event!;
+        Assert.Contains(patch.Nodes, node => node.StepId == "format");
+        Assert.Equal(patch.Nodes[0].Id, stepStarted.NodeId);
+        Assert.Equal(patch.Stations[0].Id, stepStarted.StationId);
         _ = XDocument.Parse($"<svg xmlns=\"http://www.w3.org/2000/svg\">{patch.SvgFragment}</svg>");
     }
 }

@@ -6,21 +6,22 @@ base SVG, and streams synthetic timer-driven events as NDJSON. It has no
 database, persisted sessions, or dependency on any `GnOuGo.Flow` project.
 
 The React client displays a Mermaid-inspired, top-down canvas with one vertical
-swimlane per visible workflow invocation. Long-running LLM/MCP tasks use clean
-isometric desks with open laptops, animated keyboards, and chairs. Useful
-forks, joins, loops, decisions, and returns use isometric signposts; composites
-without long work are collapsed. Wide curved roads use semi-transparent
-asphalt, subtle wear, and deterministic roadside stones; walking actors follow
-those exact paths. The full SVG has dynamic dimensions and is viewed through a
-fixed-height, two-axis viewport with zoom, fit-width, centering, drag
+swimlane per visible workflow invocation. The canvas is white and contains no
+environment decoration. Visible work is represented by roundabouts instead of
+desks, laptops, and chairs. Smooth cubic roads use one centered dashed line
+that shares the exact path used by walking actors; there is no route shadow,
+roughness displacement, or roadside debris. Useful forks, joins, loops,
+decisions, and returns use compact traffic markers, while composites without
+visible work are collapsed. The SVG has dynamic dimensions and is viewed
+through a fixed-height, two-axis viewport with zoom, fit-width, centering, drag
 navigation, and optional active-actor auto-follow.
 
 Its frame-by-frame SVG motion engine makes actors visibly walk down the graph
 with alternating arm and leg steps, breathing, independent ear motion, head
-bobbing, blinking, and directional eyes. At desks they type with alternating
-hands and fingers while keyboard keys and monitors react. Calls use synchronized
-give/receive poses across workflow lanes; matrix branches split and merge;
-waiting, delivery, celebration, and failure have distinct poses.
+bobbing, blinking, and directional eyes. At active roundabouts the GnOuGos keep
+their task-specific pose while the circular road markings move. Calls use
+synchronized give/receive poses across workflow lanes; matrix branches split
+and merge; waiting, delivery, celebration, and failure have distinct poses.
 
 Idle actors and long-running poses share a deliberately slow ambient life
 cycle: breathing, occasional blinks, small mouth changes, independent ear
@@ -34,9 +35,21 @@ uses the shared
 to map streamed workflow events to scene movement and named Bears actions.
 
 Demo work alternates deterministically between quick, steady, and deep-focus
-laptop sessions. One evolving project parcel falls from the sky, follows the active GnOuGo,
+sessions. One evolving project parcel falls from the sky, follows the active GnOuGo,
 collects colored completion stamps, crosses handoffs, and is finally sealed and
 launched skyward from the delivery dock. Failure turns that same parcel red.
+
+When the preview reaches `workflow.route` or `workflow.execute`, the server
+streams a `scene.patch` envelope that adds a bounded child-workflow lane beside
+the existing diagram. It then streams discovery, actor spawn, parcel handoff,
+child step, completion, and return events before the caller continues. A route
+prefers a non-entrypoint local workflow such as `fallback_general`; when the
+runtime selection or generated YAML is unknowable in this standalone preview,
+the server creates an explicitly synthetic representative child. The real
+Agent integration uses the same patch contract with actual execution telemetry
+and runtime workflow source.
+The editor's default YAML includes one routed child and one generated-plan
+execution so both patch paths are visible on the first run.
 
 > Preview validation is not `GnOuGo.Flow.Core` validation. No workflow step,
 > expression, LLM, MCP tool, process, or remote service is executed.
@@ -68,7 +81,8 @@ requests to the .NET server on port 5500.
 - `POST /api/simulations/stream` validates before opening a
   `application/x-ndjson` response. Its first line is `simulation.prepared` and
   contains the full-canvas SVG plus its canvas width/height, lane count, and
-  node count. Later lines contain flat timed events.
+  node count. Later lines contain flat timed events or a `scene.patch` with a
+  sanitized SVG fragment and expanded canvas bounds.
 
 Example request:
 
@@ -83,8 +97,10 @@ Example request:
 }
 ```
 
-Scenes are `Random`, `Office`, `Meadow`, and `Kitchen`. Supported speeds are
-`0.5`, `1`, `2`, and `4`. Omitting the seed generates a new random seed.
+The `scene` values `Random`, `Office`, `Meadow`, and `Kitchen` remain accepted
+for API compatibility and deterministic metadata, but every rendered diagram
+uses the same clean white canvas. Supported speeds are `0.5`, `1`, `2`, and
+`4`. Omitting the seed generates a new random seed.
 
 ## Preview YAML
 
@@ -92,9 +108,9 @@ Version 1 accepts a document name, entrypoint, workflows, and steps. It
 understands `sequence`, `parallel`, `loop.sequential`, `loop.parallel`,
 `switch`, defaults, and static local `workflow.call` references. The event
 stream records every non-empty atomic step type, but the canvas intentionally
-creates desks and character work for `llm.*`, `mcp.*`, and blocking `human.*`
+creates roundabouts and character work for `llm.*`, `mcp.*`, and blocking `human.*`
 tasks. Composite
-signposts and static call handoffs are collapsed when their subtree contains no
+traffic markers and static call handoffs are collapsed when their subtree contains no
 visible LLM/MCP work. All task types remain preview-only and are never executed.
 
 ```yaml

@@ -55,6 +55,25 @@ workflows:
             input:
               template: Final package
 
+      - id: route_specialist
+        type: workflow.route
+        input:
+          candidates:
+            - ref:
+                kind: local
+                name: routed_specialist
+
+      - id: generate_plan
+        type: workflow.plan
+        input:
+          generator:
+            instruction: Generate a short workflow for the requested topic
+
+      - id: execute_plan
+        type: workflow.execute
+        input:
+          from_step: generate_plan
+
       - id: send_result
         type: emit
         input:
@@ -71,6 +90,18 @@ workflows:
         type: llm.call
         input:
           prompt: Summarize the notes
+
+  routed_specialist:
+    steps:
+      - id: inspect_request
+        type: llm.call
+        input:
+          prompt: Inspect the routed request
+      - id: use_capability
+        type: mcp.call
+        input:
+          server: specialist
+          method: assist
 `
 
 export const EXAMPLE_INPUTS = `{

@@ -85,6 +85,16 @@ export interface StreamEnvelope {
   timestamp: string
   prepared?: SimulationPrepared
   event?: SimulationEvent
+  scenePatch?: {
+    id: string
+    svgFragment: string
+    bounds: { width: number; height: number }
+    actors: Array<{ id: string }>
+    stations: unknown[]
+    lanes: Array<{ id: string }>
+    nodes: Array<{ id: string }>
+    edges: unknown[]
+  }
 }
 
 export interface ApiError {
