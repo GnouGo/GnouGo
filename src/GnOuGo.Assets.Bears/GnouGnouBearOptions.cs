@@ -12,6 +12,8 @@ public sealed record GnouGnouBearOptions
     public GnouGnouBearTheme Theme { get; init; } = GnouGnouBearTheme.Default;
     public GnouGnouBearFurPalette FurPalette { get; init; } = GnouGnouBearFurPalette.Classic;
     public GnouGnouBearEyeStyle EyeStyle { get; init; } = GnouGnouBearEyeStyle.Default;
+    public GnouGnouBearNoseStyle NoseStyle { get; init; } = GnouGnouBearNoseStyle.Default;
+    public GnouGnouBearBeardStyle BeardStyle { get; init; } = GnouGnouBearBeardStyle.Random;
     public bool HasHeadphones { get; init; } = true;
     public bool HasBowTie { get; init; } = true;
     public bool HasBeard { get; init; }

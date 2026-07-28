@@ -27,7 +27,9 @@ app.MapMethods("/bear.svg", ["GET"], (RequestDelegate)(async context =>
         return;
     }
 
-    var options = CreateRandomBearOptions(TryGetSeed(context)) with
+    var baseOptions = CreateRandomBearOptions(TryGetSeed(context));
+    var appearance = TryGetAppearance(context, baseOptions);
+    var options = (appearance?.Options ?? baseOptions) with
     {
         Animation = animation,
         Size = 512,
@@ -59,6 +61,8 @@ static GnouGnouBearOptions CreateRandomBearOptions(int? seed = null)
         Theme = Pick<GnouGnouBearTheme>(random),
         FurPalette = Pick<GnouGnouBearFurPalette>(random),
         EyeStyle = Pick<GnouGnouBearEyeStyle>(random),
+        NoseStyle = Pick<GnouGnouBearNoseStyle>(random),
+        BeardStyle = Pick<GnouGnouBearBeardStyle>(random),
         HasHeadphones = RandomBool(random, percentTrue: 55),
         HasBowTie = RandomBool(random, percentTrue: 55),
         HasBeard = RandomBool(random, percentTrue: 30),
@@ -98,9 +102,110 @@ static bool TryGetAnimation(HttpContext context, out GnouGnouBearAnimation anima
         && Enum.IsDefined(animation);
 }
 
+static GalleryAppearance? TryGetAppearance(HttpContext context, GnouGnouBearOptions baseOptions)
+{
+    var token = context.Request.Query["appearance"].ToString();
+    if (string.IsNullOrWhiteSpace(token))
+        return null;
+
+    return CreateGalleryAppearances(baseOptions).FirstOrDefault(appearance =>
+        string.Equals(appearance.Token, token, StringComparison.OrdinalIgnoreCase));
+}
+
+static IReadOnlyList<GalleryAppearance> CreateGalleryAppearances(GnouGnouBearOptions baseOptions)
+{
+    GnouGnouBearOptions Face(
+        int ordinal,
+        GnouGnouBearEmotion emotion,
+        GnouGnouBearEyeStyle eyeStyle,
+        GnouGnouBearNoseStyle noseStyle,
+        GnouGnouBearFurPalette furPalette,
+        GnouGnouBearBeardStyle beardStyle = GnouGnouBearBeardStyle.Random,
+        bool hasBeard = false,
+        bool hasHeadphones = true)
+    {
+        return baseOptions with
+        {
+            Seed = unchecked(baseOptions.Seed ^ (ordinal * 7919)),
+            Role = GnouGnouBearRole.Default,
+            Emotion = emotion,
+            Accessory = GnouGnouBearAccessory.None,
+            Accessories = [],
+            State = GnouGnouBearState.Idle,
+            Theme = GnouGnouBearTheme.Transparent,
+            FurPalette = furPalette,
+            EyeStyle = eyeStyle,
+            NoseStyle = noseStyle,
+            BeardStyle = beardStyle,
+            HasHeadphones = hasHeadphones,
+            HasBowTie = true,
+            HasBeard = hasBeard,
+            Size = 320
+        };
+    }
+
+    return
+    [
+        new(
+            "bright-smile",
+            "Bright smile",
+            "Big glossy eyes · soft brows · button nose · happy mouth",
+            Face(1, GnouGnouBearEmotion.Happy, GnouGnouBearEyeStyle.BigGlossy, GnouGnouBearNoseStyle.Button, GnouGnouBearFurPalette.Classic)),
+        new(
+            "curious-side-eye",
+            "Curious",
+            "Side-eye pupils · asymmetric brows · triangle nose · thinking mouth",
+            Face(2, GnouGnouBearEmotion.Thinking, GnouGnouBearEyeStyle.SideEye, GnouGnouBearNoseStyle.Triangle, GnouGnouBearFurPalette.Honey)),
+        new(
+            "starry-pride",
+            "Starry pride",
+            "Starry eyes · bold brows · heart nose · proud grin",
+            Face(3, GnouGnouBearEmotion.Proud, GnouGnouBearEyeStyle.Starry, GnouGnouBearNoseStyle.Heart, GnouGnouBearFurPalette.Rose, hasHeadphones: false)),
+        new(
+            "sleepy-soft",
+            "Sleepy soft",
+            "Closed eyes · relaxed brows · button nose · sleepy mouth",
+            Face(4, GnouGnouBearEmotion.Sleeping, GnouGnouBearEyeStyle.Default, GnouGnouBearNoseStyle.Button, GnouGnouBearFurPalette.Polar, hasHeadphones: false)),
+        new(
+            "sparkling-surprise",
+            "Sparkling surprise",
+            "Sparkly eyes · raised brows · wide nose · surprised mouth",
+            Face(5, GnouGnouBearEmotion.Surprised, GnouGnouBearEyeStyle.Sparkly, GnouGnouBearNoseStyle.Wide, GnouGnouBearFurPalette.Lavender)),
+        new(
+            "classic-beard",
+            "Classic beard",
+            "Focused eyes and brows · default nose · classic rounded beard",
+            Face(6, GnouGnouBearEmotion.Focused, GnouGnouBearEyeStyle.Default, GnouGnouBearNoseStyle.Default, GnouGnouBearFurPalette.Cocoa, GnouGnouBearBeardStyle.Classic, hasBeard: true)),
+        new(
+            "long-point-beard",
+            "Long-point beard",
+            "Tiny eyes · proud brows · triangle nose · long pointed beard",
+            Face(7, GnouGnouBearEmotion.Proud, GnouGnouBearEyeStyle.Tiny, GnouGnouBearNoseStyle.Triangle, GnouGnouBearFurPalette.Blueberry, GnouGnouBearBeardStyle.LongPoint, hasBeard: true)),
+        new(
+            "cloud-beard",
+            "Cloud beard",
+            "Glossy eyes · friendly brows · button nose · cloud beard",
+            Face(8, GnouGnouBearEmotion.Happy, GnouGnouBearEyeStyle.BigGlossy, GnouGnouBearNoseStyle.Button, GnouGnouBearFurPalette.Mint, GnouGnouBearBeardStyle.Cloud, hasBeard: true)),
+        new(
+            "square-beard",
+            "Square beard",
+            "Side-eye pupils · worried brows · wide nose · square beard",
+            Face(9, GnouGnouBearEmotion.Worried, GnouGnouBearEyeStyle.SideEye, GnouGnouBearNoseStyle.Wide, GnouGnouBearFurPalette.Panda, GnouGnouBearBeardStyle.Square, hasBeard: true, hasHeadphones: false)),
+        new(
+            "split-beard",
+            "Split beard",
+            "Winking eyes · thinking brows · heart nose · split beard",
+            Face(10, GnouGnouBearEmotion.Thinking, GnouGnouBearEyeStyle.Wink, GnouGnouBearNoseStyle.Heart, GnouGnouBearFurPalette.Classic, GnouGnouBearBeardStyle.Split, hasBeard: true))
+    ];
+}
+
 static string RenderAnimationGallery(GnouGnouBearOptions baseOptions)
 {
-    var builder = new StringBuilder(capacity: 280_000);
+    var appearances = CreateGalleryAppearances(baseOptions);
+    var animations = Enum.GetValues<GnouGnouBearAnimation>()
+        .Where(static animation => animation != GnouGnouBearAnimation.None)
+        .ToArray();
+    var builder = new StringBuilder(capacity: 520_000);
     builder.AppendLine("<!doctype html>");
     builder.AppendLine("<html lang=\"en\">");
     builder.AppendLine("<head>");
@@ -123,21 +228,34 @@ static string RenderAnimationGallery(GnouGnouBearOptions baseOptions)
     builder.AppendLine("    input { width: 100%; min-height: 43px; border: 1px solid #b8c9df; border-radius: 11px; padding: 0 12px; background: rgba(255,255,255,.9); color: #17243a; font: inherit; font-weight: 700; }");
     builder.AppendLine("    button, .button { min-height: 43px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 11px; padding: 0 15px; background: #245aa6; color: #fff; font: inherit; font-weight: 800; text-decoration: none; cursor: pointer; box-shadow: 0 8px 18px rgba(36,90,166,.18); }");
     builder.AppendLine("    .button.secondary { background: #fff; color: #245aa6; border: 1px solid #c4d3e7; box-shadow: none; }");
-    builder.AppendLine("    .summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }");
+    builder.AppendLine("    .summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }");
     builder.AppendLine("    .pill { border: 1px solid rgba(115,139,170,.24); border-radius: 999px; padding: 7px 11px; background: rgba(255,255,255,.66); color: #51647d; font-size: .78rem; font-weight: 750; }");
+    builder.AppendLine("    .gallery-nav { position: sticky; top: 12px; z-index: 5; display: inline-flex; gap: 5px; margin: 0 0 30px; padding: 5px; border: 1px solid rgba(103,132,170,.22); border-radius: 14px; background: rgba(255,255,255,.9); box-shadow: 0 10px 26px rgba(37,66,104,.1); backdrop-filter: blur(12px); }");
+    builder.AppendLine("    .gallery-tab { display: inline-flex; align-items: center; gap: 8px; min-height: 39px; padding: 0 14px; border-radius: 10px; color: #53657c; font-size: .84rem; font-weight: 850; text-decoration: none; }");
+    builder.AppendLine("    .gallery-tab:first-child { background: #245aa6; color: #fff; }");
+    builder.AppendLine("    .gallery-tab span { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: rgba(255,255,255,.18); font-size: .68rem; }");
+    builder.AppendLine("    .gallery-tab:not(:first-child) span { background: #e8eff8; color: #48617f; }");
+    builder.AppendLine("    .collection { scroll-margin-top: 80px; }");
+    builder.AppendLine("    .collection + .collection { margin-top: 54px; padding-top: 46px; border-top: 1px solid rgba(103,132,170,.22); }");
+    builder.AppendLine("    .collection-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end; margin-bottom: 18px; }");
+    builder.AppendLine("    .collection-kicker { margin: 0 0 5px; color: #2e67b3; font-size: .7rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }");
+    builder.AppendLine("    .collection h2 { margin: 0; color: #173b6d; font-size: clamp(1.7rem, 3vw, 2.65rem); letter-spacing: -.035em; }");
+    builder.AppendLine("    .collection-copy { max-width: 680px; margin: 8px 0 0; color: #60728a; line-height: 1.55; }");
+    builder.AppendLine("    .collection-count { color: #72839a; font-size: .78rem; font-weight: 800; white-space: nowrap; }");
     builder.AppendLine("    .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(245px, 1fr)); gap: 18px; }");
     builder.AppendLine("    .card { position: relative; overflow: hidden; display: grid; grid-template-rows: auto 1fr auto; min-height: 366px; border: 1px solid rgba(103,132,170,.22); border-radius: 22px; background: rgba(255,255,255,.82); box-shadow: 0 18px 44px rgba(37,66,104,.1); backdrop-filter: blur(9px); transition: transform .2s ease, box-shadow .2s ease; }");
     builder.AppendLine("    .card:hover { transform: translateY(-3px); box-shadow: 0 22px 52px rgba(37,66,104,.15); }");
     builder.AppendLine("    .card-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 16px 17px 0; }");
-    builder.AppendLine("    h2 { margin: 0; color: #193c68; font-size: 1rem; letter-spacing: -.01em; }");
+    builder.AppendLine("    h3 { margin: 0; color: #193c68; font-size: 1rem; letter-spacing: -.01em; }");
     builder.AppendLine("    .status { border-radius: 999px; padding: 5px 8px; background: #e9f1fb; color: #4d6788; font-size: .68rem; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }");
     builder.AppendLine("    .status.live { background: #dbfaf2; color: #18755f; }");
     builder.AppendLine("    .bear { display: grid; place-items: center; min-height: 272px; padding: 3px 10px 0; }");
     builder.AppendLine("    .bear svg { width: min(270px, 100%); height: auto; display: block; }");
-    builder.AppendLine("    .card-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0 17px 16px; color: #687991; font-size: .78rem; }");
-    builder.AppendLine("    .open-svg { color: #245aa6; font-weight: 800; text-decoration: none; }");
+    builder.AppendLine("    .card-foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; padding: 0 17px 16px; color: #687991; font-size: .76rem; line-height: 1.45; }");
+    builder.AppendLine("    .feature-note { max-width: 72%; }");
+    builder.AppendLine("    .open-svg { flex: none; color: #245aa6; font-weight: 800; text-decoration: none; white-space: nowrap; }");
     builder.AppendLine("    .motion-note { margin: 22px 0 0; color: #697b92; font-size: .82rem; text-align: center; }");
-    builder.AppendLine("    @media (max-width: 820px) { header { grid-template-columns: 1fr; align-items: start; } .toolbar { justify-content: flex-start; } }");
+    builder.AppendLine("    @media (max-width: 820px) { header, .collection-head { grid-template-columns: 1fr; align-items: start; } .toolbar { justify-content: flex-start; } }");
     builder.AppendLine("    @media (max-width: 520px) { main { padding-inline: 14px; } .seed-form { grid-template-columns: 1fr auto; } .gallery { grid-template-columns: 1fr; } }");
     builder.AppendLine("    @media (prefers-reduced-motion: reduce) { .card { transition: none; } }");
     builder.AppendLine("  </style>");
@@ -148,7 +266,7 @@ static string RenderAnimationGallery(GnouGnouBearOptions baseOptions)
     builder.AppendLine("      <div>");
     builder.AppendLine("        <p class=\"eyebrow\">GnOuGo.Assets.Bears</p>");
     builder.AppendLine("        <h1>Animation gallery</h1>");
-    builder.AppendLine("        <p class=\"intro\">Compare every script-free SVG preset on the same deterministic GnOuGo. Static mode is included so the animated rig can be checked against the original mascot.</p>");
+    builder.AppendLine("        <p class=\"intro\">Explore a visual library of static GnOuGo faces and the same diverse characters in motion. Eyes, eyebrows, noses, mouths, and five beard silhouettes remain deterministic, script-free SVG assets.</p>");
     builder.AppendLine("      </div>");
     builder.AppendLine("      <div class=\"toolbar\">");
     builder.AppendLine("        <form class=\"seed-form\" method=\"get\" action=\"/\">");
@@ -160,43 +278,64 @@ static string RenderAnimationGallery(GnouGnouBearOptions baseOptions)
     builder.AppendLine("    </header>");
     builder.AppendLine("    <div class=\"summary\" aria-label=\"Mascot appearance\">");
     AppendPill(builder, $"Seed {baseOptions.Seed}");
-    AppendPill(builder, baseOptions.FurPalette.ToString());
-    AppendPill(builder, baseOptions.EyeStyle.ToString());
-    AppendPill(builder, baseOptions.HasBeard ? "Bearded" : "No beard");
-    AppendPill(builder, baseOptions.HasHeadphones ? "Headphones" : "No headphones");
-    AppendPill(builder, baseOptions.HasBowTie ? "Bow tie" : "No bow tie");
+    AppendPill(builder, $"{appearances.Count} static looks");
+    AppendPill(builder, $"{animations.Length} animated presets");
+    AppendPill(builder, $"{Enum.GetValues<GnouGnouBearEyeStyle>().Length} eye styles");
+    AppendPill(builder, $"{Enum.GetValues<GnouGnouBearNoseStyle>().Length} nose styles");
+    AppendPill(builder, "5 beard silhouettes");
     builder.AppendLine("    </div>");
-    builder.AppendLine("    <section class=\"gallery\" aria-label=\"Available GnOuGo animations\">");
+    builder.AppendLine("    <nav class=\"gallery-nav\" aria-label=\"Gallery collections\">");
+    builder.Append("      <a class=\"gallery-tab\" href=\"#static\">Static <span>").Append(appearances.Count).AppendLine("</span></a>");
+    builder.Append("      <a class=\"gallery-tab\" href=\"#animated\">Animated <span>").Append(animations.Length).AppendLine("</span></a>");
+    builder.AppendLine("    </nav>");
+    builder.AppendLine("    <section class=\"collection\" id=\"static\" aria-labelledby=\"static-title\">");
+    builder.AppendLine("      <div class=\"collection-head\"><div>");
+    builder.AppendLine("        <p class=\"collection-kicker\">Appearance library</p>");
+    builder.AppendLine("        <h2 id=\"static-title\">Static</h2>");
+    builder.AppendLine("        <p class=\"collection-copy\">Clean, still SVG references for comparing facial construction, expression, and beard silhouettes without body motion.</p>");
+    builder.Append("      </div><span class=\"collection-count\">").Append(appearances.Count).AppendLine(" reproducible characters</span></div>");
+    builder.AppendLine("      <div class=\"gallery\" aria-label=\"Static GnOuGo appearance variants\">");
 
-    foreach (var animation in Enum.GetValues<GnouGnouBearAnimation>())
+    foreach (var appearance in appearances)
     {
-        var token = animation.ToString().ToLowerInvariant();
-        var animated = animation != GnouGnouBearAnimation.None;
-        var options = baseOptions with
+        var options = appearance.Options with
         {
-            Animation = animation,
-            SvgIdPrefix = $"gallery-{token}",
-            Title = $"{animation} GnOuGo animation",
-            Description = animated
-                ? $"GnOuGo demonstrating the {animation} animation preset."
-                : "Static GnOuGo with animation disabled."
+            Animation = GnouGnouBearAnimation.None,
+            SvgIdPrefix = $"gallery-static-{appearance.Token}",
+            Title = $"{appearance.Name} static GnOuGo",
+            Description = appearance.Description
         };
-        var svg = GnouGnouBearSvgGenerator.Generate(options);
-
-        builder.AppendLine("      <article class=\"card\">");
-        builder.AppendLine("        <div class=\"card-head\">");
-        builder.Append("          <h2>").Append(animation).AppendLine("</h2>");
-        builder.Append("          <span class=\"status").Append(animated ? " live" : string.Empty).Append("\">")
-            .Append(animated ? "Animated" : "Static").AppendLine("</span>");
-        builder.Append("        </div><div class=\"bear\">").Append(svg).AppendLine("</div>");
-        builder.AppendLine("        <div class=\"card-foot\">");
-        builder.Append("          <span>").Append(animated ? "CSS preset" : "Legacy rendering").AppendLine("</span>");
-        builder.Append("          <a class=\"open-svg\" href=\"/bear.svg?seed=").Append(baseOptions.Seed)
-            .Append("&amp;animation=").Append(animation).AppendLine("\" target=\"_blank\" rel=\"noopener\">Open SVG ↗</a>");
-        builder.AppendLine("        </div>");
-        builder.AppendLine("      </article>");
+        AppendGalleryCard(builder, appearance.Name, appearance.Description, options, "Static", false,
+            $"/bear.svg?seed={baseOptions.Seed}&amp;appearance={appearance.Token}&amp;animation=None");
     }
 
+    builder.AppendLine("      </div>");
+    builder.AppendLine("    </section>");
+    builder.AppendLine("    <section class=\"collection\" id=\"animated\" aria-labelledby=\"animated-title\">");
+    builder.AppendLine("      <div class=\"collection-head\"><div>");
+    builder.AppendLine("        <p class=\"collection-kicker\">Motion library</p>");
+    builder.AppendLine("        <h2 id=\"animated-title\">Animated</h2>");
+    builder.AppendLine("        <p class=\"collection-copy\">The same facial and beard diversity carried by semantic rigs with blinking, breathing, gestures, work poses, and outcome animations.</p>");
+    builder.Append("      </div><span class=\"collection-count\">").Append(animations.Length).AppendLine(" script-free presets</span></div>");
+    builder.AppendLine("      <div class=\"gallery\" aria-label=\"Animated GnOuGo presets\">");
+
+    for (var index = 0; index < animations.Length; index++)
+    {
+        var animation = animations[index];
+        var appearance = appearances[index % appearances.Count];
+        var animationToken = animation.ToString().ToLowerInvariant();
+        var options = appearance.Options with
+        {
+            Animation = animation,
+            SvgIdPrefix = $"gallery-animated-{animationToken}-{appearance.Token}",
+            Title = $"{animation} animation on {appearance.Name} GnOuGo",
+            Description = $"{appearance.Description}. Demonstrating the {animation} animation preset."
+        };
+        AppendGalleryCard(builder, animation.ToString(), $"{appearance.Name} · {appearance.Description}", options, "Animated", true,
+            $"/bear.svg?seed={baseOptions.Seed}&amp;appearance={appearance.Token}&amp;animation={animation}");
+    }
+
+    builder.AppendLine("      </div>");
     builder.AppendLine("    </section>");
     builder.AppendLine("    <p class=\"motion-note\">Your operating system’s reduced-motion preference is respected automatically.</p>");
     builder.AppendLine("  </main>");
@@ -205,7 +344,40 @@ static string RenderAnimationGallery(GnouGnouBearOptions baseOptions)
     return builder.ToString();
 }
 
+static void AppendGalleryCard(
+    StringBuilder builder,
+    string title,
+    string description,
+    GnouGnouBearOptions options,
+    string status,
+    bool animated,
+    string href)
+{
+    var svg = GnouGnouBearSvgGenerator.Generate(options);
+    builder.Append("        <article class=\"card\" data-gallery-kind=\"")
+        .Append(animated ? "animated" : "static").AppendLine("\">");
+    builder.AppendLine("          <div class=\"card-head\">");
+    builder.Append("            <h3>").Append(title).AppendLine("</h3>");
+    builder.Append("            <span class=\"status").Append(animated ? " live" : string.Empty).Append("\">")
+        .Append(status).AppendLine("</span>");
+    builder.Append("          </div><div class=\"bear\">").Append(svg).AppendLine("</div>");
+    builder.AppendLine("          <div class=\"card-foot\">");
+    builder.Append("            <span class=\"feature-note\">").Append(description).AppendLine("</span>");
+    builder.Append("            <a class=\"open-svg\" href=\"").Append(href)
+        .AppendLine("\" target=\"_blank\" rel=\"noopener\">Open SVG ↗</a>");
+    builder.AppendLine("          </div>");
+    builder.AppendLine("        </article>");
+}
+
 static void AppendPill(StringBuilder builder, string value)
 {
     builder.Append("      <span class=\"pill\">").Append(value).AppendLine("</span>");
 }
+
+sealed record GalleryAppearance(
+    string Token,
+    string Name,
+    string Description,
+    GnouGnouBearOptions Options);
+
+public partial class Program;

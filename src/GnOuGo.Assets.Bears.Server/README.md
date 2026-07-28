@@ -2,9 +2,15 @@
 
 Small ASP.NET Core animation gallery for `GnOuGo.Assets.Bears`.
 
-The home page renders every `GnouGnouBearAnimation` preset side-by-side on
-the same deterministic mascot. It includes static mode, seed controls, direct
-SVG links, and automatically respects reduced-motion preferences.
+The home page contains two deterministic collections:
+
+- **Static** — ten appearance studies covering eye shapes, emotion-driven
+  eyebrows and mouths, five nose styles, and five beard silhouettes.
+- **Animated** — every `GnouGnouBearAnimation` preset applied across the same
+  diverse appearance library.
+
+It includes seed controls, direct SVG links, and automatically respects
+reduced-motion preferences.
 
 ## Run
 
@@ -22,6 +28,8 @@ field to reproduce an appearance or select **Randomize** for another GnOuGo.
 - `/bear.svg` returns a static standalone SVG.
 - `/bear.svg?seed=42&animation=Typing` returns one reproducible, self-playing
   animation SVG.
+- `/bear.svg?seed=42&appearance=split-beard&animation=Idle` returns a
+  reproducible appearance from the gallery as an animated standalone SVG.
 
 Supported animation values are `None`, `Idle`, `Walk`, `Typing`, `Waiting`,
 `Pickup`, `Handoff`, `Delivery`, `Clone`, `Merge`, `Celebration`, and
@@ -31,4 +39,10 @@ Supported animation values are `None`, `Idle`, `Walk`, `Typing`, `Waiting`,
 
 ```bash
 dotnet build src/GnOuGo.Assets.Bears.Server/GnOuGo.Assets.Bears.Server.csproj
+```
+
+## Test
+
+```bash
+dotnet test tests/GnOuGo.Assets.Bears.Server.Tests/GnOuGo.Assets.Bears.Server.Tests.csproj
 ```

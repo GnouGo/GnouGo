@@ -46,17 +46,20 @@ public static class GnouGnouBearSvgGenerator
         builder.Append(BackgroundLayer.Render(options.Theme));
         if (options.EnableAnimationRig || options.Animation != GnouGnouBearAnimation.None)
         {
-            builder.Append(RiggedGnouGnouLayer.Render(options, hasHeadphones, hasBowTie, accessoryPalette));
+            builder.Append(RiggedGnouGnouLayer.Render(options, hasHeadphones, hasBowTie, accessoryPalette, ref stableRandom));
         }
         else
         {
             builder.Append(GnouGnouBaseLayer.OpenMascotGroup());
             builder.Append(GnouGnouBaseLayer.BodyBeforeFace(hasHeadphones, hasBowTie, accessoryPalette));
             builder.Append(EyesLayer.Render(options.Emotion, options.EyeStyle, ref stableRandom));
-            builder.Append(MouthLayer.Render(options.Emotion));
-            builder.Append(BeardLayer.Render(options.HasBeard, ref stableRandom));
+            builder.Append(MouthLayer.Render(options.Emotion, options.NoseStyle));
+            var beard = BeardLayer.Render(options.HasBeard, options.BeardStyle, ref stableRandom);
+            var accessoryLayers = AccessoryLayer.RenderLayers(accessories, ref stableRandom, accessoryPalette);
             builder.Append(GnouGnouBaseLayer.AfterFace(hasHeadphones, hasBowTie, accessoryPalette));
-            builder.Append(AccessoryLayer.Render(accessories, ref stableRandom, accessoryPalette));
+            builder.Append(accessoryLayers.Neckwear);
+            builder.Append(beard);
+            builder.Append(accessoryLayers.Foreground);
             builder.Append(RoleBadgeLayer.Render(options.Role, ref stableRandom));
             builder.Append(StateLayer.Render(options.State, ref stableRandom));
             builder.Append(GnouGnouBaseLayer.CloseMascotGroup());

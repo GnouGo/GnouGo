@@ -17,6 +17,9 @@ var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
     Theme = GnouGnouBearTheme.Default,
     FurPalette = GnouGnouBearFurPalette.Classic,
     EyeStyle = GnouGnouBearEyeStyle.BigGlossy,
+    NoseStyle = GnouGnouBearNoseStyle.Button,
+    BeardStyle = GnouGnouBearBeardStyle.Cloud,
+    HasBeard = true,
     HasHeadphones = true,
     HasBowTie = true,
     Animation = GnouGnouBearAnimation.Idle
@@ -50,7 +53,13 @@ dedicated frown with lowered pupils, eyelids, ears, and brows.
 - No runtime file reads, raster assets, base64 images, or external dependencies.
 - AOT and trimming compatible.
 - The same options produce the exact same SVG.
-- Fur palettes, eye styles, headphones, bow ties, and accessories can be varied without raster assets.
+- Fur palettes, eye styles, emotion-driven eyebrows and mouths, five nose
+  styles, five explicit beard silhouettes, headphones, bow ties, and
+  accessories can be varied without raster assets.
+- `BeardStyle = Random` preserves seeded beard selection. Choose `Classic`,
+  `LongPoint`, `Cloud`, `Square`, or `Split` for an explicit silhouette.
+- Static and animated rigs honor the same eye, emotion, nose, and beard
+  selections.
 - `Title` and `Description` are XML-escaped before being written into the SVG.
 - `Size` must be between `64` and `1024`.
 - Set `SvgIdPrefix` when embedding multiple mascots in one SVG document so every
