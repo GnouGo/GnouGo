@@ -318,8 +318,6 @@ export class GnouGnouWorkflowAnimationController {
         break
     }
 
-    const statusText = this.find<SVGTextElement>('simulation-status')
-    if (statusText && event.message) statusText.textContent = event.message
     const focusId = event.targetNodeId ?? event.stationId ?? event.nodeId ?? event.actorId
     if (focusId) this.options.onFocus?.(focusId)
   }

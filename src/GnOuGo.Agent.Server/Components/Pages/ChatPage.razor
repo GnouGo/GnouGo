@@ -94,30 +94,66 @@
 
     <main class="gnougo-app__main gnougo-chat">
         <header class="gnougo-chat__topbar">
+            @if (_agentMenuOpen || _topbarMoreOpen)
+            {
+                <button class="gnougo-chat__topbar-backdrop"
+                        type="button"
+                        title="Close menu"
+                        aria-label="Close top bar menu"
+                        @onclick="CloseTopbarMenus"></button>
+            }
+
             <button class="gnougo-chat__menu" @onclick="ToggleSidebar" type="button" title="Menu">
                 ☰
             </button>
 
-            <div class="gnougo-chat__topbar-title">
-                <span class="gnougo-chat__agent-badge" title="Active workflow">🤖 @ActiveWorkflowDisplayName</span>
-                <span style="margin: 0 8px; opacity: 0.4;">|</span>
-                @(_active?.Title ?? "Chat")
+            <div class="gnougo-chat__product-menu">
+                <button class="gnougo-chat__product-trigger"
+                        type="button"
+                        title="Select a GnOuGo agent"
+                        aria-haspopup="menu"
+                        aria-expanded="@(_agentMenuOpen ? "true" : "false")"
+                        disabled="@(_isStreaming || _agentsLoading)"
+                        @onclick="ToggleAgentMenu">
+                    <span class="gnougo-chat__product-mark" aria-hidden="true">G</span>
+                    <span class="gnougo-chat__product-name">GnOuGo</span>
+                    <svg class="gnougo-chat__product-chevron @(_agentMenuOpen ? "gnougo-chat__product-chevron--open" : "")"
+                         viewBox="0 0 20 20"
+                         aria-hidden="true">
+                        <path d="m6 8 4 4 4-4"></path>
+                    </svg>
+                </button>
+
+                @if (_agentMenuOpen)
+                {
+                    <div class="gnougo-chat__agent-menu" role="menu" aria-label="Select a GnOuGo agent">
+                        <button class="gnougo-chat__agent-menu-item @(string.IsNullOrWhiteSpace(_defaultAgentName) ? "gnougo-chat__agent-menu-item--active" : "")"
+                                type="button"
+                                role="menuitemradio"
+                                aria-checked="@(string.IsNullOrWhiteSpace(_defaultAgentName) ? "true" : "false")"
+                                @onclick="() => SelectAgentAsync(null)">
+                            <span>@DefaultWorkflowDisplayName</span>
+                            <small>Dynamic planning and routing</small>
+                        </button>
+
+                        @foreach (var agent in _availableAgents)
+                        {
+                            var isSelectedAgent = string.Equals(_defaultAgentName, agent, StringComparison.OrdinalIgnoreCase);
+                            <button @key="agent"
+                                    class="gnougo-chat__agent-menu-item @(isSelectedAgent ? "gnougo-chat__agent-menu-item--active" : "")"
+                                    type="button"
+                                    role="menuitemradio"
+                                    aria-checked="@(isSelectedAgent ? "true" : "false")"
+                                    title="@agent"
+                                    @onclick="() => SelectAgentAsync(agent)">
+                                <span>@agent</span>
+                            </button>
+                        }
+                    </div>
+                }
             </div>
 
             <div class="gnougo-chat__topbar-actions">
-                <label for="chatAgentSelect" class="gnougo-chat__agent-select-label">Agent</label>
-                <select id="chatAgentSelect"
-                        class="gnougo-chat__agent-select"
-                        title="Select default workflow or agent"
-                        disabled="@(_isStreaming || _agentsLoading)"
-                        value="@(_defaultAgentName ?? string.Empty)"
-                        @onchange="OnAgentSelectionChangedAsync">
-                    <option value="">@DefaultWorkflowDisplayName</option>
-                    @foreach (var agent in _availableAgents)
-                    {
-                        <option value="@agent">@agent</option>
-                    }
-                </select>
                 @if (_isStreaming)
                 {
                     <div class="gnougo-chat__streaming" title="Streaming…">
@@ -125,6 +161,33 @@
                         Streaming…
                     </div>
                 }
+
+                <div class="gnougo-chat__more-menu">
+                    <button class="gnougo-chat__more-trigger"
+                            type="button"
+                            title="More options"
+                            aria-label="More options"
+                            aria-haspopup="menu"
+                            aria-expanded="@(_topbarMoreOpen ? "true" : "false")"
+                            @onclick="ToggleTopbarMoreMenu">
+                        <span aria-hidden="true">•••</span>
+                    </button>
+
+                    @if (_topbarMoreOpen)
+                    {
+                        <div class="gnougo-chat__utility-menu" role="menu" aria-label="Conversation options">
+                            <button type="button" role="menuitem" @onclick="NewChatFromTopbarAsync">
+                                New conversation
+                            </button>
+                            <button type="button"
+                                    role="menuitem"
+                                    disabled="@_agentsLoading"
+                                    @onclick="RefreshAgentsFromMenuAsync">
+                                Refresh agents
+                            </button>
+                        </div>
+                    }
+                </div>
             </div>
         </header>
 
@@ -199,7 +262,12 @@
                                     </div>
                                 }
 
-                                @if (isUser || !string.IsNullOrWhiteSpace(msg.Content))
+                                @if (isUser)
+                                {
+                                    <PlainTextContent Class="gnougo-chat__bubble-text gnougo-chat__bubble-text--user"
+                                                      Content="@msg.Content" />
+                                }
+                                else if (!string.IsNullOrWhiteSpace(msg.Content))
                                 {
                                     <MarkdownContent Class="gnougo-chat__bubble-text" Content="@msg.Content" />
                                 }
@@ -524,6 +592,7 @@
                         </button>
 
                         <textarea class="gnougo-composer__input"
+                                  data-gnougo-autogrow="true"
                                   @bind="_model.Prompt"
                                   @bind:event="oninput"
                                   placeholder="Write a message or YAML… Drop documents here to upload them before sending."
@@ -716,6 +785,8 @@
     private bool _agentsLoading;
 
     private bool _sidebarOpen;
+    private bool _agentMenuOpen;
+    private bool _topbarMoreOpen;
     private bool _isStreaming;
     private string _error = "";
     private bool _chatStatePending = true;
@@ -751,10 +822,6 @@
     private string DisplayVersion => _appVersion?.ShortVersion ?? VersionInfo.ShortVersion;
 
     private string DisplayVersionTitle => _appVersion?.Version ?? VersionInfo.Version;
-
-    private string ActiveWorkflowDisplayName => string.IsNullOrWhiteSpace(_defaultAgentName)
-        ? DefaultWorkflowDisplayName
-        : _defaultAgentName!;
 
     private bool CanSend => !_isStreaming
                             && !HasBlockingUploads
@@ -1054,8 +1121,34 @@
         => value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
 
 
-    private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
+    private void ToggleSidebar()
+    {
+        CloseTopbarMenus();
+        _sidebarOpen = !_sidebarOpen;
+    }
+
     private void CloseSidebar() => _sidebarOpen = false;
+
+    private void ToggleAgentMenu()
+    {
+        if (_isStreaming || _agentsLoading)
+            return;
+
+        _topbarMoreOpen = false;
+        _agentMenuOpen = !_agentMenuOpen;
+    }
+
+    private void ToggleTopbarMoreMenu()
+    {
+        _agentMenuOpen = false;
+        _topbarMoreOpen = !_topbarMoreOpen;
+    }
+
+    private void CloseTopbarMenus()
+    {
+        _agentMenuOpen = false;
+        _topbarMoreOpen = false;
+    }
 
     private async Task RefreshWorkflowInputSchemaAsync()
     {
@@ -1098,12 +1191,14 @@
         }
     }
 
-    private async Task OnAgentSelectionChangedAsync(ChangeEventArgs e)
+    private async Task SelectAgentAsync(string? selectedAgent)
     {
+        CloseTopbarMenus();
+
         if (_isStreaming)
             return;
 
-        var selectedAgent = e.Value?.ToString()?.Trim();
+        selectedAgent = selectedAgent?.Trim();
         if (string.IsNullOrWhiteSpace(selectedAgent))
         {
             if (string.IsNullOrWhiteSpace(_defaultAgentName))
@@ -1126,6 +1221,19 @@
 
         SyncSessionsToDefaultAgent();
         await RefreshWorkflowInputSchemaAsync();
+        StateHasChanged();
+    }
+
+    private async Task NewChatFromTopbarAsync()
+    {
+        CloseTopbarMenus();
+        await NewChatAsync();
+    }
+
+    private async Task RefreshAgentsFromMenuAsync()
+    {
+        CloseTopbarMenus();
+        await RefreshAvailableAgentsAsync();
         StateHasChanged();
     }
 
@@ -1491,7 +1599,7 @@
 
         _error = "";
         JsonObject? workflowInputs = null;
-        var prompt = _model.Prompt.Trim();
+        var prompt = ChatComposerText.PreserveForSubmission(_model.Prompt);
 
         if (UseWorkflowInputComposer && _workflowInputSchema is not null)
         {
@@ -2278,6 +2386,7 @@
 
     private async Task NewChatAsync()
     {
+        CloseTopbarMenus();
         _cts?.Cancel();
         _error = "";
         _model.Prompt = "";
@@ -2312,6 +2421,8 @@
     private async Task SelectChatAsync(string id)
     {
         if (_isStreaming) return;
+
+        CloseTopbarMenus();
 
         if (!string.Equals(_store.ActiveId, id, StringComparison.Ordinal))
         {

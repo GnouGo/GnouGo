@@ -31,18 +31,18 @@ internal static class GnouGnouAnimationStyleLayer
         return $$"""
   <style>
     .gnougo-rig[data-animation="{{token}}"] [data-part] { transform-box: view-box; }
-    .gnougo-rig [data-part="body"] { transform-origin: 128px 181px; }
-    .gnougo-rig [data-part="head"] { transform-origin: 128px 151px; }
-    .gnougo-rig [data-part="ear-left"] { transform-origin: 91px 82px; }
-    .gnougo-rig [data-part="ear-right"] { transform-origin: 165px 82px; }
-    .gnougo-rig [data-part="arm-left"] { transform-origin: 94px 157px; }
-    .gnougo-rig [data-part="arm-right"] { transform-origin: 162px 157px; }
-    .gnougo-rig [data-part="leg-left"] { transform-origin: 104px 179px; }
-    .gnougo-rig [data-part="leg-right"] { transform-origin: 152px 179px; }
-    .gnougo-rig [data-part="eye-left"], .gnougo-rig [data-part="eye-right"] { transform-origin: center; }
-    .gnougo-rig [data-part="brow-left"] { transform-origin: 104px 83px; }
-    .gnougo-rig [data-part="brow-right"] { transform-origin: 152px 83px; }
-    .gnougo-rig [data-part="mouth"] { transform-origin: 128px 145px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="body"] { transform-origin: 128px 181px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="head"] { transform-origin: 128px 151px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="ear-left"] { transform-origin: 91px 82px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="ear-right"] { transform-origin: 165px 82px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="arm-left"] { transform-origin: 94px 157px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="arm-right"] { transform-origin: 162px 157px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="leg-left"] { transform-origin: 104px 179px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="leg-right"] { transform-origin: 152px 179px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="eye-left"], .gnougo-rig[data-animation="{{token}}"] [data-part="eye-right"] { transform-origin: center; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="brow-left"] { transform-origin: 104px 83px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="brow-right"] { transform-origin: 152px 83px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="mouth"] { transform-origin: 128px 145px; }
 {{rules}}
     @media (prefers-reduced-motion: reduce) {
       .gnougo-rig[data-animation="{{token}}"] [data-part] { animation: none !important; }

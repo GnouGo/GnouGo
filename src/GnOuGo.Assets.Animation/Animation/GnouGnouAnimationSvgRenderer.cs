@@ -30,7 +30,6 @@ public static class GnouGnouAnimationSvgRenderer
         AppendDefs(builder);
         AppendScene(builder, plan.Scene, plan.Seed, canvasWidth, canvasHeight);
         AppendLanes(builder, plan.Lanes);
-        AppendHeader(builder, plan, canvasWidth);
         AppendEdges(builder, plan.Edges, plan.Nodes);
         AppendFlowNodes(builder, plan.Nodes);
         AppendStations(builder, plan.Stations, plan.Nodes);
@@ -95,10 +94,9 @@ public static class GnouGnouAnimationSvgRenderer
     #workstations > g.is-success .roundabout-road { stroke: #458467; }
     #workstations > g.is-failed .roundabout-road { stroke: #b84f59; }
     #workstations > g.is-failed .roundabout-glyph { fill: #b53140; }
-    .station-label, .actor-label, .scene-label, .node-label, .lane-label { font-family: Inter, ui-sans-serif, system-ui, sans-serif; fill: #18344d; }
+    .station-label, .actor-label, .node-label, .lane-label { font-family: Inter, ui-sans-serif, system-ui, sans-serif; fill: #18344d; }
     .station-label { font-size: 17px; font-weight: 800; text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
     .actor-label { font-size: 16px; font-weight: 750; text-anchor: middle; }
-    .scene-label { font-size: 22px; font-weight: 800; }
     .node-label { font-size: 15px; font-weight: 800; text-anchor: middle; }
     .lane-label { font-size: 22px; font-weight: 850; }
     .parcel-stamp { opacity: 0; transition: opacity .2s ease, transform .2s ease; }
@@ -203,18 +201,6 @@ public static class GnouGnouAnimationSvgRenderer
                 .Append(Escape(lane.Label)).AppendLine("</text>");
             builder.AppendLine("    </g>");
         }
-        builder.AppendLine("  </g>");
-    }
-
-    private static void AppendHeader(StringBuilder builder, GnouGnouAnimationPlan plan, int canvasWidth)
-    {
-        var width = Math.Max(600, canvasWidth - 84);
-        builder.AppendLine("  <g id=\"scene-header\" transform=\"translate(42 34)\">");
-        builder.Append("    <rect width=\"").Append(width).AppendLine("\" height=\"64\" rx=\"22\" fill=\"#ffffff\" opacity=\".94\" filter=\"url(#scene-shadow)\"/>");
-        builder.Append("    <text class=\"scene-label\" x=\"28\" y=\"40\">GnOuGo · ").Append(Escape(plan.Entrypoint)).AppendLine("</text>");
-        builder.Append("    <text id=\"simulation-status\" class=\"station-label\" text-anchor=\"end\" x=\"").Append(width - 30)
-            .Append("\" y=\"40\">Ready · seed ")
-            .Append(plan.Seed.ToString(CultureInfo.InvariantCulture)).AppendLine("</text>");
         builder.AppendLine("  </g>");
     }
 

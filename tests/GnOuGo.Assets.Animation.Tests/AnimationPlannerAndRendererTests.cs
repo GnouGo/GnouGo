@@ -80,6 +80,8 @@ public sealed class AnimationPlannerAndRendererTests
             group => group.Count() > 1);
         Assert.DoesNotContain("actor-halo", result.Svg, StringComparison.Ordinal);
         Assert.DoesNotContain("ground-shadow", result.Svg, StringComparison.Ordinal);
+        Assert.DoesNotContain(xml.Descendants(), element =>
+            element.Attribute("id")?.Value is "scene-header" or "simulation-status");
     }
 
     [Fact]

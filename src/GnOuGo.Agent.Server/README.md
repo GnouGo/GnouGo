@@ -115,12 +115,24 @@ drawn directly on the white response background without a card border, title,
 lane count, node count, or live-telemetry caption. Activity and diagram
 visibility controls sit in the response action row beside Trace.
 
+User turns are rendered as encoded plain text rather than reparsed as Markdown.
+This preserves every submitted line break, indentation, and large pasted block
+without allowing Markdown extensions such as YAML front matter to hide content.
+Assistant turns continue to use the full Markdown pipeline.
+
 The left navigation uses the base `GnOuGo.Assets.Bears` SVG as an inline,
 script-free idle animation. Its stable ID prefix prevents SVG definition
 collisions with workflow actors. Conversations are ordered newest-first and
 grouped using English local-date labels such as **Today**, **Yesterday**,
 **The day before yesterday**, and **N days ago**. The compact brand is
 **GnOuGo** with the tagline **Simple. Safe. Transparent.**
+
+The top navigation uses a blue **G** wordmark and a **GnOuGo** product trigger.
+Its custom dropdown lists the default dynamic workflow and every available
+agent while preserving the persisted default-agent selection. A separate
+ellipsis menu provides conversation creation and agent-list refresh actions.
+Both menus close through a shared click-away backdrop and remain compact on
+mobile.
 
 Dynamic planning and routing have dedicated live semantics. `workflow.plan`
 walks the main GnOuGo to a planning roundabout, `workflow.route` uses a routing

@@ -278,86 +278,229 @@ html, body {
 }
 
 .gnougo-chat__topbar {
+  position: relative;
+  z-index: 30;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--gnougo-border);
-  background: var(--gnougo-surface);
-  box-shadow: var(--gnougo-shadow);
+  gap: 10px;
+  min-height: 70px;
+  padding: 0 clamp(16px, 4vw, 62px);
+  border-bottom: 1px solid #e4e6e9;
+  background: rgba(255, 255, 255, .98);
 }
 
 .gnougo-chat__menu {
-  border: 1px solid var(--gnougo-border);
-  background: var(--gnougo-surface);
-  border-radius: 10px;
-  width: 40px;
-  height: 36px;
-  cursor: pointer;
+  position: relative;
+  z-index: 32;
   display: none;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #49515b;
+  cursor: pointer;
 }
 
-.gnougo-chat__menu:hover { background: var(--gnougo-surface-2); }
+.gnougo-chat__menu:hover { background: #f1f2f4; }
 
-.gnougo-chat__topbar-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--gnougo-text);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+.gnougo-chat__topbar-backdrop {
+  position: fixed;
+  z-index: 31;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.gnougo-chat__product-menu,
+.gnougo-chat__more-menu {
+  position: relative;
+  z-index: 32;
+}
+
+.gnougo-chat__product-trigger {
   display: flex;
   align-items: center;
-}
-
-.gnougo-chat__agent-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 10px;
-  border-radius: 12px;
-  background: var(--gnougo-accent, #6366f1);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.gnougo-chat__topbar-actions { display: flex; align-items: center; gap: 10px; }
-
-.gnougo-chat__agent-select-label {
-  font-size: 12px;
-  color: var(--gnougo-muted);
-  white-space: nowrap;
-}
-
-.gnougo-chat__agent-select {
-  min-width: 170px;
-  max-width: 260px;
-  height: 34px;
-  padding: 0 30px 0 10px;
-  border: 1px solid var(--gnougo-border);
-  border-radius: 10px;
-  background: var(--gnougo-surface);
-  color: var(--gnougo-text);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1;
+  gap: 9px;
+  min-height: 54px;
+  padding: 4px 8px 4px 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #30363d;
   cursor: pointer;
 }
 
-.gnougo-chat__agent-select:hover:not(:disabled) {
-  background: var(--gnougo-surface-2);
+.gnougo-chat__product-trigger:hover:not(:disabled) {
+  color: #121820;
 }
 
-.gnougo-chat__agent-select:focus-visible {
-  outline: 2px solid color-mix(in oklab, var(--gnougo-accent) 45%, transparent);
-  outline-offset: 1px;
+.gnougo-chat__product-trigger:focus-visible,
+.gnougo-chat__more-trigger:focus-visible {
+  outline: 2px solid rgba(0, 87, 255, .34);
+  outline-offset: 2px;
 }
 
-.gnougo-chat__agent-select:disabled {
-  opacity: 0.6;
+.gnougo-chat__product-trigger:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.gnougo-chat__product-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 31px;
+  height: 35px;
+  color: #0057ff;
+  font-size: 27px;
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1;
+  letter-spacing: -.11em;
+  transform: skew(-7deg);
+  user-select: none;
+}
+
+.gnougo-chat__product-name {
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -.025em;
+}
+
+.gnougo-chat__product-chevron {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  transition: transform 150ms ease;
+}
+
+.gnougo-chat__product-chevron--open {
+  transform: rotate(180deg);
+}
+
+.gnougo-chat__agent-menu,
+.gnougo-chat__utility-menu {
+  position: absolute;
+  z-index: 33;
+  top: calc(100% - 1px);
+  padding: 8px;
+  border: 1px solid #9eafd2;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, .14);
+}
+
+.gnougo-chat__agent-menu {
+  left: 0;
+  width: min(280px, calc(100vw - 32px));
+  max-height: min(460px, calc(100vh - 92px));
+  overflow-y: auto;
+}
+
+.gnougo-chat__agent-menu-item {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 13px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #343b45;
+  font: 500 14px/1.3 var(--gnougo-font);
+  text-align: left;
+  cursor: pointer;
+}
+
+.gnougo-chat__agent-menu-item:hover {
+  background: #f1f2f5;
+}
+
+.gnougo-chat__agent-menu-item--active,
+.gnougo-chat__agent-menu-item--active:hover {
+  background: #e2e4ed;
+}
+
+.gnougo-chat__agent-menu-item span,
+.gnougo-chat__agent-menu-item small {
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gnougo-chat__agent-menu-item small {
+  color: #7b8593;
+  font-size: 10.5px;
+}
+
+.gnougo-chat__topbar-actions {
+  position: relative;
+  z-index: 32;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.gnougo-chat__more-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0 0 7px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #3d444d;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.gnougo-chat__more-trigger:hover {
+  background: #f1f2f4;
+}
+
+.gnougo-chat__utility-menu {
+  right: 0;
+  width: 190px;
+}
+
+.gnougo-chat__utility-menu button {
+  display: block;
+  width: 100%;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #343b45;
+  font: 500 13px/1.3 var(--gnougo-font);
+  text-align: left;
+  cursor: pointer;
+}
+
+.gnougo-chat__utility-menu button:hover:not(:disabled) {
+  background: #f1f2f5;
+}
+
+.gnougo-chat__utility-menu button:disabled {
+  opacity: .5;
   cursor: not-allowed;
 }
 
@@ -497,6 +640,12 @@ html, body {
 .gnougo-chat__message--user .gnougo-chat__bubble-text {
   font-size: 14px;
   line-height: 1.5;
+}
+
+.gnougo-chat__bubble-text--user {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .gnougo-chat__bubble-text.markdown-body {
@@ -821,6 +970,11 @@ html, body {
   background: transparent;
 }
 
+.gnougo-composer__input[data-gnougo-autogrow="true"] {
+  field-sizing: content;
+  overflow-y: auto;
+}
+
 .gnougo-composer__input:focus {
   border-color: transparent;
   box-shadow: none;
@@ -1006,6 +1160,12 @@ html, body {
 
 /* --------------------------- Responsive ----------------------------------- */
 @media (max-width: 860px) {
+  .gnougo-chat__topbar {
+    min-height: 62px;
+    gap: 4px;
+    padding: 0 10px;
+  }
+
   .gnougo-app__sidebar {
     position: fixed;
     inset: 0 auto 0 0;
@@ -1044,19 +1204,38 @@ html, body {
 
   .gnougo-chat__menu { display: inline-flex; align-items: center; justify-content: center; }
 
+  .gnougo-chat__product-trigger {
+    gap: 6px;
+    min-height: 50px;
+    padding-right: 4px;
+  }
+
+  .gnougo-chat__product-mark {
+    width: 27px;
+    height: 31px;
+    font-size: 24px;
+  }
+
+  .gnougo-chat__product-name {
+    font-size: 18px;
+  }
+
+  .gnougo-chat__agent-menu {
+    left: -40px;
+    max-height: min(420px, calc(100vh - 82px));
+  }
+
   .gnougo-chat__topbar-actions {
     margin-left: auto;
     min-width: 0;
-    gap: 8px;
+    gap: 5px;
   }
 
-  .gnougo-chat__agent-select-label {
-    display: none;
-  }
-
-  .gnougo-chat__agent-select {
-    min-width: 120px;
-    max-width: 44vw;
+  .gnougo-chat__streaming {
+    gap: 0;
+    width: 8px;
+    overflow: hidden;
+    font-size: 0;
   }
 }
 

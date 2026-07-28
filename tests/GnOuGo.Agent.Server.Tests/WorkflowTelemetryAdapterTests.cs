@@ -355,6 +355,10 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("gnougo-chat__response-animation", chatPage, StringComparison.Ordinal);
         Assert.Contains("gnougo-chat__response-actions", chatPage, StringComparison.Ordinal);
         Assert.Contains("CopyMessageAsync(msg.Content)", chatPage, StringComparison.Ordinal);
+        Assert.Contains("PlainTextContent Class=\"gnougo-chat__bubble-text gnougo-chat__bubble-text--user\"", chatPage, StringComparison.Ordinal);
+        Assert.Contains("ChatComposerText.PreserveForSubmission(_model.Prompt)", chatPage, StringComparison.Ordinal);
+        Assert.Contains("data-gnougo-autogrow=\"true\"", chatPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("var prompt = _model.Prompt.Trim()", chatPage, StringComparison.Ordinal);
         Assert.Contains("execution is null", chatPage, StringComparison.Ordinal);
         Assert.Contains("gnougo-sidebar__mascot", chatPage, StringComparison.Ordinal);
         Assert.Contains("SidebarConversationGrouping.Group", chatPage, StringComparison.Ordinal);
@@ -362,6 +366,13 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("SvgIdPrefix = \"agent-sidebar-gnougo\"", chatPage, StringComparison.Ordinal);
         Assert.Contains("<div class=\"gnougo-sidebar__title\">GnOuGo</div>", chatPage, StringComparison.Ordinal);
         Assert.Contains("Simple. Safe. Transparent.", chatPage, StringComparison.Ordinal);
+        Assert.Contains("gnougo-chat__product-mark", chatPage, StringComparison.Ordinal);
+        Assert.Contains(">G</span>", chatPage, StringComparison.Ordinal);
+        Assert.Contains("gnougo-chat__agent-menu", chatPage, StringComparison.Ordinal);
+        Assert.Contains("SelectAgentAsync(agent)", chatPage, StringComparison.Ordinal);
+        Assert.Contains("gnougo-chat__more-trigger", chatPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("chatAgentSelect", chatPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("gnougo-chat__agent-select", chatPage, StringComparison.Ordinal);
         Assert.Contains("Open workflow activity", chatPage, StringComparison.Ordinal);
         Assert.Contains("Hide workflow diagram", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("GnOuGo team execution", chatPage, StringComparison.Ordinal);
@@ -405,6 +416,12 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("height: auto;", styles, StringComparison.Ordinal);
         Assert.Contains("max-width: none;", styles, StringComparison.Ordinal);
         Assert.Contains(".gnougo-sidebar__mascot", styles, StringComparison.Ordinal);
+        Assert.Contains(".gnougo-chat__product-mark", styles, StringComparison.Ordinal);
+        Assert.Contains("color: #0057ff;", styles, StringComparison.Ordinal);
+        Assert.Contains(".gnougo-chat__agent-menu", styles, StringComparison.Ordinal);
+        Assert.Contains(".gnougo-chat__bubble-text--user", styles, StringComparison.Ordinal);
+        Assert.Contains("white-space: pre-wrap;", styles, StringComparison.Ordinal);
+        Assert.Contains("field-sizing: content;", styles, StringComparison.Ordinal);
         Assert.Contains(".gnougo-workflow-card--expanded", styles, StringComparison.Ordinal);
         Assert.DoesNotContain(".gnougo-workflow-card__header", styles, StringComparison.Ordinal);
         Assert.DoesNotContain(".gnougo-workflow-card__stage-toolbar", styles, StringComparison.Ordinal);

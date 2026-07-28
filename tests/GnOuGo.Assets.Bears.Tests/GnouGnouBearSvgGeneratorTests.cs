@@ -372,6 +372,11 @@ public sealed class GnouGnouBearSvgGeneratorTests
         Assert.Contains("@keyframes gnougo-mouth-life", svg, StringComparison.Ordinal);
         Assert.Contains("prefers-reduced-motion", svg, StringComparison.Ordinal);
         Assert.DoesNotContain(".gnougo-rig[data-animation] ", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain(".gnougo-rig [data-part", svg, StringComparison.Ordinal);
+        Assert.Contains(
+            $".gnougo-rig[data-animation=\"{token}\"] [data-part=\"leg-left\"]",
+            svg,
+            StringComparison.Ordinal);
     }
 
     [Fact]
