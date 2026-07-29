@@ -383,8 +383,16 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains("private animateTransitActor(", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("this.animateTransitActor(event, transit.branch, transit.reverse, targetPosition)", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("'gnougo-transit-actors'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("routingAnchor: Position", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private workflowControlPosition(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("reverse ? ['finish', 'return'] : ['start']", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("branch.activeTransferToken = transferToken", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("case 'task.cloned':", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("case 'task.merged':", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private syncParallelTaskVisibility()", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private animateTransitParcel(", workflowRuntime, StringComparison.Ordinal);
-        Assert.Contains("private layoutTransitBranches(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private layoutTransitBranch(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("const sceneSwitchProgress = reverse ? .22 : .46", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("is-transit-copy", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("transit?.branch.id", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private animateCamera(", workflowRuntime, StringComparison.Ordinal);

@@ -61,16 +61,22 @@ and `workflow.execute` use distinct planning, routing, and handoff roundabout
 glyphs. A child workflow discovered by planning or routing emits
 `workflow.discovered`. Runtime-added children join a reusable stage slot
 instead of extending the diagram. The bearded Master carries the parcel to an
-original oversized blue GnOuGo transit pipe positioned beside the routing
-roundabout. The Master stays at that routing point, enters the pipe with the
-parcel, crosses it quickly, and emerges beside the selected specialist for the
-handoff. One illuminated outlet is rendered for each dynamically selected
-workflow; parallel selections receive temporary parcel copies. At handoff, the
-parent scene fades and slides away while the dynamic destination replaces it
-at the same visual scale. Completion runs the source specialist and parcel
-backwards through the same branch and restores the preserved parent scene
-before the caller resumes. Statically known workflow lanes and their handoffs
-retain the original multi-lane presentation without transit pipes.
+original oversized blue GnOuGo transit pipe anchored directly between the
+calling routing roundabout and the dynamic workflow's Start marker. The pipe
+remains completely hidden until its branch is used. The Master stays at the
+routing point until the transfer begins, enters the local mouth, crosses the
+full pipe with the parcel, and emerges at the selected workflow Start for the
+handoff. Only the branch carrying work is illuminated; parallel selections
+receive independently keyed temporary parcel copies. At handoff, the parent
+scene fades and slides away while the dynamic destination replaces it at the
+same visual scale. On completion, the specialist follows the child road down
+to its Return marker. The branch is then redrawn from Return to the original
+routing roundabout, and the specialist and parcel cross it while the child
+scene disappears and the preserved parent scene returns. Statically known
+workflow lanes and their handoffs retain the original multi-lane presentation
+without transit pipes.
+Parallel clone parcels are attached to their workflow scene and hidden during
+scene swaps, then removed when their merge event completes.
 Parallel, foreach, decision, and handoff traffic markers are retained only when their
 subtree contains that visible long-running work. Smooth curved roads use a
 single centered dashed line with no shadow, texture filter, or roadside

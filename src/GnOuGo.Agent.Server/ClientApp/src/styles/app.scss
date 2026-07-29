@@ -774,6 +774,35 @@ html, body {
   font-size: 13px;
 }
 
+.gnougo-chat__response-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: min(100%, 920px);
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  line-height: 1.45;
+}
+
+.gnougo-chat__response-error-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #cf222e;
+  color: #fff;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.gnougo-chat__response-error-message {
+  margin-top: 3px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .gnougo-chat__empty {
   margin: 24px auto;
   max-width: 720px;

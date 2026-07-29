@@ -145,6 +145,7 @@ public sealed class WorkflowLiveAnimationSession
             lane,
             signal.ParentWorkflowInstanceId,
             signal.CallerStepOccurrenceId,
+            patch is not null,
             patch?.Nodes.Any(node =>
                 string.Equals(node.StepId, "dynamic-work", StringComparison.Ordinal)
                 && string.Equals(node.StepType, "runtime.step", StringComparison.Ordinal)) == true);
@@ -252,15 +253,29 @@ public sealed class WorkflowLiveAnimationSession
             var actorHome = AllActors()
                 .FirstOrDefault(actor => string.Equals(actor.Id, workflow.Lane.ActorId, StringComparison.Ordinal))
                 ?.Home ?? new AnimationPoint(workflow.Lane.X, workflow.Lane.StartY);
-            var specialistMeetingPoint = new AnimationPoint(actorHome.X + 120, actorHome.Y);
+            var returnNode = workflow.UsesDynamicScene
+                ? AllNodes().FirstOrDefault(node =>
+                    string.Equals(node.LaneId, workflow.Lane.Id, StringComparison.Ordinal)
+                    && node.Kind is AnimationFlowNodeKind.Finish or AnimationFlowNodeKind.Return)
+                : null;
+            var returnEdge = returnNode is null
+                ? null
+                : AllEdges().FirstOrDefault(edge =>
+                    string.Equals(edge.ToNodeId, returnNode.Id, StringComparison.Ordinal));
+            var specialistMeetingPoint = returnNode?.Position
+                ?? new AnimationPoint(actorHome.X + 120, actorHome.Y);
             Add(updates, SimulationEventTypes.ActorMoved, _options.MoveDurationMs,
                 workflow: workflow,
                 actorId: workflow.Lane.ActorId,
+                nodeId: returnNode?.Id,
+                edgeId: returnEdge?.Id,
                 taskId: "task-root",
                 x: specialistMeetingPoint.X,
                 y: specialistMeetingPoint.Y,
                 status: status,
-                message: $"The specialist returns from '{workflow.WorkflowName}' with the completed parcel.");
+                message: returnNode is null
+                    ? $"The specialist returns from '{workflow.WorkflowName}' with the completed parcel."
+                    : $"The specialist carries the completed parcel down to the Return point of '{workflow.WorkflowName}'.");
             Add(updates, SimulationEventTypes.TaskHandedOff, _options.HandoffDurationMs,
                 workflow: workflow,
                 actorId: workflow.Lane.ActorId,
@@ -639,6 +654,7 @@ public sealed class WorkflowLiveAnimationSession
         AnimationWorkflowLane lane,
         string? parentWorkflowInstanceId,
         string? callerStepOccurrenceId,
+        bool usesDynamicScene,
         bool usesRuntimeFallback)
     {
         public string InstanceId { get; } = instanceId;
@@ -646,6 +662,7 @@ public sealed class WorkflowLiveAnimationSession
         public AnimationWorkflowLane Lane { get; } = lane;
         public string? ParentWorkflowInstanceId { get; } = parentWorkflowInstanceId;
         public string? CallerStepOccurrenceId { get; } = callerStepOccurrenceId;
+        public bool UsesDynamicScene { get; } = usesDynamicScene;
         public bool UsesRuntimeFallback { get; } = usesRuntimeFallback;
         public bool RuntimePlaceholderClaimed { get; set; }
         public int RuntimeStepPatchCount { get; set; }
@@ -894,7 +911,8 @@ internal static class DynamicScenePatchBuilder
         foreach (var node in nodes)
         {
             builder.Append("<g id=\"").Append(Escape(node.Id)).Append("\" class=\"flow-node\" data-lane-id=\"")
-                .Append(Escape(lane.Id)).Append("\" transform=\"translate(")
+                .Append(Escape(lane.Id)).Append("\" data-node-kind=\"")
+                .Append(node.Kind.ToString().ToLowerInvariant()).Append("\" transform=\"translate(")
                 .Append(Number(node.Position.X)).Append(' ').Append(Number(node.Position.Y)).Append(")\">");
             if (node.Kind is AnimationFlowNodeKind.Start or AnimationFlowNodeKind.Finish)
             {

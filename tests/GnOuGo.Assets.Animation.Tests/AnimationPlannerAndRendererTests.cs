@@ -170,6 +170,8 @@ public sealed class AnimationPlannerAndRendererTests
         Assert.Contains(".transit-pipe-core", svg, StringComparison.Ordinal);
         Assert.Contains(".transit-pipe-core { stroke: #3f8fd2; stroke-width: 68;", svg, StringComparison.Ordinal);
         Assert.Contains(".gnougo-actor.is-in-transit", svg, StringComparison.Ordinal);
+        Assert.Contains(".gnougo-transit-branch {\n      opacity: 0;", svg, StringComparison.Ordinal);
+        Assert.Contains(".task-object.is-parallel-detail-hidden", svg, StringComparison.Ordinal);
         Assert.Contains("@keyframes gnougo-transit-flow", svg, StringComparison.Ordinal);
         Assert.DoesNotContain("class=\"route-shadow\"", svg, StringComparison.Ordinal);
         Assert.DoesNotContain("class=\"route-stone\"", svg, StringComparison.Ordinal);

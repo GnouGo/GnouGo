@@ -440,6 +440,28 @@ public sealed class WorkflowTelemetryAdapterTests
     }
 
     [Fact]
+    public void ChatPage_RendersWorkflowExceptionsInsideTheirAssistantResponse()
+    {
+        var root = FindRepositoryRoot();
+        var agentRoot = Path.Combine(root, "src", "GnOuGo.Agent.Server");
+        var chatPage = File.ReadAllText(Path.Combine(agentRoot, "Components", "Pages", "ChatPage.razor"));
+        var styles = File.ReadAllText(Path.Combine(agentRoot, "ClientApp", "src", "styles", "app.scss"));
+
+        Assert.Contains("var responseError = isUser ? null : GetWorkflowResponseError(msg);", chatPage, StringComparison.Ordinal);
+        Assert.Contains("gnougo-chat__response-error", chatPage, StringComparison.Ordinal);
+        Assert.Contains("SetWorkflowResponseError(assistantMsg, errText);", chatPage, StringComparison.Ordinal);
+        Assert.Contains("SetWorkflowResponseError(assistantMsg, ex.Message);", chatPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("_error = errText;", chatPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("_error = ex.Message;", chatPage, StringComparison.Ordinal);
+        Assert.True(
+            chatPage.IndexOf("gnougo-chat__response-animation", StringComparison.Ordinal)
+            < chatPage.IndexOf("gnougo-chat__response-error", StringComparison.Ordinal));
+        Assert.Contains(".gnougo-chat__response-error {", styles, StringComparison.Ordinal);
+        Assert.Contains("white-space: pre-wrap;", styles, StringComparison.Ordinal);
+        Assert.Contains("overflow-wrap: anywhere;", styles, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AgentAnimationClient_QueuesFastTelemetryAndUsesStableCameraViewport()
     {
         var root = FindRepositoryRoot();

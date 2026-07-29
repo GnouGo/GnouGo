@@ -80,11 +80,14 @@ public static class GnouGnouAnimationSvgRenderer
       filter: drop-shadow(0 12px 14px rgba(23, 79, 125, .24));
     }
     .gnougo-transit-branch {
-      opacity: .34;
-      transition: opacity .28s ease, filter .28s ease;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .18s ease, filter .18s ease, visibility 0s linear .18s;
     }
     .gnougo-transit-branch.is-active {
       opacity: 1;
+      visibility: visible;
+      transition-delay: 0s;
       filter: drop-shadow(0 8px 12px rgba(31, 109, 169, .22));
     }
     .transit-pipe-shell, .transit-pipe-core, .transit-pipe-highlight {
@@ -127,6 +130,7 @@ public static class GnouGnouAnimationSvgRenderer
       stroke-linejoin: round;
     }
     .task-object.is-transit-copy { filter: drop-shadow(0 8px 9px rgba(23, 79, 125, .26)); }
+    .task-object.is-parallel-detail-hidden { opacity: 0 !important; pointer-events: none; }
     @keyframes gnougo-transit-flow { to { stroke-dashoffset: -42; } }
     .workflow-lane, .workflow-station, .flow-node, .flow-edge, .gnougo-actor {
       transition: opacity .32s ease, filter .32s ease;

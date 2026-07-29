@@ -212,6 +212,7 @@
                     var isThinking = string.Equals(msg.Role, "thinking", StringComparison.OrdinalIgnoreCase);
                     var isThought = string.Equals(msg.Role, "thought", StringComparison.OrdinalIgnoreCase);
                     var execution = isUser ? null : GetExecution(msg.CorrelationId);
+                    var responseError = isUser ? null : GetWorkflowResponseError(msg);
 
                     @if (isThinking || isThought)
                     {
@@ -230,7 +231,8 @@
                                                       && string.Equals(_selectedTraceMessage?.MessageId, msg.MessageId, StringComparison.Ordinal)));
                         var isPlaceholder = !isUser
                                             && execution is null
-                                            && string.IsNullOrWhiteSpace(msg.Content);
+                                            && string.IsNullOrWhiteSpace(msg.Content)
+                                            && string.IsNullOrWhiteSpace(responseError);
 
                         <article class="gnougo-chat__message @(isUser ? "gnougo-chat__message--user" : "gnougo-chat__message--assistant") @(isPlaceholder ? "gnougo-chat__message--placeholder" : "")"
                                  aria-label="@(isUser ? "Your message" : "GnOuGo.Agent response")">
@@ -270,6 +272,19 @@
                                 else if (!string.IsNullOrWhiteSpace(msg.Content))
                                 {
                                     <MarkdownContent Class="gnougo-chat__bubble-text" Content="@msg.Content" />
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(responseError))
+                                {
+                                    <div class="gnougo-chat__error gnougo-chat__response-error"
+                                         role="alert"
+                                         aria-label="Workflow execution error">
+                                        <span class="gnougo-chat__response-error-icon" aria-hidden="true">!</span>
+                                        <div>
+                                            <strong>Workflow execution failed</strong>
+                                            <div class="gnougo-chat__response-error-message">@responseError</div>
+                                        </div>
+                                    </div>
                                 }
 
                                 @if (!isUser && !string.IsNullOrWhiteSpace(msg.Content))
@@ -789,6 +804,7 @@
     private bool _topbarMoreOpen;
     private bool _isStreaming;
     private string _error = "";
+    private readonly Dictionary<string, string> _workflowResponseErrors = new(StringComparer.Ordinal);
     private bool _chatStatePending = true;
 
     private CancellationTokenSource? _cts;
@@ -1804,9 +1820,11 @@
                     }
                     else
                     {
-                        _error = errText;
+                        SetWorkflowResponseError(assistantMsg, errText);
                         if (GetExecution(correlationId) is { } failedExecution)
                             failedExecution.Status = "Failed";
+                        StateHasChanged();
+                        await ScrollToBottomAsync();
                     }
                 }
                 else if (evt.Type is "agent_selected")
@@ -1909,7 +1927,7 @@
         }
         catch (Exception ex)
         {
-            _error = ex.Message;
+            SetWorkflowResponseError(assistantMsg, ex.Message);
             if (GetExecution(correlationId) is { } failedExecution)
                 failedExecution.Status = "Failed";
         }
@@ -2383,6 +2401,31 @@
             }
         }
     }
+
+    private string? GetWorkflowResponseError(ChatMessageDto message)
+    {
+        var key = WorkflowResponseErrorKey(message);
+        return key is not null && _workflowResponseErrors.TryGetValue(key, out var error)
+            ? error
+            : null;
+    }
+
+    private void SetWorkflowResponseError(ChatMessageDto message, string? error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+            return;
+
+        var key = WorkflowResponseErrorKey(message);
+        if (key is not null)
+            _workflowResponseErrors[key] = error.Trim();
+    }
+
+    private static string? WorkflowResponseErrorKey(ChatMessageDto message)
+        => !string.IsNullOrWhiteSpace(message.MessageId)
+            ? message.MessageId
+            : !string.IsNullOrWhiteSpace(message.CorrelationId)
+                ? message.CorrelationId
+                : null;
 
     private async Task NewChatAsync()
     {

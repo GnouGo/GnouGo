@@ -282,6 +282,8 @@ public sealed class LiveWorkflowAnimationTests
         Assert.Contains("router selects", discovered.Message, StringComparison.Ordinal);
         Assert.Contains("data-live-actor=\"true\"", patch.SvgFragment, StringComparison.Ordinal);
         Assert.Contains($"data-lane-id=\"{patch.Lanes[0].Id}\"", patch.SvgFragment, StringComparison.Ordinal);
+        Assert.Contains("data-node-kind=\"start\"", patch.SvgFragment, StringComparison.Ordinal);
+        Assert.Contains("data-node-kind=\"finish\"", patch.SvgFragment, StringComparison.Ordinal);
         Assert.Equal(plan.Lanes.Single(lane => lane.IsEntrypoint).X, patch.Lanes[0].X);
         Assert.Equal(plan.Bounds.Width, patch.Bounds.Width);
         Assert.Contains(
@@ -290,6 +292,33 @@ public sealed class LiveWorkflowAnimationTests
             StringComparison.Ordinal);
         Assert.DoesNotContain("version: 1", patch.SvgFragment, StringComparison.Ordinal);
         _ = XDocument.Parse($"<svg xmlns=\"http://www.w3.org/2000/svg\">{patch.SvgFragment}</svg>");
+
+        var completed = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowCompleted,
+            WorkflowInstanceId = "dynamic-child",
+            ParentWorkflowInstanceId = "root",
+            WorkflowName = "selected",
+            Status = SimulationStatus.Succeeded
+        });
+        var returnNode = patch.Nodes.Single(node =>
+            node.Kind == AnimationFlowNodeKind.Finish);
+        var returnEdge = patch.Edges.Single(edge =>
+            edge.ToNodeId == returnNode.Id);
+        var specialistReturn = Assert.Single(completed, update =>
+            update.Event is
+            {
+                Type: SimulationEventTypes.ActorMoved,
+                TaskId: "task-root"
+            }
+            && update.Event.ActorId == patch.Actors[0].Id).Event!;
+        var returnHandoff = Assert.Single(completed, update =>
+            update.Event?.Type == SimulationEventTypes.TaskHandedOff).Event!;
+        Assert.Equal(returnNode.Id, specialistReturn.NodeId);
+        Assert.Equal(returnEdge.Id, specialistReturn.EdgeId);
+        Assert.Equal(returnNode.Position.X, specialistReturn.X);
+        Assert.Equal(returnNode.Position.Y, specialistReturn.Y);
+        Assert.True(specialistReturn.Sequence < returnHandoff.Sequence);
     }
 
     [Fact]

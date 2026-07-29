@@ -43,16 +43,20 @@ launched skyward from the delivery dock. Failure turns that same parcel red.
 
 When the preview reaches `workflow.route` or `workflow.execute`, the server
 streams a `scene.patch` envelope that prepares a dynamic child workflow in the
-same reusable stage slot. The camera first holds on the routing point, follows
-the Master remain at the routing point, enter an oversized blue GnOuGo transit
-pipe with the parcel, and quickly cross the illuminated branch. The parent
-plan fades and slides out as the Master emerges beside the specialist and the
-specialist plan replaces it without changing the stage scale. Multiple
-dynamically selected workflows create separate outlets and temporary parcel
-copies. Statically known workflow lanes keep their original presentation and
-handoff animation without pipes.
-Completion reverses the transfer through the same pipe, restores the preserved
-parent plan, and returns the camera to the caller. A route
+same reusable stage slot. The camera first holds on the routing point. An
+oversized blue GnOuGo transit pipe then appears only for the transfer, anchored
+from that routing roundabout to the dynamic workflow's Start marker. The
+Master enters it with the parcel and emerges at Start while the parent plan
+fades and the specialist plan replaces it without changing the stage scale.
+Multiple dynamically selected workflows keep separately keyed branches and
+temporary parcel copies with branch-specific activation. Parallel clone
+parcels are hidden with their inactive scene and removed at merge. Statically
+known workflow lanes keep their original presentation and handoff animation
+without pipes. On completion, the specialist walks down the child workflow to
+its Return marker. The blue pipe is redrawn from Return back to the original
+routing roundabout; the specialist and parcel cross it as the child plan
+disappears, the preserved parent plan returns, and the camera follows the
+caller. A route
 prefers a non-entrypoint local workflow such as `fallback_general`; when the
 runtime selection or generated YAML is unknowable in this standalone preview,
 the server creates an explicitly synthetic representative child. The real

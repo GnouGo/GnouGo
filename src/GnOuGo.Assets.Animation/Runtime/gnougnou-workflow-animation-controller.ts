@@ -91,8 +91,10 @@ interface TransitBranch {
   workflowName: string
   group: SVGGElement
   path: SVGPathElement
+  routingAnchor: Position
   inlet: Position
   outlet: Position
+  activeTransferToken?: number
 }
 type MotionMode = 'walk' | 'arc' | 'drop' | 'spawn' | 'merge' | 'sky'
 
@@ -131,6 +133,7 @@ export class GnouGnouWorkflowAnimationController {
   private cameraViewport: SceneBounds | undefined
   private sceneBounds: SceneBounds | undefined
   private activeLaneId: string | undefined
+  private transitTransferSequence = 0
   private appliedEventCount = 0
   private generation = 0
 
@@ -156,6 +159,7 @@ export class GnouGnouWorkflowAnimationController {
     this.sceneLayers.clear()
     this.transitBranches.clear()
     this.activeLaneId = undefined
+    this.transitTransferSequence = 0
     this.cameraViewport = undefined
     this.sceneBounds = undefined
     this.appliedEventCount = 0
@@ -187,6 +191,7 @@ export class GnouGnouWorkflowAnimationController {
     this.sceneLayers.clear()
     this.transitBranches.clear()
     this.activeLaneId = undefined
+    this.transitTransferSequence = 0
     this.cameraViewport = undefined
     this.sceneBounds = undefined
   }
@@ -351,6 +356,7 @@ export class GnouGnouWorkflowAnimationController {
       if (!alreadyPositioned) this.setScenePosition(scene, 'right')
     })
     this.ensureTransitRoot(svg)
+    this.syncParallelTaskVisibility()
     this.promoteForeground(svg)
   }
 
@@ -476,50 +482,96 @@ export class GnouGnouWorkflowAnimationController {
       workflowName: event.workflowName ?? 'Routed workflow',
       group,
       path: core,
+      routingAnchor: (event.stationId && this.find(event.stationId))
+        ? this.readPosition(event.stationId)
+        : (event.nodeId && this.find(event.nodeId))
+          ? this.readPosition(event.nodeId)
+          : this.readPosition(event.actorId),
       inlet: { x: 0, y: 0 },
       outlet: { x: 0, y: 0 },
     }
     this.transitBranches.set(`${event.actorId}->${event.targetActorId}`, branch)
-    this.layoutTransitBranches(event.actorId)
+    this.layoutTransitBranch(branch, false)
     this.promoteForeground(this.svgRoot()!)
     return branch
   }
 
-  private layoutTransitBranches(parentActorId: string) {
+  private workflowControlPosition(
+    laneId: string,
+    kinds: readonly string[],
+  ): Position | undefined {
+    const root = this.root()
+    if (!root) return undefined
+    const node = Array.from(
+      root.querySelectorAll<SVGGraphicsElement>('.flow-node[data-node-kind]'),
+    ).find(candidate =>
+      candidate.getAttribute('data-lane-id') === laneId
+      && kinds.includes(candidate.getAttribute('data-node-kind') ?? ''),
+    )
+    return node?.id ? this.readPosition(node.id) : undefined
+  }
+
+  private layoutTransitBranch(branch: TransitBranch, reverse: boolean) {
     const siblings = Array.from(this.transitBranches.values())
-      .filter(branch => branch.parentActorId === parentActorId)
-    const bounds = this.sceneBounds ?? { width: 1600, height: 900 }
-    const parentPosition = this.readPosition(parentActorId)
+      .filter(candidate => candidate.parentActorId === branch.parentActorId)
+    const branchIndex = Math.max(0, siblings.indexOf(branch))
+    const workflowAnchor = this.workflowControlPosition(
+      branch.targetLaneId,
+      reverse ? ['finish', 'return'] : ['start'],
+    ) ?? this.readPosition(branch.targetActorId)
+    const dx = workflowAnchor.x - branch.routingAnchor.x
+    const dy = workflowAnchor.y - branch.routingAnchor.y
+    const distance = Math.max(1, Math.hypot(dx, dy))
+    const direction = { x: dx / distance, y: dy / distance }
+    const routingClearance = Math.min(104, distance * .24)
+    const workflowClearance = Math.min(72, distance * .18)
     const inlet = {
-      x: Math.max(150, Math.min(bounds.width - 620, parentPosition.x + 110)),
-      y: Math.max(190, Math.min(bounds.height - 190, parentPosition.y)),
+      x: branch.routingAnchor.x + direction.x * routingClearance,
+      y: branch.routingAnchor.y + direction.y * routingClearance,
     }
-    siblings.forEach((branch, index) => {
-      const offset = (index - (siblings.length - 1) / 2) * 150
-      const targetHome = this.readPosition(branch.targetActorId)
-      const desiredOutletX = targetHome.x + 300
-      const outlet = {
-        x: Math.max(
-          inlet.x + 320,
-          Math.min(bounds.width - 150, inlet.x + 540, desiredOutletX),
-        ),
-        y: Math.max(170, Math.min(bounds.height - 130, inlet.y + offset)),
-      }
-      branch.inlet = inlet
-      branch.outlet = outlet
-      const bendX = Math.max(70, (outlet.x - inlet.x) * .46)
-      const path = `M ${inlet.x} ${inlet.y} C ${inlet.x + bendX} ${inlet.y} ${outlet.x - bendX} ${outlet.y} ${outlet.x} ${outlet.y}`
-      branch.group.querySelectorAll<SVGPathElement>(
-        '.transit-pipe-shell, .transit-pipe-core, .transit-pipe-highlight',
-      ).forEach(element => element.setAttribute('d', path))
-      branch.group.querySelector<SVGGElement>('.transit-pipe-inlet')
-        ?.setAttribute('transform', `translate(${inlet.x} ${inlet.y})`)
-      branch.group.querySelector<SVGGElement>('.transit-pipe-outlet')
-        ?.setAttribute('transform', `translate(${outlet.x} ${outlet.y})`)
-      const label = branch.group.querySelector<SVGTextElement>('.transit-pipe-label')
-      label?.setAttribute('x', String(outlet.x))
-      label?.setAttribute('y', String(outlet.y + 90))
-    })
+    const outlet = {
+      x: workflowAnchor.x - direction.x * workflowClearance,
+      y: workflowAnchor.y - direction.y * workflowClearance,
+    }
+    branch.inlet = inlet
+    branch.outlet = outlet
+
+    const pipeDx = outlet.x - inlet.x
+    const pipeDy = outlet.y - inlet.y
+    const pipeDistance = Math.max(1, Math.hypot(pipeDx, pipeDy))
+    const tangent = { x: pipeDx / pipeDistance, y: pipeDy / pipeDistance }
+    const perpendicular = { x: -tangent.y, y: tangent.x }
+    const branchSide = branchIndex % 2 === 0 ? 1 : -1
+    const branchDepth = Math.floor(branchIndex / 2)
+    const bow = Math.min(190, Math.max(58, pipeDistance * .16))
+      * branchSide
+      * (1 + branchDepth * .16)
+    const controlDistance = pipeDistance * .32
+    const firstControl = {
+      x: inlet.x + tangent.x * controlDistance + perpendicular.x * bow,
+      y: inlet.y + tangent.y * controlDistance + perpendicular.y * bow,
+    }
+    const secondControl = {
+      x: outlet.x - tangent.x * controlDistance + perpendicular.x * bow,
+      y: outlet.y - tangent.y * controlDistance + perpendicular.y * bow,
+    }
+    const path = `M ${inlet.x} ${inlet.y} C ${firstControl.x} ${firstControl.y} ${secondControl.x} ${secondControl.y} ${outlet.x} ${outlet.y}`
+    branch.group.querySelectorAll<SVGPathElement>(
+      '.transit-pipe-shell, .transit-pipe-core, .transit-pipe-highlight',
+    ).forEach(element => element.setAttribute('d', path))
+    branch.group.querySelector<SVGGElement>('.transit-pipe-inlet')
+      ?.setAttribute('transform', `translate(${inlet.x} ${inlet.y})`)
+    branch.group.querySelector<SVGGElement>('.transit-pipe-outlet')
+      ?.setAttribute('transform', `translate(${outlet.x} ${outlet.y})`)
+    const travelAngle = Math.atan2(
+      reverse ? -pipeDy : pipeDy,
+      reverse ? -pipeDx : pipeDx,
+    ) * 180 / Math.PI
+    branch.group.querySelector<SVGPathElement>('.transit-mouth-arrow')
+      ?.setAttribute('transform', `rotate(${travelAngle - 90})`)
+    const label = branch.group.querySelector<SVGTextElement>('.transit-pipe-label')
+    label?.setAttribute('x', String((inlet.x + outlet.x) / 2 + perpendicular.x * bow))
+    label?.setAttribute('y', String((inlet.y + outlet.y) / 2 + perpendicular.y * bow - 64))
   }
 
   private findTransitBranch(
@@ -614,6 +666,37 @@ export class GnouGnouWorkflowAnimationController {
           this.characters.play(event.targetActorId, 'clone', Math.max(600, event.durationMs))
         }
         break
+      case 'task.cloned': {
+        if (!event.taskId || !event.actorId) break
+        const actor = this.find<SVGGraphicsElement>(event.actorId)
+        const task = this.find<SVGGraphicsElement>(event.taskId)
+        const position = this.readPosition(event.actorId)
+        const laneId = actor?.getAttribute('data-lane-id')
+        if (laneId) task?.setAttribute('data-lane-id', laneId)
+        this.setPosition(event.taskId, { x: position.x + 20, y: position.y - 42 }, 0, .35)
+        this.show(event.taskId, true)
+        this.animateMotion(
+          event.taskId,
+          { x: position.x + 64, y: position.y - 82 },
+          event.durationMs,
+          'spawn',
+        )
+        this.syncParallelTaskVisibility()
+        break
+      }
+      case 'task.merged':
+        if (targetPosition)
+          this.animateMotion(
+            event.taskId,
+            { x: targetPosition.x + 64, y: targetPosition.y - 82 },
+            event.durationMs,
+            'merge',
+            undefined,
+            true,
+          )
+        else
+          this.show(event.taskId, false)
+        break
       case 'actor.merged':
         this.characters.play(event.actorId, 'merge', Math.max(500, event.durationMs))
         this.characters.play(event.targetActorId, 'merge', Math.max(500, event.durationMs))
@@ -639,10 +722,10 @@ export class GnouGnouWorkflowAnimationController {
           const direction = !actorPosition || targetPosition.x >= actorPosition.x ? 1 : -1
           const transit = this.findTransitBranch(event.actorId, event.targetActorId)
           if (transit) {
-            // The source actor may have just moved to the routing point. Keep
-            // the pipe beside that live position instead of its discovery-time
-            // position, then send both the GnOuGo and parcel through it.
-            this.layoutTransitBranches(transit.branch.parentActorId)
+            // Outbound transfers connect the caller's routing roundabout to
+            // the dynamic Start marker. Return transfers reuse the branch
+            // from the child's Return marker back to that routing roundabout.
+            this.layoutTransitBranch(transit.branch, transit.reverse)
             this.animateTransitActor(event, transit.branch, transit.reverse, targetPosition)
             this.animateTransitParcel(event, transit.branch, transit.reverse, targetPosition)
           } else {
@@ -742,6 +825,8 @@ export class GnouGnouWorkflowAnimationController {
       case 'actor.spawned':
       case 'task.dropped':
       case 'task.picked_up':
+      case 'task.cloned':
+      case 'task.merged':
       case 'actor.cloned':
       case 'actor.merged':
         return Math.max(380, Math.min(event.durationMs, 900))
@@ -1061,6 +1146,19 @@ export class GnouGnouWorkflowAnimationController {
         && element.getAttribute('data-workflow-instance-id') === workflowInstance
       element.classList.toggle('is-scene-muted', !belongsToLane && !belongsToWorkflow)
     })
+    this.syncParallelTaskVisibility()
+  }
+
+  private syncParallelTaskVisibility() {
+    this.root()?.querySelectorAll<SVGGraphicsElement>(
+      '.task-object[data-task-kind="branch"]',
+    ).forEach(task => {
+      const laneId = task.getAttribute('data-lane-id')
+      const scene = laneId ? this.sceneLayers.get(laneId) : undefined
+      const sceneVisible = !scene
+        || scene.background.classList.contains('is-scene-active')
+      task.classList.toggle('is-parallel-detail-hidden', !sceneVisible)
+    })
   }
 
   private svgRoot(): SVGSVGElement | null {
@@ -1270,6 +1368,8 @@ export class GnouGnouWorkflowAnimationController {
     const startedAt = performance.now()
     const generation = this.generation
     let sceneChanged = false
+    const transferToken = ++this.transitTransferSequence
+    branch.activeTransferToken = transferToken
     branch.group.classList.add('is-active')
     branch.group.classList.toggle('is-returning', reverse)
     branch.group.setAttribute('data-transit-direction', reverse ? 'return' : 'outbound')
@@ -1309,7 +1409,8 @@ export class GnouGnouWorkflowAnimationController {
       )
       this.positions.set(visualId, position)
 
-      if (!sceneChanged && progress >= .46) {
+      const sceneSwitchProgress = reverse ? .22 : .46
+      if (!sceneChanged && progress >= sceneSwitchProgress) {
         sceneChanged = true
         this.activateSceneForActor(event.targetActorId, reverse ? 'reverse' : 'forward')
       }
@@ -1319,7 +1420,11 @@ export class GnouGnouWorkflowAnimationController {
       }
 
       this.frames.delete(visualId)
-      branch.group.classList.remove('is-active', 'is-returning')
+      if (branch.activeTransferToken === transferToken) {
+        branch.activeTransferToken = undefined
+        branch.group.classList.remove('is-active', 'is-returning')
+        branch.group.removeAttribute('data-transit-direction')
+      }
       parcel.setAttribute('transform', `translate(${destination.x} ${destination.y})`)
       this.positions.set(visualId, destination)
       if (ephemeral) {
