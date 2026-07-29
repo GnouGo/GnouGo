@@ -202,6 +202,54 @@ public sealed class WorkflowTelemetryAdapterTests
     }
 
     [Fact]
+    public void AgentStreamingTelemetry_RoutedHumanInputEmitsWaitingAndResumeAnimationEvents()
+    {
+        const string yaml = """
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: route
+                    type: workflow.route
+            """;
+        var events = new List<SmartFlowEvent>();
+        var bridge = AgentWorkflowAnimationBridge.Create(
+            yaml,
+            "main",
+            "11223344556677889900aabbccddeeff",
+            events.Add,
+            out _);
+        var telemetry = new AgentStreamingTelemetry(events.Add, bridge);
+        var workflow = telemetry.WorkflowStart(new WorkflowTelemetryInfo
+        {
+            WorkflowName = "main",
+            SourceText = yaml
+        });
+        var route = telemetry.StepStart(workflow, new StepTelemetryInfo
+        {
+            StepId = "route",
+            StepType = "workflow.route"
+        });
+
+        route.AddEvent("gnougo-flow.step.waiting_for_human", [
+            new("gnougo-flow.human.request", """{"run_id":"run","step_id":"route:inputs:child","prompt":"Repository?","mode":"form"}""")
+        ]);
+        route.AddEvent("gnougo-flow.step.human_input_resumed", [
+            new("gnougo-flow.human.run_id", "run"),
+            new("gnougo-flow.human.step_id", "route:inputs:child")
+        ]);
+
+        var animationEvents = events
+            .Where(item => item.Type == "animation.event")
+            .Select(item => item.Animation?.Event)
+            .OfType<SimulationEvent>()
+            .ToArray();
+        Assert.Contains(animationEvents, item => item.Type == SimulationEventTypes.HumanInputWaiting);
+        Assert.Contains(animationEvents, item => item.Type == SimulationEventTypes.HumanInputResumed);
+    }
+
+    [Fact]
     public void AnimationBridge_PreStartFailureDoesNotLeavePreparedSceneStatic()
     {
         var events = new List<SmartFlowEvent>();

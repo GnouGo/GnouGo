@@ -965,6 +965,230 @@ workflows:
     }
 
     [Fact]
+    public async Task ExecuteAsync_RoutedAgentMissingInput_RequestsHumanInputAndResumes()
+    {
+        const string agentId = "bd0abcfb-f7b4-4c60-9751-b1b3c32a8fa4";
+        const string agentName = "repository-specialist";
+        var agentWorkflow = """
+version: 1
+name: repository-specialist
+skill:
+  description: Analyzes a selected repository.
+  tags: [git, repository]
+  inputs:
+    task:
+      type: string
+      required: true
+    repository_path:
+      type: string
+      required: true
+      description: Local repository path to analyze.
+  outputs:
+    answer:
+      type: string
+workflows:
+  main:
+    inputs:
+      task:
+        type: string
+        required: true
+      repository_path:
+        type: string
+        required: true
+        description: Local repository path to analyze.
+    steps:
+      - id: final_answer
+        type: set
+        input:
+          answer: "${'Analyzed ' + data.inputs.repository_path + ': ' + data.inputs.task}"
+    outputs:
+      answer:
+        expr: "${data.steps.final_answer.answer}"
+        type: string
+""";
+
+        var humanInput = new AgentHumanInputProvider();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var responder = Task.Run(async () =>
+        {
+            var request = await humanInput.PendingRequests.ReadAsync(cts.Token);
+            Assert.Contains("repository-specialist", request.Prompt, StringComparison.Ordinal);
+            var field = Assert.Single(request.Fields!);
+            Assert.Equal("repository_path", field.Name);
+            Assert.Equal("string", field.Type);
+            Assert.True(humanInput.TrySubmitResponse(
+                request.RunId,
+                request.StepId,
+                new JsonObject { ["repository_path"] = "/workspace/gnougo" }));
+        }, cts.Token);
+
+        var llm = new RoutedMissingInputLlmClient(agentName);
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = "test",
+            DefaultModel = "route-model"
+        });
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(
+            runtimeStore,
+            new FakeKeyVaultRuntimeConfigStore(),
+            llmClientOverride: llm);
+        using var services = new ServiceCollection()
+            .AddSingleton<IAgentRepository>(new SmartFlowFakeAgentRepository(new AgentDefinition
+            {
+                Id = Guid.Parse(agentId),
+                Name = agentName,
+                Workflow = agentWorkflow,
+                OriginalPrompt = "analyze repositories",
+                CreatedAt = DateTimeOffset.Parse("2026-07-29T00:00:00Z"),
+                UpdatedAt = DateTimeOffset.Parse("2026-07-29T00:00:00Z")
+            }))
+            .BuildServiceProvider();
+
+        var smartFlow = new SmartFlowService(
+            new RecordingLlmClient(),
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
+            runtimeFactory,
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            humanInput,
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<SmartFlowService>.Instance,
+            candidateProvider: new SingleWorkflowCandidateProvider(new WorkflowRouteCandidate
+            {
+                Id = $"database:{agentName}",
+                Name = agentName,
+                Ref = new JsonObject
+                {
+                    ["kind"] = "database",
+                    ["agent"] = agentName
+                },
+                Description = "Analyzes a selected repository.",
+                Tags = ["git", "repository"]
+            }),
+            scopeFactory: services.GetRequiredService<IServiceScopeFactory>());
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            smartFlow.ExecuteAsync(
+                "inspect recent changes",
+                correlationId: "corr-routed-missing-input",
+                agentName: null,
+                cts.Token));
+        await responder;
+
+        var requestEvent = Assert.Single(events, evt => evt.Type == "human_input_request");
+        Assert.Contains("repository_path", requestEvent.Text, StringComparison.Ordinal);
+        Assert.Contains(events, evt =>
+            evt.Type == "answer"
+            && evt.Text?.Contains(
+                "Analyzed /workspace/gnougo: inspect recent changes",
+                StringComparison.Ordinal) == true);
+        Assert.Equal(1, llm.ResponseQualityCallCount);
+        Assert.Equal(0, llm.FormatResponseCallCount);
+        Assert.DoesNotContain(events, evt => evt.Type == "error");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RoutedRawResponse_ReformatsAsLosslessMarkdown()
+    {
+        const string agentId = "f3613d97-83e5-447a-b46c-055a0547f624";
+        const string agentName = "raw-result-specialist";
+        const string formattedAnswer = """
+            # Result
+
+            - **Status:** complete
+            - **Count:** 2
+            - **Items:** alpha, beta
+            """;
+        const string agentWorkflow = """
+            version: 1
+            name: raw-result-specialist
+            skill:
+              description: Returns a structured result.
+              tags: [structured, result]
+              inputs:
+                task:
+                  type: string
+                  required: true
+              outputs:
+                answer:
+                  type: string
+            workflows:
+              main:
+                inputs:
+                  task:
+                    type: string
+                    required: true
+                steps:
+                  - id: final_answer
+                    type: set
+                    input:
+                      answer: '{"status":"complete","count":2,"items":["alpha","beta"]}'
+                outputs:
+                  answer:
+                    expr: "${data.steps.final_answer.answer}"
+                    type: string
+            """;
+
+        var llm = new RoutedMarkdownFormattingLlmClient(agentName, formattedAnswer);
+        var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            DefaultProvider = "test",
+            DefaultModel = "route-model"
+        });
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(
+            runtimeStore,
+            new FakeKeyVaultRuntimeConfigStore(),
+            llmClientOverride: llm);
+        using var services = new ServiceCollection()
+            .AddSingleton<IAgentRepository>(new SmartFlowFakeAgentRepository(new AgentDefinition
+            {
+                Id = Guid.Parse(agentId),
+                Name = agentName,
+                Workflow = agentWorkflow,
+                OriginalPrompt = "return structured results",
+                CreatedAt = DateTimeOffset.Parse("2026-07-29T00:00:00Z"),
+                UpdatedAt = DateTimeOffset.Parse("2026-07-29T00:00:00Z")
+            }))
+            .BuildServiceProvider();
+
+        var smartFlow = new SmartFlowService(
+            new RecordingLlmClient(),
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
+            runtimeFactory,
+            SmartFlowTestFactory.CreateProvidersService(new RecordingLlmClient()),
+            SmartFlowTestFactory.CreateAgentsService(new RecordingLlmClient(), new FakeMcpClientFactory()),
+            new AgentHumanInputProvider(),
+            SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
+            NullLogger<SmartFlowService>.Instance,
+            candidateProvider: new SingleWorkflowCandidateProvider(new WorkflowRouteCandidate
+            {
+                Id = $"database:{agentName}",
+                Name = agentName,
+                Ref = new JsonObject
+                {
+                    ["kind"] = "database",
+                    ["agent"] = agentName
+                },
+                Description = "Returns structured results.",
+                Tags = ["structured", "result"]
+            }),
+            scopeFactory: services.GetRequiredService<IServiceScopeFactory>());
+
+        var events = await SmartFlowTestFactory.CollectAsync(
+            smartFlow.ExecuteAsync(
+                "show the structured result",
+                correlationId: "corr-routed-markdown-format",
+                agentName: null,
+                CancellationToken.None));
+
+        var answer = Assert.Single(events, evt => evt.Type == "answer");
+        Assert.Equal(formattedAnswer, answer.Text);
+        Assert.Equal(1, llm.ResponseQualityCallCount);
+        Assert.Equal(1, llm.FormatResponseCallCount);
+        Assert.DoesNotContain(events, evt => evt.Type == "error");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_PrefersPersistedDefaultAgentOverRequestedAgentName()
     {
         if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
@@ -1518,6 +1742,136 @@ workflows:
             }
 
             return Task.FromResult(new LLMResponse { Text = _workflowYaml });
+        }
+    }
+
+    private sealed class RoutedMissingInputLlmClient(string agentName) : ILLMClient
+    {
+        public int ResponseQualityCallCount { get; private set; }
+        public int FormatResponseCallCount { get; private set; }
+
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            if (request.Prompt.Contains("You are a workflow router", StringComparison.OrdinalIgnoreCase))
+            {
+                var json = new JsonObject
+                {
+                    ["selected"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["id"] = $"database:{agentName}",
+                            ["reason"] = "The repository specialist matches the request.",
+                            ["confidence"] = 1.0
+                        }
+                    }
+                };
+                return Task.FromResult(new LLMResponse
+                {
+                    Text = json.ToJsonString(),
+                    Json = json
+                });
+            }
+
+            if (request.Prompt.Contains("You extract workflow input arguments", StringComparison.OrdinalIgnoreCase))
+            {
+                var json = new JsonObject
+                {
+                    ["arguments"] = new JsonObject
+                    {
+                        ["task"] = "inspect recent changes"
+                    }
+                };
+                return Task.FromResult(new LLMResponse
+                {
+                    Text = json.ToJsonString(),
+                    Json = json
+                });
+            }
+
+            if (request.Prompt.Contains("Evaluate whether the candidate response", StringComparison.OrdinalIgnoreCase))
+            {
+                ResponseQualityCallCount++;
+                var json = new JsonObject { ["needs_reformat"] = false };
+                return Task.FromResult(new LLMResponse
+                {
+                    Text = json.ToJsonString(),
+                    Json = json
+                });
+            }
+
+            if (request.Prompt.Contains("Reformat the candidate response", StringComparison.OrdinalIgnoreCase))
+            {
+                FormatResponseCallCount++;
+                return Task.FromResult(new LLMResponse { Text = "This formatter should not have been called." });
+            }
+
+            return Task.FromResult(new LLMResponse { Text = "Unexpected request." });
+        }
+    }
+
+    private sealed class RoutedMarkdownFormattingLlmClient(string agentName, string formattedAnswer) : ILLMClient
+    {
+        public int ResponseQualityCallCount { get; private set; }
+        public int FormatResponseCallCount { get; private set; }
+
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            if (request.Prompt.Contains("You are a workflow router", StringComparison.OrdinalIgnoreCase))
+            {
+                var json = new JsonObject
+                {
+                    ["selected"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["id"] = $"database:{agentName}",
+                            ["reason"] = "The specialist returns the requested structured result.",
+                            ["confidence"] = 1.0
+                        }
+                    }
+                };
+                return Task.FromResult(new LLMResponse
+                {
+                    Text = json.ToJsonString(),
+                    Json = json
+                });
+            }
+
+            if (request.Prompt.Contains("You extract workflow input arguments", StringComparison.OrdinalIgnoreCase))
+            {
+                var json = new JsonObject
+                {
+                    ["arguments"] = new JsonObject
+                    {
+                        ["task"] = "show the structured result"
+                    }
+                };
+                return Task.FromResult(new LLMResponse
+                {
+                    Text = json.ToJsonString(),
+                    Json = json
+                });
+            }
+
+            if (request.Prompt.Contains("Evaluate whether the candidate response", StringComparison.OrdinalIgnoreCase))
+            {
+                ResponseQualityCallCount++;
+                var json = new JsonObject { ["needs_reformat"] = true };
+                return Task.FromResult(new LLMResponse
+                {
+                    Text = json.ToJsonString(),
+                    Json = json
+                });
+            }
+
+            if (request.Prompt.Contains("Reformat the candidate response", StringComparison.OrdinalIgnoreCase))
+            {
+                FormatResponseCallCount++;
+                return Task.FromResult(new LLMResponse { Text = formattedAnswer });
+            }
+
+            return Task.FromResult(new LLMResponse { Text = "Unexpected request." });
         }
     }
 

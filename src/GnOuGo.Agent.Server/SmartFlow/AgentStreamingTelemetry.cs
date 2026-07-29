@@ -311,6 +311,20 @@ public sealed class AgentStreamingTelemetry : IWorkflowTelemetry
                 }
             }
 
+            if (string.Equals(name, "gnougo-flow.step.human_input_resumed", StringComparison.Ordinal))
+            {
+                _animation?.Apply(new AnimationExecutionSignal
+                {
+                    Kind = AnimationExecutionSignalKind.HumanInputResumed,
+                    WorkflowInstanceId = WorkflowInstanceId,
+                    StepOccurrenceId = OccurrenceId,
+                    StepId = Info.StepId,
+                    StepType = Info.StepType,
+                    Status = SimulationStatus.Running,
+                    Message = "Human input received."
+                });
+            }
+
             if (string.Equals(name, "gnougo-flow.workflow_route.inputs_extracted", StringComparison.Ordinal))
             {
                 _emit(new SmartFlowEvent("workflow.route.inputs_extracted", Payload([

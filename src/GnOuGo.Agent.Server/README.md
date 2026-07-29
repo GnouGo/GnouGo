@@ -190,7 +190,7 @@ known to be current.
 
 ## Main routing workflow and conversation history
 
-When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract missing structured inputs from the prompt/history, run them in parallel, and synthesize the final response. It also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.
+When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract structured inputs from the prompt/history, and request any remaining missing or invalid declared inputs through the existing Human Input form before execution. Candidate forms are presented one at a time, then the completed workflows use their configured execution policy. The route also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.
 
 The Blazor chat session now carries a server-facing `ConversationId`. The UI keeps its local transcript for display, while `SmartFlowService` loads recent server-side messages into the routing workflow as `history` and appends the user/assistant turn after a successful answer. HTTP clients can also pass `conversationId` and `prompt` on `/api/chat` or `/api/chat/stream`; if omitted, the server creates a new conversation id and returns/emits it.
 

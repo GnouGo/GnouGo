@@ -1113,6 +1113,10 @@ Candidates can mix explicit references and dynamic sources. A host supplies dyna
       auto_extract:
         provider: openai   # optional; omit to use runtime default
         model: gpt-5.4-mini
+      human_input:
+        enabled: true      # optional; false by default
+        timeout_ms: 36000000
+        max_attempts: 3
       add:
         history: "${data.inputs.history}"
     execution:
@@ -1136,6 +1140,10 @@ Output shape:
 `args.passthrough: true` forwards all current `data.inputs` to each selected workflow. Extra undeclared inputs are preserved by the runtime and only declared fields are validated by the called workflow.
 
 `args.auto_extract` can be `true` or an object with optional `provider`, `model`, and `temperature`. When enabled, `workflow.route` resolves the selected workflow, treats that workflow's declared YAML `inputs` as the authoritative target contract, and asks the LLM to map `prompt` and `history` into exactly those input names. Candidate `skill.inputs` metadata is included only as a hint. Extracted fields and passthrough aliases that are not declared by the target workflow input schema are ignored. After merging extracted values with matching passthrough/additional args, defaults are applied and the selected workflow inputs are validated before execution. If provider/model are omitted, the runtime defaults are used.
+
+`args.human_input` can be `true` or an object with `enabled`, `timeout_ms`, and `max_attempts`. It is disabled by default. When enabled and a selected workflow still has missing or invalid declared inputs after auto-extraction and defaults, the router asks the configured `IHumanInputProvider` for only those fields, converts responses to their declared types, and validates again before execution. Multiple selected workflows collect their forms one at a time so UI providers with a single active Human Input panel are not overwritten; completed workflows still use the configured execution parallelism. Complex array/object/dictionary inputs are requested as JSON. `timeout_ms` defaults to 36,000,000 (10 hours), `0` disables the timeout, and `max_attempts` defaults to `3`.
+
+If interactive completion is enabled but no provider is configured, the route fails with `NO_HITL_PROVIDER`. A request timeout returns `HUMAN_INPUT_TIMEOUT`; exhausting all attempts returns the normal routed `INPUT_VALIDATION` details.
 
 Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.thinking` event with level `progress`, source `workflow.route`, selected workflow metadata, and routed input keys. When `ExecutionLimits.LogStepContent` is enabled, the message also includes redacted/truncated resolved inputs using the same telemetry redaction as workflow input logging.
 

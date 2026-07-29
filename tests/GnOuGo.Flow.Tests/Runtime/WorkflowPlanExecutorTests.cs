@@ -647,6 +647,14 @@ public class WorkflowPlanExecutorTests
 
         Assert.Contains("Always set `input.mode` explicitly", snippet);
         Assert.Contains("Valid modes: text, choice, form, confirm.", snippet);
+        Assert.Contains("Mode selection priority", snippet);
+        Assert.Contains("`choice`: MUST use whenever the user must select exactly one answer", snippet);
+        Assert.Contains("`text`: ONLY use for genuinely open-ended answers", snippet);
+        Assert.Contains("Never place possible choices/options/answers only in `prompt` or `context`.", snippet);
+        Assert.Contains("Dynamic questionnaire choices must still be emitted as an actual YAML array", snippet);
+        Assert.Contains("\"${data.question_item.options[0]}\"", snippet);
+        Assert.Contains("Invalid anti-pattern — never generate", snippet);
+        Assert.Contains("prompt: \"Choices: ${json(data.question_item.options)}\"", snippet);
         Assert.Contains("date", snippet);
         Assert.Contains("mode: confirm", snippet);
         Assert.Contains("data.steps.<id>.response", snippet);
@@ -827,6 +835,11 @@ workflows:
         Assert.Contains("Emit booleans and numbers as unquoted YAML scalars", capturedPrompt);
         Assert.Contains("Use YAML literal block scalars (`|`) for multiline prompts/templates", capturedPrompt);
         Assert.Contains("Follow the discovered MCP schema and tool description exactly", capturedPrompt);
+        Assert.Contains("Mode selection priority", capturedPrompt);
+        Assert.Contains("`choice`: MUST use whenever the user must select exactly one answer", capturedPrompt);
+        Assert.Contains("Never place possible choices/options/answers only in `prompt` or `context`.", capturedPrompt);
+        Assert.Contains("\"${data.question_item.options[0]}\"", capturedPrompt);
+        Assert.Contains("Invalid anti-pattern — never generate", capturedPrompt);
         Assert.DoesNotContain("GitHub issue workflow rules", capturedPrompt);
         Assert.DoesNotContain("never initialize owner/repo globals", capturedPrompt);
         Assert.Contains("Every generated custom `function name(...)` declaration MUST be immediately preceded by JSDoc", capturedPrompt);
