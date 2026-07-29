@@ -463,10 +463,10 @@ export class GnouGnouWorkflowAnimationController {
     highlight.setAttribute('class', 'transit-pipe-highlight')
     const inlet = document.createElementNS(SVG_NAMESPACE, 'g')
     inlet.setAttribute('class', 'transit-pipe-mouth transit-pipe-inlet')
-    inlet.innerHTML = '<circle r="54" class="transit-mouth-shell"/><circle r="43" class="transit-mouth-core"/>'
+    inlet.innerHTML = '<circle r="34" class="transit-mouth-shell"/><circle r="27" class="transit-mouth-core"/>'
     const outlet = document.createElementNS(SVG_NAMESPACE, 'g')
     outlet.setAttribute('class', 'transit-pipe-mouth transit-pipe-outlet')
-    outlet.innerHTML = '<circle r="60" class="transit-mouth-shell"/><circle r="48" class="transit-mouth-core"/><path d="M-14 -8L0 9L14 -8" class="transit-mouth-arrow"/>'
+    outlet.innerHTML = '<circle r="38" class="transit-mouth-shell"/><circle r="30" class="transit-mouth-core"/><path d="M-9 -5L0 6L9 -5" class="transit-mouth-arrow"/>'
     const label = document.createElementNS(SVG_NAMESPACE, 'text')
     label.setAttribute('class', 'transit-pipe-label')
     label.textContent = event.workflowName ?? 'Routed workflow'
@@ -543,18 +543,26 @@ export class GnouGnouWorkflowAnimationController {
     const perpendicular = { x: -tangent.y, y: tangent.x }
     const branchSide = branchIndex % 2 === 0 ? 1 : -1
     const branchDepth = Math.floor(branchIndex / 2)
-    const bow = Math.min(190, Math.max(58, pipeDistance * .16))
+    const bow = Math.min(96, Math.max(34, pipeDistance * .1))
       * branchSide
-      * (1 + branchDepth * .16)
+      * (1 + branchDepth * .1)
     const controlDistance = pipeDistance * .32
-    const firstControl = {
+    const rawFirstControl = {
       x: inlet.x + tangent.x * controlDistance + perpendicular.x * bow,
       y: inlet.y + tangent.y * controlDistance + perpendicular.y * bow,
     }
-    const secondControl = {
+    const rawSecondControl = {
       x: outlet.x - tangent.x * controlDistance + perpendicular.x * bow,
       y: outlet.y - tangent.y * controlDistance + perpendicular.y * bow,
     }
+    const bounds = this.sceneBounds ?? { width: 1600, height: 900 }
+    const pipeMargin = 44
+    const clampControl = (point: Position): Position => ({
+      x: Math.max(pipeMargin, Math.min(bounds.width - pipeMargin, point.x)),
+      y: Math.max(pipeMargin, Math.min(bounds.height - pipeMargin, point.y)),
+    })
+    const firstControl = clampControl(rawFirstControl)
+    const secondControl = clampControl(rawSecondControl)
     const path = `M ${inlet.x} ${inlet.y} C ${firstControl.x} ${firstControl.y} ${secondControl.x} ${secondControl.y} ${outlet.x} ${outlet.y}`
     branch.group.querySelectorAll<SVGPathElement>(
       '.transit-pipe-shell, .transit-pipe-core, .transit-pipe-highlight',
@@ -570,8 +578,12 @@ export class GnouGnouWorkflowAnimationController {
     branch.group.querySelector<SVGPathElement>('.transit-mouth-arrow')
       ?.setAttribute('transform', `rotate(${travelAngle - 90})`)
     const label = branch.group.querySelector<SVGTextElement>('.transit-pipe-label')
-    label?.setAttribute('x', String((inlet.x + outlet.x) / 2 + perpendicular.x * bow))
-    label?.setAttribute('y', String((inlet.y + outlet.y) / 2 + perpendicular.y * bow - 64))
+    const labelPosition = clampControl({
+      x: (inlet.x + outlet.x) / 2 + perpendicular.x * bow,
+      y: (inlet.y + outlet.y) / 2 + perpendicular.y * bow - 48,
+    })
+    label?.setAttribute('x', String(labelPosition.x))
+    label?.setAttribute('y', String(labelPosition.y))
   }
 
   private findTransitBranch(
@@ -1275,7 +1287,7 @@ export class GnouGnouWorkflowAnimationController {
         const local = easeInOut(eased / .16)
         position = this.interpolatePosition(originalPosition, pipeStart, local)
         position.y -= Math.sin(local * Math.PI) * 24
-        scale = 1 - local * .58
+        scale = 1 - local * .68
       } else if (eased < .84) {
         const pipeProgress = (eased - .16) / .68
         const length = reverse
@@ -1283,13 +1295,13 @@ export class GnouGnouWorkflowAnimationController {
           : routeLength * pipeProgress
         const point = branch.path.getPointAtLength(length)
         position = { x: point.x, y: point.y }
-        scale = .30 + Math.abs(pipeProgress - .5) * .24
+        scale = .24 + Math.abs(pipeProgress - .5) * .18
         rotation = (reverse ? -1 : 1) * Math.sin(pipeProgress * Math.PI) * 9
       } else {
         const local = easeInOut((eased - .84) / .16)
         position = this.interpolatePosition(pipeEnd, destination, local)
         position.y -= Math.sin(local * Math.PI) * 24
-        scale = .42 + local * .58
+        scale = .32 + local * .68
       }
       actor.setAttribute(
         'transform',

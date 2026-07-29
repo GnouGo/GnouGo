@@ -61,7 +61,7 @@ and `workflow.execute` use distinct planning, routing, and handoff roundabout
 glyphs. A child workflow discovered by planning or routing emits
 `workflow.discovered`. Runtime-added children join a reusable stage slot
 instead of extending the diagram. The bearded Master carries the parcel to an
-original oversized blue GnOuGo transit pipe anchored directly between the
+original compact blue GnOuGo transit pipe anchored directly between the
 calling routing roundabout and the dynamic workflow's Start marker. The pipe
 remains completely hidden until its branch is used. The Master stays at the
 routing point until the transfer begins, enters the local mouth, crosses the

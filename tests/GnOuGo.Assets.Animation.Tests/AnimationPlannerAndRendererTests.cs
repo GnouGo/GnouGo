@@ -168,7 +168,9 @@ public sealed class AnimationPlannerAndRendererTests
         Assert.Contains("class=\"route-centerline\"", svg, StringComparison.Ordinal);
         Assert.Contains(".workflow-scene-layer.is-scene-left", svg, StringComparison.Ordinal);
         Assert.Contains(".transit-pipe-core", svg, StringComparison.Ordinal);
-        Assert.Contains(".transit-pipe-core { stroke: #3f8fd2; stroke-width: 68;", svg, StringComparison.Ordinal);
+        Assert.Contains(".transit-pipe-shell { stroke: #174f7d; stroke-width: 54;", svg, StringComparison.Ordinal);
+        Assert.Contains(".transit-pipe-core { stroke: #3f8fd2; stroke-width: 40;", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("stroke-width: 88", svg, StringComparison.Ordinal);
         Assert.Contains(".gnougo-actor.is-in-transit", svg, StringComparison.Ordinal);
         Assert.Contains(".gnougo-transit-branch {\n      opacity: 0;", svg, StringComparison.Ordinal);
         Assert.Contains(".task-object.is-parallel-detail-hidden", svg, StringComparison.Ordinal);

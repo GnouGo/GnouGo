@@ -392,6 +392,9 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains("private syncParallelTaskVisibility()", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private animateTransitParcel(", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private layoutTransitBranch(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("const pipeMargin = 44", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("const clampControl =", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("'<circle r=\"34\" class=\"transit-mouth-shell\"/>", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("const sceneSwitchProgress = reverse ? .22 : .46", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("is-transit-copy", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("transit?.branch.id", workflowRuntime, StringComparison.Ordinal);

@@ -88,19 +88,19 @@ public static class GnouGnouAnimationSvgRenderer
       opacity: 1;
       visibility: visible;
       transition-delay: 0s;
-      filter: drop-shadow(0 8px 12px rgba(31, 109, 169, .22));
+      filter: drop-shadow(0 5px 8px rgba(31, 109, 169, .18));
     }
     .transit-pipe-shell, .transit-pipe-core, .transit-pipe-highlight {
       fill: none;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
-    .transit-pipe-shell { stroke: #174f7d; stroke-width: 88; }
-    .transit-pipe-core { stroke: #3f8fd2; stroke-width: 68; }
+    .transit-pipe-shell { stroke: #174f7d; stroke-width: 54; }
+    .transit-pipe-core { stroke: #3f8fd2; stroke-width: 40; }
     .transit-pipe-highlight {
       stroke: #b9e4ff;
-      stroke-width: 7;
-      stroke-dasharray: 24 30;
+      stroke-width: 4;
+      stroke-dasharray: 16 20;
       opacity: .86;
     }
     .gnougo-transit-branch.is-active .transit-pipe-highlight {
@@ -109,12 +109,12 @@ public static class GnouGnouAnimationSvgRenderer
     .gnougo-transit-branch.is-returning .transit-pipe-highlight {
       animation-direction: reverse;
     }
-    .transit-mouth-shell { fill: #174f7d; stroke: #0d385b; stroke-width: 7; }
-    .transit-mouth-core { fill: #3f8fd2; stroke: #9bd7ff; stroke-width: 5; }
+    .transit-mouth-shell { fill: #174f7d; stroke: #0d385b; stroke-width: 5; }
+    .transit-mouth-core { fill: #3f8fd2; stroke: #9bd7ff; stroke-width: 3; }
     .transit-mouth-arrow {
       fill: none;
       stroke: #f3fbff;
-      stroke-width: 6;
+      stroke-width: 4;
       stroke-linecap: round;
       stroke-linejoin: round;
     }

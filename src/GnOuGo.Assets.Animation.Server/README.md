@@ -43,8 +43,8 @@ launched skyward from the delivery dock. Failure turns that same parcel red.
 
 When the preview reaches `workflow.route` or `workflow.execute`, the server
 streams a `scene.patch` envelope that prepares a dynamic child workflow in the
-same reusable stage slot. The camera first holds on the routing point. An
-oversized blue GnOuGo transit pipe then appears only for the transfer, anchored
+same reusable stage slot. The camera first holds on the routing point. A
+compact blue GnOuGo transit pipe then appears only for the transfer, anchored
 from that routing roundabout to the dynamic workflow's Start marker. The
 Master enters it with the parcel and emerges at Start while the parent plan
 fades and the specialist plan replaces it without changing the stage scale.
