@@ -57,6 +57,80 @@ public static class GnouGnouAnimationSvgRenderer
     .gnougo-actor { transition: opacity .25s ease, filter .25s ease; }
     .gnougo-actor[data-visible="false"], .task-object[data-visible="false"] { opacity: 0; pointer-events: none; }
     .gnougo-actor.is-clone { filter: url(#matrix-glow); opacity: .82; }
+    .is-scene-muted { filter: saturate(.35) opacity(.28); }
+    .workflow-scene-layer {
+      opacity: 1;
+      transform: translate(0, 0);
+      transform-box: view-box;
+      transform-origin: center;
+      transition: opacity .46s ease, transform .58s cubic-bezier(.22,.8,.28,1);
+    }
+    .workflow-scene-layer.is-scene-left {
+      opacity: 0;
+      transform: translate(-120px, 0);
+      pointer-events: none;
+    }
+    .workflow-scene-layer.is-scene-right {
+      opacity: 0;
+      transform: translate(120px, 0);
+      pointer-events: none;
+    }
+    #gnougo-transit-system, #gnougo-transit-actors { pointer-events: none; }
+    .gnougo-actor.is-in-transit {
+      filter: drop-shadow(0 12px 14px rgba(23, 79, 125, .24));
+    }
+    .gnougo-transit-branch {
+      opacity: .34;
+      transition: opacity .28s ease, filter .28s ease;
+    }
+    .gnougo-transit-branch.is-active {
+      opacity: 1;
+      filter: drop-shadow(0 8px 12px rgba(31, 109, 169, .22));
+    }
+    .transit-pipe-shell, .transit-pipe-core, .transit-pipe-highlight {
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .transit-pipe-shell { stroke: #174f7d; stroke-width: 88; }
+    .transit-pipe-core { stroke: #3f8fd2; stroke-width: 68; }
+    .transit-pipe-highlight {
+      stroke: #b9e4ff;
+      stroke-width: 7;
+      stroke-dasharray: 24 30;
+      opacity: .86;
+    }
+    .gnougo-transit-branch.is-active .transit-pipe-highlight {
+      animation: gnougo-transit-flow .7s linear infinite;
+    }
+    .gnougo-transit-branch.is-returning .transit-pipe-highlight {
+      animation-direction: reverse;
+    }
+    .transit-mouth-shell { fill: #174f7d; stroke: #0d385b; stroke-width: 7; }
+    .transit-mouth-core { fill: #3f8fd2; stroke: #9bd7ff; stroke-width: 5; }
+    .transit-mouth-arrow {
+      fill: none;
+      stroke: #f3fbff;
+      stroke-width: 6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .transit-pipe-label {
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      font-size: 16px;
+      font-weight: 850;
+      text-anchor: middle;
+      fill: #174f7d;
+      paint-order: stroke;
+      stroke: #fff;
+      stroke-width: 5px;
+      stroke-linejoin: round;
+    }
+    .task-object.is-transit-copy { filter: drop-shadow(0 8px 9px rgba(23, 79, 125, .26)); }
+    @keyframes gnougo-transit-flow { to { stroke-dashoffset: -42; } }
+    .workflow-lane, .workflow-station, .flow-node, .flow-edge, .gnougo-actor {
+      transition: opacity .32s ease, filter .32s ease;
+    }
     .flow-lane { fill: #fff; stroke: #dce5eb; stroke-width: 2; }
     .flow-edge { transition: opacity .2s ease; }
     .flow-edge[data-selected="false"] { opacity: .28; }
@@ -88,12 +162,12 @@ public static class GnouGnouAnimationSvgRenderer
     .roundabout-marking { fill: none; stroke: #fff; stroke-width: 3; stroke-dasharray: 11 12; stroke-linecap: round; }
     .roundabout-island { fill: #fff; stroke: #dce5eb; stroke-width: 4; }
     .roundabout-glyph { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 31px; font-weight: 950; text-anchor: middle; dominant-baseline: middle; fill: #315f82; }
-    #workstations > g.is-active .roundabout-road { stroke: #3f7fb5; }
-    #workstations > g.is-active .roundabout-outline { stroke: #8ebce6; }
-    #workstations > g.is-active .roundabout-glyph { fill: #1f6da9; }
-    #workstations > g.is-success .roundabout-road { stroke: #458467; }
-    #workstations > g.is-failed .roundabout-road { stroke: #b84f59; }
-    #workstations > g.is-failed .roundabout-glyph { fill: #b53140; }
+    .workflow-station.is-active .roundabout-road { stroke: #3f7fb5; }
+    .workflow-station.is-active .roundabout-outline { stroke: #8ebce6; }
+    .workflow-station.is-active .roundabout-glyph { fill: #1f6da9; }
+    .workflow-station.is-success .roundabout-road { stroke: #458467; }
+    .workflow-station.is-failed .roundabout-road { stroke: #b84f59; }
+    .workflow-station.is-failed .roundabout-glyph { fill: #b53140; }
     .station-label, .actor-label, .node-label, .lane-label { font-family: Inter, ui-sans-serif, system-ui, sans-serif; fill: #18344d; }
     .station-label { font-size: 17px; font-weight: 800; text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
     .actor-label { font-size: 16px; font-weight: 750; text-anchor: middle; }
@@ -101,7 +175,10 @@ public static class GnouGnouAnimationSvgRenderer
     .lane-label { font-size: 22px; font-weight: 850; }
     .parcel-stamp { opacity: 0; transition: opacity .2s ease, transform .2s ease; }
     .parcel-stamp[data-visible="true"] { opacity: 1; }
-    @media (prefers-reduced-motion: reduce) { .gnougo-actor, .task-object { transition-duration: .01ms !important; } }
+    @media (prefers-reduced-motion: reduce) {
+      .gnougo-actor, .task-object, .workflow-scene-layer { transition-duration: .01ms !important; }
+      .transit-pipe-highlight { animation: none !important; }
+    }
   </style>
 """);
     }
@@ -187,7 +264,8 @@ public static class GnouGnouAnimationSvgRenderer
         {
             var top = Math.Max(120, lane.StartY - 90);
             var height = Math.Max(260, lane.EndY - top + 190);
-            builder.Append("    <g id=\"").Append(lane.Id).Append("\" data-workflow-instance=\"")
+            builder.Append("    <g id=\"").Append(lane.Id).Append("\" class=\"workflow-lane\" data-lane-id=\"")
+                .Append(EscapeAttribute(lane.Id)).Append("\" data-workflow-instance=\"")
                 .Append(EscapeAttribute(lane.WorkflowInstanceId)).Append("\" data-workflow=\"")
                 .Append(EscapeAttribute(lane.WorkflowName)).AppendLine("\">");
             builder.Append("      <rect class=\"flow-lane\" x=\"").Append(Number(lane.X - lane.Width / 2))
@@ -237,14 +315,17 @@ public static class GnouGnouAnimationSvgRenderer
 
             builder.Append("    <g id=\"").Append(edge.Id).Append("\" class=\"flow-edge\" data-edge-kind=\"")
                 .Append(edge.Kind.ToString().ToLowerInvariant()).Append("\" data-selected=\"")
-                .Append(edge.IsSelected ? "true" : "false").AppendLine("\">");
+                .Append(edge.IsSelected ? "true" : "false").Append("\" data-lane-id=\"")
+                .Append(EscapeAttribute(to.LaneId)).AppendLine("\">");
             builder.Append("      <path class=\"route-outline\" d=\"").Append(path).AppendLine("\"/>");
             builder.Append("      <path class=\"route-surface\" data-route-path=\"true\" d=\"").Append(path).AppendLine("\"/>");
             builder.Append("      <path class=\"route-centerline\" d=\"").Append(path).AppendLine("\"/>");
             builder.AppendLine("    </g>");
             if (!string.IsNullOrWhiteSpace(edge.Label))
             {
-                builder.Append("    <text class=\"node-label\" x=\"").Append(Number((from.Position.X + to.Position.X) / 2))
+                builder.Append("    <text class=\"node-label\" data-lane-id=\"")
+                    .Append(EscapeAttribute(to.LaneId)).Append("\" x=\"")
+                    .Append(Number((from.Position.X + to.Position.X) / 2))
                     .Append("\" y=\"").Append(Number(middleY - 10)).Append("\" opacity=\".76\">")
                     .Append(Escape(edge.Label)).AppendLine("</text>");
             }
@@ -263,7 +344,8 @@ public static class GnouGnouAnimationSvgRenderer
             builder.Append("    <g id=\"").Append(node.Id).Append("\" class=\"flow-node\" data-node-kind=\"")
                 .Append(node.Kind.ToString().ToLowerInvariant()).Append("\" data-selected=\"")
                 .Append(node.IsSelected ? "true" : "false").Append("\" data-step-id=\"")
-                .Append(EscapeAttribute(node.StepId ?? "")).Append("\" transform=\"translate(")
+                .Append(EscapeAttribute(node.StepId ?? "")).Append("\" data-lane-id=\"")
+                .Append(EscapeAttribute(node.LaneId)).Append("\" transform=\"translate(")
                 .Append(Number(node.Position.X)).Append(' ').Append(Number(node.Position.Y)).AppendLine(")\">");
             var glyph = node.Kind switch
             {
@@ -304,6 +386,7 @@ public static class GnouGnouAnimationSvgRenderer
                 .Append("roundabout").Append("\" data-station-kind=\"")
                 .Append(station.Kind.ToString().ToLowerInvariant()).Append("\" data-node-id=\"").Append(node.Id)
                 .Append("\" data-workflow-instance-id=\"").Append(EscapeAttribute(station.WorkflowInstanceId ?? ""))
+                .Append("\" data-lane-id=\"").Append(EscapeAttribute(node.LaneId))
                 .Append("\" data-step-id=\"").Append(EscapeAttribute(station.StepId ?? ""))
                 .Append("\" data-step-type=\"").Append(EscapeAttribute(station.StepType ?? ""))
                 .Append("\" transform=\"translate(").Append(Number(station.Position.X)).Append(' ')

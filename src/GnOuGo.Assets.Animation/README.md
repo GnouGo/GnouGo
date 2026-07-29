@@ -58,8 +58,19 @@ receive a visible blocking roundabout with persistent
 waiting and resume events.
 Dynamic orchestration stays visible as well: `workflow.plan`, `workflow.route`,
 and `workflow.execute` use distinct planning, routing, and handoff roundabout
-glyphs. A child workflow discovered by planning or routing
-emits `workflow.discovered` before its actor spawns and receives the parcel.
+glyphs. A child workflow discovered by planning or routing emits
+`workflow.discovered`. Runtime-added children join a reusable stage slot
+instead of extending the diagram. The bearded Master carries the parcel to an
+original oversized blue GnOuGo transit pipe positioned beside the routing
+roundabout. The Master stays at that routing point, enters the pipe with the
+parcel, crosses it quickly, and emerges beside the selected specialist for the
+handoff. One illuminated outlet is rendered for each dynamically selected
+workflow; parallel selections receive temporary parcel copies. At handoff, the
+parent scene fades and slides away while the dynamic destination replaces it
+at the same visual scale. Completion runs the source specialist and parcel
+backwards through the same branch and restores the preserved parent scene
+before the caller resumes. Statically known workflow lanes and their handoffs
+retain the original multi-lane presentation without transit pipes.
 Parallel, foreach, decision, and handoff traffic markers are retained only when their
 subtree contains that visible long-running work. Smooth curved roads use a
 single centered dashed line with no shadow, texture filter, or roadside
@@ -105,8 +116,11 @@ roundabout and later leaf steps arrive as bounded incremental scene patches.
 
 The package includes
 `Runtime/gnougnou-workflow-animation-controller.ts`. It owns actor movement,
-route following, roundabouts, parcel state, scene patches, reduced motion, and
-delegates articulated character poses to the Bears controller. Workflow source
+route following, roundabouts, parcel state, preserved workflow scene layers,
+branching transit pipes, scene patches, reduced motion, and delegates
+articulated character poses to the Bears controller. Its viewport camera keeps
+the initial visual scale, follows the active plan or pipe transfer, and still
+exposes explicit fit and drag navigation. Workflow source
 text is used only server-side to build safe visual models and is never included
 in live browser events.
 

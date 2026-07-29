@@ -13,8 +13,10 @@ that shares the exact path used by walking actors; there is no route shadow,
 roughness displacement, or roadside debris. Useful forks, joins, loops,
 decisions, and returns use compact traffic markers, while composites without
 visible work are collapsed. The SVG has dynamic dimensions and is viewed
-through a fixed-height, two-axis viewport with zoom, fit-width, centering, drag
-navigation, and optional active-actor auto-follow.
+through a stable-scale scroll viewport with zoom, whole-scene fit, centering,
+drag navigation, and optional active-actor auto-follow. Adding a runtime lane
+extends the physical scene proportionally without shrinking existing GnOuGos
+or roundabouts.
 
 Its frame-by-frame SVG motion engine makes actors visibly walk down the graph
 with alternating arm and leg steps, breathing, independent ear motion, head
@@ -40,9 +42,17 @@ collects colored completion stamps, crosses handoffs, and is finally sealed and
 launched skyward from the delivery dock. Failure turns that same parcel red.
 
 When the preview reaches `workflow.route` or `workflow.execute`, the server
-streams a `scene.patch` envelope that adds a bounded child-workflow lane beside
-the existing diagram. It then streams discovery, actor spawn, parcel handoff,
-child step, completion, and return events before the caller continues. A route
+streams a `scene.patch` envelope that prepares a dynamic child workflow in the
+same reusable stage slot. The camera first holds on the routing point, follows
+the Master remain at the routing point, enter an oversized blue GnOuGo transit
+pipe with the parcel, and quickly cross the illuminated branch. The parent
+plan fades and slides out as the Master emerges beside the specialist and the
+specialist plan replaces it without changing the stage scale. Multiple
+dynamically selected workflows create separate outlets and temporary parcel
+copies. Statically known workflow lanes keep their original presentation and
+handoff animation without pipes.
+Completion reverses the transfer through the same pipe, restores the preserved
+parent plan, and returns the camera to the caller. A route
 prefers a non-entrypoint local workflow such as `fallback_general`; when the
 runtime selection or generated YAML is unknowable in this standalone preview,
 the server creates an explicitly synthetic representative child. The real

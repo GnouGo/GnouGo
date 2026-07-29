@@ -171,6 +171,46 @@ public sealed class LiveWorkflowAnimationTests
             .ToArray();
         Assert.Equal(2, handoffs.Length);
         Assert.All(handoffs, item => Assert.Equal("task-root", item!.TaskId));
+
+        var masterActorId = plan.Lanes.Single(lane => lane.WorkflowName == "main").ActorId;
+        var childActorId = plan.Lanes.Single(lane => lane.WorkflowName == "child").ActorId;
+        var outbound = childStart
+            .Select(update => update.Event)
+            .Where(static item => item is not null)
+            .Select(static item => item!)
+            .ToArray();
+        var masterDeparture = Assert.Single(outbound, item =>
+            item.Type == SimulationEventTypes.ActorMoved
+            && item.ActorId == masterActorId);
+        var specialistArrival = Assert.Single(outbound, item =>
+            item.Type == SimulationEventTypes.ActorSpawned
+            && item.ActorId == childActorId);
+        var outboundHandoff = Assert.Single(outbound, item =>
+            item.Type == SimulationEventTypes.TaskHandedOff);
+        var specialistEntry = Assert.Single(outbound, item =>
+            item.Type == SimulationEventTypes.ActorMoved
+            && item.ActorId == childActorId);
+        Assert.Equal("task-root", masterDeparture.TaskId);
+        Assert.Equal("task-root", specialistEntry.TaskId);
+        Assert.True(masterDeparture.Sequence < specialistArrival.Sequence);
+        Assert.True(specialistArrival.Sequence < outboundHandoff.Sequence);
+        Assert.True(outboundHandoff.Sequence < specialistEntry.Sequence);
+
+        var returning = childEnd
+            .Select(update => update.Event)
+            .Where(static item => item is not null)
+            .Select(static item => item!)
+            .ToArray();
+        var returnHandoff = Assert.Single(returning, item =>
+            item.Type == SimulationEventTypes.TaskHandedOff);
+        var specialistReturn = Assert.Single(returning, item =>
+            item.Type == SimulationEventTypes.ActorMoved
+            && item.ActorId == childActorId);
+        var masterReturn = Assert.Single(returning, item =>
+            item.Type == SimulationEventTypes.ActorMoved
+            && item.ActorId == masterActorId);
+        Assert.True(specialistReturn.Sequence < returnHandoff.Sequence);
+        Assert.True(returnHandoff.Sequence < masterReturn.Sequence);
     }
 
     [Fact]
@@ -223,13 +263,31 @@ public sealed class LiveWorkflowAnimationTests
         var patch = Assert.Single(updates, update => update.ScenePatch is not null).ScenePatch!;
         var discovered = Assert.Single(updates, update =>
             update.Event?.Type == SimulationEventTypes.WorkflowDiscovered).Event!;
+        var masterDeparture = Assert.Single(updates, update =>
+            update.Event is
+            {
+                Type: SimulationEventTypes.ActorMoved,
+                TaskId: "task-root"
+            }
+            && update.Event.ActorId == plan.Lanes.Single(lane => lane.IsEntrypoint).ActorId).Event!;
+        var routingNode = plan.Nodes.Single(node => node.Id == discovered.NodeId);
         Assert.Contains(patch.Stations, station => station.StepId == "ask-user" && station.Kind == AnimationStationKind.Human);
         Assert.Contains(patch.Stations, station => station.StepId == "call-model");
         Assert.Equal("route", discovered.StepId);
         Assert.Equal("workflow.route", discovered.StepType);
         Assert.NotNull(discovered.StationId);
+        Assert.Equal(routingNode.Id, masterDeparture.NodeId);
+        Assert.Equal(routingNode.Position.X, masterDeparture.X);
+        Assert.Equal(routingNode.Position.Y, masterDeparture.Y);
         Assert.Contains("router selects", discovered.Message, StringComparison.Ordinal);
         Assert.Contains("data-live-actor=\"true\"", patch.SvgFragment, StringComparison.Ordinal);
+        Assert.Contains($"data-lane-id=\"{patch.Lanes[0].Id}\"", patch.SvgFragment, StringComparison.Ordinal);
+        Assert.Equal(plan.Lanes.Single(lane => lane.IsEntrypoint).X, patch.Lanes[0].X);
+        Assert.Equal(plan.Bounds.Width, patch.Bounds.Width);
+        Assert.Contains(
+            $"class=\"workflow-station\" data-step-id=\"ask-user\" data-step-type=\"human.input\" data-station-kind=\"human\" data-workflow-instance-id=\"dynamic-child\" data-lane-id=\"{patch.Lanes[0].Id}\"",
+            patch.SvgFragment,
+            StringComparison.Ordinal);
         Assert.DoesNotContain("version: 1", patch.SvgFragment, StringComparison.Ordinal);
         _ = XDocument.Parse($"<svg xmlns=\"http://www.w3.org/2000/svg\">{patch.SvgFragment}</svg>");
     }

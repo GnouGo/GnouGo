@@ -120,13 +120,15 @@ export default function App() {
     workflowAnimationsRef.current = new GnouGnouWorkflowAnimationController(
       () => svgHostRef.current,
       gnouGnouAnimationsRef.current,
+      { cameraMode: 'scroll' },
     )
   const positionsRef = useRef(new Map<string, Position>())
   const animationsRef = useRef(new Map<string, number>())
   const stationAnimationsRef = useRef<Animation[]>([])
   const autoFollowRef = useRef(true)
   const lastFocusRef = useRef<string | null>(null)
-  const dragRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
+  const lastFollowEventRef = useRef<SimulationEvent | null>(null)
+  const dragRef = useRef<{ x: number; y: number } | null>(null)
   const motionGenerationRef = useRef(0)
 
   const buildRequest = useCallback((includeFailure: boolean): SimulationRequest => {
@@ -404,28 +406,36 @@ export default function App() {
 
   const focusElement = useCallback((id?: string, force = false) => {
     if (!id || (!force && !autoFollowRef.current)) return
-    const viewport = svgHostRef.current
-    const element = findElement(id)
-    if (!viewport || !element) return
     lastFocusRef.current = id
-    const viewportRect = viewport.getBoundingClientRect()
-    const elementRect = element.getBoundingClientRect()
-    const targetLeft = viewport.scrollLeft + elementRect.left - viewportRect.left - viewport.clientWidth / 2 + elementRect.width / 2
-    const targetTop = viewport.scrollTop + elementRect.top - viewportRect.top - viewport.clientHeight / 2 + elementRect.height / 2
-    viewport.scrollTo({
-      left: Math.max(0, targetLeft),
-      top: Math.max(0, targetTop),
-      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-    })
-  }, [findElement])
+    workflowAnimationsRef.current?.focus(id)
+  }, [])
+
+  const toggleAutoFollow = useCallback(() => {
+    const enabled = !autoFollowRef.current
+    autoFollowRef.current = enabled
+    setAutoFollow(enabled)
+    if (enabled) {
+      requestAnimationFrame(() => {
+        const event = lastFollowEventRef.current
+        if (event) {
+          const focusId = workflowAnimationsRef.current?.focusEvent(event)
+          if (focusId) lastFocusRef.current = focusId
+          return
+        }
+        focusElement(lastFocusRef.current ?? 'actor-master', true)
+      })
+    }
+    else
+      workflowAnimationsRef.current?.stopCameraMotion()
+  }, [focusElement])
 
   const fitCanvas = useCallback(() => {
     const viewport = svgHostRef.current
     if (!viewport || !prepared) return
     const nextZoom = Math.max(.28, Math.min(1, (viewport.clientWidth - 24) / prepared.canvasWidth))
     setZoom(nextZoom)
-    window.setTimeout(() => focusElement(lastFocusRef.current ?? 'node-workflow-master-start', true), 30)
-  }, [focusElement, prepared])
+    workflowAnimationsRef.current?.fitScene()
+  }, [prepared])
 
   const handleStagePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
@@ -433,18 +443,22 @@ export default function App() {
     dragRef.current = {
       x: event.clientX,
       y: event.clientY,
-      left: viewport.scrollLeft,
-      top: viewport.scrollTop,
     }
     viewport.setPointerCapture(event.pointerId)
+    autoFollowRef.current = false
     setAutoFollow(false)
+    workflowAnimationsRef.current?.stopCameraMotion()
   }, [])
 
   const handleStagePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
     if (!drag) return
-    event.currentTarget.scrollLeft = drag.left - (event.clientX - drag.x)
-    event.currentTarget.scrollTop = drag.top - (event.clientY - drag.y)
+    workflowAnimationsRef.current?.panBy(
+      drag.x - event.clientX,
+      drag.y - event.clientY,
+    )
+    drag.x = event.clientX
+    drag.y = event.clientY
   }, [])
 
   const handleStagePointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -457,7 +471,9 @@ export default function App() {
       event.preventDefault()
       setZoom(current => Math.max(.28, Math.min(1.6, current * (event.deltaY > 0 ? .9 : 1.1))))
     }
+    autoFollowRef.current = false
     setAutoFollow(false)
+    workflowAnimationsRef.current?.stopCameraMotion()
   }, [])
 
   useEffect(() => () => {
@@ -652,14 +668,11 @@ export default function App() {
 
     const statusText = svgHostRef.current?.querySelector<SVGTextElement>('#simulation-status')
     if (statusText && event.message) statusText.textContent = event.message
-    const collapsedStep = (event.type === 'step.started' || event.type === 'step.completed')
-      && !event.targetNodeId
-      && !event.stationId
-      && !event.nodeId
-    const focusId = collapsedStep
-      ? undefined
-      : event.targetNodeId ?? event.stationId ?? event.nodeId ?? event.actorId
-    if (focusId) requestAnimationFrame(() => focusElement(focusId))
+    lastFollowEventRef.current = event
+    if (autoFollowRef.current) {
+      const focusId = workflowAnimationsRef.current?.focusEvent(event)
+      if (focusId) lastFocusRef.current = focusId
+    }
     if (event.message) {
       setFeed(previous => [...previous.slice(-149), {
         key: `${prepared?.simulationId ?? 'run'}-${event.sequence}-${event.type}`,
@@ -670,7 +683,7 @@ export default function App() {
         workflowName: event.workflowName,
       }])
     }
-  }, [animateCharacterPose, animateMotion, animateRoundabout, drawMotionTrail, focusElement, prepared?.simulationId, pulseStation, readPosition, setActorStatus, setFlowStatus, setPosition, setTaskStatus, showElement, updateParcelProgress])
+  }, [animateCharacterPose, animateMotion, animateRoundabout, drawMotionTrail, prepared?.simulationId, pulseStation, readPosition, setActorStatus, setFlowStatus, setPosition, setTaskStatus, showElement, updateParcelProgress])
 
   const handleEnvelope = useCallback(async (envelope: StreamEnvelope) => {
     if (envelope.prepared) {
@@ -680,6 +693,8 @@ export default function App() {
       setSvg(envelope.prepared.svg)
       setFeed([])
       setRunStatus('Running')
+      lastFollowEventRef.current = null
+      autoFollowRef.current = true
       setAutoFollow(true)
       await nextFrame()
       await nextFrame()
@@ -703,12 +718,11 @@ export default function App() {
             nodeCount: previous.nodeCount + envelope.scenePatch!.nodes.length,
           }
         : previous)
-      const patchFocusId = envelope.scenePatch.actors[0]?.id ?? envelope.scenePatch.lanes[0]?.id
-      if (patchFocusId) requestAnimationFrame(() => focusElement(patchFocusId))
       return
     }
     if (envelope.event) {
       workflowAnimationsRef.current?.applyEvent(envelope.event)
+      lastFollowEventRef.current = envelope.event
       if (envelope.event.type === 'simulation.completed')
         setRunStatus(envelope.event.status === 'Failed' ? 'Failed' : 'Completed')
       if (envelope.event.message) {
@@ -721,19 +735,14 @@ export default function App() {
           workflowName: envelope.event!.workflowName,
         }])
       }
-      const collapsedStep = (envelope.event.type === 'step.started' || envelope.event.type === 'step.completed')
-        && !envelope.event.targetNodeId
-        && !envelope.event.stationId
-        && !envelope.event.nodeId
-      const focusId = collapsedStep
-        ? undefined
-        : envelope.event.targetNodeId
-          ?? envelope.event.stationId
-          ?? envelope.event.nodeId
-          ?? envelope.event.actorId
-      if (focusId) requestAnimationFrame(() => focusElement(focusId))
+      if (autoFollowRef.current) {
+        requestAnimationFrame(() => {
+          const focusId = workflowAnimationsRef.current?.focusEvent(envelope.event!)
+          if (focusId) lastFocusRef.current = focusId
+        })
+      }
     }
-  }, [cancelMotions, focusElement, prepared?.simulationId])
+  }, [cancelMotions, prepared?.simulationId])
 
   const run = useCallback(async () => {
     abortRef.current?.abort()
@@ -853,7 +862,7 @@ export default function App() {
               <button type="button" disabled={!svg} onClick={() => setZoom(value => Math.min(1.6, value + .1))} title="Zoom in">+</button>
               <button type="button" disabled={!svg} onClick={fitCanvas}>Fit</button>
               <button type="button" disabled={!svg} onClick={() => focusElement(lastFocusRef.current ?? 'actor-master', true)}>Center</button>
-              <button type="button" disabled={!svg} className={autoFollow ? 'is-selected' : ''} onClick={() => setAutoFollow(value => !value)}>Follow</button>
+              <button type="button" disabled={!svg} className={autoFollow ? 'is-selected' : ''} onClick={toggleAutoFollow}>Follow</button>
               <button type="button" disabled={!svg || running} onClick={run}>Replay</button>
               <button type="button" disabled={!svg} onClick={downloadSvg}>Download SVG</button>
             </div>

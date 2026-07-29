@@ -176,7 +176,8 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         var patchItem = Assert.Single(prepared.Stream, item => item.ScenePatch is not null);
         var patch = patchItem.ScenePatch!;
         Assert.Equal(expectedWorkflowName, Assert.Single(patch.Lanes).WorkflowName);
-        Assert.True(patch.Bounds.Width > prepared.Metadata.CanvasWidth);
+        Assert.True(patch.Bounds.Width <= prepared.Metadata.CanvasWidth);
+        Assert.InRange(patch.Lanes[0].X, 0, prepared.Metadata.CanvasWidth);
         Assert.Contains("class=\"workflow-roundabout\"", patch.SvgFragment, StringComparison.Ordinal);
         Assert.Contains("class=\"route-centerline\"", patch.SvgFragment, StringComparison.Ordinal);
         Assert.Contains(prepared.Events, item =>
@@ -343,6 +344,13 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains("GnOuGo.Assets.Animation/Runtime/gnougnou-workflow-animation-controller", app, StringComparison.Ordinal);
         Assert.Contains("workflowAnimationsRef.current?.applyEvent", app, StringComparison.Ordinal);
         Assert.Contains("workflowAnimationsRef.current?.applyScenePatch", app, StringComparison.Ordinal);
+        Assert.Contains("cameraMode: 'scroll'", app, StringComparison.Ordinal);
+        Assert.Contains("workflowAnimationsRef.current?.fitScene()", app, StringComparison.Ordinal);
+        Assert.Contains("workflowAnimationsRef.current?.panBy(", app, StringComparison.Ordinal);
+        Assert.Contains("workflowAnimationsRef.current?.focusEvent(envelope.event!)", app, StringComparison.Ordinal);
+        Assert.Contains("const toggleAutoFollow = useCallback", app, StringComparison.Ordinal);
+        Assert.Contains("workflowAnimationsRef.current?.stopCameraMotion()", app, StringComparison.Ordinal);
+        Assert.Contains("canvasWidth: Math.max", app, StringComparison.Ordinal);
         Assert.Contains("const MotionSvgMarkup = memo", app, StringComparison.Ordinal);
         Assert.Contains("<MotionSvgMarkup svg={svg} />", app, StringComparison.Ordinal);
         Assert.DoesNotContain("function ambientLifeAt", app, StringComparison.Ordinal);
@@ -365,7 +373,30 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains("Array.from(parsedRoot.childNodes)", workflowRuntime, StringComparison.Ordinal);
         Assert.DoesNotContain("while (parsedRoot.firstChild)", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("this.promoteForeground(svg)", workflowRuntime, StringComparison.Ordinal);
-        Assert.Contains("element.classList.contains('gnougo-actor')", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private initializeSceneLayers()", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private ensureTransitBranch(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("const isDynamicTarget =", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("target?.getAttribute('data-live-actor') === 'true'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("if (!isDynamicTarget) return undefined", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("if (!scene.isDynamic) this.setScenePosition(scene, 'active')", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private transitDuration(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private animateTransitActor(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.animateTransitActor(event, transit.branch, transit.reverse, targetPosition)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("'gnougo-transit-actors'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private animateTransitParcel(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private layoutTransitBranches(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("is-transit-copy", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("transit?.branch.id", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private animateCamera(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private setLaneFocus(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private focusDestinationForEvent(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("requestedDurationMs?: number", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("stopCameraMotion()", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("svg.dataset.sceneWidth", workflowRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "svg.setAttribute('viewBox', `0 0 ${patch.bounds.width} ${patch.bounds.height}`)",
+            workflowRuntime,
+            StringComparison.Ordinal);
         Assert.DoesNotContain("GnOuGo.Assets.Bears", workflowRuntime, StringComparison.Ordinal);
     }
 

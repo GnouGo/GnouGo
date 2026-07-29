@@ -440,7 +440,7 @@ public sealed class WorkflowTelemetryAdapterTests
     }
 
     [Fact]
-    public void AgentAnimationClient_QueuesFastTelemetryAndResizesTheFullWidthScene()
+    public void AgentAnimationClient_QueuesFastTelemetryAndUsesStableCameraViewport()
     {
         var root = FindRepositoryRoot();
         var agentRoot = Path.Combine(root, "src", "GnOuGo.Agent.Server");
@@ -459,6 +459,8 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("new ResizeObserver(resize)", main, StringComparison.Ordinal);
         Assert.Contains("Promise<boolean>", main, StringComparison.Ordinal);
         Assert.Contains("allowDocumentFocusScroll: false", main, StringComparison.Ordinal);
+        Assert.Contains("cameraMode: 'viewport'", main, StringComparison.Ordinal);
+        Assert.Contains("controller.focusEvent(event)", main, StringComparison.Ordinal);
         Assert.Contains("copyText,", main, StringComparison.Ordinal);
         Assert.Contains(".gnougo-workflow-card__stage", styles, StringComparison.Ordinal);
         Assert.Contains("height: auto;", styles, StringComparison.Ordinal);
@@ -491,6 +493,7 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("persistentActionTimers", runtime, StringComparison.Ordinal);
         Assert.Contains("data-animation-last-event", runtime, StringComparison.Ordinal);
         Assert.Contains("durationMs < 30_000", runtime, StringComparison.Ordinal);
+        Assert.Contains("private animateCamera(", runtime, StringComparison.Ordinal);
     }
 
     [Fact]

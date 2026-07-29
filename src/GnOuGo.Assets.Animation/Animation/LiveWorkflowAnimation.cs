@@ -173,6 +173,17 @@ public sealed class WorkflowLiveAnimationSession
         {
             var parent = GetWorkflow(signal.ParentWorkflowInstanceId);
             var caller = GetStep(signal.CallerStepOccurrenceId);
+            // Runtime-added workflows use the transit pipe beside the caller.
+            // Statically known child lanes retain their original meeting-point
+            // choreography.
+            var usesDynamicTransit = patch is not null;
+            var parentMeetingPoint = usesDynamicTransit
+                ? caller?.Node?.Position ?? new AnimationPoint(actorHome.X - 120, actorHome.Y)
+                : new AnimationPoint(actorHome.X - 120, actorHome.Y);
+            var specialistMeetingPoint = new AnimationPoint(actorHome.X + 120, actorHome.Y);
+            var childStart = AllNodes().FirstOrDefault(node =>
+                string.Equals(node.LaneId, lane.Id, StringComparison.Ordinal)
+                && node.Kind == AnimationFlowNodeKind.Start);
             Add(updates, SimulationEventTypes.WorkflowDiscovered, _options.EffectDurationMs,
                 workflow: runtime,
                 actorId: parent?.Lane.ActorId,
@@ -182,9 +193,25 @@ public sealed class WorkflowLiveAnimationSession
                 stationId: caller?.Station?.Id,
                 status: SimulationStatus.Running,
                 message: DiscoveryMessage(runtime.WorkflowName, caller?.StepType));
+            if (parent is not null)
+            {
+                Add(updates, SimulationEventTypes.ActorMoved, _options.MoveDurationMs,
+                    workflow: runtime,
+                    actorId: parent.Lane.ActorId,
+                    nodeId: usesDynamicTransit ? caller?.Node?.Id : childStart?.Id,
+                    stationId: usesDynamicTransit ? caller?.Station?.Id : null,
+                    taskId: "task-root",
+                    x: parentMeetingPoint.X,
+                    y: parentMeetingPoint.Y,
+                    status: SimulationStatus.Running,
+                    message: $"The master carries the project parcel to meet '{runtime.WorkflowName}'.");
+            }
             Add(updates, SimulationEventTypes.ActorSpawned, _options.EffectDurationMs,
-                workflow: runtime, actorId: lane.ActorId, x: actorHome.X, y: actorHome.Y,
-                message: $"A GnOuGo joins workflow '{runtime.WorkflowName}'.");
+                workflow: runtime,
+                actorId: lane.ActorId,
+                x: specialistMeetingPoint.X,
+                y: specialistMeetingPoint.Y,
+                message: $"A specialist arrives to join workflow '{runtime.WorkflowName}'.");
             Add(updates, SimulationEventTypes.TaskHandedOff, _options.HandoffDurationMs,
                 workflow: runtime,
                 actorId: parent?.Lane.ActorId,
@@ -192,6 +219,15 @@ public sealed class WorkflowLiveAnimationSession
                 taskId: "task-root",
                 status: SimulationStatus.Running,
                 message: $"The project parcel is handed to '{runtime.WorkflowName}'.");
+            Add(updates, SimulationEventTypes.ActorMoved, _options.MoveDurationMs,
+                workflow: runtime,
+                actorId: lane.ActorId,
+                nodeId: childStart?.Id,
+                taskId: "task-root",
+                x: actorHome.X,
+                y: actorHome.Y,
+                status: SimulationStatus.Running,
+                message: $"The specialist enters workflow '{runtime.WorkflowName}' with the parcel.");
         }
 
         Add(updates, SimulationEventTypes.WorkflowStarted,
@@ -213,6 +249,18 @@ public sealed class WorkflowLiveAnimationSession
         var parent = GetWorkflow(workflow.ParentWorkflowInstanceId);
         if (parent is not null)
         {
+            var actorHome = AllActors()
+                .FirstOrDefault(actor => string.Equals(actor.Id, workflow.Lane.ActorId, StringComparison.Ordinal))
+                ?.Home ?? new AnimationPoint(workflow.Lane.X, workflow.Lane.StartY);
+            var specialistMeetingPoint = new AnimationPoint(actorHome.X + 120, actorHome.Y);
+            Add(updates, SimulationEventTypes.ActorMoved, _options.MoveDurationMs,
+                workflow: workflow,
+                actorId: workflow.Lane.ActorId,
+                taskId: "task-root",
+                x: specialistMeetingPoint.X,
+                y: specialistMeetingPoint.Y,
+                status: status,
+                message: $"The specialist returns from '{workflow.WorkflowName}' with the completed parcel.");
             Add(updates, SimulationEventTypes.TaskHandedOff, _options.HandoffDurationMs,
                 workflow: workflow,
                 actorId: workflow.Lane.ActorId,
@@ -222,6 +270,21 @@ public sealed class WorkflowLiveAnimationSession
                 message: status == SimulationStatus.Failed
                     ? "The failed parcel returns to the caller."
                     : "The completed parcel returns to the caller.");
+            var caller = GetStep(workflow.CallerStepOccurrenceId);
+            if (caller?.Node is not null)
+            {
+                Add(updates, SimulationEventTypes.ActorMoved, _options.MoveDurationMs,
+                    workflow: parent,
+                    actorId: parent.Lane.ActorId,
+                    step: caller,
+                    nodeId: caller.Node.Id,
+                    stationId: caller.Station?.Id,
+                    taskId: "task-root",
+                    x: caller.Node.Position.X,
+                    y: caller.Node.Position.Y,
+                    status: status,
+                    message: "The master carries the returned parcel back to the routing point.");
+            }
             return;
         }
 
@@ -616,7 +679,6 @@ public sealed class WorkflowLiveAnimationSession
 internal static class DynamicScenePatchBuilder
 {
     private const double LaneWidth = 440;
-    private const double LaneGap = 80;
     private const double StepPitch = 260;
     private const int MaxFallbackLeafSteps = 8;
 
@@ -632,8 +694,9 @@ internal static class DynamicScenePatchBuilder
         var safeInstance = SafeId(runtimeInstanceId);
         var laneId = $"lane-live-{safeInstance}";
         var actorId = $"actor-live-{safeInstance}";
-        var left = plan.Bounds.Width + LaneGap + (ordinal - 1) * (LaneWidth + LaneGap);
-        var x = left + LaneWidth / 2;
+        var stageLane = plan.Lanes.FirstOrDefault(static lane => lane.IsEntrypoint)
+            ?? plan.Lanes.FirstOrDefault();
+        var x = stageLane?.X ?? Math.Max(LaneWidth / 2 + 80, plan.Bounds.Width / 2);
         var visible = ParseVisibleSteps(sourceText, workflowName);
         if (visible.Count == 0)
             visible.Add(new VisibleStep("dynamic-work", "runtime.step", "Runtime work"));
@@ -641,9 +704,6 @@ internal static class DynamicScenePatchBuilder
         var height = Math.Max(
             plan.Bounds.Height,
             520 + visible.Count * StepPitch + 420);
-        var width = Math.Max(
-            plan.Bounds.Width,
-            left + LaneWidth + 160);
         var lane = new AnimationWorkflowLane(
             laneId,
             runtimeInstanceId,
@@ -707,7 +767,10 @@ internal static class DynamicScenePatchBuilder
         {
             Id = $"patch-live-{safeInstance}",
             SvgFragment = RenderFragment(lane, actor, nodes, stations, edges),
-            Bounds = new AnimationSceneBounds(width, height),
+            // Runtime workflows reuse the entrypoint stage instead of extending
+            // the diagram horizontally. The browser keeps every scene in its
+            // own preserved layer and swaps the active layer during handoffs.
+            Bounds = new AnimationSceneBounds(plan.Bounds.Width, height),
             Actors = [actor],
             Stations = stations,
             Lanes = [lane],
@@ -804,7 +867,8 @@ internal static class DynamicScenePatchBuilder
         IReadOnlyList<AnimationFlowEdge> edges)
     {
         var builder = new StringBuilder();
-        builder.Append("<g id=\"").Append(Escape(lane.Id)).Append("\" class=\"workflow-lane\" data-live-patch=\"true\">")
+        builder.Append("<g id=\"").Append(Escape(lane.Id)).Append("\" class=\"workflow-lane\" data-live-patch=\"true\" data-lane-id=\"")
+            .Append(Escape(lane.Id)).Append("\" data-workflow-instance=\"").Append(Escape(lane.WorkflowInstanceId)).Append("\">")
             .Append("<rect x=\"").Append(Number(lane.X - lane.Width / 2)).Append("\" y=\"250\" width=\"").Append(Number(lane.Width))
             .Append("\" height=\"").Append(Number(lane.EndY - 180)).Append("\" rx=\"42\" class=\"flow-lane\"/>")
             .Append("<text class=\"lane-label\" x=\"").Append(Number(lane.X - lane.Width / 2 + 34)).Append("\" y=\"300\">")
@@ -820,7 +884,8 @@ internal static class DynamicScenePatchBuilder
                 .Append(' ').Append(Number(to.X - 48)).Append(' ').Append(Number((from.Y + to.Y) / 2))
                 .Append(' ').Append(Number(to.X)).Append(' ').Append(Number(to.Y))
                 .ToString();
-            builder.Append("<g id=\"").Append(Escape(edge.Id)).Append("\" class=\"flow-edge\">")
+            builder.Append("<g id=\"").Append(Escape(edge.Id)).Append("\" class=\"flow-edge\" data-lane-id=\"")
+                .Append(Escape(lane.Id)).Append("\">")
                 .Append("<path class=\"route-outline\" d=\"").Append(path).Append("\"/>")
                 .Append("<path data-route-path=\"true\" class=\"route-surface\" d=\"").Append(path).Append("\"/>")
                 .Append("<path class=\"route-centerline\" d=\"").Append(path).Append("\"/></g>");
@@ -828,7 +893,8 @@ internal static class DynamicScenePatchBuilder
 
         foreach (var node in nodes)
         {
-            builder.Append("<g id=\"").Append(Escape(node.Id)).Append("\" class=\"flow-node\" transform=\"translate(")
+            builder.Append("<g id=\"").Append(Escape(node.Id)).Append("\" class=\"flow-node\" data-lane-id=\"")
+                .Append(Escape(lane.Id)).Append("\" transform=\"translate(")
                 .Append(Number(node.Position.X)).Append(' ').Append(Number(node.Position.Y)).Append(")\">");
             if (node.Kind is AnimationFlowNodeKind.Start or AnimationFlowNodeKind.Finish)
             {
@@ -841,7 +907,7 @@ internal static class DynamicScenePatchBuilder
         }
 
         foreach (var station in stations)
-            builder.Append(RenderStationFragment(station));
+            builder.Append(RenderStationFragment(station, lane.Id));
 
         var bear = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
         {
@@ -863,19 +929,22 @@ internal static class DynamicScenePatchBuilder
         builder.Append("<g id=\"").Append(Escape(actor.Id)).Append("\" class=\"gnougo-actor\" data-visible=\"false\" data-visual-seed=\"")
             .Append(actor.VisualSeed.ToString(CultureInfo.InvariantCulture))
             .Append("\" data-live-actor=\"true")
+            .Append("\" data-lane-id=\"").Append(Escape(lane.Id))
             .Append("\" data-workflow=\"").Append(Escape(actor.WorkflowName))
             .Append("\" transform=\"translate(").Append(Number(actor.Home.X)).Append(' ').Append(Number(actor.Home.Y)).Append(")\">")
             .Append(bear).Append("</g>");
         return builder.ToString();
     }
 
-    internal static string RenderStationFragment(AnimationStation station)
+    internal static string RenderStationFragment(AnimationStation station, string laneId)
     {
         var builder = new StringBuilder();
         builder.Append("<g id=\"").Append(Escape(station.Id)).Append("\" class=\"workflow-station\" data-step-id=\"")
             .Append(Escape(station.StepId ?? "")).Append("\" data-step-type=\"")
             .Append(Escape(station.StepType ?? "")).Append("\" data-station-kind=\"")
-            .Append(station.Kind.ToString().ToLowerInvariant()).Append("\" transform=\"translate(")
+            .Append(station.Kind.ToString().ToLowerInvariant()).Append("\" data-workflow-instance-id=\"")
+            .Append(Escape(station.WorkflowInstanceId ?? "")).Append("\" data-lane-id=\"")
+            .Append(Escape(laneId)).Append("\" transform=\"translate(")
             .Append(Number(station.Position.X)).Append(' ').Append(Number(station.Position.Y)).Append(")\">");
         builder.Append("<g class=\"workflow-roundabout\">")
             .Append("<circle class=\"roundabout-outline\" r=\"80\"/>")
@@ -1023,17 +1092,19 @@ internal static class DynamicRuntimeStepPatchBuilder
                 .Append(' ').Append(Number(node.Position.X - 48)).Append(' ').Append(Number((previous.Position.Y + node.Position.Y) / 2))
                 .Append(' ').Append(Number(node.Position.X)).Append(' ').Append(Number(node.Position.Y))
                 .ToString();
-            builder.Append("<g id=\"").Append(Escape(edge.Id)).Append("\" class=\"flow-edge\" data-live-runtime-step=\"true\">")
+            builder.Append("<g id=\"").Append(Escape(edge.Id)).Append("\" class=\"flow-edge\" data-live-runtime-step=\"true\" data-lane-id=\"")
+                .Append(Escape(node.LaneId)).Append("\">")
                 .Append("<path class=\"route-outline\" d=\"").Append(path).Append("\"/>")
                 .Append("<path data-route-path=\"true\" class=\"route-surface\" d=\"").Append(path).Append("\"/>")
                 .Append("<path class=\"route-centerline\" d=\"").Append(path).Append("\"/></g>");
         }
 
         builder.Append("<g id=\"").Append(Escape(node.Id)).Append("\" class=\"flow-node\" data-live-runtime-step=\"true\" data-step-id=\"")
-            .Append(Escape(node.StepId ?? "")).Append("\" transform=\"translate(")
+            .Append(Escape(node.StepId ?? "")).Append("\" data-lane-id=\"")
+            .Append(Escape(node.LaneId)).Append("\" transform=\"translate(")
             .Append(Number(node.Position.X)).Append(' ').Append(Number(node.Position.Y)).Append(")\">")
             .Append("<text class=\"node-label\" y=\"7\">").Append(Escape(node.Label)).Append("</text></g>");
-        builder.Append(DynamicScenePatchBuilder.RenderStationFragment(station));
+        builder.Append(DynamicScenePatchBuilder.RenderStationFragment(station, node.LaneId));
         return builder.ToString();
     }
 

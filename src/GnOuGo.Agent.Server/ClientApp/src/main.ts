@@ -414,7 +414,8 @@ const workflowAnimation = {
       () => host,
       characters,
       {
-        onFocus: id => controller.focus(id),
+        cameraMode: 'viewport',
+        onFocus: (_id, event) => controller.focusEvent(event),
         // A chat can retain several completed workflow cards. Focus changes
         // may pan a card's own viewport, but must never pull the conversation
         // back to an older diagram while a newer answer is being rendered.
