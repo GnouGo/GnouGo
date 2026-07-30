@@ -343,6 +343,9 @@ public sealed class WorkflowLiveAnimationSession
         var station = node?.StationId is null
             ? null
             : AllStations().FirstOrDefault(item => item.Id == node.StationId);
+        var nodeActorPosition = node is null
+            ? (AnimationPoint?)null
+            : station?.Position ?? new AnimationPoint(node.Position.X, node.Position.Y + 108);
         var actorId = workflow.Lane.ActorId;
         string? cloneId = null;
 
@@ -359,7 +362,8 @@ public sealed class WorkflowLiveAnimationSession
             {
                 Add(updates, SimulationEventTypes.ActorCloned, _options.EffectDurationMs,
                     workflow: workflow, actorId: workflow.Lane.ActorId, targetActorId: cloneId,
-                    branchId: signal.StepOccurrenceId, x: node.Position.X, y: node.Position.Y,
+                    branchId: signal.StepOccurrenceId,
+                    x: nodeActorPosition?.X, y: nodeActorPosition?.Y,
                     message: "Matrix clone starts a concurrent branch.");
                 actorId = cloneId;
             }
@@ -383,7 +387,7 @@ public sealed class WorkflowLiveAnimationSession
                 workflow: workflow, actorId: actorId,
                 step: runtime, nodeId: node.Id, stationId: station?.Id,
                 edgeId: FindIncomingSelectedEdge(node.Id)?.Id,
-                taskId: "task-root", x: node.Position.X, y: node.Position.Y,
+                taskId: "task-root", x: nodeActorPosition!.Value.X, y: nodeActorPosition.Value.Y,
                 status: SimulationStatus.Running,
                 message: $"GnOuGo walks to '{node.Label}'.");
         }

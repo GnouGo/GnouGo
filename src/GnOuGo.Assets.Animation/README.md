@@ -61,22 +61,29 @@ and `workflow.execute` use distinct planning, routing, and handoff roundabout
 glyphs. A child workflow discovered by planning or routing emits
 `workflow.discovered`. Runtime-added children join a reusable stage slot
 instead of extending the diagram. The bearded Master carries the parcel to an
-original compact blue GnOuGo transit pipe anchored directly between the
-calling routing roundabout and the dynamic workflow's Start marker. The pipe
-remains completely hidden until its branch is used. The Master stays at the
-routing point until the transfer begins, enters the local mouth, crosses the
-full pipe with the parcel, and emerges at the selected workflow Start for the
-handoff. Only the branch carrying work is illuminated; parallel selections
-receive independently keyed temporary parcel copies. At handoff, the parent
-scene fades and slides away while the dynamic destination replaces it at the
-same visual scale. On completion, the specialist follows the child road down
-to its Return marker. The branch is then redrawn from Return to the original
-routing roundabout, and the specialist and parcel cross it while the child
-scene disappears and the preserved parent scene returns. Statically known
-workflow lanes and their handoffs retain the original multi-lane presentation
-without transit pipes.
+original paired blue GnOuGo transit portals. A short horizontal source portal
+appears beside the calling routing roundabout. The Master and parcel move
+right-to-left through it while fading out; the parent scene then swaps while
+they are invisible. An identical destination portal appears beside the
+dynamic workflow Start, where both continue right-to-left and progressively
+reappear. Only the portal pair carrying work is active; parallel selections
+receive independently keyed temporary parcel copies. On completion, the
+specialist follows the child road down to Return and the same portal sequence
+runs from Return back to the original routing roundabout while the child scene
+disappears and the preserved parent scene returns. The returned parent portal
+then remains beside its routing roundabout as a quiet, inactive blue landmark.
+Statically known workflow
+lanes and their handoffs retain the original multi-lane presentation without
+transit portals.
 Parallel clone parcels are attached to their workflow scene and hidden during
 scene swaps, then removed when their merge event completes.
+Scheduled events that share a parallel timeline offset are presented as one
+batch, so every cloned GnOuGo starts and traverses its own branch concurrently
+instead of waiting in a visual FIFO. While a parallel cohort is active, Follow
+tracks the frame-by-frame centroid of all its visible GnOuGos and converges on
+the join as they merge. Completed branches walk downward to the actual
+Parallel Join and wait there; the parent reaches the same marker before the
+clones recombine.
 Parallel, foreach, decision, and handoff traffic markers are retained only when their
 subtree contains that visible long-running work. Smooth curved roads use a
 single centered dashed line with no shadow, texture filter, or roadside

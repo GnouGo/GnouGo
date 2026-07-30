@@ -310,6 +310,9 @@ public static class GnouGnouAnimationPlanner
                 && layout.FinishNodes.TryGetValue(childInstance, out var childFinish))
                 return childFinish;
 
+            if (string.Equals(item.NodeId, "@parallel-join", StringComparison.Ordinal))
+                return layout.FindJoinNode(item.WorkflowInstanceId, item.StepId);
+
             if (string.Equals(item.NodeId, "@dynamic-work", StringComparison.Ordinal)
                 && item.WorkflowInstanceId is not null)
             {
@@ -505,6 +508,7 @@ public static class GnouGnouAnimationPlanner
             var branchStart = forkAt + _options.EffectDurationMs;
             var results = new List<BranchResult>(branches.Count);
             var clones = new List<ActorRuntime>(visibleBranches.Length);
+            var visibleResults = new List<(ActorRuntime Actor, BranchResult Result)>(visibleBranches.Length);
             foreach (var branch in visibleBranches)
             {
                 var clone = CreateClone(actor, workflowName, branch.Index);
@@ -515,7 +519,9 @@ public static class GnouGnouAnimationPlanner
                 Add(SimulationEventTypes.TaskCloned, forkAt, _options.EffectDurationMs, clone,
                     taskId: clone.TaskId, branchId: $"branch-{branch.Index + 1}", message: "The task is duplicated for parallel work.");
                 var branchState = new ExecutionState();
-                results.Add(PlanSteps(branch.Steps, workflowName, workflowInstanceId, clone, branchStart, branchState));
+                var result = PlanSteps(branch.Steps, workflowName, workflowInstanceId, clone, branchStart, branchState);
+                results.Add(result);
+                visibleResults.Add((clone, result));
             }
 
             foreach (var hiddenBranch in branches.Where(branch =>
@@ -525,14 +531,51 @@ public static class GnouGnouAnimationPlanner
                 results.Add(PlanSteps(hiddenBranch, workflowName, workflowInstanceId, actor, branchStart, hiddenState));
             }
 
+            foreach (var visible in visibleResults)
+            {
+                Add(SimulationEventTypes.ActorMoved, visible.Result.EndMs, _options.MoveDurationMs, visible.Actor,
+                    workflowName: workflowName, workflowInstanceId: workflowInstanceId, step: owner,
+                    nodeId: "@parallel-join", edgeId: $"parallel-arrival-{visible.Actor.Actor.Id}",
+                    taskId: visible.Actor.TaskId,
+                    message: $"{visible.Actor.Actor.Label} walks down its branch to the parallel join.");
+            }
+
             var mergeAt = results.Count == 0 ? branchStart : results.Max(static result => result.EndMs);
+            if (visibleResults.Count > 0)
+                mergeAt = Math.Max(
+                    mergeAt,
+                    visibleResults.Max(visible => visible.Result.EndMs + _options.MoveDurationMs));
+
+            var parentMoveAt = Math.Max(branchStart, mergeAt - _options.MoveDurationMs);
+            Add(SimulationEventTypes.ActorMoved, parentMoveAt, _options.MoveDurationMs, actor,
+                workflowName: workflowName, workflowInstanceId: workflowInstanceId, step: owner,
+                nodeId: "@parallel-join", edgeId: $"parallel-parent-arrival-{owner.Id}",
+                taskId: actor.TaskId,
+                message: $"{actor.Actor.Label} walks down to receive the parallel results.");
+
+            foreach (var visible in visibleResults)
+            {
+                var arrivedAt = visible.Result.EndMs + _options.MoveDurationMs;
+                if (arrivedAt < mergeAt)
+                {
+                    Add(SimulationEventTypes.ActorWaiting, arrivedAt, mergeAt - arrivedAt, visible.Actor,
+                        workflowName: workflowName, workflowInstanceId: workflowInstanceId, step: owner,
+                        nodeId: "@parallel-join",
+                        message: $"{visible.Actor.Actor.Label} waits at the parallel join.");
+                }
+            }
+
             var failed = results.Any(static result => result.Failed);
             foreach (var clone in clones)
             {
                 Add(SimulationEventTypes.TaskMerged, mergeAt, _options.EffectDurationMs, clone,
-                    targetActorId: actor.Actor.Id, taskId: clone.TaskId, message: "Parallel task results recombine.");
+                    targetActorId: actor.Actor.Id, workflowName: workflowName,
+                    workflowInstanceId: workflowInstanceId, step: owner,
+                    taskId: clone.TaskId, message: "Parallel task results recombine.");
                 Add(SimulationEventTypes.ActorMerged, mergeAt, _options.EffectDurationMs, clone,
-                    targetActorId: actor.Actor.Id, x: planning.Position.X, y: planning.Position.Y,
+                    targetActorId: actor.Actor.Id, workflowName: workflowName,
+                    workflowInstanceId: workflowInstanceId, step: owner,
+                    x: planning.Position.X, y: planning.Position.Y,
                     message: "The matrix clone merges back into its GnOuGo.");
             }
             var end = mergeAt + _options.EffectDurationMs;
@@ -781,22 +824,29 @@ public static class GnouGnouAnimationPlanner
             ActorRuntime actor,
             long startMs)
         {
-            Add(SimulationEventTypes.StepStarted, startMs, actor: actor, workflowName: workflowName,
-                workflowInstanceId: workflowInstanceId, step: step, taskId: actor.TaskId, status: SimulationStatus.Running,
-                message: $"Dynamic workflow transition '{step.Id}' is collapsed in this visual preview.");
-            var cursor = startMs + HiddenStepDurationMs;
+            var station = StationFor(step.Type);
+            AddMove(actor, station, startMs, workflowName, workflowInstanceId, step);
+            var workAt = startMs + _options.MoveDurationMs;
+            Add(SimulationEventTypes.StepStarted, workAt, actor: actor, workflowName: workflowName,
+                workflowInstanceId: workflowInstanceId, step: step, stationId: station.Id,
+                taskId: actor.TaskId, status: SimulationStatus.Running,
+                message: $"Dynamic workflow transition '{step.Id}' starts at its roundabout.");
+            var cursor = workAt + HiddenStepDurationMs;
             if (ShouldFail(workflowName, step))
             {
                 Add(SimulationEventTypes.StepCompleted, cursor, actor: actor, workflowName: workflowName,
-                    workflowInstanceId: workflowInstanceId, step: step, taskId: actor.TaskId, status: SimulationStatus.Failed,
+                    workflowInstanceId: workflowInstanceId, step: step, stationId: station.Id,
+                    taskId: actor.TaskId, status: SimulationStatus.Failed,
                     message: $"Synthetic failure injected at '{step.Id}'.");
                 return new BranchResult(cursor, true);
             }
 
             AddWarning("SIMULATED_DYNAMIC_CALL", $"Dynamic workflow transition '{step.Id}' is recorded without a visual subordinate because its runtime work is unknown.", workflowName, step.Id);
             Add(SimulationEventTypes.StepCompleted, cursor, actor: actor, workflowName: workflowName,
-                workflowInstanceId: workflowInstanceId, step: step, taskId: actor.TaskId, status: SimulationStatus.Succeeded,
+                workflowInstanceId: workflowInstanceId, step: step, stationId: station.Id,
+                taskId: actor.TaskId, status: SimulationStatus.Succeeded,
                 message: $"Dynamic transition '{step.Id}' completed synthetically without a runtime child scene.");
+            actor.Position = station.Position;
             return new BranchResult(cursor, false);
         }
 

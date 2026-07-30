@@ -5,6 +5,7 @@ import {
 } from '../../../GnOuGo.Assets.Bears/Runtime/gnougnou-animation-controller'
 import {
   GnouGnouWorkflowAnimationController,
+  type WorkflowSimulationEvent,
 } from '../../../GnOuGo.Assets.Animation/Runtime/gnougnou-workflow-animation-controller'
 import { streamSimulation, validatePreview } from './api'
 import { EXAMPLE_INPUTS, EXAMPLE_WORKFLOW } from './constants'
@@ -111,6 +112,9 @@ export default function App() {
   const [autoFollow, setAutoFollow] = useState(true)
   const abortRef = useRef<AbortController | null>(null)
   const autoRunRef = useRef(false)
+  const autoFollowRef = useRef(true)
+  const lastFocusRef = useRef<string | null>(null)
+  const lastFollowEventRef = useRef<WorkflowSimulationEvent | null>(null)
   const svgHostRef = useRef<HTMLDivElement>(null)
   const gnouGnouAnimationsRef = useRef<GnouGnouAnimationController | null>(null)
   if (gnouGnouAnimationsRef.current === null)
@@ -120,14 +124,20 @@ export default function App() {
     workflowAnimationsRef.current = new GnouGnouWorkflowAnimationController(
       () => svgHostRef.current,
       gnouGnouAnimationsRef.current,
-      { cameraMode: 'scroll' },
+      {
+        cameraMode: 'scroll',
+        shouldFollowPortalTransfer: () => autoFollowRef.current,
+        onFocus: (_id, event) => {
+          lastFollowEventRef.current = event
+          if (!autoFollowRef.current) return
+          const focusId = workflowAnimationsRef.current?.focusEvent(event)
+          if (focusId) lastFocusRef.current = focusId
+        },
+      },
     )
   const positionsRef = useRef(new Map<string, Position>())
   const animationsRef = useRef(new Map<string, number>())
   const stationAnimationsRef = useRef<Animation[]>([])
-  const autoFollowRef = useRef(true)
-  const lastFocusRef = useRef<string | null>(null)
-  const lastFollowEventRef = useRef<SimulationEvent | null>(null)
   const dragRef = useRef<{ x: number; y: number } | null>(null)
   const motionGenerationRef = useRef(0)
 
@@ -721,8 +731,7 @@ export default function App() {
       return
     }
     if (envelope.event) {
-      workflowAnimationsRef.current?.applyEvent(envelope.event)
-      lastFollowEventRef.current = envelope.event
+      workflowAnimationsRef.current?.enqueueEvent(envelope.event)
       if (envelope.event.type === 'simulation.completed')
         setRunStatus(envelope.event.status === 'Failed' ? 'Failed' : 'Completed')
       if (envelope.event.message) {
@@ -734,12 +743,6 @@ export default function App() {
           stepId: envelope.event!.stepId,
           workflowName: envelope.event!.workflowName,
         }])
-      }
-      if (autoFollowRef.current) {
-        requestAnimationFrame(() => {
-          const focusId = workflowAnimationsRef.current?.focusEvent(envelope.event!)
-          if (focusId) lastFocusRef.current = focusId
-        })
       }
     }
   }, [cancelMotions, prepared?.simulationId])

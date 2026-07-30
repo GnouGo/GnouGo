@@ -78,7 +78,9 @@ public static class GnouGnouAnimationSvgRenderer
     #gnougo-transit-system, #gnougo-transit-actors { pointer-events: none; }
     .gnougo-actor.is-in-transit {
       filter: drop-shadow(0 12px 14px rgba(23, 79, 125, .24));
+      transition: none !important;
     }
+    .task-object.is-in-transit { transition: none !important; }
     .gnougo-transit-branch {
       opacity: 0;
       visibility: hidden;
@@ -90,6 +92,22 @@ public static class GnouGnouAnimationSvgRenderer
       transition-delay: 0s;
       filter: drop-shadow(0 5px 8px rgba(31, 109, 169, .18));
     }
+    .gnougo-transit-branch.is-parked {
+      opacity: .72;
+      visibility: visible;
+      transition-delay: 0s;
+      filter: drop-shadow(0 3px 5px rgba(31, 109, 169, .12));
+    }
+    .transit-portal-leg {
+      opacity: 0;
+      transition: opacity .16s ease;
+    }
+    .gnougo-transit-branch[data-portal-phase="source"] .transit-portal-source,
+    .gnougo-transit-branch[data-portal-phase="destination"] .transit-portal-destination,
+    .gnougo-transit-branch[data-portal-phase="parked-parent"] .transit-portal-destination {
+      opacity: 1;
+    }
+    .gnougo-transit-branch.is-parked .transit-pipe-highlight { opacity: .34; }
     .transit-pipe-shell, .transit-pipe-core, .transit-pipe-highlight {
       fill: none;
       stroke-linecap: round;
@@ -105,9 +123,6 @@ public static class GnouGnouAnimationSvgRenderer
     }
     .gnougo-transit-branch.is-active .transit-pipe-highlight {
       animation: gnougo-transit-flow .7s linear infinite;
-    }
-    .gnougo-transit-branch.is-returning .transit-pipe-highlight {
-      animation-direction: reverse;
     }
     .transit-mouth-shell { fill: #174f7d; stroke: #0d385b; stroke-width: 5; }
     .transit-mouth-core { fill: #3f8fd2; stroke: #9bd7ff; stroke-width: 3; }

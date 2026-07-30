@@ -23,7 +23,11 @@ with alternating arm and leg steps, breathing, independent ear motion, head
 bobbing, blinking, and directional eyes. At active roundabouts the GnOuGos keep
 their task-specific pose while the circular road markings move. Calls use
 synchronized give/receive poses across workflow lanes; matrix branches split
-and merge; waiting, delivery, celebration, and failure have distinct poses.
+and merge. Equal-time branch movements are presented concurrently, one GnOuGo
+per branch, and Follow stays centered on the visible cohort's live centroid
+until the parallel join. Each completed branch walks down to that actual Join
+marker and waits for the others before recombination. Waiting, delivery,
+celebration, and failure have distinct poses.
 
 Idle actors and long-running poses share a deliberately slow ambient life
 cycle: breathing, occasional blinks, small mouth changes, independent ear
@@ -43,20 +47,19 @@ launched skyward from the delivery dock. Failure turns that same parcel red.
 
 When the preview reaches `workflow.route` or `workflow.execute`, the server
 streams a `scene.patch` envelope that prepares a dynamic child workflow in the
-same reusable stage slot. The camera first holds on the routing point. A
-compact blue GnOuGo transit pipe then appears only for the transfer, anchored
-from that routing roundabout to the dynamic workflow's Start marker. The
-Master enters it with the parcel and emerges at Start while the parent plan
-fades and the specialist plan replaces it without changing the stage scale.
-Multiple dynamically selected workflows keep separately keyed branches and
-temporary parcel copies with branch-specific activation. Parallel clone
-parcels are hidden with their inactive scene and removed at merge. Statically
-known workflow lanes keep their original presentation and handoff animation
-without pipes. On completion, the specialist walks down the child workflow to
-its Return marker. The blue pipe is redrawn from Return back to the original
-routing roundabout; the specialist and parcel cross it as the child plan
-disappears, the preserved parent plan returns, and the camera follows the
-caller. A route
+same reusable stage slot. The camera first holds on the routing point. A short,
+thick horizontal blue source portal appears beside it; the Master and parcel
+move right-to-left and fade out. The parent plan swaps while they are
+invisible, then a matching portal appears beside the child Start and they
+continue right-to-left while reappearing. Multiple dynamically selected
+workflows keep separately keyed portal pairs and temporary parcel copies.
+Parallel clone parcels are hidden with their inactive scene and removed at
+merge. Statically known workflow lanes keep their original presentation and
+handoff animation without portals. On completion, the specialist walks down
+the child workflow to Return and the paired portal transition runs back to the
+original routing roundabout while the child plan disappears, the preserved
+parent plan returns, and the camera follows the destination portal. The
+returned parent portal remains visible as a dim, inactive landmark. A route
 prefers a non-entrypoint local workflow such as `fallback_general`; when the
 runtime selection or generated YAML is unknowable in this standalone preview,
 the server creates an explicitly synthetic representative child. The real

@@ -57,6 +57,47 @@ public sealed class LiveWorkflowAnimationTests
         Assert.Contains(">⇄</text>", svg, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("workflow.route")]
+    [InlineData("workflow.execute")]
+    public void LiveSession_MovesOrchestrationActorToRoundaboutCenter(string stepType)
+    {
+        var validation = WorkflowPreviewValidator.ParseAndValidate($$"""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - { id: orchestrate, type: {{stepType}} }
+            """);
+        var plan = GnouGnouAnimationPlanner.BuildLive(
+            validation,
+            new GnouGnouAnimationOptions { Seed = 22 });
+        var station = Assert.Single(plan.Stations, item => item.StepId == "orchestrate");
+        var session = new WorkflowLiveAnimationSession(plan);
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "run-main",
+            WorkflowName = "main"
+        });
+
+        var updates = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "run-main",
+            StepOccurrenceId = "orchestrate-1",
+            StepId = "orchestrate",
+            StepType = stepType
+        });
+
+        var movement = Assert.Single(updates, update =>
+            update.Event?.Type == SimulationEventTypes.ActorMoved).Event!;
+        Assert.Equal(station.Id, movement.StationId);
+        Assert.Equal(station.Position.X, movement.X);
+        Assert.Equal(station.Position.Y, movement.Y);
+    }
+
     [Fact]
     public void HumanInput_IsVisibleAndProducesWaitingAndResumeEvents()
     {

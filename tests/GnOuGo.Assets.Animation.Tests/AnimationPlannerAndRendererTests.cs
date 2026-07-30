@@ -172,7 +172,14 @@ public sealed class AnimationPlannerAndRendererTests
         Assert.Contains(".transit-pipe-core { stroke: #3f8fd2; stroke-width: 40;", svg, StringComparison.Ordinal);
         Assert.DoesNotContain("stroke-width: 88", svg, StringComparison.Ordinal);
         Assert.Contains(".gnougo-actor.is-in-transit", svg, StringComparison.Ordinal);
+        Assert.Contains("transition: none !important;", svg, StringComparison.Ordinal);
+        Assert.Contains(".task-object.is-in-transit", svg, StringComparison.Ordinal);
         Assert.Contains(".gnougo-transit-branch {\n      opacity: 0;", svg, StringComparison.Ordinal);
+        Assert.Contains(".transit-portal-leg {", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-portal-phase=\"source\"] .transit-portal-source", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-portal-phase=\"destination\"] .transit-portal-destination", svg, StringComparison.Ordinal);
+        Assert.Contains(".gnougo-transit-branch.is-parked", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-portal-phase=\"parked-parent\"] .transit-portal-destination", svg, StringComparison.Ordinal);
         Assert.Contains(".task-object.is-parallel-detail-hidden", svg, StringComparison.Ordinal);
         Assert.Contains("@keyframes gnougo-transit-flow", svg, StringComparison.Ordinal);
         Assert.DoesNotContain("class=\"route-shadow\"", svg, StringComparison.Ordinal);

@@ -142,6 +142,41 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.True(a.DurationMs > 0);
         Assert.Contains(successful.Events, item => item.Type == SimulationEventTypes.ActorCloned);
         Assert.Contains(successful.Events, item => item.Type == SimulationEventTypes.ActorMerged);
+        var branchActors = successful.Events
+            .Where(item => item.Type == SimulationEventTypes.ActorCloned)
+            .Select(item => item.TargetActorId)
+            .OfType<string>()
+            .ToHashSet(StringComparer.Ordinal);
+        var simultaneousBranchMoves = successful.Events
+            .Where(item => item.Type == SimulationEventTypes.ActorMoved
+                && item.OffsetMs == a.OffsetMs - item.DurationMs
+                && item.ActorId is not null
+                && branchActors.Contains(item.ActorId))
+            .ToArray();
+        Assert.Equal(2, simultaneousBranchMoves.Length);
+        Assert.Equal(2, simultaneousBranchMoves.Select(item => item.ActorId).Distinct(StringComparer.Ordinal).Count());
+        var joinId = successful.Events.Single(item =>
+            item.Type == SimulationEventTypes.ParallelCompleted && item.StepId == "fork").NodeId;
+        Assert.NotNull(joinId);
+        var branchArrivals = successful.Events
+            .Where(item => item.Type == SimulationEventTypes.ActorMoved
+                && item.NodeId == joinId
+                && item.ActorId is not null
+                && branchActors.Contains(item.ActorId))
+            .ToArray();
+        Assert.Equal(2, branchArrivals.Length);
+        Assert.All(branchArrivals, arrival =>
+        {
+            var branchStart = Assert.Single(simultaneousBranchMoves, item => item.ActorId == arrival.ActorId);
+            Assert.True(arrival.Y.GetValueOrDefault() > branchStart.Y.GetValueOrDefault());
+        });
+        Assert.Contains(successful.Events, item =>
+            item.Type == SimulationEventTypes.ActorMoved
+            && item.ActorId == "actor-master"
+            && item.NodeId == joinId);
+        Assert.All(
+            successful.Events.Where(item => item.Type == SimulationEventTypes.ActorMerged),
+            merged => Assert.Equal(joinId, merged.NodeId));
         Assert.Contains(failed.Events, item => item.Type == SimulationEventTypes.StepCompleted && item.StepId == "a" && item.Status == SimulationStatus.Failed);
         Assert.Contains(failed.Events, item => item.Type == SimulationEventTypes.StepSkipped && item.StepId == "after");
         Assert.Equal(SimulationStatus.Failed, failed.Events.Last(item => item.Type == SimulationEventTypes.SimulationCompleted).Status);
@@ -342,12 +377,13 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
 
         Assert.Contains("GnOuGo.Assets.Bears/Runtime/gnougnou-animation-controller", app, StringComparison.Ordinal);
         Assert.Contains("GnOuGo.Assets.Animation/Runtime/gnougnou-workflow-animation-controller", app, StringComparison.Ordinal);
-        Assert.Contains("workflowAnimationsRef.current?.applyEvent", app, StringComparison.Ordinal);
+        Assert.Contains("workflowAnimationsRef.current?.enqueueEvent(envelope.event)", app, StringComparison.Ordinal);
         Assert.Contains("workflowAnimationsRef.current?.applyScenePatch", app, StringComparison.Ordinal);
         Assert.Contains("cameraMode: 'scroll'", app, StringComparison.Ordinal);
         Assert.Contains("workflowAnimationsRef.current?.fitScene()", app, StringComparison.Ordinal);
         Assert.Contains("workflowAnimationsRef.current?.panBy(", app, StringComparison.Ordinal);
-        Assert.Contains("workflowAnimationsRef.current?.focusEvent(envelope.event!)", app, StringComparison.Ordinal);
+        Assert.Contains("onFocus: (_id, event) =>", app, StringComparison.Ordinal);
+        Assert.DoesNotContain("workflowAnimationsRef.current?.focusEvent(envelope.event!)", app, StringComparison.Ordinal);
         Assert.Contains("const toggleAutoFollow = useCallback", app, StringComparison.Ordinal);
         Assert.Contains("workflowAnimationsRef.current?.stopCameraMotion()", app, StringComparison.Ordinal);
         Assert.Contains("canvasWidth: Math.max", app, StringComparison.Ordinal);
@@ -380,29 +416,66 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains("if (!isDynamicTarget) return undefined", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("if (!scene.isDynamic) this.setScenePosition(scene, 'active')", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private transitDuration(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("Math.max(700, Math.min(durationMs * 1.45, 2200))", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private portalLeadInDuration(): number", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private portalSceneSwapDuration(): number", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private portalTimeline(durationMs: number): PortalTimeline", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private portalTransferDuration(durationMs: number)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.portalTransferDuration(event.durationMs) + 180, 3400", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("performance.now() + this.portalLeadInDuration()", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private animateTransitActor(", workflowRuntime, StringComparison.Ordinal);
-        Assert.Contains("this.animateTransitActor(event, transit.branch, transit.reverse, targetPosition)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.animateTransitActor(event, transit.branch)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.animateTransitParcel(event, transit.branch, transit.reverse)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.setPosition(event.targetActorId, branch.destinationAnchor)", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("'gnougo-transit-actors'", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("routingAnchor: Position", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private workflowControlPosition(", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("reverse ? ['finish', 'return'] : ['start']", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private createTransitPortal(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("'transit-portal-source'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("'transit-portal-destination'", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("branch.activeTransferToken = transferToken", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("case 'task.cloned':", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("case 'task.merged':", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private syncParallelTaskVisibility()", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("offsetMs?: number", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("interface ParallelCohort", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("while (this.liveEventQueue[0]?.offsetMs === first.offsetMs)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private parallelCentroid(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private followParallelCohort(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("delegatedActorParents: Map<string, string>", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private rootParallelCohort(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-animation-parallel-actors", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private animateTransitParcel(", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private layoutTransitBranch(", workflowRuntime, StringComparison.Ordinal);
-        Assert.Contains("const pipeMargin = 44", workflowRuntime, StringComparison.Ordinal);
-        Assert.Contains("const clampControl =", workflowRuntime, StringComparison.Ordinal);
-        Assert.Contains("'<circle r=\"34\" class=\"transit-mouth-shell\"/>", workflowRuntime, StringComparison.Ordinal);
-        Assert.Contains("const sceneSwitchProgress = reverse ? .22 : .46", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("const portalLength =", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private positionTransitPortal(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-portal-phase", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-portal-phase', 'preparing'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("const sourceRevealAt = startedAt - 180", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-portal-phase', 'between'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("const destinationRevealAt = timeline.destinationEntryStart - 180", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("branch.group.classList.add('is-parked')", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-portal-phase', 'parked-parent'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("shouldFollowPortalTransfer", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private portalSourceFocusPosition(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private portalDestinationFocusPosition(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.portalSourceFocusPosition(transit.branch)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.portalDestinationFocusPosition(branch)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("opacity = 1 - local", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("opacity = local", workflowRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("branch.path.getTotalLength()", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("shouldFollowPortalTransfer: () => autoFollowRef.current", app, StringComparison.Ordinal);
         Assert.Contains("is-transit-copy", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("transit?.branch.id", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private animateCamera(", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private setLaneFocus(", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private focusDestinationForEvent(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("scene?.isDynamic && laneId !== this.activeLaneId", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("requestedDurationMs?: number", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("stopCameraMotion()", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("parcel.classList.add('is-in-transit')", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("parcel.classList.remove('is-in-transit')", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("svg.dataset.sceneWidth", workflowRuntime, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "svg.setAttribute('viewBox', `0 0 ${patch.bounds.width} ${patch.bounds.height}`)",

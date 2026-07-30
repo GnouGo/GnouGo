@@ -45,6 +45,12 @@ export interface WorkflowAnimationScenePatch {
 export interface WorkflowSimulationEvent {
   sequence: number
   type: string
+  /**
+   * Planned previews use a shared logical offset for events that must be
+   * presented together (notably the actors travelling parallel branches).
+   * Live telemetry may omit it.
+   */
+  offsetMs?: number
   durationMs: number
   workflowInstanceId?: string
   workflowName?: string
@@ -69,6 +75,7 @@ export interface WorkflowSimulationEvent {
 export interface WorkflowAnimationControllerOptions {
   onFocus?: (id: string, event: WorkflowSimulationEvent) => void
   onStatus?: (status: string, message?: string) => void
+  shouldFollowPortalTransfer?: () => boolean
   allowDocumentFocusScroll?: boolean
   cameraMode?: 'viewport' | 'scroll'
 }
@@ -90,11 +97,33 @@ interface TransitBranch {
   targetLaneId: string
   workflowName: string
   group: SVGGElement
-  path: SVGPathElement
+  sourcePortal: SVGGElement
+  destinationPortal: SVGGElement
   routingAnchor: Position
-  inlet: Position
-  outlet: Position
+  sourceAnchor: Position
+  sourceStart: Position
+  sourceEnd: Position
+  destinationStart: Position
+  destinationEnd: Position
+  destinationAnchor: Position
   activeTransferToken?: number
+}
+interface PortalTimeline {
+  approachEnd: number
+  sourceExitEnd: number
+  destinationEntryStart: number
+  destinationExitEnd: number
+  total: number
+}
+interface ParallelCohort {
+  id: string
+  parentActorId: string
+  workflowInstanceId?: string
+  stepId?: string
+  sequence: number
+  parentCohortId?: string
+  actorIds: Set<string>
+  delegatedActorParents: Map<string, string>
 }
 type MotionMode = 'walk' | 'arc' | 'drop' | 'spawn' | 'merge' | 'sky'
 
@@ -128,6 +157,8 @@ export class GnouGnouWorkflowAnimationController {
   private readonly persistentActionTimers = new Map<string, number>()
   private readonly sceneLayers = new Map<string, WorkflowSceneLayers>()
   private readonly transitBranches = new Map<string, TransitBranch>()
+  private readonly parallelCohorts = new Map<string, ParallelCohort>()
+  private readonly actorParallelCohorts = new Map<string, string>()
   private liveEventTimer: number | undefined
   private cameraFrame: number | undefined
   private cameraViewport: SceneBounds | undefined
@@ -158,6 +189,8 @@ export class GnouGnouWorkflowAnimationController {
     this.positions.clear()
     this.sceneLayers.clear()
     this.transitBranches.clear()
+    this.parallelCohorts.clear()
+    this.actorParallelCohorts.clear()
     this.activeLaneId = undefined
     this.transitTransferSequence = 0
     this.cameraViewport = undefined
@@ -168,6 +201,7 @@ export class GnouGnouWorkflowAnimationController {
     this.setHostDiagnostic('data-animation-last-event', '')
     this.setHostDiagnostic('data-animation-error', '')
     this.setHostDiagnostic('data-animation-queued-events', '0')
+    this.setHostDiagnostic('data-animation-parallel-actors', '0')
     this.initializeCamera()
     this.initializeSceneLayers()
     this.characters.startAmbient()
@@ -190,6 +224,8 @@ export class GnouGnouWorkflowAnimationController {
     this.positions.clear()
     this.sceneLayers.clear()
     this.transitBranches.clear()
+    this.parallelCohorts.clear()
+    this.actorParallelCohorts.clear()
     this.activeLaneId = undefined
     this.transitTransferSequence = 0
     this.cameraViewport = undefined
@@ -204,7 +240,15 @@ export class GnouGnouWorkflowAnimationController {
   enqueueEvent(event: WorkflowSimulationEvent) {
     this.liveEventQueue.push(event)
     this.setHostDiagnostic('data-animation-queued-events', String(this.liveEventQueue.length))
-    if (this.liveEventTimer === undefined) this.playNextLiveEvent()
+    // Give an NDJSON chunk one frame to contribute every event sharing the
+    // same planned offset. Parallel branch movements can then start in one
+    // presentation batch instead of being serialized by the live queue.
+    if (this.liveEventTimer === undefined) {
+      this.liveEventTimer = window.setTimeout(() => {
+        this.liveEventTimer = undefined
+        this.playNextLiveEvent()
+      }, 16)
+    }
   }
 
   applyScenePatch(patch: WorkflowAnimationScenePatch) {
@@ -372,7 +416,7 @@ export class GnouGnouWorkflowAnimationController {
   private ensureTransitRoot(svg = this.svgRoot()): SVGGElement | null {
     if (!svg) return null
     const root = this.ensureSvgGroup(svg, 'gnougo-transit-system')
-    root.setAttribute('aria-label', 'GnOuGo workflow transit pipes')
+    root.setAttribute('aria-label', 'GnOuGo workflow transit portals')
     return root
   }
 
@@ -454,25 +498,22 @@ export class GnouGnouWorkflowAnimationController {
     group.setAttribute('data-parent-actor-id', event.actorId)
     group.setAttribute('data-target-actor-id', event.targetActorId)
 
-    const shell = document.createElementNS(SVG_NAMESPACE, 'path')
-    shell.setAttribute('class', 'transit-pipe-shell')
-    const core = document.createElementNS(SVG_NAMESPACE, 'path')
-    core.setAttribute('class', 'transit-pipe-core')
-    core.setAttribute('data-transit-path', 'true')
-    const highlight = document.createElementNS(SVG_NAMESPACE, 'path')
-    highlight.setAttribute('class', 'transit-pipe-highlight')
-    const inlet = document.createElementNS(SVG_NAMESPACE, 'g')
-    inlet.setAttribute('class', 'transit-pipe-mouth transit-pipe-inlet')
-    inlet.innerHTML = '<circle r="34" class="transit-mouth-shell"/><circle r="27" class="transit-mouth-core"/>'
-    const outlet = document.createElementNS(SVG_NAMESPACE, 'g')
-    outlet.setAttribute('class', 'transit-pipe-mouth transit-pipe-outlet')
-    outlet.innerHTML = '<circle r="38" class="transit-mouth-shell"/><circle r="30" class="transit-mouth-core"/><path d="M-9 -5L0 6L9 -5" class="transit-mouth-arrow"/>'
-    const label = document.createElementNS(SVG_NAMESPACE, 'text')
-    label.setAttribute('class', 'transit-pipe-label')
-    label.textContent = event.workflowName ?? 'Routed workflow'
-    group.append(shell, core, highlight, inlet, outlet, label)
+    const sourcePortal = this.createTransitPortal(
+      'transit-portal-source',
+      event.workflowName ?? 'Routed workflow',
+    )
+    const destinationPortal = this.createTransitPortal(
+      'transit-portal-destination',
+      event.workflowName ?? 'Routed workflow',
+    )
+    group.append(sourcePortal, destinationPortal)
     root.append(group)
 
+    const routingAnchor = (event.stationId && this.find(event.stationId))
+      ? this.readPosition(event.stationId)
+      : (event.nodeId && this.find(event.nodeId))
+        ? this.readPosition(event.nodeId)
+        : this.readPosition(event.actorId)
     const branch: TransitBranch = {
       id: group.id,
       parentActorId: event.actorId,
@@ -481,19 +522,42 @@ export class GnouGnouWorkflowAnimationController {
       targetLaneId,
       workflowName: event.workflowName ?? 'Routed workflow',
       group,
-      path: core,
-      routingAnchor: (event.stationId && this.find(event.stationId))
-        ? this.readPosition(event.stationId)
-        : (event.nodeId && this.find(event.nodeId))
-          ? this.readPosition(event.nodeId)
-          : this.readPosition(event.actorId),
-      inlet: { x: 0, y: 0 },
-      outlet: { x: 0, y: 0 },
+      sourcePortal,
+      destinationPortal,
+      routingAnchor,
+      sourceAnchor: routingAnchor,
+      sourceStart: routingAnchor,
+      sourceEnd: routingAnchor,
+      destinationStart: routingAnchor,
+      destinationEnd: routingAnchor,
+      destinationAnchor: routingAnchor,
     }
     this.transitBranches.set(`${event.actorId}->${event.targetActorId}`, branch)
     this.layoutTransitBranch(branch, false)
     this.promoteForeground(this.svgRoot()!)
     return branch
+  }
+
+  private createTransitPortal(className: string, labelText: string): SVGGElement {
+    const portal = document.createElementNS(SVG_NAMESPACE, 'g')
+    portal.setAttribute('class', `transit-portal-leg ${className}`)
+    const shell = document.createElementNS(SVG_NAMESPACE, 'path')
+    shell.setAttribute('class', 'transit-pipe-shell')
+    const core = document.createElementNS(SVG_NAMESPACE, 'path')
+    core.setAttribute('class', 'transit-pipe-core')
+    const highlight = document.createElementNS(SVG_NAMESPACE, 'path')
+    highlight.setAttribute('class', 'transit-pipe-highlight')
+    const leftMouth = document.createElementNS(SVG_NAMESPACE, 'g')
+    leftMouth.setAttribute('class', 'transit-pipe-mouth transit-portal-left')
+    leftMouth.innerHTML = '<circle r="38" class="transit-mouth-shell"/><circle r="30" class="transit-mouth-core"/>'
+    const rightMouth = document.createElementNS(SVG_NAMESPACE, 'g')
+    rightMouth.setAttribute('class', 'transit-pipe-mouth transit-portal-right')
+    rightMouth.innerHTML = '<circle r="42" class="transit-mouth-shell"/><circle r="33" class="transit-mouth-core"/><path d="M8 -9L-6 0L8 9" class="transit-mouth-arrow"/>'
+    const label = document.createElementNS(SVG_NAMESPACE, 'text')
+    label.setAttribute('class', 'transit-pipe-label')
+    label.textContent = labelText
+    portal.append(shell, core, highlight, leftMouth, rightMouth, label)
+    return portal
   }
 
   private workflowControlPosition(
@@ -512,78 +576,67 @@ export class GnouGnouWorkflowAnimationController {
   }
 
   private layoutTransitBranch(branch: TransitBranch, reverse: boolean) {
-    const siblings = Array.from(this.transitBranches.values())
-      .filter(candidate => candidate.parentActorId === branch.parentActorId)
-    const branchIndex = Math.max(0, siblings.indexOf(branch))
     const workflowAnchor = this.workflowControlPosition(
       branch.targetLaneId,
       reverse ? ['finish', 'return'] : ['start'],
     ) ?? this.readPosition(branch.targetActorId)
-    const dx = workflowAnchor.x - branch.routingAnchor.x
-    const dy = workflowAnchor.y - branch.routingAnchor.y
-    const distance = Math.max(1, Math.hypot(dx, dy))
-    const direction = { x: dx / distance, y: dy / distance }
-    const routingClearance = Math.min(104, distance * .24)
-    const workflowClearance = Math.min(72, distance * .18)
-    const inlet = {
-      x: branch.routingAnchor.x + direction.x * routingClearance,
-      y: branch.routingAnchor.y + direction.y * routingClearance,
-    }
-    const outlet = {
-      x: workflowAnchor.x - direction.x * workflowClearance,
-      y: workflowAnchor.y - direction.y * workflowClearance,
-    }
-    branch.inlet = inlet
-    branch.outlet = outlet
-
-    const pipeDx = outlet.x - inlet.x
-    const pipeDy = outlet.y - inlet.y
-    const pipeDistance = Math.max(1, Math.hypot(pipeDx, pipeDy))
-    const tangent = { x: pipeDx / pipeDistance, y: pipeDy / pipeDistance }
-    const perpendicular = { x: -tangent.y, y: tangent.x }
-    const branchSide = branchIndex % 2 === 0 ? 1 : -1
-    const branchDepth = Math.floor(branchIndex / 2)
-    const bow = Math.min(96, Math.max(34, pipeDistance * .1))
-      * branchSide
-      * (1 + branchDepth * .1)
-    const controlDistance = pipeDistance * .32
-    const rawFirstControl = {
-      x: inlet.x + tangent.x * controlDistance + perpendicular.x * bow,
-      y: inlet.y + tangent.y * controlDistance + perpendicular.y * bow,
-    }
-    const rawSecondControl = {
-      x: outlet.x - tangent.x * controlDistance + perpendicular.x * bow,
-      y: outlet.y - tangent.y * controlDistance + perpendicular.y * bow,
-    }
     const bounds = this.sceneBounds ?? { width: 1600, height: 900 }
-    const pipeMargin = 44
-    const clampControl = (point: Position): Position => ({
-      x: Math.max(pipeMargin, Math.min(bounds.width - pipeMargin, point.x)),
-      y: Math.max(pipeMargin, Math.min(bounds.height - pipeMargin, point.y)),
-    })
-    const firstControl = clampControl(rawFirstControl)
-    const secondControl = clampControl(rawSecondControl)
-    const path = `M ${inlet.x} ${inlet.y} C ${firstControl.x} ${firstControl.y} ${secondControl.x} ${secondControl.y} ${outlet.x} ${outlet.y}`
-    branch.group.querySelectorAll<SVGPathElement>(
+    const margin = 52
+    const portalLength = Math.min(240, Math.max(150, bounds.width * .15))
+    const sourceAnchor = reverse ? workflowAnchor : branch.routingAnchor
+    const destinationAnchor = reverse ? branch.routingAnchor : workflowAnchor
+    const sourceRightX = Math.max(margin + 90, sourceAnchor.x - 72)
+    const sourceLength = Math.min(portalLength, Math.max(90, sourceRightX - margin))
+    const sourceStart = {
+      x: sourceRightX,
+      y: sourceAnchor.y,
+    }
+    const sourceEnd = {
+      x: Math.max(margin, sourceStart.x - sourceLength),
+      y: sourceStart.y,
+    }
+    const destinationLeftX = Math.min(
+      bounds.width - margin - 90,
+      destinationAnchor.x + 72,
+    )
+    const destinationLength = Math.min(
+      portalLength,
+      Math.max(90, bounds.width - margin - destinationLeftX),
+    )
+    const destinationEnd = {
+      x: destinationLeftX,
+      y: destinationAnchor.y,
+    }
+    const destinationStart = {
+      x: Math.min(bounds.width - margin, destinationEnd.x + destinationLength),
+      y: destinationEnd.y,
+    }
+    branch.sourceAnchor = sourceAnchor
+    branch.sourceStart = sourceStart
+    branch.sourceEnd = sourceEnd
+    branch.destinationStart = destinationStart
+    branch.destinationEnd = destinationEnd
+    branch.destinationAnchor = destinationAnchor
+    this.positionTransitPortal(branch.sourcePortal, sourceEnd, sourceStart)
+    this.positionTransitPortal(branch.destinationPortal, destinationEnd, destinationStart)
+  }
+
+  private positionTransitPortal(
+    portal: SVGGElement,
+    left: Position,
+    right: Position,
+  ) {
+    const path = `M ${left.x} ${left.y} L ${right.x} ${right.y}`
+    portal.querySelectorAll<SVGPathElement>(
       '.transit-pipe-shell, .transit-pipe-core, .transit-pipe-highlight',
     ).forEach(element => element.setAttribute('d', path))
-    branch.group.querySelector<SVGGElement>('.transit-pipe-inlet')
-      ?.setAttribute('transform', `translate(${inlet.x} ${inlet.y})`)
-    branch.group.querySelector<SVGGElement>('.transit-pipe-outlet')
-      ?.setAttribute('transform', `translate(${outlet.x} ${outlet.y})`)
-    const travelAngle = Math.atan2(
-      reverse ? -pipeDy : pipeDy,
-      reverse ? -pipeDx : pipeDx,
-    ) * 180 / Math.PI
-    branch.group.querySelector<SVGPathElement>('.transit-mouth-arrow')
-      ?.setAttribute('transform', `rotate(${travelAngle - 90})`)
-    const label = branch.group.querySelector<SVGTextElement>('.transit-pipe-label')
-    const labelPosition = clampControl({
-      x: (inlet.x + outlet.x) / 2 + perpendicular.x * bow,
-      y: (inlet.y + outlet.y) / 2 + perpendicular.y * bow - 48,
-    })
-    label?.setAttribute('x', String(labelPosition.x))
-    label?.setAttribute('y', String(labelPosition.y))
+    portal.querySelector<SVGGElement>('.transit-portal-left')
+      ?.setAttribute('transform', `translate(${left.x} ${left.y})`)
+    portal.querySelector<SVGGElement>('.transit-portal-right')
+      ?.setAttribute('transform', `translate(${right.x} ${right.y})`)
+    const label = portal.querySelector<SVGTextElement>('.transit-pipe-label')
+    label?.setAttribute('x', String((left.x + right.x) / 2))
+    label?.setAttribute('y', String(left.y + 68))
   }
 
   private findTransitBranch(
@@ -598,6 +651,10 @@ export class GnouGnouWorkflowAnimationController {
   }
 
   applyEvent(event: WorkflowSimulationEvent) {
+    const completingParallel = event.type === 'parallel.completed'
+      ? this.parallelCohortForCompletion(event)
+      : undefined
+    this.updateParallelCohort(event)
     const actorPosition = event.actorId ? this.readPosition(event.actorId) : undefined
     const targetPosition = event.targetActorId ? this.readPosition(event.targetActorId) : undefined
     this.setFlowStatus(event)
@@ -734,21 +791,22 @@ export class GnouGnouWorkflowAnimationController {
           const direction = !actorPosition || targetPosition.x >= actorPosition.x ? 1 : -1
           const transit = this.findTransitBranch(event.actorId, event.targetActorId)
           if (transit) {
-            // Outbound transfers connect the caller's routing roundabout to
-            // the dynamic Start marker. Return transfers reuse the branch
-            // from the child's Return marker back to that routing roundabout.
+            // Dynamic transfers use two short, matched horizontal portals:
+            // fade out beside Router/Return, swap scenes while invisible,
+            // then reappear beside Start/Router in the same direction.
             this.layoutTransitBranch(transit.branch, transit.reverse)
-            this.animateTransitActor(event, transit.branch, transit.reverse, targetPosition)
-            this.animateTransitParcel(event, transit.branch, transit.reverse, targetPosition)
+            this.animateTransitActor(event, transit.branch)
+            this.animateTransitParcel(event, transit.branch, transit.reverse)
           } else {
             this.animateMotion(event.taskId, { x: targetPosition.x + 68, y: targetPosition.y - 82 }, event.durationMs, 'arc')
             this.activateSceneForActor(event.targetActorId)
           }
           const actionDuration = transit
-            ? Math.max(350, this.transitDuration(event.durationMs))
+            ? Math.max(500, this.portalTransferDuration(event.durationMs))
             : Math.max(600, event.durationMs)
-          this.characters.play(event.actorId, transit ? 'walk' : 'handoff', actionDuration, direction)
-          this.characters.play(event.targetActorId, 'pickup', actionDuration, -direction)
+          const actionDirection = transit ? -1 : direction
+          this.characters.play(event.actorId, transit ? 'walk' : 'handoff', actionDuration, actionDirection)
+          this.characters.play(event.targetActorId, 'pickup', actionDuration, -actionDirection)
         }
         if (event.status === 'Failed') this.setTaskStatus(event.taskId, 'Failed')
         break
@@ -794,34 +852,42 @@ export class GnouGnouWorkflowAnimationController {
 
     const focusId = this.focusIdForEvent(event)
     if (focusId) this.options.onFocus?.(focusId, event)
+    if (completingParallel) this.removeParallelCohort(completingParallel)
   }
 
   private playNextLiveEvent() {
-    const event = this.liveEventQueue.shift()
-    if (!event) {
+    const first = this.liveEventQueue.shift()
+    if (!first) {
       this.liveEventTimer = undefined
       this.setHostDiagnostic('data-animation-queued-events', '0')
       return
     }
 
+    const events = [first]
+    // Offset zero is also used by unscheduled live telemetry, so only positive
+    // planned offsets are safe concurrency keys.
+    if (first.offsetMs !== undefined && first.offsetMs > 0) {
+      while (this.liveEventQueue[0]?.offsetMs === first.offsetMs)
+        events.push(this.liveEventQueue.shift()!)
+    }
     this.setHostDiagnostic('data-animation-queued-events', String(this.liveEventQueue.length))
     try {
-      this.applyEvent(event)
-      this.appliedEventCount += 1
+      for (const event of events) this.applyEvent(event)
+      this.appliedEventCount += events.length
       this.setHostDiagnostic('data-animation-state', 'playing')
       this.setHostDiagnostic('data-animation-event-count', String(this.appliedEventCount))
-      this.setHostDiagnostic('data-animation-last-event', event.type)
+      this.setHostDiagnostic('data-animation-last-event', events.at(-1)?.type ?? first.type)
       this.setHostDiagnostic('data-animation-error', '')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       this.setHostDiagnostic('data-animation-state', 'recovering')
       this.setHostDiagnostic('data-animation-error', message)
-      console.error('[GnOuGo.Animation] Could not apply live workflow event.', event, error)
+      console.error('[GnOuGo.Animation] Could not apply live workflow event batch.', events, error)
     } finally {
       this.liveEventTimer = window.setTimeout(() => {
         this.liveEventTimer = undefined
         this.playNextLiveEvent()
-      }, this.livePresentationGap(event))
+      }, Math.max(...events.map(event => this.livePresentationGap(event))))
     }
   }
 
@@ -845,7 +911,7 @@ export class GnouGnouWorkflowAnimationController {
       case 'workflow.discovered':
         return Math.max(380, Math.min(event.durationMs, 700))
       case 'task.handed_off':
-        return Math.max(260, Math.min(event.durationMs * .68, 650))
+        return Math.max(1800, Math.min(this.portalTransferDuration(event.durationMs) + 180, 3400))
       case 'step.started':
         return 320
       case 'step.completed':
@@ -935,8 +1001,23 @@ export class GnouGnouWorkflowAnimationController {
   focusEvent(event: WorkflowSimulationEvent, behavior: ScrollBehavior = 'smooth') {
     const focusId = this.focusIdForEvent(event)
     if (!focusId) return undefined
+    if (event.type === 'task.handed_off'
+      && this.options.shouldFollowPortalTransfer?.() === false)
+      return focusId
+    const parallel = this.rootParallelCohort(this.parallelCohortForEvent(event))
+    if (parallel && parallel.actorIds.size > 0) {
+      this.followParallelCohort(
+        parallel,
+        behavior,
+        Math.max(180, Math.min(event.durationMs || 680, 4000)),
+      )
+      return focusId
+    }
     const destination = this.focusDestinationForEvent(event)
-    this.focus(focusId, behavior, destination, event.durationMs)
+    const focusDuration = event.type === 'task.handed_off'
+      ? this.portalLeadInDuration()
+      : Math.min(event.durationMs, 680)
+    this.focus(focusId, behavior, destination, focusDuration)
     return focusId
   }
 
@@ -949,6 +1030,7 @@ export class GnouGnouWorkflowAnimationController {
     const host = this.root()
     const element = this.find<SVGGraphicsElement>(id)
     if (!host || !element) return
+    this.stopCameraMotion()
     const resolvedBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : behavior
     if (this.options.cameraMode !== 'scroll') {
       this.focusCamera(element, resolvedBehavior, destination, durationMs)
@@ -994,10 +1076,20 @@ export class GnouGnouWorkflowAnimationController {
       && !event.stationId
       && !event.nodeId
     if (collapsedStep) return undefined
+    if (event.type === 'actor.spawned' && event.actorId) {
+      const actor = this.find<SVGGraphicsElement>(event.actorId)
+      const laneId = actor?.getAttribute('data-lane-id')
+      const scene = laneId ? this.sceneLayers.get(laneId) : undefined
+      if (scene?.isDynamic && laneId !== this.activeLaneId) return undefined
+    }
     if (event.type === 'task.handed_off') {
       const transit = this.findTransitBranch(event.actorId, event.targetActorId)
       return transit?.branch.id ?? event.targetActorId ?? event.actorId
     }
+    const parallel = this.parallelCohortForEvent(event)
+    if (parallel)
+      return Array.from(parallel.actorIds).find(actorId => this.find(actorId))
+        ?? parallel.parentActorId
     if (event.type === 'actor.cloned'
       || event.type === 'actor.merged')
       return event.targetActorId ?? event.actorId
@@ -1005,10 +1097,254 @@ export class GnouGnouWorkflowAnimationController {
   }
 
   private focusDestinationForEvent(event: WorkflowSimulationEvent): Position | undefined {
+    if (event.type === 'task.handed_off') {
+      const transit = this.findTransitBranch(event.actorId, event.targetActorId)
+      if (transit) return this.portalSourceFocusPosition(transit.branch)
+    }
     if (event.x === undefined || event.y === undefined) return undefined
     return event.type === 'actor.moved' || event.type === 'actor.spawned'
       ? { x: event.x, y: event.y }
       : undefined
+  }
+
+  private updateParallelCohort(event: WorkflowSimulationEvent) {
+    if (event.type === 'parallel.started' && event.actorId) {
+      const parentCohort = this.parallelCohortForActor(event.actorId)
+      const id = [
+        event.workflowInstanceId ?? 'workflow',
+        event.stepId ?? 'parallel',
+        event.sequence,
+      ].join(':')
+      this.parallelCohorts.set(id, {
+        id,
+        parentActorId: event.actorId,
+        workflowInstanceId: event.workflowInstanceId,
+        stepId: event.stepId,
+        sequence: event.sequence,
+        parentCohortId: parentCohort?.id,
+        actorIds: new Set<string>(),
+        delegatedActorParents: new Map<string, string>(),
+      })
+      this.setParallelDiagnostic()
+      return
+    }
+
+    if (event.type === 'actor.cloned' && event.actorId && event.targetActorId) {
+      const cohort = this.latestParallelCohortForParent(event.actorId, event.workflowInstanceId)
+      if (!cohort) return
+      cohort.actorIds.add(event.targetActorId)
+      this.actorParallelCohorts.set(event.targetActorId, cohort.id)
+      this.setParallelDiagnostic()
+      return
+    }
+
+    if (event.type === 'task.handed_off' && event.actorId && event.targetActorId) {
+      const sourceCohort = this.parallelCohortForActor(event.actorId)
+      const targetCohort = this.parallelCohortForActor(event.targetActorId)
+      if (sourceCohort && !targetCohort) {
+        sourceCohort.actorIds.add(event.targetActorId)
+        sourceCohort.delegatedActorParents.set(event.targetActorId, event.actorId)
+        this.actorParallelCohorts.set(event.targetActorId, sourceCohort.id)
+        this.setParallelDiagnostic()
+        return
+      }
+      if (sourceCohort
+        && targetCohort === sourceCohort
+        && sourceCohort.delegatedActorParents.get(event.actorId) === event.targetActorId) {
+        const generation = this.generation
+        window.setTimeout(() => {
+          if (generation !== this.generation || !this.parallelCohorts.has(sourceCohort.id)) return
+          sourceCohort.actorIds.delete(event.actorId!)
+          sourceCohort.delegatedActorParents.delete(event.actorId!)
+          if (this.actorParallelCohorts.get(event.actorId!) === sourceCohort.id)
+            this.actorParallelCohorts.delete(event.actorId!)
+          this.setParallelDiagnostic()
+        }, Math.max(16, event.durationMs))
+      }
+    }
+  }
+
+  private latestParallelCohortForParent(
+    parentActorId: string,
+    workflowInstanceId?: string,
+  ): ParallelCohort | undefined {
+    return Array.from(this.parallelCohorts.values())
+      .filter(cohort => cohort.parentActorId === parentActorId
+        && (!workflowInstanceId || cohort.workflowInstanceId === workflowInstanceId))
+      .sort((left, right) => right.sequence - left.sequence)[0]
+  }
+
+  private parallelCohortForEvent(event: WorkflowSimulationEvent): ParallelCohort | undefined {
+    if (event.type === 'parallel.completed')
+      return this.parallelCohortForCompletion(event)
+    const actorId = event.type === 'actor.cloned'
+      ? event.targetActorId
+      : event.actorId
+    const actorCohort = this.parallelCohortForActor(actorId)
+    if (actorCohort) return actorCohort
+    if (event.type === 'parallel.started' && event.actorId)
+      return this.latestParallelCohortForParent(event.actorId, event.workflowInstanceId)
+    // A subordinate spawn precedes its handoff event. Keep Follow on the
+    // already active cohort during that brief interval, then the handoff
+    // explicitly enrolls the subordinate for the rest of its branch work.
+    return Array.from(this.parallelCohorts.values())
+      .filter(cohort => event.workflowInstanceId
+        && cohort.workflowInstanceId === event.workflowInstanceId)
+      .sort((left, right) => right.sequence - left.sequence)[0]
+  }
+
+  private parallelCohortForActor(actorId?: string): ParallelCohort | undefined {
+    const cohortId = actorId ? this.actorParallelCohorts.get(actorId) : undefined
+    return cohortId ? this.parallelCohorts.get(cohortId) : undefined
+  }
+
+  private rootParallelCohort(cohort?: ParallelCohort): ParallelCohort | undefined {
+    let current = cohort
+    const visited = new Set<string>()
+    while (current?.parentCohortId && !visited.has(current.id)) {
+      visited.add(current.id)
+      current = this.parallelCohorts.get(current.parentCohortId) ?? current
+      if (!current.parentCohortId) break
+    }
+    return current
+  }
+
+  private parallelCohortForCompletion(event: WorkflowSimulationEvent): ParallelCohort | undefined {
+    if (!event.actorId) return undefined
+    return Array.from(this.parallelCohorts.values())
+      .filter(cohort => cohort.parentActorId === event.actorId
+        && (!event.workflowInstanceId || cohort.workflowInstanceId === event.workflowInstanceId)
+        && (!event.stepId || cohort.stepId === event.stepId))
+      .sort((left, right) => right.sequence - left.sequence)[0]
+  }
+
+  private removeParallelCohort(cohort: ParallelCohort) {
+    const removedIds = new Set([cohort.id])
+    let foundDescendant = true
+    while (foundDescendant) {
+      foundDescendant = false
+      for (const candidate of this.parallelCohorts.values()) {
+        if (candidate.parentCohortId && removedIds.has(candidate.parentCohortId)
+          && !removedIds.has(candidate.id)) {
+          removedIds.add(candidate.id)
+          foundDescendant = true
+        }
+      }
+    }
+    for (const id of removedIds) {
+      const removed = this.parallelCohorts.get(id)
+      if (!removed) continue
+      for (const actorId of removed.actorIds) {
+        if (this.actorParallelCohorts.get(actorId) === id)
+          this.actorParallelCohorts.delete(actorId)
+      }
+      this.parallelCohorts.delete(id)
+    }
+    this.setParallelDiagnostic()
+  }
+
+  private parallelCentroid(cohort: ParallelCohort): Position | undefined {
+    const actorIds = new Set<string>()
+    for (const candidate of this.parallelCohorts.values()) {
+      if (this.rootParallelCohort(candidate)?.id !== cohort.id) continue
+      for (const actorId of candidate.actorIds) actorIds.add(actorId)
+    }
+    const positions = Array.from(actorIds)
+      .filter(actorId => {
+        const actor = this.find<SVGGraphicsElement>(actorId)
+        if (!actor || actor.style.display === 'none' || Number(actor.style.opacity || 1) <= .01)
+          return false
+        const laneId = actor.getAttribute('data-lane-id')
+        const scene = laneId ? this.sceneLayers.get(laneId) : undefined
+        return !scene || scene.actors.classList.contains('is-scene-active')
+      })
+      .map(actorId => this.readPosition(actorId))
+    if (positions.length === 0) return undefined
+    return {
+      x: positions.reduce((sum, position) => sum + position.x, 0) / positions.length,
+      y: positions.reduce((sum, position) => sum + position.y, 0) / positions.length,
+    }
+  }
+
+  private followParallelCohort(
+    cohort: ParallelCohort,
+    behavior: ScrollBehavior,
+    durationMs: number,
+  ) {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduced || behavior === 'auto') {
+      const center = this.parallelCentroid(cohort)
+      if (center) this.centerCameraAt(center)
+      return
+    }
+
+    this.stopCameraMotion()
+    const startedAt = performance.now()
+    const generation = this.generation
+    const render = (now: number) => {
+      if (generation !== this.generation || !this.parallelCohorts.has(cohort.id)) {
+        this.cameraFrame = undefined
+        return
+      }
+      const center = this.parallelCentroid(cohort)
+      if (center) this.centerCameraAt(center)
+      if (now - startedAt < durationMs) {
+        this.cameraFrame = requestAnimationFrame(render)
+        return
+      }
+      this.cameraFrame = undefined
+    }
+    this.cameraFrame = requestAnimationFrame(render)
+  }
+
+  private centerCameraAt(center: Position) {
+    const host = this.root()
+    const svg = this.svgRoot()
+    if (!host || !svg) return
+    if (this.options.cameraMode !== 'scroll') {
+      this.initializeCamera()
+      const viewport = this.cameraViewport
+      if (!viewport) return
+      this.setCameraViewBox({
+        x: center.x - viewport.width / 2,
+        y: center.y - viewport.height / 2,
+        width: viewport.width,
+        height: viewport.height,
+      })
+      return
+    }
+
+    const svgRect = svg.getBoundingClientRect()
+    const hostRect = host.getBoundingClientRect()
+    const viewBox = svg.viewBox.baseVal
+    if (viewBox.width <= 0 || viewBox.height <= 0) return
+    const centerX = svgRect.left + (center.x - viewBox.x) / viewBox.width * svgRect.width
+    const centerY = svgRect.top + (center.y - viewBox.y) / viewBox.height * svgRect.height
+    host.scrollTo({
+      left: Math.max(0, host.scrollLeft + centerX - hostRect.left - host.clientWidth / 2),
+      top: Math.max(0, host.scrollTop + centerY - hostRect.top - host.clientHeight / 2),
+      behavior: 'auto',
+    })
+  }
+
+  private setParallelDiagnostic() {
+    const actorCount = Array.from(this.parallelCohorts.values())
+      .reduce((count, cohort) => count + cohort.actorIds.size, 0)
+    this.setHostDiagnostic('data-animation-parallel-actors', String(actorCount))
+  }
+
+  private portalSourceFocusPosition(branch: TransitBranch): Position {
+    return {
+      x: (branch.sourceStart.x + branch.sourceEnd.x) / 2,
+      y: (branch.sourceStart.y + branch.sourceEnd.y) / 2,
+    }
+  }
+
+  private portalDestinationFocusPosition(branch: TransitBranch): Position {
+    return {
+      x: (branch.destinationStart.x + branch.destinationEnd.x) / 2,
+      y: (branch.destinationStart.y + branch.destinationEnd.y) / 2,
+    }
   }
 
   private initializeCamera() {
@@ -1096,7 +1432,7 @@ export class GnouGnouWorkflowAnimationController {
     const startedAt = performance.now()
     const duration = requestedDurationMs === undefined
       ? 680
-      : Math.max(180, Math.min(680, requestedDurationMs))
+      : Math.max(180, Math.min(1100, requestedDurationMs))
     const generation = this.generation
     const render = (now: number) => {
       if (generation !== this.generation || !svg.isConnected) return
@@ -1220,26 +1556,44 @@ export class GnouGnouWorkflowAnimationController {
 
   private transitDuration(durationMs: number): number {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return 1
-    return Math.max(180, Math.min(durationMs * .58, 1200))
+    return Math.max(700, Math.min(durationMs * 1.45, 2200))
+  }
+
+  private portalLeadInDuration(): number {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 420
+  }
+
+  private portalSceneSwapDuration(): number {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600
+  }
+
+  private portalTimeline(durationMs: number): PortalTimeline {
+    const motionDuration = this.transitDuration(durationMs)
+    const approachEnd = motionDuration * .15
+    const sourceExitEnd = approachEnd + motionDuration * .35
+    const destinationEntryStart = sourceExitEnd + this.portalSceneSwapDuration()
+    const destinationExitEnd = destinationEntryStart + motionDuration * .35
+    return {
+      approachEnd,
+      sourceExitEnd,
+      destinationEntryStart,
+      destinationExitEnd,
+      total: destinationExitEnd + motionDuration * .15,
+    }
+  }
+
+  private portalTransferDuration(durationMs: number): number {
+    return this.portalLeadInDuration() + this.portalTimeline(durationMs).total
   }
 
   private animateTransitActor(
     event: WorkflowSimulationEvent,
     branch: TransitBranch,
-    reverse: boolean,
-    targetActorPosition: Position,
   ) {
     if (!event.actorId) return
     const actor = this.find<SVGGraphicsElement>(event.actorId)
     const transitRoot = this.find<SVGGElement>('gnougo-transit-actors')
     if (!actor || !transitRoot || !actor.parentNode) return
-    let routeLength = 0
-    try {
-      routeLength = branch.path.getTotalLength()
-    } catch {
-      return
-    }
-    if (routeLength <= 0) return
 
     const previous = this.frames.get(event.actorId)
     if (previous !== undefined) cancelAnimationFrame(previous)
@@ -1248,18 +1602,15 @@ export class GnouGnouWorkflowAnimationController {
     const originalTransform = actor.getAttribute('transform')
     const originalStyleOpacity = actor.style.opacity
     const originalPosition = this.readPosition(event.actorId)
-    const pipeStart = reverse ? branch.outlet : branch.inlet
-    const pipeEnd = reverse ? branch.inlet : branch.outlet
-    const destination = {
-      x: targetActorPosition.x + (reverse ? 104 : -104),
-      y: targetActorPosition.y,
-    }
-    const duration = this.transitDuration(event.durationMs)
-    const startedAt = performance.now()
+    const targetActor = this.find<SVGGraphicsElement>(event.targetActorId)
+    const targetStyleOpacity = targetActor?.style.opacity
+    const timeline = this.portalTimeline(event.durationMs)
+    const startedAt = performance.now() + this.portalLeadInDuration()
     const generation = this.generation
     actor.classList.add('is-in-transit')
     transitRoot.append(actor)
     actor.style.opacity = '1'
+    if (targetActor) targetActor.style.opacity = '0'
 
     const restore = () => {
       if (originalParent.isConnected) {
@@ -1271,6 +1622,10 @@ export class GnouGnouWorkflowAnimationController {
       if (originalTransform === null) actor.removeAttribute('transform')
       else actor.setAttribute('transform', originalTransform)
       actor.style.opacity = originalStyleOpacity
+      if (targetActor && event.targetActorId) {
+        this.setPosition(event.targetActorId, branch.destinationAnchor)
+        targetActor.style.opacity = targetStyleOpacity ?? '1'
+      }
       actor.classList.remove('is-in-transit')
       this.positions.set(event.actorId!, originalPosition)
       this.frames.delete(event.actorId!)
@@ -1278,37 +1633,56 @@ export class GnouGnouWorkflowAnimationController {
 
     const render = (now: number) => {
       if (generation !== this.generation || !actor.isConnected) return
-      const progress = Math.max(0, Math.min(1, (now - startedAt) / duration))
-      const eased = easeInOut(progress)
+      const elapsed = Math.max(0, Math.min(timeline.total, now - startedAt))
       let position: Position
       let scale: number
+      let opacity: number
       let rotation = 0
-      if (eased < .16) {
-        const local = easeInOut(eased / .16)
-        position = this.interpolatePosition(originalPosition, pipeStart, local)
-        position.y -= Math.sin(local * Math.PI) * 24
-        scale = 1 - local * .68
-      } else if (eased < .84) {
-        const pipeProgress = (eased - .16) / .68
-        const length = reverse
-          ? routeLength * (1 - pipeProgress)
-          : routeLength * pipeProgress
-        const point = branch.path.getPointAtLength(length)
-        position = { x: point.x, y: point.y }
-        scale = .24 + Math.abs(pipeProgress - .5) * .18
-        rotation = (reverse ? -1 : 1) * Math.sin(pipeProgress * Math.PI) * 9
+      if (elapsed < timeline.approachEnd) {
+        const local = easeInOut(elapsed / timeline.approachEnd)
+        position = this.interpolatePosition(originalPosition, branch.sourceStart, local)
+        position.y -= Math.sin(local * Math.PI) * 18
+        scale = 1
+        opacity = 1
+      } else if (elapsed < timeline.sourceExitEnd) {
+        const local = easeInOut(
+          (elapsed - timeline.approachEnd)
+          / (timeline.sourceExitEnd - timeline.approachEnd),
+        )
+        position = this.interpolatePosition(branch.sourceStart, branch.sourceEnd, local)
+        scale = 1 - local * .42
+        opacity = 1 - local
+        rotation = -Math.sin(local * Math.PI) * 5
+      } else if (elapsed < timeline.destinationEntryStart) {
+        position = branch.destinationStart
+        scale = .58
+        opacity = 0
+      } else if (elapsed < timeline.destinationExitEnd) {
+        const local = easeInOut(
+          (elapsed - timeline.destinationEntryStart)
+          / (timeline.destinationExitEnd - timeline.destinationEntryStart),
+        )
+        position = this.interpolatePosition(branch.destinationStart, branch.destinationEnd, local)
+        scale = .58 + local * .42
+        opacity = local
+        rotation = -Math.sin(local * Math.PI) * 5
       } else {
-        const local = easeInOut((eased - .84) / .16)
-        position = this.interpolatePosition(pipeEnd, destination, local)
-        position.y -= Math.sin(local * Math.PI) * 24
-        scale = .32 + local * .68
+        const local = easeInOut(
+          (elapsed - timeline.destinationExitEnd)
+          / (timeline.total - timeline.destinationExitEnd),
+        )
+        position = this.interpolatePosition(branch.destinationEnd, branch.destinationAnchor, local)
+        position.y -= Math.sin(local * Math.PI) * 18
+        scale = 1
+        opacity = 1
       }
       actor.setAttribute(
         'transform',
         `translate(${position.x} ${position.y}) rotate(${rotation}) scale(${scale})`,
       )
+      actor.style.opacity = String(opacity)
       this.positions.set(event.actorId!, position)
-      if (progress < 1) {
+      if (elapsed < timeline.total) {
         this.frames.set(event.actorId!, requestAnimationFrame(render))
         return
       }
@@ -1321,25 +1695,8 @@ export class GnouGnouWorkflowAnimationController {
     event: WorkflowSimulationEvent,
     branch: TransitBranch,
     reverse: boolean,
-    targetActorPosition: Position,
   ) {
     if (!event.taskId) {
-      this.activateSceneForActor(event.targetActorId, reverse ? 'reverse' : 'forward')
-      return
-    }
-    let routeLength = 0
-    try {
-      routeLength = branch.path.getTotalLength()
-    } catch {
-      // Older embedded webviews can expose SVGPathElement without geometry APIs.
-    }
-    if (routeLength <= 0) {
-      this.animateMotion(
-        event.taskId,
-        { x: targetActorPosition.x + 68, y: targetActorPosition.y - 82 },
-        event.durationMs,
-        'arc',
-      )
       this.activateSceneForActor(event.targetActorId, reverse ? 'reverse' : 'forward')
       return
     }
@@ -1371,62 +1728,111 @@ export class GnouGnouWorkflowAnimationController {
     if (previous !== undefined) cancelAnimationFrame(previous)
     const from = this.readPosition(visualId)
     const destination = {
-      x: targetActorPosition.x + 68,
-      y: targetActorPosition.y - 82,
+      x: branch.destinationAnchor.x + 68,
+      y: branch.destinationAnchor.y - 82,
     }
-    const pipeStart = reverse ? branch.outlet : branch.inlet
-    const pipeEnd = reverse ? branch.inlet : branch.outlet
-    const duration = this.transitDuration(event.durationMs)
-    const startedAt = performance.now()
+    const sourceStart = { x: branch.sourceStart.x, y: branch.sourceStart.y - 68 }
+    const sourceEnd = { x: branch.sourceEnd.x, y: branch.sourceEnd.y - 68 }
+    const destinationStart = { x: branch.destinationStart.x, y: branch.destinationStart.y - 68 }
+    const destinationEnd = { x: branch.destinationEnd.x, y: branch.destinationEnd.y - 68 }
+    const timeline = this.portalTimeline(event.durationMs)
+    const startedAt = performance.now() + this.portalLeadInDuration()
     const generation = this.generation
     let sceneChanged = false
+    let destinationPortalVisible = false
     const transferToken = ++this.transitTransferSequence
     branch.activeTransferToken = transferToken
+    branch.group.classList.remove('is-parked')
     branch.group.classList.add('is-active')
     branch.group.classList.toggle('is-returning', reverse)
     branch.group.setAttribute('data-transit-direction', reverse ? 'return' : 'outbound')
+    branch.group.setAttribute('data-portal-phase', 'preparing')
+    parcel.classList.add('is-in-transit')
     this.show(visualId, true)
+    let sourcePortalVisible = false
 
     const render = (now: number) => {
       if (generation !== this.generation || !parcel.isConnected) return
-      const progress = Math.max(0, Math.min(1, (now - startedAt) / duration))
-      const eased = easeInOut(progress)
-      let position: Position
-      let pipeProgress = 0
-      if (eased < .18) {
-        const local = easeInOut(eased / .18)
-        position = this.interpolatePosition(from, pipeStart, local)
-        position.y -= Math.sin(local * Math.PI) * 34
-      } else if (eased < .82) {
-        pipeProgress = (eased - .18) / .64
-        const length = reverse
-          ? routeLength * (1 - pipeProgress)
-          : routeLength * pipeProgress
-        const point = branch.path.getPointAtLength(length)
-        position = { x: point.x, y: point.y }
-      } else {
-        const local = easeInOut((eased - .82) / .18)
-        position = this.interpolatePosition(pipeEnd, destination, local)
-        position.y -= Math.sin(local * Math.PI) * 34
-        pipeProgress = 1
+      const sourceRevealAt = startedAt - 180
+      if (!sourcePortalVisible && now >= sourceRevealAt) {
+        sourcePortalVisible = true
+        branch.group.setAttribute('data-portal-phase', 'source')
       }
-      const insidePipe = eased >= .18 && eased <= .82
-      const scale = insidePipe
-        ? .34 + Math.abs(pipeProgress - .5) * .36
-        : .7 + Math.abs(eased - .5) * .6
-      const rotation = (reverse ? -1 : 1) * eased * 420
+      const elapsed = Math.max(0, Math.min(timeline.total, now - startedAt))
+      let position: Position
+      let opacity: number
+      let scale: number
+      let rotationProgress: number
+      if (elapsed < timeline.approachEnd) {
+        const local = easeInOut(elapsed / timeline.approachEnd)
+        position = this.interpolatePosition(from, sourceStart, local)
+        position.y -= Math.sin(local * Math.PI) * 22
+        opacity = 1
+        scale = 1
+        rotationProgress = local * .15
+      } else if (elapsed < timeline.sourceExitEnd) {
+        const local = easeInOut(
+          (elapsed - timeline.approachEnd)
+          / (timeline.sourceExitEnd - timeline.approachEnd),
+        )
+        position = this.interpolatePosition(sourceStart, sourceEnd, local)
+        opacity = 1 - local
+        scale = 1 - local * .48
+        rotationProgress = .15 + local * .35
+      } else if (elapsed < timeline.destinationEntryStart) {
+        position = destinationStart
+        opacity = 0
+        scale = .52
+        rotationProgress = .5
+      } else if (elapsed < timeline.destinationExitEnd) {
+        const local = easeInOut(
+          (elapsed - timeline.destinationEntryStart)
+          / (timeline.destinationExitEnd - timeline.destinationEntryStart),
+        )
+        position = this.interpolatePosition(destinationStart, destinationEnd, local)
+        opacity = local
+        scale = .52 + local * .48
+        rotationProgress = .5 + local * .35
+      } else {
+        const local = easeInOut(
+          (elapsed - timeline.destinationExitEnd)
+          / (timeline.total - timeline.destinationExitEnd),
+        )
+        position = this.interpolatePosition(destinationEnd, destination, local)
+        position.y -= Math.sin(local * Math.PI) * 22
+        opacity = 1
+        scale = 1
+        rotationProgress = .85 + local * .15
+      }
+      const rotation = -rotationProgress * 360
       parcel.setAttribute(
         'transform',
-        `translate(${position.x} ${position.y}) rotate(${rotation}) scale(${Math.min(1, scale)})`,
+        `translate(${position.x} ${position.y}) rotate(${rotation}) scale(${scale})`,
       )
+      parcel.style.opacity = String(opacity)
       this.positions.set(visualId, position)
 
-      const sceneSwitchProgress = reverse ? .22 : .46
-      if (!sceneChanged && progress >= sceneSwitchProgress) {
+      if (!sceneChanged && elapsed >= timeline.sourceExitEnd) {
         sceneChanged = true
+        branch.group.setAttribute('data-portal-phase', 'between')
         this.activateSceneForActor(event.targetActorId, reverse ? 'reverse' : 'forward')
+        const shouldFollow = this.options.shouldFollowPortalTransfer?.()
+          ?? this.options.onFocus !== undefined
+        if (shouldFollow) {
+          this.focus(
+            branch.id,
+            'smooth',
+            this.portalDestinationFocusPosition(branch),
+            this.portalSceneSwapDuration() * .7,
+          )
+        }
       }
-      if (progress < 1) {
+      const destinationRevealAt = timeline.destinationEntryStart - 180
+      if (!destinationPortalVisible && elapsed >= destinationRevealAt) {
+        destinationPortalVisible = true
+        branch.group.setAttribute('data-portal-phase', 'destination')
+      }
+      if (elapsed < timeline.total) {
         this.frames.set(visualId, requestAnimationFrame(render))
         return
       }
@@ -1436,8 +1842,19 @@ export class GnouGnouWorkflowAnimationController {
         branch.activeTransferToken = undefined
         branch.group.classList.remove('is-active', 'is-returning')
         branch.group.removeAttribute('data-transit-direction')
+        if (reverse) {
+          // Once work has returned, leave the main-workflow mouth visible as
+          // a quiet landmark beside the routing roundabout.
+          branch.group.classList.add('is-parked')
+          branch.group.setAttribute('data-portal-phase', 'parked-parent')
+        } else {
+          branch.group.classList.remove('is-parked')
+          branch.group.removeAttribute('data-portal-phase')
+        }
       }
       parcel.setAttribute('transform', `translate(${destination.x} ${destination.y})`)
+      parcel.style.opacity = '1'
+      parcel.classList.remove('is-in-transit')
       this.positions.set(visualId, destination)
       if (ephemeral) {
         parcel.remove()
