@@ -1295,18 +1295,22 @@ html, body {
   position: relative;
   width: 100%;
   min-width: 0;
-  min-height: 0;
-  height: auto;
+  height: clamp(360px, 58vh, 620px);
+  max-height: 620px;
   overflow: hidden;
+  border: 1px solid var(--gnougo-border);
+  border-radius: var(--gnougo-radius);
   background: #fff;
+  box-shadow: var(--gnougo-shadow);
+  isolation: isolate;
 }
 
 .gnougo-workflow-card__stage > svg {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
   max-width: none;
-  transform-origin: 0 0;
+  transform-origin: center;
 }
 
 .gnougo-workflow-card__hitl-summary {
@@ -1497,6 +1501,11 @@ html, body {
 
   .gnougo-execution-panel {
     width: 100vw;
+  }
+
+  .gnougo-workflow-card__stage {
+    height: clamp(300px, 52vh, 500px);
+    max-height: 500px;
   }
 }
 

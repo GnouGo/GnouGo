@@ -377,6 +377,7 @@ interface WorkflowAnimationHandle {
   resizeObserver: ResizeObserver
   resize: () => void
   zoom: number
+  follow: boolean
 }
 
 const workflowAnimationControllers = new Map<string, WorkflowAnimationHandle>();
@@ -397,14 +398,34 @@ const workflowAnimation = {
     const svg = host.querySelector<SVGSVGElement>('svg');
     if (!svg) return false;
 
-    svg.setAttribute('preserveAspectRatio', 'xMidYMin meet');
-    const handle = {} as WorkflowAnimationHandle;
+    const sceneWidth = svg.viewBox.baseVal.width || Number(svg.getAttribute('width')) || prepared.width;
+    const sceneHeight = svg.viewBox.baseVal.height || Number(svg.getAttribute('height')) || prepared.height;
+    const frameWidth = Math.max(1, host.clientWidth || prepared.width);
+    const frameHeight = Math.max(1, host.clientHeight || Math.min(620, Math.max(360, prepared.height)));
+    const frameAspect = frameWidth / frameHeight;
+    const sceneAspect = sceneWidth / Math.max(1, sceneHeight);
+    let viewportWidth = sceneWidth;
+    let viewportHeight = sceneHeight;
+    if (sceneAspect > frameAspect)
+      viewportWidth = Math.min(sceneWidth, sceneHeight * frameAspect);
+    else
+      viewportHeight = Math.min(sceneHeight, sceneWidth / frameAspect);
+    const viewportX = Math.max(0, (sceneWidth - viewportWidth) / 2);
+
+    // Preserve the complete logical scene as the camera boundary while the
+    // viewBox represents the bounded window that follows the active GnOuGo.
+    svg.dataset.sceneWidth = String(sceneWidth);
+    svg.dataset.sceneHeight = String(sceneHeight);
+    svg.setAttribute('viewBox', `${viewportX} 0 ${viewportWidth} ${viewportHeight}`);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    host.dataset.follow = 'true';
+
+    const handle = { follow: true } as WorkflowAnimationHandle;
     const resize = () => {
-      const logicalWidth = svg.viewBox.baseVal.width || Number(svg.getAttribute('width')) || prepared.width;
-      const logicalHeight = svg.viewBox.baseVal.height || Number(svg.getAttribute('height')) || prepared.height;
       const availableWidth = Math.max(1, host!.clientWidth);
+      const availableHeight = Math.max(1, host!.clientHeight);
       const renderedWidth = availableWidth * handle.zoom;
-      const renderedHeight = renderedWidth * logicalHeight / Math.max(1, logicalWidth);
+      const renderedHeight = availableHeight * handle.zoom;
       svg.style.width = `${renderedWidth}px`;
       svg.style.height = `${renderedHeight}px`;
       svg.style.maxWidth = 'none';
@@ -415,7 +436,10 @@ const workflowAnimation = {
       characters,
       {
         cameraMode: 'viewport',
-        onFocus: (_id, event) => controller.focusEvent(event),
+        shouldFollowPortalTransfer: () => handle.follow,
+        onFocus: (_id, event) => {
+          if (handle.follow) controller.focusEvent(event);
+        },
         // A chat can retain several completed workflow cards. Focus changes
         // may pan a card's own viewport, but must never pull the conversation
         // back to an older diagram while a newer answer is being rendered.
@@ -459,6 +483,16 @@ const workflowAnimation = {
     if (!handle) return;
     handle.zoom = Math.max(.25, Math.min(zoom, 4));
     handle.resize();
+  },
+
+  setFollow: (hostId: string, follow: boolean): boolean => {
+    const handle = workflowAnimationControllers.get(hostId);
+    if (!handle) return false;
+    handle.follow = follow;
+    const host = el(hostId);
+    if (host) host.dataset.follow = String(follow);
+    if (!follow) handle.controller.stopCameraMotion();
+    return true;
   },
 
   dispose: (hostId: string) => {

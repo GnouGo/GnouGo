@@ -483,9 +483,18 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("allowDocumentFocusScroll: false", main, StringComparison.Ordinal);
         Assert.Contains("cameraMode: 'viewport'", main, StringComparison.Ordinal);
         Assert.Contains("controller.focusEvent(event)", main, StringComparison.Ordinal);
+        Assert.Contains("follow: boolean", main, StringComparison.Ordinal);
+        Assert.Contains("host.dataset.follow = 'true'", main, StringComparison.Ordinal);
+        Assert.Contains("shouldFollowPortalTransfer: () => handle.follow", main, StringComparison.Ordinal);
+        Assert.Contains("if (handle.follow) controller.focusEvent(event)", main, StringComparison.Ordinal);
+        Assert.Contains("svg.dataset.sceneWidth = String(sceneWidth)", main, StringComparison.Ordinal);
+        Assert.Contains("setFollow: (hostId: string, follow: boolean)", main, StringComparison.Ordinal);
         Assert.Contains("copyText,", main, StringComparison.Ordinal);
         Assert.Contains(".gnougo-workflow-card__stage", styles, StringComparison.Ordinal);
-        Assert.Contains("height: auto;", styles, StringComparison.Ordinal);
+        Assert.Contains("height: clamp(360px, 58vh, 620px);", styles, StringComparison.Ordinal);
+        Assert.Contains("max-height: 620px;", styles, StringComparison.Ordinal);
+        Assert.Contains("border: 1px solid var(--gnougo-border);", styles, StringComparison.Ordinal);
+        Assert.Contains("border-radius: var(--gnougo-radius);", styles, StringComparison.Ordinal);
         Assert.Contains("max-width: none;", styles, StringComparison.Ordinal);
         Assert.Contains(".gnougo-sidebar__mascot", styles, StringComparison.Ordinal);
         Assert.Contains(".gnougo-chat__product-mark", styles, StringComparison.Ordinal);
@@ -505,6 +514,7 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("max-width: 1160px;", styles, StringComparison.Ordinal);
         Assert.Contains(".gnougo-chat__response-actions", styles, StringComparison.Ordinal);
         Assert.Contains("InvokeAsync<bool>", chatPage, StringComparison.Ordinal);
+        Assert.Contains("data-follow=\"true\"", chatPage, StringComparison.Ordinal);
         Assert.Contains("_animationInteropGate", chatPage, StringComparison.Ordinal);
         Assert.Contains("_animationScrollCorrelationId", chatPage, StringComparison.Ordinal);
         Assert.Contains("GetExecution(scrollCorrelationId) is { NeedsMount: false }", chatPage, StringComparison.Ordinal);

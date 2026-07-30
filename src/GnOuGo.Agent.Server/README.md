@@ -110,10 +110,12 @@ never runs a second synthetic timer.
 The conversation uses a document-style layout: compact right-aligned user
 prompts and borderless full-width assistant turns. A workflow scene is the first
 part of its assistant turn, followed by the textual answer and lightweight copy
-and trace actions; it is not rendered as a separate chat message. The SVG is
-drawn directly on the white response background without a card border, title,
-lane count, node count, or live-telemetry caption. Activity and diagram
-visibility controls sit in the response action row beside Trace.
+and trace actions; it is not rendered as a separate chat message. The SVG uses
+a subtle application-standard border and a responsive internal viewport capped
+at 620 px high, without title, lane count, node count, or live-telemetry
+caption. Follow mode is enabled by default: telemetry pans the SVG camera
+inside that viewport and never scrolls the surrounding conversation. Activity
+and diagram visibility controls sit in the response action row beside Trace.
 
 User turns are rendered as encoded plain text rather than reparsed as Markdown.
 This preserves every submitted line break, indentation, and large pasted block
