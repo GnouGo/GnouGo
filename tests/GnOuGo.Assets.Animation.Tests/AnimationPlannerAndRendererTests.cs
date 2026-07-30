@@ -98,6 +98,8 @@ public sealed class AnimationPlannerAndRendererTests
 
         Assert.Equal("Team <safe> & \"visible\"", xml.Root?.Element(svg + "title")?.Value);
         Assert.DoesNotContain("</desc><script>", rendered.Svg, StringComparison.Ordinal);
+        Assert.Contains(".human-input-delivery", rendered.Svg, StringComparison.Ordinal);
+        Assert.Contains(".human-delivery-balloon", rendered.Svg, StringComparison.Ordinal);
         var master = xml.Descendants().Single(element => element.Attribute("id")?.Value == "actor-master");
         Assert.Equal("true", master.Attribute("data-bearded")?.Value);
         Assert.NotNull(master.Descendants().SingleOrDefault(element => element.Attribute("data-animation-rig")?.Value == "true"));

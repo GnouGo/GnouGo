@@ -296,7 +296,6 @@ public sealed class AgentStreamingTelemetry : IWorkflowTelemetry
                     if (string.Equals(attr.Key, "gnougo-flow.human.request", StringComparison.Ordinal)
                         && attr.Value is string requestJson)
                     {
-                        _emit(new SmartFlowEvent("human_input_request", requestJson));
                         _animation?.Apply(new AnimationExecutionSignal
                         {
                             Kind = AnimationExecutionSignalKind.HumanInputWaiting,
@@ -307,6 +306,9 @@ public sealed class AgentStreamingTelemetry : IWorkflowTelemetry
                             Status = SimulationStatus.Running,
                             Message = "Waiting for human input."
                         });
+                        // Queue the authoritative visual waiting state before
+                        // exposing the interactive form to the user.
+                        _emit(new SmartFlowEvent("human_input_request", requestJson));
                     }
                 }
             }

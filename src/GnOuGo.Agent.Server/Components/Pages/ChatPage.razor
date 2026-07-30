@@ -78,6 +78,22 @@
                                 </svg>
                                 <span class="gnougo-sidebar__item-title">@s.Title</span>
                             </button>
+
+                            @if (isActive && SidebarExecution is { } sidebarExecution)
+                            {
+                                <section @key="sidebarExecution.CorrelationId"
+                                         class="gnougo-sidebar__workflow gnougo-workflow-card"
+                                         aria-label="Latest GnOuGo workflow execution">
+                                    <div class="gnougo-workflow-card__content" hidden="@(!sidebarExecution.IsExpanded)">
+                                        <div id="@sidebarExecution.HostId"
+                                             @key="sidebarExecution.HostId"
+                                             class="gnougo-workflow-card__stage"
+                                             data-status="@sidebarExecution.Status"
+                                             data-follow="true"
+                                             aria-label="Scrollable animated workflow scene with follow mode enabled"></div>
+                                    </div>
+                                </section>
+                            }
                         }
                     </section>
                 }
@@ -229,50 +245,76 @@
                                               && (ReferenceEquals(_selectedTraceMessage, msg)
                                                   || (!string.IsNullOrWhiteSpace(_selectedTraceMessage?.MessageId)
                                                       && string.Equals(_selectedTraceMessage?.MessageId, msg.MessageId, StringComparison.Ordinal)));
+                        var isTypingResponse = !isUser
+                                               && _isStreaming
+                                               && string.Equals(
+                                                   msg.MessageId,
+                                                   _streamingAssistantMessageId,
+                                                   StringComparison.Ordinal)
+                                               && !string.Equals(
+                                                   msg.MessageId,
+                                                   _finalResponseStartedMessageId,
+                                                   StringComparison.Ordinal)
+                                               && string.IsNullOrWhiteSpace(responseError);
                         var isPlaceholder = !isUser
+                                            && !isTypingResponse
                                             && execution is null
                                             && string.IsNullOrWhiteSpace(msg.Content)
                                             && string.IsNullOrWhiteSpace(responseError);
 
-                        <article class="gnougo-chat__message @(isUser ? "gnougo-chat__message--user" : "gnougo-chat__message--assistant") @(isPlaceholder ? "gnougo-chat__message--placeholder" : "")"
+                        <article class="gnougo-chat__message @(isUser ? "gnougo-chat__message--user" : "gnougo-chat__message--assistant") @(isPlaceholder ? "gnougo-chat__message--placeholder" : "") @(isTypingResponse ? "gnougo-chat__message--typing" : "")"
                                  aria-label="@(isUser ? "Your message" : "GnOuGo.Agent response")">
                             <div class="gnougo-chat__bubble">
-                                @if (execution is not null)
-                                {
-                                    <div class="gnougo-chat__response-animation">
-                                        <section class="gnougo-workflow-card @(execution.IsExpanded ? "gnougo-workflow-card--expanded" : "gnougo-workflow-card--compact")"
-                                                 aria-label="Live GnOuGo workflow execution">
-                                            <div class="gnougo-workflow-card__content" hidden="@(!execution.IsExpanded)">
-                                                <div id="@execution.HostId"
-                                                     @key="execution.HostId"
-                                                     class="gnougo-workflow-card__stage"
-                                                     data-status="@execution.Status"
-                                                     data-follow="true"
-                                                     aria-label="Animated workflow scene with follow mode enabled"></div>
-
-                                                @if (execution.HumanInputSummaries.Count > 0)
-                                                {
-                                                    <div class="gnougo-workflow-card__hitl-summary">
-                                                        <strong>Human input received</strong>
-                                                        @foreach (var summary in execution.HumanInputSummaries)
-                                                        {
-                                                            <div><span>@summary.Question</span><code>@summary.Answer</code></div>
-                                                        }
-                                                    </div>
-                                                }
-                                            </div>
-                                        </section>
-                                    </div>
-                                }
-
                                 @if (isUser)
                                 {
                                     <PlainTextContent Class="gnougo-chat__bubble-text gnougo-chat__bubble-text--user"
                                                       Content="@msg.Content" />
                                 }
-                                else if (!string.IsNullOrWhiteSpace(msg.Content))
+                                else
                                 {
-                                    <MarkdownContent Class="gnougo-chat__bubble-text" Content="@msg.Content" />
+                                    @if (execution is { } responseExecution
+                                         && (responseExecution.PreliminaryResponses.Count > 0
+                                             || responseExecution.HumanInputSummaries.Count > 0))
+                                    {
+                                        <div class="gnougo-chat__response-progress" aria-label="Workflow preliminary responses">
+                                            @foreach (var preliminary in responseExecution.PreliminaryResponses)
+                                            {
+                                                <section class="gnougo-chat__preliminary-response">
+                                                    <div class="gnougo-chat__progress-label">Preliminary response</div>
+                                                    <MarkdownContent Class="gnougo-chat__bubble-text" Content="@preliminary" />
+                                                </section>
+                                            }
+
+                                            @if (responseExecution.HumanInputSummaries.Count > 0)
+                                            {
+                                                <section class="gnougo-chat__human-summary">
+                                                    <div class="gnougo-chat__progress-label">Human input received</div>
+                                                    @foreach (var summary in responseExecution.HumanInputSummaries)
+                                                    {
+                                                        <div class="gnougo-chat__human-summary-row">
+                                                            <span>@summary.Question</span>
+                                                            <span class="gnougo-chat__human-summary-answer">@summary.Answer</span>
+                                                        </div>
+                                                    }
+                                                </section>
+                                            }
+                                        </div>
+                                    }
+
+                                    @if (isTypingResponse)
+                                    {
+                                        <div class="gnougo-chat__typing-indicator"
+                                             role="status"
+                                             aria-label="GnOuGo is preparing the response">
+                                            <span></span>
+                                            <span></span>
+                                            <span></span>
+                                        </div>
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(msg.Content))
+                                    {
+                                        <MarkdownContent Class="gnougo-chat__bubble-text" Content="@msg.Content" />
+                                    }
                                 }
 
                                 @if (!string.IsNullOrWhiteSpace(responseError))
@@ -322,16 +364,19 @@
                                                 </svg>
                                                 <span>Activity</span>
                                             </button>
-                                            <button class="gnougo-chat__bubble-action"
-                                                    type="button"
-                                                    title="@(execution.IsExpanded ? "Hide workflow diagram" : "Show workflow diagram")"
-                                                    aria-expanded="@execution.IsExpanded"
-                                                    @onclick="() => ToggleExecutionCard(execution)">
-                                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                                    <path d="@(execution.IsExpanded ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6")"></path>
-                                                </svg>
-                                                <span>@(execution.IsExpanded ? "Hide diagram" : "Show diagram")</span>
-                                            </button>
+                                            @if (ReferenceEquals(SidebarExecution, execution))
+                                            {
+                                                <button class="gnougo-chat__bubble-action"
+                                                        type="button"
+                                                        title="@(execution.IsExpanded ? "Hide workflow diagram" : "Show workflow diagram")"
+                                                        aria-expanded="@execution.IsExpanded"
+                                                        @onclick="() => ToggleExecutionCard(execution)">
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path d="@(execution.IsExpanded ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6")"></path>
+                                                    </svg>
+                                                    <span>@(execution.IsExpanded ? "Hide diagram" : "Show diagram")</span>
+                                                </button>
+                                            }
                                         }
                                     </div>
                                 }
@@ -749,17 +794,18 @@
     {
         public required string CorrelationId { get; init; }
         public required string HostId { get; init; }
-        public required AnimationPreparedPayload Prepared { get; set; }
-        public string Entrypoint => Prepared.Entrypoint;
-        public string Scene => Prepared.Scene.ToString();
+        public AnimationPreparedPayload? Prepared { get; set; }
+        public string Entrypoint => Prepared?.Entrypoint ?? "Preparing workflow";
+        public string Scene => Prepared?.Scene.ToString() ?? "Preparing";
         public int LaneCount { get; set; }
         public int NodeCount { get; set; }
         public string Status { get; set; } = "Starting";
         public string LastEventType { get; set; } = "waiting for workflow";
         public bool IsExpanded { get; set; } = true;
-        public bool NeedsMount { get; set; } = true;
+        public bool NeedsMount { get; set; }
         public Queue<AnimationLiveUpdate> PendingUpdates { get; } = new();
         public List<ExecutionActivityItem> Activity { get; } = [];
+        public List<string> PreliminaryResponses { get; } = [];
         public List<(string Question, string Answer)> HumanInputSummaries { get; } = [];
     }
 
@@ -804,6 +850,8 @@
     private bool _agentMenuOpen;
     private bool _topbarMoreOpen;
     private bool _isStreaming;
+    private string? _streamingAssistantMessageId;
+    private string? _finalResponseStartedMessageId;
     private string _error = "";
     private readonly Dictionary<string, string> _workflowResponseErrors = new(StringComparer.Ordinal);
     private bool _chatStatePending = true;
@@ -820,7 +868,8 @@
     private ChatExecutionModel? _selectedExecution;
     private bool _executionSidebarOpen;
     private string? _activeExecutionCorrelationId;
-    private string? _animationScrollCorrelationId;
+    private string? _sidebarExecutionCorrelationId;
+    private bool _animationReplacementPending;
     private AppVersionDto? _appVersion;
     private bool _animationInteropRetryPending;
     private readonly SemaphoreSlim _animationInteropGate = new(1, 1);
@@ -848,6 +897,8 @@
         .Where(static upload => upload.IsCompleted && !string.IsNullOrWhiteSpace(upload.FileId))
         .Select(static upload => upload.FileId!)
         .ToArray();
+
+    private ChatExecutionModel? SidebarExecution => GetExecution(_sidebarExecutionCorrelationId);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -877,13 +928,6 @@
 
         // Animation telemetry must never wait for optional Markdown/Mermaid work.
         await FlushAnimationInteropAsync();
-
-        if (_animationScrollCorrelationId is { } scrollCorrelationId
-            && GetExecution(scrollCorrelationId) is { NeedsMount: false })
-        {
-            _animationScrollCorrelationId = null;
-            await ScrollToBottomAsync();
-        }
 
         if (_needsMarkdownEnhance && (!_isStreaming || _pendingHumanInput is not null))
         {
@@ -1648,6 +1692,8 @@
         // Placeholder assistant message
         var assistantMsg = new ChatMessageDto("assistant", "", MessageId: Guid.NewGuid().ToString("N"), CorrelationId: correlationId);
         _active.Messages.Add(assistantMsg);
+        _streamingAssistantMessageId = assistantMsg.MessageId;
+        _finalResponseStartedMessageId = null;
 
         TouchActive();
 
@@ -1656,6 +1702,23 @@
 
         StateHasChanged();
         await ScrollToBottomAsync();
+        await FadeOutSidebarAnimationAsync();
+
+        // Allocate a brand-new keyed host for every submitted message before
+        // telemetry begins. No SVG/controller state from the previous answer
+        // can leak into this execution, even while the scene is being prepared.
+        var freshExecution = new ChatExecutionModel
+        {
+            CorrelationId = correlationId,
+            HostId = AnimationHostId(correlationId),
+            Status = "Preparing"
+        };
+        _executions[correlationId] = freshExecution;
+        _activeExecutionCorrelationId = correlationId;
+        _sidebarExecutionCorrelationId = correlationId;
+        _animationReplacementPending = false;
+        _selectedExecution = freshExecution;
+        StateHasChanged();
 
         try
         {
@@ -1664,18 +1727,20 @@
             {
                 if (evt.Type is "animation.prepared" && evt.Animation?.Prepared is { } prepared)
                 {
-                    var execution = new ChatExecutionModel
+                    var execution = GetExecution(correlationId) ?? new ChatExecutionModel
                     {
                         CorrelationId = correlationId,
-                        HostId = AnimationHostId(correlationId),
-                        Prepared = prepared,
-                        LaneCount = prepared.LaneCount,
-                        NodeCount = prepared.NodeCount,
-                        Status = "Running"
+                        HostId = AnimationHostId(correlationId)
                     };
+                    execution.Prepared = prepared;
+                    execution.LaneCount = prepared.LaneCount;
+                    execution.NodeCount = prepared.NodeCount;
+                    execution.Status = "Running";
+                    execution.NeedsMount = true;
                     _executions[correlationId] = execution;
                     _activeExecutionCorrelationId = correlationId;
-                    _animationScrollCorrelationId = correlationId;
+                    _sidebarExecutionCorrelationId = correlationId;
+                    _animationReplacementPending = false;
                     _selectedExecution = execution;
                     StateHasChanged();
                     continue;
@@ -1689,8 +1754,6 @@
                         execution.LastEventType = "scene patch";
                         execution.LaneCount += patch.Lanes.Count;
                         execution.NodeCount += patch.Nodes.Count;
-                        if (string.Equals(_activeExecutionCorrelationId, correlationId, StringComparison.Ordinal))
-                            _animationScrollCorrelationId = correlationId;
                         StateHasChanged();
                     }
                     continue;
@@ -1738,8 +1801,22 @@
 
                     if (string.Equals(level, "response", StringComparison.OrdinalIgnoreCase))
                     {
-                        // "response" level = final user-facing content (e.g. from configure-providers)
-                        assistantMsg = await AppendAssistantContentAsync(assistantMsg, evt.Text, _cts.Token);
+                        if (GetExecution(correlationId)?.Prepared is null)
+                        {
+                            // Configuration commands have no workflow animation
+                            // and use this level for their final user-facing text.
+                            _finalResponseStartedMessageId = assistantMsg.MessageId;
+                            assistantMsg = await AppendAssistantContentAsync(assistantMsg, evt.Text, _cts.Token);
+                        }
+                        else
+                        {
+                            // A workflow can emit response-level text from
+                            // nested LLM steps. Display it as preliminary
+                            // progress without replacing the principal loader.
+                            RecordPreliminaryResponse(correlationId, evt.Text);
+                            AddExecutionActivity(correlationId, level, evt.Text ?? "Workflow activity");
+                            StateHasChanged();
+                        }
                     }
                     else
                     {
@@ -1750,13 +1827,13 @@
                 else if (evt.Type is "answer" or "response")
                 {
                     // Typewriter effect for the final answer
+                    _finalResponseStartedMessageId = assistantMsg.MessageId;
                     assistantMsg = await AppendAssistantContentAsync(assistantMsg, evt.Text, _cts.Token);
                 }
                 else if (evt.Type is "llm.chunk")
                 {
-                    // Intermediate LLM chunks — also typewriter
-                    // (These are intermediate steps, not the final answer,
-                    //  but we can show them to give feedback.)
+                    // Intermediate chunks belong to nested workflow activity.
+                    // The principal answer event alone replaces the loader.
                 }
                 else if (evt.Type.StartsWith("telemetry.", StringComparison.Ordinal))
                 {
@@ -1934,7 +2011,14 @@
         }
         finally
         {
+            if (_animationReplacementPending)
+            {
+                _sidebarExecutionCorrelationId = null;
+                _animationReplacementPending = false;
+            }
             _isStreaming = false;
+            _streamingAssistantMessageId = null;
+            _finalResponseStartedMessageId = null;
             ResetHumanInputState();
             _cts?.Dispose();
             _cts = null;
@@ -1999,6 +2083,20 @@
             _selectedExecution = execution;
     }
 
+    private void RecordPreliminaryResponse(string correlationId, string? response)
+    {
+        if (GetExecution(correlationId) is not { } execution
+            || string.IsNullOrWhiteSpace(response))
+            return;
+
+        var normalized = response.Trim();
+        if (execution.PreliminaryResponses.Count == 0
+            || !string.Equals(execution.PreliminaryResponses[^1], normalized, StringComparison.Ordinal))
+        {
+            execution.PreliminaryResponses.Add(normalized);
+        }
+    }
+
     private static (string? WorkflowName, string? StepId) ReadTelemetryIdentity(string? payload)
     {
         if (string.IsNullOrWhiteSpace(payload))
@@ -2048,70 +2146,73 @@
 
         try
         {
-            foreach (var execution in _executions.Values.ToArray())
+            if (SidebarExecution is not { } execution)
+                return;
+
+            try
             {
-                try
+                if (execution.Prepared is null)
+                    return;
+
+                if (execution.NeedsMount)
                 {
-                    if (execution.NeedsMount)
+                    var mounted = await Js.InvokeAsync<bool>(
+                        "GnOuGo.Agent.workflowAnimation.mount",
+                        execution.HostId,
+                        execution.Prepared);
+                    if (!mounted)
                     {
-                        var mounted = await Js.InvokeAsync<bool>(
-                            "GnOuGo.Agent.workflowAnimation.mount",
+                        ScheduleAnimationInteropRetry();
+                        return;
+                    }
+                    execution.NeedsMount = false;
+                }
+
+                while (execution.PendingUpdates.TryPeek(out var update))
+                {
+                    if (update.ScenePatch is not null)
+                    {
+                        var applied = await Js.InvokeAsync<bool>(
+                            "GnOuGo.Agent.workflowAnimation.applyPatch",
                             execution.HostId,
-                            execution.Prepared);
-                        if (!mounted)
+                            update.ScenePatch);
+                        if (!applied)
                         {
+                            execution.NeedsMount = true;
                             ScheduleAnimationInteropRetry();
                             return;
                         }
-                        execution.NeedsMount = false;
                     }
-
-                    while (execution.PendingUpdates.TryPeek(out var update))
+                    if (update.Event is not null)
                     {
-                        if (update.ScenePatch is not null)
+                        var applied = await Js.InvokeAsync<bool>(
+                            "GnOuGo.Agent.workflowAnimation.applyEvent",
+                            execution.HostId,
+                            update.Event);
+                        if (!applied)
                         {
-                            var applied = await Js.InvokeAsync<bool>(
-                                "GnOuGo.Agent.workflowAnimation.applyPatch",
-                                execution.HostId,
-                                update.ScenePatch);
-                            if (!applied)
-                            {
-                                execution.NeedsMount = true;
-                                ScheduleAnimationInteropRetry();
-                                return;
-                            }
+                            execution.NeedsMount = true;
+                            ScheduleAnimationInteropRetry();
+                            return;
                         }
-                        if (update.Event is not null)
-                        {
-                            var applied = await Js.InvokeAsync<bool>(
-                                "GnOuGo.Agent.workflowAnimation.applyEvent",
-                                execution.HostId,
-                                update.Event);
-                            if (!applied)
-                            {
-                                execution.NeedsMount = true;
-                                ScheduleAnimationInteropRetry();
-                                return;
-                            }
-                        }
-                        execution.PendingUpdates.Dequeue();
                     }
+                    execution.PendingUpdates.Dequeue();
                 }
-                catch (JSDisconnectedException)
-                {
-                    return;
-                }
-                catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
-                {
-                    return;
-                }
-                catch (JSException ex)
-                {
-                    execution.Status = "Animation error";
-                    execution.LastEventType = ex.Message;
-                    ScheduleAnimationInteropRetry();
-                    return;
-                }
+            }
+            catch (JSDisconnectedException)
+            {
+                return;
+            }
+            catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+            {
+                return;
+            }
+            catch (JSException ex)
+            {
+                execution.Status = "Animation error";
+                execution.LastEventType = ex.Message;
+                ScheduleAnimationInteropRetry();
+                return;
             }
         }
         finally
@@ -2119,9 +2220,35 @@
             _animationInteropGate.Release();
         }
 
-        if (_executions.Values.Any(static execution =>
-                execution.NeedsMount || execution.PendingUpdates.Count > 0))
+        if (SidebarExecution is { Prepared: not null } pendingExecution
+            && (pendingExecution.NeedsMount || pendingExecution.PendingUpdates.Count > 0))
             ScheduleAnimationInteropRetry();
+    }
+
+    private async Task FadeOutSidebarAnimationAsync()
+    {
+        if (SidebarExecution is not { } execution)
+            return;
+
+        _animationReplacementPending = true;
+        try
+        {
+            await Js.InvokeAsync<bool>(
+                "GnOuGo.Agent.workflowAnimation.fadeOut",
+                execution.HostId,
+                360);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+        {
+        }
+        catch (JSException)
+        {
+            // The keyed sidebar slot removes the failed host when the next
+            // prepared scene arrives; disposal is retried during page cleanup.
+        }
     }
 
     private void ScheduleAnimationInteropRetry()
@@ -2167,8 +2294,12 @@
     {
         if (GetExecution(_activeExecutionCorrelationId) is { } execution)
         {
-            execution.HumanInputSummaries.Add((question, answer));
             execution.Status = "Resuming";
+            execution.HumanInputSummaries.Add((question, answer));
+            AddExecutionActivity(
+                execution.CorrelationId,
+                "human",
+                $"Human input received for: {question}");
         }
     }
 
@@ -2432,6 +2563,10 @@
     {
         CloseTopbarMenus();
         _cts?.Cancel();
+        await FadeOutSidebarAnimationAsync();
+        _sidebarExecutionCorrelationId = null;
+        _activeExecutionCorrelationId = null;
+        _animationReplacementPending = false;
         _error = "";
         _model.Prompt = "";
         _composerUploads.Clear();
@@ -2470,6 +2605,10 @@
 
         if (!string.Equals(_store.ActiveId, id, StringComparison.Ordinal))
         {
+            await FadeOutSidebarAnimationAsync();
+            _sidebarExecutionCorrelationId = null;
+            _activeExecutionCorrelationId = null;
+            _animationReplacementPending = false;
             _store = _store with { ActiveId = id };
             _active = _store.Sessions.FirstOrDefault(s => s.Id == id);
             if (_active is { Messages.Count: 0 } && await TryHydrateSessionMessagesAsync(_active))

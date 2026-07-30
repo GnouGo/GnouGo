@@ -400,32 +400,23 @@ const workflowAnimation = {
 
     const sceneWidth = svg.viewBox.baseVal.width || Number(svg.getAttribute('width')) || prepared.width;
     const sceneHeight = svg.viewBox.baseVal.height || Number(svg.getAttribute('height')) || prepared.height;
-    const frameWidth = Math.max(1, host.clientWidth || prepared.width);
-    const frameHeight = Math.max(1, host.clientHeight || Math.min(620, Math.max(360, prepared.height)));
-    const frameAspect = frameWidth / frameHeight;
-    const sceneAspect = sceneWidth / Math.max(1, sceneHeight);
-    let viewportWidth = sceneWidth;
-    let viewportHeight = sceneHeight;
-    if (sceneAspect > frameAspect)
-      viewportWidth = Math.min(sceneWidth, sceneHeight * frameAspect);
-    else
-      viewportHeight = Math.min(sceneHeight, sceneWidth / frameAspect);
-    const viewportX = Math.max(0, (sceneWidth - viewportWidth) / 2);
 
-    // Preserve the complete logical scene as the camera boundary while the
-    // viewBox represents the bounded window that follows the active GnOuGo.
+    // The sidebar owns the scrolling camera. Keep the full logical scene in
+    // the SVG and render it at a readable size so both scrollbars are useful.
     svg.dataset.sceneWidth = String(sceneWidth);
     svg.dataset.sceneHeight = String(sceneHeight);
-    svg.setAttribute('viewBox', `${viewportX} 0 ${viewportWidth} ${viewportHeight}`);
-    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svg.setAttribute('viewBox', `0 0 ${sceneWidth} ${sceneHeight}`);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMin meet');
     host.dataset.follow = 'true';
 
     const handle = { follow: true } as WorkflowAnimationHandle;
     const resize = () => {
+      const logicalWidth = Number(svg.dataset.sceneWidth) || svg.viewBox.baseVal.width || prepared.width;
+      const logicalHeight = Number(svg.dataset.sceneHeight) || svg.viewBox.baseVal.height || prepared.height;
       const availableWidth = Math.max(1, host!.clientWidth);
-      const availableHeight = Math.max(1, host!.clientHeight);
-      const renderedWidth = availableWidth * handle.zoom;
-      const renderedHeight = availableHeight * handle.zoom;
+      const readableWidth = Math.min(logicalWidth, Math.max(640, availableWidth * 1.8));
+      const renderedWidth = readableWidth * handle.zoom;
+      const renderedHeight = renderedWidth * logicalHeight / Math.max(1, logicalWidth);
       svg.style.width = `${renderedWidth}px`;
       svg.style.height = `${renderedHeight}px`;
       svg.style.maxWidth = 'none';
@@ -435,7 +426,7 @@ const workflowAnimation = {
       () => host,
       characters,
       {
-        cameraMode: 'viewport',
+        cameraMode: 'scroll',
         shouldFollowPortalTransfer: () => handle.follow,
         onFocus: (_id, event) => {
           if (handle.follow) controller.focusEvent(event);
@@ -492,6 +483,33 @@ const workflowAnimation = {
     const host = el(hostId);
     if (host) host.dataset.follow = String(follow);
     if (!follow) handle.controller.stopCameraMotion();
+    return true;
+  },
+
+  fadeOut: async (hostId: string, durationMs = 360): Promise<boolean> => {
+    const host = el(hostId);
+    if (!host) {
+      workflowAnimation.dispose(hostId);
+      return false;
+    }
+
+    const duration = Math.max(0, Math.min(durationMs, 1200));
+    host.style.setProperty('--gnougo-workflow-fade-duration', `${duration}ms`);
+    void host.offsetWidth;
+    host.classList.add('gnougo-workflow-card__stage--leaving');
+    await new Promise<void>(resolve => {
+      let completed = false;
+      const finish = (event?: Event) => {
+        if (event && event.target !== host) return;
+        if (completed) return;
+        completed = true;
+        host.removeEventListener('transitionend', finish);
+        resolve();
+      };
+      host.addEventListener('transitionend', finish);
+      window.setTimeout(finish, duration + 80);
+    });
+    workflowAnimation.dispose(hostId);
     return true;
   },
 

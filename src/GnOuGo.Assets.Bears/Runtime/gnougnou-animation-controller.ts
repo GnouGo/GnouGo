@@ -212,6 +212,24 @@ export class GnouGnouAnimationController {
     })
   }
 
+  /**
+   * Stops one articulated pose without moving the actor. This is useful when
+   * an external item reaches a waiting character: the rig remains exactly at
+   * its current transform until the next authoritative action starts.
+   */
+  stop(actorId: string, resetToIdle = false) {
+    const frame = this.poseFrames.get(actorId)
+    if (frame !== undefined) cancelAnimationFrame(frame)
+    this.poseFrames.delete(actorId)
+    const actor = this.findActor(actorId)
+    if (!actor) return
+    if (resetToIdle) {
+      this.resetActor(actor)
+      return
+    }
+    actor.setAttribute('data-pose', 'hold')
+  }
+
   reset(actorId: string) {
     const frame = this.poseFrames.get(actorId)
     if (frame !== undefined) cancelAnimationFrame(frame)

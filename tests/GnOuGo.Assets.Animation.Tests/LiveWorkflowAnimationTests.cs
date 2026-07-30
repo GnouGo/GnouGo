@@ -27,6 +27,56 @@ public sealed class LiveWorkflowAnimationTests
     }
 
     [Fact]
+    public void LiveSession_MasterFinishesAtDeliveryRoundaboutCenter()
+    {
+        var validation = WorkflowPreviewValidator.ParseAndValidate("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - { id: work, type: llm.call }
+            """);
+        var plan = GnouGnouAnimationPlanner.BuildLive(
+            validation,
+            new GnouGnouAnimationOptions { Seed = 17 });
+        var session = new WorkflowLiveAnimationSession(plan);
+
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "run-main",
+            WorkflowName = "main"
+        });
+        var completed = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowCompleted,
+            WorkflowInstanceId = "run-main",
+            WorkflowName = "main",
+            Status = SimulationStatus.Succeeded
+        });
+
+        var deliveryNode = plan.Nodes.Single(node =>
+            node.Kind == AnimationFlowNodeKind.Delivery);
+        var deliveryStation = plan.Stations.Single(station =>
+            station.Id == deliveryNode.StationId);
+        var deliveryEdge = plan.Edges.Single(edge =>
+            edge.ToNodeId == deliveryNode.Id);
+        var arrival = Assert.Single(completed, update =>
+            update.Event is
+            {
+                Type: SimulationEventTypes.ActorMoved,
+                TaskId: "task-root"
+            }).Event!;
+
+        Assert.Equal(deliveryNode.Id, arrival.NodeId);
+        Assert.Equal(deliveryStation.Id, arrival.StationId);
+        Assert.Equal(deliveryEdge.Id, arrival.EdgeId);
+        Assert.Equal(deliveryStation.Position.X, arrival.X);
+        Assert.Equal(deliveryStation.Position.Y, arrival.Y);
+    }
+
+    [Fact]
     public void BuildLive_RendersDedicatedOrchestrationStations()
     {
         var validation = WorkflowPreviewValidator.ParseAndValidate("""
@@ -147,10 +197,25 @@ public sealed class LiveWorkflowAnimationTests
             StepId = "approve",
             StepType = "human.input"
         });
+        var completed = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepCompleted,
+            WorkflowInstanceId = "run-main",
+            StepOccurrenceId = "approve-1",
+            StepId = "approve",
+            StepType = "human.input",
+            Status = SimulationStatus.Succeeded
+        });
 
         Assert.Contains(waiting, update => update.Event?.Type == SimulationEventTypes.HumanInputWaiting);
         Assert.Contains(waiting, update => update.Event?.Type == SimulationEventTypes.ActorWaiting);
+        var waitingEvent = Assert.Single(
+            waiting,
+            update => update.Event?.Type == SimulationEventTypes.HumanInputWaiting).Event!;
+        Assert.Equal(station.Position.X, waitingEvent.X);
+        Assert.Equal(station.Position.Y, waitingEvent.Y);
         Assert.Contains(resumed, update => update.Event?.Type == SimulationEventTypes.HumanInputResumed);
+        Assert.DoesNotContain(completed, update => update.Event?.Type == SimulationEventTypes.HumanInputResumed);
     }
 
     [Fact]

@@ -311,15 +311,29 @@ public sealed class WorkflowLiveAnimationSession
         var delivery = AllNodes().FirstOrDefault(node =>
             node.WorkflowInstanceId == workflow.Lane.WorkflowInstanceId
             && node.Kind == AnimationFlowNodeKind.Delivery);
+        var deliveryStation = delivery?.StationId is null
+            ? null
+            : AllStations().FirstOrDefault(station =>
+                string.Equals(station.Id, delivery.StationId, StringComparison.Ordinal));
+        var deliveryPoint = deliveryStation?.Position
+            ?? (delivery is null
+                ? new AnimationPoint(workflow.Lane.X, workflow.Lane.EndY)
+                : new AnimationPoint(delivery.Position.X, delivery.Position.Y + 108));
+        var deliveryEdge = delivery is null
+            ? null
+            : AllEdges().FirstOrDefault(edge =>
+                string.Equals(edge.ToNodeId, delivery.Id, StringComparison.Ordinal));
         Add(updates, SimulationEventTypes.ActorMoved, _options.MoveDurationMs,
             workflow: workflow, actorId: workflow.Lane.ActorId,
-            nodeId: delivery?.Id, x: delivery?.Position.X, y: delivery?.Position.Y,
+            nodeId: delivery?.Id, stationId: deliveryStation?.Id,
+            edgeId: deliveryEdge?.Id,
+            x: deliveryPoint.X, y: deliveryPoint.Y,
             taskId: "task-root", status: status,
             message: "The master carries the project parcel to delivery.");
         Add(updates, SimulationEventTypes.OutputSent, _options.EffectDurationMs,
             workflow: workflow, actorId: workflow.Lane.ActorId,
             nodeId: delivery?.Id, taskId: "task-root",
-            x: delivery?.Position.X ?? workflow.Lane.X,
+            x: deliveryPoint.X,
             y: -80, status: status,
             message: status == SimulationStatus.Failed
                 ? "The failed project parcel is returned skyward."
@@ -417,8 +431,10 @@ public sealed class WorkflowLiveAnimationSession
         step.Completed = true;
         var status = signal.Status ?? SimulationStatus.Succeeded;
         if (step.StepType.StartsWith("human.", StringComparison.OrdinalIgnoreCase)
-            && status != SimulationStatus.Failed)
+            && status != SimulationStatus.Failed
+            && !step.HumanInputResumed)
         {
+            step.HumanInputResumed = true;
             Add(updates, SimulationEventTypes.HumanInputResumed, _options.HandoffDurationMs,
                 workflow: workflow, actorId: step.ActorId, step: step,
                 nodeId: step.Node?.Id, stationId: step.Station?.Id,
@@ -454,18 +470,22 @@ public sealed class WorkflowLiveAnimationSession
         var workflow = GetWorkflow(step.WorkflowInstanceId);
         if (workflow is null)
             return;
+        var actorPosition = step.Node is null
+            ? (AnimationPoint?)null
+            : step.Station?.Position
+              ?? new AnimationPoint(step.Node.Position.X, step.Node.Position.Y + 108);
 
         Add(updates, SimulationEventTypes.HumanInputWaiting, PersistentActionDurationMs,
             workflow: workflow, actorId: step.ActorId, step: step,
             nodeId: step.Node?.Id, stationId: step.Station?.Id,
             taskId: "task-root", status: SimulationStatus.Running,
-            x: step.Node?.Position.X, y: step.Node?.Position.Y,
+            x: actorPosition?.X, y: actorPosition?.Y,
             message: signal.Message ?? "GnOuGo is calmly waiting for human input.");
         Add(updates, SimulationEventTypes.ActorWaiting, PersistentActionDurationMs,
             workflow: workflow, actorId: step.ActorId, step: step,
             nodeId: step.Node?.Id, stationId: step.Station?.Id,
             taskId: "task-root", status: SimulationStatus.Running,
-            x: step.Node?.Position.X, y: step.Node?.Position.Y,
+            x: actorPosition?.X, y: actorPosition?.Y,
             message: "The parcel waits safely at the human-input counter.");
     }
 
@@ -475,9 +495,10 @@ public sealed class WorkflowLiveAnimationSession
             || !_steps.TryGetValue(signal.StepOccurrenceId, out var step))
             return;
         var workflow = GetWorkflow(step.WorkflowInstanceId);
-        if (workflow is null)
+        if (workflow is null || step.HumanInputResumed)
             return;
 
+        step.HumanInputResumed = true;
         Add(updates, SimulationEventTypes.HumanInputResumed, _options.HandoffDurationMs,
             workflow: workflow, actorId: step.ActorId, step: step,
             nodeId: step.Node?.Id, stationId: step.Station?.Id,
@@ -699,6 +720,7 @@ public sealed class WorkflowLiveAnimationSession
         public bool IsVisible { get; } = isVisible;
         public string? CloneActorId { get; } = cloneActorId;
         public bool Completed { get; set; }
+        public bool HumanInputResumed { get; set; }
     }
 }
 

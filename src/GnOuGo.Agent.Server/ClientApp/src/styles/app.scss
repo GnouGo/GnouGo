@@ -173,6 +173,12 @@ html, body {
   white-space: nowrap;
 }
 
+.gnougo-sidebar__workflow {
+  flex: 0 0 auto;
+  padding: 8px 0 10px;
+  background: #fff;
+}
+
 .gnougo-sidebar__close {
   display: none;
 }
@@ -660,11 +666,6 @@ html, body {
   --bgColor-neutral-muted: rgba(175, 184, 193, 0.2);
   --borderColor-default: var(--gnougo-border);
   --borderColor-muted: var(--gnougo-border);
-}
-
-.gnougo-chat__response-animation {
-  width: 100%;
-  margin-bottom: 0;
 }
 
 .gnougo-chat__response-actions {
@@ -1273,18 +1274,113 @@ html, body {
   display: none;
 }
 
+.gnougo-chat__message--typing {
+  justify-content: flex-start;
+  min-height: 44px;
+  margin-bottom: 42px;
+}
+
+.gnougo-chat__message--typing .gnougo-chat__bubble {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.gnougo-chat__response-progress {
+  display: grid;
+  width: 100%;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.gnougo-chat__preliminary-response {
+  color: #374151;
+}
+
+.gnougo-chat__progress-label {
+  margin-bottom: 5px;
+  color: #8a94a3;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+.gnougo-chat__human-summary {
+  display: grid;
+  gap: 7px;
+  max-width: 760px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f7f8fa;
+}
+
+.gnougo-chat__human-summary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, auto);
+  align-items: start;
+  gap: 16px;
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.gnougo-chat__human-summary-answer {
+  color: #111827;
+  font-weight: 600;
+  text-align: right;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.gnougo-chat__typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 20px;
+  margin-left: 0;
+}
+
+.gnougo-chat__typing-indicator span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #111;
+  animation: gnougo-chat-typing-dot 1.15s ease-in-out infinite;
+}
+
+.gnougo-chat__typing-indicator span:nth-child(2) {
+  animation-delay: 140ms;
+}
+
+.gnougo-chat__typing-indicator span:nth-child(3) {
+  animation-delay: 280ms;
+}
+
+@keyframes gnougo-chat-typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: .28;
+    transform: translateY(0);
+  }
+
+  30% {
+    opacity: .82;
+    transform: translateY(-2px);
+  }
+}
+
 .gnougo-workflow-card {
   width: 100%;
   max-width: none;
-  overflow: visible;
+  overflow: hidden;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-}
-
-.gnougo-workflow-card--expanded {
-  margin-bottom: 24px;
 }
 
 .gnougo-workflow-card__content[hidden] {
@@ -1292,17 +1388,69 @@ html, body {
 }
 
 .gnougo-workflow-card__stage {
+  --gnougo-workflow-fade-duration: 360ms;
   position: relative;
   width: 100%;
   min-width: 0;
-  height: clamp(360px, 58vh, 620px);
-  max-height: 620px;
-  overflow: hidden;
+  height: clamp(280px, 42vh, 500px);
+  max-height: min(500px, calc(100vh - 320px));
+  height: clamp(280px, 42dvh, 500px);
+  max-height: min(500px, calc(100dvh - 320px));
+  overflow: scroll;
+  overscroll-behavior: contain;
+  scrollbar-color: #9aa7b8 #f3f5f7;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
   border: 1px solid var(--gnougo-border);
   border-radius: var(--gnougo-radius);
   background: #fff;
   box-shadow: var(--gnougo-shadow);
   isolation: isolate;
+  animation: gnougo-workflow-stage-enter 420ms cubic-bezier(.22, 1, .36, 1) both;
+  transition:
+    opacity var(--gnougo-workflow-fade-duration) ease,
+    transform var(--gnougo-workflow-fade-duration) cubic-bezier(.4, 0, .2, 1),
+    filter var(--gnougo-workflow-fade-duration) ease;
+}
+
+.gnougo-workflow-card__stage--leaving {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-8px) scale(.985);
+  filter: blur(3px);
+}
+
+.gnougo-workflow-card__stage::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.gnougo-workflow-card__stage::-webkit-scrollbar-track {
+  background: #f3f5f7;
+}
+
+.gnougo-workflow-card__stage::-webkit-scrollbar-thumb {
+  border: 2px solid #f3f5f7;
+  border-radius: 999px;
+  background: #9aa7b8;
+}
+
+.gnougo-workflow-card__stage::-webkit-scrollbar-thumb:hover {
+  background: #7d8b9d;
+}
+
+@keyframes gnougo-workflow-stage-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(.985);
+    filter: blur(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
 }
 
 .gnougo-workflow-card__stage > svg {
@@ -1313,42 +1461,19 @@ html, body {
   transform-origin: center;
 }
 
-.gnougo-workflow-card__hitl-summary {
-  display: grid;
-  gap: 6px;
-  padding: 12px 16px 14px;
-  border-top: 1px solid rgba(14, 116, 144, .18);
-  background: rgba(236, 254, 255, .88);
-  color: #164e63;
-  font-size: 12px;
-}
-
-.gnougo-workflow-card__hitl-summary > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.gnougo-workflow-card__hitl-summary code {
-  overflow: hidden;
-  max-width: 54%;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .gnougo-workflow-hitl {
   width: 100%;
-  max-width: none;
-  margin-top: -14px;
+  max-width: 1160px;
+  justify-content: center;
+  margin: 0 auto 42px;
 }
 
 .gnougo-workflow-hitl__panel {
-  width: 100%;
-  max-width: none;
-  border-color: rgba(14, 116, 144, .3);
-  border-top: 0;
-  border-radius: 0 0 20px 20px;
-  padding: 16px;
+  width: min(860px, 100%);
+  max-width: 860px;
+  border: 1px solid rgba(14, 116, 144, .3);
+  border-radius: 18px;
+  padding: 18px;
   background: linear-gradient(145deg, #ecfeff, #f0fdfa);
   box-shadow: 0 16px 40px rgba(15, 23, 42, .1);
 }
@@ -1476,8 +1601,18 @@ html, body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .gnougo-chat__typing-indicator span {
+    animation: none;
+    opacity: .7;
+  }
+
   .gnougo-execution-panel {
     transition: none;
+  }
+
+  .gnougo-workflow-card__stage {
+    animation: none;
+    transition-duration: 1ms;
   }
 }
 
@@ -1495,6 +1630,15 @@ html, body {
     margin-bottom: 36px;
   }
 
+  .gnougo-chat__human-summary-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .gnougo-chat__human-summary-answer {
+    text-align: left;
+  }
+
   .gnougo-chat__composer {
     padding: 8px 10px 10px;
   }
@@ -1504,8 +1648,10 @@ html, body {
   }
 
   .gnougo-workflow-card__stage {
-    height: clamp(300px, 52vh, 500px);
-    max-height: 500px;
+    height: clamp(260px, 38vh, 400px);
+    max-height: min(400px, calc(100vh - 260px));
+    height: clamp(260px, 38dvh, 400px);
+    max-height: min(400px, calc(100dvh - 260px));
   }
 }
 

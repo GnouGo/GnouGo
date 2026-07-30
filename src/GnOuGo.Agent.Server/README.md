@@ -101,21 +101,42 @@ The Blazor chat composer resolves the active/default agent workflow through `Sma
 ## Live workflow animation in chat
 
 Regular workflow-backed chat requests render a transient
-`GnOuGo.Assets.Animation` scene between the user message and the final
-assistant response. The scene follows real workflow telemetry: stable workflow
+`GnOuGo.Assets.Animation` scene in the active conversation's navigation entry.
+The scene follows real workflow telemetry: stable workflow
 instances and step occurrences drive walking, roundabout work, parallel clones,
 runtime workflow handoffs, parcel completion, failure, and final delivery. It
 never runs a second synthetic timer.
 
 The conversation uses a document-style layout: compact right-aligned user
-prompts and borderless full-width assistant turns. A workflow scene is the first
-part of its assistant turn, followed by the textual answer and lightweight copy
-and trace actions; it is not rendered as a separate chat message. The SVG uses
-a subtle application-standard border and a responsive internal viewport capped
-at 620 px high, without title, lane count, node count, or live-telemetry
-caption. Follow mode is enabled by default: telemetry pans the SVG camera
-inside that viewport and never scrolls the surrounding conversation. Activity
-and diagram visibility controls sit in the response action row beside Trace.
+prompts and borderless full-width assistant turns. A single live workflow scene
+is hosted directly below the active conversation title in the left navigation
+history, while its Activity and visibility controls remain in the related
+response action row beside Trace. The scene has the same subtle border as the
+rest of the application, a viewport-responsive height capped at 500 px, and
+native horizontal and vertical scrollbars. Follow mode is enabled by default
+and scrolls only this internal panel. Every submitted message allocates a new,
+correlation-keyed animation host before workflow telemetry starts. The previous
+host fades, disposes its browser controller, and is replaced by this clean panel
+so actors, portals, scene layers, and queued events cannot leak between turns.
+No title, lane count, node count, or live-telemetry caption is rendered.
+
+Human Input cards use the same centered 1160 px conversation column, with an
+860 px maximum card width. While the workflow waits, its GnOuGo retains the
+persistent waiting pose. When the user submits a response, a blue response
+capsule enters from beyond the visible animation viewport, arcs toward the
+waiting actor, and disappears on receipt before execution resumes.
+Resume preserves the already-active scene and the human-step completion uses a
+stationary actor rig, avoiding a duplicate scene entrance, reception pose, or
+top-to-bottom actor jump.
+
+The empty assistant turn displays three small, borderless black typing dots
+from submission through Human Input pauses and other workflow activity.
+Response-level messages from nested LLM steps appear above the loader as
+preliminary responses and also remain available in Activity. Submitted Human
+Input values are listed beside them, with sensitive values masked. These
+progress items remain visible with the final response, while only the principal
+workflow answer replaces the loader itself. An execution error also dismisses
+the loader. The dots are left-aligned with assistant response text.
 
 User turns are rendered as encoded plain text rather than reparsed as Markdown.
 This preserves every submitted line break, indentation, and large pasted block

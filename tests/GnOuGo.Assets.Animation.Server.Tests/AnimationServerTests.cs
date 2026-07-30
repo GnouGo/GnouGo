@@ -407,6 +407,11 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains("GnouGnouWorkflowCharacterController", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("enqueueEvent(event: WorkflowSimulationEvent)", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("Array.from(parsedRoot.childNodes)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private animateHumanInputDelivery(event: WorkflowSimulationEvent)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("human-input-delivery-", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-animation-human-delivery", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("event.type === 'human_input.resumed'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("event.stepType?.toLowerCase().startsWith('human.')", workflowRuntime, StringComparison.Ordinal);
         Assert.DoesNotContain("while (parsedRoot.firstChild)", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("this.promoteForeground(svg)", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private initializeSceneLayers()", workflowRuntime, StringComparison.Ordinal);

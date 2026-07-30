@@ -176,6 +176,21 @@ public static class GnouGnouAnimationSvgRenderer
     .task-object.is-failed .task-body { fill: #ef5b67; stroke: #9d2634; }
     .task-label { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 12px; font-weight: 800; text-anchor: middle; fill: #18344d; }
     .task-glyph { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 25px; font-weight: 900; text-anchor: middle; dominant-baseline: middle; fill: #fff; }
+    .human-input-delivery {
+      pointer-events: none;
+      filter: drop-shadow(0 8px 11px rgba(31, 86, 151, .28));
+    }
+    .human-delivery-aura { fill: #82cfff; opacity: .24; }
+    .human-delivery-balloon { fill: #eaf6ff; stroke: #236eb3; stroke-width: 5; }
+    .human-delivery-dot { fill: #4b91d1; }
+    .human-delivery-check {
+      fill: none;
+      stroke: #1d8f62;
+      stroke-width: 5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: .92;
+    }
     .roundabout-outline { fill: #fff; stroke: #cbd5dc; stroke-width: 6; }
     .roundabout-road { fill: none; stroke: #53616d; stroke-width: 34; transition: stroke .2s ease; }
     .roundabout-marking { fill: none; stroke: #fff; stroke-width: 3; stroke-dasharray: 11 12; stroke-linecap: round; }
@@ -195,7 +210,7 @@ public static class GnouGnouAnimationSvgRenderer
     .parcel-stamp { opacity: 0; transition: opacity .2s ease, transform .2s ease; }
     .parcel-stamp[data-visible="true"] { opacity: 1; }
     @media (prefers-reduced-motion: reduce) {
-      .gnougo-actor, .task-object, .workflow-scene-layer { transition-duration: .01ms !important; }
+      .gnougo-actor, .task-object, .workflow-scene-layer, .human-input-delivery { transition-duration: .01ms !important; }
       .transit-pipe-highlight { animation: none !important; }
     }
   </style>

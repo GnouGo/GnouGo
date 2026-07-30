@@ -145,6 +145,25 @@ timer-driven consumers continue to use `applyEvent(...)` directly. Persistent
 live `step.started` and human-waiting signals are rendered as calm repeated
 action cycles and stop only when the corresponding completion, resume,
 cancellation, or failure event arrives.
+`human_input.waiting` is an authoritative presentation barrier: the browser
+drains older queued events immediately and settles the actor and parcel on the
+declared Human station. This prevents a delayed previous-step walk from
+replaying when the user submits the response.
+On `human_input.resumed`, the shared browser controller creates an original
+blue response capsule just beyond the visible viewport, moves it in a smooth
+arc to the waiting GnOuGo, and disappears on receipt without changing the
+actor's pose. The temporary SVG item is removed after receipt and exposes
+`data-animation-human-delivery` diagnostics on the host. Resume and the
+immediately following human-step completion preserve both the active scene and
+camera position. Resume freezes the current waiting rig transform without
+resetting it, and successful Human Input completion leaves that rig untouched
+instead of replaying the scene entrance or a gesture. This avoids both a pose
+snap and the disappear-and-return vertical jump after receipt.
+
+For root workflow completion, the live session resolves the delivery
+roundabout's authoritative station position and incoming edge. The Master
+therefore follows the final road all the way to the visible center before the
+parcel is sent.
 
 The controller continues draining queued telemetry after a recoverable visual
 error and exposes `data-animation-event-count`, `data-animation-last-event`,

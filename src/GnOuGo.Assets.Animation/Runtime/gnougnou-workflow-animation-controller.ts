@@ -17,6 +17,7 @@ export interface GnouGnouWorkflowCharacterController {
   startAmbient(): void
   stopAmbient(): void
   cancelAll(resetToIdle?: boolean): void
+  stop(actorId: string, resetToIdle?: boolean): void
   play(
     actorId: string | undefined,
     action: GnouGnouWorkflowCharacterAction,
@@ -184,6 +185,7 @@ export class GnouGnouWorkflowAnimationController {
     this.persistentActionTimers.clear()
     this.frames.forEach(frame => cancelAnimationFrame(frame))
     this.frames.clear()
+    this.root()?.querySelectorAll('.human-input-delivery').forEach(item => item.remove())
     this.stationAnimations.splice(0).forEach(animation => animation.cancel())
     this.stopCameraMotion()
     this.characters.cancelAll()
@@ -203,6 +205,7 @@ export class GnouGnouWorkflowAnimationController {
     this.setHostDiagnostic('data-animation-error', '')
     this.setHostDiagnostic('data-animation-queued-events', '0')
     this.setHostDiagnostic('data-animation-parallel-actors', '0')
+    this.setHostDiagnostic('data-animation-human-delivery', '')
     this.initializeCamera()
     this.initializeSceneLayers()
     this.characters.startAmbient()
@@ -219,6 +222,7 @@ export class GnouGnouWorkflowAnimationController {
     this.persistentActionTimers.clear()
     this.frames.forEach(frame => cancelAnimationFrame(frame))
     this.frames.clear()
+    this.root()?.querySelectorAll('.human-input-delivery').forEach(item => item.remove())
     this.stationAnimations.splice(0).forEach(animation => animation.cancel())
     this.characters.cancelAll()
     this.characters.stopAmbient()
@@ -241,6 +245,14 @@ export class GnouGnouWorkflowAnimationController {
   enqueueEvent(event: WorkflowSimulationEvent) {
     this.liveEventQueue.push(event)
     this.setHostDiagnostic('data-animation-queued-events', String(this.liveEventQueue.length))
+    // Human Input is an authoritative synchronization point. The form can be
+    // answered while normal presentation events are still queued, so drain
+    // everything through the waiting event immediately. Otherwise an old
+    // "previous step -> Human step" walk can replay when the answer arrives.
+    if (event.type === 'human_input.waiting') {
+      this.synchronizeHumanInputWaiting()
+      return
+    }
     // Give an NDJSON chunk one frame to contribute every event sharing the
     // same planned offset. Parallel branch movements can then start in one
     // presentation batch instead of being serialized by the live queue.
@@ -729,14 +741,15 @@ export class GnouGnouWorkflowAnimationController {
       case 'actor.waiting':
       case 'human_input.waiting':
         this.activateSceneForActor(event.actorId)
+        this.settleHumanInputActor(event)
         this.playStepAction(event.actorId, 'wait', event.durationMs)
         this.pulseStation(event.stationId, Math.min(event.durationMs, 10_000))
         this.options.onStatus?.('Waiting for you', event.message)
         break
       case 'human_input.resumed':
-        this.activateSceneForActor(event.actorId)
         this.stopPersistentAction(event.actorId)
-        this.characters.play(event.actorId, 'pickup', Math.max(500, event.durationMs))
+        if (event.actorId) this.characters.stop(event.actorId, false)
+        this.animateHumanInputDelivery(event)
         this.options.onStatus?.('Running', event.message)
         break
       case 'actor.cloned':
@@ -833,17 +846,23 @@ export class GnouGnouWorkflowAnimationController {
         this.pulseStation(event.stationId, Math.min(event.durationMs, 10_000))
         this.animateRoundabout(event.stationId, Math.min(event.durationMs, 60_000))
         break
-      case 'step.completed':
-        this.activateSceneForActor(event.actorId)
+      case 'step.completed': {
+        const isHumanInputStep = event.stepType?.toLowerCase().startsWith('human.') === true
+        // The waiting scene is already active. Re-activating it as the user
+        // response arrives can replay the dynamic-scene entrance and make the
+        // stationary GnOuGo disappear, then fall back in from above.
+        if (!isHumanInputStep) this.activateSceneForActor(event.actorId)
         this.stopPersistentAction(event.actorId)
         this.setActorStatus(event.actorId, event.status)
         this.updateParcel(event.progressCurrent, event.progressTotal, event.status === 'Failed')
-        this.characters.play(
-          event.actorId,
-          event.status === 'Failed' ? 'fail' : 'celebrate',
-          event.status === 'Failed' ? 1200 : 700,
-        )
+        // A successful Human Input completion must not touch the character rig:
+        // the response capsule is the only moving element during receipt.
+        if (event.status === 'Failed')
+          this.characters.play(event.actorId, 'fail', 1200)
+        else if (!isHumanInputStep)
+          this.characters.play(event.actorId, 'celebrate', 700)
         break
+      }
       case 'output.sent':
         this.stopPersistentAction(event.actorId)
         if (event.x !== undefined && event.y !== undefined) {
@@ -869,6 +888,44 @@ export class GnouGnouWorkflowAnimationController {
     const focusId = this.focusIdForEvent(event)
     if (focusId) this.options.onFocus?.(focusId, event)
     if (completingParallel) this.removeParallelCohort(completingParallel)
+  }
+
+  private synchronizeHumanInputWaiting() {
+    if (this.liveEventTimer !== undefined) window.clearTimeout(this.liveEventTimer)
+    this.liveEventTimer = undefined
+    const pending = this.liveEventQueue.splice(0)
+    try {
+      for (const event of pending) this.applyEvent(event)
+      this.appliedEventCount += pending.length
+      this.setHostDiagnostic('data-animation-state', 'waiting-for-human')
+      this.setHostDiagnostic('data-animation-event-count', String(this.appliedEventCount))
+      this.setHostDiagnostic('data-animation-last-event', 'human_input.waiting')
+      this.setHostDiagnostic('data-animation-error', '')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      this.setHostDiagnostic('data-animation-state', 'recovering')
+      this.setHostDiagnostic('data-animation-error', message)
+      console.error('[GnOuGo.Animation] Could not synchronize Human Input waiting state.', pending, error)
+    } finally {
+      this.setHostDiagnostic('data-animation-queued-events', '0')
+    }
+  }
+
+  private settleHumanInputActor(event: WorkflowSimulationEvent) {
+    if (!event.actorId || event.x === undefined || event.y === undefined) return
+    for (const id of [event.actorId, event.taskId]) {
+      if (!id) continue
+      const frame = this.frames.get(id)
+      if (frame !== undefined) cancelAnimationFrame(frame)
+      this.frames.delete(id)
+    }
+    const destination = { x: event.x, y: event.y }
+    this.setPosition(event.actorId, destination)
+    if (event.taskId)
+      this.setPosition(event.taskId, {
+        x: destination.x + 64,
+        y: destination.y - 82,
+      })
   }
 
   private playNextLiveEvent() {
@@ -934,9 +991,122 @@ export class GnouGnouWorkflowAnimationController {
         return 360
       case 'output.sent':
         return 650
+      case 'human_input.resumed':
+        return Math.max(1100, Math.min(event.durationMs * 1.35, 1900))
       default:
         return 80
     }
+  }
+
+  private animateHumanInputDelivery(event: WorkflowSimulationEvent) {
+    if (!event.actorId) return
+    const svg = this.svgRoot()
+    const host = this.root()
+    const actor = this.find<SVGGraphicsElement>(event.actorId)
+    if (!svg || !host || !actor) return
+
+    const actorPosition = this.readPosition(event.actorId)
+    const destination = {
+      x: actorPosition.x + 72,
+      y: actorPosition.y - 86,
+    }
+    const bounds = this.sceneBounds ?? {
+      width: svg.viewBox.baseVal.width || 1600,
+      height: svg.viewBox.baseVal.height || 900,
+    }
+    const svgRect = svg.getBoundingClientRect()
+    const viewBox = svg.viewBox.baseVal
+    const unitsPerPixelX = viewBox.width / Math.max(1, svgRect.width)
+    const visibleLeft = viewBox.x + host.scrollLeft * unitsPerPixelX
+    const visibleRight = viewBox.x
+      + (host.scrollLeft + host.clientWidth) * unitsPerPixelX
+    const rightStart = visibleRight + 90
+    const leftStart = visibleLeft - 90
+    const startX = rightStart <= bounds.width - 36
+      ? rightStart
+      : leftStart >= 36
+        ? leftStart
+        : bounds.width + 72
+    const startY = Math.max(
+      54,
+      Math.min(bounds.height - 54, destination.y - 82),
+    )
+    const deliveryId = `human-input-delivery-${event.sequence}`
+    this.find<SVGGraphicsElement>(deliveryId)?.remove()
+
+    const delivery = document.createElementNS(SVG_NAMESPACE, 'g')
+    delivery.id = deliveryId
+    delivery.setAttribute('class', 'human-input-delivery')
+    delivery.setAttribute('aria-hidden', 'true')
+    delivery.setAttribute('transform', `translate(${startX} ${startY}) scale(.72)`)
+    delivery.style.opacity = '0'
+    delivery.innerHTML = [
+      '<circle class="human-delivery-aura" r="42"/>',
+      '<path class="human-delivery-balloon" d="M-30-25H30Q40-25 40-15V15Q40 25 30 25H8L-5 38-3 25H-30Q-40 25-40 15V-15Q-40-25-30-25Z"/>',
+      '<circle class="human-delivery-dot" cx="-15" cy="0" r="4"/>',
+      '<circle class="human-delivery-dot" cx="0" cy="0" r="4"/>',
+      '<circle class="human-delivery-dot" cx="15" cy="0" r="4"/>',
+      '<path class="human-delivery-check" d="M-14 9L-5 17 17-9"/>',
+    ].join('')
+    svg.append(delivery)
+    this.setHostDiagnostic('data-animation-human-delivery', 'in-transit')
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reducedMotion) {
+      delivery.setAttribute('transform', `translate(${destination.x} ${destination.y})`)
+      delivery.style.opacity = '1'
+      const generation = this.generation
+      window.setTimeout(() => {
+        if (generation !== this.generation) {
+          delivery.remove()
+          return
+        }
+        delivery.remove()
+        this.setHostDiagnostic('data-animation-human-delivery', 'received')
+      }, 220)
+      return
+    }
+
+    const duration = Math.max(1100, Math.min(event.durationMs * 1.35, 1900))
+    const startedAt = performance.now()
+    const generation = this.generation
+    const animate = (now: number) => {
+      if (generation !== this.generation || !delivery.isConnected) {
+        this.frames.delete(deliveryId)
+        delivery.remove()
+        return
+      }
+
+      const progress = Math.max(0, Math.min(1, (now - startedAt) / duration))
+      const eased = easeInOut(progress)
+      const arcHeight = Math.min(92, 38 + Math.abs(destination.x - startX) * .1)
+      const x = startX + (destination.x - startX) * eased
+      const y = startY + (destination.y - startY) * eased
+        - Math.sin(Math.PI * progress) * arcHeight
+      const direction = destination.x >= startX ? 1 : -1
+      const rotation = direction * (1 - eased) * 9
+      const scale = .72 + Math.sin(Math.PI * progress) * .16 + eased * .28
+      const opacity = progress < .12
+        ? progress / .12
+        : progress > .88
+          ? (1 - progress) / .12
+          : 1
+      delivery.setAttribute(
+        'transform',
+        `translate(${x} ${y}) rotate(${rotation}) scale(${scale})`,
+      )
+      delivery.style.opacity = String(Math.max(0, Math.min(1, opacity)))
+
+      if (progress < 1) {
+        this.frames.set(deliveryId, requestAnimationFrame(animate))
+        return
+      }
+
+      this.frames.delete(deliveryId)
+      delivery.remove()
+      this.setHostDiagnostic('data-animation-human-delivery', 'received')
+    }
+    this.frames.set(deliveryId, requestAnimationFrame(animate))
   }
 
   private playStepAction(
@@ -1087,6 +1257,13 @@ export class GnouGnouWorkflowAnimationController {
   }
 
   private focusIdForEvent(event: WorkflowSimulationEvent): string | undefined {
+    // The waiting event has already centered the human step. Re-centering on
+    // resume (and again on completion) makes the stationary GnOuGo appear to
+    // jump vertically even though only the response capsule is moving.
+    if (event.type === 'human_input.resumed'
+      || (event.type === 'step.completed'
+        && event.stepType?.toLowerCase().startsWith('human.')))
+      return undefined
     const collapsedStep = (event.type === 'step.started' || event.type === 'step.completed')
       && !event.targetNodeId
       && !event.stationId
