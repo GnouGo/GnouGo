@@ -70,8 +70,10 @@ reappear. Only the portal pair carrying work is active; parallel selections
 receive independently keyed temporary parcel copies. On completion, the
 specialist follows the child road down to Return and the same portal sequence
 runs from Return back to the original routing roundabout while the child scene
-disappears and the preserved parent scene returns. The returned parent portal
-then remains beside its routing roundabout as a quiet, inactive blue landmark.
+disappears and the preserved parent scene returns. The Master stays centered
+on the routing roundabout before either transfer. Only after the reverse
+transfer completes does the returned parent portal remain beside that
+roundabout as a quiet, inactive blue landmark.
 Statically known workflow
 lanes and their handoffs retain the original multi-lane presentation without
 transit portals.

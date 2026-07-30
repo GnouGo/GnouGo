@@ -92,7 +92,7 @@ public static class GnouGnouAnimationSvgRenderer
       transition-delay: 0s;
       filter: drop-shadow(0 5px 8px rgba(31, 109, 169, .18));
     }
-    .gnougo-transit-branch.is-parked {
+    .gnougo-transit-branch.is-parked[data-has-returned="true"] {
       opacity: .72;
       visibility: visible;
       transition-delay: 0s;
@@ -104,10 +104,10 @@ public static class GnouGnouAnimationSvgRenderer
     }
     .gnougo-transit-branch[data-portal-phase="source"] .transit-portal-source,
     .gnougo-transit-branch[data-portal-phase="destination"] .transit-portal-destination,
-    .gnougo-transit-branch[data-portal-phase="parked-parent"] .transit-portal-destination {
+    .gnougo-transit-branch[data-has-returned="true"][data-portal-phase="parked-parent"] .transit-portal-destination {
       opacity: 1;
     }
-    .gnougo-transit-branch.is-parked .transit-pipe-highlight { opacity: .34; }
+    .gnougo-transit-branch.is-parked[data-has-returned="true"] .transit-pipe-highlight { opacity: .34; }
     .transit-pipe-shell, .transit-pipe-core, .transit-pipe-highlight {
       fill: none;
       stroke-linecap: round;

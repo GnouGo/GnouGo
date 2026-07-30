@@ -178,8 +178,8 @@ public sealed class AnimationPlannerAndRendererTests
         Assert.Contains(".transit-portal-leg {", svg, StringComparison.Ordinal);
         Assert.Contains("[data-portal-phase=\"source\"] .transit-portal-source", svg, StringComparison.Ordinal);
         Assert.Contains("[data-portal-phase=\"destination\"] .transit-portal-destination", svg, StringComparison.Ordinal);
-        Assert.Contains(".gnougo-transit-branch.is-parked", svg, StringComparison.Ordinal);
-        Assert.Contains("[data-portal-phase=\"parked-parent\"] .transit-portal-destination", svg, StringComparison.Ordinal);
+        Assert.Contains(".gnougo-transit-branch.is-parked[data-has-returned=\"true\"]", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-has-returned=\"true\"][data-portal-phase=\"parked-parent\"] .transit-portal-destination", svg, StringComparison.Ordinal);
         Assert.Contains(".task-object.is-parallel-detail-hidden", svg, StringComparison.Ordinal);
         Assert.Contains("@keyframes gnougo-transit-flow", svg, StringComparison.Ordinal);
         Assert.DoesNotContain("class=\"route-shadow\"", svg, StringComparison.Ordinal);

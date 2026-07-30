@@ -59,7 +59,9 @@ handoff animation without portals. On completion, the specialist walks down
 the child workflow to Return and the paired portal transition runs back to the
 original routing roundabout while the child plan disappears, the preserved
 parent plan returns, and the camera follows the destination portal. The
-returned parent portal remains visible as a dim, inactive landmark. A route
+Master stays centered on the routing roundabout before entering the outbound
+portal. Only after the reverse transfer completes does the returned parent
+portal remain visible as a dim, inactive landmark. A route
 prefers a non-entrypoint local workflow such as `fallback_general`; when the
 runtime selection or generated YAML is unknowable in this standalone preview,
 the server creates an explicitly synthetic representative child. The real

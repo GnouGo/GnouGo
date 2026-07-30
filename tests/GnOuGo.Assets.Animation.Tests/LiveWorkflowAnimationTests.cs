@@ -312,14 +312,15 @@ public sealed class LiveWorkflowAnimationTests
             }
             && update.Event.ActorId == plan.Lanes.Single(lane => lane.IsEntrypoint).ActorId).Event!;
         var routingNode = plan.Nodes.Single(node => node.Id == discovered.NodeId);
+        var routingStation = plan.Stations.Single(station => station.Id == discovered.StationId);
         Assert.Contains(patch.Stations, station => station.StepId == "ask-user" && station.Kind == AnimationStationKind.Human);
         Assert.Contains(patch.Stations, station => station.StepId == "call-model");
         Assert.Equal("route", discovered.StepId);
         Assert.Equal("workflow.route", discovered.StepType);
         Assert.NotNull(discovered.StationId);
         Assert.Equal(routingNode.Id, masterDeparture.NodeId);
-        Assert.Equal(routingNode.Position.X, masterDeparture.X);
-        Assert.Equal(routingNode.Position.Y, masterDeparture.Y);
+        Assert.Equal(routingStation.Position.X, masterDeparture.X);
+        Assert.Equal(routingStation.Position.Y, masterDeparture.Y);
         Assert.Contains("router selects", discovered.Message, StringComparison.Ordinal);
         Assert.Contains("data-live-actor=\"true\"", patch.SvgFragment, StringComparison.Ordinal);
         Assert.Contains($"data-lane-id=\"{patch.Lanes[0].Id}\"", patch.SvgFragment, StringComparison.Ordinal);
@@ -355,11 +356,21 @@ public sealed class LiveWorkflowAnimationTests
             && update.Event.ActorId == patch.Actors[0].Id).Event!;
         var returnHandoff = Assert.Single(completed, update =>
             update.Event?.Type == SimulationEventTypes.TaskHandedOff).Event!;
+        var masterReturn = Assert.Single(completed, update =>
+            update.Event is
+            {
+                Type: SimulationEventTypes.ActorMoved,
+                TaskId: "task-root"
+            }
+            && update.Event.ActorId == plan.Lanes.Single(lane => lane.IsEntrypoint).ActorId).Event!;
         Assert.Equal(returnNode.Id, specialistReturn.NodeId);
         Assert.Equal(returnEdge.Id, specialistReturn.EdgeId);
         Assert.Equal(returnNode.Position.X, specialistReturn.X);
         Assert.Equal(returnNode.Position.Y, specialistReturn.Y);
         Assert.True(specialistReturn.Sequence < returnHandoff.Sequence);
+        Assert.True(returnHandoff.Sequence < masterReturn.Sequence);
+        Assert.Equal(routingStation.Position.X, masterReturn.X);
+        Assert.Equal(routingStation.Position.Y, masterReturn.Y);
     }
 
     [Fact]

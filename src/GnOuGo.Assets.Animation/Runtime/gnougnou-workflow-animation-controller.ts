@@ -106,6 +106,7 @@ interface TransitBranch {
   destinationStart: Position
   destinationEnd: Position
   destinationAnchor: Position
+  hasReturned: boolean
   activeTransferToken?: number
 }
 interface PortalTimeline {
@@ -497,6 +498,7 @@ export class GnouGnouWorkflowAnimationController {
     group.setAttribute('class', 'gnougo-transit-branch is-ready')
     group.setAttribute('data-parent-actor-id', event.actorId)
     group.setAttribute('data-target-actor-id', event.targetActorId)
+    group.setAttribute('data-has-returned', 'false')
 
     const sourcePortal = this.createTransitPortal(
       'transit-portal-source',
@@ -531,6 +533,7 @@ export class GnouGnouWorkflowAnimationController {
       destinationStart: routingAnchor,
       destinationEnd: routingAnchor,
       destinationAnchor: routingAnchor,
+      hasReturned: false,
     }
     this.transitBranches.set(`${event.actorId}->${event.targetActorId}`, branch)
     this.layoutTransitBranch(branch, false)
@@ -572,7 +575,20 @@ export class GnouGnouWorkflowAnimationController {
       candidate.getAttribute('data-lane-id') === laneId
       && kinds.includes(candidate.getAttribute('data-node-kind') ?? ''),
     )
-    return node?.id ? this.readPosition(node.id) : undefined
+    if (!node?.id) return undefined
+    const position = this.readPosition(node.id)
+    // Planned workflow control markers are nested below the node origin,
+    // whereas runtime-added workflow markers are rendered directly at it.
+    // Read the rendered structure so both portal mouths meet the visible
+    // center instead of applying a blanket offset.
+    const nestedControl = node.querySelector<SVGGraphicsElement>('.control-node')
+    if (!nestedControl) return position
+    const transform = nestedControl.getAttribute('transform') ?? ''
+    const match = /translate\(\s*(-?[\d.]+)[ ,]+(-?[\d.]+)\s*\)/.exec(transform)
+    return {
+      x: position.x + Number(match?.[1] ?? 0),
+      y: position.y + Number(match?.[2] ?? 0),
+    }
   }
 
   private layoutTransitBranch(branch: TransitBranch, reverse: boolean) {
@@ -1845,6 +1861,8 @@ export class GnouGnouWorkflowAnimationController {
         if (reverse) {
           // Once work has returned, leave the main-workflow mouth visible as
           // a quiet landmark beside the routing roundabout.
+          branch.hasReturned = true
+          branch.group.setAttribute('data-has-returned', 'true')
           branch.group.classList.add('is-parked')
           branch.group.setAttribute('data-portal-phase', 'parked-parent')
         } else {

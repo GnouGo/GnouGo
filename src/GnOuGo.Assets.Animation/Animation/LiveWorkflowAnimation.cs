@@ -179,7 +179,10 @@ public sealed class WorkflowLiveAnimationSession
             // choreography.
             var usesDynamicTransit = patch is not null;
             var parentMeetingPoint = usesDynamicTransit
-                ? caller?.Node?.Position ?? new AnimationPoint(actorHome.X - 120, actorHome.Y)
+                ? caller?.Station?.Position
+                    ?? (caller?.Node is null
+                        ? new AnimationPoint(actorHome.X - 120, actorHome.Y)
+                        : new AnimationPoint(caller.Node.Position.X, caller.Node.Position.Y + 108))
                 : new AnimationPoint(actorHome.X - 120, actorHome.Y);
             var specialistMeetingPoint = new AnimationPoint(actorHome.X + 120, actorHome.Y);
             var childStart = AllNodes().FirstOrDefault(node =>
@@ -288,6 +291,8 @@ public sealed class WorkflowLiveAnimationSession
             var caller = GetStep(workflow.CallerStepOccurrenceId);
             if (caller?.Node is not null)
             {
+                var callerMeetingPoint = caller.Station?.Position
+                    ?? new AnimationPoint(caller.Node.Position.X, caller.Node.Position.Y + 108);
                 Add(updates, SimulationEventTypes.ActorMoved, _options.MoveDurationMs,
                     workflow: parent,
                     actorId: parent.Lane.ActorId,
@@ -295,8 +300,8 @@ public sealed class WorkflowLiveAnimationSession
                     nodeId: caller.Node.Id,
                     stationId: caller.Station?.Id,
                     taskId: "task-root",
-                    x: caller.Node.Position.X,
-                    y: caller.Node.Position.Y,
+                    x: callerMeetingPoint.X,
+                    y: callerMeetingPoint.Y,
                     status: status,
                     message: "The master carries the returned parcel back to the routing point.");
             }

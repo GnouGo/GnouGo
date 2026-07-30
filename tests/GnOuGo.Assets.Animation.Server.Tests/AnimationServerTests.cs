@@ -429,7 +429,11 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains("this.setPosition(event.targetActorId, branch.destinationAnchor)", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("'gnougo-transit-actors'", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("routingAnchor: Position", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("hasReturned: boolean", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-has-returned', 'false'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-has-returned', 'true'", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private workflowControlPosition(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("node.querySelector<SVGGraphicsElement>('.control-node')", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("reverse ? ['finish', 'return'] : ['start']", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("private createTransitPortal(", workflowRuntime, StringComparison.Ordinal);
         Assert.Contains("'transit-portal-source'", workflowRuntime, StringComparison.Ordinal);
