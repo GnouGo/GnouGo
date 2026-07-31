@@ -185,6 +185,91 @@ workflows:
     }
 
     [Fact]
+    public void Validate_WorkflowRouteHumanInput_AcceptsBooleanAndObjectForms()
+    {
+        var doc = ParseDoc("""
+version: 1
+skill:
+  description: Interactive route contract test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: shorthand
+        type: workflow.route
+        input:
+          candidates:
+            - ref: { kind: local, name: child }
+          args:
+            human_input: true
+      - id: configured
+        type: workflow.route
+        input:
+          candidates:
+            - ref: { kind: local, name: child }
+          args:
+            human_input:
+              enabled: true
+              timeout_ms: 0
+              max_attempts: 3
+  child:
+    steps:
+      - id: done
+        type: set
+        input:
+          value: ok
+""");
+
+        var errors = new WorkflowValidator(new WorkflowEngine().Registry).Validate(doc);
+
+        Assert.DoesNotContain(errors, error =>
+            (error.StepId is "shorthand" or "configured")
+            && error.Code == ErrorCodes.InputValidation);
+    }
+
+    [Fact]
+    public void Validate_WorkflowRouteHumanInput_RejectsInvalidLimits()
+    {
+        var doc = ParseDoc("""
+version: 1
+skill:
+  description: Interactive route contract test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          candidates:
+            - ref: { kind: local, name: child }
+          args:
+            human_input:
+              timeout_ms: invalid
+              max_attempts: [3]
+  child:
+    steps:
+      - id: done
+        type: set
+        input:
+          value: ok
+""");
+
+        var errors = new WorkflowValidator(new WorkflowEngine().Registry).Validate(doc);
+
+        Assert.Contains(errors, error =>
+            error.StepId == "route"
+            && error.Field == "input.args.human_input.timeout_ms");
+        Assert.Contains(errors, error =>
+            error.StepId == "route"
+            && error.Field == "input.args.human_input.max_attempts");
+    }
+
+    [Fact]
     public void DefaultRegistry_EveryExecutorDeclaresInputAndOutputContract()
     {
         var registry = new WorkflowEngine().Registry;

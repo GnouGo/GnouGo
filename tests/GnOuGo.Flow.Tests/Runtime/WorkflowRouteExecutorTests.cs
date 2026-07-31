@@ -427,6 +427,407 @@ workflows:
     }
 
     [Fact]
+    public async Task WorkflowRoute_HumanInputCompletesMissingArgumentsAfterDefaults()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    inputs:
+      prompt: { type: string, required: true }
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          prompt: "${data.inputs.prompt}"
+          candidates:
+            - ref: { kind: local, name: inspect_repo }
+          args:
+            passthrough: false
+            human_input: true
+          combine:
+            strategy: first
+    outputs:
+      answer:
+        expr: "${data.steps.route.answer}"
+        type: string
+  inspect_repo:
+    inputs:
+      repository_path:
+        type: string
+        required: true
+        description: Repository to inspect.
+      count:
+        type: integer
+        required: true
+        description: Number of commits.
+      branch: { type: string, required: false, default: main }
+    steps:
+      - id: render
+        type: template.render
+        input:
+          engine: mustache
+          mode: text
+          template: "{{repository_path}}#{{branch}}:{{count}}"
+          data:
+            repository_path: "${data.inputs.repository_path}"
+            branch: "${data.inputs.branch}"
+            count: "${data.inputs.count}"
+    outputs:
+      answer:
+        expr: "${data.steps.render.text}"
+        type: string
+""";
+
+        var humanInput = new ScriptedHumanInputProvider(
+            new JsonObject
+            {
+                ["repository_path"] = "/work/repo",
+                ["count"] = "5"
+            });
+        var telemetry = new RecordingTelemetry();
+        var workflow = Compile(yaml);
+        var engine = new WorkflowEngine
+        {
+            HumanInputProvider = humanInput,
+            Telemetry = telemetry,
+            Limits = new ExecutionLimits { RunId = "route-run" }
+        };
+
+        var result = await engine.ExecuteAsync(
+            workflow,
+            new JsonObject { ["prompt"] = "inspect it" },
+            CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("/work/repo#main:5", result.Outputs!["answer"]!.GetValue<string>());
+        var request = Assert.Single(humanInput.Requests);
+        Assert.Equal(HumanInputContract.ModeForm, request.Mode);
+        Assert.Equal("route-run", request.RunId);
+        Assert.StartsWith("route:inputs:local_inspect_repo:1:", request.StepId, StringComparison.Ordinal);
+        Assert.Collection(
+            request.Fields!,
+            field =>
+            {
+                Assert.Equal("repository_path", field.Name);
+                Assert.Equal("string", field.Type);
+                Assert.Contains("Repository to inspect.", field.Description);
+            },
+            field =>
+            {
+                Assert.Equal("count", field.Name);
+                Assert.Equal("integer", field.Type);
+            });
+        Assert.DoesNotContain(request.Fields!, static field => field.Name == "branch");
+
+        var waiting = Assert.Single(
+            telemetry.Events,
+            static evt => evt.Name == "gnougo-flow.step.waiting_for_human");
+        var requestPayload = JsonNode.Parse(
+            Assert.IsType<string>(waiting.Attributes["gnougo-flow.human.request"]))!.AsObject();
+        Assert.Equal("form", requestPayload["mode"]!.GetValue<string>());
+        Assert.Equal("inspect_repo", requestPayload["context"]!["workflow"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowRoute_HumanInputRepairsInvalidScalarAndJsonArguments()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          candidates:
+            - ref: { kind: local, name: analyze }
+          args:
+            passthrough: false
+            add:
+              count: five
+              filters: invalid-json
+            human_input:
+              enabled: true
+              max_attempts: 2
+          combine:
+            strategy: first
+    outputs:
+      answer:
+        expr: "${data.steps.route.answer}"
+        type: string
+  analyze:
+    inputs:
+      count: { type: integer, required: true }
+      filters:
+        type: object
+        required: true
+        properties:
+          state: { type: string, required: true }
+    steps:
+      - id: render
+        type: template.render
+        input:
+          engine: mustache
+          mode: text
+          template: "{{count}}:{{state}}"
+          data:
+            count: "${data.inputs.count}"
+            state: "${data.inputs.filters.state}"
+    outputs:
+      answer:
+        expr: "${data.steps.render.text}"
+        type: string
+""";
+
+        var humanInput = new ScriptedHumanInputProvider(
+            new JsonObject
+            {
+                ["count"] = "still-not-a-number",
+                ["filters"] = """{"state":"open"}"""
+            },
+            new JsonObject
+            {
+                ["count"] = "7"
+            });
+        var workflow = Compile(yaml);
+        var engine = new WorkflowEngine { HumanInputProvider = humanInput };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("7:open", result.Outputs!["answer"]!.GetValue<string>());
+        Assert.Equal(2, humanInput.Requests.Count);
+        Assert.Equal(["count", "filters"], humanInput.Requests[0].Fields!.Select(static field => field.Name));
+        var retryField = Assert.Single(humanInput.Requests[1].Fields!);
+        Assert.Equal("count", retryField.Name);
+        Assert.Equal("still-not-a-number", retryField.Default);
+    }
+
+    [Fact]
+    public async Task WorkflowRoute_HumanInputFailsValidationAfterConfiguredAttempts()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          candidates:
+            - ref: { kind: local, name: count_items }
+          args:
+            passthrough: false
+            human_input:
+              enabled: true
+              max_attempts: 2
+  count_items:
+    inputs:
+      count: { type: integer, required: true }
+    steps:
+      - id: never
+        type: set
+        input:
+          answer: executed
+""";
+
+        var humanInput = new ScriptedHumanInputProvider(
+            new JsonObject { ["count"] = "bad" },
+            new JsonObject { ["count"] = "still-bad" });
+        var workflow = Compile(yaml);
+        var engine = new WorkflowEngine { HumanInputProvider = humanInput };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("'count': expected integer, got string", result.Error.Message);
+        Assert.Equal(2, humanInput.Requests.Count);
+        Assert.Equal("count_items", result.Error.Details!["workflow"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowRoute_HumanInputRequiresConfiguredProviderOnlyWhenInputsAreUnresolved()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          candidates:
+            - ref: { kind: local, name: specialist }
+          args:
+            passthrough: false
+            human_input: true
+  specialist:
+    inputs:
+      repository: { type: string, required: true }
+    steps:
+      - id: never
+        type: set
+        input:
+          answer: executed
+""";
+
+        var workflow = Compile(yaml);
+        var result = await new WorkflowEngine().ExecuteAsync(
+            workflow,
+            new JsonObject(),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("NO_HITL_PROVIDER", result.Error!.Code);
+        Assert.Contains("specialist", result.Error.Message);
+        Assert.Equal("specialist", result.Error.Details!["workflow"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task WorkflowRoute_HumanInputRejectsMalformedRuntimeConfiguration()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          candidates:
+            - ref: { kind: local, name: child }
+          args:
+            human_input:
+              enabled: invalid
+  child:
+    steps:
+      - id: done
+        type: set
+        input:
+          answer: ok
+""";
+
+        var result = await new WorkflowEngine().ExecuteAsync(
+            Compile(yaml),
+            new JsonObject(),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("args.human_input.enabled must be a boolean", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowRoute_HumanInputTimesOutWithoutExecutingSelectedWorkflow()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          candidates:
+            - ref: { kind: local, name: specialist }
+          args:
+            passthrough: false
+            human_input:
+              enabled: true
+              timeout_ms: 1
+  specialist:
+    inputs:
+      repository: { type: string, required: true }
+    steps:
+      - id: never
+        type: set
+        input:
+          answer: executed
+""";
+
+        var workflow = Compile(yaml);
+        var engine = new WorkflowEngine { HumanInputProvider = new WaitingHumanInputProvider() };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("HUMAN_INPUT_TIMEOUT", result.Error!.Code);
+        Assert.Contains("specialist", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task WorkflowRoute_HumanInputPreparesMultipleCandidatesSequentially()
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          candidates:
+            - ref: { kind: local, name: first }
+            - ref: { kind: local, name: second }
+          selection:
+            mode: multiple
+            min: 2
+            max: 2
+          args:
+            passthrough: false
+            human_input: true
+          execution:
+            parallel: true
+            max_concurrency: 2
+          combine:
+            strategy: raw
+  first:
+    inputs:
+      first_value: { type: string, required: true }
+    steps:
+      - id: done
+        type: set
+        input:
+          answer: "${data.inputs.first_value}"
+    outputs:
+      answer:
+        expr: "${data.steps.done.answer}"
+        type: string
+  second:
+    inputs:
+      second_value: { type: string, required: true }
+    steps:
+      - id: done
+        type: set
+        input:
+          answer: "${data.inputs.second_value}"
+    outputs:
+      answer:
+        expr: "${data.steps.done.answer}"
+        type: string
+""";
+
+        var humanInput = new TrackingHumanInputProvider();
+        var workflow = Compile(yaml);
+        var engine = new WorkflowEngine
+        {
+            LLMClient = new SelectingLlmClient("local:first", "local:second"),
+            HumanInputProvider = humanInput,
+            Limits = new ExecutionLimits { RunId = "multi-route" }
+        };
+
+        var result = await engine.ExecuteAsync(workflow, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, humanInput.Requests.Count);
+        Assert.Equal(1, humanInput.MaxConcurrentRequests);
+        Assert.Equal(2, humanInput.Requests.Select(static request => request.StepId).Distinct(StringComparer.Ordinal).Count());
+        Assert.All(humanInput.Requests, static request => Assert.Equal("multi-route", request.RunId));
+    }
+
+    [Fact]
     public async Task WorkflowRoute_UsesDistinctRunIdsForParallelHumanInputCandidates()
     {
         var yaml = """
@@ -580,6 +981,55 @@ workflows:
                         .ToArray())
                 }
             });
+    }
+
+    private sealed class ScriptedHumanInputProvider(params JsonNode?[] responses) : IHumanInputProvider
+    {
+        private readonly Queue<JsonNode?> _responses = new(responses);
+
+        public List<HumanInputRequest> Requests { get; } = new();
+
+        public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            Requests.Add(request);
+            if (_responses.Count == 0)
+                throw new InvalidOperationException("No scripted Human Input response remains.");
+            return Task.FromResult(_responses.Dequeue()?.DeepClone());
+        }
+    }
+
+    private sealed class WaitingHumanInputProvider : IHumanInputProvider
+    {
+        public async Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            return null;
+        }
+    }
+
+    private sealed class TrackingHumanInputProvider : IHumanInputProvider
+    {
+        private int _activeRequests;
+
+        public List<HumanInputRequest> Requests { get; } = new();
+        public int MaxConcurrentRequests { get; private set; }
+
+        public async Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            Requests.Add(request);
+            var active = Interlocked.Increment(ref _activeRequests);
+            MaxConcurrentRequests = Math.Max(MaxConcurrentRequests, active);
+            try
+            {
+                await Task.Delay(20, ct);
+                var field = Assert.Single(request.Fields!);
+                return new JsonObject { [field.Name] = $"{field.Name}-value" };
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _activeRequests);
+            }
+        }
     }
 
     private sealed class CapturingHumanInputProvider : IHumanInputProvider

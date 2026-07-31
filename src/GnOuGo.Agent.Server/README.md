@@ -98,9 +98,122 @@ The Blazor chat composer resolves the active/default agent workflow through `Sma
 - `array`, `object`, `dictionary`, and `any` fields accept JSON or YAML text;
 - the UI sends structured `JsonObject` workflow inputs to `SmartFlowService` while keeping a masked Markdown summary in the chat history for sensitive-looking field names such as `key`, `secret`, `password`, or `token`.
 
+## Live workflow animation in chat
+
+Regular workflow-backed chat requests render a transient
+`GnOuGo.Assets.Animation` scene in the active conversation's navigation entry.
+The scene follows real workflow telemetry: stable workflow
+instances and step occurrences drive walking, roundabout work, parallel clones,
+runtime workflow handoffs, parcel completion, failure, and final delivery. It
+never runs a second synthetic timer.
+
+The conversation uses a document-style layout: compact right-aligned user
+prompts and borderless full-width assistant turns. A single live workflow scene
+is hosted directly below the active conversation title in the left navigation
+history, while its Activity and visibility controls remain in the related
+response action row beside Trace. The scene has the same subtle border as the
+rest of the application, a viewport-responsive height capped at 500 px, and
+native horizontal and vertical scrollbars. Follow mode is enabled by default
+and scrolls only this internal panel. Every submitted message allocates a new,
+correlation-keyed animation host before workflow telemetry starts. The previous
+host fades, disposes its browser controller, and is replaced by this clean panel
+so actors, portals, scene layers, and queued events cannot leak between turns.
+No title, lane count, node count, or live-telemetry caption is rendered.
+
+Human Input cards use the same centered 1160 px conversation column, with an
+860 px maximum card width. While the workflow waits, its GnOuGo retains the
+persistent waiting pose. When the user submits a response, a blue response
+capsule enters from beyond the visible animation viewport, arcs toward the
+waiting actor, and disappears on receipt before execution resumes.
+Resume preserves the already-active scene and the human-step completion uses a
+stationary actor rig, avoiding a duplicate scene entrance, reception pose, or
+top-to-bottom actor jump.
+
+The empty assistant turn displays three small, borderless black typing dots
+from submission through Human Input pauses and other workflow activity.
+Response-level messages from nested LLM steps appear above the loader as
+preliminary responses and also remain available in Activity. Submitted Human
+Input values are listed beside them, with sensitive values masked. These
+progress items remain visible with the final response, while only the principal
+workflow answer replaces the loader itself. An execution error also dismisses
+the loader. The dots are left-aligned with assistant response text.
+
+User turns are rendered as encoded plain text rather than reparsed as Markdown.
+This preserves every submitted line break, indentation, and large pasted block
+without allowing Markdown extensions such as YAML front matter to hide content.
+Assistant turns continue to use the full Markdown pipeline.
+
+The left navigation uses the base `GnOuGo.Assets.Bears` SVG as an inline,
+script-free idle animation. Its stable ID prefix prevents SVG definition
+collisions with workflow actors. Conversations are ordered newest-first and
+grouped using English local-date labels such as **Today**, **Yesterday**,
+**The day before yesterday**, and **N days ago**. The compact brand is
+**GnOuGo** with the tagline **Simple. Safe. Transparent.**
+
+The top navigation uses a blue **G** wordmark and a **GnOuGo** product trigger.
+Its custom dropdown lists the default dynamic workflow and every available
+agent while preserving the persisted default-agent selection. A separate
+ellipsis menu provides conversation creation and agent-list refresh actions.
+Both menus close through a shared click-away backdrop and remain compact on
+mobile.
+
+Dynamic planning and routing have dedicated live semantics. `workflow.plan`
+walks the main GnOuGo to a planning roundabout, `workflow.route` uses a routing
+roundabout, and `workflow.execute` uses a handoff roundabout. When a generated or
+selected workflow starts, a caller-aware `workflow.discovered` event announces
+the new lane before its GnOuGo spawns and receives the parcel. Short generated
+workflows still receive compact leaf roundabouts; source-less runtime work can
+append bounded step patches instead of leaving the actor on an anonymous node.
+
+The browser keeps a short presentation queue so very fast real events still
+produce visible walking, working, handoff, and delivery motion without delaying
+the workflow. A long-running real step repeats a calm action cycle until its
+authoritative `step.end` arrives: routing communicates, LLM work types, MCP
+work uses its communication pose, and HITL keeps waiting. Controller mounting
+is acknowledged before events leave the Blazor queue. The card and message bubbles use the full chat width; the SVG
+keeps its complete aspect ratio, has no maximum scene height, and is resized by
+a `ResizeObserver` when the application window changes. When a later question
+creates another animation card, the chat follows it only after its SVG has
+mounted and acquired its final height. Focus events may pan inside their own
+card but cannot scroll the conversation back to an older execution.
+
+Thinking and technical progress are kept out of `ChatMessageDto` and local chat
+history. They are held in memory for the active execution and displayed from
+the card's **Activity** drawer. The existing trace drawer remains separate.
+Animation state is also transient and is not restored after a reload.
+
+`human.input` pauses the scene at a human-input counter and keeps the GnOuGo
+alive with calm waiting motion. Text, choice, confirmation, and structured
+controls appear attached to the live card; submitted values are summarized in
+that card instead of becoming chat messages. Timeout, cancellation, and
+failure update the same parcel and execution status.
+
+`/api/chat/stream` retains its existing SSE event names and text payloads.
+Additional `animation.prepared`, `animation.scene.patch`, and
+`animation.event` events use single-line, source-generated JSON payloads.
+Workflow YAML and inputs are not included in those animation payloads.
+
+Blazor serializes animation interop through a single guarded queue so
+overlapping post-render callbacks cannot remove or reorder live events. The
+browser controller records its applied-event count, latest event, pending
+queue size, and recoverable error on the scene host for runtime diagnostics.
+One malformed visual event is logged and skipped without stopping later
+workflow motion.
+
+Flow can reject invalid or missing inputs before its first telemetry span is
+opened. In that case Agent.Server emits a short failed startup and delivery
+sequence instead of leaving the prepared scene indefinitely at its first
+frame. Once workflow telemetry has started, only real workflow and step
+signals drive the scene.
+
+The Agent Vite bundle is incrementally rebuilt by normal `dotnet build` and
+`dotnet run` builds when Agent, Animation, or Bears frontend runtime sources
+change. Set `-p:SkipClientBuild=true` only when a previously built bundle is
+known to be current.
+
 ## Main routing workflow and conversation history
 
-When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract missing structured inputs from the prompt/history, run them in parallel, and synthesize the final response. It also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.
+When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract structured inputs from the prompt/history, and request any remaining missing or invalid declared inputs through the existing Human Input form before execution. Candidate forms are presented one at a time, then the completed workflows use their configured execution policy. The route also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.
 
 The Blazor chat session now carries a server-facing `ConversationId`. The UI keeps its local transcript for display, while `SmartFlowService` loads recent server-side messages into the routing workflow as `history` and appends the user/assistant turn after a successful answer. HTTP clients can also pass `conversationId` and `prompt` on `/api/chat` or `/api/chat/stream`; if omitted, the server creates a new conversation id and returns/emits it.
 

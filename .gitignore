@@ -487,6 +487,8 @@ $RECYCLE.BIN/
 *.swp
 
 wwwroot
+!src/GnOuGo.Assets.Animation.Server/wwwroot/
+!src/GnOuGo.Assets.Animation.Server/wwwroot/**
 *.db
 *.sqlite
 *.Development.json

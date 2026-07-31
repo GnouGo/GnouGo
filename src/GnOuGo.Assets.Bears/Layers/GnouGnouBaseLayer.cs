@@ -128,12 +128,14 @@ internal static class GnouGnouBaseLayer
 
         var bowTie = hasBowTie
             ? $"""
+    <g data-part="bow-tie">
     <path d="M117 169 C106 156 90 151 84 160 C77 171 87 187 99 187 C107 187 113 182 117 177 Z" fill="url(#bow)" stroke="{accessoryPalette.Dark}" stroke-width="3"/>
     <path d="M139 169 C150 156 166 151 172 160 C179 171 169 187 157 187 C149 187 143 182 139 177 Z" fill="url(#bow)" stroke="{accessoryPalette.Dark}" stroke-width="3"/>
     <rect x="115" y="161" width="26" height="29" rx="11" fill="{accessoryPalette.Accent}" stroke="{accessoryPalette.Dark}" stroke-width="3"/>
     <path d="M98 164 C104 169 110 173 116 175" stroke="#C8FFFF" stroke-width="2" opacity="0.68"/>
     <path d="M158 164 C152 169 146 173 140 175" stroke="#C8FFFF" stroke-width="2" opacity="0.68"/>
     <path d="M121 166 C125 164 132 164 136 166" stroke="#D5FFFF" stroke-width="1.6" opacity="0.58"/>
+    </g>
 """
             : "";
 

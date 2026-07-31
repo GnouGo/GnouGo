@@ -158,6 +158,12 @@ public static class BuiltInStepContracts
                     ("provider", String()),
                     ("model", String()),
                     ("temperature", Number())))),
+            ("human_input", AnyOf(
+                Boolean(),
+                Object(
+                    ("enabled", Boolean()),
+                    ("timeout_ms", NonNegativeInteger()),
+                    ("max_attempts", PositiveInteger())))),
             ("add", OpenObject()))),
         ("execution", Object(("parallel", Boolean()), ("max_concurrency", PositiveInteger()))),
         ("combine", Object(

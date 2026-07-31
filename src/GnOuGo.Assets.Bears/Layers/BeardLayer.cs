@@ -2,18 +2,24 @@ namespace GnOuGo.Assets.Bears.Layers;
 
 internal static class BeardLayer
 {
-    public static string Render(bool hasBeard, ref StableRandom stableRandom)
+    public static string Render(
+        bool hasBeard,
+        GnouGnouBearBeardStyle beardStyle,
+        ref StableRandom stableRandom,
+        bool preserveOffsetOnPartReset = false)
     {
         if (!hasBeard)
         {
             return string.Empty;
         }
 
-        var style = stableRandom.NextInclusive(0, 4);
+        var style = beardStyle == GnouGnouBearBeardStyle.Random
+            ? stableRandom.NextInclusive(0, 4)
+            : (int)beardStyle - 1;
         var size = stableRandom.NextInclusive(0, 2);
         var palette = BeardPalette.FromVariant(stableRandom.NextInclusive(0, 5));
 
-        return style switch
+        var beard = style switch
         {
             1 => RenderLongPoint(size, palette),
             2 => RenderCloud(size, palette),
@@ -21,7 +27,30 @@ internal static class BeardLayer
             4 => RenderSplit(size, palette),
             _ => RenderClassic(size, palette)
         };
+
+        return preserveOffsetOnPartReset
+            ? $$"""
+    <g data-part="beard" data-beard-style="{{ToToken(style)}}">
+      <g transform="translate(0 6)">
+{{beard}}
+      </g>
+    </g>
+"""
+            : $$"""
+    <g data-part="beard" data-beard-style="{{ToToken(style)}}" transform="translate(0 6)">
+{{beard}}
+    </g>
+""";
     }
+
+    private static string ToToken(int style) => style switch
+    {
+        1 => "long-point",
+        2 => "cloud",
+        3 => "square",
+        4 => "split",
+        _ => "classic"
+    };
 
     private static string RenderClassic(int size, BeardPalette palette)
     {

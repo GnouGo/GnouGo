@@ -4,18 +4,23 @@ namespace GnOuGo.Assets.Bears.Layers;
 
 internal static class AccessoryLayer
 {
-    public static string Render(GnouGnouBearAccessory accessory, ref StableRandom stableRandom)
-        => Render([accessory], ref stableRandom, AccessoryPalette.FromVariant(0));
-
-    public static string Render(IReadOnlyList<GnouGnouBearAccessory> accessories, ref StableRandom stableRandom, AccessoryPalette palette)
+    public static AccessoryRenderLayers RenderLayers(
+        IReadOnlyList<GnouGnouBearAccessory> accessories,
+        ref StableRandom stableRandom,
+        AccessoryPalette palette)
     {
-        var builder = new StringBuilder();
+        var neckwear = new StringBuilder();
+        var foreground = new StringBuilder();
         foreach (var accessory in accessories)
         {
-            builder.Append(RenderOne(accessory, ref stableRandom, palette));
+            var rendered = RenderOne(accessory, ref stableRandom, palette);
+            if (accessory == GnouGnouBearAccessory.Necktie)
+                neckwear.Append(rendered);
+            else
+                foreground.Append(rendered);
         }
 
-        return builder.ToString();
+        return new AccessoryRenderLayers(neckwear.ToString(), foreground.ToString());
     }
 
     private static string RenderOne(GnouGnouBearAccessory accessory, ref StableRandom stableRandom, AccessoryPalette palette)
@@ -26,9 +31,11 @@ internal static class AccessoryLayer
         {
             GnouGnouBearAccessory.Headphones or GnouGnouBearAccessory.BowTie or GnouGnouBearAccessory.None => string.Empty,
             GnouGnouBearAccessory.Necktie => $"""
+    <g data-part="necktie">
     <path d="M121 166 H135 L141 215 L128 229 L115 215 Z" fill="{palette.Accent}" stroke="{palette.Dark}" stroke-width="3"/>
     <path d="M121 166 L128 176 L135 166" fill="{palette.Tint}" stroke="{palette.Dark}" stroke-width="2.4"/>
     <path d="M128 180 L128 218" stroke="{palette.Light}" stroke-width="2" opacity="0.55"/>
+    </g>
 """,
             GnouGnouBearAccessory.Glasses => $"""
     <circle cx="104" cy="106" r="17" fill="none" stroke="{palette.Deep}" stroke-width="3.4" opacity="0.86"/>
@@ -146,3 +153,5 @@ internal static class AccessoryLayer
         };
     }
 }
+
+internal sealed record AccessoryRenderLayers(string Neckwear, string Foreground);

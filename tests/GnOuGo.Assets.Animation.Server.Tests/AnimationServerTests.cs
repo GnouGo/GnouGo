@@ -1,0 +1,566 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Reflection;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Assets.Animation;
+using GnOuGo.Assets.Animation.Server;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Xunit;
+
+namespace GnOuGo.Assets.Animation.Server.Tests;
+
+public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<Program>>
+{
+    private const string SimpleYaml = """
+        version: 1
+        name: Server test
+        entrypoint: main
+        workflows:
+          main:
+            steps:
+              - id: think
+                type: llm.call
+              - id: finish
+                type: emit
+        """;
+
+    private readonly HttpClient _client;
+
+    public AnimationServerTests(WebApplicationFactory<Program> factory)
+    {
+        _client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+    }
+
+    [Fact]
+    public async Task Health_ReturnsSuccess()
+    {
+        var response = await _client.GetAsync("/health", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("healthy", await response.Content.ReadAsStringAsync(CancellationToken.None), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Validate_ReturnsPreviewDiagnosticsSummaryAndFailureTargets()
+    {
+        var response = await _client.PostAsJsonAsync("/api/simulations/validate", Request(SimpleYaml), CancellationToken.None);
+        var body = await response.Content.ReadFromJsonAsync<ValidationResponse>(CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(body);
+        Assert.True(body.Valid);
+        Assert.Equal("main", body.Entrypoint);
+        Assert.Equal(2, body.FailureTargets.Count);
+        Assert.Contains(body.Workflows, item => item is { Name: "main", StepCount: 2, IsEntrypoint: true });
+    }
+
+    [Fact]
+    public async Task Stream_RejectsInvalidPreviewBeforeOpeningNdjson()
+    {
+        var response = await _client.PostAsJsonAsync(
+            "/api/simulations/stream",
+            Request("version: 1\nworkflows: [broken"),
+            CancellationToken.None);
+        var body = await response.Content.ReadAsStringAsync(CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("INVALID_PREVIEW", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("simulation.prepared", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Stream_StartsWithDeterministicSceneThenOrdersNdjsonEvents()
+    {
+        var request = Request(SimpleYaml) with { Seed = 123, Scene = AnimationSceneKind.Office, Speed = 4 };
+        var first = await ReadAllEnvelopes(request);
+        var secondPrepared = await ReadFirstEnvelopeAndCancel(request);
+
+        Assert.NotEmpty(first);
+        Assert.Equal("simulation.prepared", first[0].Type);
+        var prepared = Assert.IsType<SimulationPreparedData>(first[0].Prepared);
+        Assert.Equal(123, prepared.Seed);
+        Assert.Equal(AnimationSceneKind.Office, prepared.Scene);
+        Assert.Equal(1, prepared.TaskObjectCount);
+        Assert.True(prepared.CanvasWidth >= 1600);
+        Assert.True(prepared.CanvasHeight >= 900);
+        Assert.Equal(1, prepared.LaneCount);
+        Assert.True(prepared.NodeCount >= 4);
+        Assert.Contains("id=\"scene-office\"", prepared.Svg, StringComparison.Ordinal);
+        Assert.Contains("data-node-kind=\"roundabout\"", prepared.Svg, StringComparison.Ordinal);
+        Assert.Contains("data-station-kind=\"keyboarddesk\"", prepared.Svg, StringComparison.Ordinal);
+        Assert.Contains("data-station-kind=\"deliverydock\"", prepared.Svg, StringComparison.Ordinal);
+        Assert.Contains("data-step-id=\"think\"", prepared.Svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-step-id=\"finish\"", prepared.Svg, StringComparison.Ordinal);
+        Assert.Equal(prepared.Svg, secondPrepared.Prepared?.Svg);
+
+        var events = first.Skip(1).Select(item => Assert.IsType<SimulationEvent>(item.Event)).ToArray();
+        Assert.Equal(Enumerable.Range(0, events.Length), events.Select(item => item.Sequence));
+        Assert.Equal(events.OrderBy(item => item.OffsetMs).ThenBy(item => item.Sequence), events);
+        Assert.Equal(SimulationEventTypes.SimulationStarted, events[0].Type);
+        Assert.Equal(SimulationEventTypes.SimulationCompleted, events[^1].Type);
+    }
+
+    [Fact]
+    public void Prepare_ContainsOverlappingParallelEventsAndFailureEvents()
+    {
+        var yaml = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: fork
+                    type: parallel
+                    branches:
+                      - name: ai
+                        steps:
+                          - id: a
+                            type: llm.call
+                      - name: mcp
+                        steps:
+                          - id: b
+                            type: mcp.call
+                  - id: after
+                    type: emit
+            """;
+        var service = new SimulationPreparationService();
+        var successful = service.Prepare(Request(yaml) with { Seed = 7 });
+        var failed = service.Prepare(Request(yaml) with
+        {
+            Seed = 7,
+            FailAt = new SimulationFailureTarget("main", "a")
+        });
+        var a = successful.Events.Single(item => item.Type == SimulationEventTypes.StepStarted && item.StepId == "a");
+        var b = successful.Events.Single(item => item.Type == SimulationEventTypes.StepStarted && item.StepId == "b");
+
+        Assert.Equal(a.OffsetMs, b.OffsetMs);
+        Assert.True(a.DurationMs > 0);
+        Assert.Contains(successful.Events, item => item.Type == SimulationEventTypes.ActorCloned);
+        Assert.Contains(successful.Events, item => item.Type == SimulationEventTypes.ActorMerged);
+        var branchActors = successful.Events
+            .Where(item => item.Type == SimulationEventTypes.ActorCloned)
+            .Select(item => item.TargetActorId)
+            .OfType<string>()
+            .ToHashSet(StringComparer.Ordinal);
+        var simultaneousBranchMoves = successful.Events
+            .Where(item => item.Type == SimulationEventTypes.ActorMoved
+                && item.OffsetMs == a.OffsetMs - item.DurationMs
+                && item.ActorId is not null
+                && branchActors.Contains(item.ActorId))
+            .ToArray();
+        Assert.Equal(2, simultaneousBranchMoves.Length);
+        Assert.Equal(2, simultaneousBranchMoves.Select(item => item.ActorId).Distinct(StringComparer.Ordinal).Count());
+        var joinId = successful.Events.Single(item =>
+            item.Type == SimulationEventTypes.ParallelCompleted && item.StepId == "fork").NodeId;
+        Assert.NotNull(joinId);
+        var branchArrivals = successful.Events
+            .Where(item => item.Type == SimulationEventTypes.ActorMoved
+                && item.NodeId == joinId
+                && item.ActorId is not null
+                && branchActors.Contains(item.ActorId))
+            .ToArray();
+        Assert.Equal(2, branchArrivals.Length);
+        Assert.All(branchArrivals, arrival =>
+        {
+            var branchStart = Assert.Single(simultaneousBranchMoves, item => item.ActorId == arrival.ActorId);
+            Assert.True(arrival.Y.GetValueOrDefault() > branchStart.Y.GetValueOrDefault());
+        });
+        Assert.Contains(successful.Events, item =>
+            item.Type == SimulationEventTypes.ActorMoved
+            && item.ActorId == "actor-master"
+            && item.NodeId == joinId);
+        Assert.All(
+            successful.Events.Where(item => item.Type == SimulationEventTypes.ActorMerged),
+            merged => Assert.Equal(joinId, merged.NodeId));
+        Assert.Contains(failed.Events, item => item.Type == SimulationEventTypes.StepCompleted && item.StepId == "a" && item.Status == SimulationStatus.Failed);
+        Assert.Contains(failed.Events, item => item.Type == SimulationEventTypes.StepSkipped && item.StepId == "after");
+        Assert.Equal(SimulationStatus.Failed, failed.Events.Last(item => item.Type == SimulationEventTypes.SimulationCompleted).Status);
+    }
+
+    [Theory]
+    [InlineData("workflow.route", "fallback_general")]
+    [InlineData("workflow.execute", "generated-1")]
+    public void Prepare_DynamicallyAddsChildWorkflowAndContinuousHandoffs(
+        string dynamicStepType,
+        string expectedWorkflowName)
+    {
+        var yaml = $$"""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - id: dynamic
+                    type: {{dynamicStepType}}
+              fallback_general:
+                steps:
+                  - id: answer
+                    type: llm.call
+            """;
+        var prepared = new SimulationPreparationService().Prepare(Request(yaml) with
+        {
+            Seed = 23,
+            Speed = 4
+        });
+
+        var patchItem = Assert.Single(prepared.Stream, item => item.ScenePatch is not null);
+        var patch = patchItem.ScenePatch!;
+        Assert.Equal(expectedWorkflowName, Assert.Single(patch.Lanes).WorkflowName);
+        Assert.True(patch.Bounds.Width <= prepared.Metadata.CanvasWidth);
+        Assert.InRange(patch.Lanes[0].X, 0, prepared.Metadata.CanvasWidth);
+        Assert.Contains("class=\"workflow-roundabout\"", patch.SvgFragment, StringComparison.Ordinal);
+        Assert.Contains("class=\"route-centerline\"", patch.SvgFragment, StringComparison.Ordinal);
+        Assert.Contains(prepared.Events, item =>
+            item.Type == SimulationEventTypes.WorkflowDiscovered
+            && item.WorkflowName == expectedWorkflowName);
+        Assert.Contains(prepared.Events, item =>
+            item.Type == SimulationEventTypes.TaskHandedOff
+            && item.TargetActorId == patch.Actors[0].Id);
+        Assert.Contains(prepared.Events, item =>
+            item.Type == SimulationEventTypes.TaskHandedOff
+            && item.ActorId == patch.Actors[0].Id
+            && item.TargetActorId == "actor-master");
+
+        var dynamicCompleted = prepared.Events.Single(item =>
+            item.Type == SimulationEventTypes.StepCompleted
+            && item.StepId == "dynamic"
+            && item.WorkflowName == "main");
+        var childReturned = prepared.Events.Last(item =>
+            item.Type == SimulationEventTypes.TaskHandedOff
+            && item.ActorId == patch.Actors[0].Id);
+        Assert.True(dynamicCompleted.OffsetMs >= childReturned.OffsetMs);
+    }
+
+    [Fact]
+    public async Task Stream_EmitsScenePatchBeforeDynamicChildEvents()
+    {
+        var yaml = """
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - { id: route, type: workflow.route }
+              fallback_general:
+                steps:
+                  - { id: answer, type: llm.call }
+            """;
+
+        var envelopes = await ReadAllEnvelopes(Request(yaml) with { Speed = 4 });
+        var patchIndex = Array.FindIndex(
+            envelopes.ToArray(),
+            static envelope => envelope.ScenePatch is not null);
+        var discoveryIndex = Array.FindIndex(
+            envelopes.ToArray(),
+            static envelope => envelope.Event?.Type == SimulationEventTypes.WorkflowDiscovered);
+
+        Assert.True(patchIndex > 0);
+        Assert.True(discoveryIndex > patchIndex);
+        Assert.Equal("scene.patch", envelopes[patchIndex].Type);
+        Assert.Equal("fallback_general", envelopes[patchIndex].ScenePatch?.Lanes[0].WorkflowName);
+    }
+
+    [Fact]
+    public async Task Stream_CanBeCancelledImmediatelyAfterPreparedScene()
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var message = CreateStreamRequest(Request(SimpleYaml) with { Speed = 0.5 });
+        using var response = await _client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellation.Token);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellation.Token);
+        using var reader = new StreamReader(stream);
+
+        var firstLine = await reader.ReadLineAsync(cancellation.Token);
+        cancellation.Cancel();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(firstLine);
+        Assert.Contains("simulation.prepared", firstLine, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Validate_Returns422ForPayloadHardLimits()
+    {
+        var oversizedWorkflow = new string('x', SimulationPreparationService.MaxWorkflowBytes + 1);
+        var response = await _client.PostAsJsonAsync(
+            "/api/simulations/validate",
+            Request(oversizedWorkflow),
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Contains("WORKFLOW_TOO_LARGE", await response.Content.ReadAsStringAsync(CancellationToken.None), StringComparison.Ordinal);
+
+        var service = new SimulationPreparationService();
+        var inputResult = service.Validate(Request(SimpleYaml) with
+        {
+            Inputs = new JsonObject { ["payload"] = new string('y', SimulationPreparationService.MaxInputBytes + 1) }
+        });
+        Assert.Contains(inputResult.Diagnostics, item => item.Code == "INPUTS_TOO_LARGE");
+    }
+
+    [Fact]
+    public void Prepare_EnforcesDefaultStepActorAndCloneHardLimits()
+    {
+        var service = new SimulationPreparationService();
+        var manySteps = new StringBuilder("version: 1\nworkflows:\n  main:\n    steps:\n");
+        for (var index = 0; index < 201; index++)
+            manySteps.Append("      - id: step-").Append(index).Append("\n        type: set\n");
+
+        var stepError = Assert.Throws<SimulationRequestException>(() => service.Prepare(Request(manySteps.ToString())));
+        Assert.Equal("STEP_LIMIT", stepError.Code);
+
+        var manyBranches = new StringBuilder("version: 1\nworkflows:\n  main:\n    steps:\n      - id: fork\n        type: parallel\n        branches:\n");
+        for (var index = 0; index < 17; index++)
+            manyBranches.Append("          - name: branch-").Append(index).Append("\n            steps:\n              - id: branch-step-").Append(index).Append("\n                type: mcp.call\n");
+
+        var cloneError = Assert.Throws<SimulationRequestException>(() => service.Prepare(Request(manyBranches.ToString())));
+        Assert.Equal("CLONE_LIMIT", cloneError.Code);
+
+        var manyCalls = new StringBuilder("version: 1\nworkflows:\n  main:\n    steps:\n");
+        for (var index = 0; index < 32; index++)
+        {
+            manyCalls.Append("      - id: call-").Append(index)
+                .Append("\n        type: workflow.call\n        input:\n          ref: { kind: local, name: helper }\n");
+        }
+        manyCalls.Append("  helper:\n    steps:\n      - id: long-work\n        type: llm.call\n");
+
+        var actorError = Assert.Throws<SimulationRequestException>(() => service.Prepare(Request(manyCalls.ToString())));
+        Assert.Equal("ACTOR_LIMIT", actorError.Code);
+    }
+
+    [Fact]
+    public void ProjectsHaveNoFlowProjectPackageOrAssemblyDependency()
+    {
+        var assemblies = DependencyClosure(typeof(Program).Assembly, typeof(GnouGnouAnimationPlanner).Assembly);
+        Assert.DoesNotContain(assemblies, name => name.StartsWith("GnOuGo.Flow", StringComparison.OrdinalIgnoreCase));
+
+        var repository = FindRepositoryRoot();
+        var projectFiles = new[]
+        {
+            Path.Combine(repository, "src", "GnOuGo.Assets.Animation", "GnOuGo.Assets.Animation.csproj"),
+            Path.Combine(repository, "src", "GnOuGo.Assets.Animation.Server", "GnOuGo.Assets.Animation.Server.csproj")
+        };
+        Assert.All(projectFiles, path =>
+            Assert.DoesNotContain("GnOuGo.Flow", File.ReadAllText(path), StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ClientConsumesBearsOwnedAnimationRuntime()
+    {
+        var repository = FindRepositoryRoot();
+        var appPath = Path.Combine(
+            repository,
+            "src",
+            "GnOuGo.Assets.Animation.Server",
+            "ClientApp",
+            "src",
+            "App.tsx");
+        var runtimePath = Path.Combine(
+            repository,
+            "src",
+            "GnOuGo.Assets.Bears",
+            "Runtime",
+            "gnougnou-animation-controller.ts");
+        var workflowRuntimePath = Path.Combine(
+            repository,
+            "src",
+            "GnOuGo.Assets.Animation",
+            "Runtime",
+            "gnougnou-workflow-animation-controller.ts");
+        var app = File.ReadAllText(appPath);
+        var runtime = File.ReadAllText(runtimePath);
+        var workflowRuntime = File.ReadAllText(workflowRuntimePath);
+
+        Assert.Contains("GnOuGo.Assets.Bears/Runtime/gnougnou-animation-controller", app, StringComparison.Ordinal);
+        Assert.Contains("GnOuGo.Assets.Animation/Runtime/gnougnou-workflow-animation-controller", app, StringComparison.Ordinal);
+        Assert.Contains("workflowAnimationsRef.current?.enqueueEvent(envelope.event)", app, StringComparison.Ordinal);
+        Assert.Contains("workflowAnimationsRef.current?.applyScenePatch", app, StringComparison.Ordinal);
+        Assert.Contains("cameraMode: 'scroll'", app, StringComparison.Ordinal);
+        Assert.Contains("workflowAnimationsRef.current?.fitScene()", app, StringComparison.Ordinal);
+        Assert.Contains("workflowAnimationsRef.current?.panBy(", app, StringComparison.Ordinal);
+        Assert.Contains("onFocus: (_id, event) =>", app, StringComparison.Ordinal);
+        Assert.DoesNotContain("workflowAnimationsRef.current?.focusEvent(envelope.event!)", app, StringComparison.Ordinal);
+        Assert.Contains("const toggleAutoFollow = useCallback", app, StringComparison.Ordinal);
+        Assert.Contains("workflowAnimationsRef.current?.stopCameraMotion()", app, StringComparison.Ordinal);
+        Assert.Contains("canvasWidth: Math.max", app, StringComparison.Ordinal);
+        Assert.Contains("const MotionSvgMarkup = memo", app, StringComparison.Ordinal);
+        Assert.Contains("<MotionSvgMarkup svg={svg} />", app, StringComparison.Ordinal);
+        Assert.DoesNotContain("function ambientLifeAt", app, StringComparison.Ordinal);
+        Assert.DoesNotContain("case 'walk':", app, StringComparison.Ordinal);
+        Assert.Contains("export class GnouGnouAnimationController", runtime, StringComparison.Ordinal);
+        Assert.Contains("case 'walk':", runtime, StringComparison.Ordinal);
+        Assert.Contains("gaitPulse(gaitPhase, 0)", runtime, StringComparison.Ordinal);
+        Assert.Contains("setFailureExpression(actor, action === 'fail')", runtime, StringComparison.Ordinal);
+        Assert.Contains("actor?.matches('[data-animation-rig=\"true\"]')", runtime, StringComparison.Ordinal);
+        Assert.Contains("yawn:", runtime, StringComparison.Ordinal);
+        Assert.Contains("export const GNOUNOU_IDLE_VARIANTS", runtime, StringComparison.Ordinal);
+        Assert.Contains("'look-around'", runtime, StringComparison.Ordinal);
+        Assert.Contains("'toe-tap'", runtime, StringComparison.Ordinal);
+        Assert.Contains("'little-wave'", runtime, StringComparison.Ordinal);
+        Assert.Contains("idleVariantUsage", runtime, StringComparison.Ordinal);
+        Assert.Contains("data-idle-offset-ms", runtime, StringComparison.Ordinal);
+        Assert.Contains("export class GnouGnouWorkflowAnimationController", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("GnouGnouWorkflowCharacterController", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("enqueueEvent(event: WorkflowSimulationEvent)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("Array.from(parsedRoot.childNodes)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private animateHumanInputDelivery(event: WorkflowSimulationEvent)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("human-input-delivery-", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-animation-human-delivery", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("event.type === 'human_input.resumed'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("event.stepType?.toLowerCase().startsWith('human.')", workflowRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("while (parsedRoot.firstChild)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.promoteForeground(svg)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private initializeSceneLayers()", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private ensureTransitBranch(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("const isDynamicTarget =", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("target?.getAttribute('data-live-actor') === 'true'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("if (!isDynamicTarget) return undefined", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("if (!scene.isDynamic) this.setScenePosition(scene, 'active')", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private transitDuration(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("Math.max(700, Math.min(durationMs * 1.45, 2200))", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private portalLeadInDuration(): number", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private portalSceneSwapDuration(): number", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private portalTimeline(durationMs: number): PortalTimeline", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private portalTransferDuration(durationMs: number)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.portalTransferDuration(event.durationMs) + 180, 3400", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("performance.now() + this.portalLeadInDuration()", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private animateTransitActor(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.animateTransitActor(event, transit.branch)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.animateTransitParcel(event, transit.branch, transit.reverse)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.setPosition(event.targetActorId, branch.destinationAnchor)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("'gnougo-transit-actors'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("routingAnchor: Position", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("hasReturned: boolean", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-has-returned', 'false'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-has-returned', 'true'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private workflowControlPosition(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("node.querySelector<SVGGraphicsElement>('.control-node')", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("reverse ? ['finish', 'return'] : ['start']", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private createTransitPortal(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("'transit-portal-source'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("'transit-portal-destination'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("branch.activeTransferToken = transferToken", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("case 'task.cloned':", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("case 'task.merged':", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private syncParallelTaskVisibility()", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("offsetMs?: number", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("interface ParallelCohort", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("while (this.liveEventQueue[0]?.offsetMs === first.offsetMs)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private parallelCentroid(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private followParallelCohort(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("delegatedActorParents: Map<string, string>", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private rootParallelCohort(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-animation-parallel-actors", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private animateTransitParcel(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private layoutTransitBranch(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("const portalLength =", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private positionTransitPortal(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-portal-phase", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-portal-phase', 'preparing'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("const sourceRevealAt = startedAt - 180", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-portal-phase', 'between'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("const destinationRevealAt = timeline.destinationEntryStart - 180", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("branch.group.classList.add('is-parked')", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("data-portal-phase', 'parked-parent'", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("shouldFollowPortalTransfer", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private portalSourceFocusPosition(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private portalDestinationFocusPosition(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.portalSourceFocusPosition(transit.branch)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("this.portalDestinationFocusPosition(branch)", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("opacity = 1 - local", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("opacity = local", workflowRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("branch.path.getTotalLength()", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("shouldFollowPortalTransfer: () => autoFollowRef.current", app, StringComparison.Ordinal);
+        Assert.Contains("is-transit-copy", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("transit?.branch.id", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private animateCamera(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private setLaneFocus(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("private focusDestinationForEvent(", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("scene?.isDynamic && laneId !== this.activeLaneId", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("requestedDurationMs?: number", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("stopCameraMotion()", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("parcel.classList.add('is-in-transit')", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("parcel.classList.remove('is-in-transit')", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("svg.dataset.sceneWidth", workflowRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "svg.setAttribute('viewBox', `0 0 ${patch.bounds.width} ${patch.bounds.height}`)",
+            workflowRuntime,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("GnOuGo.Assets.Bears", workflowRuntime, StringComparison.Ordinal);
+    }
+
+    private async Task<IReadOnlyList<SimulationStreamEnvelope>> ReadAllEnvelopes(SimulationRequest request)
+    {
+        using var response = await _client.SendAsync(
+            CreateStreamRequest(request),
+            HttpCompletionOption.ResponseContentRead,
+            CancellationToken.None);
+        response.EnsureSuccessStatusCode();
+        var lines = (await response.Content.ReadAsStringAsync(CancellationToken.None))
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        return lines.Select(DeserializeEnvelope).ToArray();
+    }
+
+    private async Task<SimulationStreamEnvelope> ReadFirstEnvelopeAndCancel(SimulationRequest request)
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var response = await _client.SendAsync(
+            CreateStreamRequest(request),
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellation.Token);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellation.Token);
+        using var reader = new StreamReader(stream);
+        var line = await reader.ReadLineAsync(cancellation.Token);
+        cancellation.Cancel();
+        return DeserializeEnvelope(Assert.IsType<string>(line));
+    }
+
+    private static HttpRequestMessage CreateStreamRequest(SimulationRequest request) => new(
+        HttpMethod.Post,
+        "/api/simulations/stream")
+    {
+        Content = new StringContent(
+            JsonSerializer.Serialize(request, AnimationServerJsonContext.Default.SimulationRequest),
+            Encoding.UTF8,
+            "application/json")
+    };
+
+    private static SimulationStreamEnvelope DeserializeEnvelope(string line) =>
+        JsonSerializer.Deserialize(line, AnimationServerJsonContext.Default.SimulationStreamEnvelope)
+        ?? throw new InvalidOperationException("Expected an NDJSON envelope.");
+
+    private static SimulationRequest Request(string yaml) => new()
+    {
+        Workflow = yaml,
+        Seed = 42,
+        Scene = AnimationSceneKind.Office,
+        Speed = 4
+    };
+
+    private static IReadOnlySet<string> DependencyClosure(params Assembly[] roots)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var queue = new Queue<Assembly>(roots);
+        while (queue.TryDequeue(out var assembly))
+        {
+            var name = assembly.GetName().Name;
+            if (name is null || !names.Add(name))
+                continue;
+            foreach (var reference in assembly.GetReferencedAssemblies().Where(item => item.Name?.StartsWith("GnOuGo.", StringComparison.Ordinal) == true))
+                queue.Enqueue(Assembly.Load(reference));
+        }
+        return names;
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "GnOuGo.Agent.sln")))
+            directory = directory.Parent;
+        return directory?.FullName ?? throw new DirectoryNotFoundException("Could not locate the repository root.");
+    }
+}

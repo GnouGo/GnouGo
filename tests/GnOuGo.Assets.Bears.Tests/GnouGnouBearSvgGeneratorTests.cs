@@ -1,4 +1,5 @@
 using GnOuGo.Assets.Bears;
+using System.Xml.Linq;
 using Xunit;
 
 namespace GnOuGo.Assets.Bears.Tests;
@@ -146,6 +147,79 @@ public sealed class GnouGnouBearSvgGeneratorTests
 
         Assert.Equal(first, second);
         Assert.Contains("opacity=\"0.99\"", first, StringComparison.Ordinal);
+        var document = XDocument.Parse(first);
+        var beard = document.Descendants().Single(element => element.Attribute("data-part")?.Value == "beard");
+        Assert.Equal("translate(0 6)", beard.Attribute("transform")?.Value);
+        Assert.NotNull(beard.Attribute("data-beard-style"));
+    }
+
+    [Theory]
+    [InlineData(GnouGnouBearNoseStyle.Default, "default")]
+    [InlineData(GnouGnouBearNoseStyle.Button, "button")]
+    [InlineData(GnouGnouBearNoseStyle.Heart, "heart")]
+    [InlineData(GnouGnouBearNoseStyle.Triangle, "triangle")]
+    [InlineData(GnouGnouBearNoseStyle.Wide, "wide")]
+    public void Generate_NoseStyle_RendersSelectedNose(
+        GnouGnouBearNoseStyle noseStyle,
+        string token)
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            NoseStyle = noseStyle
+        });
+        var document = XDocument.Parse(svg);
+        var nose = document.Descendants().Single(element => element.Attribute("data-part")?.Value == "nose");
+
+        Assert.Equal(token, nose.Attribute("data-nose-style")?.Value);
+    }
+
+    [Theory]
+    [InlineData(GnouGnouBearBeardStyle.Classic, "classic")]
+    [InlineData(GnouGnouBearBeardStyle.LongPoint, "long-point")]
+    [InlineData(GnouGnouBearBeardStyle.Cloud, "cloud")]
+    [InlineData(GnouGnouBearBeardStyle.Square, "square")]
+    [InlineData(GnouGnouBearBeardStyle.Split, "split")]
+    public void Generate_BeardStyle_RendersSelectedSilhouette(
+        GnouGnouBearBeardStyle beardStyle,
+        string token)
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Seed = 42,
+            HasBeard = true,
+            BeardStyle = beardStyle
+        });
+        var document = XDocument.Parse(svg);
+        var beard = document.Descendants().Single(element => element.Attribute("data-part")?.Value == "beard");
+
+        Assert.Equal(token, beard.Attribute("data-beard-style")?.Value);
+    }
+
+    [Fact]
+    public void Generate_Beard_IsPaintedAboveBowTieAndNecktie()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Seed = 42,
+            HasBeard = true,
+            HasBowTie = true,
+            Accessories = [GnouGnouBearAccessory.Necktie]
+        });
+        var document = XDocument.Parse(svg);
+        var paintedParts = document
+            .Descendants()
+            .Select(element => element.Attribute("data-part")?.Value)
+            .Where(static part => part is not null)
+            .ToList();
+
+        var beardIndex = paintedParts.IndexOf("beard");
+        var bowTieIndex = paintedParts.IndexOf("bow-tie");
+        var necktieIndex = paintedParts.IndexOf("necktie");
+        Assert.True(beardIndex >= 0);
+        Assert.True(bowTieIndex >= 0);
+        Assert.True(necktieIndex >= 0);
+        Assert.True(beardIndex > bowTieIndex);
+        Assert.True(beardIndex > necktieIndex);
     }
 
     [Fact]
@@ -260,5 +334,228 @@ public sealed class GnouGnouBearSvgGeneratorTests
         Assert.Contains("fill=\"url(#muzzle)\"", svg, StringComparison.Ordinal);
         Assert.Contains("fill=\"url(#eye)\"", svg, StringComparison.Ordinal);
         Assert.Contains("fill=\"#F79AA0\"", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_SvgIdPrefix_NamespacesDefinitionsAndReferences()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            SvgIdPrefix = "actor-master"
+        });
+
+        Assert.Contains("id=\"actor-master-gnougnou-title\"", svg, StringComparison.Ordinal);
+        Assert.Contains("id=\"actor-master-fur\"", svg, StringComparison.Ordinal);
+        Assert.Contains("url(#actor-master-fur)", svg, StringComparison.Ordinal);
+        Assert.Contains("aria-labelledby=\"actor-master-gnougnou-title actor-master-gnougnou-desc\"", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("id=\"fur\"", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_WithoutSvgIdPrefix_PreservesLegacyIdsAndReferences()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions());
+
+        Assert.Contains("id=\"gnougnou-title\"", svg, StringComparison.Ordinal);
+        Assert.Contains("id=\"fur\"", svg, StringComparison.Ordinal);
+        Assert.Contains("url(#fur)", svg, StringComparison.Ordinal);
+        Assert.Contains("aria-labelledby=\"gnougnou-title gnougnou-desc\"", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_AnimationRig_ExposesSemanticBodyParts()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            EnableAnimationRig = true,
+            HasBeard = true
+        });
+
+        Assert.Contains("data-animation-rig=\"true\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"head\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"ear-left\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"ear-right\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"cheek-left\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"cheek-right\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"arm-left\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"arm-right\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"leg-left\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"leg-right\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"pupil-left\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"mouth\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-expression=\"default\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-expression=\"failure\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"beard\"", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-part=\"ground-shadow\"", svg, StringComparison.Ordinal);
+        var document = XDocument.Parse(svg);
+        var head = document.Descendants().Single(element => element.Attribute("data-part")?.Value == "head");
+        var headParts = head
+            .Descendants()
+            .Select(element => element.Attribute("data-part")?.Value)
+            .Where(static part => part is not null)
+            .ToList();
+        var beard = head.Descendants().Single(element => element.Attribute("data-part")?.Value == "beard");
+        Assert.Equal("translate(0 6)", beard.Elements().Single().Attribute("transform")?.Value);
+        var beardIndex = headParts.IndexOf("beard");
+        var bowTieIndex = headParts.IndexOf("bow-tie");
+        Assert.True(beardIndex >= 0);
+        Assert.True(bowTieIndex >= 0);
+        Assert.True(beardIndex > bowTieIndex);
+    }
+
+    [Fact]
+    public void Generate_AnimatedRig_PreservesSelectedFaceAndBeardVariants()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Seed = 73,
+            Animation = GnouGnouBearAnimation.Idle,
+            Emotion = GnouGnouBearEmotion.Worried,
+            EyeStyle = GnouGnouBearEyeStyle.Starry,
+            NoseStyle = GnouGnouBearNoseStyle.Heart,
+            BeardStyle = GnouGnouBearBeardStyle.Split,
+            HasBeard = true
+        });
+        var document = XDocument.Parse(svg);
+        var rig = document.Descendants().Single(element => element.Attribute("data-animation-rig")?.Value == "true");
+        var nose = rig.Descendants().Single(element => element.Attribute("data-part")?.Value == "nose");
+        var beard = rig.Descendants().Single(element => element.Attribute("data-part")?.Value == "beard");
+
+        Assert.Equal("starry", rig.Attribute("data-eye-style")?.Value);
+        Assert.Equal("worried", rig.Attribute("data-emotion")?.Value);
+        Assert.Equal("heart", rig.Attribute("data-nose-style")?.Value);
+        Assert.Equal("heart", nose.Attribute("data-nose-style")?.Value);
+        Assert.Equal("split", beard.Attribute("data-beard-style")?.Value);
+        Assert.Contains("M104 92l4 9 10 1", svg, StringComparison.Ordinal);
+        Assert.Contains("M116 149 Q128 141 140 149", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_DisabledAnimationRig_PreservesDefaultOutput()
+    {
+        var implicitDefault = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions { Seed = 27 });
+        var explicitDefault = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Seed = 27,
+            EnableAnimationRig = false
+        });
+
+        Assert.Equal(implicitDefault, explicitDefault);
+        Assert.DoesNotContain("data-animation-rig", implicitDefault, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_NoneAnimation_RemainsStaticByDefault()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Animation = GnouGnouBearAnimation.None
+        });
+
+        Assert.DoesNotContain("data-animation-rig", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("@keyframes gnougo-", svg, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(GnouGnouBearAnimation.Idle, "idle")]
+    [InlineData(GnouGnouBearAnimation.Walk, "walk")]
+    [InlineData(GnouGnouBearAnimation.Typing, "typing")]
+    [InlineData(GnouGnouBearAnimation.Waiting, "waiting")]
+    [InlineData(GnouGnouBearAnimation.Pickup, "pickup")]
+    [InlineData(GnouGnouBearAnimation.Handoff, "handoff")]
+    [InlineData(GnouGnouBearAnimation.Delivery, "delivery")]
+    [InlineData(GnouGnouBearAnimation.Clone, "clone")]
+    [InlineData(GnouGnouBearAnimation.Merge, "merge")]
+    [InlineData(GnouGnouBearAnimation.Celebration, "celebration")]
+    [InlineData(GnouGnouBearAnimation.Failure, "failure")]
+    public void Generate_SelectedAnimation_ProducesSelfPlayingRig(
+        GnouGnouBearAnimation animation,
+        string token)
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Animation = animation
+        });
+
+        _ = XDocument.Parse(svg);
+        Assert.Contains("data-animation-rig=\"true\"", svg, StringComparison.Ordinal);
+        Assert.Contains($"data-animation=\"{token}\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-animation-enabled=\"true\"", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-pupil-look", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-mouth-life", svg, StringComparison.Ordinal);
+        Assert.Contains("prefers-reduced-motion", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain(".gnougo-rig[data-animation] ", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain(".gnougo-rig [data-part", svg, StringComparison.Ordinal);
+        Assert.Contains(
+            $".gnougo-rig[data-animation=\"{token}\"] [data-part=\"leg-left\"]",
+            svg,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_HostControlledRig_DoesNotStartStandaloneAnimation()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            EnableAnimationRig = true,
+            Animation = GnouGnouBearAnimation.None
+        });
+
+        Assert.Contains("data-animation=\"none\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-animation-enabled=\"false\"", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("@keyframes gnougo-", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_InvalidAnimation_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+            {
+                Animation = (GnouGnouBearAnimation)999
+            }));
+    }
+
+    [Fact]
+    public void Generate_WalkAnimation_UsesAlternatingLimbPhases()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Animation = GnouGnouBearAnimation.Walk
+        });
+
+        Assert.Contains("20% { transform: rotate(28deg) translateY(-3px); }", svg, StringComparison.Ordinal);
+        Assert.Contains("70% { transform: rotate(-28deg) translateY(-3px); }", svg, StringComparison.Ordinal);
+        Assert.Contains("70% { transform: rotate(18deg); }", svg, StringComparison.Ordinal);
+        Assert.Contains("20% { transform: rotate(-18deg); }", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_FailureAnimation_ShowsSadMouthAndEyes()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Animation = GnouGnouBearAnimation.Failure
+        });
+
+        Assert.Contains("M109 158 Q128 137 147 158", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-expression=\"default\"] { opacity: 0; }", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-expression=\"failure\"] { opacity: 1; }", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-fail-eye", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-part=\"brow-left\"] { transform: rotate(10deg); }", svg, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("two words")]
+    [InlineData("9actor")]
+    [InlineData("actor<script>")]
+    public void Generate_InvalidSvgIdPrefix_Throws(string prefix)
+    {
+        Assert.Throws<ArgumentException>(() => GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            SvgIdPrefix = prefix
+        }));
     }
 }

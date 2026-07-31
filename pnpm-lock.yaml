@@ -30,6 +30,31 @@ importers:
         specifier: 8.0.14
         version: 8.0.14(esbuild@0.27.7)(sass@1.100.0)
 
+  src/GnOuGo.Assets.Animation.Server/ClientApp:
+    dependencies:
+      '@vitejs/plugin-react':
+        specifier: 6.0.2
+        version: 6.0.2(vite@8.0.14(esbuild@0.27.7)(sass@1.100.0))
+      react:
+        specifier: 19.2.6
+        version: 19.2.6
+      react-dom:
+        specifier: 19.2.6
+        version: 19.2.6(react@19.2.6)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vite:
+        specifier: 8.0.14
+        version: 8.0.14(esbuild@0.27.7)(sass@1.100.0)
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.15
+        version: 19.2.15
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.15)
+
   src/GnOuGo.Diff.Server/ClientApp:
     dependencies:
       react:

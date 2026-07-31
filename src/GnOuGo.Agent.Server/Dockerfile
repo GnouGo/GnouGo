@@ -23,6 +23,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY src/GnOuGo.Agent.Server/ClientApp/package.json src/GnOuGo.Agent.Server/ClientApp/
 RUN pnpm --dir src/GnOuGo.Agent.Server/ClientApp install --frozen-lockfile
 COPY src/GnOuGo.Agent.Server/ClientApp/ src/GnOuGo.Agent.Server/ClientApp/
+# Asset Runtime directories are imported by ClientApp/src/main.ts via relative paths
+COPY src/GnOuGo.Assets.Animation/Runtime/ src/GnOuGo.Assets.Animation/Runtime/
+COPY src/GnOuGo.Assets.Bears/Runtime/ src/GnOuGo.Assets.Bears/Runtime/
 RUN pnpm --dir src/GnOuGo.Agent.Server/ClientApp build
 # vite outDir: '../wwwroot/ui' -> output lands in /workspace/src/GnOuGo.Agent.Server/wwwroot/ui
 # ----------------------------------------------

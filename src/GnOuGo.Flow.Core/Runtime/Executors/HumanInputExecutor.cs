@@ -21,6 +21,15 @@ internal static class HumanInputDslReference
           - context (any, optional): structured data shown next to the prompt.
           - timeout_ms (number, optional): milliseconds before HUMAN_INPUT_TIMEOUT. Default: 36000000 (10 hours). Use 0 for no timeout.
 
+        Mode selection priority (use the most constrained control that matches the required response):
+          1. `confirm`: use for a binary approval, confirmation, or accept/reject decision.
+          2. `choice`: MUST use whenever the user must select exactly one answer from a finite set of known options.
+          3. `form`: use for several values, typed fields, or multiple selections (for example a `multiselect` field).
+          4. `text`: ONLY use for genuinely open-ended answers that cannot be represented by known options or structured fields.
+
+        Whenever the prompt, task, or upstream data provides possible choices/options/answers, encode every option in `input.choices` and use `mode: choice`.
+        Never place possible choices/options/answers only in `prompt` or `context`.
+
         Mode patterns:
         ```yaml
         - id: ask_feedback
@@ -39,6 +48,20 @@ internal static class HumanInputDslReference
             prompt: "Choose the next action."
             choices: [approve, modify, reject]
             timeout_ms: 36000000
+        ```
+
+        Dynamic questionnaire choices must still be emitted as an actual YAML array:
+        ```yaml
+        - id: ask_question
+          type: human.input
+          input:
+            mode: choice
+            prompt: "Question ${data.question_item.number}: ${data.question_item.question}"
+            choices:
+              - "${data.question_item.options[0]}"
+              - "${data.question_item.options[1]}"
+              - "${data.question_item.options[2]}"
+              - "${data.question_item.options[3]}"
         ```
 
         ```yaml
@@ -72,6 +95,15 @@ internal static class HumanInputDslReference
               - name: notes
                 type: textarea
                 required: false
+        ```
+
+        Invalid anti-pattern — never generate:
+        ```yaml
+        - id: ask_question
+          type: human.input
+          input:
+            mode: text
+            prompt: "Choices: ${json(data.question_item.options)}"
         ```
 
         Rules:
@@ -219,6 +251,12 @@ public sealed class HumanInputExecutor : IStepExecutor
         try
         {
             var response = await provider.RequestInputAsync(request, cts.Token);
+
+            ctx.AddTelemetryEvent("gnougo-flow.step.human_input_resumed", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.human.run_id", request.RunId),
+                new KeyValuePair<string, object?>("gnougo-flow.human.step_id", request.StepId)
+            });
 
             // Emit confirmation
             ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]

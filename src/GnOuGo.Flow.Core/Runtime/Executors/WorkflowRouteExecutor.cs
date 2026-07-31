@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -20,7 +21,9 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         new(ErrorCodes.InputValidation, false, "workflow.route input, candidates, selection, args, execution, or combine sections are malformed."),
         new(ErrorCodes.TemplatePlan, false, "The routing LLM is unavailable or did not return a valid selection."),
         new(ErrorCodes.WorkflowFetchNetwork, false, "A dynamic candidate source or selected workflow could not be resolved."),
-        new(ErrorCodes.WorkflowCycleDetected, false, "A selected workflow call would exceed route call-depth limits or create a call cycle.")
+        new(ErrorCodes.WorkflowCycleDetected, false, "A selected workflow call would exceed route call-depth limits or create a call cycle."),
+        new("NO_HITL_PROVIDER", false, "Interactive routed-input completion is enabled but no IHumanInputProvider is configured."),
+        new("HUMAN_INPUT_TIMEOUT", false, "The human did not complete the selected workflow inputs before the configured timeout.")
     };
 
     public string DslSnippet => """
@@ -46,6 +49,10 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
               auto_extract:                    # optional; true or object
                 provider: openai               # optional; defaults to runtime provider
                 model: gpt-5.4-mini            # optional; defaults to runtime model
+              human_input:                     # optional; false by default
+                enabled: true
+                timeout_ms: 36000000
+                max_attempts: 3
               add:
                 history: "${data.inputs.history}"
             execution:
@@ -95,10 +102,29 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         var executeInParallel = executionInput?["parallel"]?.GetValue<bool>() ?? true;
         var maxConcurrency = executionInput?["max_concurrency"]?.GetValue<int>() ?? selected.Count;
         maxConcurrency = Math.Clamp(maxConcurrency, 1, Math.Max(1, selected.Count));
+        var humanInputConfig = ParseHumanInputConfig(argsInput);
 
-        var routeResults = executeInParallel
-            ? await ExecuteSelectedParallelAsync(ctx, input, selected, args, argsInput, maxConcurrency, ct)
-            : await ExecuteSelectedSequentialAsync(ctx, input, selected, args, argsInput, ct);
+        List<RouteExecutionResult> routeResults;
+        if (humanInputConfig.Enabled)
+        {
+            var prepared = await PrepareSelectedSequentialAsync(
+                ctx,
+                input,
+                selected,
+                args,
+                argsInput,
+                humanInputConfig,
+                ct);
+            routeResults = executeInParallel
+                ? await ExecutePreparedParallelAsync(ctx, prepared, maxConcurrency, ct)
+                : await ExecutePreparedSequentialAsync(ctx, prepared, ct);
+        }
+        else
+        {
+            routeResults = executeInParallel
+                ? await ExecuteSelectedParallelAsync(ctx, input, selected, args, argsInput, maxConcurrency, ct)
+                : await ExecuteSelectedSequentialAsync(ctx, input, selected, args, argsInput, ct);
+        }
 
         var output = new JsonObject
         {
@@ -397,6 +423,404 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.route args.auto_extract must be boolean or object");
     }
 
+    private static HumanInputConfig ParseHumanInputConfig(JsonObject? argsInput)
+    {
+        var node = argsInput?["human_input"];
+        if (node is null)
+            return HumanInputConfig.Disabled;
+
+        if (node is JsonValue value && value.TryGetValue<bool>(out var enabled))
+        {
+            return new HumanInputConfig(
+                enabled,
+                HumanInputContract.DefaultTimeoutMs,
+                HumanInputConfig.DefaultMaxAttempts);
+        }
+
+        if (node is not JsonObject obj)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                "workflow.route args.human_input must be boolean or object");
+        }
+
+        var timeoutMs = ReadHumanInputInteger(
+            obj,
+            "timeout_ms",
+            HumanInputContract.DefaultTimeoutMs);
+        var maxAttempts = ReadHumanInputInteger(
+            obj,
+            "max_attempts",
+            HumanInputConfig.DefaultMaxAttempts);
+
+        if (timeoutMs < 0)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                "workflow.route args.human_input.timeout_ms must be zero or greater");
+        }
+
+        if (maxAttempts < 1)
+        {
+            throw new WorkflowRuntimeException(
+                ErrorCodes.InputValidation,
+                "workflow.route args.human_input.max_attempts must be one or greater");
+        }
+
+        return new HumanInputConfig(
+            ReadHumanInputBoolean(obj, "enabled", defaultValue: true),
+            timeoutMs,
+            maxAttempts);
+    }
+
+    private static bool ReadHumanInputBoolean(JsonObject obj, string propertyName, bool defaultValue)
+    {
+        if (obj[propertyName] is null)
+            return defaultValue;
+        if (obj[propertyName] is JsonValue value && value.TryGetValue<bool>(out var result))
+            return result;
+
+        throw new WorkflowRuntimeException(
+            ErrorCodes.InputValidation,
+            $"workflow.route args.human_input.{propertyName} must be a boolean");
+    }
+
+    private static int ReadHumanInputInteger(JsonObject obj, string propertyName, int defaultValue)
+    {
+        if (obj[propertyName] is null)
+            return defaultValue;
+        if (obj[propertyName] is JsonValue value && value.TryGetValue<int>(out var result))
+            return result;
+
+        throw new WorkflowRuntimeException(
+            ErrorCodes.InputValidation,
+            $"workflow.route args.human_input.{propertyName} must be an integer");
+    }
+
+    private static async Task<JsonObject> CompleteRoutedInputsAsync(
+        StepExecutionContext ctx,
+        RouteCandidate candidate,
+        string workflowName,
+        WorkflowDef? workflow,
+        JsonObject resolvedArgs,
+        HumanInputConfig config,
+        CancellationToken ct)
+    {
+        if (!config.Enabled)
+            return resolvedArgs;
+
+        var runId = string.IsNullOrWhiteSpace(ctx.Limits.RunId)
+            ? Guid.NewGuid().ToString("N")
+            : ctx.Limits.RunId;
+
+        for (var attempt = 1; attempt <= config.MaxAttempts; attempt++)
+        {
+            var issues = FindRoutedInputIssues(workflow, resolvedArgs);
+            if (issues.Count == 0)
+                return resolvedArgs;
+
+            var provider = ctx.Engine.HumanInputProvider
+                ?? throw new WorkflowRuntimeException(
+                    "NO_HITL_PROVIDER",
+                    $"Routed workflow '{workflowName}' requires additional input, but no IHumanInputProvider is configured.",
+                    details: BuildInputValidationDetails(workflowName, issues.SelectMany(static issue => issue.Errors)));
+
+            var request = BuildRoutedInputRequest(
+                ctx,
+                candidate,
+                workflowName,
+                resolvedArgs,
+                issues,
+                runId,
+                attempt,
+                config);
+            var response = await RequestRoutedInputAsync(ctx, provider, request, workflowName, ct);
+            MergeHumanInputResponse(resolvedArgs, response, issues);
+        }
+
+        ValidateRoutedInputs(workflowName, workflow, resolvedArgs);
+        return resolvedArgs;
+    }
+
+    private static List<RoutedInputIssue> FindRoutedInputIssues(
+        WorkflowDef? workflow,
+        JsonObject resolvedArgs)
+    {
+        var issues = new List<RoutedInputIssue>();
+        if (workflow?.Inputs is not { Count: > 0 } definitions)
+            return issues;
+
+        foreach (var (name, definition) in definitions)
+        {
+            var errors = new List<string>();
+            var value = resolvedArgs.ContainsKey(name) ? resolvedArgs[name] : null;
+            if (definition.Required && value is null)
+            {
+                errors.Add($"Input '{name}' is required but was not provided.");
+            }
+            else if (value is not null)
+            {
+                InputTypeValidator.ValidateNode(value, definition, name, errors, 0);
+            }
+
+            if (errors.Count > 0)
+                issues.Add(new RoutedInputIssue(name, definition, errors));
+        }
+
+        return issues;
+    }
+
+    private static HumanInputRequest BuildRoutedInputRequest(
+        StepExecutionContext ctx,
+        RouteCandidate candidate,
+        string workflowName,
+        JsonObject resolvedArgs,
+        IReadOnlyList<RoutedInputIssue> issues,
+        string runId,
+        int attempt,
+        HumanInputConfig config)
+    {
+        var fields = issues
+            .Select(issue => BuildHumanInputField(issue, resolvedArgs[issue.Name]))
+            .ToList();
+        var validationErrors = issues.SelectMany(static issue => issue.Errors).ToArray();
+
+        return new HumanInputRequest
+        {
+            RunId = runId,
+            StepId = $"{ctx.Step.Id}:inputs:{SanitizeRunIdPart(candidate.Id)}:{attempt}:{Guid.NewGuid():N}",
+            Prompt = $"Additional information is required to run workflow '{workflowName}'.",
+            Mode = HumanInputContract.ModeForm,
+            Context = new JsonObject
+            {
+                ["candidate_id"] = candidate.Id,
+                ["candidate_name"] = candidate.Name,
+                ["workflow"] = workflowName,
+                ["attempt"] = attempt,
+                ["max_attempts"] = config.MaxAttempts,
+                ["requested_inputs"] = ToJsonArray(issues.Select(static issue => issue.Name)),
+                ["validation_errors"] = new JsonArray(
+                    validationErrors.Select(static error => (JsonNode?)JsonValue.Create(error)).ToArray())
+            },
+            Fields = fields,
+            TimeoutMs = config.TimeoutMs
+        };
+    }
+
+    private static HumanInputFieldDef BuildHumanInputField(
+        RoutedInputIssue issue,
+        JsonNode? currentValue)
+    {
+        var sensitive = IsSensitiveInputName(issue.Name);
+        var description = string.IsNullOrWhiteSpace(issue.Definition.Description)
+            ? $"Expected {DescribeInputType(issue.Definition)}. {string.Join(" ", issue.Errors)}"
+            : $"{issue.Definition.Description} Expected {DescribeInputType(issue.Definition)}. {string.Join(" ", issue.Errors)}";
+
+        return new HumanInputFieldDef
+        {
+            Name = issue.Name,
+            Type = MapHumanInputFieldType(issue.Name, issue.Definition),
+            Required = issue.Definition.Required,
+            Description = description,
+            Default = sensitive ? null : FormatHumanInputDefault(currentValue)
+        };
+    }
+
+    private static string MapHumanInputFieldType(string name, InputDef definition)
+    {
+        if (IsSensitiveInputName(name))
+            return "secret";
+
+        return definition.Type.Trim().ToLowerInvariant() switch
+        {
+            "string" => "string",
+            "number" => "number",
+            "integer" => "integer",
+            "boolean" => "boolean",
+            _ => "json"
+        };
+    }
+
+    private static string DescribeInputType(InputDef definition)
+        => definition.Type.Trim().ToLowerInvariant() switch
+        {
+            "array" when definition.Items is not null => $"array of {DescribeInputType(definition.Items)} values",
+            "dictionary" when definition.AdditionalProperties is not null => $"dictionary of {DescribeInputType(definition.AdditionalProperties)} values",
+            var type => type
+        };
+
+    private static bool IsSensitiveInputName(string name)
+    {
+        var normalized = name.ToLowerInvariant();
+        return normalized.Contains("password", StringComparison.Ordinal)
+               || normalized.Contains("secret", StringComparison.Ordinal)
+               || normalized.Contains("token", StringComparison.Ordinal)
+               || normalized.Contains("api_key", StringComparison.Ordinal)
+               || normalized.Contains("apikey", StringComparison.Ordinal)
+               || normalized.EndsWith("_key", StringComparison.Ordinal);
+    }
+
+    private static string? FormatHumanInputDefault(JsonNode? value)
+    {
+        if (value is null)
+            return null;
+        if (value is JsonValue jsonValue && jsonValue.TryGetValue<string>(out var text))
+            return text;
+        if (value is JsonValue scalar)
+            return scalar.ToJsonString();
+        return value.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private static async Task<JsonNode?> RequestRoutedInputAsync(
+        StepExecutionContext ctx,
+        IHumanInputProvider provider,
+        HumanInputRequest request,
+        string workflowName,
+        CancellationToken ct)
+    {
+        ctx.AddTelemetryEvent("gnougo-flow.step.waiting_for_human", new[]
+        {
+            new KeyValuePair<string, object?>("gnougo-flow.human.prompt", request.Prompt),
+            new KeyValuePair<string, object?>("gnougo-flow.human.request", BuildHumanInputRequestPayload(request).ToJsonString()),
+            new KeyValuePair<string, object?>("gnougo-flow.workflow_route.workflow.name", workflowName)
+        });
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        if (request.TimeoutMs > 0)
+            timeout.CancelAfter(request.TimeoutMs);
+
+        try
+        {
+            var response = await provider.RequestInputAsync(request, timeout.Token);
+            ctx.AddTelemetryEvent("gnougo-flow.step.human_input_resumed", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.human.run_id", request.RunId),
+                new KeyValuePair<string, object?>("gnougo-flow.human.step_id", request.StepId),
+                new KeyValuePair<string, object?>("gnougo-flow.workflow_route.workflow.name", workflowName)
+            });
+            ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
+            {
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.message", $"Human input received for workflow '{workflowName}'."),
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.level", "info"),
+                new KeyValuePair<string, object?>("gnougo-flow.thinking.source", "workflow.route"),
+                new KeyValuePair<string, object?>("gnougo-flow.workflow_route.workflow.name", workflowName)
+            });
+            return response;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new WorkflowRuntimeException(
+                "HUMAN_INPUT_TIMEOUT",
+                $"workflow.route timed out after {request.TimeoutMs}ms waiting for inputs for workflow '{workflowName}'.");
+        }
+    }
+
+    private static JsonObject BuildHumanInputRequestPayload(HumanInputRequest request)
+    {
+        var payload = new JsonObject
+        {
+            ["prompt"] = request.Prompt,
+            ["mode"] = request.Mode,
+            ["run_id"] = request.RunId,
+            ["step_id"] = request.StepId,
+            ["timeout_ms"] = request.TimeoutMs,
+            ["context"] = request.Context?.DeepClone()
+        };
+
+        if (request.Fields is { Count: > 0 })
+        {
+            var fields = new JsonArray();
+            foreach (var field in request.Fields)
+            {
+                fields.Add((JsonNode)new JsonObject
+                {
+                    ["name"] = field.Name,
+                    ["type"] = field.Type,
+                    ["required"] = field.Required,
+                    ["description"] = field.Description,
+                    ["options"] = field.Options is null ? null : ToJsonArray(field.Options),
+                    ["default"] = field.Default
+                });
+            }
+            payload["fields"] = fields;
+        }
+
+        return payload;
+    }
+
+    private static void MergeHumanInputResponse(
+        JsonObject resolvedArgs,
+        JsonNode? response,
+        IReadOnlyList<RoutedInputIssue> issues)
+    {
+        if (response is JsonObject responseObject)
+        {
+            foreach (var issue in issues)
+            {
+                if (!responseObject.TryGetPropertyValue(issue.Name, out var value))
+                    continue;
+                resolvedArgs[issue.Name] = NormalizeHumanInputValue(value, issue.Definition);
+            }
+            return;
+        }
+
+        if (issues.Count == 1)
+            resolvedArgs[issues[0].Name] = NormalizeHumanInputValue(response, issues[0].Definition);
+    }
+
+    private static JsonNode? NormalizeHumanInputValue(JsonNode? value, InputDef definition)
+    {
+        if (value is null)
+            return null;
+        if (value is not JsonValue scalar || !scalar.TryGetValue<string>(out var text))
+            return value.DeepClone();
+
+        var type = definition.Type.Trim().ToLowerInvariant();
+        if (type == "string")
+            return JsonValue.Create(text);
+        if (type == "integer"
+            && long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var integer))
+            return JsonValue.Create(integer);
+        if (type == "number"
+            && double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
+            return JsonValue.Create(number);
+        if (type == "boolean" && TryParseBoolean(text, out var boolean))
+            return JsonValue.Create(boolean);
+
+        if (type is "array" or "object" or "dictionary")
+        {
+            try
+            {
+                return JsonNode.Parse(text);
+            }
+            catch (JsonException)
+            {
+                return JsonValue.Create(text);
+            }
+        }
+
+        return value.DeepClone();
+    }
+
+    private static bool TryParseBoolean(string value, out bool result)
+    {
+        if (bool.TryParse(value, out result))
+            return true;
+        if (value is "1" || value.Equals("yes", StringComparison.OrdinalIgnoreCase))
+        {
+            result = true;
+            return true;
+        }
+        if (value is "0" || value.Equals("no", StringComparison.OrdinalIgnoreCase))
+        {
+            result = false;
+            return true;
+        }
+
+        result = false;
+        return false;
+    }
+
     private static void ValidateRoutedInputs(
         string workflowName,
         WorkflowDef? workflow,
@@ -409,12 +833,18 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         throw new WorkflowRuntimeException(
             ErrorCodes.InputValidation,
             $"Input validation failed for routed workflow '{workflowName}': {string.Join("; ", inputErrors)}",
-            details: new JsonObject
-            {
-                ["workflow"] = workflowName,
-                ["validation_errors"] = new JsonArray(inputErrors.Select(static error => (JsonNode)JsonValue.Create(error)!).ToArray())
-            });
+            details: BuildInputValidationDetails(workflowName, inputErrors));
     }
+
+    private static JsonObject BuildInputValidationDetails(
+        string workflowName,
+        IEnumerable<string> inputErrors)
+        => new()
+        {
+            ["workflow"] = workflowName,
+            ["validation_errors"] = new JsonArray(
+                inputErrors.Select(static error => (JsonNode)JsonValue.Create(error)!).ToArray())
+        };
 
     private static async Task<List<RouteExecutionResult>> ExecuteSelectedSequentialAsync(
         StepExecutionContext ctx,
@@ -456,12 +886,91 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         return (await Task.WhenAll(tasks)).ToList();
     }
 
+    private static async Task<List<PreparedRouteCandidate>> PrepareSelectedSequentialAsync(
+        StepExecutionContext ctx,
+        JsonObject routeInput,
+        IReadOnlyList<RouteCandidate> selected,
+        JsonObject args,
+        JsonObject? argsInput,
+        HumanInputConfig humanInputConfig,
+        CancellationToken ct)
+    {
+        var prepared = new List<PreparedRouteCandidate>(selected.Count);
+        foreach (var candidate in selected)
+        {
+            prepared.Add(await PrepareCandidateAsync(
+                ctx,
+                routeInput,
+                candidate,
+                args,
+                argsInput,
+                humanInputConfig,
+                ct));
+        }
+
+        return prepared;
+    }
+
+    private static async Task<List<RouteExecutionResult>> ExecutePreparedSequentialAsync(
+        StepExecutionContext ctx,
+        IReadOnlyList<PreparedRouteCandidate> prepared,
+        CancellationToken ct)
+    {
+        var results = new List<RouteExecutionResult>(prepared.Count);
+        foreach (var candidate in prepared)
+            results.Add(await ExecutePreparedCandidateAsync(ctx, candidate, ct));
+        return results;
+    }
+
+    private static async Task<List<RouteExecutionResult>> ExecutePreparedParallelAsync(
+        StepExecutionContext ctx,
+        IReadOnlyList<PreparedRouteCandidate> prepared,
+        int maxConcurrency,
+        CancellationToken ct)
+    {
+        using var semaphore = new SemaphoreSlim(maxConcurrency);
+        var tasks = prepared.Select(async candidate =>
+        {
+            await semaphore.WaitAsync(ct);
+            try
+            {
+                return await ExecutePreparedCandidateAsync(ctx, candidate, ct);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }).ToArray();
+
+        return (await Task.WhenAll(tasks)).ToList();
+    }
+
     private static async Task<RouteExecutionResult> ExecuteCandidateAsync(
         StepExecutionContext ctx,
         JsonObject routeInput,
         RouteCandidate candidate,
         JsonObject args,
         JsonObject? argsInput,
+        CancellationToken ct)
+    {
+        var prepared = await PrepareCandidateAsync(
+            ctx,
+            routeInput,
+            candidate,
+            args,
+            argsInput,
+            HumanInputConfig.Disabled,
+            ct);
+        return await ExecutePreparedCandidateAsync(ctx, prepared, ct);
+    }
+
+    private static async Task<PreparedRouteCandidate> PrepareCandidateAsync(
+        StepExecutionContext ctx,
+        JsonObject routeInput,
+        RouteCandidate candidate,
+        JsonObject args,
+        JsonObject? argsInput,
+        HumanInputConfig humanInputConfig,
         CancellationToken ct)
     {
         var kind = candidate.Ref["kind"]?.GetValue<string>() ?? "local";
@@ -501,23 +1010,47 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         var candidateArgs = args.DeepClone() as JsonObject ?? new JsonObject();
         candidateArgs = await ApplyAutoExtractArgsAsync(ctx, routeInput, argsInput, candidate, resolution.Workflow, candidateArgs, ct);
         var resolvedArgs = WorkflowInputDefaults.Apply(resolution.Workflow.Source, candidateArgs);
+        resolvedArgs = await CompleteRoutedInputsAsync(
+            ctx,
+            candidate,
+            resolution.WorkflowName,
+            resolution.Workflow.Source,
+            resolvedArgs,
+            humanInputConfig,
+            ct);
         ValidateRoutedInputs(resolution.WorkflowName, resolution.Workflow.Source, resolvedArgs);
         EmitRoutedInputsTelemetry(ctx, candidate, resolution.WorkflowName, candidateArgs, resolvedArgs, argsInput);
+
         var newCallStack = new HashSet<string>(ctx.CallStack);
         if (!string.IsNullOrWhiteSpace(resolution.CallStackKey))
             newCallStack.Add(resolution.CallStackKey);
-        var result = await childEngine.ExecuteChildWorkflowAsync(
+
+        return new PreparedRouteCandidate(
+            candidate,
+            resolution.WorkflowName,
             resolution.Workflow,
+            childEngine,
             resolvedArgs,
-            childEngine.Limits,
+            newCallStack);
+    }
+
+    private static async Task<RouteExecutionResult> ExecutePreparedCandidateAsync(
+        StepExecutionContext ctx,
+        PreparedRouteCandidate prepared,
+        CancellationToken ct)
+    {
+        var result = await prepared.ChildEngine.ExecuteChildWorkflowAsync(
+            prepared.Workflow,
+            prepared.ResolvedArgs,
+            prepared.ChildEngine.Limits,
             ctx.CallDepth + 1,
-            newCallStack,
+            prepared.CallStack,
             ctx.TelemetrySpan,
             ct);
 
         return new RouteExecutionResult(
-            Candidate: candidate,
-            WorkflowName: resolution.WorkflowName,
+            Candidate: prepared.Candidate,
+            WorkflowName: prepared.WorkflowName,
             Success: result.Success,
             Outputs: result.Outputs?.DeepClone(),
             Error: result.Error?.Message,
@@ -997,9 +1530,35 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         JsonArray? HandledErrors,
         int StepsExecuted);
 
+    private sealed record PreparedRouteCandidate(
+        RouteCandidate Candidate,
+        string WorkflowName,
+        CompiledWorkflow Workflow,
+        WorkflowEngine ChildEngine,
+        JsonObject ResolvedArgs,
+        HashSet<string> CallStack);
+
+    private sealed record RoutedInputIssue(
+        string Name,
+        InputDef Definition,
+        IReadOnlyList<string> Errors);
+
     private sealed record AutoExtractConfig(
         bool Enabled,
         string? Provider,
         string? Model,
         double? Temperature);
+
+    private sealed record HumanInputConfig(
+        bool Enabled,
+        int TimeoutMs,
+        int MaxAttempts)
+    {
+        public const int DefaultMaxAttempts = 3;
+
+        public static HumanInputConfig Disabled { get; } = new(
+            false,
+            HumanInputContract.DefaultTimeoutMs,
+            DefaultMaxAttempts);
+    }
 }

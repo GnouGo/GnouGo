@@ -1,6 +1,15 @@
 import 'github-markdown-css/github-markdown.css';
 import './styles/app.scss';
 import mermaid from 'mermaid';
+import {
+  GnouGnouWorkflowAnimationController,
+  type WorkflowAnimationPrepared,
+  type WorkflowAnimationScenePatch,
+  type WorkflowSimulationEvent,
+} from '../../../GnOuGo.Assets.Animation/Runtime/gnougnou-workflow-animation-controller';
+import {
+  GnouGnouAnimationController,
+} from '../../../GnOuGo.Assets.Bears/Runtime/gnougnou-animation-controller';
 
 declare global {
   interface Window {
@@ -72,6 +81,9 @@ mermaid.initialize({
 
 const el = (id: string) => document.getElementById(id);
 let mermaidRenderIndex = 0;
+const MAX_MERMAID_SOURCE_LENGTH = 50_000;
+const activeMermaidEnhancements = new Set<string>();
+const pendingMermaidEnhancements = new Set<string>();
 
 function isMermaidCodeBlock(code: HTMLElement) {
   const pre = code.parentElement as HTMLElement | null;
@@ -136,6 +148,15 @@ async function renderMermaid(id: string) {
 
       node.dataset.mermaidSource = source;
       node.removeAttribute('data-processed');
+      if (source.length > MAX_MERMAID_SOURCE_LENGTH) {
+        node.textContent = source;
+        node.classList.add('mermaid--error');
+        console.warn(
+          '[GnOuGo.Agent] mermaid source skipped because it exceeds the safe interactive limit',
+          { length: source.length, limit: MAX_MERMAID_SOURCE_LENGTH },
+        );
+        continue;
+      }
 
       try {
         const renderId = `gnougo-mermaid-${Date.now()}-${mermaidRenderIndex++}`;
@@ -155,6 +176,31 @@ async function renderMermaid(id: string) {
   }
 }
 
+/**
+ * Mermaid is optional presentation work. In particular, ASK Human must remain
+ * interactive while a workflow is suspended, so Blazor interop must never
+ * await Mermaid parsing or layout. Repeated requests for the same container
+ * are coalesced into at most one follow-up pass.
+ */
+function scheduleMermaidRender(id: string): void {
+  if (activeMermaidEnhancements.has(id)) {
+    pendingMermaidEnhancements.add(id);
+    return;
+  }
+
+  activeMermaidEnhancements.add(id);
+  window.setTimeout(() => {
+    void renderMermaid(id)
+      .catch(error => {
+        console.warn('[GnOuGo.Agent] deferred mermaid enhancement failed', error);
+      })
+      .finally(() => {
+        activeMermaidEnhancements.delete(id);
+        if (pendingMermaidEnhancements.delete(id)) scheduleMermaidRender(id);
+      });
+  }, 0);
+}
+
 const scrollToBottom = (id: string) => {
   const c = el(id);
   if (!c) {
@@ -163,6 +209,25 @@ const scrollToBottom = (id: string) => {
   }
 
   c.scrollTop = c.scrollHeight;
+};
+
+const copyText = async (text: string): Promise<boolean> => {
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const fallback = document.createElement('textarea');
+    fallback.value = text;
+    fallback.setAttribute('readonly', '');
+    fallback.style.position = 'fixed';
+    fallback.style.opacity = '0';
+    document.body.appendChild(fallback);
+    fallback.select();
+    const copied = document.execCommand('copy');
+    fallback.remove();
+    return copied;
+  }
 };
 
 type DotNetUploadReceiver = {
@@ -307,12 +372,163 @@ const fileUploads = {
   },
 };
 
+interface WorkflowAnimationHandle {
+  controller: GnouGnouWorkflowAnimationController
+  resizeObserver: ResizeObserver
+  resize: () => void
+  zoom: number
+  follow: boolean
+}
+
+const workflowAnimationControllers = new Map<string, WorkflowAnimationHandle>();
+const nextAnimationFrame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+const workflowAnimation = {
+  mount: async (hostId: string, prepared: WorkflowAnimationPrepared): Promise<boolean> => {
+    workflowAnimation.dispose(hostId);
+    let host = el(hostId);
+    for (let attempt = 0; !host && attempt < 12; attempt += 1) {
+      await nextAnimationFrame();
+      host = el(hostId);
+    }
+    if (!host) return false;
+
+    host.innerHTML = prepared.svg;
+    host.dataset.status = 'Running';
+    const svg = host.querySelector<SVGSVGElement>('svg');
+    if (!svg) return false;
+
+    const sceneWidth = svg.viewBox.baseVal.width || Number(svg.getAttribute('width')) || prepared.width;
+    const sceneHeight = svg.viewBox.baseVal.height || Number(svg.getAttribute('height')) || prepared.height;
+
+    // The sidebar owns the scrolling camera. Keep the full logical scene in
+    // the SVG and render it at a readable size so both scrollbars are useful.
+    svg.dataset.sceneWidth = String(sceneWidth);
+    svg.dataset.sceneHeight = String(sceneHeight);
+    svg.setAttribute('viewBox', `0 0 ${sceneWidth} ${sceneHeight}`);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMin meet');
+    host.dataset.follow = 'true';
+
+    const handle = { follow: true } as WorkflowAnimationHandle;
+    const resize = () => {
+      const logicalWidth = Number(svg.dataset.sceneWidth) || svg.viewBox.baseVal.width || prepared.width;
+      const logicalHeight = Number(svg.dataset.sceneHeight) || svg.viewBox.baseVal.height || prepared.height;
+      const availableWidth = Math.max(1, host!.clientWidth);
+      const readableWidth = Math.min(logicalWidth, Math.max(640, availableWidth * 1.8));
+      const renderedWidth = readableWidth * handle.zoom;
+      const renderedHeight = renderedWidth * logicalHeight / Math.max(1, logicalWidth);
+      svg.style.width = `${renderedWidth}px`;
+      svg.style.height = `${renderedHeight}px`;
+      svg.style.maxWidth = 'none';
+    };
+    const characters = new GnouGnouAnimationController(() => host);
+    const controller = new GnouGnouWorkflowAnimationController(
+      () => host,
+      characters,
+      {
+        cameraMode: 'scroll',
+        shouldFollowPortalTransfer: () => handle.follow,
+        onFocus: (_id, event) => {
+          if (handle.follow) controller.focusEvent(event);
+        },
+        // A chat can retain several completed workflow cards. Focus changes
+        // may pan a card's own viewport, but must never pull the conversation
+        // back to an older diagram while a newer answer is being rendered.
+        allowDocumentFocusScroll: false,
+        onStatus: (status, message) => {
+          host.dataset.status = status;
+          if (message) host.dataset.message = message;
+        },
+      },
+    );
+    const resizeObserver = new ResizeObserver(resize);
+    Object.assign(handle, { controller, resizeObserver, resize, zoom: 1 });
+    workflowAnimationControllers.set(hostId, handle);
+    resizeObserver.observe(host);
+    resize();
+    controller.attach();
+    return true;
+  },
+
+  applyPatch: (hostId: string, patch: WorkflowAnimationScenePatch): boolean => {
+    const handle = workflowAnimationControllers.get(hostId);
+    if (!handle) return false;
+    handle.controller.applyScenePatch(patch);
+    handle.resize();
+    return true;
+  },
+
+  applyEvent: (hostId: string, event: WorkflowSimulationEvent): boolean => {
+    const handle = workflowAnimationControllers.get(hostId);
+    if (!handle) return false;
+    handle.controller.enqueueEvent(event);
+    return true;
+  },
+
+  focus: (hostId: string, elementId: string) => {
+    workflowAnimationControllers.get(hostId)?.controller.focus(elementId);
+  },
+
+  setZoom: (hostId: string, zoom: number) => {
+    const handle = workflowAnimationControllers.get(hostId);
+    if (!handle) return;
+    handle.zoom = Math.max(.25, Math.min(zoom, 4));
+    handle.resize();
+  },
+
+  setFollow: (hostId: string, follow: boolean): boolean => {
+    const handle = workflowAnimationControllers.get(hostId);
+    if (!handle) return false;
+    handle.follow = follow;
+    const host = el(hostId);
+    if (host) host.dataset.follow = String(follow);
+    if (!follow) handle.controller.stopCameraMotion();
+    return true;
+  },
+
+  fadeOut: async (hostId: string, durationMs = 360): Promise<boolean> => {
+    const host = el(hostId);
+    if (!host) {
+      workflowAnimation.dispose(hostId);
+      return false;
+    }
+
+    const duration = Math.max(0, Math.min(durationMs, 1200));
+    host.style.setProperty('--gnougo-workflow-fade-duration', `${duration}ms`);
+    void host.offsetWidth;
+    host.classList.add('gnougo-workflow-card__stage--leaving');
+    await new Promise<void>(resolve => {
+      let completed = false;
+      const finish = (event?: Event) => {
+        if (event && event.target !== host) return;
+        if (completed) return;
+        completed = true;
+        host.removeEventListener('transitionend', finish);
+        resolve();
+      };
+      host.addEventListener('transitionend', finish);
+      window.setTimeout(finish, duration + 80);
+    });
+    workflowAnimation.dispose(hostId);
+    return true;
+  },
+
+  dispose: (hostId: string) => {
+    const handle = workflowAnimationControllers.get(hostId);
+    handle?.resizeObserver.disconnect();
+    handle?.controller.dispose();
+    workflowAnimationControllers.delete(hostId);
+  },
+};
+
 window.GnOuGo ??= {};
 window.GnOuGo.Agent = {
   scrollToBottom,
+  copyText,
   fileUploads,
+  workflowAnimation,
   markdown: {
-	enhance: renderMermaid,
+	enhance: scheduleMermaidRender,
   },
 };
 
