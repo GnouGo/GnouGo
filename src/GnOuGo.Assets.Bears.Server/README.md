@@ -16,9 +16,10 @@ reduced-motion preferences.
 
 The **Text SVG playground** at `/text` provides a live preview for the rounded
 text generator. It exposes text size, two to eight gradient colors, sparkle
-count/color/scale, animation, and preview background controls. Configurations
-are reflected in the page URL so they can be shared, and the generated SVG can
-be opened, copied, or downloaded directly.
+count/color/scale, automatic or explicit horizontal/vertical margins, four
+animation modes, and preview background controls. Configurations are reflected
+in the page URL so they can be shared, and the generated SVG can be opened,
+copied, or downloaded directly.
 
 ## Run
 
@@ -41,7 +42,8 @@ field to reproduce an appearance or select **Randomize** for another GnOuGo.
 - `/text` renders the interactive rounded text SVG playground.
 - `/text.svg?text=Hello%20GnOuGo&size=120&color=%234F46E5&color=%230EA5E9&color=%232DD4BF&stars=2&animation=Idle`
   returns a configured standalone text SVG. Repeat `color` two to eight times;
-  optional parameters are `starColor`, `starScale`, and `idPrefix`.
+  optional parameters are `starColor`, `starScale`, `marginX`, `marginY`, and
+  `idPrefix`. Text animations are `None`, `Idle`, `Wave`, and `Bounce`.
 
 Supported animation values are `None`, `Idle`, `Walk`, `Typing`, `Waiting`,
 `Pickup`, `Handoff`, `Delivery`, `Clone`, `Merge`, `Celebration`, and

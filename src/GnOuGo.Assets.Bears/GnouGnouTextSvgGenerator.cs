@@ -15,6 +15,7 @@ public static class GnouGnouTextSvgGenerator
     private const int MinGradientColors = 2;
     private const int MaxGradientColors = 8;
     private const int MaxStars = 8;
+    private const double MaxMargin = 4096d;
     private const string DefaultDescription =
         "Rounded GnOuGo text with a horizontal gradient and decorative four-point stars.";
 
@@ -68,6 +69,8 @@ public static class GnouGnouTextSvgGenerator
             throw new ArgumentException("Text must be a single line and cannot contain control characters.", nameof(options));
         if (options.Size is < MinSize or > MaxSize)
             throw new ArgumentOutOfRangeException(nameof(options), options.Size, "Size must be between 16 and 1024.");
+        ValidateMargin(options.HorizontalMargin, nameof(GnouGnouTextOptions.HorizontalMargin));
+        ValidateMargin(options.VerticalMargin, nameof(GnouGnouTextOptions.VerticalMargin));
         if (!Enum.IsDefined(options.Animation))
             throw new ArgumentOutOfRangeException(nameof(options), options.Animation, "Unsupported GnOuGo text animation.");
         if (options.GradientColors is null || options.GradientColors.Count is < MinGradientColors or > MaxGradientColors)
@@ -120,6 +123,29 @@ public static class GnouGnouTextSvgGenerator
         if (animation == GnouGnouTextAnimation.None)
             return;
 
+        switch (animation)
+        {
+            case GnouGnouTextAnimation.Idle:
+                AppendIdleAnimationStyle(builder, visibleLetterCount, layout, ids);
+                return;
+            case GnouGnouTextAnimation.Wave:
+                AppendWaveAnimationStyle(builder, layout, ids);
+                return;
+            case GnouGnouTextAnimation.Bounce:
+                AppendBounceAnimationStyle(builder, visibleLetterCount, layout, ids);
+                return;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(animation), animation, "Unsupported GnOuGo text animation.");
+        }
+    }
+
+    private static void AppendIdleAnimationStyle(
+        StringBuilder builder,
+        int visibleLetterCount,
+        TextLayout layout,
+        SvgIds ids)
+    {
+
         var idleLift = Number(layout.Size * 0.018d);
         var waveLift = Number(layout.Size * 0.12d);
         var waveSettle = Number(layout.Size * 0.025d);
@@ -148,6 +174,65 @@ public static class GnouGnouTextSvgGenerator
         builder.AppendLine("  </style>");
     }
 
+    private static void AppendWaveAnimationStyle(
+        StringBuilder builder,
+        TextLayout layout,
+        SvgIds ids)
+    {
+        var lift = Number(layout.Size * 0.085d);
+        var dip = Number(layout.Size * 0.035d);
+        var rootSelector = CssSelector(ids.Root);
+
+        builder.AppendLine("  <style>");
+        builder.Append("    #").Append(rootSelector)
+            .AppendLine(" .gnougnou-text-wave-flow { transform-box: fill-box; transform-origin: center; }");
+        builder.Append("    #").Append(rootSelector).Append(" .gnougnou-text-wave-flow { animation: ")
+            .Append(ids.FlowKeyframes)
+            .AppendLine(" 3.2s ease-in-out var(--wave-flow-delay) infinite both; }");
+        builder.Append("    @keyframes ").Append(ids.FlowKeyframes)
+            .Append(" { 0%,50%,100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-")
+            .Append(lift).Append("px) rotate(-1.4deg); } 75% { transform: translateY(")
+            .Append(dip).AppendLine("px) rotate(1deg); } }");
+        AppendReducedMotionRule(builder, rootSelector, "gnougnou-text-wave-flow");
+        builder.AppendLine("  </style>");
+    }
+
+    private static void AppendBounceAnimationStyle(
+        StringBuilder builder,
+        int visibleLetterCount,
+        TextLayout layout,
+        SvgIds ids)
+    {
+        var lift = Number(layout.Size * 0.15d);
+        var settle = Number(layout.Size * 0.035d);
+        var duration = Number(7d + visibleLetterCount * 0.34d);
+        var rootSelector = CssSelector(ids.Root);
+
+        builder.AppendLine("  <style>");
+        builder.Append("    #").Append(rootSelector)
+            .AppendLine(" .gnougnou-text-bounce { transform-box: fill-box; transform-origin: center bottom; }");
+        builder.Append("    #").Append(rootSelector).Append(" .gnougnou-text-bounce { animation: ")
+            .Append(ids.BounceKeyframes).Append(' ').Append(duration)
+            .AppendLine("s cubic-bezier(.34,1.56,.64,1) var(--bounce-delay) infinite both; }");
+        builder.Append("    @keyframes ").Append(ids.BounceKeyframes)
+            .Append(" { 0%,5.5%,100% { transform: translateY(0) scale(1); } 1.4% { transform: translateY(-")
+            .Append(lift).Append("px) rotate(-1.8deg) scale(1.06,.94); } 3.4% { transform: translateY(")
+            .Append(settle).AppendLine("px) rotate(.8deg) scale(.97,1.06); } }");
+        AppendReducedMotionRule(builder, rootSelector, "gnougnou-text-bounce");
+        builder.AppendLine("  </style>");
+    }
+
+    private static void AppendReducedMotionRule(
+        StringBuilder builder,
+        string rootSelector,
+        string className)
+    {
+        builder.AppendLine("    @media (prefers-reduced-motion: reduce) {");
+        builder.Append("      #").Append(rootSelector).Append(" .").Append(className)
+            .AppendLine(" { animation: none !important; }");
+        builder.AppendLine("    }");
+    }
+
     private static void AppendLetters(
         StringBuilder builder,
         IReadOnlyList<string> textElements,
@@ -173,6 +258,22 @@ public static class GnouGnouTextSvgGenerator
                         .Append(waveDelay).AppendLine("s\">");
                     AppendTextElement(builder, element, visibleIndex, x, advance, layout, gradientId, 8);
                     builder.AppendLine("      </g>");
+                    builder.AppendLine("    </g>");
+                }
+                else if (animation == GnouGnouTextAnimation.Wave)
+                {
+                    var waveDelay = Number(visibleIndex * 0.13d);
+                    builder.Append("    <g class=\"gnougnou-text-wave-flow\" style=\"--wave-flow-delay:")
+                        .Append(waveDelay).AppendLine("s\">");
+                    AppendTextElement(builder, element, visibleIndex, x, advance, layout, gradientId, 6);
+                    builder.AppendLine("    </g>");
+                }
+                else if (animation == GnouGnouTextAnimation.Bounce)
+                {
+                    var bounceDelay = Number(1.8d + visibleIndex * 0.34d);
+                    builder.Append("    <g class=\"gnougnou-text-bounce\" style=\"--bounce-delay:")
+                        .Append(bounceDelay).AppendLine("s\">");
+                    AppendTextElement(builder, element, visibleIndex, x, advance, layout, gradientId, 6);
                     builder.AppendLine("    </g>");
                 }
                 else
@@ -234,27 +335,28 @@ public static class GnouGnouTextSvgGenerator
     private static TextLayout CreateLayout(GnouGnouTextOptions options, IReadOnlyList<string> textElements)
     {
         var size = options.Size;
-        var animated = options.Animation == GnouGnouTextAnimation.Idle;
-        var outerPadding = size * (animated ? 0.22d : 0.14d);
+        var automaticMargin = size * GetAutomaticMarginFactor(options.Animation);
+        var horizontalMargin = options.HorizontalMargin ?? automaticMargin;
+        var verticalMargin = options.VerticalMargin ?? automaticMargin;
         var letterSpacing = size * 0.015d;
         var textWidth = textElements.Sum(element => MeasureTextElement(element, size))
             + Math.Max(0, textElements.Count - 1) * letterSpacing;
-        var baseline = outerPadding + size * 0.82d;
-        var stars = CreateStars(options, outerPadding + textWidth, outerPadding);
+        var baseline = verticalMargin + size * 0.82d;
+        var stars = CreateStars(options, horizontalMargin + textWidth, verticalMargin);
         var contentBottom = Math.Max(
             baseline + size * 0.22d,
             stars.Count == 0 ? 0d : stars.Max(static star => star.Y + star.Radius));
         var rightEdge = stars.Count == 0
-            ? outerPadding + textWidth
+            ? horizontalMargin + textWidth
             : stars.Max(static star => star.X + star.Radius);
-        var canvasWidth = (int)Math.Ceiling(rightEdge + outerPadding);
-        var canvasHeight = (int)Math.Ceiling(contentBottom + outerPadding);
+        var canvasWidth = (int)Math.Ceiling(rightEdge + horizontalMargin);
+        var canvasHeight = (int)Math.Ceiling(contentBottom + verticalMargin);
 
         return new TextLayout(
             size,
             canvasWidth,
             canvasHeight,
-            outerPadding,
+            horizontalMargin,
             baseline,
             textWidth,
             letterSpacing,
@@ -336,6 +438,18 @@ public static class GnouGnouTextSvgGenerator
             character is >= '0' and <= '9' or >= 'A' and <= 'F' or >= 'a' and <= 'f');
     }
 
+    private static void ValidateMargin(double? margin, string propertyName)
+    {
+        if (margin is null)
+            return;
+
+        if (!double.IsFinite(margin.Value) || margin.Value is < 0d or > MaxMargin)
+            throw new ArgumentOutOfRangeException(
+                propertyName,
+                margin,
+                $"{propertyName} must be between zero and 4096 when specified.");
+    }
+
     private static void ValidateSvgIdPrefix(string? prefix)
     {
         if (prefix is null)
@@ -363,13 +477,29 @@ public static class GnouGnouTextSvgGenerator
             $"{idPrefix}-desc",
             $"{idPrefix}-gradient",
             $"{cssPrefix}-idle",
-            $"{cssPrefix}-wave");
+            $"{cssPrefix}-wave",
+            $"{cssPrefix}-wave-flow",
+            $"{cssPrefix}-bounce");
     }
+
+    private static double GetAutomaticMarginFactor(GnouGnouTextAnimation animation) => animation switch
+    {
+        GnouGnouTextAnimation.None => 0.14d,
+        GnouGnouTextAnimation.Idle => 0.22d,
+        GnouGnouTextAnimation.Wave => 0.2d,
+        GnouGnouTextAnimation.Bounce => 0.24d,
+        _ => throw new ArgumentOutOfRangeException(nameof(animation), animation, "Unsupported GnOuGo text animation.")
+    };
+
+    private static string CssSelector(string id) =>
+        id.Replace(".", "\\.", StringComparison.Ordinal);
 
     private static string ToAnimationToken(GnouGnouTextAnimation animation) => animation switch
     {
         GnouGnouTextAnimation.None => "none",
         GnouGnouTextAnimation.Idle => "idle",
+        GnouGnouTextAnimation.Wave => "wave",
+        GnouGnouTextAnimation.Bounce => "bounce",
         _ => throw new ArgumentOutOfRangeException(nameof(animation), animation, "Unsupported GnOuGo text animation.")
     };
 
@@ -394,5 +524,7 @@ public static class GnouGnouTextSvgGenerator
         string Description,
         string Gradient,
         string IdleKeyframes,
-        string WaveKeyframes);
+        string WaveKeyframes,
+        string FlowKeyframes,
+        string BounceKeyframes);
 }

@@ -17,6 +17,20 @@ public sealed record GnouGnouTextOptions
     public int Size { get; init; } = 128;
 
     /// <summary>
+    /// Optional horizontal canvas margin, in SVG user units, applied on both
+    /// the left and right sides. When omitted, an animation-safe value derived
+    /// from <see cref="Size"/> is used.
+    /// </summary>
+    public double? HorizontalMargin { get; init; }
+
+    /// <summary>
+    /// Optional vertical canvas margin, in SVG user units, applied above and
+    /// below the artwork. When omitted, an animation-safe value derived from
+    /// <see cref="Size"/> is used.
+    /// </summary>
+    public double? VerticalMargin { get; init; }
+
+    /// <summary>
     /// Two to eight hexadecimal colors distributed evenly from left to right.
     /// </summary>
     public IReadOnlyList<string> GradientColors { get; init; } =

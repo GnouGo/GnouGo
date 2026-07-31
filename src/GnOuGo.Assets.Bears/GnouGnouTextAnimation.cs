@@ -14,5 +14,17 @@ public enum GnouGnouTextAnimation
     /// Gives every letter subtle independent motion and periodically sends a
     /// stronger movement through the text from left to right.
     /// </summary>
-    Idle
+    Idle,
+
+    /// <summary>
+    /// Sends a smooth, continuous traveling wave through the letters from left
+    /// to right.
+    /// </summary>
+    Wave,
+
+    /// <summary>
+    /// Makes the letters squash, lift, and settle in a playful left-to-right
+    /// sequence with a calm pause between passes.
+    /// </summary>
+    Bounce
 }

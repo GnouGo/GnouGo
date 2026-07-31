@@ -57,7 +57,11 @@ public sealed class BearsGalleryServerTests : IClassFixture<WebApplicationFactor
         Assert.Contains("id=\"text-controls\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"gradient-colors\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"star-count\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"margin-x\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"margin-y\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"animation\"", html, StringComparison.Ordinal);
+        Assert.Contains("<option value=\"Wave\">Wave</option>", html, StringComparison.Ordinal);
+        Assert.Contains("<option value=\"Bounce\">Bounce</option>", html, StringComparison.Ordinal);
         Assert.Contains("id=\"preview-background\"", html, StringComparison.Ordinal);
         Assert.Contains("fetch(endpoint", html, StringComparison.Ordinal);
         Assert.Contains("/text.svg?", html, StringComparison.Ordinal);
@@ -68,15 +72,17 @@ public sealed class BearsGalleryServerTests : IClassFixture<WebApplicationFactor
     public async Task TextDemo_QueryInitializesShareableConfiguration()
     {
         var response = await _client.GetAsync(
-            "/text?text=Demo&size=200&color=%234F46E5&color=%232DD4BF&stars=3&starScale=1.5&animation=Idle",
+            "/text?text=Demo&size=200&marginX=26&marginY=34&color=%234F46E5&color=%232DD4BF&stars=3&starScale=1.5&animation=Wave",
             CancellationToken.None);
         var html = await response.Content.ReadAsStringAsync(CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("value=\"Demo\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"text-size\" name=\"size\" type=\"range\" min=\"16\" max=\"1024\" step=\"1\" value=\"200\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"margin-x\" type=\"range\" min=\"0\" max=\"4096\" step=\"1\" value=\"26\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"margin-y\" type=\"range\" min=\"0\" max=\"4096\" step=\"1\" value=\"34\"", html, StringComparison.Ordinal);
         Assert.Equal(2, Count(html, "aria-label=\"Gradient color\" value="));
-        Assert.Contains("<option value=\"Idle\" selected>Idle</option>", html, StringComparison.Ordinal);
+        Assert.Contains("<option value=\"Wave\" selected>Wave</option>", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -96,7 +102,7 @@ public sealed class BearsGalleryServerTests : IClassFixture<WebApplicationFactor
     public async Task TextSvg_CustomOptions_ReturnConfiguredStandaloneSvg()
     {
         var response = await _client.GetAsync(
-            "/text.svg?text=Hello%20Go&size=144&color=%234F46E5&color=%230EA5E9&color=%232DD4BF&stars=3&starColor=%23F59E0B&starScale=1.5&animation=Idle&idPrefix=demo",
+            "/text.svg?text=Hello%20Go&size=144&marginX=30&marginY=40&color=%234F46E5&color=%230EA5E9&color=%232DD4BF&stars=3&starColor=%23F59E0B&starScale=1.5&animation=Idle&idPrefix=demo",
             CancellationToken.None);
         var svg = await response.Content.ReadAsStringAsync(CancellationToken.None);
         var document = XDocument.Parse(svg);
@@ -108,6 +114,8 @@ public sealed class BearsGalleryServerTests : IClassFixture<WebApplicationFactor
         Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
         Assert.Equal("demo-root", root.Attribute("id")?.Value);
         Assert.True(int.Parse(root.Attribute("width")!.Value) > int.Parse(root.Attribute("height")!.Value));
+        Assert.Equal("30", document.Descendants().First(element => element.Attribute("data-letter-index") is not null)
+            .Attribute("x")?.Value);
         Assert.Equal(["#4F46E5", "#0EA5E9", "#2DD4BF"], stops.Select(stop => stop.Attribute("stop-color")?.Value));
         Assert.Equal(3, document.Descendants().Count(element => element.Attribute("data-part")?.Value == "star"));
         Assert.Equal("#F59E0B", document.Descendants().Single(element => element.Attribute("data-part")?.Value == "stars")
@@ -118,11 +126,29 @@ public sealed class BearsGalleryServerTests : IClassFixture<WebApplicationFactor
     }
 
     [Theory]
+    [InlineData("Wave", "wave", "gnougnou-text-wave-flow")]
+    [InlineData("Bounce", "bounce", "gnougnou-text-bounce")]
+    public async Task TextSvg_NewAnimations_ReturnSelectedPreset(
+        string animation,
+        string token,
+        string className)
+    {
+        var response = await _client.GetAsync($"/text.svg?text=Play&animation={animation}", CancellationToken.None);
+        var svg = await response.Content.ReadAsStringAsync(CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains($"data-animation=\"{token}\"", svg, StringComparison.Ordinal);
+        Assert.Contains($"class=\"{className}\"", svg, StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData("/text.svg?size=large")]
     [InlineData("/text.svg?animation=Dance")]
     [InlineData("/text.svg?color=red&color=blue")]
     [InlineData("/text.svg?stars=9")]
     [InlineData("/text.svg?text=")]
+    [InlineData("/text.svg?marginX=-1")]
+    [InlineData("/text.svg?marginY=wide")]
     public async Task TextSvg_InvalidOptions_ReturnBadRequest(string path)
     {
         var response = await _client.GetAsync(path, CancellationToken.None);

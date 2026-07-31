@@ -165,6 +165,42 @@ static bool TryCreateTextOptions(
         return false;
     }
 
+    double? horizontalMargin = null;
+    if (query.TryGetValue("marginX", out var horizontalMarginValue)
+        && !string.IsNullOrWhiteSpace(horizontalMarginValue.ToString()))
+    {
+        if (!double.TryParse(
+                horizontalMarginValue.ToString(),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var parsedHorizontalMargin))
+        {
+            options = defaults;
+            error = "Horizontal margin must be a number between zero and 4096.";
+            return false;
+        }
+
+        horizontalMargin = parsedHorizontalMargin;
+    }
+
+    double? verticalMargin = null;
+    if (query.TryGetValue("marginY", out var verticalMarginValue)
+        && !string.IsNullOrWhiteSpace(verticalMarginValue.ToString()))
+    {
+        if (!double.TryParse(
+                verticalMarginValue.ToString(),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var parsedVerticalMargin))
+        {
+            options = defaults;
+            error = "Vertical margin must be a number between zero and 4096.";
+            return false;
+        }
+
+        verticalMargin = parsedVerticalMargin;
+    }
+
     var animation = defaults.Animation;
     if (query.TryGetValue("animation", out var animationValue)
         && (!Enum.TryParse(animationValue.ToString(), ignoreCase: true, out animation)
@@ -191,6 +227,8 @@ static bool TryCreateTextOptions(
     {
         Text = text,
         Size = size,
+        HorizontalMargin = horizontalMargin,
+        VerticalMargin = verticalMargin,
         GradientColors = colors,
         StarCount = starCount,
         StarColor = starColor,
