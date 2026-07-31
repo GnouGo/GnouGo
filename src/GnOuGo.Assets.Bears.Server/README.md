@@ -1,6 +1,7 @@
 # GnOuGo.Assets.Bears.Server
 
-Small ASP.NET Core animation gallery for `GnOuGo.Assets.Bears`.
+Small ASP.NET Core animation gallery and text SVG playground for
+`GnOuGo.Assets.Bears`.
 
 The home page contains two deterministic collections:
 
@@ -12,6 +13,12 @@ The home page contains two deterministic collections:
 
 It includes seed controls, direct SVG links, and automatically respects
 reduced-motion preferences.
+
+The **Text SVG playground** at `/text` provides a live preview for the rounded
+text generator. It exposes text size, two to eight gradient colors, sparkle
+count/color/scale, animation, and preview background controls. Configurations
+are reflected in the page URL so they can be shared, and the generated SVG can
+be opened, copied, or downloaded directly.
 
 ## Run
 
@@ -31,6 +38,10 @@ field to reproduce an appearance or select **Randomize** for another GnOuGo.
   animation SVG.
 - `/bear.svg?seed=42&appearance=split-beard&animation=Idle` returns a
   reproducible appearance from the gallery as an animated standalone SVG.
+- `/text` renders the interactive rounded text SVG playground.
+- `/text.svg?text=Hello%20GnOuGo&size=120&color=%234F46E5&color=%230EA5E9&color=%232DD4BF&stars=2&animation=Idle`
+  returns a configured standalone text SVG. Repeat `color` two to eight times;
+  optional parameters are `starColor`, `starScale`, and `idPrefix`.
 
 Supported animation values are `None`, `Idle`, `Walk`, `Typing`, `Waiting`,
 `Pickup`, `Handoff`, `Delivery`, `Clone`, `Merge`, `Celebration`, and

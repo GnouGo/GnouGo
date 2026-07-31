@@ -11,13 +11,13 @@
     <PackageId>GnOuGo.Assets.Bears</PackageId>
     <Authors>GnOuGo</Authors>
     <Company>GnOuGo</Company>
-    <Description>Dependency-free deterministic SVG mascot generator for GnOuGo.</Description>
+    <Description>Dependency-free deterministic SVG mascot and rounded text generator for GnOuGo.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/GnouGo/GnouGo/</PackageProjectUrl>
     <RepositoryUrl>https://github.com/GnouGo/GnouGo/</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>gnougo;assets;svg;mascot;animation;nativeaot</PackageTags>
+    <PackageTags>gnougo;assets;svg;mascot;text;wordmark;animation;nativeaot</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

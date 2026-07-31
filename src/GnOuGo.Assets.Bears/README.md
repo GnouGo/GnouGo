@@ -4,7 +4,8 @@
 <a href="https://www.nuget.org/packages/GnOuGo.Assets.Bears"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0"></a>
 <a href="https://nugettrends.com/packages?ids=GnOuGo.Assets.Bears"><img src="https://img.shields.io/nuget/dt/GnOuGo.Assets.Bears.svg" alt="NuGet downloads"></a>
 
-Dependency-free deterministic SVG generator for the GnOuGo mascot, GnouGnou.
+Dependency-free deterministic SVG generator for the GnOuGo mascot, GnouGnou,
+and rounded gradient text artwork.
 
 ## Install
 
@@ -35,6 +36,44 @@ var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
     Animation = GnouGnouBearAnimation.Idle
 });
 ```
+
+### Rounded gradient text
+
+Generate a static, automatically sized wordmark from text and a nominal text
+height:
+
+```csharp
+var textSvg = GnouGnouTextSvgGenerator.Generate("GnouGo", 128);
+```
+
+Use `GnouGnouTextOptions` to customize the horizontal gradient, four-point
+stars, accessible metadata, and optional animation:
+
+```csharp
+var animatedTextSvg = GnouGnouTextSvgGenerator.Generate(new GnouGnouTextOptions
+{
+    Text = "Hello GnOuGo",
+    Size = 120,
+    GradientColors = ["#4F46E5", "#0EA5E9", "#2DD4BF"],
+    StarCount = 3,
+    StarColor = "#2DD4BF", // Defaults to the final gradient color.
+    StarScale = 0.9,
+    Animation = GnouGnouTextAnimation.Idle,
+    SvgIdPrefix = "hero-wordmark"
+});
+```
+
+`Size` controls the nominal letter height; the SVG `width`, `height`, and
+`viewBox` are calculated from the text, stars, and animation clearance.
+`GradientColors` accepts two to eight hexadecimal colors. `StarCount` accepts
+zero to eight stars, with zero disabling the decoration. `Idle` gives each
+Unicode text element gentle independent movement and periodically sends a
+stronger motion from left to right. It is script-free and automatically stops
+under `prefers-reduced-motion`.
+
+The generator uses a rounded system-font stack and deterministic per-character
+fitting, so the canvas dimensions stay stable while the exact glyph design can
+follow the fonts installed by the SVG viewer.
 
 `Animation` controls self-playing, script-free SVG motion:
 
