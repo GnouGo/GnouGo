@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.14.0 - 2026-07-31
+
+- feat: gnougo animation (release) (#60) (ff0edab)
+
 ## v0.13.0 - 2026-07-20
 
 - feat: update gnougo svg (release) (fd127e2)
