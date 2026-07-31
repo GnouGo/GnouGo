@@ -112,6 +112,86 @@ public sealed class GnouGnouTextSvgGeneratorTests
         Assert.DoesNotContain("transform=\"translate(", svg, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(GnouGnouTextAnimation.Wave, "wave", "gnougnou-text-wave-flow", "--wave-flow-delay:0.39s")]
+    [InlineData(GnouGnouTextAnimation.Bounce, "bounce", "gnougnou-text-bounce", "--bounce-delay:2.82s")]
+    public void Generate_NewAnimation_AddsSelectedMotionPreset(
+        GnouGnouTextAnimation animation,
+        string token,
+        string className,
+        string finalDelay)
+    {
+        var svg = GnouGnouTextSvgGenerator.Generate(new GnouGnouTextOptions
+        {
+            Text = "Play",
+            Animation = animation
+        });
+
+        _ = XDocument.Parse(svg);
+        Assert.Contains($"data-animation=\"{token}\"", svg, StringComparison.Ordinal);
+        Assert.Equal(4, Count(svg, $"class=\"{className}\""));
+        Assert.Contains(finalDelay, svg, StringComparison.Ordinal);
+        Assert.Contains("prefers-reduced-motion", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_ExplicitMargins_ControlCanvasWidthAndHeightPerSide()
+    {
+        var compact = XDocument.Parse(GnouGnouTextSvgGenerator.Generate(new GnouGnouTextOptions
+        {
+            Text = "Margin",
+            Size = 100,
+            StarCount = 0,
+            HorizontalMargin = 10,
+            VerticalMargin = 5
+        }));
+        var spacious = XDocument.Parse(GnouGnouTextSvgGenerator.Generate(new GnouGnouTextOptions
+        {
+            Text = "Margin",
+            Size = 100,
+            StarCount = 0,
+            HorizontalMargin = 70,
+            VerticalMargin = 45
+        }));
+        var compactFirstLetter = compact.Descendants().First(element => element.Attribute("data-letter-index") is not null);
+        var spaciousFirstLetter = spacious.Descendants().First(element => element.Attribute("data-letter-index") is not null);
+
+        Assert.Equal(120, Width(spacious) - Width(compact));
+        Assert.Equal(80, Height(spacious) - Height(compact));
+        Assert.Equal("10", compactFirstLetter.Attribute("x")?.Value);
+        Assert.Equal("70", spaciousFirstLetter.Attribute("x")?.Value);
+        Assert.Equal(40d,
+            double.Parse(spaciousFirstLetter.Attribute("y")!.Value)
+            - double.Parse(compactFirstLetter.Attribute("y")!.Value));
+    }
+
+    [Theory]
+    [InlineData(GnouGnouTextAnimation.None, 14d)]
+    [InlineData(GnouGnouTextAnimation.Idle, 22d)]
+    [InlineData(GnouGnouTextAnimation.Wave, 20d)]
+    [InlineData(GnouGnouTextAnimation.Bounce, 24d)]
+    public void Generate_UnsetMargins_MatchAnimationSafeAutomaticMargins(
+        GnouGnouTextAnimation animation,
+        double automaticMargin)
+    {
+        var automatic = GnouGnouTextSvgGenerator.Generate(new GnouGnouTextOptions
+        {
+            Text = "Auto",
+            Size = 100,
+            Animation = animation
+        });
+        var explicitMargin = GnouGnouTextSvgGenerator.Generate(new GnouGnouTextOptions
+        {
+            Text = "Auto",
+            Size = 100,
+            Animation = animation,
+            HorizontalMargin = automaticMargin,
+            VerticalMargin = automaticMargin
+        });
+
+        Assert.Equal(automatic, explicitMargin);
+    }
+
     [Fact]
     public void Generate_StaticAnimation_OmitsAnimationCss()
     {
@@ -204,6 +284,16 @@ public sealed class GnouGnouTextSvgGeneratorTests
         {
             Text = "Invalid animation",
             Animation = (GnouGnouTextAnimation)999
+        }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GnouGnouTextSvgGenerator.Generate(new GnouGnouTextOptions
+        {
+            Text = "Negative margin",
+            HorizontalMargin = -1
+        }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GnouGnouTextSvgGenerator.Generate(new GnouGnouTextOptions
+        {
+            Text = "Infinite margin",
+            VerticalMargin = double.PositiveInfinity
         }));
     }
 

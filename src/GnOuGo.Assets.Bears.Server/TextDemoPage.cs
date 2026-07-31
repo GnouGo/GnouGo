@@ -8,6 +8,9 @@ internal static class TextDemoPage
     public static string Render(GnouGnouTextOptions options)
     {
         var starColor = options.StarColor ?? options.GradientColors[^1];
+        var suggestedMargin = SuggestedMargin(options.Size, options.Animation);
+        var horizontalMargin = options.HorizontalMargin ?? suggestedMargin;
+        var verticalMargin = options.VerticalMargin ?? suggestedMargin;
         var builder = new StringBuilder(capacity: 32_000);
         builder.Append("""
 <!doctype html>
@@ -25,6 +28,7 @@ internal static class TextDemoPage
     button, a { -webkit-tap-highlight-color: transparent; }
     .shell { width: min(1480px, 100%); margin: 0 auto; padding: 28px clamp(16px, 3vw, 46px) 46px; }
     .topbar { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-bottom: 22px; }
+    .topbar-nav { display: flex; flex-wrap: wrap; gap: 15px; }
     .back { color: #315f9c; font-weight: 800; text-decoration: none; }
     .badge { border: 1px solid #b9d2ee; border-radius: 999px; padding: 7px 11px; background: rgba(255,255,255,.72); color: #41698f; font-size: .74rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
     header { max-width: 860px; margin-bottom: 28px; }
@@ -79,7 +83,7 @@ internal static class TextDemoPage
 <body>
   <div class="shell">
     <div class="topbar">
-      <a class="back" href="/">← Bear gallery</a>
+      <nav class="topbar-nav"><a class="back" href="/">← Bear gallery</a><a class="back" href="/bear-text">Bear + text</a></nav>
       <span class="badge">Live generator</span>
     </div>
     <header>
@@ -113,10 +117,15 @@ internal static class TextDemoPage
 """);
         AppendOption(builder, "None", options.Animation == GnouGnouTextAnimation.None);
         AppendOption(builder, "Idle", options.Animation == GnouGnouTextAnimation.Idle);
+        AppendOption(builder, "Wave", options.Animation == GnouGnouTextAnimation.Wave);
+        AppendOption(builder, "Bounce", options.Animation == GnouGnouTextAnimation.Bounce);
         builder.AppendLine("""
             </select>
           </label>
         </section>
+""");
+        AppendMarginsSection(builder, horizontalMargin, verticalMargin, options);
+        builder.AppendLine("""
         <section class="section">
           <div class="section-head">
             <h2>Gradient colors</h2>
@@ -206,6 +215,12 @@ internal static class TextDemoPage
       const size = document.querySelector('#text-size');
       const sizeOutput = document.querySelector('#size-output');
       const animation = document.querySelector('#animation');
+      const marginX = document.querySelector('#margin-x');
+      const marginXOutput = document.querySelector('#margin-x-output');
+      const marginXAuto = document.querySelector('#margin-x-auto');
+      const marginY = document.querySelector('#margin-y');
+      const marginYOutput = document.querySelector('#margin-y-output');
+      const marginYAuto = document.querySelector('#margin-y-auto');
       const colors = document.querySelector('#gradient-colors');
       const colorCount = document.querySelector('#color-count');
       const addColor = document.querySelector('#add-color');
@@ -229,6 +244,11 @@ internal static class TextDemoPage
 
       const colorInputs = () => [...colors.querySelectorAll('input[type="color"]')];
 
+      function suggestedMargin() {
+        const factors = { None: .14, Idle: .22, Wave: .2, Bounce: .24 };
+        return Math.round(Number(size.value) * factors[animation.value]);
+      }
+
       function refreshColorRows() {
         const inputs = colorInputs();
         colorCount.textContent = inputs.length + ' / 8';
@@ -245,6 +265,14 @@ internal static class TextDemoPage
 
       function updateOutputs() {
         sizeOutput.value = size.value + 'px';
+        if (marginXAuto.checked)
+          marginX.value = suggestedMargin();
+        if (marginYAuto.checked)
+          marginY.value = suggestedMargin();
+        marginX.disabled = marginXAuto.checked;
+        marginY.disabled = marginYAuto.checked;
+        marginXOutput.value = marginXAuto.checked ? 'Auto ' + marginX.value : marginX.value + 'px';
+        marginYOutput.value = marginYAuto.checked ? 'Auto ' + marginY.value : marginY.value + 'px';
         starCountOutput.value = starCount.value;
         starScaleOutput.value = Number(starScale.value).toFixed(2) + '×';
         starColor.disabled = starColorAuto.checked;
@@ -275,6 +303,10 @@ internal static class TextDemoPage
         const parameters = new URLSearchParams();
         parameters.set('text', text.value);
         parameters.set('size', size.value);
+        if (!marginXAuto.checked)
+          parameters.set('marginX', marginX.value);
+        if (!marginYAuto.checked)
+          parameters.set('marginY', marginY.value);
         colorInputs().forEach(input => parameters.append('color', input.value));
         parameters.set('stars', starCount.value);
         parameters.set('starScale', starScale.value);
@@ -390,6 +422,50 @@ internal static class TextDemoPage
             .AppendLine("</span><button class=\"small-button remove-color\" type=\"button\">Remove</button></div>");
     }
 
+    private static void AppendMarginsSection(
+        StringBuilder builder,
+        double horizontalMargin,
+        double verticalMargin,
+        GnouGnouTextOptions options)
+    {
+        builder.AppendLine("        <section class=\"section\">");
+        builder.AppendLine("          <div class=\"section-head\"><h2>Canvas margins</h2><span class=\"section-count\">Each side</span></div>");
+        AppendMarginControl(
+            builder,
+            "Horizontal",
+            "margin-x",
+            horizontalMargin,
+            options.HorizontalMargin is null);
+        AppendMarginControl(
+            builder,
+            "Vertical",
+            "margin-y",
+            verticalMargin,
+            options.VerticalMargin is null);
+        builder.AppendLine("        </section>");
+    }
+
+    private static void AppendMarginControl(
+        StringBuilder builder,
+        string label,
+        string id,
+        double value,
+        bool automatic)
+    {
+        builder.Append("          <label for=\"").Append(id).Append("\">").Append(label).AppendLine();
+        builder.AppendLine("            <span class=\"range-row\">");
+        builder.Append("              <input id=\"").Append(id).Append("\" type=\"range\" min=\"0\" max=\"4096\" step=\"1\" value=\"")
+            .Append(Number(value)).AppendLine("\">");
+        builder.Append("              <output id=\"").Append(id).Append("-output\" for=\"").Append(id).AppendLine("\"></output>");
+        builder.AppendLine("            </span>");
+        builder.AppendLine("          </label>");
+        builder.Append("          <label class=\"inline-check\" for=\"").Append(id).Append("-auto\"><input id=\"")
+            .Append(id).Append("-auto\" type=\"checkbox\"");
+        if (automatic)
+            builder.Append(" checked");
+        builder.AppendLine(">Automatic animation-safe margin</label>");
+    }
+
     private static void AppendOption(StringBuilder builder, string value, bool selected)
     {
         builder.Append("<option value=\"").Append(value).Append('"');
@@ -402,4 +478,14 @@ internal static class TextDemoPage
 
     private static string Number(double value) =>
         value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static double SuggestedMargin(int size, GnouGnouTextAnimation animation) =>
+        size * (animation switch
+        {
+            GnouGnouTextAnimation.None => 0.14d,
+            GnouGnouTextAnimation.Idle => 0.22d,
+            GnouGnouTextAnimation.Wave => 0.2d,
+            GnouGnouTextAnimation.Bounce => 0.24d,
+            _ => 0.22d
+        });
 }

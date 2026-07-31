@@ -84,6 +84,45 @@ app.MapMethods("/text.svg", ["GET"], (RequestDelegate)(async context =>
     await context.Response.WriteAsync(svg);
 }));
 
+app.MapMethods("/bear-text", ["GET"], (RequestDelegate)(async context =>
+{
+    var initialOptions = new GnouGnouBearTextOptions();
+    if (TryCreateBearTextOptions(context, out var requestedOptions, out _)
+        && TryGenerateBearTextSvg(requestedOptions, out _, out _))
+    {
+        initialOptions = requestedOptions;
+    }
+
+    context.Response.Headers.CacheControl = "no-store";
+    context.Response.ContentType = "text/html; charset=utf-8";
+    await context.Response.WriteAsync(BearTextDemoPage.Render(initialOptions));
+}));
+
+app.MapMethods("/bear-text.svg", ["GET"], (RequestDelegate)(async context =>
+{
+    if (!TryCreateBearTextOptions(context, out var options, out var parseError))
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        context.Response.Headers.CacheControl = "no-store";
+        context.Response.ContentType = "text/plain; charset=utf-8";
+        await context.Response.WriteAsync(parseError ?? "Invalid bear and text SVG options.");
+        return;
+    }
+
+    if (!TryGenerateBearTextSvg(options, out var svg, out var generationError))
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        context.Response.Headers.CacheControl = "no-store";
+        context.Response.ContentType = "text/plain; charset=utf-8";
+        await context.Response.WriteAsync(generationError ?? "Invalid bear and text SVG options.");
+        return;
+    }
+
+    context.Response.Headers.CacheControl = "no-store";
+    context.Response.ContentType = "image/svg+xml; charset=utf-8";
+    await context.Response.WriteAsync(svg);
+}));
+
 app.Run();
 
 static GnouGnouBearOptions CreateRandomBearOptions(int? seed = null)
@@ -165,6 +204,42 @@ static bool TryCreateTextOptions(
         return false;
     }
 
+    double? horizontalMargin = null;
+    if (query.TryGetValue("marginX", out var horizontalMarginValue)
+        && !string.IsNullOrWhiteSpace(horizontalMarginValue.ToString()))
+    {
+        if (!double.TryParse(
+                horizontalMarginValue.ToString(),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var parsedHorizontalMargin))
+        {
+            options = defaults;
+            error = "Horizontal margin must be a number between zero and 4096.";
+            return false;
+        }
+
+        horizontalMargin = parsedHorizontalMargin;
+    }
+
+    double? verticalMargin = null;
+    if (query.TryGetValue("marginY", out var verticalMarginValue)
+        && !string.IsNullOrWhiteSpace(verticalMarginValue.ToString()))
+    {
+        if (!double.TryParse(
+                verticalMarginValue.ToString(),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var parsedVerticalMargin))
+        {
+            options = defaults;
+            error = "Vertical margin must be a number between zero and 4096.";
+            return false;
+        }
+
+        verticalMargin = parsedVerticalMargin;
+    }
+
     var animation = defaults.Animation;
     if (query.TryGetValue("animation", out var animationValue)
         && (!Enum.TryParse(animationValue.ToString(), ignoreCase: true, out animation)
@@ -191,6 +266,8 @@ static bool TryCreateTextOptions(
     {
         Text = text,
         Size = size,
+        HorizontalMargin = horizontalMargin,
+        VerticalMargin = verticalMargin,
         GradientColors = colors,
         StarCount = starCount,
         StarColor = starColor,
@@ -219,6 +296,237 @@ static bool TryGenerateTextSvg(
         error = exception.Message;
         return false;
     }
+}
+
+static bool TryCreateBearTextOptions(
+    HttpContext context,
+    out GnouGnouBearTextOptions options,
+    out string? error)
+{
+    var defaults = new GnouGnouBearTextOptions();
+    var query = context.Request.Query;
+
+    if (!TryReadInt(query, "seed", defaults.BearOptions.Seed, out var seed, out error)
+        || !TryReadInt(query, "bearSize", defaults.BearOptions.Size, out var bearSize, out error)
+        || !TryReadInt(query, "accessoryColor", defaults.BearOptions.AccessoryColorVariant, out var accessoryColor, out error)
+        || !TryReadEnum(query, "role", defaults.BearOptions.Role, out GnouGnouBearRole role, out error)
+        || !TryReadEnum(query, "emotion", defaults.BearOptions.Emotion, out GnouGnouBearEmotion emotion, out error)
+        || !TryReadEnum(query, "accessory", defaults.BearOptions.Accessory, out GnouGnouBearAccessory accessory, out error)
+        || !TryReadEnum(query, "state", defaults.BearOptions.State, out GnouGnouBearState state, out error)
+        || !TryReadEnum(query, "theme", defaults.BearOptions.Theme, out GnouGnouBearTheme theme, out error)
+        || !TryReadEnum(query, "fur", defaults.BearOptions.FurPalette, out GnouGnouBearFurPalette fur, out error)
+        || !TryReadEnum(query, "eyes", defaults.BearOptions.EyeStyle, out GnouGnouBearEyeStyle eyes, out error)
+        || !TryReadEnum(query, "nose", defaults.BearOptions.NoseStyle, out GnouGnouBearNoseStyle nose, out error)
+        || !TryReadEnum(query, "beardStyle", defaults.BearOptions.BeardStyle, out GnouGnouBearBeardStyle beardStyle, out error)
+        || !TryReadEnum(query, "bearAnimation", defaults.BearOptions.Animation, out GnouGnouBearAnimation bearAnimation, out error)
+        || !TryReadBool(query, "headphones", defaults.BearOptions.HasHeadphones, out var headphones, out error)
+        || !TryReadBool(query, "bowTie", defaults.BearOptions.HasBowTie, out var bowTie, out error)
+        || !TryReadBool(query, "beard", defaults.BearOptions.HasBeard, out var beard, out error)
+        || !TryReadInt(query, "textSize", defaults.TextOptions.Size, out var textSize, out error)
+        || !TryReadNullableDouble(query, "marginX", out var marginX, out error)
+        || !TryReadNullableDouble(query, "marginY", out var marginY, out error)
+        || !TryReadInt(query, "stars", defaults.TextOptions.StarCount, out var stars, out error)
+        || !TryReadDouble(query, "starScale", defaults.TextOptions.StarScale, out var starScale, out error)
+        || !TryReadEnum(query, "textAnimation", defaults.TextOptions.Animation, out GnouGnouTextAnimation textAnimation, out error)
+        || !TryReadDouble(query, "gap", defaults.Gap, out var gap, out error))
+    {
+        options = defaults;
+        return false;
+    }
+
+    var text = query.TryGetValue("text", out var textValue)
+        ? textValue.ToString()
+        : defaults.TextOptions.Text;
+    var colors = query.TryGetValue("color", out var colorValues) && colorValues.Count > 0
+        ? colorValues.Select(static color => color ?? string.Empty).ToArray()
+        : defaults.TextOptions.GradientColors;
+    var starColor = query.TryGetValue("starColor", out var starColorValue)
+        && !string.IsNullOrWhiteSpace(starColorValue.ToString())
+            ? starColorValue.ToString()
+            : null;
+    var idPrefix = query.TryGetValue("idPrefix", out var idPrefixValue)
+        && !string.IsNullOrWhiteSpace(idPrefixValue.ToString())
+            ? idPrefixValue.ToString()
+            : null;
+
+    options = defaults with
+    {
+        BearOptions = defaults.BearOptions with
+        {
+            Seed = seed,
+            Size = bearSize,
+            Role = role,
+            Emotion = emotion,
+            Accessory = accessory,
+            AccessoryColorVariant = accessoryColor,
+            State = state,
+            Theme = theme,
+            FurPalette = fur,
+            EyeStyle = eyes,
+            NoseStyle = nose,
+            BeardStyle = beardStyle,
+            HasHeadphones = headphones,
+            HasBowTie = bowTie,
+            HasBeard = beard,
+            Animation = bearAnimation
+        },
+        TextOptions = defaults.TextOptions with
+        {
+            Text = text,
+            Size = textSize,
+            HorizontalMargin = marginX,
+            VerticalMargin = marginY,
+            GradientColors = colors,
+            StarCount = stars,
+            StarColor = starColor,
+            StarScale = starScale,
+            Animation = textAnimation
+        },
+        Gap = gap,
+        SvgIdPrefix = idPrefix
+    };
+    error = null;
+    return true;
+}
+
+static bool TryGenerateBearTextSvg(
+    GnouGnouBearTextOptions options,
+    out string svg,
+    out string? error)
+{
+    try
+    {
+        svg = GnouGnouBearTextSvgGenerator.Generate(options);
+        error = null;
+        return true;
+    }
+    catch (ArgumentException exception)
+    {
+        svg = string.Empty;
+        error = exception.Message;
+        return false;
+    }
+}
+
+static bool TryReadInt(
+    IQueryCollection query,
+    string name,
+    int defaultValue,
+    out int value,
+    out string? error)
+{
+    value = defaultValue;
+    if (!query.TryGetValue(name, out var rawValue))
+    {
+        error = null;
+        return true;
+    }
+
+    if (int.TryParse(rawValue.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
+    {
+        error = null;
+        return true;
+    }
+
+    error = $"{name} must be an integer.";
+    return false;
+}
+
+static bool TryReadDouble(
+    IQueryCollection query,
+    string name,
+    double defaultValue,
+    out double value,
+    out string? error)
+{
+    value = defaultValue;
+    if (!query.TryGetValue(name, out var rawValue))
+    {
+        error = null;
+        return true;
+    }
+
+    if (double.TryParse(rawValue.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+    {
+        error = null;
+        return true;
+    }
+
+    error = $"{name} must be a number.";
+    return false;
+}
+
+static bool TryReadNullableDouble(
+    IQueryCollection query,
+    string name,
+    out double? value,
+    out string? error)
+{
+    value = null;
+    if (!query.TryGetValue(name, out var rawValue) || string.IsNullOrWhiteSpace(rawValue.ToString()))
+    {
+        error = null;
+        return true;
+    }
+
+    if (double.TryParse(rawValue.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedValue))
+    {
+        value = parsedValue;
+        error = null;
+        return true;
+    }
+
+    error = $"{name} must be a number.";
+    return false;
+}
+
+static bool TryReadBool(
+    IQueryCollection query,
+    string name,
+    bool defaultValue,
+    out bool value,
+    out string? error)
+{
+    value = defaultValue;
+    if (!query.TryGetValue(name, out var rawValue))
+    {
+        error = null;
+        return true;
+    }
+
+    if (bool.TryParse(rawValue.ToString(), out value))
+    {
+        error = null;
+        return true;
+    }
+
+    error = $"{name} must be true or false.";
+    return false;
+}
+
+static bool TryReadEnum<T>(
+    IQueryCollection query,
+    string name,
+    T defaultValue,
+    out T value,
+    out string? error)
+    where T : struct, Enum
+{
+    value = defaultValue;
+    if (!query.TryGetValue(name, out var rawValue))
+    {
+        error = null;
+        return true;
+    }
+
+    if (Enum.TryParse(rawValue.ToString(), ignoreCase: true, out value) && Enum.IsDefined(value))
+    {
+        error = null;
+        return true;
+    }
+
+    error = $"Unknown {name}. Supported values: {string.Join(", ", Enum.GetNames<T>())}.";
+    return false;
 }
 
 static bool TryGetAnimation(HttpContext context, out GnouGnouBearAnimation animation)
@@ -409,6 +717,7 @@ static string RenderAnimationGallery(GnouGnouBearOptions baseOptions)
     builder.AppendLine("        </form>");
     builder.AppendLine("        <a class=\"button secondary\" href=\"/\">Randomize</a>");
     builder.AppendLine("        <a class=\"button secondary\" href=\"/text\">Text SVG demo</a>");
+    builder.AppendLine("        <a class=\"button secondary\" href=\"/bear-text\">Bear + text demo</a>");
     builder.AppendLine("      </div>");
     builder.AppendLine("    </header>");
     builder.AppendLine("    <div class=\"summary\" aria-label=\"Mascot appearance\">");

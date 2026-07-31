@@ -54,6 +54,8 @@ var animatedTextSvg = GnouGnouTextSvgGenerator.Generate(new GnouGnouTextOptions
 {
     Text = "Hello GnOuGo",
     Size = 120,
+    HorizontalMargin = 32, // Optional; null keeps automatic safe spacing.
+    VerticalMargin = 24,
     GradientColors = ["#4F46E5", "#0EA5E9", "#2DD4BF"],
     StarCount = 3,
     StarColor = "#2DD4BF", // Defaults to the final gradient color.
@@ -66,14 +68,56 @@ var animatedTextSvg = GnouGnouTextSvgGenerator.Generate(new GnouGnouTextOptions
 `Size` controls the nominal letter height; the SVG `width`, `height`, and
 `viewBox` are calculated from the text, stars, and animation clearance.
 `GradientColors` accepts two to eight hexadecimal colors. `StarCount` accepts
-zero to eight stars, with zero disabling the decoration. `Idle` gives each
-Unicode text element gentle independent movement and periodically sends a
-stronger motion from left to right. It is script-free and automatically stops
-under `prefers-reduced-motion`.
+zero to eight stars, with zero disabling the decoration. `HorizontalMargin`
+and `VerticalMargin` configure the blank space on both sides of their axis in
+SVG units; leave either value unset to retain animation-safe automatic spacing.
+
+Text animation presets are `None`, `Idle`, `Wave`, and `Bounce`. `Idle` gives
+each Unicode text element gentle independent movement and periodically sends a
+stronger motion from left to right. `Wave` continuously travels through the
+letters, while `Bounce` produces a playful sequential squash-and-pop followed
+by a calm pause. All presets are script-free and automatically stop under
+`prefers-reduced-motion`.
 
 The generator uses a rounded system-font stack and deterministic per-character
 fitting, so the canvas dimensions stay stable while the exact glyph design can
 follow the fonts installed by the SVG viewer.
+
+### Combined bear and text lockup
+
+`GnouGnouBearTextSvgGenerator` composes the complete bear and text generators
+into one automatically sized horizontal SVG. Both nested option records remain
+independent, so either component can be static or animated:
+
+```csharp
+var lockupSvg = GnouGnouBearTextSvgGenerator.Generate(new GnouGnouBearTextOptions
+{
+    BearOptions = new GnouGnouBearOptions
+    {
+        Size = 256,
+        Theme = GnouGnouBearTheme.Transparent,
+        FurPalette = GnouGnouBearFurPalette.Classic,
+        Animation = GnouGnouBearAnimation.Idle
+    },
+    TextOptions = new GnouGnouTextOptions
+    {
+        Text = "GnouGo",
+        Size = 128,
+        GradientColors = ["#3F4A9E", "#348CD1", "#2EC7D3"],
+        Animation = GnouGnouTextAnimation.Wave
+    },
+    Gap = 28,
+    SvgIdPrefix = "header-lockup"
+});
+```
+
+The bear is placed on the left and the text on the right. The text's optical
+center is aligned with the mascot's visual center of gravity, independently of
+its configurable canvas margins. `Gap` controls the distance between the two
+canvases.
+The composite prefix replaces nested prefixes so all gradients, filters,
+titles, and animation selectors remain isolated when several lockups are
+embedded in one document.
 
 `Animation` controls self-playing, script-free SVG motion:
 
