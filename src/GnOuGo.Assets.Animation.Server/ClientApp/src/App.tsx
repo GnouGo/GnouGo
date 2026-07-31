@@ -57,6 +57,7 @@ function easeInOut(value: number): number {
 
 function actionForStep(stepType?: string): GnouGnouAnimationName {
   const normalized = stepType?.toLowerCase() ?? ''
+  if (normalized === 'llm' || normalized.startsWith('llm.')) return 'think'
   if (normalized.startsWith('workflow.')) return 'handoff'
   return 'type'
 }

@@ -116,6 +116,17 @@ function readRigTransform(part: SVGGraphicsElement): RigTransform {
   }
 }
 
+function applyThinkingCheekColor(cheek: SvgPart, intensity: number) {
+  const blush = cheek?.querySelector<SVGEllipseElement>('ellipse')
+  if (!blush) return
+  const amount = Math.max(0, Math.min(1, intensity))
+  const red = Math.round(247 - amount * 14)
+  const green = Math.round(154 - amount * 82)
+  const blue = Math.round(160 - amount * 78)
+  blush.setAttribute('fill', `rgb(${red},${green},${blue})`)
+  blush.setAttribute('opacity', String(.68 + amount * .22))
+}
+
 function periodicPulse(seconds: number, period: number, phaseOffset: number, halfWidth: number): number {
   const phase = ((seconds / period + phaseOffset) % 1 + 1) % 1
   const distance = Math.min(Math.abs(phase - .5), 1 - Math.abs(phase - .5))
@@ -272,6 +283,10 @@ export class GnouGnouAnimationController {
     const mouth = rigPart(actor, 'mouth')
     const bowTie = rigPart(actor, 'bow-tie')
     const effects = rigPart(actor, 'action-fx')
+    const thinkingFlush = rigPart(actor, 'thinking-flush')
+    const thinkingSweat = rigPart(actor, 'thinking-sweat')
+    const thinkingArmRub = rigPart(actor, 'thinking-arm-rub')
+    const thinkingHandRub = rigPart(actor, 'thinking-hand-rub')
     const visualSeed = Number(actor.getAttribute('data-visual-seed') ?? 1)
     this.setFailureExpression(actor, action === 'fail')
     const initialTransforms = new Map<SVGGraphicsElement, RigTransform>()
@@ -314,10 +329,14 @@ export class GnouGnouAnimationController {
         ? Math.max(0, 1 - Math.abs(progress - .62) / .035)
         : 0
       const ambientStrength = action === 'type' || action === 'wait' || action === 'think' ? .72 : .34
-      const eyeScale = 1 - Math.max(actionBlink, life.blink * ambientStrength, life.yawn * .52) * .9
+      let eyeScale = 1 - Math.max(actionBlink, life.blink * ambientStrength, life.yawn * .52) * .9
       let pupilX = direction * 1.4
       let pupilY = 0
       let effectOpacity = 0
+      let thinkingFlushOpacity = 0
+      let thinkingSweatOpacity = 0
+      let thinkingCheekIntensity = 0
+      let thinkingArmOpacity = 0
 
       set(leftArm)
       set(rightArm)
@@ -331,6 +350,8 @@ export class GnouGnouAnimationController {
       set(rightBrow, 2)
       set(leftCheek)
       set(rightCheek)
+      set(thinkingArmRub)
+      set(thinkingHandRub)
       set(mouth, 0, 0, -1, 1.04, 1.08)
       set(bowTie)
 
@@ -428,14 +449,41 @@ export class GnouGnouAnimationController {
           pupilY = -2.5 * gesture
           effectOpacity = .4 + .6 * bounce
           break
-        case 'think':
+        case 'think': {
+          const cheekPulse = (.5 + Math.sin(elapsedSeconds * Math.PI * 1.35) * .5) * gesture
+          const headRub = Math.sin(elapsedSeconds * Math.PI * 2.5) * gesture
           set(leftArm, -22 * gesture)
-          set(rightArm, 82 * gesture + fastWave * 1.5)
-          set(head, -5 * gesture + wave * .7, 0, -2 * gesture)
-          pupilX = 2 * gesture
-          pupilY = -2.5 * gesture
-          effectOpacity = .25 + .75 * bounce
+          set(body, wave * .35, 0, gesture * 2, 1, 1 - gesture * .012)
+          set(head, -5 * gesture + wave * .7, 0, gesture)
+          set(thinkingArmRub, -154 - headRub * 9)
+          set(thinkingHandRub, -headRub * 6, 0, 0, 1.02, 1.02)
+          set(leftBrow, 10 * gesture)
+          set(rightBrow, -10 * gesture)
+          set(
+            leftCheek,
+            0,
+            0,
+            0,
+            1 + gesture * .1 + cheekPulse * .1,
+            1 + gesture * .05 + (gesture - cheekPulse) * .09,
+          )
+          set(
+            rightCheek,
+            0,
+            0,
+            0,
+            1 + gesture * .11 + (gesture - cheekPulse) * .08,
+            1 + gesture * .05 + cheekPulse * .09,
+          )
+          eyeScale *= .72 + bounce * .12
+          pupilX = fastWave * 2.2
+          pupilY = -2.8 * gesture
+          thinkingFlushOpacity = gesture * (.2 + bounce * .22)
+          thinkingSweatOpacity = gesture * (.48 + bounce * .5)
+          thinkingCheekIntensity = gesture * (.72 + bounce * .28)
+          thinkingArmOpacity = Math.min(1, gesture * 1.8)
           break
+        }
         case 'communicate':
           set(leftArm, -26 * gesture + fastWave * 3)
           set(rightArm, -94 * gesture + fastWave * 3)
@@ -566,6 +614,16 @@ export class GnouGnouAnimationController {
         effects.setAttribute('opacity', String(effectOpacity))
         effects.setAttribute('transform', `translate(0 ${-bounce * 8}) scale(${1 + bounce * .08})`)
       }
+      if (thinkingFlush)
+        thinkingFlush.setAttribute('opacity', String(thinkingFlushOpacity))
+      if (thinkingSweat) {
+        thinkingSweat.setAttribute('opacity', String(thinkingSweatOpacity))
+        thinkingSweat.setAttribute('transform', `translate(0 ${-4 + bounce * 8}) scale(${.82 + gesture * .18})`)
+      }
+      applyThinkingCheekColor(leftCheek, thinkingCheekIntensity)
+      applyThinkingCheekColor(rightCheek, thinkingCheekIntensity)
+      if (thinkingArmRub) thinkingArmRub.setAttribute('opacity', String(thinkingArmOpacity))
+      if (rightArm) rightArm.setAttribute('opacity', String(1 - thinkingArmOpacity))
 
       if (progress < 1) {
         const frame = requestAnimationFrame(render)
@@ -608,6 +666,16 @@ export class GnouGnouAnimationController {
     this.setFailureExpression(actor, false)
     const effects = rigPart(actor, 'action-fx')
     if (effects) effects.setAttribute('opacity', '0')
+    const thinkingFlush = rigPart(actor, 'thinking-flush')
+    if (thinkingFlush) thinkingFlush.setAttribute('opacity', '0')
+    const thinkingSweat = rigPart(actor, 'thinking-sweat')
+    if (thinkingSweat) thinkingSweat.setAttribute('opacity', '0')
+    const thinkingArmRub = rigPart(actor, 'thinking-arm-rub')
+    if (thinkingArmRub) thinkingArmRub.setAttribute('opacity', '0')
+    const rightArm = rigPart(actor, 'arm-right')
+    if (rightArm) rightArm.setAttribute('opacity', '1')
+    applyThinkingCheekColor(rigPart(actor, 'cheek-left'), 0)
+    applyThinkingCheekColor(rigPart(actor, 'cheek-right'), 0)
     actor.setAttribute('data-pose', 'idle')
   }
 

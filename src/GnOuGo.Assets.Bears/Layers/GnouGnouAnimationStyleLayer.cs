@@ -21,6 +21,7 @@ internal static class GnouGnouAnimationStyleLayer
             GnouGnouBearAnimation.Merge => GestureRules("merge", "-42deg", "42deg", "0px"),
             GnouGnouBearAnimation.Celebration => CelebrationRules,
             GnouGnouBearAnimation.Failure => FailureRules,
+            GnouGnouBearAnimation.Thinking => ThinkingRules,
             _ => throw new ArgumentOutOfRangeException(nameof(animation), animation, "Unsupported GnOuGo animation.")
         };
         rules = rules.Replace(
@@ -42,6 +43,10 @@ internal static class GnouGnouAnimationStyleLayer
     .gnougo-rig[data-animation="{{token}}"] [data-part="eye-left"], .gnougo-rig[data-animation="{{token}}"] [data-part="eye-right"] { transform-origin: center; }
     .gnougo-rig[data-animation="{{token}}"] [data-part="brow-left"] { transform-origin: 104px 83px; }
     .gnougo-rig[data-animation="{{token}}"] [data-part="brow-right"] { transform-origin: 152px 83px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="cheek-left"] { transform-origin: 91px 135px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="cheek-right"] { transform-origin: 165px 135px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="thinking-arm-rub"] { transform-origin: 162px 157px; }
+    .gnougo-rig[data-animation="{{token}}"] [data-part="thinking-hand-rub"] { transform-origin: 176px 202px; }
     .gnougo-rig[data-animation="{{token}}"] [data-part="mouth"] { transform-origin: 128px 145px; }
 {{rules}}
     @media (prefers-reduced-motion: reduce) {
@@ -158,6 +163,56 @@ internal static class GnouGnouAnimationStyleLayer
     @keyframes gnougo-fail-eye { 0%,46%,50%,100% { transform: scaleY(.72); } 48% { transform: scaleY(.08); } }
     @keyframes gnougo-fail-pupil { 0%,100% { transform: translate(0 3px); } 50% { transform: translate(.35px 3.2px); } }
     @keyframes gnougo-fail-mouth { 0%,100% { transform: translateY(2px) scale(.98,.92); } 50% { transform: translateY(2.2px) scale(1,.94); } }
+""";
+
+    private const string ThinkingRules = LivingFaceRules + """
+    .gnougo-rig[data-animation="thinking"] [data-part="body"] { animation: gnougo-think-body 4.6s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="head"] { animation: gnougo-think-head 3.8s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="arm-left"] { animation: gnougo-think-arm-left 4.6s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="arm-right"] { opacity: 0; }
+    .gnougo-rig[data-animation="thinking"] [data-part="thinking-arm-rub"] { opacity: 1; animation: gnougo-think-arm-rub 1.6s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="thinking-hand-rub"] { animation: gnougo-think-hand-rub 1.6s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="eye-left"],
+    .gnougo-rig[data-animation="thinking"] [data-part="eye-right"] { animation: gnougo-think-eyes 3.2s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="pupil-left"] { animation: gnougo-think-pupil-left 2.8s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="pupil-right"] { animation: gnougo-think-pupil-right 2.8s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="brow-left"] { animation: gnougo-think-brow-left 3.2s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="brow-right"] { animation: gnougo-think-brow-right 3.2s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="cheek-left"],
+    .gnougo-rig[data-animation="thinking"] [data-part="cheek-right"] { animation: gnougo-think-cheeks 3.2s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="cheek-left"] > ellipse,
+    .gnougo-rig[data-animation="thinking"] [data-part="cheek-right"] > ellipse { animation: gnougo-think-cheek-color 3.2s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="thinking-flush"] { opacity: .22; transform-origin: 128px 103px; animation: gnougo-think-flush 3.2s ease-in-out infinite; }
+    .gnougo-rig[data-animation="thinking"] [data-part="thinking-sweat"] { opacity: .84; transform-origin: 169px 61px; animation: gnougo-think-sweat 2.4s ease-in-out infinite; }
+    @keyframes gnougo-think-body { 0%,100% { transform: translateY(1px) scaleY(.995); } 50% { transform: translateY(3px) scaleY(.985); } }
+    @keyframes gnougo-think-head { 0%,100% { transform: translateY(1px) rotate(-4deg); } 50% { transform: translateY(3px) rotate(3deg); } }
+    @keyframes gnougo-think-arm-left { 0%,100% { transform: rotate(-18deg); } 50% { transform: rotate(-23deg); } }
+    @keyframes gnougo-think-arm-rub {
+      0%,100% { transform: rotate(-146deg); }
+      35% { transform: rotate(-158deg); }
+      68% { transform: rotate(-164deg); }
+    }
+    @keyframes gnougo-think-hand-rub { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(6deg) scale(1.03); } }
+    @keyframes gnougo-think-eyes { 0%,44%,100% { transform: scaleY(.72); } 50% { transform: scaleY(.08); } 58%,88% { transform: scaleY(.88); } }
+    @keyframes gnougo-think-pupil-left { 0%,100% { transform: translate(3px,-3px); } 50% { transform: translate(6px,-1px); } }
+    @keyframes gnougo-think-pupil-right { 0%,100% { transform: translate(-3px,-3px); } 50% { transform: translate(-6px,-1px); } }
+    @keyframes gnougo-think-brow-left { 0%,100% { transform: rotate(8deg) translateY(1px); } 50% { transform: rotate(12deg) translateY(2px); } }
+    @keyframes gnougo-think-brow-right { 0%,100% { transform: rotate(-8deg) translateY(1px); } 50% { transform: rotate(-12deg) translateY(2px); } }
+    @keyframes gnougo-think-cheeks {
+      0%,100% { transform: scale(1.02,.94); }
+      38% { transform: scale(1.18,1.04); }
+      72% { transform: scale(1.1,1.14); }
+    }
+    @keyframes gnougo-think-cheek-color {
+      0%,100% { fill: #F16C76; opacity: .76; }
+      50% { fill: #E94855; opacity: .9; }
+    }
+    @keyframes gnougo-think-flush { 0%,100% { opacity: .18; transform: scale(.98); } 50% { opacity: .42; transform: scale(1.015); } }
+    @keyframes gnougo-think-sweat {
+      0% { opacity: 0; transform: translateY(-7px) scale(.72); }
+      24%,70% { opacity: .92; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(9px) scale(.82); }
+    }
 """;
 
     private static string GestureRules(string name, string leftAngle, string rightAngle, string bodyY) => LivingFaceRules + $$"""

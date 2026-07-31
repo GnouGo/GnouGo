@@ -1,13 +1,26 @@
 # GnOuGo.Assets.Animation
 
+<a href="https://www.nuget.org/packages/GnOuGo.Assets.Animation"><img src="https://img.shields.io/nuget/v/GnOuGo.Assets.Animation.svg" alt="NuGet version"></a>
+<a href="https://www.nuget.org/packages/GnOuGo.Assets.Animation"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0"></a>
+<a href="https://nugettrends.com/packages?ids=GnOuGo.Assets.Animation"><img src="https://img.shields.io/nuget/dt/GnOuGo.Assets.Animation.svg" alt="NuGet downloads"></a>
+
 Autonomous, deterministic SVG team animation library for GnOuGo. It parses a
 small Flow-shaped preview YAML format, validates only its visual structure,
 plans synthetic team activity, renders a semantic SVG scene, and produces a
 timer-ready event schedule.
 
+It builds on the independently packaged `GnOuGo.Assets.Bears` mascot renderer.
+Both packages are published to NuGet with the same release version.
+
 It does **not** reference or execute `GnOuGo.Flow.Core`. Preview validation is
 not authoritative Flow validation. LLM, MCP, scripts, expressions, and workflow
 steps are never executed.
+
+## Install
+
+```bash
+dotnet add package GnOuGo.Assets.Animation
+```
 
 ## Usage
 
@@ -110,7 +123,9 @@ as semantic SVG groups while the document remains script-free. The standalone
 web client drives the rig with `requestAnimationFrame`: alternating arm and leg
 footfalls, breathing, independent ear twitches, head bobbing, blinking and
 directional pupils, alternating keyboard hands and fingers, pickup and handoff
-reaches, matrix duplication, waiting, delivery, celebration, and failure.
+reaches, matrix duplication, waiting, delivery, celebration, and failure. LLM
+thinking uses a concentrated expression with changing eyes, inward brows, a
+warmer red face, and animated sweat drops on the forehead.
 At rest, actors are balanced across looking-around, side-sway, stretching,
 toe-tapping, pondering, and little-wave personalities. Each GnOuGo receives a
 different seeded clock offset and gesture tempo, preventing synchronized idle

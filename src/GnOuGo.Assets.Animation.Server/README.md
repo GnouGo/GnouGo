@@ -29,6 +29,10 @@ until the parallel join. Each completed branch walks down to that actual Join
 marker and waits for the others before recombination. Waiting, delivery,
 celebration, and failure have distinct poses.
 
+An `llm` or `llm.*` step automatically selects the Bears `think` action for
+the duration of the AI call. The active GnOuGo concentrates with changing
+eyes, inward brows, a warmer face, and animated forehead sweat drops.
+
 Idle actors and long-running poses share a deliberately slow ambient life
 cycle: breathing, occasional blinks, small mouth changes, independent ear
 twitches, and rare deterministic yawns. Purposeful actions remain dominant,

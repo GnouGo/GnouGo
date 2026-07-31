@@ -383,6 +383,9 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains("workflowAnimationsRef.current?.fitScene()", app, StringComparison.Ordinal);
         Assert.Contains("workflowAnimationsRef.current?.panBy(", app, StringComparison.Ordinal);
         Assert.Contains("onFocus: (_id, event) =>", app, StringComparison.Ordinal);
+        Assert.Contains("normalized === 'llm' || normalized.startsWith('llm.')", app, StringComparison.Ordinal);
+        Assert.Contains("normalized === 'llm' || normalized.startsWith('llm.')", workflowRuntime, StringComparison.Ordinal);
+        Assert.Contains("return 'think'", workflowRuntime, StringComparison.Ordinal);
         Assert.DoesNotContain("workflowAnimationsRef.current?.focusEvent(envelope.event!)", app, StringComparison.Ordinal);
         Assert.Contains("const toggleAutoFollow = useCallback", app, StringComparison.Ordinal);
         Assert.Contains("workflowAnimationsRef.current?.stopCameraMotion()", app, StringComparison.Ordinal);
@@ -395,6 +398,13 @@ public sealed class AnimationServerTests : IClassFixture<WebApplicationFactory<P
         Assert.Contains("case 'walk':", runtime, StringComparison.Ordinal);
         Assert.Contains("gaitPulse(gaitPhase, 0)", runtime, StringComparison.Ordinal);
         Assert.Contains("setFailureExpression(actor, action === 'fail')", runtime, StringComparison.Ordinal);
+        Assert.Contains("case 'think':", runtime, StringComparison.Ordinal);
+        Assert.Contains("rigPart(actor, 'thinking-flush')", runtime, StringComparison.Ordinal);
+        Assert.Contains("rigPart(actor, 'thinking-sweat')", runtime, StringComparison.Ordinal);
+        Assert.Contains("rigPart(actor, 'thinking-arm-rub')", runtime, StringComparison.Ordinal);
+        Assert.Contains("const headRub =", runtime, StringComparison.Ordinal);
+        Assert.Contains("applyThinkingCheekColor(leftCheek, thinkingCheekIntensity)", runtime, StringComparison.Ordinal);
+        Assert.Contains("1 + gesture * .1 + cheekPulse * .1", runtime, StringComparison.Ordinal);
         Assert.Contains("actor?.matches('[data-animation-rig=\"true\"]')", runtime, StringComparison.Ordinal);
         Assert.Contains("yawn:", runtime, StringComparison.Ordinal);
         Assert.Contains("export const GNOUNOU_IDLE_VARIANTS", runtime, StringComparison.Ordinal);

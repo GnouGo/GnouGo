@@ -54,12 +54,13 @@ scripts/                           # build, publish, and metadata-update scripts
 |---|---|---|
 | **GnOuGo.Agent** | `Agent.Server`, `Agent.Desktop`, `Agent.Shared`, `Agent.Mcp` | Blazor UI + Photino desktop shell. Agent definitions stored as `{name}.yaml` in workspace. |
 | **GnOuGo.AI** | `AI.Core` | AOT-friendly LLM routing: OpenAI, Ollama, Copilot, Anthropic. Published NuGet package. |
-| **GnOuGo.Flow** | `Flow.Core`, `Flow.Cli`, `Flow.Server` | YAML workflow DSL engine, NativeAOT-compatible. Published NuGet package. |
+| **GnOuGo.Flow** | `Flow.Core`, `Flow.Cli`, `Flow.Server`, `Flow.Mermaid` | YAML workflow DSL engine, NativeAOT-compatible, with Mermaid diagram rendering support. Published NuGet package. |
 | **GnOuGo.Diff** | `Diff.Core`, `Diff.Cli`, `Diff.Server` | Revision storage, diff computation, API + UI. |
+| **GnOuGo.Files** | `Files.Server` | Temporary streamed file upload/download API with SQLite metadata + configurable TTL purge worker. |
 | **GnOuGo.DocIngestor** | `DocIngestor.Core`, `DocIngestor.Cli`, `DocIngestor.Mcp`, `DocIngestor.Server` | Document ingestion pipeline (extract, chunk, embed, vector search). |
 | **GnOuGo.KeyVault** | `KeyVault.Core`, `KeyVault.Mcp`, `KeyVault.Server` | Encrypted secret storage, tenant-aware. Secrets decrypted in-memory only. |
 | **GnOuGo.OtlpCollector** | `OtlpCollector.Server`, `OtlpCollector.Cli` | Multi-tenant OTLP ingest stack. Embedded in `Agent.Server` on ports 4317/4318. |
-| **MCP servers** | `Agent.Mcp` (HTTP), `KeyVault.Mcp` (HTTP), `Browser.Mcp` (stdio), `Cmd.Mcp` (stdio), `Git.Mcp` (stdio), `Document.Mcp` (stdio), `GithubCopilot.Mcp` (stdio), `DocIngestor.Mcp` (HTTP), `UserData.Mcp` (HTTP) | |
+| **MCP servers** | `Agent.Mcp` (HTTP), `KeyVault.Mcp` (HTTP), `Browser.Mcp` (stdio), `Cmd.Mcp` (stdio), `Git.Mcp` (stdio), `Document.Mcp` (stdio), `GithubCopilot.Mcp` (stdio), `DocIngestor.Mcp` (HTTP) | |
 | **Shared libs** | `Auth.Core`, `Mcp.Core`, `Observability.Core`, `VectorDbDisk`, `Workspace` | Cross-cutting helpers. |
 
 ---

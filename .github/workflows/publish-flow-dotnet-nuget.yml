@@ -46,6 +46,7 @@ jobs:
             'src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj',
             'src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj',
             'src/GnOuGo.Assets.Bears/GnOuGo.Assets.Bears.csproj',
+            'src/GnOuGo.Assets.Animation/GnOuGo.Assets.Animation.csproj',
             'src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj',
             'src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj'
           )

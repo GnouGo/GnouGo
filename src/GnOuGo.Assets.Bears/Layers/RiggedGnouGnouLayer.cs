@@ -72,6 +72,9 @@ internal static class RiggedGnouGnouLayer
 {{headphones}}
       <path d="M128 45 C166 45 194 72 194 111 C194 151 166 178 128 178 C90 178 62 151 62 111 C62 72 90 45 128 45Z" fill="url(#fur)" stroke="#71381F" stroke-width="3.8"/>
       <path d="M91 58q10-11 19-2M117 50q8-9 14 2M139 52q9-7 16 2" fill="none" stroke="#FFF2D7" stroke-width="2.5" opacity=".56"/>
+      <g data-part="thinking-flush" data-pivot-x="128" data-pivot-y="103" opacity="0" pointer-events="none">
+        <path d="M128 48 C163 48 190 74 190 111 C190 145 163 171 128 171 C93 171 66 145 66 111 C66 74 93 48 128 48Z" fill="#EF625D" opacity=".62"/>
+      </g>
       <ellipse cx="128" cy="136" rx="43" ry="31" fill="url(#muzzle)"/>
       <g data-part="cheek-left" data-pivot-x="91" data-pivot-y="135">
         <ellipse cx="91" cy="135" rx="13" ry="9" fill="#F79AA0" opacity=".68"/>
@@ -92,8 +95,20 @@ internal static class RiggedGnouGnouLayer
           <path d="M109 158l-4 3M147 158l4 3" fill="none" stroke="#6B261D" stroke-width="2.4"/>
         </g>
       </g>
+      <g data-part="thinking-sweat" data-pivot-x="169" data-pivot-y="61" opacity="0" pointer-events="none">
+        <path d="M169 48 C165 55 160 61 160 67 C160 73 164 77 169 77 C175 77 179 73 179 67 C179 61 174 55 169 48Z" fill="#BDEEFF" stroke="#2B79B9" stroke-width="2.3"/>
+        <path d="M166 60 C164 64 164 68 167 70" fill="none" stroke="#FFFFFF" stroke-width="2.2" opacity=".9"/>
+        <path d="M187 65 C184 70 181 74 181 78 C181 82 184 85 188 85 C192 85 195 82 195 78 C195 74 191 70 187 65Z" fill="#D9F7FF" stroke="#2B79B9" stroke-width="1.8" opacity=".88"/>
+      </g>
 {{bowTie}}
 {{beard}}
+    </g>
+    <g class="gnougo-part gnougo-thinking-arm-rub" data-part="thinking-arm-rub" data-pivot-x="162" data-pivot-y="157" opacity="0" pointer-events="none">
+      <path d="M158 154 C173 153 188 169 190 190 C192 208 182 217 169 210 C158 204 153 187 150 171 C148 162 151 157 158 154Z" fill="url(#fur-light)" stroke="#71381F" stroke-width="3.8"/>
+      <g data-part="thinking-hand-rub" data-pivot-x="176" data-pivot-y="202">
+        <circle cx="176" cy="202" r="13" fill="#FFE2C1" stroke="#B77349" stroke-width="2.3"/>
+        <path d="M170 200q6-6 12 0M172 205q4-4 8 0" fill="none" stroke="#D39367" stroke-width="1.8"/>
+      </g>
     </g>
     <g class="gnougo-action-fx" data-part="action-fx" opacity="0" pointer-events="none">
       <path d="M74 36l5 10 11 2-8 8 2 11-10-5-10 5 2-11-8-8 11-2z" fill="#FFE36E" stroke="#B86A19" stroke-width="2"/>

@@ -377,6 +377,10 @@ public sealed class GnouGnouBearSvgGeneratorTests
         Assert.Contains("data-part=\"ear-right\"", svg, StringComparison.Ordinal);
         Assert.Contains("data-part=\"cheek-left\"", svg, StringComparison.Ordinal);
         Assert.Contains("data-part=\"cheek-right\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"thinking-flush\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"thinking-sweat\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"thinking-arm-rub\"", svg, StringComparison.Ordinal);
+        Assert.Contains("data-part=\"thinking-hand-rub\"", svg, StringComparison.Ordinal);
         Assert.Contains("data-part=\"arm-left\"", svg, StringComparison.Ordinal);
         Assert.Contains("data-part=\"arm-right\"", svg, StringComparison.Ordinal);
         Assert.Contains("data-part=\"leg-left\"", svg, StringComparison.Ordinal);
@@ -468,6 +472,7 @@ public sealed class GnouGnouBearSvgGeneratorTests
     [InlineData(GnouGnouBearAnimation.Merge, "merge")]
     [InlineData(GnouGnouBearAnimation.Celebration, "celebration")]
     [InlineData(GnouGnouBearAnimation.Failure, "failure")]
+    [InlineData(GnouGnouBearAnimation.Thinking, "thinking")]
     public void Generate_SelectedAnimation_ProducesSelfPlayingRig(
         GnouGnouBearAnimation animation,
         string token)
@@ -544,6 +549,53 @@ public sealed class GnouGnouBearSvgGeneratorTests
         Assert.Contains("[data-expression=\"failure\"] { opacity: 1; }", svg, StringComparison.Ordinal);
         Assert.Contains("@keyframes gnougo-fail-eye", svg, StringComparison.Ordinal);
         Assert.Contains("[data-part=\"brow-left\"] { transform: rotate(10deg); }", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generate_ThinkingAnimation_ShowsConcentratedEyesFlushAndSweat()
+    {
+        var svg = GnouGnouBearSvgGenerator.Generate(new GnouGnouBearOptions
+        {
+            Animation = GnouGnouBearAnimation.Thinking
+        });
+        var document = XDocument.Parse(svg);
+
+        Assert.NotNull(document.Descendants().Single(element =>
+            element.Attribute("data-part")?.Value == "thinking-flush"));
+        Assert.NotNull(document.Descendants().Single(element =>
+            element.Attribute("data-part")?.Value == "thinking-sweat"));
+        Assert.NotNull(document.Descendants().Single(element =>
+            element.Attribute("data-part")?.Value == "thinking-arm-rub"));
+        Assert.NotNull(document.Descendants().Single(element =>
+            element.Attribute("data-part")?.Value == "thinking-hand-rub"));
+        var canonicalRightArm = document.Descendants().Single(element =>
+            element.Attribute("data-part")?.Value == "arm-right");
+        var thinkingRightArm = document.Descendants().Single(element =>
+            element.Attribute("data-part")?.Value == "thinking-arm-rub");
+        Assert.Equal(
+            canonicalRightArm.Elements().First(element => element.Name.LocalName == "path").Attribute("d")?.Value,
+            thinkingRightArm.Elements().First(element => element.Name.LocalName == "path").Attribute("d")?.Value);
+        Assert.Equal(canonicalRightArm.Attribute("data-pivot-x")?.Value, thinkingRightArm.Attribute("data-pivot-x")?.Value);
+        Assert.Equal(canonicalRightArm.Attribute("data-pivot-y")?.Value, thinkingRightArm.Attribute("data-pivot-y")?.Value);
+        Assert.Contains("@keyframes gnougo-think-eyes", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-think-pupil-left", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-think-flush", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-think-sweat", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-think-cheek-color", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-think-arm-rub", svg, StringComparison.Ordinal);
+        Assert.Contains("@keyframes gnougo-think-hand-rub", svg, StringComparison.Ordinal);
+        Assert.Contains("transform: rotate(-146deg)", svg, StringComparison.Ordinal);
+        Assert.Contains("transform: rotate(-164deg)", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-part=\"arm-right\"] { opacity: 0; }", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-part=\"thinking-arm-rub\"] { opacity: 1;", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-part=\"cheek-left\"] { transform-origin: 91px 135px; }", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-part=\"cheek-right\"] { transform-origin: 165px 135px; }", svg, StringComparison.Ordinal);
+        Assert.Contains("transform: scale(1.02,.94)", svg, StringComparison.Ordinal);
+        Assert.Contains("transform: scale(1.18,1.04)", svg, StringComparison.Ordinal);
+        Assert.Contains("fill: #E94855", svg, StringComparison.Ordinal);
+        Assert.Contains("[data-part=\"brow-left\"] { animation: gnougo-think-brow-left", svg, StringComparison.Ordinal);
+        Assert.Contains("fill=\"#EF625D\"", svg, StringComparison.Ordinal);
+        Assert.Contains("fill=\"#BDEEFF\"", svg, StringComparison.Ordinal);
     }
 
     [Theory]

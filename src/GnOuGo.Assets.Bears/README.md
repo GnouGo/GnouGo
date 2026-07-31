@@ -1,6 +1,16 @@
 # GnOuGo.Assets.Bears
 
+<a href="https://www.nuget.org/packages/GnOuGo.Assets.Bears"><img src="https://img.shields.io/nuget/v/GnOuGo.Assets.Bears.svg" alt="NuGet version"></a>
+<a href="https://www.nuget.org/packages/GnOuGo.Assets.Bears"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0"></a>
+<a href="https://nugettrends.com/packages?ids=GnOuGo.Assets.Bears"><img src="https://img.shields.io/nuget/dt/GnOuGo.Assets.Bears.svg" alt="NuGet downloads"></a>
+
 Dependency-free deterministic SVG generator for the GnOuGo mascot, GnouGnou.
+
+## Install
+
+```bash
+dotnet add package GnOuGo.Assets.Bears
+```
 
 ## Usage
 
@@ -40,12 +50,22 @@ var typingSvg = GnouGnouBearSvgGenerator.Generate(new()
 {
     Animation = GnouGnouBearAnimation.Typing
 });
+
+// Concentrated AI work: narrowed moving eyes, warmer face, and sweat drops.
+var thinkingSvg = GnouGnouBearSvgGenerator.Generate(new()
+{
+    Animation = GnouGnouBearAnimation.Thinking
+});
 ```
 
 Available presets are `None`, `Idle`, `Walk`, `Typing`, `Waiting`, `Pickup`,
-`Handoff`, `Delivery`, `Clone`, `Merge`, `Celebration`, and `Failure`.
-`Walk` uses alternating arm and leg phases, while `Failure` switches to a
-dedicated frown with lowered pupils, eyelids, ears, and brows.
+`Handoff`, `Delivery`, `Clone`, `Merge`, `Celebration`, `Failure`, and
+`Thinking`. `Thinking` adds a concentrated pose with changing eyes, inward
+brows, a warm face flush, redder cheeks that vary independently in width and
+height around fixed centers, animated sweat drops, and a foreground arm that
+reuses the canonical right-arm geometry and rotates from the shoulder to rub
+the forehead. `Walk` uses alternating arm and leg phases, while `Failure`
+switches to a dedicated frown with lowered pupils, eyelids, ears, and brows.
 
 ## Notes
 
@@ -111,4 +131,10 @@ dotnet build src/GnOuGo.Assets.Bears/GnOuGo.Assets.Bears.csproj
 
 ```bash
 dotnet test tests/GnOuGo.Assets.Bears.Tests/GnOuGo.Assets.Bears.Tests.csproj
+```
+
+## Pack
+
+```bash
+dotnet pack src/GnOuGo.Assets.Bears/GnOuGo.Assets.Bears.csproj -c Release
 ```

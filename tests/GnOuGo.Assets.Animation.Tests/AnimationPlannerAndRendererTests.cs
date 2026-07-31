@@ -103,7 +103,13 @@ public sealed class AnimationPlannerAndRendererTests
         var master = xml.Descendants().Single(element => element.Attribute("id")?.Value == "actor-master");
         Assert.Equal("true", master.Attribute("data-bearded")?.Value);
         Assert.NotNull(master.Descendants().SingleOrDefault(element => element.Attribute("data-animation-rig")?.Value == "true"));
-        foreach (var part in new[] { "head", "ear-left", "ear-right", "arm-left", "arm-right", "leg-left", "leg-right", "eye-left", "pupil-left", "mouth", "action-fx" })
+        string[] expectedParts =
+        [
+            "head", "ear-left", "ear-right", "arm-left", "arm-right", "leg-left",
+            "leg-right", "eye-left", "pupil-left", "mouth", "thinking-flush",
+            "thinking-sweat", "thinking-arm-rub", "thinking-hand-rub", "action-fx"
+        ];
+        foreach (var part in expectedParts)
             Assert.NotNull(master.Descendants().FirstOrDefault(element => element.Attribute("data-part")?.Value == part));
         Assert.NotNull(master.Descendants().FirstOrDefault(element => element.Attribute("data-part")?.Value == "beard"));
         Assert.All(

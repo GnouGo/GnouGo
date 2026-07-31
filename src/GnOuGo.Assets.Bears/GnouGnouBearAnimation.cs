@@ -19,7 +19,8 @@ public enum GnouGnouBearAnimation
     Clone,
     Merge,
     Celebration,
-    Failure
+    Failure,
+    Thinking
 }
 
 internal static class GnouGnouBearAnimationNames
@@ -38,6 +39,7 @@ internal static class GnouGnouBearAnimationNames
         GnouGnouBearAnimation.Merge => "merge",
         GnouGnouBearAnimation.Celebration => "celebration",
         GnouGnouBearAnimation.Failure => "failure",
+        GnouGnouBearAnimation.Thinking => "thinking",
         _ => throw new ArgumentOutOfRangeException(nameof(animation), animation, "Unsupported GnOuGo animation.")
     };
 }

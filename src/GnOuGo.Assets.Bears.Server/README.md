@@ -7,7 +7,8 @@ The home page contains two deterministic collections:
 - **Static** — ten appearance studies covering eye shapes, emotion-driven
   eyebrows and mouths, five nose styles, and five beard silhouettes.
 - **Animated** — every `GnouGnouBearAnimation` preset applied across the same
-  diverse appearance library.
+  diverse appearance library. The `AI Thinking` preset is featured first with
+  concentrated eyes, face flush, and animated forehead sweat drops.
 
 It includes seed controls, direct SVG links, and automatically respects
 reduced-motion preferences.
@@ -33,7 +34,7 @@ field to reproduce an appearance or select **Randomize** for another GnOuGo.
 
 Supported animation values are `None`, `Idle`, `Walk`, `Typing`, `Waiting`,
 `Pickup`, `Handoff`, `Delivery`, `Clone`, `Merge`, `Celebration`, and
-`Failure`. Invalid values return HTTP `400`.
+`Failure`, and `Thinking`. Invalid values return HTTP `400`.
 
 ## Build
 

@@ -6,6 +6,7 @@ export type GnouGnouWorkflowCharacterAction =
   | 'handoff'
   | 'type'
   | 'wait'
+  | 'think'
   | 'deliver'
   | 'communicate'
   | 'clone'
@@ -140,6 +141,7 @@ function easeInOut(value: number): number {
 function actionForStep(stepType?: string): GnouGnouWorkflowCharacterAction {
   const normalized = stepType?.toLowerCase() ?? ''
   if (normalized.startsWith('human.')) return 'wait'
+  if (normalized === 'llm' || normalized.startsWith('llm.')) return 'think'
   if (normalized === 'workflow.route') return 'communicate'
   if (normalized === 'workflow.plan') return 'type'
   if (normalized.startsWith('workflow.')) return 'handoff'

@@ -204,6 +204,8 @@ static string RenderAnimationGallery(GnouGnouBearOptions baseOptions)
     var appearances = CreateGalleryAppearances(baseOptions);
     var animations = Enum.GetValues<GnouGnouBearAnimation>()
         .Where(static animation => animation != GnouGnouBearAnimation.None)
+        .OrderBy(static animation => animation == GnouGnouBearAnimation.Thinking ? 0 : 1)
+        .ThenBy(static animation => (int)animation)
         .ToArray();
     var builder = new StringBuilder(capacity: 520_000);
     builder.AppendLine("<!doctype html>");
@@ -280,6 +282,7 @@ static string RenderAnimationGallery(GnouGnouBearOptions baseOptions)
     AppendPill(builder, $"Seed {baseOptions.Seed}");
     AppendPill(builder, $"{appearances.Count} static looks");
     AppendPill(builder, $"{animations.Length} animated presets");
+    AppendPill(builder, "AI thinking included");
     AppendPill(builder, $"{Enum.GetValues<GnouGnouBearEyeStyle>().Length} eye styles");
     AppendPill(builder, $"{Enum.GetValues<GnouGnouBearNoseStyle>().Length} nose styles");
     AppendPill(builder, "5 beard silhouettes");
@@ -315,7 +318,7 @@ static string RenderAnimationGallery(GnouGnouBearOptions baseOptions)
     builder.AppendLine("      <div class=\"collection-head\"><div>");
     builder.AppendLine("        <p class=\"collection-kicker\">Motion library</p>");
     builder.AppendLine("        <h2 id=\"animated-title\">Animated</h2>");
-    builder.AppendLine("        <p class=\"collection-copy\">The same facial and beard diversity carried by semantic rigs with blinking, breathing, gestures, work poses, and outcome animations.</p>");
+    builder.AppendLine("        <p class=\"collection-copy\">The same facial and beard diversity carried by semantic rigs with blinking, breathing, gestures, work poses, and outcome animations. AI Thinking is featured first with focused eyes, a warmer face, and forehead sweat drops.</p>");
     builder.Append("      </div><span class=\"collection-count\">").Append(animations.Length).AppendLine(" script-free presets</span></div>");
     builder.AppendLine("      <div class=\"gallery\" aria-label=\"Animated GnOuGo presets\">");
 
@@ -324,14 +327,20 @@ static string RenderAnimationGallery(GnouGnouBearOptions baseOptions)
         var animation = animations[index];
         var appearance = appearances[index % appearances.Count];
         var animationToken = animation.ToString().ToLowerInvariant();
+        var title = animation == GnouGnouBearAnimation.Thinking ? "AI Thinking" : animation.ToString();
+        var description = animation == GnouGnouBearAnimation.Thinking
+            ? $"{appearance.Name} · Concentrated moving eyes, inward brows, a warm face flush, and animated forehead sweat drops."
+            : $"{appearance.Name} · {appearance.Description}";
         var options = appearance.Options with
         {
             Animation = animation,
             SvgIdPrefix = $"gallery-animated-{animationToken}-{appearance.Token}",
-            Title = $"{animation} animation on {appearance.Name} GnOuGo",
-            Description = $"{appearance.Description}. Demonstrating the {animation} animation preset."
+            Title = $"{title} animation on {appearance.Name} GnOuGo",
+            Description = animation == GnouGnouBearAnimation.Thinking
+                ? "GnOuGo concentrates during an AI call with changing eyes, a warmer face, and animated sweat drops."
+                : $"{appearance.Description}. Demonstrating the {animation} animation preset."
         };
-        AppendGalleryCard(builder, animation.ToString(), $"{appearance.Name} · {appearance.Description}", options, "Animated", true,
+        AppendGalleryCard(builder, title, description, options, "Animated", true,
             $"/bear.svg?seed={baseOptions.Seed}&amp;appearance={appearance.Token}&amp;animation={animation}");
     }
 
