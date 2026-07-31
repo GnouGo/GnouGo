@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.16.0 - 2026-07-31
+
+- feat: add text svg gnougo style (release) (b4e855a)
+
 ## v0.15.0 - 2026-07-31
 
 - feat: add thinking animation (release) (4eb6e4a)
