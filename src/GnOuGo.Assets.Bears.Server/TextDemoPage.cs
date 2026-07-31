@@ -28,6 +28,7 @@ internal static class TextDemoPage
     button, a { -webkit-tap-highlight-color: transparent; }
     .shell { width: min(1480px, 100%); margin: 0 auto; padding: 28px clamp(16px, 3vw, 46px) 46px; }
     .topbar { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-bottom: 22px; }
+    .topbar-nav { display: flex; flex-wrap: wrap; gap: 15px; }
     .back { color: #315f9c; font-weight: 800; text-decoration: none; }
     .badge { border: 1px solid #b9d2ee; border-radius: 999px; padding: 7px 11px; background: rgba(255,255,255,.72); color: #41698f; font-size: .74rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
     header { max-width: 860px; margin-bottom: 28px; }
@@ -82,7 +83,7 @@ internal static class TextDemoPage
 <body>
   <div class="shell">
     <div class="topbar">
-      <a class="back" href="/">← Bear gallery</a>
+      <nav class="topbar-nav"><a class="back" href="/">← Bear gallery</a><a class="back" href="/bear-text">Bear + text</a></nav>
       <span class="badge">Live generator</span>
     </div>
     <header>

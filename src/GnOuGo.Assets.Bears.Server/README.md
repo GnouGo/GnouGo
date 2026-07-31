@@ -21,6 +21,12 @@ animation modes, and preview background controls. Configurations are reflected
 in the page URL so they can be shared, and the generated SVG can be opened,
 copied, or downloaded directly.
 
+The **Bear + text playground** at `/bear-text` drives the combined lockup
+generator. It includes independent bear and text sizes and animations, the
+major mascot appearance inputs, text gradient/sparkle/margin controls, and the
+gap between both canvases. Its URL is also shareable and the composed SVG can
+be opened or downloaded directly.
+
 ## Run
 
 ```bash
@@ -44,6 +50,12 @@ field to reproduce an appearance or select **Randomize** for another GnOuGo.
   returns a configured standalone text SVG. Repeat `color` two to eight times;
   optional parameters are `starColor`, `starScale`, `marginX`, `marginY`, and
   `idPrefix`. Text animations are `None`, `Idle`, `Wave`, and `Bounce`.
+- `/bear-text` renders the interactive combined mascot and text playground.
+- `/bear-text.svg?text=GnOuGo&bearSize=256&textSize=128&gap=24&bearAnimation=Idle&textAnimation=Wave`
+  returns a composed standalone SVG. Bear parameters include `seed`, `role`,
+  `emotion`, `accessory`, `state`, `theme`, `fur`, `eyes`, `nose`,
+  `beardStyle`, `headphones`, `bowTie`, and `beard`; text styling uses the same
+  repeated `color`, sparkle, and margin parameters as `/text.svg`.
 
 Supported animation values are `None`, `Idle`, `Walk`, `Typing`, `Waiting`,
 `Pickup`, `Handoff`, `Delivery`, `Clone`, `Merge`, `Celebration`, and
