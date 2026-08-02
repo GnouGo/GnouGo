@@ -42,7 +42,7 @@ public static class KeyVaultMcpHostingExtensions
                 };
                 options.AddGnOuGoToolErrorNormalizer();
             })
-            .WithHttpTransport()
+            .WithHttpTransport(options => options.Stateless = true)
             .WithTools<KeyVaultTools>(KeyVaultMcpJson.SerializerOptions);
 
         return services;

@@ -294,7 +294,7 @@ public sealed class ConfigureAgentsServiceTests
         if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
             return;
 
-        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-select-{Guid.NewGuid():N}.db");
+        var dbPath = AgentMcpTestPersistence.CreateIsolatedDatabasePath("agent-select");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"
         ], urls: "http://127.0.0.1:0");
@@ -358,16 +358,7 @@ public sealed class ConfigureAgentsServiceTests
             await app.StopAsync();
             await app.DisposeAsync();
 
-            try
-            {
-                File.Delete(dbPath);
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
+            AgentMcpTestPersistence.CleanupIsolatedWorkspace(dbPath);
         }
     }
 

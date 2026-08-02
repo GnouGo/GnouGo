@@ -427,7 +427,7 @@ public static class GnOuGoAgentWebHost
         // Mounted MCP sub-hosts are started/stopped by the MountedMcpHostsHolder
         // IHostedService — no direct startup here.
         var mountedMcpHostsHolder = app.Services.GetRequiredService<MountedMcpHostsHolder>();
-        app.Lifetime.ApplicationStarted.Register(() => _ = InitializeMountedAgentServicesAsync(app));
+        app.Lifetime.ApplicationStarted.Register(() => _ = InitializeMountedAgentServicesAsync(app, mountedMcpHostsHolder));
 
         if (isDesktopHosted)
         {
@@ -794,11 +794,29 @@ public static class GnOuGoAgentWebHost
             TryConfigureMountedMcpServer(app, registration, publishedEndpoints.AppBaseAddress);
     }
 
-    private static async Task InitializeMountedAgentServicesAsync(WebApplication app)
+    private static async Task InitializeMountedAgentServicesAsync(
+        WebApplication app,
+        MountedMcpHostsHolder mountedMcpHostsHolder)
     {
         ArgumentNullException.ThrowIfNull(app);
-        ConfigureMountedMcpServers(app);
-        await InitializeMountedAgentServicesFromServicesAsync(app.Services);
+        ArgumentNullException.ThrowIfNull(mountedMcpHostsHolder);
+
+        try
+        {
+            await mountedMcpHostsHolder.WaitUntilReadyAsync(app.Lifetime.ApplicationStopping);
+            ConfigureMountedMcpServers(app);
+            await InitializeMountedAgentServicesFromServicesAsync(app.Services);
+        }
+        catch (OperationCanceledException) when (app.Lifetime.ApplicationStopping.IsCancellationRequested)
+        {
+            // Normal shutdown while the desktop-hosted MCP sub-hosts are still starting.
+        }
+        catch (Exception ex)
+        {
+            var logger = app.Services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("GnOuGo.Agent.Server.MountedMcpHostsHolder");
+            logger.LogError(ex, "Mounted MCP sub-hosts did not become ready; their public endpoints were not published.");
+        }
     }
 
     private static async Task InitializeMountedAgentServicesFromServicesAsync(IServiceProvider services)
@@ -952,7 +970,7 @@ public static class GnOuGoAgentWebHost
         await response.Content.CopyToAsync(context.Response.Body, context.RequestAborted);
     }
 
-    private static bool ShouldSkipProxyRequestHeader(string headerName, bool hasBody)
+    internal static bool ShouldSkipProxyRequestHeader(string headerName, bool hasBody)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(headerName);
 
@@ -1202,6 +1220,8 @@ public static class GnOuGoAgentWebHost
         private readonly string[] _args;
         private readonly IServiceProvider _services;
         private readonly bool _startInBackground;
+        private readonly TaskCompletionSource<MountedMcpHosts> _readiness =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
         private MountedMcpHosts? _hosts;
         private Task? _startupTask;
         private CancellationTokenSource? _startupCancellation;
@@ -1218,6 +1238,11 @@ public static class GnOuGoAgentWebHost
         public Uri? KeyVaultBaseAddress => _hosts?.KeyVaultBaseAddress;
         public Uri? DocsIngestorBaseAddress => _hosts?.DocsIngestorBaseAddress;
 
+        public async Task WaitUntilReadyAsync(CancellationToken cancellationToken)
+        {
+            await _readiness.Task.WaitAsync(cancellationToken);
+        }
+
         public Task StartAsync(CancellationToken cancellationToken)
         {
             if (_startInBackground)
@@ -1227,8 +1252,17 @@ public static class GnOuGoAgentWebHost
                 return Task.CompletedTask;
             }
 
-            _hosts = StartMountedMcpHosts(_args);
-            return Task.CompletedTask;
+            try
+            {
+                _hosts = StartMountedMcpHosts(_args);
+                _readiness.TrySetResult(_hosts);
+                return Task.CompletedTask;
+            }
+            catch (Exception ex)
+            {
+                _readiness.TrySetException(ex);
+                throw;
+            }
         }
 
         public async Task StopAsync(CancellationToken cancellationToken)
@@ -1248,6 +1282,8 @@ public static class GnOuGoAgentWebHost
                     // ignore
                 }
             }
+
+            _readiness.TrySetCanceled(cancellationToken);
 
             if (_startupTask is not null)
             {
@@ -1274,13 +1310,16 @@ public static class GnOuGoAgentWebHost
             try
             {
                 _hosts = await StartMountedMcpHostsAsync(_args, cancellationToken);
+                _readiness.TrySetResult(_hosts);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
+                _readiness.TrySetCanceled(ex.CancellationToken);
                 throw;
             }
             catch (Exception ex)
             {
+                _readiness.TrySetException(ex);
                 var logger = _services.GetRequiredService<ILoggerFactory>()
                     .CreateLogger("GnOuGo.Agent.Server.MountedMcpHostsHolder");
                 logger.LogWarning(ex, "Mounted MCP sub-host startup failed.");

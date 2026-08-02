@@ -2,6 +2,10 @@
 
 HTTP MCP server for document ingestion. It downloads internal file URLs, extracts text/chunks with `GnOuGo.DocIngestor.Core`, optionally resolves an embedding configuration from `GnOuGo.KeyVault.Core`, stores original files, ingests chunks into the SQLite vector store, and exposes list/search/download/delete operations.
 
+## MCP protocol compatibility
+
+This server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. Its Streamable HTTP transport is explicitly stateless. Discovery-first clients use `server/discover`, while the SDK continues to accept older clients that negotiate a legacy protocol version.
+
 ## Build
 
 ```powershell

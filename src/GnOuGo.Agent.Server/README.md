@@ -48,6 +48,8 @@ flowchart TD
 - `GnOuGo.KeyVault.Mcp` → `/mcp/keyvault`
 - `GnOuGo.DocIngestor.Mcp` → `/mcp/docs-ingestor`
 
+All three mounted services use the stable C# MCP SDK `2.0.0`, explicitly stateless Streamable HTTP, and MCP `2026-07-28` discovery. The public proxy forwards the standardized `MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name`, and `Mcp-Param-*` headers. Mounted URLs are published to runtime configuration only after every private sub-host is listening; older MCP clients remain supported through SDK negotiation.
+
 The default placeholders in `appsettings.json` intentionally use port `0`:
     
 ```json

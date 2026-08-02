@@ -2,6 +2,10 @@
 
 MCP (Model Context Protocol) stdio server for reading and writing document files.
 
+## MCP protocol compatibility
+
+This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. The SDK retains compatibility with older clients; tool names, request schemas, and structured results are unchanged.
+
 ## Supported Formats
 
 | Format | Read | Write |

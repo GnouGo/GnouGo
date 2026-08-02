@@ -2,6 +2,10 @@
 
 Shared helpers for GnOuGo MCP servers.
 
+## MCP protocol compatibility
+
+The library targets the stable C# MCP SDK `2.0.0` and is shared by both MCP `2026-07-28` servers and down-level connections negotiated by the SDK. It does not add Tasks, MCP Apps, Roots, Sampling, or MCP Logging dependencies.
+
 ## Build
 
 ```bash

@@ -2,6 +2,10 @@
 
 `GnOuGo.Browser.Mcp` is a **stdio** MCP server based on **Playwright.NET**. It exposes a set of web navigation tools usable from `GnOuGo.Flow` or any compatible MCP client.
 
+## MCP protocol compatibility
+
+This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. The SDK retains compatibility with older clients. The GnOuGo JSONL progress stream remains a stderr side channel and does not alter the MCP wire contract.
+
 ## Exposed Tools
 
 - `browser_get_content`: reads visible text or rendered HTML; can also open a URL and return content in the same call

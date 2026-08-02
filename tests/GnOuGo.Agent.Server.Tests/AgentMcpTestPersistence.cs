@@ -7,6 +7,49 @@ namespace GnOuGo.Agent.Server.Tests;
 
 internal static class AgentMcpTestPersistence
 {
+    public static string CreateIsolatedDatabasePath(string scenario)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(scenario);
+
+        var workspaceRoot = Path.Combine(
+            Path.GetTempPath(),
+            "gnougo-agent-server-tests",
+            $"{scenario}-{Guid.NewGuid():N}");
+        var dataDirectory = Path.Combine(workspaceRoot, ".GnOuGo", "data");
+        Directory.CreateDirectory(dataDirectory);
+        return Path.Combine(dataDirectory, "agent.db");
+    }
+
+    public static void CleanupIsolatedWorkspace(string dbPath)
+    {
+        var dataDirectory = Directory.GetParent(Path.GetFullPath(dbPath));
+        var metadataDirectory = dataDirectory?.Parent;
+        var workspaceRoot = metadataDirectory?.Parent;
+        var expectedTestRoot = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "gnougo-agent-server-tests"));
+
+        if (dataDirectory is null
+            || metadataDirectory is null
+            || workspaceRoot is null
+            || !string.Equals(dataDirectory.Name, "data", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(metadataDirectory.Name, ".GnOuGo", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(workspaceRoot.Parent?.FullName, expectedTestRoot, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Refusing to delete an unexpected test workspace for database '{dbPath}'.");
+        }
+
+        try
+        {
+            if (workspaceRoot.Exists)
+                workspaceRoot.Delete(recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
     public static async Task SeedAgentAsync(string dbPath, string name, string workflow, CancellationToken ct = default)
         => await WithAgentMcpServicesAsync(dbPath, async scope =>
         {

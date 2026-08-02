@@ -175,7 +175,7 @@ workflows:
         if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
             return;
 
-        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-smartflow-{Guid.NewGuid():N}.db");
+        var dbPath = AgentMcpTestPersistence.CreateIsolatedDatabasePath("smartflow-default-agent");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"
         ], urls: "http://127.0.0.1:0");
@@ -234,14 +234,7 @@ workflows:
             await app.StopAsync();
             await app.DisposeAsync();
 
-            try
-            {
-                if (File.Exists(dbPath))
-                    File.Delete(dbPath);
-            }
-            catch
-            {
-            }
+            AgentMcpTestPersistence.CleanupIsolatedWorkspace(dbPath);
         }
     }
 
@@ -1194,7 +1187,7 @@ workflows:
         if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
             return;
 
-        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-smartflow-preferred-{Guid.NewGuid():N}.db");
+        var dbPath = AgentMcpTestPersistence.CreateIsolatedDatabasePath("smartflow-preferred-agent");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"
         ], urls: "http://127.0.0.1:0");
@@ -1255,14 +1248,7 @@ workflows:
             await app.StopAsync();
             await app.DisposeAsync();
 
-            try
-            {
-                if (File.Exists(dbPath))
-                    File.Delete(dbPath);
-            }
-            catch
-            {
-            }
+            AgentMcpTestPersistence.CleanupIsolatedWorkspace(dbPath);
         }
     }
 
@@ -1272,7 +1258,7 @@ workflows:
         if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
             return;
 
-        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-smartflow-missing-{Guid.NewGuid():N}.db");
+        var dbPath = AgentMcpTestPersistence.CreateIsolatedDatabasePath("smartflow-missing-agent");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"
         ], urls: "http://127.0.0.1:0");
@@ -1332,14 +1318,7 @@ workflows:
             await app.StopAsync();
             await app.DisposeAsync();
 
-            try
-            {
-                if (File.Exists(dbPath))
-                    File.Delete(dbPath);
-            }
-            catch
-            {
-            }
+            AgentMcpTestPersistence.CleanupIsolatedWorkspace(dbPath);
         }
     }
 
@@ -1349,7 +1328,7 @@ workflows:
         if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
             return;
 
-        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-smartflow-traces-{Guid.NewGuid():N}.db");
+        var dbPath = AgentMcpTestPersistence.CreateIsolatedDatabasePath("smartflow-traces");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"
         ], urls: "http://127.0.0.1:0");
@@ -1424,16 +1403,7 @@ workflows:
             await app.StopAsync();
             await app.DisposeAsync();
 
-            try
-            {
-                File.Delete(dbPath);
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
+            AgentMcpTestPersistence.CleanupIsolatedWorkspace(dbPath);
         }
     }
 

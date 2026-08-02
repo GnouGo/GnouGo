@@ -35,6 +35,16 @@ public class ConfiguredMcpClientFactoryTests
     }
 
     [Fact]
+    public void CreateClientOptions_LeavesProtocolVersionUnpinnedForAutomaticFallback()
+    {
+        var options = ConfiguredMcpClientFactory.CreateClientOptions();
+
+        Assert.Null(options.ProtocolVersion);
+        Assert.Equal("GnOuGo.Flow", options.ClientInfo?.Name);
+        Assert.Equal("1.0.0", options.ClientInfo?.Version);
+    }
+
+    [Fact]
     public void IsUnexpectedServerExit_ReturnsTrue_ForNestedProcessExitMessage()
     {
         var ex = new InvalidOperationException(

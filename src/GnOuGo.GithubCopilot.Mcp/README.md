@@ -2,6 +2,10 @@
 
 MCP stdio server for safe code operations on a local project.
 
+## MCP protocol compatibility
+
+This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. The SDK retains compatibility with older clients. The GnOuGo JSONL progress stream remains a stderr side channel and does not alter the MCP wire contract.
+
 ## Features
 
 - Inspect the active policy with `code_get_policy`.
