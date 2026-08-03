@@ -34,7 +34,7 @@ public sealed class CircularLoggingPreventionTests
         logger.LogInformation("This should never be enqueued");
 
         // Give a brief moment then verify nothing was enqueued
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
         Assert.False(queue.Channel.Reader.TryRead(out _),
             $"Category '{categoryName}' should be suppressed but a row was enqueued.");
     }
@@ -69,7 +69,7 @@ public sealed class CircularLoggingPreventionTests
 
         logger.LogInformation("No activity context — should not be enqueued");
 
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
         Assert.False(queue.Channel.Reader.TryRead(out _),
             "Logs without an active Activity should not be enqueued.");
     }

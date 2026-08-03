@@ -26,7 +26,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         {
             await using (var scope = provider.CreateAsyncScope())
             {
-                await provider.InitializeKeyVaultMcpAsync();
+                await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
                 var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
                 await keyVault.SetSecretAsync(
                     "LLM--Models--openai",
@@ -118,7 +118,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         {
             await using (var scope = provider.CreateAsyncScope())
             {
-                await provider.InitializeKeyVaultMcpAsync();
+                await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
                 var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
                 await keyVault.SetSecretAsync(
                     "gnougo_llm_openai",
@@ -185,7 +185,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         {
             await using (var scope = provider.CreateAsyncScope())
             {
-                await provider.InitializeKeyVaultMcpAsync();
+                await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
                 var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
                 await keyVault.SetSecretAsync(
                     "LLM--McpServerOverrides--GnOuGo.Git.Mcp--Git--Token",

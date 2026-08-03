@@ -41,7 +41,7 @@ public sealed class DiffServiceTests : IDisposable
     {
         var request = new CreateRevisionRequest("User", "1", "{\"name\":\"Alice\"}", "admin");
 
-        var result = await _service.CreateRevisionAsync(request);
+        var result = await _service.CreateRevisionAsync(request, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFirstRevision);
         Assert.Null(result.DiffFromPrevious);
@@ -55,11 +55,9 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task CreateRevision_SecondRevision_HasDiff()
     {
-        await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("User", "1", "line1\nline2", "admin"));
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "line1\nline2", "admin"), TestContext.Current.CancellationToken);
 
-        var result = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("User", "1", "line1\nline3", "admin"));
+        var result = await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "line1\nline3", "admin"), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsFirstRevision);
         Assert.NotNull(result.DiffFromPrevious);
@@ -72,8 +70,8 @@ public sealed class DiffServiceTests : IDisposable
     {
         var request = new CreateRevisionRequest("Config", "main", "{\"key\":\"value\"}", "system");
 
-        var first = await _service.CreateRevisionAsync(request);
-        var second = await _service.CreateRevisionAsync(request); // same value
+        var first = await _service.CreateRevisionAsync(request, TestContext.Current.CancellationToken);
+        var second = await _service.CreateRevisionAsync(request, TestContext.Current.CancellationToken); // same value
 
         // Should return the first revision (no new entry created)
         Assert.Equal(first.Id, second.Id);
@@ -83,10 +81,8 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task CreateRevision_DifferentEntities_IndependentRevisions()
     {
-        var r1 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("User", "1", "Alice", "admin"));
-        var r2 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("User", "2", "Bob", "admin"));
+        var r1 = await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "Alice", "admin"), TestContext.Current.CancellationToken);
+        var r2 = await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "2", "Bob", "admin"), TestContext.Current.CancellationToken);
 
         Assert.NotEqual(r1.Id, r2.Id);
         Assert.True(r1.IsFirstRevision);
@@ -96,10 +92,8 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task CreateRevision_DifferentEntityTypes_Independent()
     {
-        var r1 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("User", "1", "{}", "admin"));
-        var r2 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Order", "1", "{}", "admin"));
+        var r1 = await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "{}", "admin"), TestContext.Current.CancellationToken);
+        var r2 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Order", "1", "{}", "admin"), TestContext.Current.CancellationToken);
 
         Assert.NotEqual(r1.Id, r2.Id);
         Assert.True(r1.IsFirstRevision);
@@ -109,9 +103,9 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task CreateRevision_MultipleRevisions_AllPersisted()
     {
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v1", "a"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v2", "b"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v3", "c"));
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v1", "a"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v2", "b"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v3", "c"), TestContext.Current.CancellationToken);
 
         var revisions = await _service.GetRevisionsAsync("Doc", "1");
 
@@ -122,9 +116,9 @@ public sealed class DiffServiceTests : IDisposable
     public async Task CreateRevision_SameValueAfterChange_CreatesNewEntry()
     {
         // v1 → v2 → v1 (reverting should create a new entry since hash differs from latest)
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "original", "a"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "modified", "a"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "original", "a")); // revert
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "original", "a"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "modified", "a"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "original", "a"), TestContext.Current.CancellationToken); // revert
 
         var revisions = await _service.GetRevisionsAsync("Doc", "1");
         Assert.Equal(3, revisions.Count);
@@ -135,11 +129,11 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task GetRevisions_ReturnsOrderedByTimestampDesc()
     {
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "first", "a"));
-        await Task.Delay(10); // ensure different timestamps
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "second", "a"));
-        await Task.Delay(10);
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "third", "a"));
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "first", "a"), TestContext.Current.CancellationToken);
+        await Task.Delay(10, TestContext.Current.CancellationToken); // ensure different timestamps
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "second", "a"), TestContext.Current.CancellationToken);
+        await Task.Delay(10, TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "third", "a"), TestContext.Current.CancellationToken);
 
         var revisions = await _service.GetRevisionsAsync("Doc", "1");
 
@@ -159,9 +153,9 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task GetRevisions_OnlyReturnsMatchingEntity()
     {
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "Alice", "a"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "2", "Bob", "a"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Order", "1", "Order1", "a"));
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "Alice", "a"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "2", "Bob", "a"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Order", "1", "Order1", "a"), TestContext.Current.CancellationToken);
 
         var user1 = await _service.GetRevisionsAsync("User", "1");
         Assert.Single(user1);
@@ -173,11 +167,11 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task GetRevisionAtTimestamp_ReturnsClosestBefore()
     {
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v1", "a"));
-        await Task.Delay(50);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v1", "a"), TestContext.Current.CancellationToken);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
         var midpoint = DateTimeOffset.UtcNow;
-        await Task.Delay(50);
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v2", "a"));
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v2", "a"), TestContext.Current.CancellationToken);
 
         var result = await _service.GetRevisionAtTimestampAsync("Doc", "1", midpoint);
 
@@ -188,7 +182,7 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task GetRevisionAtTimestamp_FutureTimestamp_ReturnsLatest()
     {
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v1", "a"));
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v1", "a"), TestContext.Current.CancellationToken);
 
         var future = DateTimeOffset.UtcNow.AddHours(1);
         var result = await _service.GetRevisionAtTimestampAsync("Doc", "1", future);
@@ -200,7 +194,7 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task GetRevisionAtTimestamp_BeforeFirstRevision_ReturnsNull()
     {
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v1", "a"));
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v1", "a"), TestContext.Current.CancellationToken);
 
         var past = DateTimeOffset.UtcNow.AddHours(-1);
         var result = await _service.GetRevisionAtTimestampAsync("Doc", "1", past);
@@ -220,11 +214,9 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task CompareRevisions_SameEntity_ReturnsDiff()
     {
-        var r1 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Doc", "1", "Hello\nWorld", "a"));
-        await Task.Delay(10);
-        var r2 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Doc", "1", "Hello\nUniverse", "a"));
+        var r1 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "Hello\nWorld", "a"), TestContext.Current.CancellationToken);
+        await Task.Delay(10, TestContext.Current.CancellationToken);
+        var r2 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "Hello\nUniverse", "a"), TestContext.Current.CancellationToken);
 
         var comparison = await _service.CompareRevisionsAsync(r1.Id, r2.Id);
 
@@ -240,14 +232,11 @@ public sealed class DiffServiceTests : IDisposable
     public async Task CompareRevisions_IdenticalContent_NoDiff()
     {
         // Create two different revisions with same content (after a change + revert)
-        var r1 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Doc", "1", "Same content", "a"));
-        await Task.Delay(10);
-        await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Doc", "1", "Different", "a"));
-        await Task.Delay(10);
-        var r3 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Doc", "1", "Same content", "a")); // revert
+        var r1 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "Same content", "a"), TestContext.Current.CancellationToken);
+        await Task.Delay(10, TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "Different", "a"), TestContext.Current.CancellationToken);
+        await Task.Delay(10, TestContext.Current.CancellationToken);
+        var r3 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "Same content", "a"), TestContext.Current.CancellationToken); // revert
 
         var comparison = await _service.CompareRevisionsAsync(r1.Id, r3.Id);
 
@@ -260,8 +249,7 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task CompareRevisions_UnknownId_ReturnsNull()
     {
-        var r1 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Doc", "1", "Hello", "a"));
+        var r1 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "Hello", "a"), TestContext.Current.CancellationToken);
 
         var result = await _service.CompareRevisionsAsync(r1.Id, Guid.NewGuid());
         Assert.Null(result);
@@ -277,10 +265,8 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task CompareRevisions_DifferentEntities_ThrowsInvalidOperation()
     {
-        var r1 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("User", "1", "Alice", "a"));
-        var r2 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("User", "2", "Bob", "a"));
+        var r1 = await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "Alice", "a"), TestContext.Current.CancellationToken);
+        var r2 = await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "2", "Bob", "a"), TestContext.Current.CancellationToken);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.CompareRevisionsAsync(r1.Id, r2.Id));
@@ -289,10 +275,8 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task CompareRevisions_DifferentEntityTypes_ThrowsInvalidOperation()
     {
-        var r1 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("User", "1", "{}", "a"));
-        var r2 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Order", "1", "{}", "a"));
+        var r1 = await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "{}", "a"), TestContext.Current.CancellationToken);
+        var r2 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Order", "1", "{}", "a"), TestContext.Current.CancellationToken);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.CompareRevisionsAsync(r1.Id, r2.Id));
@@ -301,11 +285,9 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task CompareRevisions_Stats_AreReasonable()
     {
-        var r1 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Doc", "1", "line1\nline2\nline3", "a"));
-        await Task.Delay(10);
-        var r2 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Doc", "1", "line1\nmodified\nline3\nline4", "a"));
+        var r1 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "line1\nline2\nline3", "a"), TestContext.Current.CancellationToken);
+        await Task.Delay(10, TestContext.Current.CancellationToken);
+        var r2 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "line1\nmodified\nline3\nline4", "a"), TestContext.Current.CancellationToken);
 
         var comparison = await _service.CompareRevisionsAsync(r1.Id, r2.Id);
 
@@ -328,9 +310,9 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task GetEntityTypes_ReturnsTypesWithCounts()
     {
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "a", "x"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "2", "b", "x"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Order", "1", "c", "x"));
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "a", "x"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "2", "b", "x"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Order", "1", "c", "x"), TestContext.Current.CancellationToken);
 
         var types = await _service.GetEntityTypesAsync();
 
@@ -342,9 +324,9 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task GetEntityTypes_CountsAllRevisions()
     {
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v1", "a"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v2", "a"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v3", "a"));
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v1", "a"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v2", "a"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "v3", "a"), TestContext.Current.CancellationToken);
 
         var types = await _service.GetEntityTypesAsync();
 
@@ -357,10 +339,10 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task GetLatestRevisionsForType_ReturnsLatestPerEntity()
     {
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "Alice v1", "a"));
-        await Task.Delay(10);
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "Alice v2", "a"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "2", "Bob", "a"));
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "Alice v1", "a"), TestContext.Current.CancellationToken);
+        await Task.Delay(10, TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "Alice v2", "a"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "2", "Bob", "a"), TestContext.Current.CancellationToken);
 
         var latest = await _service.GetLatestRevisionsForTypeAsync("User");
 
@@ -384,8 +366,8 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task GetLatestRevisionsForType_DoesNotMixTypes()
     {
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "Alice", "a"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Order", "1", "Order1", "a"));
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("User", "1", "Alice", "a"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Order", "1", "Order1", "a"), TestContext.Current.CancellationToken);
 
         var users = await _service.GetLatestRevisionsForTypeAsync("User");
         Assert.Single(users);
@@ -397,9 +379,9 @@ public sealed class DiffServiceTests : IDisposable
     [Fact]
     public async Task DuplicateContent_NotStored_WhenConsecutive()
     {
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "same", "a"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "same", "a"));
-        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "same", "a"));
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "same", "a"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "same", "a"), TestContext.Current.CancellationToken);
+        await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "1", "same", "a"), TestContext.Current.CancellationToken);
 
         var revisions = await _service.GetRevisionsAsync("Doc", "1");
         Assert.Single(revisions); // only one revision stored
@@ -411,17 +393,15 @@ public sealed class DiffServiceTests : IDisposable
     public async Task FullLifecycle_Create_Get_Compare()
     {
         // Create entity
-        var r1 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Config", "db-connection",
-                "server=localhost;db=mydb", "deploy-bot"));
+        var r1 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Config", "db-connection",
+                "server=localhost;db=mydb", "deploy-bot"), TestContext.Current.CancellationToken);
 
         Assert.True(r1.IsFirstRevision);
 
         // Update entity
-        await Task.Delay(10);
-        var r2 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Config", "db-connection",
-                "server=prod-db.internal;db=mydb", "deploy-bot"));
+        await Task.Delay(10, TestContext.Current.CancellationToken);
+        var r2 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Config", "db-connection",
+                "server=prod-db.internal;db=mydb", "deploy-bot"), TestContext.Current.CancellationToken);
 
         Assert.False(r2.IsFirstRevision);
 
@@ -451,11 +431,9 @@ public sealed class DiffServiceTests : IDisposable
         var v1 = "line1\nline2\nline3\nline4\nline5";
         var v2 = "line1\nLINE2\nline3\nnew_line\nline5";
 
-        var r1 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Doc", "ml", v1, "editor"));
-        await Task.Delay(10);
-        var r2 = await _service.CreateRevisionAsync(
-            new CreateRevisionRequest("Doc", "ml", v2, "editor"));
+        var r1 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "ml", v1, "editor"), TestContext.Current.CancellationToken);
+        await Task.Delay(10, TestContext.Current.CancellationToken);
+        var r2 = await _service.CreateRevisionAsync(new CreateRevisionRequest("Doc", "ml", v2, "editor"), TestContext.Current.CancellationToken);
 
         var comparison = await _service.CompareRevisionsAsync(r1.Id, r2.Id);
 

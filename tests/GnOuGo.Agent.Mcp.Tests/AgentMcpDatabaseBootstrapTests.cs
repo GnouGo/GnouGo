@@ -28,10 +28,10 @@ public sealed class AgentMcpDatabaseBootstrapTests : IAsyncDisposable
     public async Task EnsureCreatedAsync_CreatesAllTables()
     {
         await using var db = CreateDbContext();
-        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(db);
+        await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(db, TestContext.Current.CancellationToken);
 
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
-        await connection.OpenAsync();
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
         Assert.True(await TableExistsAsync(connection, "UserConfigs"));
         Assert.True(await IndexExistsAsync(connection, "IX_UserConfigs_TenantScopeKey"));
         Assert.True(await IndexExistsAsync(connection, "IX_UserConfigs_TenantId"));
@@ -41,13 +41,13 @@ public sealed class AgentMcpDatabaseBootstrapTests : IAsyncDisposable
     public async Task EnsureCreatedAsync_IsIdempotent_WhenCalledTwice()
     {
         await using (var db1 = CreateDbContext())
-            await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(db1);
+            await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(db1, TestContext.Current.CancellationToken);
 
         await using (var db2 = CreateDbContext())
-            await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(db2);
+            await AgentMcpDatabaseBootstrap.EnsureCreatedAsync(db2, TestContext.Current.CancellationToken);
 
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
-        await connection.OpenAsync();
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
         Assert.True(await TableExistsAsync(connection, "UserConfigs"));
         Assert.True(await IndexExistsAsync(connection, "IX_UserConfigs_TenantScopeKey"));
     }

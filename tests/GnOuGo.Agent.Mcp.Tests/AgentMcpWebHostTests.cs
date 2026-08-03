@@ -62,7 +62,7 @@ public sealed class AgentMcpWebHostTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
 
             var address = app.Services
                 .GetRequiredService<IServer>()
@@ -72,14 +72,14 @@ public sealed class AgentMcpWebHostTests
                 .First();
 
             using var http = new HttpClient();
-            var payload = await http.GetFromJsonAsync<HealthPayload>($"{address.TrimEnd('/')}/health");
+            var payload = await http.GetFromJsonAsync<HealthPayload>($"{address.TrimEnd('/')}/health", cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.NotNull(payload);
             Assert.Equal("ok", payload.Status);
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
             try
@@ -104,7 +104,7 @@ public sealed class AgentMcpWebHostTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
 
             var address = app.Services
                 .GetRequiredService<IServer>()
@@ -154,7 +154,7 @@ public sealed class AgentMcpWebHostTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
             try
@@ -179,7 +179,7 @@ public sealed class AgentMcpWebHostTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
 
             var address = app.Services
                 .GetRequiredService<IServer>()
@@ -214,7 +214,7 @@ public sealed class AgentMcpWebHostTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
             try
@@ -239,7 +239,7 @@ public sealed class AgentMcpWebHostTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
 
             var address = app.Services
                 .GetRequiredService<IServer>()
@@ -272,7 +272,7 @@ public sealed class AgentMcpWebHostTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
             try

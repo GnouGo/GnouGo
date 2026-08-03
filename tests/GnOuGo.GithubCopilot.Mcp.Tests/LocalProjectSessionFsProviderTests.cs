@@ -18,7 +18,7 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
     {
         var provider = CreateProvider(allowWrites: true);
 
-        await provider.WriteFileForTestAsync("src/NewFile.cs", "class NewFile { }\n");
+        await provider.WriteFileForTestAsync("src/NewFile.cs", "class NewFile { }\n", TestContext.Current.CancellationToken);
 
         Assert.Equal("class NewFile { }\n", File.ReadAllText(Path.Combine(_root, "src", "NewFile.cs")));
         Assert.Contains("src" + Path.DirectorySeparatorChar + "NewFile.cs", provider.ModifiedFiles);
@@ -29,7 +29,7 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
     {
         var provider = CreateProvider(allowWrites: false);
 
-        var content = await provider.ReadFileForTestAsync("src/Existing.cs");
+        var content = await provider.ReadFileForTestAsync("src/Existing.cs", TestContext.Current.CancellationToken);
 
         Assert.Contains("class Existing", content, StringComparison.Ordinal);
     }
@@ -39,7 +39,7 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
     {
         var provider = CreateProvider(_root, allowWrites: false);
 
-        var content = await provider.ReadFileForTestAsync("src/Existing.cs");
+        var content = await provider.ReadFileForTestAsync("src/Existing.cs", TestContext.Current.CancellationToken);
 
         Assert.Contains("class Existing", content, StringComparison.Ordinal);
     }
@@ -50,7 +50,7 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
         var provider = CreateProvider(allowWrites: false);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            provider.WriteFileForTestAsync("src/NewFile.cs", "class NewFile { }\n"));
+            provider.WriteFileForTestAsync("src/NewFile.cs", "class NewFile { }\n", TestContext.Current.CancellationToken));
 
         Assert.Contains("disabled by policy", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -61,7 +61,7 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
         var provider = CreateProvider(allowWrites: true);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            provider.WriteFileForTestAsync("../escape.cs", "class Escape { }\n"));
+            provider.WriteFileForTestAsync("../escape.cs", "class Escape { }\n", TestContext.Current.CancellationToken));
 
         Assert.Contains("parent traversal", ex.Message, StringComparison.OrdinalIgnoreCase);
     }

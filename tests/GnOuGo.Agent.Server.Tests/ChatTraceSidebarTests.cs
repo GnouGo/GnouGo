@@ -135,7 +135,7 @@ public sealed class ChatTraceSidebarTests : BunitContext
             workflowActivity.SetTag(AgentOTelTelemetry.CorrelationIdTagName, "corr-sidebar");
             localStore.Track(workflowActivity);
             localStore.Complete(workflowActivity);
-        });
+        }, Xunit.TestContext.Current.CancellationToken);
 
         var closeButton = cut.Find("button[aria-label='Close trace panel']");
         closeButton.Click();
@@ -148,7 +148,7 @@ public sealed class ChatTraceSidebarTests : BunitContext
             .Add(p => p.OnClose, EventCallback.Factory.Create(this, () => closed = true)));
 
         await refreshTask;
-        await Task.Delay(150);
+        await Task.Delay(150, Xunit.TestContext.Current.CancellationToken);
 
         cut.WaitForAssertion(() =>
         {

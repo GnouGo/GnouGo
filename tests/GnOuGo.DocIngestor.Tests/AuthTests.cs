@@ -11,7 +11,7 @@ public sealed class AuthTests
     public async Task StaticApiKeyProvider_ReturnsKey()
     {
         var provider = new StaticApiKeyProvider("my-secret-key");
-        var key = await provider.GetApiKeyAsync();
+        var key = await provider.GetApiKeyAsync(TestContext.Current.CancellationToken);
         Assert.Equal("my-secret-key", key);
     }
 
@@ -20,8 +20,8 @@ public sealed class AuthTests
     {
         var provider = new StaticApiKeyProvider("key-123");
 
-        var k1 = await provider.GetApiKeyAsync();
-        var k2 = await provider.GetApiKeyAsync();
+        var k1 = await provider.GetApiKeyAsync(TestContext.Current.CancellationToken);
+        var k2 = await provider.GetApiKeyAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(k1, k2);
     }

@@ -1,6 +1,6 @@
 ﻿// ── Utility functions for GnOuGo.Flow Client ──
 
-import yaml from 'js-yaml'
+import * as yaml from 'js-yaml'
 
 /** Parse a YAML string of inputs into a JSON string for the API. */
 export function parseInputsYamlToJsonString(inputText: string): string | undefined {
@@ -41,4 +41,3 @@ export function makeStepKey(stepId: string, callDepth: number): string {
 export function readNdjsonLines(chunk: string): string[] {
   return chunk.split(/\r?\n/).filter(line => line.trim().length > 0)
 }
-

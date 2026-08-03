@@ -12,9 +12,7 @@ public sealed class AgentUserConfigHydrationTests
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-config-{Guid.NewGuid():N}.db");
 
-        await AgentMcpTestPersistence.SeedUserConfigAsync(
-            dbPath,
-            new UserConfigUpdate("ollama", "llama3:8b", "slimfaas"));
+        await AgentMcpTestPersistence.SeedUserConfigAsync(dbPath, new UserConfigUpdate("ollama", "llama3:8b", "slimfaas"), TestContext.Current.CancellationToken);
 
         var contentRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "GnOuGo.Agent.Server"));
         var app = GnOuGoAgentWebHost.Build(
@@ -32,24 +30,20 @@ public sealed class AgentUserConfigHydrationTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
 
             var store = app.Services.GetRequiredService<LLMRuntimeOptionsStore>();
-            for (var attempt = 0; attempt < 60; attempt++)
-            {
-                if (string.Equals(store.Current.DefaultProvider, "Ollama", StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(store.Current.DefaultModel, "llama3:8b", StringComparison.Ordinal))
-                    break;
-
-                await Task.Delay(100);
-            }
+            await TestPolling.WaitUntilAsync(
+                () => string.Equals(store.Current.DefaultProvider, "Ollama", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(store.Current.DefaultModel, "llama3:8b", StringComparison.Ordinal),
+                TestContext.Current.CancellationToken);
 
             Assert.Equal("ollama", store.Current.DefaultProvider, ignoreCase: true);
             Assert.Contains(store.Current.DefaultModel, new[] { "llama3:8b", "llama3" });
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
             try
@@ -63,7 +57,6 @@ public sealed class AgentUserConfigHydrationTests
         }
     }
 }
-
 
 
 

@@ -127,7 +127,7 @@ public sealed class ConfigureAgentsServiceTests
         }, token);
 
         var service = CreateConfigureAgentsServiceForStreaming(llm, humanInput, agentMcp);
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", token));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", token), TestContext.Current.CancellationToken);
         await responder;
 
         var generated = Assert.Single(events, evt =>
@@ -301,7 +301,7 @@ public sealed class ConfigureAgentsServiceTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var address = app.Services
                 .GetRequiredService<IServer>()
                 .Features
@@ -344,18 +344,18 @@ public sealed class ConfigureAgentsServiceTests
                 NullLogger<ConfigureAgentsService>.Instance,
                 userConfigClient);
 
-            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo select slimfaas", CancellationToken.None));
+            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo select slimfaas", CancellationToken.None), TestContext.Current.CancellationToken);
 
             Assert.Contains(events, evt => evt.Type == "agent_selected" && evt.Text == "slimfaas");
 
-            var config = await AgentMcpTestPersistence.GetUserConfigAsync(dbPath);
+            var config = await AgentMcpTestPersistence.GetUserConfigAsync(dbPath, TestContext.Current.CancellationToken);
             Assert.Equal("slimfaas", config.DefaultAgent);
             Assert.Null(config.DefaultLlmProvider);
             Assert.Null(config.DefaultLlmModel);
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
             AgentMcpTestPersistence.CleanupIsolatedWorkspace(dbPath);
@@ -766,7 +766,7 @@ public sealed class ConfigureAgentsServiceTests
         }, token);
 
         var service = CreateConfigureAgentsServiceForStreaming(llm, humanInput, agentMcp);
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo reprompt slimfaas", token));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo reprompt slimfaas", token), TestContext.Current.CancellationToken);
         await responder;
 
         Assert.Equal(0, updateCalls);
@@ -795,7 +795,7 @@ public sealed class ConfigureAgentsServiceTests
 
         var service = SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory(agentMcp));
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/GnOuGo list", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/GnOuGo list", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
@@ -824,7 +824,7 @@ public sealed class ConfigureAgentsServiceTests
                 Models = new Dictionary<string, ModelProviderOptions>()
             });
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
@@ -853,7 +853,7 @@ public sealed class ConfigureAgentsServiceTests
             },
             keyVaultStore);
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);

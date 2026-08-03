@@ -14,14 +14,14 @@ public sealed class EfTelemetryStoreTests
     public async Task GetAllTenantsAsync_ReturnsTenantsOrderedByCreatedUtcDescending_OnSqlite()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");
-        await connection.OpenAsync();
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
 
         var options = new DbContextOptionsBuilder<TelemetryDbContext>()
             .UseSqlite(connection)
             .Options;
 
         await using var db = new TelemetryDbContext(options);
-        await db.Database.EnsureCreatedAsync();
+        await db.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         var olderTenantId = Guid.NewGuid();
         var newerTenantId = Guid.NewGuid();
@@ -42,7 +42,7 @@ public sealed class EfTelemetryStoreTests
                 CreatedUtc = DateTimeOffset.UtcNow
             });
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var store = new EfTelemetryStore(db, NullLogger<EfTelemetryStore>.Instance);
 

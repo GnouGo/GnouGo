@@ -5,7 +5,7 @@
    a highlighted <pre>.
    ────────────────────────────────────────────────────────────── */
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
-import yaml from 'js-yaml'
+import * as yaml from 'js-yaml'
 
 // ── Types ──────────────────────────────────────────────────────
 

@@ -85,6 +85,8 @@ The GnOuGo project is composed of several complementary families:
 
 Supporting libraries such as **GnOuGo.AI.Core**, **GnOuGo.Auth.Core**, and **GnOuGo.VectorDbDisk** provide shared AI, authentication, and storage foundations across these families.
 
+The current dependency security review and documented upstream exceptions are maintained in [`DEPENDENCY_AUDIT.md`](DEPENDENCY_AUDIT.md).
+
 ---
 
 ## 🔌 MCP Servers

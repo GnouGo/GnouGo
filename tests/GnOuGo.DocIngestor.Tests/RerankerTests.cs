@@ -29,8 +29,7 @@ public sealed class RerankerTests
             MakeResult("c2", "The cat sat on the cat mat with cat", 0.0),
         };
 
-        var results = await reranker.RerankAsync("cat", candidates,
-            new RerankerOptions(TopK: 10, VectorWeight: 0.0, RerankWeight: 1.0));
+        var results = await reranker.RerankAsync("cat", candidates, new RerankerOptions(TopK: 10, VectorWeight: 0.0, RerankWeight: 1.0), TestContext.Current.CancellationToken);
 
         Assert.Equal(2, results.Count);
         // "The cat sat on the cat mat with cat" has 3 "cat" mentions → ranked first
@@ -41,7 +40,7 @@ public sealed class RerankerTests
     public async Task Bm25_EmptyCandidates_ReturnsEmpty()
     {
         var reranker = new Bm25Reranker();
-        var results = await reranker.RerankAsync("query", Array.Empty<VectorSearchResult>(), new RerankerOptions());
+        var results = await reranker.RerankAsync("query", Array.Empty<VectorSearchResult>(), new RerankerOptions(), TestContext.Current.CancellationToken);
         Assert.Empty(results);
     }
 
@@ -51,7 +50,7 @@ public sealed class RerankerTests
         var reranker = new Bm25Reranker();
         var candidates = new[] { MakeResult("c1", "some text", 0.8) };
 
-        var results = await reranker.RerankAsync("", candidates, new RerankerOptions());
+        var results = await reranker.RerankAsync("", candidates, new RerankerOptions(), TestContext.Current.CancellationToken);
 
         Assert.Single(results);
     }
@@ -64,7 +63,7 @@ public sealed class RerankerTests
             .Select(i => MakeResult($"c{i}", $"word{i} text content", 0.5))
             .ToArray();
 
-        var results = await reranker.RerankAsync("word5", candidates, new RerankerOptions(TopK: 3));
+        var results = await reranker.RerankAsync("word5", candidates, new RerankerOptions(TopK: 3), TestContext.Current.CancellationToken);
 
         Assert.Equal(3, results.Count);
     }
@@ -81,8 +80,7 @@ public sealed class RerankerTests
         };
 
         // Equal weights
-        var results = await reranker.RerankAsync("cat", candidates,
-            new RerankerOptions(TopK: 10, VectorWeight: 0.5, RerankWeight: 0.5));
+        var results = await reranker.RerankAsync("cat", candidates, new RerankerOptions(TopK: 10, VectorWeight: 0.5, RerankWeight: 0.5), TestContext.Current.CancellationToken);
 
         Assert.Equal(2, results.Count);
     }
@@ -114,7 +112,7 @@ public sealed class RerankerTests
             MakeResult("c2", "cat text here", 0.3),
         };
 
-        var results = await reranker.RerankAsync("cat", candidates, new RerankerOptions(TopK: 10));
+        var results = await reranker.RerankAsync("cat", candidates, new RerankerOptions(TopK: 10), TestContext.Current.CancellationToken);
 
         Assert.Equal(2, results.Count);
         Assert.Equal("c2", results[0].Chunk.Chunk.ChunkId); // cat should be ranked first
@@ -127,7 +125,7 @@ public sealed class RerankerTests
         scorer.SetupGet(s => s.Name).Returns("mock");
 
         var reranker = new CrossEncoderReranker(scorer.Object);
-        var results = await reranker.RerankAsync("q", Array.Empty<VectorSearchResult>(), new RerankerOptions());
+        var results = await reranker.RerankAsync("q", Array.Empty<VectorSearchResult>(), new RerankerOptions(), TestContext.Current.CancellationToken);
 
         Assert.Empty(results);
     }

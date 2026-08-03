@@ -1,7 +1,7 @@
 /* ─── YAML ↔ Flow Graph conversion ───────────────────────────
    Parses GnOuGo.Flow YAML into React Flow nodes/edges and back.
    ────────────────────────────────────────────────────────────── */
-import yaml from 'js-yaml'
+import * as yaml from 'js-yaml'
 import type { Node, Edge } from '@xyflow/react'
 import { STEP_TYPE_MAP } from './stepTypes'
 
@@ -73,7 +73,7 @@ export function serializeYaml(doc: ParsedDocument): string {
     lineWidth: 120,
     noRefs: true,
     sortKeys: false,
-    quotingType: '"',
+    quoteStyle: 'double',
     forceQuotes: false,
   })
 }
@@ -473,4 +473,3 @@ export function removeStep(
   walk(wf.steps)
   return clone
 }
-

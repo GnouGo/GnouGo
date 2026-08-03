@@ -13,7 +13,7 @@ public sealed class EmbeddingTests
     {
         var model = new HashEmbeddingModel("hash-384", 384);
 
-        var vector = await model.EmbedAsync("hello world");
+        var vector = await model.EmbedAsync("hello world", TestContext.Current.CancellationToken);
 
         Assert.Equal(384, vector.Length);
     }
@@ -23,8 +23,8 @@ public sealed class EmbeddingTests
     {
         var model = new HashEmbeddingModel("hash-768", 768);
 
-        var v1 = await model.EmbedAsync("same text");
-        var v2 = await model.EmbedAsync("same text");
+        var v1 = await model.EmbedAsync("same text", TestContext.Current.CancellationToken);
+        var v2 = await model.EmbedAsync("same text", TestContext.Current.CancellationToken);
 
         Assert.Equal(v1, v2);
     }
@@ -34,8 +34,8 @@ public sealed class EmbeddingTests
     {
         var model = new HashEmbeddingModel("hash-384", 384);
 
-        var v1 = await model.EmbedAsync("cats");
-        var v2 = await model.EmbedAsync("dogs");
+        var v1 = await model.EmbedAsync("cats", TestContext.Current.CancellationToken);
+        var v2 = await model.EmbedAsync("dogs", TestContext.Current.CancellationToken);
 
         Assert.NotEqual(v1, v2);
     }
@@ -44,7 +44,7 @@ public sealed class EmbeddingTests
     public async Task HashEmbedding_EmptyText_DoesNotThrow()
     {
         var model = new HashEmbeddingModel();
-        var vector = await model.EmbedAsync("");
+        var vector = await model.EmbedAsync("", TestContext.Current.CancellationToken);
         Assert.Equal(384, vector.Length);
     }
 
@@ -52,7 +52,7 @@ public sealed class EmbeddingTests
     public async Task HashEmbedding_NullText_DoesNotThrow()
     {
         var model = new HashEmbeddingModel();
-        var vector = await model.EmbedAsync(null!);
+        var vector = await model.EmbedAsync(null!, TestContext.Current.CancellationToken);
         Assert.Equal(384, vector.Length);
     }
 
