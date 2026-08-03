@@ -7,6 +7,10 @@
 Declarative workflow engine based on a YAML DSL, **NativeAOT**-compatible (.NET 10).
 Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human input, and dynamic code generation — all from a single file.
 
+## MCP protocol compatibility
+
+The runtime uses the stable C# MCP SDK `2.0.0`. HTTP and stdio clients prefer MCP `2026-07-28` discovery with `server/discover` and automatically fall back to the legacy `initialize` handshake when a configured server only supports an older protocol version. GnOuGo does not force a protocol version in workflow configuration.
+
 ---
 
 ## Table of Contents

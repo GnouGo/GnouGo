@@ -11,7 +11,7 @@ public sealed class StoredDocumentRepositoryTests
         var root = CreateTempDir();
         var dbPath = Path.Combine(root, "metadata.db");
         var repository = new StoredDocumentRepository(dbPath);
-        await repository.InitializeAsync();
+        await repository.InitializeAsync(TestContext.Current.CancellationToken);
 
         var now = DateTimeOffset.UtcNow;
         var record = new StoredDocumentRecord(
@@ -29,22 +29,22 @@ public sealed class StoredDocumentRepositoryTests
             now,
             now);
 
-        await repository.UpsertAsync(record);
+        await repository.UpsertAsync(record, TestContext.Current.CancellationToken);
 
-        var byId = await repository.GetByIdAsync(record.Id);
+        var byId = await repository.GetByIdAsync(record.Id, TestContext.Current.CancellationToken);
         Assert.NotNull(byId);
         Assert.Equal(record.Sha256, byId.Sha256);
         Assert.Equal(TimeSpan.Zero, byId.CreatedUtc.Offset);
 
-        var bySource = await repository.GetBySourceAsync(record.TenantId, record.Collection, record.SourceUrl);
+        var bySource = await repository.GetBySourceAsync(record.TenantId, record.Collection, record.SourceUrl, TestContext.Current.CancellationToken);
         Assert.NotNull(bySource);
         Assert.Equal(record.Id, bySource.Id);
 
-        var listed = await repository.ListAsync("tenant-a", "collection-a");
+        var listed = await repository.ListAsync("tenant-a", "collection-a", TestContext.Current.CancellationToken);
         Assert.Single(listed);
 
-        Assert.True(await repository.DeleteAsync(record.Id));
-        Assert.Empty(await repository.ListAsync("tenant-a", "collection-a"));
+        Assert.True(await repository.DeleteAsync(record.Id, TestContext.Current.CancellationToken));
+        Assert.Empty(await repository.ListAsync("tenant-a", "collection-a", TestContext.Current.CancellationToken));
 
         TryDelete(root);
     }

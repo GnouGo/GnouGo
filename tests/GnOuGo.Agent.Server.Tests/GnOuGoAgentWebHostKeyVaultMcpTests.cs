@@ -19,7 +19,7 @@ public sealed class GnOuGoAgentWebHostKeyVaultMcpTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
 
             var store = app.Services.GetRequiredService<LLMRuntimeOptionsStore>();
@@ -30,7 +30,7 @@ public sealed class GnOuGoAgentWebHostKeyVaultMcpTests
                 if (!string.IsNullOrWhiteSpace(keyVault?.Url) && !keyVault.Url.Contains(":0/", StringComparison.Ordinal))
                     break;
 
-                await Task.Delay(50);
+                await Task.Delay(50, TestContext.Current.CancellationToken);
             }
 
             Assert.NotNull(keyVault);
@@ -51,7 +51,7 @@ public sealed class GnOuGoAgentWebHostKeyVaultMcpTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
         }
     }

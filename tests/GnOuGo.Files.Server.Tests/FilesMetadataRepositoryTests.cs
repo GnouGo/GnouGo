@@ -32,7 +32,7 @@ public sealed class FilesMetadataRepositoryTests
 
         try
         {
-            await FilesDatabaseBootstrap.InitializeAsync(services);
+            await FilesDatabaseBootstrap.InitializeAsync(services, TestContext.Current.CancellationToken);
             using var scope = services.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<FilesMetadataRepository>();
             var createdUtc = DateTimeOffset.UtcNow;

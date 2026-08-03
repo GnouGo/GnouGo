@@ -11,7 +11,7 @@ public class CopilotApiKeyProviderTests
     public async Task GetApiKeyAsync_ReturnsConfiguredKey()
     {
         var provider = new CopilotApiKeyProvider("ghp_test123");
-        var key = await provider.GetApiKeyAsync();
+        var key = await provider.GetApiKeyAsync(TestContext.Current.CancellationToken);
         Assert.Equal("ghp_test123", key);
     }
 
@@ -26,7 +26,7 @@ public class CopilotApiKeyProviderTests
             Environment.SetEnvironmentVariable("COPILOT_API_KEY", null);
 
             var provider = new CopilotApiKeyProvider(configuredKey: null);
-            var key = await provider.GetApiKeyAsync();
+            var key = await provider.GetApiKeyAsync(TestContext.Current.CancellationToken);
             Assert.Equal("env-gh-token", key);
         }
         finally
@@ -47,7 +47,7 @@ public class CopilotApiKeyProviderTests
             Environment.SetEnvironmentVariable("COPILOT_API_KEY", "cop-key-456");
 
             var provider = new CopilotApiKeyProvider(configuredKey: null);
-            var key = await provider.GetApiKeyAsync();
+            var key = await provider.GetApiKeyAsync(TestContext.Current.CancellationToken);
             Assert.Equal("cop-key-456", key);
         }
         finally
@@ -68,7 +68,7 @@ public class CopilotApiKeyProviderTests
             Environment.SetEnvironmentVariable("COPILOT_API_KEY", null);
 
             var provider = new CopilotApiKeyProvider(configuredKey: null);
-            await Assert.ThrowsAsync<InvalidOperationException>(() => provider.GetApiKeyAsync().AsTask());
+            await Assert.ThrowsAsync<InvalidOperationException>(() => provider.GetApiKeyAsync(TestContext.Current.CancellationToken).AsTask());
         }
         finally
         {

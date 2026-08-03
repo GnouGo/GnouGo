@@ -61,7 +61,7 @@ workflows:
         input: { value: "from workspace" }
     outputs:
       value: "${data.steps.out.value}"
-""");
+""", TestContext.Current.CancellationToken);
 
         var compiled = CompileDoc("""
 version: 1

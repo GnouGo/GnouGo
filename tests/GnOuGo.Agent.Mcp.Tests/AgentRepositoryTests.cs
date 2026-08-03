@@ -20,7 +20,7 @@ public class AgentRepositoryTests : IDisposable
     [Fact]
     public async Task AddAgent_CreatesYamlFileInAgentsDirectory()
     {
-        var agent = await _repo.AddAgentAsync("TestAgent", "step1: hello", "original prompt");
+        var agent = await _repo.AddAgentAsync("TestAgent", "step1: hello", "original prompt", TestContext.Current.CancellationToken);
 
         Assert.NotEqual(Guid.Empty, agent.Id);
         Assert.Equal("TestAgent", agent.Name);
@@ -29,7 +29,7 @@ public class AgentRepositoryTests : IDisposable
 
         var filePath = Path.Combine(_database.AgentsDirectory, "TestAgent.yaml");
         Assert.True(File.Exists(filePath));
-        var yaml = await File.ReadAllTextAsync(filePath);
+        var yaml = await File.ReadAllTextAsync(filePath, TestContext.Current.CancellationToken);
         Assert.Contains("name: \"TestAgent\"", yaml);
         Assert.Contains("workflow: \"step1: hello\"", yaml);
     }
@@ -38,20 +38,20 @@ public class AgentRepositoryTests : IDisposable
     public async Task AddAgent_ThrowsOnEmptyName()
     {
         await Assert.ThrowsAsync<ArgumentException>(
-            () => _repo.AddAgentAsync("", "workflow"));
+            () => _repo.AddAgentAsync("", "workflow", ct: TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task AddAgent_ThrowsOnEmptyWorkflow()
     {
         await Assert.ThrowsAsync<ArgumentException>(
-            () => _repo.AddAgentAsync("name", ""));
+            () => _repo.AddAgentAsync("name", "", ct: TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task AddAgent_TrimsName()
     {
-        var agent = await _repo.AddAgentAsync("  padded  ", "wf");
+        var agent = await _repo.AddAgentAsync("  padded  ", "wf", ct: TestContext.Current.CancellationToken);
         Assert.Equal("padded", agent.Name);
     }
 
@@ -63,18 +63,18 @@ public class AgentRepositoryTests : IDisposable
     public async Task AddAgent_RejectsUnsafeFileNames(string name)
     {
         await Assert.ThrowsAsync<ArgumentException>(
-            () => _repo.AddAgentAsync(name, "wf"));
+            () => _repo.AddAgentAsync(name, "wf", ct: TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task AddAgent_ThrowsWhenNameAlreadyExists_IgnoringCaseAndWhitespace()
     {
-        await _repo.AddAgentAsync("DailyReporter", "wf");
+        await _repo.AddAgentAsync("DailyReporter", "wf", ct: TestContext.Current.CancellationToken);
 
         var ex = await Assert.ThrowsAsync<DuplicateAgentNameException>(
-            () => _repo.AddAgentAsync("  dailyreporter  ", "wf-2"));
+            () => _repo.AddAgentAsync("  dailyreporter  ", "wf-2", ct: TestContext.Current.CancellationToken));
 
-        Assert.Equal("DailyReporter", (await _repo.ListAgentsAsync()).Single().Name);
+        Assert.Equal("DailyReporter", (await _repo.ListAgentsAsync(TestContext.Current.CancellationToken)).Single().Name);
         Assert.Equal("An agent named 'dailyreporter' already exists.", ex.Message);
     }
 
@@ -83,17 +83,17 @@ public class AgentRepositoryTests : IDisposable
     [Fact]
     public async Task ListAgents_ReturnsEmpty_WhenNoAgents()
     {
-        var agents = await _repo.ListAgentsAsync();
+        var agents = await _repo.ListAgentsAsync(TestContext.Current.CancellationToken);
         Assert.Empty(agents);
     }
 
     [Fact]
     public async Task ListAgents_ReturnsAllAgents_OrderedByName()
     {
-        await _repo.AddAgentAsync("Bravo", "wf");
-        await _repo.AddAgentAsync("Alpha", "wf");
+        await _repo.AddAgentAsync("Bravo", "wf", ct: TestContext.Current.CancellationToken);
+        await _repo.AddAgentAsync("Alpha", "wf", ct: TestContext.Current.CancellationToken);
 
-        var agents = await _repo.ListAgentsAsync();
+        var agents = await _repo.ListAgentsAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(2, agents.Count);
         Assert.Equal("Alpha", agents[0].Name);
@@ -105,9 +105,9 @@ public class AgentRepositoryTests : IDisposable
     [Fact]
     public async Task UpdateAgent_ModifiesAllFields()
     {
-        var created = await _repo.AddAgentAsync("Original", "wf1", "prompt1");
+        var created = await _repo.AddAgentAsync("Original", "wf1", "prompt1", TestContext.Current.CancellationToken);
 
-        var updated = await _repo.UpdateAgentAsync(created.Id, "Renamed", "wf2", "prompt2");
+        var updated = await _repo.UpdateAgentAsync(created.Id, "Renamed", "wf2", "prompt2", TestContext.Current.CancellationToken);
 
         Assert.Equal(created.Id, updated.Id);
         Assert.Equal("Renamed", updated.Name);
@@ -122,33 +122,33 @@ public class AgentRepositoryTests : IDisposable
     public async Task UpdateAgent_ThrowsWhenNotFound()
     {
         await Assert.ThrowsAsync<KeyNotFoundException>(
-            () => _repo.UpdateAgentAsync(Guid.NewGuid(), "name", "wf"));
+            () => _repo.UpdateAgentAsync(Guid.NewGuid(), "name", "wf", ct: TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task UpdateAgent_UpdatesTimestamp()
     {
-        var created = await _repo.AddAgentAsync("Agent", "wf");
+        var created = await _repo.AddAgentAsync("Agent", "wf", ct: TestContext.Current.CancellationToken);
         var createdTime = created.UpdatedAt;
 
         // Small delay to ensure different tick
-        await Task.Delay(10);
+        await Task.Delay(10, TestContext.Current.CancellationToken);
 
-        var updated = await _repo.UpdateAgentAsync(created.Id, "Agent", "wf2");
+        var updated = await _repo.UpdateAgentAsync(created.Id, "Agent", "wf2", ct: TestContext.Current.CancellationToken);
         Assert.True(updated.UpdatedAt >= createdTime);
     }
 
     [Fact]
     public async Task UpdateAgent_ThrowsWhenRenamingToExistingName_IgnoringCase()
     {
-        await _repo.AddAgentAsync("Alpha", "wf");
-        var second = await _repo.AddAgentAsync("Bravo", "wf");
+        await _repo.AddAgentAsync("Alpha", "wf", ct: TestContext.Current.CancellationToken);
+        var second = await _repo.AddAgentAsync("Bravo", "wf", ct: TestContext.Current.CancellationToken);
 
         var ex = await Assert.ThrowsAsync<DuplicateAgentNameException>(
-            () => _repo.UpdateAgentAsync(second.Id, " alpha ", "wf-2"));
+            () => _repo.UpdateAgentAsync(second.Id, " alpha ", "wf-2", ct: TestContext.Current.CancellationToken));
 
         Assert.Equal("An agent named 'alpha' already exists.", ex.Message);
-        Assert.Equal("Bravo", (await _repo.ListAgentsAsync()).Single(a => a.Id == second.Id).Name);
+        Assert.Equal("Bravo", (await _repo.ListAgentsAsync(TestContext.Current.CancellationToken)).Single(a => a.Id == second.Id).Name);
     }
 
     // ── DeleteAgent ──────────────────────────────────────────────────
@@ -156,11 +156,11 @@ public class AgentRepositoryTests : IDisposable
     [Fact]
     public async Task DeleteAgent_RemovesAgent()
     {
-        var agent = await _repo.AddAgentAsync("ToDelete", "wf");
+        var agent = await _repo.AddAgentAsync("ToDelete", "wf", ct: TestContext.Current.CancellationToken);
 
-        await _repo.DeleteAgentAsync(agent.Id);
+        await _repo.DeleteAgentAsync(agent.Id, TestContext.Current.CancellationToken);
 
-        var remaining = await _repo.ListAgentsAsync();
+        var remaining = await _repo.ListAgentsAsync(TestContext.Current.CancellationToken);
         Assert.Empty(remaining);
     }
 
@@ -168,7 +168,7 @@ public class AgentRepositoryTests : IDisposable
     public async Task DeleteAgent_ThrowsWhenNotFound()
     {
         await Assert.ThrowsAsync<KeyNotFoundException>(
-            () => _repo.DeleteAgentAsync(Guid.NewGuid()));
+            () => _repo.DeleteAgentAsync(Guid.NewGuid(), TestContext.Current.CancellationToken));
     }
 
     // ── Round-trip ───────────────────────────────────────────────────
@@ -177,23 +177,23 @@ public class AgentRepositoryTests : IDisposable
     public async Task RoundTrip_CreateListUpdateDelete()
     {
         // Create
-        var agent = await _repo.AddAgentAsync("RoundTrip", "step1");
+        var agent = await _repo.AddAgentAsync("RoundTrip", "step1", ct: TestContext.Current.CancellationToken);
         Assert.NotEqual(Guid.Empty, agent.Id);
 
         // List
-        var list = await _repo.ListAgentsAsync();
+        var list = await _repo.ListAgentsAsync(TestContext.Current.CancellationToken);
         Assert.Single(list);
 
         // Update
-        await _repo.UpdateAgentAsync(agent.Id, "RoundTrip-Updated", "step2");
+        await _repo.UpdateAgentAsync(agent.Id, "RoundTrip-Updated", "step2", ct: TestContext.Current.CancellationToken);
 
-        var updated = (await _repo.ListAgentsAsync())[0];
+        var updated = (await _repo.ListAgentsAsync(TestContext.Current.CancellationToken))[0];
         Assert.Equal("RoundTrip-Updated", updated.Name);
         Assert.Equal("step2", updated.Workflow);
 
         // Delete
-        await _repo.DeleteAgentAsync(agent.Id);
-        Assert.Empty(await _repo.ListAgentsAsync());
+        await _repo.DeleteAgentAsync(agent.Id, TestContext.Current.CancellationToken);
+        Assert.Empty(await _repo.ListAgentsAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]

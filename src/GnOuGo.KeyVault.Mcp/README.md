@@ -2,6 +2,10 @@
 
 HTTP-based MCP server for encrypted KeyVault secret management.
 
+## MCP protocol compatibility
+
+This server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. Its Streamable HTTP transport is explicitly stateless. Discovery-first clients use `server/discover`, while the SDK continues to accept older clients that negotiate a legacy protocol version.
+
 ## Architecture
 
 This component is independently publishable, testable, and deployable per `AGENTS.md` rules.

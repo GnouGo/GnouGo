@@ -359,7 +359,7 @@ workflows:
         Assert.Equal(3, loaded!.NextStepIndex);
         Assert.Equal("paused", loaded.Status);
 
-        var list = await checkpointer.ListAsync("tenant-a");
+        var list = await checkpointer.ListAsync("tenant-a", ct: TestContext.Current.CancellationToken);
         Assert.Single(list);
 
         await checkpointer.DeleteAsync("test-1", CancellationToken.None);

@@ -93,7 +93,7 @@ public static class AgentMcpHostingExtensions
                 };
                 options.AddGnOuGoToolErrorNormalizer();
             })
-            .WithHttpTransport()
+            .WithHttpTransport(options => options.Stateless = true)
             .WithTools<DataTools>(AgentMcpJson.SerializerOptions)
             .WithTools<AgentTools>(AgentMcpJson.SerializerOptions);
 

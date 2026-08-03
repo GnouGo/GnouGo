@@ -19,7 +19,7 @@ public sealed class GnOuGoAgentWebHostDocsIngestorMcpTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
 
             var store = app.Services.GetRequiredService<LLMRuntimeOptionsStore>();
@@ -30,7 +30,7 @@ public sealed class GnOuGoAgentWebHostDocsIngestorMcpTests
                 if (!string.IsNullOrWhiteSpace(docsIngestor?.Url) && !docsIngestor.Url.Contains(":0/", StringComparison.Ordinal))
                     break;
 
-                await Task.Delay(50);
+                await Task.Delay(50, TestContext.Current.CancellationToken);
             }
 
             Assert.NotNull(docsIngestor);
@@ -51,7 +51,7 @@ public sealed class GnOuGoAgentWebHostDocsIngestorMcpTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
         }
     }

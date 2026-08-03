@@ -168,7 +168,7 @@ public sealed class ConfigureProvidersServiceTests
         var llm = new RecordingLlmClient();
         var service = SmartFlowTestFactory.CreateProvidersService(llm);
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
@@ -183,7 +183,7 @@ public sealed class ConfigureProvidersServiceTests
         var llm = new RecordingLlmClient();
         var service = SmartFlowTestFactory.CreateProvidersService(llm);
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/unknown", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/unknown", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
@@ -199,7 +199,7 @@ public sealed class ConfigureProvidersServiceTests
         var llm = new RecordingLlmClient();
         var service = SmartFlowTestFactory.CreateProvidersService(llm);
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/embedding", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/embedding", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
@@ -214,7 +214,7 @@ public sealed class ConfigureProvidersServiceTests
         var llm = new RecordingLlmClient();
         var service = SmartFlowTestFactory.CreateProvidersService(llm);
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp nope", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp nope", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
@@ -230,7 +230,7 @@ public sealed class ConfigureProvidersServiceTests
         var settings = CreateBundledGitMcpSettings();
         var service = SmartFlowTestFactory.CreateProvidersService(llm, bundledMcpSettings: settings);
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp list", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp list", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
@@ -315,7 +315,7 @@ public sealed class ConfigureProvidersServiceTests
             llm,
             keyVaultStore: keyVaultStore);
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm list", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm list", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
@@ -572,7 +572,7 @@ public sealed class ConfigureProvidersServiceTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
 
             var llm = new RecordingLlmClient();
             var modelCatalog = new FakeModelCatalog()
@@ -646,7 +646,7 @@ public sealed class ConfigureProvidersServiceTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
             try
@@ -682,7 +682,7 @@ public sealed class ConfigureProvidersServiceTests
             llm,
             keyVaultStore: keyVaultStore);
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp list", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp list", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
@@ -706,7 +706,7 @@ public sealed class ConfigureProvidersServiceTests
             llm,
             keyVaultStore: keyVaultStore);
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/embedding list", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/embedding list", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
@@ -730,7 +730,7 @@ public sealed class ConfigureProvidersServiceTests
             llm,
             keyVaultStore: keyVaultStore);
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/status", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/status", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events);
         Assert.Equal("answer", answer.Type);
@@ -765,7 +765,7 @@ public sealed class ConfigureProvidersServiceTests
                 }
             });
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm models openai", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm models openai", CancellationToken.None), TestContext.Current.CancellationToken);
 
         Assert.Equal(2, events.Count);
         Assert.Equal("thinking:thinking", events[0].Type);
@@ -800,7 +800,7 @@ public sealed class ConfigureProvidersServiceTests
                 }
             });
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm models openai", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm models openai", CancellationToken.None), TestContext.Current.CancellationToken);
 
         Assert.Equal(2, events.Count);
         Assert.Equal("thinking:thinking", events[0].Type);
@@ -834,7 +834,7 @@ public sealed class ConfigureProvidersServiceTests
                 }
             });
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm models copilot", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm models copilot", CancellationToken.None), TestContext.Current.CancellationToken);
 
         Assert.Equal(2, events.Count);
         var answer = events[1];
@@ -1545,7 +1545,7 @@ public sealed class ConfigureProvidersServiceTests
         var correlationId = ActivityTraceId.CreateRandom().ToHexString();
         using (var chatTrace = telemetryHarness.Telemetry.StartChatMessageActivity(correlationId, "/status"))
         {
-            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/status", CancellationToken.None));
+            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/status", CancellationToken.None), TestContext.Current.CancellationToken);
             Assert.Single(events);
             chatTrace.SetStatus(ActivityStatusCode.Ok);
         }
@@ -1585,7 +1585,7 @@ public sealed class ConfigureProvidersServiceTests
         var correlationId = ActivityTraceId.CreateRandom().ToHexString();
         using (var chatTrace = telemetryHarness.Telemetry.StartChatMessageActivity(correlationId, "/llm models openai"))
         {
-            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm models openai", CancellationToken.None));
+            var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/llm models openai", CancellationToken.None), TestContext.Current.CancellationToken);
             Assert.Equal(2, events.Count);
             chatTrace.SetStatus(ActivityStatusCode.Ok);
         }

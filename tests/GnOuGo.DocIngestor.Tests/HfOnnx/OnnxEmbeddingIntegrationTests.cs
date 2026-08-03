@@ -15,9 +15,9 @@ public sealed class OnnxEmbeddingIntegrationTests
 
         using var emb = new HfMiniLmEmbedder(modelPath, vocabPath, maxLen: 256);
 
-        var v1 = await emb.EmbedAsync("Cats are wonderful pets.");
-        var v2 = await emb.EmbedAsync("Kittens are small cats.");
-        var v3 = await emb.EmbedAsync("The CPU executes instructions.");
+        var v1 = await emb.EmbedAsync("Cats are wonderful pets.", TestContext.Current.CancellationToken);
+        var v2 = await emb.EmbedAsync("Kittens are small cats.", TestContext.Current.CancellationToken);
+        var v3 = await emb.EmbedAsync("The CPU executes instructions.", TestContext.Current.CancellationToken);
 
         Assert.Equal(384, v1.Length);
         Assert.Equal(384, v2.Length);

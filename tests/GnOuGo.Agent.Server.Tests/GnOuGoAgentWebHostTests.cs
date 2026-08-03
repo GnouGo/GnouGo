@@ -262,7 +262,7 @@ public sealed class GnOuGoAgentWebHostTests
             contentRoot: contentRoot,
             enableHttpsRedirection: false);
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
 
         try
         {
@@ -271,7 +271,7 @@ public sealed class GnOuGoAgentWebHostTests
                 publishedEndpoints.AppBaseAddress ?? throw new InvalidOperationException("The main app address should be published."));
 
             using var http = new HttpClient { BaseAddress = new Uri(baseAddress + "/", UriKind.Absolute) };
-            var version = await http.GetFromJsonAsync("api/version", ChatJsonContext.Default.AppVersionDto);
+            var version = await http.GetFromJsonAsync("api/version", ChatJsonContext.Default.AppVersionDto, cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.NotNull(version);
             Assert.False(string.IsNullOrWhiteSpace(version!.Version));
@@ -280,7 +280,7 @@ public sealed class GnOuGoAgentWebHostTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
     }
 
@@ -296,7 +296,7 @@ public sealed class GnOuGoAgentWebHostTests
             contentRoot: contentRoot,
             enableHttpsRedirection: false);
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
 
         try
         {
@@ -307,23 +307,23 @@ public sealed class GnOuGoAgentWebHostTests
             var address = new Uri(publishedEndpoints.AppBaseAddress ?? throw new InvalidOperationException("The main app address should be published."));
 
             using var http = new HttpClient();
-            var response = await http.GetAsync(address);
+            var response = await http.GetAsync(address, TestContext.Current.CancellationToken);
 
             Assert.True(response.IsSuccessStatusCode, $"GET / returned {(int)response.StatusCode} {response.StatusCode}.");
 
-            var html = await response.Content.ReadAsStringAsync();
+            var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
             Assert.Contains("GnOuGo.Agent", html, StringComparison.Ordinal);
             Assert.Contains("Start a new chat", html, StringComparison.Ordinal);
 
-            var telemetryHealth = await http.GetAsync($"{publishedEndpoints.TelemetryHttpBaseAddress}/health");
+            var telemetryHealth = await http.GetAsync($"{publishedEndpoints.TelemetryHttpBaseAddress}/health", TestContext.Current.CancellationToken);
             Assert.True(telemetryHealth.IsSuccessStatusCode, $"Telemetry health returned {(int)telemetryHealth.StatusCode} {telemetryHealth.StatusCode}.");
 
-            var collectorApiOnMainPort = await http.GetAsync($"{publishedEndpoints.AppBaseAddress}/api/tenants/traces/recent");
+            var collectorApiOnMainPort = await http.GetAsync($"{publishedEndpoints.AppBaseAddress}/api/tenants/traces/recent", TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.NotFound, collectorApiOnMainPort.StatusCode);
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
     }
 
@@ -356,7 +356,7 @@ public sealed class GnOuGoAgentWebHostTests
             }
         ]);
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
 
         try
         {
@@ -364,18 +364,14 @@ public sealed class GnOuGoAgentWebHostTests
             var address = publishedEndpoints.AppBaseAddress ?? throw new InvalidOperationException("The main app address should be published.");
 
             using var http = new HttpClient();
-            var summaries = await http.GetFromJsonAsync(
-                $"{address}/api/chat/conversations",
-                ChatJsonContext.Default.ListChatConversationSummaryDto);
+            var summaries = await http.GetFromJsonAsync($"{address}/api/chat/conversations", ChatJsonContext.Default.ListChatConversationSummaryDto, cancellationToken: TestContext.Current.CancellationToken);
 
             var summary = Assert.Single(summaries ?? []);
             Assert.Equal("conv-existing", summary.ConversationId);
             Assert.Equal("Show me the existing chat", summary.Title);
             Assert.Equal(2, summary.MessageCount);
 
-            var session = await http.GetFromJsonAsync(
-                $"{address}/api/chat/conversations/conv-existing",
-                ChatJsonContext.Default.ChatSessionDto);
+            var session = await http.GetFromJsonAsync($"{address}/api/chat/conversations/conv-existing", ChatJsonContext.Default.ChatSessionDto, cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.NotNull(session);
             Assert.Equal("conv-existing", session!.ConversationId);
@@ -388,7 +384,7 @@ public sealed class GnOuGoAgentWebHostTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
     }
 
@@ -412,7 +408,7 @@ public sealed class GnOuGoAgentWebHostTests
             contentRoot: tempContentRoot,
             enableHttpsRedirection: false);
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
 
         try
         {
@@ -422,10 +418,10 @@ public sealed class GnOuGoAgentWebHostTests
 
             using var http = new HttpClient { BaseAddress = new Uri(baseAddress + "/", UriKind.Absolute) };
 
-            var scriptResponse = await http.GetAsync("_framework/blazor.web.js");
+            var scriptResponse = await http.GetAsync("_framework/blazor.web.js", TestContext.Current.CancellationToken);
             Assert.True(scriptResponse.IsSuccessStatusCode, $"GET /_framework/blazor.web.js returned {(int)scriptResponse.StatusCode} {scriptResponse.StatusCode}.");
 
-            var scriptBody = await scriptResponse.Content.ReadAsStringAsync();
+            var scriptBody = await scriptResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
             Assert.Contains("Blazor", scriptBody, StringComparison.OrdinalIgnoreCase);
 
             using var negotiateRequest = new HttpRequestMessage(HttpMethod.Post, "_blazor/negotiate?negotiateVersion=1")
@@ -435,15 +431,15 @@ public sealed class GnOuGoAgentWebHostTests
             negotiateRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             negotiateRequest.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 
-            var negotiateResponse = await http.SendAsync(negotiateRequest);
+            var negotiateResponse = await http.SendAsync(negotiateRequest, TestContext.Current.CancellationToken);
             Assert.True(negotiateResponse.IsSuccessStatusCode, $"POST /_blazor/negotiate returned {(int)negotiateResponse.StatusCode} {negotiateResponse.StatusCode}.");
 
-            var negotiateBody = await negotiateResponse.Content.ReadAsStringAsync();
+            var negotiateBody = await negotiateResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
             Assert.Contains("connectionId", negotiateBody, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
 
             if (Directory.Exists(tempContentRoot))
                 Directory.Delete(tempContentRoot, recursive: true);
@@ -464,7 +460,7 @@ public sealed class GnOuGoAgentWebHostTests
             contentRoot: contentRoot,
             enableHttpsRedirection: false);
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
 
         try
         {
@@ -537,7 +533,7 @@ public sealed class GnOuGoAgentWebHostTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
     }
 
@@ -552,7 +548,7 @@ public sealed class GnOuGoAgentWebHostTests
                          .UseSqlite($"Data Source={keyVaultDbPath}")
                          .Options))
         {
-            await seedDb.Database.EnsureCreatedAsync();
+            await seedDb.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
         }
 
         var seedServices = new ServiceCollection();
@@ -564,7 +560,7 @@ public sealed class GnOuGoAgentWebHostTests
         await using (var scope = seedProvider.CreateAsyncScope())
         {
             var keyVault = scope.ServiceProvider.GetRequiredService<KeyVaultService>();
-            await keyVault.EnsureDefaultKeyPairAsync();
+            await keyVault.EnsureDefaultKeyPairAsync(TestContext.Current.CancellationToken);
             await keyVault.SetSecretAsync(
                 "LLM--Models--ollama",
                 "{\"provider\":\"ollama\",\"url\":\"http://127.0.0.1:11434\",\"model\":\"llama3.2\",\"authType\":\"none\"}",
@@ -591,7 +587,7 @@ public sealed class GnOuGoAgentWebHostTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var runtimeConfigStore = app.Services.GetRequiredService<IKeyVaultRuntimeConfigStore>();
             var effective = await runtimeConfigStore.BuildEffectiveOptionsAsync(new LLMOptions(), CancellationToken.None);
 
@@ -604,7 +600,7 @@ public sealed class GnOuGoAgentWebHostTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
 
             TryDeleteFile(agentDbPath);
             TryDeleteFile(keyVaultDbPath);

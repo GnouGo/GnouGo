@@ -47,7 +47,7 @@ public sealed class WorkflowTraceFileExporterTests
             var path = Assert.Single(Directory.GetFiles(root, "*.json"));
             Assert.Equal("20-06-26-14-15-16.json", Path.GetFileName(path));
 
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
             var jsonRoot = document.RootElement;
             Assert.Equal("gnougo.workflow-trace/v1", jsonRoot.GetProperty("schemaVersion").GetString());
             Assert.Equal(traceId, jsonRoot.GetProperty("traceId").GetString());
@@ -124,7 +124,7 @@ public sealed class WorkflowTraceFileExporterTests
             await exporter.ExportAsync(traceId, "corr-workflow", CancellationToken.None);
 
             var path = Assert.Single(Directory.GetFiles(root, "*.json"));
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
             Assert.Equal(1, document.RootElement.GetProperty("summary").GetProperty("spanCount").GetInt32());
             Assert.Equal("workflow", document.RootElement.GetProperty("spans")[0].GetProperty("name").GetString());
         }
@@ -153,7 +153,7 @@ public sealed class WorkflowTraceFileExporterTests
             await exporter.ExportAsync(traceId, "corr-root", CancellationToken.None);
 
             var path = Assert.Single(Directory.GetFiles(root, "*.json"));
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
             Assert.Equal("chat.message", document.RootElement.GetProperty("spans")[0].GetProperty("name").GetString());
         }
         finally

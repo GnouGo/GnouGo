@@ -26,8 +26,8 @@ public sealed class DocsIngestorMcpServiceTests
 
         try
         {
-            await fileServer.StartAsync();
-            await mcp.StartAsync();
+            await fileServer.StartAsync(TestContext.Current.CancellationToken);
+            await mcp.StartAsync(TestContext.Current.CancellationToken);
 
             var fileAddress = fileServer.Services.GetRequiredService<IServer>()
                 .Features.Get<IServerAddressesFeature>()!
@@ -37,42 +37,42 @@ public sealed class DocsIngestorMcpServiceTests
             await using var scope = mcp.Services.CreateAsyncScope();
             var service = scope.ServiceProvider.GetRequiredService<DocsIngestorMcpService>();
 
-            var vectorized = await service.VectorizeAsync(CreateVectorizeRequest(fileUrl));
+            var vectorized = await service.VectorizeAsync(CreateVectorizeRequest(fileUrl), TestContext.Current.CancellationToken);
             Assert.Single(vectorized);
             Assert.NotEmpty(vectorized[0].Chunks);
             Assert.Equal(vectorized[0].Chunks.OrderBy(c => c.Index).Select(c => c.ChunkId), vectorized[0].Chunks.Select(c => c.ChunkId));
 
             var ingestRequest = CreateIngestRequest(fileUrl);
-            var first = await service.IngestAsync(ingestRequest, keyVaultTenantId: null);
+            var first = await service.IngestAsync(ingestRequest, keyVaultTenantId: null, ct: TestContext.Current.CancellationToken);
             Assert.Single(first);
             Assert.False(first[0].Skipped);
             Assert.Equal("created", first[0].Action);
 
-            var second = await service.IngestAsync(ingestRequest, keyVaultTenantId: null);
+            var second = await service.IngestAsync(ingestRequest, keyVaultTenantId: null, ct: TestContext.Current.CancellationToken);
             Assert.Single(second);
             Assert.True(second[0].Skipped);
             Assert.Equal("unchanged", second[0].Action);
 
-            var listed = await service.ListFilesAsync("tenant-a", "collection-a");
+            var listed = await service.ListFilesAsync("tenant-a", "collection-a", TestContext.Current.CancellationToken);
             var stored = Assert.Single(listed);
             Assert.Equal(first[0].DocumentId, stored.Id);
 
-            var hits = await service.SearchAsync("alpha beta", "collection-a", "hash-384", null, "tester", 5);
+            var hits = await service.SearchAsync("alpha beta", "collection-a", "hash-384", null, "tester", 5, TestContext.Current.CancellationToken);
             Assert.NotEmpty(hits);
 
-            var original = await service.DownloadOriginalAsync(stored.Id);
+            var original = await service.DownloadOriginalAsync(stored.Id, TestContext.Current.CancellationToken);
             Assert.NotNull(original);
             Assert.Equal("sample.txt", original.FileName);
             Assert.Contains("alpha beta", System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(original.Base64Content)));
 
-            Assert.True(await service.DeleteFileAsync(stored.Id));
-            Assert.Empty(await service.ListFilesAsync("tenant-a", "collection-a"));
+            Assert.True(await service.DeleteFileAsync(stored.Id, TestContext.Current.CancellationToken));
+            Assert.Empty(await service.ListFilesAsync("tenant-a", "collection-a", TestContext.Current.CancellationToken));
         }
         finally
         {
-            await mcp.StopAsync();
+            await mcp.StopAsync(TestContext.Current.CancellationToken);
             await mcp.DisposeAsync();
-            await fileServer.StopAsync();
+            await fileServer.StopAsync(TestContext.Current.CancellationToken);
             await fileServer.DisposeAsync();
             TryDelete(root);
         }
@@ -93,8 +93,8 @@ public sealed class DocsIngestorMcpServiceTests
 
         try
         {
-            await fileServer.StartAsync();
-            await mcp.StartAsync();
+            await fileServer.StartAsync(TestContext.Current.CancellationToken);
+            await mcp.StartAsync(TestContext.Current.CancellationToken);
 
             var fileAddress = fileServer.Services.GetRequiredService<IServer>()
                 .Features.Get<IServerAddressesFeature>()!
@@ -104,23 +104,23 @@ public sealed class DocsIngestorMcpServiceTests
             await using var scope = mcp.Services.CreateAsyncScope();
             var service = scope.ServiceProvider.GetRequiredService<DocsIngestorMcpService>();
 
-            await service.IngestAsync(CreateIngestRequest(fileUrl, "hash-384"), keyVaultTenantId: null);
+            await service.IngestAsync(CreateIngestRequest(fileUrl, "hash-384"), keyVaultTenantId: null, ct: TestContext.Current.CancellationToken);
 
             var ingestError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                service.IngestAsync(CreateIngestRequest(fileUrl, "hash-768"), keyVaultTenantId: null));
+                service.IngestAsync(CreateIngestRequest(fileUrl, "hash-768"), keyVaultTenantId: null, ct: TestContext.Current.CancellationToken));
             Assert.Contains("already uses embedding config 'hash-384'", ingestError.Message);
             Assert.Contains("embeddingConfigName='hash-384'", ingestError.Message);
 
             var searchError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                service.SearchAsync("alpha", "collection-a", "hash-768", null, "tester", 5));
+                service.SearchAsync("alpha", "collection-a", "hash-768", null, "tester", 5, TestContext.Current.CancellationToken));
             Assert.Contains("already uses embedding config 'hash-384'", searchError.Message);
             Assert.Contains("embeddingConfigName='hash-384'", searchError.Message);
         }
         finally
         {
-            await mcp.StopAsync();
+            await mcp.StopAsync(TestContext.Current.CancellationToken);
             await mcp.DisposeAsync();
-            await fileServer.StopAsync();
+            await fileServer.StopAsync(TestContext.Current.CancellationToken);
             await fileServer.DisposeAsync();
             TryDelete(root);
         }
@@ -139,19 +139,19 @@ public sealed class DocsIngestorMcpServiceTests
 
         try
         {
-            await mcp.StartAsync();
+            await mcp.StartAsync(TestContext.Current.CancellationToken);
             await using var scope = mcp.Services.CreateAsyncScope();
             var service = scope.ServiceProvider.GetRequiredService<DocsIngestorMcpService>();
 
             var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                service.IngestAsync(CreateIngestRequest("http://127.0.0.1/docs/sample.txt", string.Empty), keyVaultTenantId: null));
+                service.IngestAsync(CreateIngestRequest("http://127.0.0.1/docs/sample.txt", string.Empty), keyVaultTenantId: null, ct: TestContext.Current.CancellationToken));
 
             Assert.Contains("Embedding configuration is required", error.Message);
             Assert.Contains("/embedding add", error.Message);
         }
         finally
         {
-            await mcp.StopAsync();
+            await mcp.StopAsync(TestContext.Current.CancellationToken);
             await mcp.DisposeAsync();
             TryDelete(root);
         }

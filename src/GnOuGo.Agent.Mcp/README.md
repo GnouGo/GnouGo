@@ -2,6 +2,10 @@
 
 HTTP-based MCP server for agent data, chat history, and diff-related tools.
 
+## MCP protocol compatibility
+
+This server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. Its Streamable HTTP transport is explicitly stateless. Discovery-first clients use `server/discover`, while the SDK continues to accept older clients that negotiate a legacy protocol version.
+
 ## Architecture
 
 This component is independently publishable, testable, and deployable per `AGENTS.md` rules.
@@ -113,5 +117,5 @@ dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Mcp.Tests\GnOuGo.Agent.Mcp.Test
 
 ```powershell
 Set-Location "C:\github\GnouGo"
-dotnet publish "src\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=true -p:PublishSingleFile=true -o "artifacts\agent-mcp-win-x64"
+dotnet publish "src\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" -c Release -r win-x64 --self-contained true -p:PublishAot=false -p:PublishTrimmed=true -p:PublishSingleFile=true -o "artifacts\agent-mcp-win-x64"
 ```

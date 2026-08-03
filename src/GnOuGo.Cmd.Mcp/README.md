@@ -2,6 +2,10 @@
 
 `GnOuGo.Cmd.Mcp` is a **stdio** MCP server for executing commands **via a strict allowlist**.
 
+## MCP protocol compatibility
+
+This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. The SDK retains compatibility with older clients; tool names, request schemas, and structured results are unchanged.
+
 ## Objective
 
 This server does **not** accept arbitrary command lines.

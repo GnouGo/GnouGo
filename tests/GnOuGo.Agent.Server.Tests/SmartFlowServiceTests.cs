@@ -26,7 +26,7 @@ public sealed class SmartFlowServiceTests
             SmartFlowTestFactory.CreateProvidersService(llm),
             SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory()));
 
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/help", CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/help", CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events, evt => evt.Type == "answer");
         Assert.Contains("# GnOuGo Help", answer.Text);
@@ -120,8 +120,7 @@ workflows:
             SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
             NullLogger<SmartFlowService>.Instance);
 
-        var events = await SmartFlowTestFactory.CollectAsync(
-            smartFlow.ExecuteAsync("draw it", correlationId: "corr-diagram", agentName: agentName, CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync("draw it", correlationId: "corr-diagram", agentName: agentName, CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events, evt => evt.Type == "answer");
         Assert.NotNull(answer.Text);
@@ -144,8 +143,7 @@ workflows:
             SmartFlowTestFactory.CreateAgentsService(llm, new FakeMcpClientFactory()),
             traceFileExporter: exporter);
 
-        var events = await SmartFlowTestFactory.CollectAsync(
-            service.ExecuteAsync("/help", correlationId: "corr-export", agentName: null, CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/help", correlationId: "corr-export", agentName: null, CancellationToken.None), TestContext.Current.CancellationToken);
 
         var started = Assert.Single(events, evt => evt.Type == "trace.started");
         var exported = Assert.Single(exporter.Exports);
@@ -175,14 +173,14 @@ workflows:
         if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
             return;
 
-        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-smartflow-{Guid.NewGuid():N}.db");
+        var dbPath = AgentMcpTestPersistence.CreateIsolatedDatabasePath("smartflow-default-agent");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"
         ], urls: "http://127.0.0.1:0");
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var address = app.Services
                 .GetRequiredService<IServer>()
                 .Features
@@ -224,24 +222,16 @@ workflows:
                 NullLogger<SmartFlowService>.Instance,
                 userConfigClient);
 
-            var events = await SmartFlowTestFactory.CollectAsync(
-                smartFlow.ExecuteAsync("Explain SlimFaas", correlationId: "corr-smartflow", agentName: null, CancellationToken.None));
+            var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync("Explain SlimFaas", correlationId: "corr-smartflow", agentName: null, CancellationToken.None), TestContext.Current.CancellationToken);
 
             Assert.Contains(events, evt => evt.Type == "answer" && evt.Text == "AGENT: Explain SlimFaas");
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
-            try
-            {
-                if (File.Exists(dbPath))
-                    File.Delete(dbPath);
-            }
-            catch
-            {
-            }
+            AgentMcpTestPersistence.CleanupIsolatedWorkspace(dbPath);
         }
     }
 
@@ -411,8 +401,7 @@ workflows:
             SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
             NullLogger<SmartFlowService>.Instance);
 
-        var events = await SmartFlowTestFactory.CollectAsync(
-            smartFlow.ExecuteAsync("please answer", correlationId: "corr-repair", agentName: agentName, CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync("please answer", correlationId: "corr-repair", agentName: agentName, CancellationToken.None), TestContext.Current.CancellationToken);
 
         await responder;
 
@@ -538,8 +527,7 @@ workflows:
             SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
             NullLogger<SmartFlowService>.Instance);
 
-        var events = await SmartFlowTestFactory.CollectAsync(
-            smartFlow.ExecuteAsync("please answer", correlationId: "corr-repair-discard", agentName: agentName, CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync("please answer", correlationId: "corr-repair-discard", agentName: agentName, CancellationToken.None), TestContext.Current.CancellationToken);
 
         await responder;
 
@@ -655,8 +643,7 @@ workflows:
             SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
             NullLogger<SmartFlowService>.Instance);
 
-        var events = await SmartFlowTestFactory.CollectAsync(
-            smartFlow.ExecuteAsync("create a document from this issue", correlationId: "corr-repair-prefilter", agentName: agentName, CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync("create a document from this issue", correlationId: "corr-repair-prefilter", agentName: agentName, CancellationToken.None), TestContext.Current.CancellationToken);
 
         await responder;
 
@@ -780,8 +767,7 @@ workflows:
             SmartFlowTestFactory.CreateTelemetryHarness().Telemetry,
             NullLogger<SmartFlowService>.Instance);
 
-        var events = await SmartFlowTestFactory.CollectAsync(
-            smartFlow.ExecuteAsync("clone and fix issue 1679", correlationId: "corr-handled-mcp-repair", agentName: agentName, CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync("clone and fix issue 1679", correlationId: "corr-handled-mcp-repair", agentName: agentName, CancellationToken.None), TestContext.Current.CancellationToken);
 
         await responder;
 
@@ -947,8 +933,7 @@ workflows:
             }),
             scopeFactory: services.GetRequiredService<IServiceScopeFactory>());
 
-        var events = await SmartFlowTestFactory.CollectAsync(
-            smartFlow.ExecuteAsync("clone and fix issue 1679", correlationId: "corr-routed-handled-mcp-repair", agentName: null, CancellationToken.None));
+        var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync("clone and fix issue 1679", correlationId: "corr-routed-handled-mcp-repair", agentName: null, CancellationToken.None), TestContext.Current.CancellationToken);
 
         await responder;
 
@@ -1067,12 +1052,11 @@ workflows:
             }),
             scopeFactory: services.GetRequiredService<IServiceScopeFactory>());
 
-        var events = await SmartFlowTestFactory.CollectAsync(
-            smartFlow.ExecuteAsync(
+        var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync(
                 "inspect recent changes",
                 correlationId: "corr-routed-missing-input",
                 agentName: null,
-                cts.Token));
+                cts.Token), TestContext.Current.CancellationToken);
         await responder;
 
         var requestEvent = Assert.Single(events, evt => evt.Type == "human_input_request");
@@ -1174,12 +1158,11 @@ workflows:
             }),
             scopeFactory: services.GetRequiredService<IServiceScopeFactory>());
 
-        var events = await SmartFlowTestFactory.CollectAsync(
-            smartFlow.ExecuteAsync(
+        var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync(
                 "show the structured result",
                 correlationId: "corr-routed-markdown-format",
                 agentName: null,
-                CancellationToken.None));
+                CancellationToken.None), TestContext.Current.CancellationToken);
 
         var answer = Assert.Single(events, evt => evt.Type == "answer");
         Assert.Equal(formattedAnswer, answer.Text);
@@ -1194,14 +1177,14 @@ workflows:
         if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
             return;
 
-        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-smartflow-preferred-{Guid.NewGuid():N}.db");
+        var dbPath = AgentMcpTestPersistence.CreateIsolatedDatabasePath("smartflow-preferred-agent");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"
         ], urls: "http://127.0.0.1:0");
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var address = app.Services
                 .GetRequiredService<IServer>()
                 .Features
@@ -1244,25 +1227,17 @@ workflows:
                 NullLogger<SmartFlowService>.Instance,
                 userConfigClient);
 
-            var events = await SmartFlowTestFactory.CollectAsync(
-                smartFlow.ExecuteAsync("Explain SlimFaas", correlationId: "corr-smartflow-preferred", agentName: "legacy-agent", CancellationToken.None));
+            var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync("Explain SlimFaas", correlationId: "corr-smartflow-preferred", agentName: "legacy-agent", CancellationToken.None), TestContext.Current.CancellationToken);
 
             Assert.Contains(events, evt => evt.Type == "answer" && evt.Text == "AGENT: Explain SlimFaas");
             Assert.DoesNotContain(events, evt => evt.Type == "answer" && evt.Text == "LEGACY: Explain SlimFaas");
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
-            try
-            {
-                if (File.Exists(dbPath))
-                    File.Delete(dbPath);
-            }
-            catch
-            {
-            }
+            AgentMcpTestPersistence.CleanupIsolatedWorkspace(dbPath);
         }
     }
 
@@ -1272,14 +1247,14 @@ workflows:
         if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
             return;
 
-        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-smartflow-missing-{Guid.NewGuid():N}.db");
+        var dbPath = AgentMcpTestPersistence.CreateIsolatedDatabasePath("smartflow-missing-agent");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"
         ], urls: "http://127.0.0.1:0");
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var address = app.Services
                 .GetRequiredService<IServer>()
                 .Features
@@ -1321,25 +1296,17 @@ workflows:
                 NullLogger<SmartFlowService>.Instance,
                 userConfigClient);
 
-            var events = await SmartFlowTestFactory.CollectAsync(
-                smartFlow.ExecuteAsync("Explain SlimFaas", correlationId: "corr-smartflow-missing", agentName: null, CancellationToken.None));
+            var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync("Explain SlimFaas", correlationId: "corr-smartflow-missing", agentName: null, CancellationToken.None), TestContext.Current.CancellationToken);
 
             Assert.Contains(events, evt => evt.Type == "error" && evt.Text is not null && evt.Text.Contains("missing-agent", StringComparison.Ordinal));
             Assert.DoesNotContain(events, evt => evt.Type == "answer");
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
-            try
-            {
-                if (File.Exists(dbPath))
-                    File.Delete(dbPath);
-            }
-            catch
-            {
-            }
+            AgentMcpTestPersistence.CleanupIsolatedWorkspace(dbPath);
         }
     }
 
@@ -1349,14 +1316,14 @@ workflows:
         if (!AgentServerTestEnvironment.RunMountedAgentMcpTests)
             return;
 
-        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-smartflow-traces-{Guid.NewGuid():N}.db");
+        var dbPath = AgentMcpTestPersistence.CreateIsolatedDatabasePath("smartflow-traces");
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}"
         ], urls: "http://127.0.0.1:0");
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var address = app.Services
                 .GetRequiredService<IServer>()
                 .Features
@@ -1400,8 +1367,7 @@ workflows:
                 userConfigClient);
 
             const string correlationId = "corr-smartflow-trace";
-            var events = await SmartFlowTestFactory.CollectAsync(
-                smartFlow.ExecuteAsync("Explain SlimFaas", correlationId, agentName: null, CancellationToken.None));
+            var events = await SmartFlowTestFactory.CollectAsync(smartFlow.ExecuteAsync("Explain SlimFaas", correlationId, agentName: null, CancellationToken.None), TestContext.Current.CancellationToken);
 
             Assert.Contains(events, evt => evt.Type == "answer" && evt.Text == "AGENT: Explain SlimFaas");
 
@@ -1421,19 +1387,10 @@ workflows:
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
-            try
-            {
-                File.Delete(dbPath);
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
+            AgentMcpTestPersistence.CleanupIsolatedWorkspace(dbPath);
         }
     }
 

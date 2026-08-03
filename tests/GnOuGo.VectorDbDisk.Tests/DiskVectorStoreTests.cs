@@ -30,12 +30,10 @@ public sealed class DiskVectorStoreTests
             VectorDocument.Create("car", "A car is a wheeled motor vehicle used for transportation.",
                 embedder.Embed("A car is a wheeled motor vehicle used for transportation."),
                 new Dictionary<string, string> { { "type", "vehicle" } }),
-        });
+        }, TestContext.Current.CancellationToken);
 
-        var hits = await store.SearchAsync("demo",
-            queryVector: embedder.Embed("kitten"),
-            options: new SearchOptions(TopK: 2, Filter: MetadataFilter.Eq("type", "animal"),
-                Mode: SearchMode.VectorOnly));
+        var hits = await store.SearchAsync("demo", queryVector: embedder.Embed("kitten"), options: new SearchOptions(TopK: 2, Filter: MetadataFilter.Eq("type", "animal"),
+                Mode: SearchMode.VectorOnly), ct: TestContext.Current.CancellationToken);
 
         Assert.True(hits.Count > 0);
         Assert.DoesNotContain(hits, h => h.Metadata.TryGetValue("type", out var t) && t == "vehicle");
@@ -63,14 +61,12 @@ public sealed class DiskVectorStoreTests
                 new Dictionary<string, string> { { "topic", "devops" } }),
             VectorDocument.Create("food", "recipe for raclette", embedder.Embed("recipe for raclette"),
                 new Dictionary<string, string> { { "topic", "food" } }),
-        });
+        }, TestContext.Current.CancellationToken);
 
         var store2 = new DiskVectorStore(DiskVectorStoreOptions.Default(root));
 
-        var hits = await store2.SearchAsync("demo",
-            queryVector: embedder.Embed("how to autoscale pods"),
-            options: new SearchOptions(TopK: 2, Filter: MetadataFilter.Eq("topic", "devops"),
-                Mode: SearchMode.VectorOnly));
+        var hits = await store2.SearchAsync("demo", queryVector: embedder.Embed("how to autoscale pods"), options: new SearchOptions(TopK: 2, Filter: MetadataFilter.Eq("topic", "devops"),
+                Mode: SearchMode.VectorOnly), ct: TestContext.Current.CancellationToken);
 
         Assert.True(hits.Count > 0);
         Assert.Equal("k8s", hits[0].Id);
@@ -100,12 +96,9 @@ public sealed class DiskVectorStoreTests
             VectorDocument.Create("r3", "kubernetes autoscaling with prometheus",
                 embedder.Embed("kubernetes autoscaling with prometheus"),
                 new Dictionary<string, string> { { "topic", "devops" } }),
-        });
+        }, TestContext.Current.CancellationToken);
 
-        var hits = await store.SearchAsync("demo",
-            queryText: "kubernetes autoscaling",
-            queryVector: embedder.Embed("autoscale pods kubernetes"),
-            options: new SearchOptions(TopK: 2, Mode: SearchMode.Hybrid, Filter: MetadataFilter.Eq("topic", "devops")));
+        var hits = await store.SearchAsync("demo", queryText: "kubernetes autoscaling", queryVector: embedder.Embed("autoscale pods kubernetes"), options: new SearchOptions(TopK: 2, Mode: SearchMode.Hybrid, Filter: MetadataFilter.Eq("topic", "devops")), ct: TestContext.Current.CancellationToken);
 
         Assert.True(hits.Count > 0);
         Assert.All(hits, h => Assert.Equal("devops", h.Metadata["topic"]));
@@ -133,35 +126,29 @@ public sealed class DiskVectorStoreTests
                 new Dictionary<string, string> { { "kind", "greet" } }),
             VectorDocument.Create("doc2", "pizza recipe", embedder.Embed("pizza recipe"),
                 new Dictionary<string, string> { { "kind", "food" } }),
-        });
+        }, TestContext.Current.CancellationToken);
 
         await store.UpsertManyAsync("demo", new[]
         {
             VectorDocument.Create("doc1", "hello kubernetes", embedder.Embed("hello kubernetes"),
                 new Dictionary<string, string> { { "kind", "devops" } }),
-        });
+        }, TestContext.Current.CancellationToken);
 
-        var hitsDevops = await store.SearchAsync("demo",
-            queryVector: embedder.Embed("kubernetes"),
-            options: new SearchOptions(TopK: 5, Filter: MetadataFilter.Eq("kind", "devops"),
-                Mode: SearchMode.VectorOnly));
+        var hitsDevops = await store.SearchAsync("demo", queryVector: embedder.Embed("kubernetes"), options: new SearchOptions(TopK: 5, Filter: MetadataFilter.Eq("kind", "devops"),
+                Mode: SearchMode.VectorOnly), ct: TestContext.Current.CancellationToken);
 
         Assert.Contains(hitsDevops, h => h.Id == "doc1");
         Assert.DoesNotContain(hitsDevops, h => h.Id == "doc2");
 
-        var hitsGreet = await store.SearchAsync("demo",
-            queryVector: embedder.Embed("hello"),
-            options: new SearchOptions(TopK: 5, Filter: MetadataFilter.Eq("kind", "greet"),
-                Mode: SearchMode.VectorOnly));
+        var hitsGreet = await store.SearchAsync("demo", queryVector: embedder.Embed("hello"), options: new SearchOptions(TopK: 5, Filter: MetadataFilter.Eq("kind", "greet"),
+                Mode: SearchMode.VectorOnly), ct: TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain(hitsGreet, h => h.Id == "doc1");
 
-        await store.DeleteManyAsync("demo", new[] { "doc2" });
+        await store.DeleteManyAsync("demo", new[] { "doc2" }, TestContext.Current.CancellationToken);
 
-        var hitsFood = await store.SearchAsync("demo",
-            queryVector: embedder.Embed("recipe"),
-            options: new SearchOptions(TopK: 5, Filter: MetadataFilter.Eq("kind", "food"),
-                Mode: SearchMode.VectorOnly));
+        var hitsFood = await store.SearchAsync("demo", queryVector: embedder.Embed("recipe"), options: new SearchOptions(TopK: 5, Filter: MetadataFilter.Eq("kind", "food"),
+                Mode: SearchMode.VectorOnly), ct: TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain(hitsFood, h => h.Id == "doc2");
     }
@@ -180,16 +167,16 @@ public sealed class DiskVectorStoreTests
 
         var store = new DiskVectorStore(DiskVectorStoreOptions.Default(root));
 
-        await store.UpsertManyAsync("c1", new[] { VectorDocument.Create("a", "alpha", embedder.Embed("alpha")) });
-        await store.UpsertManyAsync("c2", new[] { VectorDocument.Create("b", "beta", embedder.Embed("beta")) });
+        await store.UpsertManyAsync("c1", new[] { VectorDocument.Create("a", "alpha", embedder.Embed("alpha")) }, TestContext.Current.CancellationToken);
+        await store.UpsertManyAsync("c2", new[] { VectorDocument.Create("b", "beta", embedder.Embed("beta")) }, TestContext.Current.CancellationToken);
 
-        var cols = await store.ListCollectionsAsync();
+        var cols = await store.ListCollectionsAsync(TestContext.Current.CancellationToken);
         Assert.Contains("c1", cols);
         Assert.Contains("c2", cols);
 
-        await store.DeleteCollectionAsync("c1");
+        await store.DeleteCollectionAsync("c1", TestContext.Current.CancellationToken);
 
-        cols = await store.ListCollectionsAsync();
+        cols = await store.ListCollectionsAsync(TestContext.Current.CancellationToken);
         Assert.DoesNotContain("c1", cols);
         Assert.Contains("c2", cols);
     }
@@ -220,19 +207,17 @@ public sealed class DiskVectorStoreTests
         {
             VectorDocument.Create("doc1", "hello world", embedder.Embed("hello world"),
                 new Dictionary<string, string> { { "kind", "greet" } }),
-        });
+        }, TestContext.Current.CancellationToken);
 
         // Update without compaction
         await store.UpsertManyAsync("demo", new[]
         {
             VectorDocument.Create("doc1", "hello kubernetes", embedder.Embed("hello kubernetes"),
                 new Dictionary<string, string> { { "kind", "devops" } }),
-        });
+        }, TestContext.Current.CancellationToken);
 
-        var hits = await store.SearchAsync("demo",
-            queryVector: embedder.Embed("kubernetes"),
-            options: new SearchOptions(TopK: 5, Filter: MetadataFilter.Eq("kind", "devops"),
-                Mode: SearchMode.VectorOnly));
+        var hits = await store.SearchAsync("demo", queryVector: embedder.Embed("kubernetes"), options: new SearchOptions(TopK: 5, Filter: MetadataFilter.Eq("kind", "devops"),
+                Mode: SearchMode.VectorOnly), ct: TestContext.Current.CancellationToken);
 
         Assert.Contains(hits, h => h.Id == "doc1");
     }

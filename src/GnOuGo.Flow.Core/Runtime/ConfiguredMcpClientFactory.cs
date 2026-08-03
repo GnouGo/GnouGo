@@ -14,7 +14,7 @@ namespace GnOuGo.Flow.Core.Runtime;
 
 /// <summary>
 /// Real <see cref="IMcpClientFactory"/> implementation that connects to MCP servers
-/// using the Microsoft ModelContextProtocol library (&gt;= 1.0.0).
+/// using the Microsoft ModelContextProtocol 2.x library.
 /// Reads configuration from a dictionary of <see cref="McpServerOptions"/>.
 /// Shared by both GnOuGo.Flow.Cli and GnOuGo.Flow.Server.
 /// </summary>
@@ -131,11 +131,15 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
                 $"Unknown MCP transport type '{config.Type}' for server '{serverName}'")
         };
 
-        return await McpClient.CreateAsync(transport, new McpClientOptions
-        {
-            ClientInfo = new Implementation { Name = "GnOuGo.Flow", Version = "1.0.0" }
-        }, cancellationToken: ct);
+        return await McpClient.CreateAsync(transport, CreateClientOptions(), cancellationToken: ct);
     }
+
+    internal static McpClientOptions CreateClientOptions() => new()
+    {
+        // Leave ProtocolVersion unset so SDK 2.x prefers 2026-07-28 discovery and
+        // automatically falls back to initialize-handshake servers when required.
+        ClientInfo = new Implementation { Name = "GnOuGo.Flow", Version = "1.0.0" }
+    };
 
     private static HttpClientTransport CreateHttpTransport(McpServerOptions config, McpCorrelationContext? correlation)
     {

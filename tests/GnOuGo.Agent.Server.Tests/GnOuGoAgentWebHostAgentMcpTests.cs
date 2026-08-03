@@ -28,10 +28,10 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
 
-            var agentMcp = await WaitForMountedAgentMcpAsync(app.Services, CancellationToken.None);
+            var agentMcp = await WaitForMountedAgentMcpAsync(app.Services, TestContext.Current.CancellationToken);
 
             Assert.NotNull(agentMcp);
             Assert.Equal("http", agentMcp!.Type);
@@ -40,7 +40,7 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
         }
     }
@@ -53,8 +53,8 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
 
         try
         {
-            await app.StartAsync();
-            await WaitForMountedAgentMcpAsync(app.Services, CancellationToken.None);
+            await app.StartAsync(TestContext.Current.CancellationToken);
+            await WaitForMountedAgentMcpAsync(app.Services, TestContext.Current.CancellationToken);
 
             var client = app.Services.GetRequiredService<AgentUserConfigMcpClient>();
             var snapshot = await client.GetAsync(CancellationToken.None);
@@ -63,7 +63,7 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
         }
     }
@@ -79,10 +79,10 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var publishedEndpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
 
-            var agentMcp = await WaitForMountedAgentMcpAsync(app.Services, CancellationToken.None);
+            var agentMcp = await WaitForMountedAgentMcpAsync(app.Services, TestContext.Current.CancellationToken);
 
             Assert.NotNull(agentMcp);
             Assert.Equal("http", agentMcp!.Type);
@@ -123,7 +123,7 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
         }
     }
@@ -132,17 +132,14 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
     {
         var store = services.GetRequiredService<LLMRuntimeOptionsStore>();
 
-        for (var attempt = 0; attempt < 40; attempt++)
+        McpServerOptions? agentMcp = null;
+        await TestPolling.WaitUntilAsync(() =>
         {
-            store.Current.McpServers.TryGetValue("GnOuGo.Agent.Mcp", out var agentMcp);
-            if (!string.IsNullOrWhiteSpace(agentMcp?.Url) && !agentMcp.Url.Contains(":0/", StringComparison.Ordinal))
-                return agentMcp;
+            store.Current.McpServers.TryGetValue("GnOuGo.Agent.Mcp", out agentMcp);
+            return !string.IsNullOrWhiteSpace(agentMcp?.Url)
+                && !agentMcp.Url.Contains(":0/", StringComparison.Ordinal);
+        }, ct);
 
-            await Task.Delay(50, ct);
-        }
-
-        store.Current.McpServers.TryGetValue("GnOuGo.Agent.Mcp", out var finalAgentMcp);
-        return finalAgentMcp;
+        return agentMcp;
     }
 }
-

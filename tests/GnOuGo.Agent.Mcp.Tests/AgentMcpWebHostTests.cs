@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Workspace;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 
 namespace GnOuGo.Agent.Mcp.Tests;
 
@@ -60,7 +62,7 @@ public sealed class AgentMcpWebHostTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
 
             var address = app.Services
                 .GetRequiredService<IServer>()
@@ -70,14 +72,14 @@ public sealed class AgentMcpWebHostTests
                 .First();
 
             using var http = new HttpClient();
-            var payload = await http.GetFromJsonAsync<HealthPayload>($"{address.TrimEnd('/')}/health");
+            var payload = await http.GetFromJsonAsync<HealthPayload>($"{address.TrimEnd('/')}/health", cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.NotNull(payload);
             Assert.Equal("ok", payload.Status);
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
             try
@@ -102,7 +104,7 @@ public sealed class AgentMcpWebHostTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
 
             var address = app.Services
                 .GetRequiredService<IServer>()
@@ -152,7 +154,67 @@ public sealed class AgentMcpWebHostTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
+            await app.DisposeAsync();
+
+            try
+            {
+                if (File.Exists(dbPath))
+                    File.Delete(dbPath);
+            }
+            catch (IOException)
+            {
+                // Best-effort cleanup for a temporary SQLite file.
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Build_McpHttp_AcceptsLegacyInitializeNegotiation()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-mcp-legacy-{Guid.NewGuid():N}.db");
+        var app = AgentMcpWebHost.Build([
+            $"--Agent:DatabasePath={dbPath}"
+        ], urls: "http://127.0.0.1:0");
+
+        try
+        {
+            await app.StartAsync(TestContext.Current.CancellationToken);
+
+            var address = app.Services
+                .GetRequiredService<IServer>()
+                .Features
+                .Get<IServerAddressesFeature>()!
+                .Addresses
+                .First();
+
+            var transport = new HttpClientTransport(new HttpClientTransportOptions
+            {
+                Endpoint = new Uri($"{address.TrimEnd('/')}/mcp"),
+                Name = "GnOuGo.LegacyCompatibility.Tests"
+            });
+
+            await using var client = await McpClient.CreateAsync(
+                transport,
+                new McpClientOptions
+                {
+                    ProtocolVersion = "2025-11-25",
+                    ClientInfo = new Implementation
+                    {
+                        Name = "GnOuGo.LegacyCompatibility.Tests",
+                        Version = "1.0.0"
+                    }
+                },
+                cancellationToken: CancellationToken.None);
+
+            var tools = await client.ListToolsAsync(cancellationToken: CancellationToken.None);
+
+            Assert.Contains(tools, tool => tool.Name == "agent_list");
+            Assert.Contains(tools, tool => tool.Name == "user_config_get");
+        }
+        finally
+        {
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
             try
@@ -177,7 +239,7 @@ public sealed class AgentMcpWebHostTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
 
             var address = app.Services
                 .GetRequiredService<IServer>()
@@ -210,7 +272,7 @@ public sealed class AgentMcpWebHostTests
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
             try

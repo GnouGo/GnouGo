@@ -83,7 +83,7 @@ public static class DocsIngestorMcpHostingExtensions
                 };
                 options.AddGnOuGoToolErrorNormalizer();
             })
-            .WithHttpTransport()
+            .WithHttpTransport(options => options.Stateless = true)
             .WithTools<DocsIngestorTools>(DocsIngestorMcpJson.SerializerOptions);
 
         return services;

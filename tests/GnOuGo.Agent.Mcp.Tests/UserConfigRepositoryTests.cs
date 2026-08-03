@@ -17,7 +17,7 @@ public sealed class UserConfigRepositoryTests : IDisposable
     [Fact]
     public async Task GetAsync_ReturnsEmptySnapshot_WhenNoRowExists()
     {
-        var snapshot = await _repository.GetAsync();
+        var snapshot = await _repository.GetAsync(ct: TestContext.Current.CancellationToken);
 
         Assert.Null(snapshot.DefaultLlmProvider);
         Assert.Null(snapshot.DefaultLlmModel);
@@ -31,9 +31,9 @@ public sealed class UserConfigRepositoryTests : IDisposable
         await _repository.SetAsync(new UserConfigUpdate(
             DefaultLlmProvider: "ollama",
             DefaultLlmModel: "llama3",
-            DefaultAgent: "slimfaas"));
+            DefaultAgent: "slimfaas"), ct: TestContext.Current.CancellationToken);
 
-        var snapshot = await _repository.GetAsync();
+        var snapshot = await _repository.GetAsync(ct: TestContext.Current.CancellationToken);
 
         Assert.Equal("ollama", snapshot.DefaultLlmProvider);
         Assert.Equal("llama3", snapshot.DefaultLlmModel);
@@ -44,14 +44,14 @@ public sealed class UserConfigRepositoryTests : IDisposable
     [Fact]
     public async Task SetAsync_Clears_Defaults_WhenRequested()
     {
-        await _repository.SetAsync(new UserConfigUpdate("openai", "gpt-4o-mini", "agent-a"));
+        await _repository.SetAsync(new UserConfigUpdate("openai", "gpt-4o-mini", "agent-a"), ct: TestContext.Current.CancellationToken);
 
         var snapshot = await _repository.SetAsync(new UserConfigUpdate(
             DefaultLlmProvider: null,
             DefaultLlmModel: null,
             DefaultAgent: null,
             ClearDefaultLlm: true,
-            ClearDefaultAgent: true));
+            ClearDefaultAgent: true), ct: TestContext.Current.CancellationToken);
 
         Assert.Null(snapshot.DefaultLlmProvider);
         Assert.Null(snapshot.DefaultLlmModel);
@@ -84,9 +84,9 @@ public sealed class UserConfigRepositoryTests : IDisposable
                         SupportsJsonMode = true
                     }
                 }
-            }));
+            }), ct: TestContext.Current.CancellationToken);
 
-        var snapshot = await _repository.GetAsync();
+        var snapshot = await _repository.GetAsync(ct: TestContext.Current.CancellationToken);
 
         Assert.NotNull(snapshot.ModelOverrides);
         var overrides = snapshot.ModelOverrides!;
@@ -102,8 +102,8 @@ public sealed class UserConfigRepositoryTests : IDisposable
     {
         var update = new UserConfigUpdate("ollama", "llama3", "slimfaas");
 
-        await _repository.SetAsync(update);
-        await _repository.SetAsync(update);
+        await _repository.SetAsync(update, ct: TestContext.Current.CancellationToken);
+        await _repository.SetAsync(update, ct: TestContext.Current.CancellationToken);
 
         var revisions = await _database.DiffService.GetRevisionsAsync("AgentConfiguration", "global");
         Assert.Equal(2, revisions.Count);

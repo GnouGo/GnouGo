@@ -12,20 +12,19 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@types/marked": "6.0.0",
     "@types/prismjs": "1.26.6",
-    "marked": "18.0.4",
+    "marked": "18.0.7",
     "prismjs": "1.30.0",
-    "react": "19.2.6",
-    "react-dom": "19.2.6",
-    "react-router-dom": "7.15.1"
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-router-dom": "7.18.2"
   },
   "devDependencies": {
-    "@types/react": "19.2.15",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.2",
-    "sass": "1.100.0",
-    "typescript": "6.0.3",
-    "vite": "8.0.14"
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "6.0.5",
+    "sass": "1.102.0",
+    "typescript": "7.0.2",
+    "vite": "8.2.0"
   }
 }

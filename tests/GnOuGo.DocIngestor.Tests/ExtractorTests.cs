@@ -15,7 +15,7 @@ public sealed class ExtractorTests
 
         await using var source = OpenSource(path);
         var ex = new DocxOpenXmlExtractor();
-        var doc = await ex.ExtractAsync(source);
+        var doc = await ex.ExtractAsync(source, TestContext.Current.CancellationToken);
 
         Assert.Single(doc.Sections);
         Assert.Contains("Hello DOCX", doc.Sections[0].Text);
@@ -30,7 +30,7 @@ public sealed class ExtractorTests
 
         await using var source = OpenSource(path);
         var ex = new PptxOpenXmlExtractor();
-        var doc = await ex.ExtractAsync(source);
+        var doc = await ex.ExtractAsync(source, TestContext.Current.CancellationToken);
 
         Assert.True(doc.Sections.Count >= 2);
         Assert.Contains("Hello PPTX", doc.Sections[0].Text);
@@ -45,7 +45,7 @@ public sealed class ExtractorTests
 
         await using var source = OpenSource(path);
         var ex = new XlsxOpenXmlExtractor();
-        var doc = await ex.ExtractAsync(source);
+        var doc = await ex.ExtractAsync(source, TestContext.Current.CancellationToken);
 
         Assert.Single(doc.Sections);
         Assert.Contains("Sheet1", doc.Sections[0].Title);
@@ -57,11 +57,11 @@ public sealed class ExtractorTests
     {
         var tmp = CreateTempDir();
         var path = Path.Combine(tmp, "a.md");
-        await File.WriteAllTextAsync(path, "# Title\n\nHello markdown");
+        await File.WriteAllTextAsync(path, "# Title\n\nHello markdown", TestContext.Current.CancellationToken);
 
         await using var source = OpenSource(path);
         var ex = new PlainTextExtractor();
-        var doc = await ex.ExtractAsync(source);
+        var doc = await ex.ExtractAsync(source, TestContext.Current.CancellationToken);
 
         Assert.Single(doc.Sections);
         Assert.Contains("Hello markdown", doc.Sections[0].Text);
@@ -74,11 +74,11 @@ public sealed class ExtractorTests
     {
         var tmp = CreateTempDir();
         var path = Path.Combine(tmp, "Program.cs");
-        await File.WriteAllTextAsync(path, "using System;\n\nclass Program\n{\n    static void Main() { }\n}");
+        await File.WriteAllTextAsync(path, "using System;\n\nclass Program\n{\n    static void Main() { }\n}", TestContext.Current.CancellationToken);
 
         await using var source = OpenSource(path);
         var ex = new PlainTextExtractor();
-        var doc = await ex.ExtractAsync(source);
+        var doc = await ex.ExtractAsync(source, TestContext.Current.CancellationToken);
 
         Assert.Single(doc.Sections);
         Assert.Contains("class Program", doc.Sections[0].Text);
@@ -91,11 +91,11 @@ public sealed class ExtractorTests
     {
         var tmp = CreateTempDir();
         var path = Path.Combine(tmp, "config.json");
-        await File.WriteAllTextAsync(path, "{\"key\": \"value\"}");
+        await File.WriteAllTextAsync(path, "{\"key\": \"value\"}", TestContext.Current.CancellationToken);
 
         await using var source = OpenSource(path);
         var ex = new PlainTextExtractor();
-        var doc = await ex.ExtractAsync(source);
+        var doc = await ex.ExtractAsync(source, TestContext.Current.CancellationToken);
 
         Assert.Single(doc.Sections);
         Assert.Contains("\"key\"", doc.Sections[0].Text);

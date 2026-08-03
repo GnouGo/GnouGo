@@ -2,6 +2,10 @@
 
 MCP stdio server for safe Git repository operations on local projects.
 
+## MCP protocol compatibility
+
+This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. The SDK retains compatibility with older clients; tool names, request schemas, and structured results are unchanged.
+
 ## Features
 
 - Inspect the active policy with `git_get_policy`.

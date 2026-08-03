@@ -25,11 +25,11 @@ public sealed class SqliteStoreTests
         {
             new EmbeddedChunk(c1, "manual", v1),
             new EmbeddedChunk(c2, "manual", v2),
-        });
+        }, TestContext.Current.CancellationToken);
 
         var query = new float[] { 0.9f, 0.1f, 0f, 0f };
 
-        var results = await store.SearchAsync(collection, query, topK: 2);
+        var results = await store.SearchAsync(collection, query, topK: 2, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, results.Count);
         Assert.Equal("c1", results[0].Chunk.Chunk.ChunkId);

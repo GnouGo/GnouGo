@@ -28,7 +28,7 @@ public sealed class OcrEngineTests
     public async Task FakeOcrEngine_ReturnsEmpty()
     {
         var engine = new FakeOcrEngine();
-        var result = await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions());
+        var result = await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions(), TestContext.Current.CancellationToken);
         Assert.Equal(string.Empty, result);
     }
 
@@ -60,7 +60,7 @@ public sealed class OcrEngineTests
             http: http);
 
         // Act
-        var result = await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions("eng", 300));
+        var result = await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions("eng", 300), TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal("Hello World from OCR", result);
@@ -80,7 +80,7 @@ public sealed class OcrEngineTests
         var apiKeyProvider = new StaticApiKeyProvider("test-key");
 
         var engine = new OpenAiVisionOcrEngine("https://api.openai.com/v1", "gpt-4o-mini", apiKeyProvider, http);
-        var result = await engine.RecognizeAsync(Array.Empty<byte>(), new OcrOptions());
+        var result = await engine.RecognizeAsync(Array.Empty<byte>(), new OcrOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(string.Empty, result);
         Assert.Null(handler.LastRequest); // no HTTP call made
@@ -96,7 +96,7 @@ public sealed class OcrEngineTests
         var engine = new OpenAiVisionOcrEngine("https://api.openai.com/v1", "gpt-4o-mini", apiKeyProvider, http);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => engine.RecognizeAsync(CreateSmallPng(), new OcrOptions()).AsTask());
+            () => engine.RecognizeAsync(CreateSmallPng(), new OcrOptions(), TestContext.Current.CancellationToken).AsTask());
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public sealed class OcrEngineTests
         var apiKeyProvider = new StaticApiKeyProvider("key");
 
         var engine = new OpenAiVisionOcrEngine("https://custom.api.com", "gpt-4o", apiKeyProvider, http);
-        await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions());
+        await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal("https://custom.api.com/v1/chat/completions", handler.LastRequest?.RequestUri?.ToString());
     }
@@ -136,7 +136,7 @@ public sealed class OcrEngineTests
         var apiKeyProvider = new StaticApiKeyProvider("key");
 
         var engine = new OpenAiVisionOcrEngine("https://api.openai.com/v1", "gpt-4o-mini", apiKeyProvider, http);
-        await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions());
+        await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions(), TestContext.Current.CancellationToken);
 
         // Verify the request body contains base64 image data
         var body = handler.LastRequestBody;
@@ -163,7 +163,7 @@ public sealed class OcrEngineTests
             model: "llava",
             http: http);
 
-        var result = await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions("fra", 300));
+        var result = await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions("fra", 300), TestContext.Current.CancellationToken);
 
         Assert.Equal("Bonjour le monde OCR", result);
         Assert.Equal("http://localhost:11434/api/chat", handler.LastRequest?.RequestUri?.ToString());
@@ -176,7 +176,7 @@ public sealed class OcrEngineTests
         var http = new HttpClient(handler);
 
         var engine = new OllamaVisionOcrEngine("http://localhost:11434", "llava", http);
-        var result = await engine.RecognizeAsync(Array.Empty<byte>(), new OcrOptions());
+        var result = await engine.RecognizeAsync(Array.Empty<byte>(), new OcrOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal(string.Empty, result);
         Assert.Null(handler.LastRequest);
@@ -191,7 +191,7 @@ public sealed class OcrEngineTests
         var engine = new OllamaVisionOcrEngine("http://localhost:11434", "llava", http);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => engine.RecognizeAsync(CreateSmallPng(), new OcrOptions()).AsTask());
+            () => engine.RecognizeAsync(CreateSmallPng(), new OcrOptions(), TestContext.Current.CancellationToken).AsTask());
     }
 
     [Fact]
@@ -206,7 +206,7 @@ public sealed class OcrEngineTests
         var http = new HttpClient(handler);
 
         var engine = new OllamaVisionOcrEngine("http://localhost:11434", "llava", http);
-        await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions());
+        await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions(), TestContext.Current.CancellationToken);
 
         var body = handler.LastRequestBody;
         Assert.NotNull(body);
@@ -227,7 +227,7 @@ public sealed class OcrEngineTests
         var http = new HttpClient(handler);
 
         var engine = new OllamaVisionOcrEngine("http://localhost:11434/", "llava", http);
-        await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions());
+        await engine.RecognizeAsync(CreateSmallPng(), new OcrOptions(), TestContext.Current.CancellationToken);
 
         Assert.Equal("http://localhost:11434/api/chat", handler.LastRequest?.RequestUri?.ToString());
     }

@@ -42,9 +42,9 @@ public sealed class DiffDbContextTests : IDisposable
         };
 
         _context.DiffEntries.Add(entry);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var loaded = await _context.DiffEntries.FindAsync(entry.Id);
+        var loaded = await _context.DiffEntries.FindAsync(new object?[] { entry.Id }, TestContext.Current.CancellationToken);
 
         Assert.NotNull(loaded);
         Assert.Equal("User", loaded.EntityType);
@@ -73,12 +73,12 @@ public sealed class DiffDbContextTests : IDisposable
             });
         }
 
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var results = await _context.DiffEntries
             .Where(e => e.EntityType == "Config" && e.EntityId == "main")
             .OrderByDescending(e => e.TimestampTicks)
-            .ToListAsync();
+            .ToListAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(5, results.Count);
         Assert.Equal("v4", results[0].CurrentValue); // latest first
@@ -109,10 +109,10 @@ public sealed class DiffDbContextTests : IDisposable
             ValueHash = "h2"
         });
 
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var users = await _context.DiffEntries.Where(e => e.EntityType == "User").ToListAsync();
-        var orders = await _context.DiffEntries.Where(e => e.EntityType == "Order").ToListAsync();
+        var users = await _context.DiffEntries.Where(e => e.EntityType == "User").ToListAsync(cancellationToken: TestContext.Current.CancellationToken);
+        var orders = await _context.DiffEntries.Where(e => e.EntityType == "Order").ToListAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Single(users);
         Assert.Single(orders);
@@ -134,9 +134,9 @@ public sealed class DiffDbContextTests : IDisposable
         };
 
         _context.DiffEntries.Add(entry);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var loaded = await _context.DiffEntries.FindAsync(entry.Id);
+        var loaded = await _context.DiffEntries.FindAsync(new object?[] { entry.Id }, TestContext.Current.CancellationToken);
         Assert.Equal("- old line\n+ new line", loaded!.DiffFromPrevious);
     }
 
@@ -157,9 +157,9 @@ public sealed class DiffDbContextTests : IDisposable
         entry.Timestamp = ts;
 
         _context.DiffEntries.Add(entry);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var loaded = await _context.DiffEntries.FindAsync(entry.Id);
+        var loaded = await _context.DiffEntries.FindAsync(new object?[] { entry.Id }, TestContext.Current.CancellationToken);
         Assert.Equal(ts.UtcTicks, loaded!.TimestampTicks);
     }
 }

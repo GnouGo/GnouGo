@@ -34,7 +34,7 @@ public sealed class ChunkerTests
         );
 
         var policy = new ChunkSizePolicy(MinTokens: 5, TargetTokens: 20, MaxTokens: 25, OverlapTokens: 0);
-        var chunks = await chunker.ChunkAsync(doc, policy);
+        var chunks = await chunker.ChunkAsync(doc, policy, TestContext.Current.CancellationToken);
 
         Assert.NotEmpty(chunks);
         Assert.All(chunks, c => Assert.True(tokenCounter.CountTokens(c.Text) <= policy.MaxTokens + 5)); // small tolerance due to approximation
@@ -84,7 +84,7 @@ public sealed class ChunkerTests
         );
 
         var policy = new ChunkSizePolicy(MinTokens: 1, TargetTokens: 50, MaxTokens: 50, OverlapTokens: 0);
-        var chunks = await chunker.ChunkAsync(doc, policy);
+        var chunks = await chunker.ChunkAsync(doc, policy, TestContext.Current.CancellationToken);
 
         // Semantic chunker groups paragraphs, so result depends on pre-grouping.
         // With these short paragraphs, they may be pre-grouped into one or two units.
@@ -92,6 +92,6 @@ public sealed class ChunkerTests
         Assert.NotEmpty(chunks);
         Assert.True(chunks.Count >= 1);
         // The cat-related text should be in the output
-        Assert.True(chunks.Any(c => c.Text.Contains("cat", StringComparison.OrdinalIgnoreCase)));
+        Assert.Contains(chunks, c => c.Text.Contains("cat", StringComparison.OrdinalIgnoreCase));
     }
 }

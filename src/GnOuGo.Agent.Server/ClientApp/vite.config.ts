@@ -7,12 +7,12 @@ import path from 'node:path';
 //   wwwroot/ui/chunks/*
 export default defineConfig({
   build: {
-    outDir: path.resolve(__dirname, '../wwwroot/ui'),
+    outDir: path.resolve(import.meta.dirname, '../wwwroot/ui'),
     emptyOutDir: true,
     sourcemap: false,
     cssCodeSplit: false,
     rollupOptions: {
-      input: path.resolve(__dirname, 'src/main.ts'),
+      input: path.resolve(import.meta.dirname, 'src/main.ts'),
       output: {
         entryFileNames: 'app.js',
         chunkFileNames: 'chunks/[name].js',

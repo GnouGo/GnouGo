@@ -42,13 +42,13 @@ public sealed class KeyVaultToolsTests : IAsyncDisposable
     [Fact]
     public async Task SetSecretAndGetSecret_RoundTrip_ReturnsMetadataAndValue()
     {
-        var tenant = await _tools.CreateTenantAsync("tools-test-tenant", "tester");
+        var tenant = await _tools.CreateTenantAsync("tools-test-tenant", "tester", TestContext.Current.CancellationToken);
         var tenantId = tenant.Data!.Id;
 
-        var set = await _tools.SetSecretAsync("demo", "secret-value", "tester", tenantId);
+        var set = await _tools.SetSecretAsync("demo", "secret-value", "tester", tenantId, TestContext.Current.CancellationToken);
         Assert.True(set.Success);
 
-        var get = await _tools.GetSecretAsync("demo", "tester", tenantId);
+        var get = await _tools.GetSecretAsync("demo", "tester", tenantId, TestContext.Current.CancellationToken);
         Assert.True(get.Success);
         Assert.NotNull(get.Data);
 
@@ -58,7 +58,7 @@ public sealed class KeyVaultToolsTests : IAsyncDisposable
     [Fact]
     public async Task GetSecret_WhenMissing_ReturnsNotFound()
     {
-        var result = await _tools.GetSecretAsync("missing", "tester");
+        var result = await _tools.GetSecretAsync("missing", "tester", ct: TestContext.Current.CancellationToken);
 
         Assert.False(result.Success);
         Assert.False(result.Ok);
@@ -70,13 +70,13 @@ public sealed class KeyVaultToolsTests : IAsyncDisposable
     [Fact]
     public async Task GetSecret_ReturnsLatestVersionValue()
     {
-        var tenant = await _tools.CreateTenantAsync("versioned-test-tenant", "tester");
+        var tenant = await _tools.CreateTenantAsync("versioned-test-tenant", "tester", TestContext.Current.CancellationToken);
         var tenantId = tenant.Data!.Id;
 
-        await _tools.SetSecretAsync("versioned", "v1", "tester", tenantId);
-        await _tools.SetSecretAsync("versioned", "v2", "tester", tenantId);
+        await _tools.SetSecretAsync("versioned", "v1", "tester", tenantId, TestContext.Current.CancellationToken);
+        await _tools.SetSecretAsync("versioned", "v2", "tester", tenantId, TestContext.Current.CancellationToken);
 
-        var result = await _tools.GetSecretAsync("versioned", "tester", tenantId);
+        var result = await _tools.GetSecretAsync("versioned", "tester", tenantId, TestContext.Current.CancellationToken);
 
         Assert.True(result.Success);
         Assert.NotNull(result.Data);
@@ -88,20 +88,20 @@ public sealed class KeyVaultToolsTests : IAsyncDisposable
     [Fact]
     public async Task ListSecretsAndDeleteSecret_ReturnsMetadataThenNotFound()
     {
-        await _tools.SetSecretAsync("default-demo", "value", "tester");
+        await _tools.SetSecretAsync("default-demo", "value", "tester", ct: TestContext.Current.CancellationToken);
 
-        var list = await _tools.ListSecretsAsync();
+        var list = await _tools.ListSecretsAsync(ct: TestContext.Current.CancellationToken);
 
         Assert.True(list.Success);
         var secret = Assert.Single(list.Data!);
         Assert.Equal("default-demo", secret.Key);
         Assert.Equal(1, secret.LatestVersion);
 
-        var delete = await _tools.DeleteSecretAsync("default-demo", "tester");
+        var delete = await _tools.DeleteSecretAsync("default-demo", "tester", ct: TestContext.Current.CancellationToken);
         Assert.True(delete.Success);
         Assert.Equal("Secret deleted.", delete.Data!.Message);
 
-        var get = await _tools.GetSecretAsync("default-demo", "tester");
+        var get = await _tools.GetSecretAsync("default-demo", "tester", ct: TestContext.Current.CancellationToken);
         Assert.False(get.Success);
         Assert.False(get.Ok);
         Assert.Equal("Secret 'default-demo' not found.", get.Error);

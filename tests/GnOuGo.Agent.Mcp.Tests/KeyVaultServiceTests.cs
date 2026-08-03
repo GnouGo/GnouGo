@@ -31,7 +31,7 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
     [Fact]
     public async Task CreateTenant_ReturnsDto()
     {
-        var tenant = await _svc.CreateTenantAsync("TestCorp", "admin");
+        var tenant = await _svc.CreateTenantAsync("TestCorp", "admin", TestContext.Current.CancellationToken);
 
         Assert.Equal("TestCorp", tenant.Name);
         Assert.Equal("admin", tenant.CreatedBy);
@@ -41,25 +41,25 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
     [Fact]
     public async Task ListTenants_DoesNotIncludeDeleted()
     {
-        var t = await _svc.CreateTenantAsync("ToDelete", "admin");
-        await _svc.DeleteTenantAsync(t.Id, "admin");
+        var t = await _svc.CreateTenantAsync("ToDelete", "admin", TestContext.Current.CancellationToken);
+        await _svc.DeleteTenantAsync(t.Id, "admin", TestContext.Current.CancellationToken);
 
-        var tenants = await _svc.ListTenantsAsync();
+        var tenants = await _svc.ListTenantsAsync(TestContext.Current.CancellationToken);
         Assert.DoesNotContain(tenants, x => x.Id == t.Id);
     }
 
     [Fact]
     public async Task ListTenants_ExcludesDefaultSentinel()
     {
-        var tenants = await _svc.ListTenantsAsync();
+        var tenants = await _svc.ListTenantsAsync(TestContext.Current.CancellationToken);
         Assert.DoesNotContain(tenants, x => x.Name == "__default__");
     }
 
     [Fact]
     public async Task SetAndGetSecret_DefaultTenant_RoundTrip()
     {
-        await _svc.SetSecretAsync("DB_PASSWORD", "s3cur3!", null, "dev");
-        var result = await _svc.GetSecretAsync("DB_PASSWORD", null, "dev");
+        await _svc.SetSecretAsync("DB_PASSWORD", "s3cur3!", null, "dev", TestContext.Current.CancellationToken);
+        var result = await _svc.GetSecretAsync("DB_PASSWORD", null, "dev", TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
         Assert.Equal("s3cur3!", result!.Value);
@@ -69,11 +69,11 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
     [Fact]
     public async Task SetSecret_MultipleVersions_IncrementsVersion()
     {
-        await _svc.SetSecretAsync("API_KEY", "v1-value", null, "dev");
-        await _svc.SetSecretAsync("API_KEY", "v2-value", null, "dev");
-        await _svc.SetSecretAsync("API_KEY", "v3-value", null, "dev");
+        await _svc.SetSecretAsync("API_KEY", "v1-value", null, "dev", TestContext.Current.CancellationToken);
+        await _svc.SetSecretAsync("API_KEY", "v2-value", null, "dev", TestContext.Current.CancellationToken);
+        await _svc.SetSecretAsync("API_KEY", "v3-value", null, "dev", TestContext.Current.CancellationToken);
 
-        var result = await _svc.GetSecretAsync("API_KEY", null, "reader");
+        var result = await _svc.GetSecretAsync("API_KEY", null, "reader", TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
         Assert.Equal("v3-value", result!.Value);
@@ -83,10 +83,10 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
     [Fact]
     public async Task GetSecretVersions_ReturnsAllVersions()
     {
-        await _svc.SetSecretAsync("VERSIONED", "a", null, "alice");
-        await _svc.SetSecretAsync("VERSIONED", "b", null, "bob");
+        await _svc.SetSecretAsync("VERSIONED", "a", null, "alice", TestContext.Current.CancellationToken);
+        await _svc.SetSecretAsync("VERSIONED", "b", null, "bob", TestContext.Current.CancellationToken);
 
-        var versions = await _svc.GetSecretVersionsAsync("VERSIONED", null);
+        var versions = await _svc.GetSecretVersionsAsync("VERSIONED", null, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, versions.Count);
         Assert.Equal(2, versions[0].Version);
@@ -96,14 +96,14 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
     [Fact]
     public async Task Secrets_IsolatedPerTenant()
     {
-        var tenantA = await _svc.CreateTenantAsync("TenantA", "admin");
-        var tenantB = await _svc.CreateTenantAsync("TenantB", "admin");
+        var tenantA = await _svc.CreateTenantAsync("TenantA", "admin", TestContext.Current.CancellationToken);
+        var tenantB = await _svc.CreateTenantAsync("TenantB", "admin", TestContext.Current.CancellationToken);
 
-        await _svc.SetSecretAsync("SHARED_KEY", "value-A", tenantA.Id, "admin");
-        await _svc.SetSecretAsync("SHARED_KEY", "value-B", tenantB.Id, "admin");
+        await _svc.SetSecretAsync("SHARED_KEY", "value-A", tenantA.Id, "admin", TestContext.Current.CancellationToken);
+        await _svc.SetSecretAsync("SHARED_KEY", "value-B", tenantB.Id, "admin", TestContext.Current.CancellationToken);
 
-        var valA = await _svc.GetSecretAsync("SHARED_KEY", tenantA.Id, "reader");
-        var valB = await _svc.GetSecretAsync("SHARED_KEY", tenantB.Id, "reader");
+        var valA = await _svc.GetSecretAsync("SHARED_KEY", tenantA.Id, "reader", TestContext.Current.CancellationToken);
+        var valB = await _svc.GetSecretAsync("SHARED_KEY", tenantB.Id, "reader", TestContext.Current.CancellationToken);
 
         Assert.NotNull(valA);
         Assert.NotNull(valB);
@@ -114,10 +114,10 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
     [Fact]
     public async Task GetSecret_WrongTenant_ReturnsNull()
     {
-        await _svc.SetSecretAsync("ONLY_DEFAULT", "mine", null, "dev");
+        await _svc.SetSecretAsync("ONLY_DEFAULT", "mine", null, "dev", TestContext.Current.CancellationToken);
 
-        var tenantA = await _svc.CreateTenantAsync("Alien", "admin");
-        var result = await _svc.GetSecretAsync("ONLY_DEFAULT", tenantA.Id, "dev");
+        var tenantA = await _svc.CreateTenantAsync("Alien", "admin", TestContext.Current.CancellationToken);
+        var result = await _svc.GetSecretAsync("ONLY_DEFAULT", tenantA.Id, "dev", TestContext.Current.CancellationToken);
 
         Assert.Null(result);
     }
@@ -125,28 +125,28 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
     [Fact]
     public async Task DeleteSecret_SoftDeletes()
     {
-        await _svc.SetSecretAsync("TO_DELETE", "gone", null, "dev");
-        var deleted = await _svc.DeleteSecretAsync("TO_DELETE", null, "dev");
+        await _svc.SetSecretAsync("TO_DELETE", "gone", null, "dev", TestContext.Current.CancellationToken);
+        var deleted = await _svc.DeleteSecretAsync("TO_DELETE", null, "dev", TestContext.Current.CancellationToken);
         Assert.True(deleted);
 
-        var result = await _svc.GetSecretAsync("TO_DELETE", null, "dev");
+        var result = await _svc.GetSecretAsync("TO_DELETE", null, "dev", TestContext.Current.CancellationToken);
         Assert.Null(result);
     }
 
     [Fact]
     public async Task DeleteSecret_NonExistent_ReturnsFalse()
     {
-        var result = await _svc.DeleteSecretAsync("NOPE", null, "dev");
+        var result = await _svc.DeleteSecretAsync("NOPE", null, "dev", TestContext.Current.CancellationToken);
         Assert.False(result);
     }
 
     [Fact]
     public async Task ListSecrets_ReturnsKeys()
     {
-        await _svc.SetSecretAsync("KEY_A", "a", null, "dev");
-        await _svc.SetSecretAsync("KEY_B", "b", null, "dev");
+        await _svc.SetSecretAsync("KEY_A", "a", null, "dev", TestContext.Current.CancellationToken);
+        await _svc.SetSecretAsync("KEY_B", "b", null, "dev", TestContext.Current.CancellationToken);
 
-        var list = await _svc.ListSecretsAsync(null);
+        var list = await _svc.ListSecretsAsync(null, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, list.Count);
         Assert.Contains(list, s => s.Key == "KEY_A");
@@ -156,11 +156,11 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
     [Fact]
     public async Task ListSecrets_ExcludesDeleted()
     {
-        await _svc.SetSecretAsync("LIVE", "yes", null, "dev");
-        await _svc.SetSecretAsync("DEAD", "no", null, "dev");
-        await _svc.DeleteSecretAsync("DEAD", null, "dev");
+        await _svc.SetSecretAsync("LIVE", "yes", null, "dev", TestContext.Current.CancellationToken);
+        await _svc.SetSecretAsync("DEAD", "no", null, "dev", TestContext.Current.CancellationToken);
+        await _svc.DeleteSecretAsync("DEAD", null, "dev", TestContext.Current.CancellationToken);
 
-        var list = await _svc.ListSecretsAsync(null);
+        var list = await _svc.ListSecretsAsync(null, TestContext.Current.CancellationToken);
         Assert.Single(list);
         Assert.Equal("LIVE", list[0].Key);
     }
@@ -168,9 +168,9 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
     [Fact]
     public async Task SetSecret_CreatesAuditEntry()
     {
-        await _svc.SetSecretAsync("AUDITED", "val", null, "auditor");
+        await _svc.SetSecretAsync("AUDITED", "val", null, "auditor", TestContext.Current.CancellationToken);
 
-        var log = await _svc.GetAuditLogAsync(null, "AUDITED", 0, 10);
+        var log = await _svc.GetAuditLogAsync(null, "AUDITED", 0, 10, TestContext.Current.CancellationToken);
         Assert.NotEmpty(log);
         Assert.Contains(log, e => e.Operation == "SetSecret" && e.Author == "auditor");
     }
@@ -178,19 +178,19 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
     [Fact]
     public async Task GetSecret_CreatesAuditEntry()
     {
-        await _svc.SetSecretAsync("READ_ME", "val", null, "writer");
-        await _svc.GetSecretAsync("READ_ME", null, "reader");
+        await _svc.SetSecretAsync("READ_ME", "val", null, "writer", TestContext.Current.CancellationToken);
+        await _svc.GetSecretAsync("READ_ME", null, "reader", TestContext.Current.CancellationToken);
 
-        var log = await _svc.GetAuditLogAsync(null, "READ_ME", 0, 10);
+        var log = await _svc.GetAuditLogAsync(null, "READ_ME", 0, 10, TestContext.Current.CancellationToken);
         Assert.Contains(log, e => e.Operation == "GetSecret" && e.Author == "reader");
     }
 
     [Fact]
     public async Task CreateTenant_CreatesAuditEntry()
     {
-        await _svc.CreateTenantAsync("AuditedTenant", "admin");
+        await _svc.CreateTenantAsync("AuditedTenant", "admin", TestContext.Current.CancellationToken);
 
-        var log = await _svc.GetAuditLogAsync(null, null, 0, 50);
+        var log = await _svc.GetAuditLogAsync(null, null, 0, 50, TestContext.Current.CancellationToken);
         Assert.Contains(log, e => e.Operation == "CreateTenant" && e.Author == "admin");
     }
 
@@ -198,9 +198,9 @@ public sealed class KeyVaultServiceTests : IAsyncDisposable
     public async Task SetAndGetSecret_LargeValue_Works()
     {
         var longValue = new string('X', 10_000);
-        await _svc.SetSecretAsync("BIG_SECRET", longValue, null, "dev");
+        await _svc.SetSecretAsync("BIG_SECRET", longValue, null, "dev", TestContext.Current.CancellationToken);
 
-        var result = await _svc.GetSecretAsync("BIG_SECRET", null, "dev");
+        var result = await _svc.GetSecretAsync("BIG_SECRET", null, "dev", TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
         Assert.Equal(longValue, result!.Value);

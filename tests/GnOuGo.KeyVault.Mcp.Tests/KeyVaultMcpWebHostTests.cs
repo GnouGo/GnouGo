@@ -37,14 +37,14 @@ public sealed class KeyVaultMcpWebHostTests
 
         try
         {
-            await provider.InitializeKeyVaultMcpAsync();
+            await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
 
             await using var connection = new SqliteConnection($"Data Source={dbPath}");
-            await connection.OpenAsync();
+            await connection.OpenAsync(TestContext.Current.CancellationToken);
             await using var command = connection.CreateCommand();
             command.CommandText = "SELECT COUNT(*) FROM Tenants WHERE Name = '__default__' AND IsDeleted = 0;";
 
-            Assert.Equal(1L, (long)(await command.ExecuteScalarAsync())!);
+            Assert.Equal(1L, (long)(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken))!);
         }
         finally
         {
@@ -70,7 +70,7 @@ public sealed class KeyVaultMcpWebHostTests
 
         try
         {
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
 
             var address = app.Services
                 .GetRequiredService<IServer>()
@@ -80,14 +80,14 @@ public sealed class KeyVaultMcpWebHostTests
                 .First();
 
             using var http = new HttpClient();
-            var payload = await http.GetFromJsonAsync<HealthPayload>($"{address.TrimEnd('/')}/health");
+            var payload = await http.GetFromJsonAsync<HealthPayload>($"{address.TrimEnd('/')}/health", cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.NotNull(payload);
             Assert.Equal("ok", payload.Status);
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
             await app.DisposeAsync();
 
             try

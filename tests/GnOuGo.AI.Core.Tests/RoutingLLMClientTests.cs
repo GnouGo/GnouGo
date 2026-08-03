@@ -59,7 +59,7 @@ public class RoutingLLMClientTests
             Provider = "Copilot",
             Model = "gpt-4.1",
             Prompt = "Hello"
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal(0, openai.CallCount);
         Assert.Equal(1, copilot.CallCount);
@@ -81,7 +81,7 @@ public class RoutingLLMClientTests
         {
             Model = "openai/gpt-4.1",
             Prompt = "Hello"
-        });
+        }, TestContext.Current.CancellationToken);
 
         // The vendor prefix "openai" matches the "OpenAi" key → routes to OpenAi provider (type = openai)
         Assert.Equal(1, openai.CallCount);
@@ -99,7 +99,7 @@ public class RoutingLLMClientTests
         {
             Model = "llama3.2:latest",
             Prompt = "Hello"
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, ollama.CallCount);
         Assert.Equal(0, openai.CallCount);
@@ -116,7 +116,7 @@ public class RoutingLLMClientTests
         {
             Model = "anthropic/claude-sonnet-4-20250514",
             Prompt = "Hello"
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, anthropic.CallCount);
         Assert.Equal(0, copilot.CallCount);
@@ -134,7 +134,7 @@ public class RoutingLLMClientTests
         {
             Model = "gpt-4o-mini",
             Prompt = "Hello"
-        });
+        }, TestContext.Current.CancellationToken);
 
         // Default provider is OpenAi, and "gpt-4o-mini" doesn't match Ollama heuristics
         Assert.Equal(1, openai.CallCount);
@@ -151,7 +151,7 @@ public class RoutingLLMClientTests
                 Provider = "NonExistent",
                 Model = "some-model",
                 Prompt = "Hello"
-            }));
+            }, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public class RoutingLLMClientTests
             Provider = "Copilot",
             Model = "anthropic/claude-sonnet-4",
             Prompt = "Hello"
-        });
+        }, TestContext.Current.CancellationToken);
 
         // The router should strip the vendor prefix
         Assert.Equal("claude-sonnet-4", copilot.LastModel);
@@ -183,7 +183,7 @@ public class RoutingLLMClientTests
             Prompt = "Plan",
             Temperature = 0.7,
             Reasoning = "high"
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.NotNull(openai.LastRequest);
         Assert.Null(openai.LastRequest!.Temperature);
@@ -215,7 +215,7 @@ public class RoutingLLMClientTests
             Temperature = 0.2,
             Reasoning = "high",
             Tools = [new LLMToolDef { Name = "tool" }]
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.NotNull(openai.LastRequest);
         Assert.Equal(0.2, openai.LastRequest!.Temperature);
@@ -234,7 +234,7 @@ public class RoutingLLMClientTests
             Model = "gpt-4o-mini",
             Prompt = "Plan",
             UseBackgroundMode = true
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.NotNull(openai.LastRequest);
         Assert.True(openai.LastRequest!.UseBackgroundMode);
