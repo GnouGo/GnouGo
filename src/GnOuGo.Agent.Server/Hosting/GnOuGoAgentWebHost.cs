@@ -383,7 +383,7 @@ public static class GnOuGoAgentWebHost
         {
             var runtimeOptions = sp.GetRequiredService<LLMRuntimeOptionsStore>().Current;
             if (runtimeOptions.McpServers.Count > 0)
-                return new ConfiguredMcpClientFactory(runtimeOptions.McpServers);
+                return new ConfiguredMcpClientFactory(runtimeOptions.McpServers, sp.GetService<IHumanInputProvider>());
             return new InMemoryMcpClientFactory();
         });
         builder.Services.AddSingleton<AgentHumanInputProvider>();

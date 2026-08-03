@@ -30,6 +30,8 @@ public sealed class CodeCopilotSettings
     public bool ForwardTraceContext { get; set; } = true;
     public string LogLevel { get; set; } = "warning";
     public int RequestTimeoutSeconds { get; set; } = 120;
+    public int ManagedSessionTtlSeconds { get; set; } = 1800;
+    public bool EnableApproveAll { get; set; }
     public List<string> TokenEnvironmentVariables { get; set; } = ["GITHUB_TOKEN", "COPILOT_API_KEY"];
     public CodeCopilotTelemetrySettings Telemetry { get; set; } = new();
 }
@@ -43,7 +45,6 @@ public sealed class CodeCopilotTelemetrySettings
     public string SourceName { get; set; } = "GnOuGo.GithubCopilot.Mcp.Copilot";
     public bool CaptureContent { get; set; }
 }
-
 
 
 

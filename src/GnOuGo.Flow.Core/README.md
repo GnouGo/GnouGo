@@ -9,7 +9,9 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 ## MCP protocol compatibility
 
-The runtime uses the stable C# MCP SDK `2.0.0`. HTTP and stdio clients prefer MCP `2026-07-28` discovery with `server/discover` and automatically fall back to the legacy `initialize` handshake when a configured server only supports an older protocol version. GnOuGo does not force a protocol version in workflow configuration.
+The runtime uses the stable C# MCP SDK `2.0.0`. HTTP and stdio clients prefer MCP `2026-07-28` discovery with `server/discover` and automatically fall back to `2025-11-25` initialization when an external server is older. GnOuGo-owned servers require `2026-07-28` in conformance tests. Flow does not use `Mcp-Session-Id` for Copilot identity.
+
+Every discovery/tool/resource/prompt request carries `_meta.gnougo` correlation, run, step, tenant, repository, PR number, and head SHA when present in workflow data. HTTP headers and stdio environment receive the same non-secret context. MCP elicitation is bridged to the workflow `IHumanInputProvider`, enabling stable multi-round-trip HITL without putting credentials in YAML.
 
 ---
 

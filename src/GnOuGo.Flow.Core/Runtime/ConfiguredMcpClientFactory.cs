@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using GnOuGo.AI.Core;
@@ -29,10 +30,12 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
     private readonly Dictionary<string, McpServerOptions> _serverConfigs;
     private readonly ConcurrentDictionary<string, McpClient> _clients = new();
     private readonly IReadOnlyList<McpServerMetadata> _serverMetadata;
+    private readonly IHumanInputProvider? _humanInputProvider;
 
-    public ConfiguredMcpClientFactory(Dictionary<string, McpServerOptions> serverConfigs)
+    public ConfiguredMcpClientFactory(Dictionary<string, McpServerOptions> serverConfigs, IHumanInputProvider? humanInputProvider = null)
     {
         _serverConfigs = serverConfigs;
+        _humanInputProvider = humanInputProvider;
         _serverMetadata = _serverConfigs
             .Select(kv => new McpServerMetadata
             {
@@ -117,7 +120,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         return new McpSessionAdapter(serverName, client);
     }
 
-    private static async Task<McpClient> CreateClientAsync(
+    private async Task<McpClient> CreateClientAsync(
         string serverName, McpServerOptions config, McpCorrelationContext? correlation, CancellationToken ct)
     {
         var type = config.Type?.ToLowerInvariant() ?? "http";
@@ -131,15 +134,77 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
                 $"Unknown MCP transport type '{config.Type}' for server '{serverName}'")
         };
 
-        return await McpClient.CreateAsync(transport, CreateClientOptions(), cancellationToken: ct);
+        return await McpClient.CreateAsync(transport, CreateClientOptions(_humanInputProvider), cancellationToken: ct);
     }
 
-    internal static McpClientOptions CreateClientOptions() => new()
+    internal static McpClientOptions CreateClientOptions(IHumanInputProvider? humanInputProvider = null)
     {
+        var options = new McpClientOptions
+        {
         // Leave ProtocolVersion unset so SDK 2.x prefers 2026-07-28 discovery and
         // automatically falls back to initialize-handshake servers when required.
-        ClientInfo = new Implementation { Name = "GnOuGo.Flow", Version = "1.0.0" }
-    };
+            ClientInfo = new Implementation { Name = "GnOuGo.Flow", Version = "1.0.0" }
+        };
+        if (humanInputProvider is not null)
+        {
+            options.Handlers = new McpClientHandlers
+            {
+                ElicitationHandler = async (request, cancellationToken) =>
+                    await HandleElicitationAsync(humanInputProvider, request, cancellationToken)
+            };
+        }
+        return options;
+    }
+
+    private static async ValueTask<ElicitResult> HandleElicitationAsync(
+        IHumanInputProvider provider,
+        ElicitRequestParams? request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+            return new ElicitResult { Action = "cancel" };
+        var correlation = CurrentCorrelation.Value;
+        var fields = request.RequestedSchema?.Properties.Select(property => new HumanInputFieldDef
+        {
+            Name = property.Key,
+            Type = property.Value is ElicitRequestParams.UntitledSingleSelectEnumSchema or ElicitRequestParams.TitledSingleSelectEnumSchema ? "select" : "string",
+            Required = request.RequestedSchema.Required?.Contains(property.Key, StringComparer.Ordinal) == true,
+            Description = property.Value.Description,
+            Options = property.Value switch
+            {
+                ElicitRequestParams.UntitledSingleSelectEnumSchema single => single.Enum?.ToList(),
+                ElicitRequestParams.TitledSingleSelectEnumSchema titled => titled.OneOf?.Select(static item => item.Const).ToList(),
+                _ => null
+            }
+        }).ToList();
+        var response = await provider.RequestInputAsync(new HumanInputRequest
+        {
+            RunId = correlation?.RunId ?? correlation?.CorrelationId ?? Guid.NewGuid().ToString("N"),
+            StepId = correlation?.StepId ?? "mcp-elicitation",
+            Prompt = request.Message,
+            Mode = fields is { Count: > 1 } ? HumanInputContract.ModeForm : HumanInputContract.ModeChoice,
+            Fields = fields,
+            Choices = fields is { Count: 1 } ? fields[0].Options : null,
+            TimeoutMs = HumanInputContract.DefaultTimeoutMs
+        }, cancellationToken);
+        if (response is null)
+            return new ElicitResult { Action = "cancel" };
+
+        var content = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        if (response is JsonObject responseObject)
+        {
+            foreach (var property in responseObject)
+            {
+                if (property.Value is not null)
+                    content[property.Key] = JsonDocument.Parse(property.Value.ToJsonString()).RootElement.Clone();
+            }
+        }
+        else if (fields is { Count: 1 })
+        {
+            content[fields[0].Name] = JsonDocument.Parse(response.ToJsonString()).RootElement.Clone();
+        }
+        return new ElicitResult { Action = "accept", Content = content };
+    }
 
     private static HttpClientTransport CreateHttpTransport(McpServerOptions config, McpCorrelationContext? correlation)
     {
@@ -415,12 +480,16 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             return;
 
         AddHeader(headers, "x-gnougo-correlation-id", correlation.CorrelationId);
+        AddHeader(headers, "x-gnougo-tenant-id", correlation.TenantId);
         AddHeader(headers, "x-gnougo-run-id", correlation.RunId);
         AddHeader(headers, "x-gnougo-step-id", correlation.StepId);
         AddHeader(headers, "x-gnougo-step-type", correlation.StepType);
         AddHeader(headers, "x-gnougo-mcp-server", correlation.ServerName);
         AddHeader(headers, "x-gnougo-mcp-method", correlation.MethodName);
         AddHeader(headers, "x-gnougo-mcp-kind", correlation.Kind);
+        AddHeader(headers, "x-gnougo-repository", correlation.Repository);
+        AddHeader(headers, "x-gnougo-pr-number", correlation.PullRequestNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        AddHeader(headers, "x-gnougo-head-sha", correlation.HeadSha);
         AddHeader(headers, "traceparent", correlation.TraceParent);
     }
 
@@ -452,6 +521,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
 
         var env = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         AddEnv(env, "GNouGo__CorrelationId", correlation.CorrelationId);
+        AddEnv(env, "GNouGo__TenantId", correlation.TenantId);
         AddEnv(env, "GNouGo__RunId", correlation.RunId);
         AddEnv(env, "GNouGo__TraceId", correlation.TraceId);
         AddEnv(env, "GNouGo__SpanId", correlation.SpanId);
@@ -461,6 +531,9 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         AddEnv(env, "GNouGo__McpServer", correlation.ServerName);
         AddEnv(env, "GNouGo__McpMethod", correlation.MethodName);
         AddEnv(env, "GNouGo__McpKind", correlation.Kind);
+        AddEnv(env, "GNouGo__Repository", correlation.Repository);
+        AddEnv(env, "GNouGo__PullRequestNumber", correlation.PullRequestNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        AddEnv(env, "GNouGo__HeadSha", correlation.HeadSha);
         return env.Count == 0 ? null : env;
     }
 
@@ -474,6 +547,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
 
         var gnougo = new JsonObject();
         AddJson(gnougo, "correlationId", correlation?.CorrelationId);
+        AddJson(gnougo, "tenantId", correlation?.TenantId);
         AddJson(gnougo, "runId", correlation?.RunId);
         AddJson(gnougo, "traceId", activity?.TraceId.ToString() ?? correlation?.TraceId);
         AddJson(gnougo, "spanId", activity?.SpanId.ToString() ?? correlation?.SpanId);
@@ -485,6 +559,10 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         AddJson(gnougo, "mcpServer", correlation?.ServerName);
         AddJson(gnougo, "mcpMethod", correlation?.MethodName);
         AddJson(gnougo, "mcpKind", correlation?.Kind);
+        AddJson(gnougo, "repository", correlation?.Repository);
+        if (correlation?.PullRequestNumber is not null)
+            gnougo["pullRequestNumber"] = correlation.PullRequestNumber.Value;
+        AddJson(gnougo, "headSha", correlation?.HeadSha);
 
         if (gnougo.Count == 0)
             return null;
@@ -705,7 +783,7 @@ internal sealed class McpSessionAdapter : IMcpSession
 
     public async Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct)
     {
-        var tools = await _client.ListToolsAsync(cancellationToken: ct);
+        var tools = await _client.ListToolsAsync(CreateRequestOptions(), ct);
         var mappedTools = tools.Select(t => new McpToolInfo
         {
             Name = t.Name,
@@ -726,7 +804,7 @@ internal sealed class McpSessionAdapter : IMcpSession
         if (_client.ServerCapabilities.Resources is null)
             return Array.Empty<McpResourceInfo>();
 
-        var resources = await _client.ListResourcesAsync(cancellationToken: ct);
+        var resources = await _client.ListResourcesAsync(CreateRequestOptions(), ct);
         return resources.Select(r => new McpResourceInfo
         {
             Uri = r.Uri,
@@ -742,7 +820,7 @@ internal sealed class McpSessionAdapter : IMcpSession
         if (_client.ServerCapabilities.Prompts is null)
             return Array.Empty<McpPromptInfo>();
 
-        var prompts = await _client.ListPromptsAsync(cancellationToken: ct);
+        var prompts = await _client.ListPromptsAsync(CreateRequestOptions(), ct);
         return prompts.Select(p => new McpPromptInfo
         {
             Name = p.Name,
@@ -759,7 +837,7 @@ internal sealed class McpSessionAdapter : IMcpSession
     public async Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
     {
         var args = ConvertArguments(arguments);
-        var result = await _client.CallToolAsync(toolName, args, cancellationToken: ct);
+        var result = await _client.CallToolAsync(toolName, args, progress: null, CreateRequestOptions(), ct);
 
         return new McpCallResult
         {
@@ -771,7 +849,7 @@ internal sealed class McpSessionAdapter : IMcpSession
     public async Task<McpGetPromptResult> GetPromptAsync(string promptName, JsonNode? arguments, CancellationToken ct)
     {
         var args = ConvertArguments(arguments);
-        var result = await _client.GetPromptAsync(promptName, args, cancellationToken: ct);
+        var result = await _client.GetPromptAsync(promptName, args, CreateRequestOptions(), ct);
 
         return new McpGetPromptResult
         {
@@ -785,6 +863,9 @@ internal sealed class McpSessionAdapter : IMcpSession
     }
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    private static RequestOptions CreateRequestOptions()
+        => new() { Meta = ConfiguredMcpClientFactory.BuildCurrentCorrelationMeta() };
 
     // ── Helpers ──────────────────────────────────────────────────────
 

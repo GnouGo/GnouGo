@@ -4,7 +4,7 @@ MCP stdio server for safe code operations on a local project.
 
 ## MCP protocol compatibility
 
-This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. The SDK retains compatibility with older clients. The GnOuGo JSONL progress stream remains a stderr side channel and does not alter the MCP wire contract.
+This stdio server uses the stable C# MCP SDK `2.0.0` and requires MCP `2026-07-28` for GnOuGo-owned peers. `GnOuGo.Flow.Core` leaves external connections unpinned, prefers `2026-07-28` discovery, and falls back to `2025-11-25` for older external servers. The GnOuGo JSONL progress stream remains a stderr side channel and does not alter the MCP wire contract.
 
 ## Features
 
@@ -16,6 +16,9 @@ This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28
 - Run GitHub Copilot in SDK agent mode with controlled local file edits via `code_agent_edit`.
 - Emit structured GnOuGo progress events in real time on stderr and return them in `progressEvents`, so `GnOuGo.Flow.Core` can surface them as UI thinking/progress messages without depending on Copilot SDK event types.
 - Optionally write files with `code_write_file` when `Code:AllowWrites=true`.
+- Use the additive `copilot_*` tools backed by `GnOuGo.GithubCopilot.Core` for status/auth/models, explicit managed or one-shot sessions, foreground selection, messages/steering/queueing, safe history, abort, plans, modes/models, attachments, workspace files, skills/tool filtering, and stable elicitation callbacks.
+- Run structured reviews with `copilot_review_start`, `copilot_review_analyze_batch`, `copilot_review_finish`, or the one-call `copilot_review` wrapper.
+- Call `copilot_review_publication_gate` after re-reading the PR head SHA and before any GitHub write.
 
 Git repository workflows are provided by the separate `GnOuGo.Git.Mcp` tool.
 
@@ -36,6 +39,18 @@ Relevant Copilot settings:
 - `Code:Copilot:ReasoningEffort`: optional reasoning effort, default `high`.
 - `Code:Copilot:UseLoggedInUser`: whether the SDK may use an already logged-in user when no explicit token is provided, default `false` in code defaults and `true` in the local appsettings template.
 - `Code:Copilot:RequestTimeoutSeconds`: wait timeout for a Copilot response, default `120`.
+- `Code:Copilot:ManagedSessionTtlSeconds`: inactivity TTL for an opaque managed handle, default `1800`.
+- `Code:Copilot:EnableApproveAll`: host gate for `approve_all`, default `false`.
+
+MCP transport sessions are never used as Copilot session identity. Managed calls use a `cps_*` opaque handle bound to `TenantId`; one-shot calls create, execute, disconnect, and permanently delete one SDK session. Request `_meta.gnougo` propagates tenant, correlation, run, step, repository, PR number, and head SHA.
+
+Interactive permission, user-input, and nested MCP elicitation callbacks are bridged through stable MCP form elicitation. `deny` is appropriate for pure review inference. `auto_approve_allowlist` permits only explicitly named read-only paths/tools. `approve_all` is rejected unless the host gate is enabled.
+
+## Pull-request review contract
+
+Git MCP supplies exact patches. Copilot review results contain fingerprint, severity, category, confidence, path, diff side, line range, evidence, explanation, and optional suggested patch. The server rejects unknown paths and lines outside the supplied diff, deduplicates fingerprints, and reports binary/submodule skips plus truncated files.
+
+The review session has no tools, no configuration discovery, no write permission, and is deleted after completion. Publication is deliberately outside this MCP and belongs to the Flow agent plus the official GitHub MCP. The publication gate fails closed for stale SHAs, dry runs, no findings, and unapproved interactive runs. `auto_comment` can only submit `COMMENT`; automated approval and merge are unsupported.
 
 `code_suggest_change` and `code_agent_edit` also accept an optional `provider` parameter. When omitted, the default GitHub Copilot SDK behavior above is unchanged.
 When provided, the MCP reads the matching provider from configuration and/or the shared GnOuGo KeyVault database, then passes it as a custom Copilot SDK provider for that call. KeyVault reads use a small SQLite/decryption helper from `GnOuGo.KeyVault.Core` instead of constructing the EF Core model inside the Native AOT stdio executable.
@@ -100,6 +115,7 @@ dotnet build "C:\github\GnouGo\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot
 
 ```powershell
 dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Mcp.Tests\GnOuGo.GithubCopilot.Mcp.Tests.csproj" -p:SkipModelMetadataGeneration=true
+dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Core.Tests\GnOuGo.GithubCopilot.Core.Tests.csproj"
 ```
 
 ## Native AOT publish

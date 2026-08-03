@@ -4,7 +4,7 @@ MCP stdio server for safe Git repository operations on local projects.
 
 ## MCP protocol compatibility
 
-This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28`. The SDK retains compatibility with older clients; tool names, request schemas, and structured results are unchanged.
+This stdio server uses the stable C# MCP SDK `2.0.0` and requires MCP `2026-07-28` for GnOuGo-owned peers. External server fallback is handled by the unpinned GnOuGo Flow client.
 
 ## Features
 
@@ -13,6 +13,13 @@ This stdio server uses the stable C# MCP SDK `2.0.0` and targets MCP `2026-07-28
 - Inspect working tree status, diffs, branches, and logs with `git_status`, `git_diff`, `git_branches`, and `git_log`.
 - Perform guarded local mutations with `git_stage`, `git_unstage`, `git_commit`, `git_create_branch`, `git_delete_branch`, `git_checkout`, `git_switch_branch`, `git_merge`, and `git_resolve_conflict` when `Git:AllowMutations=true`.
 - Perform guarded network operations with `git_clone`, `git_fetch`, `git_pull`, `git_push`, and `git_delete_remote_branch` when `Git:AllowNetworkOperations=true`.
+- Compare exact PR revisions with `git_compare_refs`. It resolves base/head/merge-base SHAs, detects renames, reports binaries and submodules, paginates files, and includes per-file truncation metadata without consulting the working tree.
+
+## Read-only review policy
+
+Set `Git:ReviewReadOnly=true`, `Git:AllowMutations=false`, and `Git:AllowNetworkOperations=true` for a dedicated review server. In this mode `git_clone` and `git_fetch` are permitted only below `.GnOuGo/data/reviews/`; checkout, stage, commit, push, pull/merge, and branch deletion remain denied. Use `git_clone.response.projectRootRelative` for all later calls. This policy protects user checkouts while still allowing exact remote revision comparison.
+
+`git_compare_refs` defaults to merge-base-to-head semantics. Follow `nextCursor` until null and preserve every page's `baseSha`, `headSha`, and `mergeBaseSha`. Treat `truncated`, binary, and submodule entries as explicit coverage gaps.
 
 When `git_stage` is called without explicit paths, it stages all current changes except the repository-root `.GnOuGo/` directory. This keeps temporary Copilot SDK working files out of commits by default. Passing explicit paths still stages only the requested paths.
 

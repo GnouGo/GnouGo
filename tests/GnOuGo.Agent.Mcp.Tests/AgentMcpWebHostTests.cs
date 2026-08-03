@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Workspace;
+using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
@@ -170,7 +171,7 @@ public sealed class AgentMcpWebHostTests
     }
 
     [Fact]
-    public async Task Build_McpHttp_AcceptsLegacyInitializeNegotiation()
+    public async Task Build_McpHttp_RejectsLegacyInitializeForOwnedServerConformance()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-mcp-legacy-{Guid.NewGuid():N}.db");
         var app = AgentMcpWebHost.Build([
@@ -194,23 +195,21 @@ public sealed class AgentMcpWebHostTests
                 Name = "GnOuGo.LegacyCompatibility.Tests"
             });
 
-            await using var client = await McpClient.CreateAsync(
-                transport,
-                new McpClientOptions
-                {
-                    ProtocolVersion = "2025-11-25",
-                    ClientInfo = new Implementation
+            await Assert.ThrowsAsync<UnsupportedProtocolVersionException>(async () =>
+            {
+                await using var client = await McpClient.CreateAsync(
+                    transport,
+                    new McpClientOptions
                     {
-                        Name = "GnOuGo.LegacyCompatibility.Tests",
-                        Version = "1.0.0"
-                    }
-                },
-                cancellationToken: CancellationToken.None);
-
-            var tools = await client.ListToolsAsync(cancellationToken: CancellationToken.None);
-
-            Assert.Contains(tools, tool => tool.Name == "agent_list");
-            Assert.Contains(tools, tool => tool.Name == "user_config_get");
+                        ProtocolVersion = "2025-11-25",
+                        ClientInfo = new Implementation
+                        {
+                            Name = "GnOuGo.LegacyCompatibility.Tests",
+                            Version = "1.0.0"
+                        }
+                    },
+                    cancellationToken: CancellationToken.None);
+            });
         }
         finally
         {

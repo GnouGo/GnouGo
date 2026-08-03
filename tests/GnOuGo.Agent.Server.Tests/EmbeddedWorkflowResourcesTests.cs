@@ -44,6 +44,19 @@ public sealed class EmbeddedWorkflowResourcesTests
         Assert.DoesNotContain("${data.steps.generate_workflow.text}", yaml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ConfigureAgentsWorkflow_ConstrainsGeneratedPullRequestReviewAgents()
+    {
+        var yaml = LoadEmbeddedYaml("configure-agents-agent.yaml");
+
+        Assert.Contains("git_compare_refs", yaml, StringComparison.Ordinal);
+        Assert.Contains("copilot_review", yaml, StringComparison.Ordinal);
+        Assert.Contains("re-read the PR head SHA immediately before any GitHub write", yaml, StringComparison.Ordinal);
+        Assert.Contains("must never APPROVE, merge, push, commit, checkout", yaml, StringComparison.Ordinal);
+        Assert.Contains("publication_policy must be one of dry_run", yaml, StringComparison.Ordinal);
+        Assert.Contains("interactive, or auto_comment", yaml, StringComparison.Ordinal);
+    }
+
     private static string LoadEmbeddedYaml(string resourceSuffix)
     {
         var assembly = typeof(SmartFlowService).Assembly;

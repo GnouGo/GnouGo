@@ -276,6 +276,7 @@ public interface IMcpClientFactory
 /// </summary>
 public sealed record McpCorrelationContext
 {
+    public string? TenantId { get; init; }
     public string? CorrelationId { get; init; }
     public string? RunId { get; init; }
     public string? TraceId { get; init; }
@@ -286,6 +287,9 @@ public sealed record McpCorrelationContext
     public string? ServerName { get; init; }
     public string? MethodName { get; init; }
     public string? Kind { get; init; }
+    public string? Repository { get; init; }
+    public int? PullRequestNumber { get; init; }
+    public string? HeadSha { get; init; }
 }
 
 /// <summary>

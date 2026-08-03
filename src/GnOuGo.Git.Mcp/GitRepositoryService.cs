@@ -80,6 +80,87 @@ public sealed class GitRepositoryService
         return new GitDiffResult(repositoryRoot, relativePath, staged, text, truncated, output, ToWorkspaceRelativePath(repositoryRoot));
     }
 
+    public GitCompareRefsResult CompareRefs(
+        string projectRoot,
+        string baseRef,
+        string headRef,
+        bool compareFromMergeBase = true,
+        string? cursor = null,
+        int pageSize = 50)
+    {
+        if (string.IsNullOrWhiteSpace(baseRef) || string.IsNullOrWhiteSpace(headRef))
+            throw new InvalidOperationException("baseRef and headRef are required.");
+
+        using var repository = OpenRepository(projectRoot, out var repositoryRoot);
+        var baseCommit = ResolveCommitish(repository, baseRef.Trim());
+        var headCommit = ResolveCommitish(repository, headRef.Trim());
+        var mergeBase = repository.ObjectDatabase.FindMergeBase(baseCommit, headCommit);
+        if (compareFromMergeBase && mergeBase is null)
+            throw new InvalidOperationException("The exact base and head revisions do not have a merge base.");
+
+        var comparedFrom = compareFromMergeBase ? mergeBase! : baseCommit;
+        var offset = ParseCompareCursor(cursor);
+        var boundedPageSize = Math.Clamp(pageSize, 1, Math.Max(1, _settings.MaxComparePageSize));
+        using var patch = repository.Diff.Compare<Patch>(
+            comparedFrom.Tree,
+            headCommit.Tree,
+            new CompareOptions { Similarity = SimilarityOptions.Renames });
+        var allEntries = patch
+            .OrderBy(static entry => entry.Path, StringComparer.Ordinal)
+            .ThenBy(static entry => entry.OldPath, StringComparer.Ordinal)
+            .ToArray();
+        if (offset > allEntries.Length)
+            throw new InvalidOperationException($"cursor offset {offset} exceeds total file count {allEntries.Length}.");
+
+        var maxFileCharacters = Math.Max(1, _settings.MaxComparePatchCharactersPerFile);
+        var remainingCharacters = Math.Max(1, _settings.MaxDiffCharacters);
+        var files = new List<GitCompareFile>();
+        foreach (var entry in allEntries.Skip(offset).Take(boundedPageSize))
+        {
+            var fullPatch = entry.Patch ?? string.Empty;
+            var allowedCharacters = Math.Min(maxFileCharacters, remainingCharacters);
+            var truncated = fullPatch.Length > allowedCharacters;
+            var visiblePatch = truncated ? fullPatch[..allowedCharacters] + "\n...patch truncated by Git MCP policy..." : fullPatch;
+            remainingCharacters = Math.Max(0, remainingCharacters - Math.Min(fullPatch.Length, allowedCharacters));
+            files.Add(new GitCompareFile(
+                entry.Path.Replace('\\', '/'),
+                string.Equals(entry.OldPath, entry.Path, StringComparison.Ordinal) ? null : entry.OldPath?.Replace('\\', '/'),
+                entry.Status.ToString().ToLowerInvariant(),
+                visiblePatch,
+                entry.IsBinaryComparison,
+                entry.Mode == Mode.GitLink || entry.OldMode == Mode.GitLink,
+                truncated,
+                entry.LinesAdded,
+                entry.LinesDeleted,
+                entry.OldOid?.Sha,
+                entry.Oid?.Sha));
+        }
+
+        var nextOffset = offset + files.Count;
+        var hasMore = nextOffset < allEntries.Length;
+        var totalPatchCharacters = files.Sum(static file => file.Patch.Length);
+        var truncatedCount = files.Count(static file => file.Truncated);
+        var output = $"Resolved base {baseCommit.Sha}, head {headCommit.Sha}, merge-base {mergeBase?.Sha ?? "none"}; returned {files.Count} of {allEntries.Length} changed file(s) from offset {offset}.";
+        return new GitCompareRefsResult(
+            repositoryRoot,
+            baseRef,
+            headRef,
+            baseCommit.Sha,
+            headCommit.Sha,
+            mergeBase?.Sha,
+            comparedFrom.Sha,
+            files,
+            allEntries.Length,
+            offset,
+            boundedPageSize,
+            hasMore,
+            hasMore ? nextOffset.ToString(System.Globalization.CultureInfo.InvariantCulture) : null,
+            totalPatchCharacters,
+            truncatedCount,
+            ToWorkspaceRelativePath(repositoryRoot),
+            output);
+    }
+
     public GitLogResult GetLog(string projectRoot, int maxCount = 20)
     {
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
@@ -584,6 +665,7 @@ public sealed class GitRepositoryService
     {
         _policy.EnsureGitNetworkAllowed("fetch");
         using var repository = OpenRepository(projectRoot, out var repositoryRoot);
+        _policy.EnsureReviewWorkspace(repositoryRoot);
         var remote = ResolveRemote(repository, remoteName);
         var options = new FetchOptions();
         ApplyCredentials(options);
@@ -831,6 +913,15 @@ public sealed class GitRepositoryService
             ?? repository.Branches[$"origin/{commitish}"]?.Tip
             ?? ResolveTagTarget(repository, commitish);
         return commit ?? throw new InvalidOperationException($"Commitish '{commitish}' was not found.");
+    }
+
+    private static int ParseCompareCursor(string? cursor)
+    {
+        if (string.IsNullOrWhiteSpace(cursor))
+            return 0;
+        if (!int.TryParse(cursor, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var offset) || offset < 0)
+            throw new InvalidOperationException("cursor must be the opaque non-negative cursor returned by a previous git_compare_refs call.");
+        return offset;
     }
 
     private static bool ContainsParentTraversalSegment(string path)

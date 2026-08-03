@@ -13,7 +13,7 @@
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
     <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL3050;IL3053;IL3055</WarningsAsErrors>
     <NoWarn>$(NoWarn);GHCP001</NoWarn>
-    <!-- Workaround for GitHub.Copilot.SDK beta packages that omit GitHub.Copilot.SDK.props -->
+    <!-- Pin the GA CLI runtime explicitly so Native AOT publication is deterministic. -->
     <CopilotCliVersion>1.0.52</CopilotCliVersion>
   </PropertyGroup>
 
@@ -22,7 +22,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.8" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
     <PackageReference Include="ModelContextProtocol" Version="2.0.0" />
   </ItemGroup>
@@ -33,6 +32,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GnOuGo.Auth.Core\GnOuGo.Auth.Core.csproj" />
+    <ProjectReference Include="..\GnOuGo.GithubCopilot.Core\GnOuGo.GithubCopilot.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Mcp.Core\GnOuGo.Mcp.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Observability.Core\GnOuGo.Observability.Core.csproj" />

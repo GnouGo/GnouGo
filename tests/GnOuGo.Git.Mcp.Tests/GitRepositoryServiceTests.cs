@@ -370,6 +370,75 @@ public sealed class GitRepositoryServiceTests : IDisposable
         Assert.Contains("disabled by policy", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void CompareRefs_ResolvesExactShasMergeBaseRenamesAndPagination()
+    {
+        var service = CreateService();
+        var baseCommit = WriteCommit(service, "old-name.txt", "base\n", "base");
+        service.CreateBranch(".", "feature/review", checkout: true);
+        File.Move(Path.Combine(_root, "old-name.txt"), Path.Combine(_root, "new-name.txt"));
+        File.WriteAllText(Path.Combine(_root, "second.txt"), "second\n");
+        service.Stage(".", ["old-name.txt", "new-name.txt", "second.txt"]);
+        var headCommit = service.Commit(".", "feature", "Test User", "test@example.local");
+
+        var first = service.CompareRefs(".", baseCommit.Sha, headCommit.Sha, cursor: null, pageSize: 1);
+        var second = service.CompareRefs(".", baseCommit.Sha, headCommit.Sha, cursor: first.NextCursor, pageSize: 1);
+
+        Assert.Equal(baseCommit.Sha, first.BaseSha);
+        Assert.Equal(headCommit.Sha, first.HeadSha);
+        Assert.Equal(baseCommit.Sha, first.MergeBaseSha);
+        Assert.Equal(baseCommit.Sha, first.ComparedFromSha);
+        Assert.Equal(2, first.TotalFiles);
+        Assert.True(first.HasMore);
+        Assert.Equal("1", first.NextCursor);
+        Assert.Single(first.Files);
+        Assert.Single(second.Files);
+        Assert.False(second.HasMore);
+        Assert.Contains(first.Files.Concat(second.Files), file => file.Status == "renamed" && file.PreviousPath == "old-name.txt" && file.Path == "new-name.txt");
+    }
+
+    [Fact]
+    public void CompareRefs_ReportsPerFileTruncation()
+    {
+        var service = CreateService(maxComparePatchCharactersPerFile: 80);
+        var baseCommit = WriteCommit(service, "large.txt", "base\n", "base");
+        File.WriteAllText(Path.Combine(_root, "large.txt"), string.Join('\n', Enumerable.Range(0, 100).Select(i => $"line-{i}")));
+        service.Stage(".", ["large.txt"]);
+        var headCommit = service.Commit(".", "large", "Test User", "test@example.local");
+
+        var result = service.CompareRefs(".", baseCommit.Sha, headCommit.Sha);
+
+        var file = Assert.Single(result.Files);
+        Assert.True(file.Truncated);
+        Assert.Equal(1, result.TruncatedFileCount);
+        Assert.Contains("truncated", file.Patch, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ReviewReadOnly_AllowsOnlyIsolatedCloneAndDeniesCheckoutMutation()
+    {
+        var source = Path.Combine(_root, "review-source");
+        Directory.CreateDirectory(source);
+        Repository.Init(source);
+        var sourceService = CreateService(source, allowNetwork: true);
+        WriteCommit(sourceService, "README.md", "fixture\n", "fixture", source);
+        var settings = new GitServerSettings
+        {
+            DefaultWorkingDirectory = _root,
+            AllowedWorkingRoots = [_root],
+            AllowMutations = false,
+            AllowNetworkOperations = true,
+            ReviewReadOnly = true
+        };
+        var reviewService = new GitRepositoryService(new GitPolicy(settings, _root), Options.Create(settings));
+
+        var clone = reviewService.Clone(source, ".GnOuGo/data/reviews/run", historyDepth: 0);
+
+        Assert.True(clone.Success);
+        Assert.Throws<InvalidOperationException>(() => reviewService.Clone(source, "not-isolated", historyDepth: 0));
+        Assert.Throws<InvalidOperationException>(() => reviewService.Checkout(clone.ProjectRootRelative, "master"));
+    }
+
     private GitCommitInfo WriteCommit(GitRepositoryService service, string relativePath, string content, string message, string? root = null)
     {
         var repositoryRoot = root ?? _root;
@@ -380,7 +449,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
         return service.Commit(".", message, "Test User", "test@example.local");
     }
 
-    private GitRepositoryService CreateService(string? defaultWorkingDirectory = null, bool allowMutations = true, bool allowNetwork = false)
+    private GitRepositoryService CreateService(string? defaultWorkingDirectory = null, bool allowMutations = true, bool allowNetwork = false, int maxComparePatchCharactersPerFile = 40_000)
     {
         var settings = new GitServerSettings
         {
@@ -388,6 +457,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
             AllowedWorkingRoots = [_root],
             AllowMutations = allowMutations,
             AllowNetworkOperations = allowNetwork,
+            MaxComparePatchCharactersPerFile = maxComparePatchCharactersPerFile,
             RequireCleanWorkingTreeForMerge = true,
             DefaultAuthorName = "Test User",
             DefaultAuthorEmail = "test@example.local"

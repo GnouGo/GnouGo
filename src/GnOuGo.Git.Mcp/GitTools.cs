@@ -43,6 +43,16 @@ public sealed class GitTools
         [Description("When true, returns staged/index changes instead of unstaged working tree changes.")] bool staged = false)
         => Execute("git_diff", () => _gitRepositoryService.GetDiff(projectRoot, relativePath, staged));
 
+    [McpServerTool(Name = "git_compare_refs", UseStructuredContent = true, OutputSchemaType = typeof(GitCompareRefsResult)), Description("Resolves exact base/head/merge-base commits and returns a paginated per-file patch comparison with rename, binary, submodule, and truncation metadata. This is read-only and does not depend on the working tree." + RequiredProjectRootToolSuffix)]
+    public GitCompareRefsResult GitCompareRefs(
+        [Description(RequiredProjectRootDescription)] string projectRoot,
+        [Description("Exact base commit SHA or fetched ref.")] string baseRef,
+        [Description("Exact head commit SHA or fetched ref.")] string headRef,
+        [Description("When true (default), compare merge-base to head as GitHub PRs do; exact base/head/merge-base SHAs are always returned.")] bool compareFromMergeBase = true,
+        [Description("Opaque pagination cursor returned by a previous call.")] string? cursor = null,
+        [Description("Maximum files in this page, capped by Git:MaxComparePageSize.")] int pageSize = 50)
+        => Execute("git_compare_refs", () => _gitRepositoryService.CompareRefs(projectRoot, baseRef, headRef, compareFromMergeBase, cursor, pageSize));
+
     [McpServerTool(Name = "git_log", UseStructuredContent = true, OutputSchemaType = typeof(GitLogResult)), Description("Returns recent commits for an existing repository project root." + RequiredProjectRootToolSuffix)]
     public GitLogResult GitLog(
         [Description(RequiredProjectRootDescription)] string projectRoot,
@@ -122,7 +132,7 @@ public sealed class GitTools
         [Description("Resolution strategy: ours, theirs, or stage_existing.")] string strategy)
         => Execute("git_resolve_conflict", () => _gitRepositoryService.ResolveConflict(projectRoot, relativePath, strategy));
 
-    [McpServerTool(Name = "git_clone", UseStructuredContent = true, OutputSchemaType = typeof(GitCloneResult)), Description("Clones a Git repository into a new workspace target directory. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true. targetDirectory is a creation target, not an existing projectRoot before clone. After success, pass response.projectRootRelative to Git/Code projectRoot inputs.")]
+    [McpServerTool(Name = "git_clone", UseStructuredContent = true, OutputSchemaType = typeof(GitCloneResult)), Description("Clones a Git repository into a new workspace target directory. Requires Git:AllowNetworkOperations=true and either Git:AllowMutations=true or Git:ReviewReadOnly=true with a target below .GnOuGo/data/reviews/. targetDirectory is a creation target, not an existing projectRoot before clone. After success, pass response.projectRootRelative to Git/Code projectRoot inputs.")]
     public GitCloneResult GitClone(
         [Description("Remote Git URL to clone.")] string remoteUrl,
         [Description("Clone target directory relative to the workspace root only. Must be empty or non-existing. After clone succeeds, use response.projectRootRelative as the existing projectRoot for later tools.")] string targetDirectory,
@@ -247,6 +257,27 @@ internal static class GitToolFailure
                 ErrorCode: errorCode,
                 ErrorMessage: errorMessage),
 
+            var type when type == typeof(GitCompareRefsResult) => new GitCompareRefsResult(
+                RepositoryRoot: string.Empty,
+                BaseRef: string.Empty,
+                HeadRef: string.Empty,
+                BaseSha: string.Empty,
+                HeadSha: string.Empty,
+                MergeBaseSha: null,
+                ComparedFromSha: string.Empty,
+                Files: [],
+                TotalFiles: 0,
+                Offset: 0,
+                PageSize: 0,
+                HasMore: false,
+                NextCursor: null,
+                TotalPatchCharacters: 0,
+                TruncatedFileCount: 0,
+                Output: errorMessage,
+                Success: false,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage),
+
             var type when type == typeof(GitCommitInfo) => new GitCommitInfo(
                 Sha: string.Empty,
                 ShortSha: string.Empty,
@@ -354,6 +385,9 @@ internal static class GitMcpJson
 [JsonSerializable(typeof(IReadOnlyList<GitStatusEntry>))]
 [JsonSerializable(typeof(GitStatusResult))]
 [JsonSerializable(typeof(GitDiffResult))]
+[JsonSerializable(typeof(GitCompareFile))]
+[JsonSerializable(typeof(IReadOnlyList<GitCompareFile>))]
+[JsonSerializable(typeof(GitCompareRefsResult))]
 [JsonSerializable(typeof(GitCommitInfo))]
 [JsonSerializable(typeof(IReadOnlyList<GitCommitInfo>))]
 [JsonSerializable(typeof(GitLogResult))]

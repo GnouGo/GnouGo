@@ -1,5 +1,6 @@
 ﻿using GnOuGo.GithubCopilot.Mcp;
 using GnOuGo.Mcp.Core;
+using GnOuGo.GithubCopilot.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -23,15 +24,23 @@ builder.Services.AddSingleton<IConfigureOptions<CodeServerSettings>, CodeServerS
 builder.Services.AddHttpClient(nameof(ConfigurationCopilotProviderConfigResolver));
 builder.Services.AddSingleton<IKeyVaultCopilotProviderConfigResolver, KeyVaultCopilotProviderConfigResolver>();
 builder.Services.AddSingleton<ICopilotProviderConfigResolver, ConfigurationCopilotProviderConfigResolver>();
+builder.Services.AddSingleton<ICopilotProviderResolver, CoreCopilotProviderResolver>();
+builder.Services.AddSingleton<ICopilotSdkClientFactory, GitHubCopilotSdkClientFactory>();
+builder.Services.AddSingleton<McpCopilotHumanInputProvider>();
+builder.Services.AddSingleton<ICopilotHumanInputProvider>(sp => sp.GetRequiredService<McpCopilotHumanInputProvider>());
+builder.Services.AddSingleton<CopilotSessionManager>();
+builder.Services.AddSingleton<CopilotReviewManager>();
 builder.Services.AddSingleton<CodePolicy>();
 builder.Services.AddSingleton<CodeProjectService>();
 builder.Services.AddSingleton<CodeMcpTraceContextAccessor>();
 builder.Services.AddSingleton<CodeProgressReporter>();
 builder.Services.AddSingleton<ICodeAssistantClient, GitHubCopilotCodeClient>();
 builder.Services.AddTransient<CodeTools>();
+builder.Services.AddTransient<CopilotTools>();
 builder.Services
     .AddMcpServer(options =>
     {
+        options.ProtocolVersion = GnOuGoMcpProtocol.RequiredRevision;
         options.ServerInfo = new Implementation
         {
             Name = "GnOuGo.GithubCopilot.Mcp",
@@ -47,7 +56,8 @@ builder.Services
         });
     })
     .WithStdioServerTransport()
-    .WithTools<CodeTools>(CodeMcpJson.SerializerOptions);
+    .WithTools<CodeTools>(CodeMcpJson.SerializerOptions)
+    .WithTools<CopilotTools>(CodeMcpJson.SerializerOptions);
 
 var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.GithubCopilot.Mcp.Startup");
@@ -75,5 +85,3 @@ logger.LogInformation(
     settings.Copilot.RequestTimeoutSeconds);
 
 await host.RunAsync();
-
-

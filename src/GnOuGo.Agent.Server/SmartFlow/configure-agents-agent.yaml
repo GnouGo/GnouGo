@@ -313,6 +313,25 @@ workflows:
                   This YAML will be stored by GnOuGo.Agent.Mcp and later executed by GnOuGo.Agent.Server for each user chat message.
                   The stored agent workflow must be self-contained and should not ask the user to review its own YAML.
                   Prefer direct mcp.call steps with exact server/tool names when the tool names are listed above.
+
+                  If the requested agent performs automated GitHub pull-request review, generate a read-only review workflow with
+                  repository, pull_request_number, and publication_policy inputs. publication_policy must be one of dry_run,
+                  interactive, or auto_comment and must default to interactive. Discover and use only the configured official GitHub
+                  MCP server's minimum GA PR/repository tools (`pull_request_read`, `pull_request_review_write`, and
+                  `add_comment_to_pending_review`; `create_pull_request` and `update_pull_request` are permitted only for an explicitly
+                  authorized disposable fixture). Never use insiders or preview endpoints or tools. The workflow must: read PR metadata, exact base/head
+                  SHAs, files, checks, existing reviews, and existing threads; call Git MCP git_get_policy before cloning; clone only to
+                  .GnOuGo/data/reviews/<run-id>; fetch the PR revisions; page git_compare_refs until nextCursor is null; pass the exact
+                  patches to GnOuGo.GithubCopilot.Mcp copilot_review in bounded batches; validate and deduplicate its structured findings;
+                  stop on truncated/unreviewed critical files; re-read the PR head SHA immediately before any GitHub write; and call
+                  copilot_review_publication_gate with the selected policy and fresh SHA before creating the pending review.
+                  dry_run must never write. interactive must use human.input after presenting the complete proposed review and before
+                  creating a pending review. auto_comment may publish without human input only when the caller explicitly supplied that
+                  policy for this run. Publication must call `pull_request_review_write` with method `create` and no event, add only
+                  validated inline comments through `add_comment_to_pending_review`, then call `pull_request_review_write` with method
+                  `submit_pending` and event COMMENT or REQUEST_CHANGES. It must never APPROVE, merge, push, commit, checkout, modify the reviewed PR, delete a branch, or
+                  publish after a stale head SHA. Never place credentials, model reasoning, or secrets in workflow inputs, outputs, logs,
+                  comments, or telemetry. Always return coverage, skipped/truncated files, the verified head SHA, and publication status.
               policy:
                 allowed_step_types:
                   - emit

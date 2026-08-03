@@ -222,7 +222,11 @@ public class ConfiguredMcpClientFactoryTests
             StepType = "mcp.call",
             ServerName = "GnOuGo.GithubCopilot.Mcp",
             MethodName = "code_suggest_change",
-            Kind = "tool"
+            Kind = "tool",
+            TenantId = "tenant-1",
+            Repository = "owner/repository",
+            PullRequestNumber = 42,
+            HeadSha = "abcdef123456"
         });
 
         var meta = InvokeBuildCurrentCorrelationMeta();
@@ -234,6 +238,10 @@ public class ConfiguredMcpClientFactoryTests
         Assert.Equal(activity.TraceId.ToString(), gnougo["traceId"]!.GetValue<string>());
         Assert.Equal(activity.SpanId.ToString(), gnougo["spanId"]!.GetValue<string>());
         Assert.Equal(activity.ParentSpanId.ToString(), gnougo["parentSpanId"]!.GetValue<string>());
+        Assert.Equal("tenant-1", gnougo["tenantId"]!.GetValue<string>());
+        Assert.Equal("owner/repository", gnougo["repository"]!.GetValue<string>());
+        Assert.Equal(42, gnougo["pullRequestNumber"]!.GetValue<int>());
+        Assert.Equal("abcdef123456", gnougo["headSha"]!.GetValue<string>());
     }
 
     [Fact]

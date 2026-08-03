@@ -17,6 +17,11 @@ internal sealed record CodeMcpTraceContext(
     string? McpMethod,
     string? McpKind)
 {
+    public string? TenantId { get; init; }
+    public string? Repository { get; init; }
+    public int? PullRequestNumber { get; init; }
+    public string? HeadSha { get; init; }
+
     public static CodeMcpTraceContext? Capture(CodeMcpTraceContextAccessor? accessor = null)
         => FromActivity(Activity.Current)
            ?? accessor?.Current
@@ -39,7 +44,13 @@ internal sealed record CodeMcpTraceContext(
             StepType: Environment.GetEnvironmentVariable("GNouGo__StepType"),
             McpServer: Environment.GetEnvironmentVariable("GNouGo__McpServer"),
             McpMethod: Environment.GetEnvironmentVariable("GNouGo__McpMethod"),
-            McpKind: Environment.GetEnvironmentVariable("GNouGo__McpKind"));
+            McpKind: Environment.GetEnvironmentVariable("GNouGo__McpKind"))
+        {
+            TenantId = Environment.GetEnvironmentVariable("GNouGo__TenantId"),
+            Repository = Environment.GetEnvironmentVariable("GNouGo__Repository"),
+            PullRequestNumber = ReadInt(Environment.GetEnvironmentVariable("GNouGo__PullRequestNumber")),
+            HeadSha = Environment.GetEnvironmentVariable("GNouGo__HeadSha")
+        };
     }
 
     public static CodeMcpTraceContext? FromEnvironment()
@@ -72,7 +83,13 @@ internal sealed record CodeMcpTraceContext(
             StepType: Environment.GetEnvironmentVariable("GNouGo__StepType"),
             McpServer: Environment.GetEnvironmentVariable("GNouGo__McpServer"),
             McpMethod: Environment.GetEnvironmentVariable("GNouGo__McpMethod"),
-            McpKind: Environment.GetEnvironmentVariable("GNouGo__McpKind"));
+            McpKind: Environment.GetEnvironmentVariable("GNouGo__McpKind"))
+        {
+            TenantId = Environment.GetEnvironmentVariable("GNouGo__TenantId"),
+            Repository = Environment.GetEnvironmentVariable("GNouGo__Repository"),
+            PullRequestNumber = ReadInt(Environment.GetEnvironmentVariable("GNouGo__PullRequestNumber")),
+            HeadSha = Environment.GetEnvironmentVariable("GNouGo__HeadSha")
+        };
 
         return context.HasAnyValue ? context : null;
     }
@@ -108,7 +125,13 @@ internal sealed record CodeMcpTraceContext(
             StepType: ReadString(gnougo, "stepType"),
             McpServer: ReadString(gnougo, "mcpServer"),
             McpMethod: ReadString(gnougo, "mcpMethod"),
-            McpKind: ReadString(gnougo, "mcpKind"));
+            McpKind: ReadString(gnougo, "mcpKind"))
+        {
+            TenantId = ReadString(gnougo, "tenantId"),
+            Repository = ReadString(gnougo, "repository"),
+            PullRequestNumber = ReadInt(gnougo, "pullRequestNumber"),
+            HeadSha = ReadString(gnougo, "headSha")
+        };
 
         return context.HasAnyValue ? context : null;
     }
@@ -128,6 +151,11 @@ internal sealed record CodeMcpTraceContext(
         Add(gnougo, "mcpServer", McpServer);
         Add(gnougo, "mcpMethod", McpMethod);
         Add(gnougo, "mcpKind", McpKind);
+        Add(gnougo, "tenantId", TenantId);
+        Add(gnougo, "repository", Repository);
+        if (PullRequestNumber is not null)
+            gnougo["pullRequestNumber"] = PullRequestNumber.Value;
+        Add(gnougo, "headSha", HeadSha);
 
         var meta = new JsonObject { ["gnougo"] = gnougo };
         Add(meta, "traceparent", TraceParent);
@@ -150,6 +178,11 @@ internal sealed record CodeMcpTraceContext(
         Add(headers, "x-gnougo-mcp-server", McpServer);
         Add(headers, "x-gnougo-mcp-method", McpMethod);
         Add(headers, "x-gnougo-mcp-kind", McpKind);
+        Add(headers, "x-gnougo-tenant-id", TenantId);
+        Add(headers, "x-gnougo-repository", Repository);
+        if (PullRequestNumber is not null)
+            headers["x-gnougo-pr-number"] = PullRequestNumber.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Add(headers, "x-gnougo-head-sha", HeadSha);
         return headers;
     }
 
@@ -169,6 +202,11 @@ internal sealed record CodeMcpTraceContext(
         Add(env, "GNouGo__McpServer", McpServer);
         Add(env, "GNouGo__McpMethod", McpMethod);
         Add(env, "GNouGo__McpKind", McpKind);
+        Add(env, "GNouGo__TenantId", TenantId);
+        Add(env, "GNouGo__Repository", Repository);
+        if (PullRequestNumber is not null)
+            env["GNouGo__PullRequestNumber"] = PullRequestNumber.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Add(env, "GNouGo__HeadSha", HeadSha);
         Add(env, "OTEL_PROPAGATORS", "tracecontext,baggage");
         return env;
     }
@@ -179,7 +217,11 @@ internal sealed record CodeMcpTraceContext(
            || !string.IsNullOrWhiteSpace(SpanId)
            || !string.IsNullOrWhiteSpace(CorrelationId)
            || !string.IsNullOrWhiteSpace(RunId)
-           || !string.IsNullOrWhiteSpace(StepId);
+           || !string.IsNullOrWhiteSpace(StepId)
+           || !string.IsNullOrWhiteSpace(TenantId)
+           || !string.IsNullOrWhiteSpace(Repository)
+           || PullRequestNumber is not null
+           || !string.IsNullOrWhiteSpace(HeadSha);
 
     private static (string? TraceId, string? SpanId) ParseTraceParent(string? traceParent)
     {
@@ -192,6 +234,18 @@ internal sealed record CodeMcpTraceContext(
 
     private static string? ReadString(JsonObject? obj, string name)
         => obj is not null && obj.TryGetPropertyValue(name, out var node) ? node?.GetValue<string>() : null;
+
+    private static int? ReadInt(string? value)
+        => int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+
+    private static int? ReadInt(JsonObject? obj, string name)
+    {
+        if (obj is null || !obj.TryGetPropertyValue(name, out var node) || node is not JsonValue value)
+            return null;
+        if (value.TryGetValue<int>(out var number))
+            return number;
+        return value.TryGetValue<string>(out var text) ? ReadInt(text) : null;
+    }
 
     private static string? FirstNonEmpty(params string?[] values)
         => values.FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value));
@@ -244,4 +298,3 @@ internal sealed class CodeMcpTraceContextAccessor
         }
     }
 }
-

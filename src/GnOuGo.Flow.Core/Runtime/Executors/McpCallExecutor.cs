@@ -1318,6 +1318,7 @@ Produce the final answer strictly from the executed MCP results.
         var spanId = activity?.SpanId.ToString();
         return new McpCorrelationContext
         {
+            TenantId = ReadString(ctx.Data, "tenantId", "tenant_id", "TenantId") ?? Environment.GetEnvironmentVariable("GNouGo__TenantId"),
             CorrelationId = ctx.Limits.RunId ?? activity?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"),
             RunId = ctx.Limits.RunId,
             TraceId = traceId,
@@ -1327,8 +1328,35 @@ Produce the final answer strictly from the executed MCP results.
             StepType = ctx.Step.Type,
             ServerName = serverName,
             MethodName = method,
-            Kind = kind
+            Kind = kind,
+            Repository = ReadString(ctx.Data, "repository", "repositoryName", "repo"),
+            PullRequestNumber = ReadInt(ctx.Data, "pullRequestNumber", "pull_request_number", "prNumber", "pr_number"),
+            HeadSha = ReadString(ctx.Data, "headSha", "head_sha")
         };
+    }
+
+    private static string? ReadString(JsonObject data, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (data[name] is JsonValue value && value.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text))
+                return text;
+        }
+        return null;
+    }
+
+    private static int? ReadInt(JsonObject data, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (data[name] is not JsonValue value)
+                continue;
+            if (value.TryGetValue<int>(out var number))
+                return number;
+            if (value.TryGetValue<string>(out var text) && int.TryParse(text, out number))
+                return number;
+        }
+        return null;
     }
 
     private static JsonObject BuildMcpErrorObject(JsonNode? content, McpCorrelationContext correlation)

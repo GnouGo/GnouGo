@@ -15,6 +15,7 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly IMcpClientFactory? _mcpClientFactoryOverride;
     private readonly IMemoryCache? _backgroundModeCache;
     private readonly ILLMCapabilityResolver? _llmCapabilityResolver;
+    private readonly IHumanInputProvider? _humanInputProvider;
 
     public SecureWorkflowRuntimeFactory(
         LLMRuntimeOptionsStore optionsStore,
@@ -23,7 +24,8 @@ public sealed class SecureWorkflowRuntimeFactory
         ILLMClient? llmClientOverride = null,
         IMcpClientFactory? mcpClientFactoryOverride = null,
         IMemoryCache? backgroundModeCache = null,
-        ILLMCapabilityResolver? llmCapabilityResolver = null)
+        ILLMCapabilityResolver? llmCapabilityResolver = null,
+        IHumanInputProvider? humanInputProvider = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
@@ -32,6 +34,7 @@ public sealed class SecureWorkflowRuntimeFactory
         _mcpClientFactoryOverride = mcpClientFactoryOverride;
         _backgroundModeCache = backgroundModeCache;
         _llmCapabilityResolver = llmCapabilityResolver;
+        _humanInputProvider = humanInputProvider;
     }
 
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
@@ -40,7 +43,7 @@ public sealed class SecureWorkflowRuntimeFactory
         var sslLogger = _loggerFactory.CreateLogger("GnOuGo.AI.Core.SSL");
         var http = LLMHttpClientFactory.Create(options.DangerousAcceptAnyServerCertificate, LLMHttpClientDefaults.MinimumTimeout, sslLogger);
         IMcpClientFactory mcpFactory = _mcpClientFactoryOverride ?? (options.McpServers.Count > 0
-            ? new ConfiguredMcpClientFactory(options.McpServers)
+            ? new ConfiguredMcpClientFactory(options.McpServers, _humanInputProvider)
             : new InMemoryMcpClientFactory());
 
         var llmClient = _llmClientOverride

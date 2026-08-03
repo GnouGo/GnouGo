@@ -127,11 +127,11 @@ builder.Services.AddSingleton<ILLMClient>(sp =>
     var routingClient = new RoutingLLMClient(http, llmOptions, backgroundModeCache: cache);
     return new RoutingLLMClientAdapter(routingClient);
 });
-builder.Services.AddSingleton<IMcpClientFactory>(_ =>
+builder.Services.AddSingleton<IMcpClientFactory>(sp =>
 {
     var llmOptions = builder.Configuration.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
     if (llmOptions.McpServers.Count > 0)
-        return new ConfiguredMcpClientFactory(llmOptions.McpServers);
+        return new ConfiguredMcpClientFactory(llmOptions.McpServers, sp.GetService<IHumanInputProvider>());
     return new InMemoryMcpClientFactory();
 });
 

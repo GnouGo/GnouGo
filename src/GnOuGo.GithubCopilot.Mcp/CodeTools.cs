@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using GnOuGo.GithubCopilot.Core;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
@@ -243,6 +244,7 @@ internal static class CodeMcpJson
     private static JsonSerializerOptions CreateSerializerOptions()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.TypeInfoResolverChain.Insert(0, CopilotCoreJsonContext.Default);
         options.TypeInfoResolverChain.Insert(0, CodeMcpJsonContext.Default);
         return options;
     }
@@ -250,6 +252,7 @@ internal static class CodeMcpJson
 
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
+[JsonSerializable(typeof(Dictionary<string, JsonElement>))]
 [JsonSerializable(typeof(CodePolicyInfo))]
 [JsonSerializable(typeof(CodeProjectSummary))]
 [JsonSerializable(typeof(CodeFileContent))]

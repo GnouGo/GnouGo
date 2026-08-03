@@ -38,8 +38,11 @@ public sealed class GitPolicy
             AllowedWorkingRoots: ResolveAllowedWorkingRoots(),
             AllowMutations: _settings.AllowMutations,
             AllowNetworkOperations: _settings.AllowNetworkOperations,
+            ReviewReadOnly: _settings.ReviewReadOnly,
             RequireCleanWorkingTreeForMerge: _settings.RequireCleanWorkingTreeForMerge,
             MaxDiffCharacters: _settings.MaxDiffCharacters,
+            MaxComparePatchCharactersPerFile: _settings.MaxComparePatchCharactersPerFile,
+            MaxComparePageSize: _settings.MaxComparePageSize,
             MaxLogCount: _settings.MaxLogCount,
             DefaultRemoteName: _settings.DefaultRemoteName,
             HasConfiguredToken: !string.IsNullOrWhiteSpace(ResolveGitToken()),
@@ -77,6 +80,8 @@ public sealed class GitPolicy
             throw new InvalidOperationException($"Clone target '{path}' is an existing file.");
         if (Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any())
             throw new InvalidOperationException($"Clone target directory '{path}' already exists and is not empty.");
+        if (_settings.ReviewReadOnly)
+            EnsureReviewWorkspace(path);
         return path;
     }
 
@@ -97,8 +102,17 @@ public sealed class GitPolicy
 
     public void EnsureGitMutationsAllowed(string operation)
     {
-        if (!_settings.AllowMutations)
+        if (!_settings.AllowMutations && !(_settings.ReviewReadOnly && string.Equals(operation, "clone", StringComparison.Ordinal)))
             throw new InvalidOperationException($"Git mutation '{operation}' is disabled by policy. Set Git:AllowMutations=true to enable it.");
+    }
+
+    public void EnsureReviewWorkspace(string path)
+    {
+        if (!_settings.ReviewReadOnly)
+            return;
+        var reviewRoot = Path.Combine(_defaultWorkingDirectory, GnOuGoWorkspace.WorkspaceDataSubfolder, "data", "reviews");
+        if (!GnOuGoWorkspace.IsPathWithinRoot(path, reviewRoot))
+            throw new InvalidOperationException($"review_read_only permits clone/fetch only under the isolated review root '{reviewRoot}'.");
     }
 
     public void EnsureGitNetworkAllowed(string operation)

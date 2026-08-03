@@ -8,12 +8,53 @@ public sealed record GitPolicyInfo(
     IReadOnlyList<string> AllowedWorkingRoots,
     bool AllowMutations,
     bool AllowNetworkOperations,
+    bool ReviewReadOnly,
     bool RequireCleanWorkingTreeForMerge,
     int MaxDiffCharacters,
+    int MaxComparePatchCharactersPerFile,
+    int MaxComparePageSize,
     int MaxLogCount,
     string DefaultRemoteName,
     bool HasConfiguredToken,
     IReadOnlyList<string> TokenEnvironmentVariables);
+
+public sealed record GitCompareFile(
+    string Path,
+    string? PreviousPath,
+    string Status,
+    string Patch,
+    bool IsBinary,
+    bool IsSubmodule,
+    bool Truncated,
+    int LinesAdded,
+    int LinesDeleted,
+    string? OldObjectId,
+    string? NewObjectId);
+
+public sealed record GitCompareRefsResult(
+    string RepositoryRoot,
+    string BaseRef,
+    string HeadRef,
+    string BaseSha,
+    string HeadSha,
+    string? MergeBaseSha,
+    string ComparedFromSha,
+    IReadOnlyList<GitCompareFile> Files,
+    int TotalFiles,
+    int Offset,
+    int PageSize,
+    bool HasMore,
+    string? NextCursor,
+    int TotalPatchCharacters,
+    int TruncatedFileCount,
+    string? RepositoryRootRelative = null,
+    string? Output = null,
+    bool Success = true,
+    [property: JsonPropertyName("error_code")] string? ErrorCode = null,
+    [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
+{
+    public bool Ok => Success;
+}
 
 public sealed record GitErrorResult(string Code, string Message);
 
