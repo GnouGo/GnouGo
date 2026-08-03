@@ -112,6 +112,41 @@ public sealed class LlmRuntimeOptionsStoreTests
     }
 
     [Fact]
+    public void ReplaceRuntimeOptions_PreservesPublishedTransientMcpEndpoints()
+    {
+        var store = new LLMRuntimeOptionsStore(
+            Options.Create(new LLMOptions
+            {
+                McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["GnOuGo.Agent.Mcp"] = new() { Type = "http", Url = "http://127.0.0.1:0/mcp/agent" }
+                }
+            }),
+            NullLogger<LLMRuntimeOptionsStore>.Instance);
+
+        store.UpsertTransientMcpServer("GnOuGo.Agent.Mcp", new McpServerOptions
+        {
+            Type = "http",
+            Url = "http://127.0.0.1:64123/mcp/agent",
+            Description = "Mounted Agent MCP"
+        });
+
+        store.ReplaceRuntimeOptions(new LLMOptions
+        {
+            McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["GnOuGo.Agent.Mcp"] = new() { Type = "http", Url = "http://127.0.0.1:0/mcp/agent" },
+                ["Github"] = new() { Type = "http", Url = "https://api.githubcopilot.com/mcp/" }
+            }
+        });
+
+        Assert.Equal(
+            "http://127.0.0.1:64123/mcp/agent",
+            store.Current.McpServers["GnOuGo.Agent.Mcp"].Url);
+        Assert.True(store.Current.McpServers.ContainsKey("Github"));
+    }
+
+    [Fact]
     public void UpdateProvider_InitializesProviderTypeFromKeyForApiKeyAuth()
     {
         var store = new LLMRuntimeOptionsStore(
@@ -213,5 +248,4 @@ public sealed class LlmRuntimeOptionsStoreTests
         Assert.Equal("gpt-4o-mini", store.Current.DefaultModel);
     }
 }
-
 

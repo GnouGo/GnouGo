@@ -40,7 +40,18 @@ public sealed class LLMRuntimeOptionsStore
 
         lock (_lock)
         {
-            _current = DeepClone(options);
+            var replacement = DeepClone(options);
+
+            // Mounted MCP endpoints are published asynchronously after their
+            // loopback sub-host starts listening. A concurrent KeyVault reload
+            // must not restore their configured :0 placeholder (or remove them).
+            foreach (var serverName in _transientMcpServers)
+            {
+                if (_current.McpServers.TryGetValue(serverName, out var transientServer))
+                    replacement.McpServers[serverName] = CloneMcpServerOptions(transientServer);
+            }
+
+            _current = replacement;
         }
 
         _logger.LogInformation(
