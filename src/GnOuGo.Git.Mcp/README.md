@@ -17,6 +17,8 @@ This stdio server uses the stable C# MCP SDK `2.0.0` and requires MCP `2026-07-2
 
 ## Read-only review policy
 
+The packaged default remains read/write capable (`AllowMutations=true`, `AllowNetworkOperations=true`, `ReviewReadOnly=false`); actual operations are still root-guarded. The following stricter review policy is opt-in for a dedicated server configuration.
+
 Set `Git:ReviewReadOnly=true`, `Git:AllowMutations=false`, and `Git:AllowNetworkOperations=true` for a dedicated review server. In this mode `git_clone` and `git_fetch` are permitted only below `.GnOuGo/data/reviews/`; checkout, stage, commit, push, pull/merge, and branch deletion remain denied. Use `git_clone.response.projectRootRelative` for all later calls. This policy protects user checkouts while still allowing exact remote revision comparison.
 
 `git_compare_refs` defaults to merge-base-to-head semantics. Follow `nextCursor` until null and preserve every page's `baseSha`, `headSha`, and `mergeBaseSha`. Treat `truncated`, binary, and submodule entries as explicit coverage gaps.

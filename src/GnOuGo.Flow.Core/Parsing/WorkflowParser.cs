@@ -96,7 +96,7 @@ public static class WorkflowParser
 
     private static readonly HashSet<string> WorkflowFields = new(StringComparer.Ordinal)
     {
-        "inputs", "skill", "skills", "functions", "steps", "outputs"
+        "inputs", "skill", "skills", "functions", "steps", "finally", "outputs"
     };
 
     private static readonly HashSet<string> StepFields = new(StringComparer.Ordinal)
@@ -149,6 +149,8 @@ public static class WorkflowParser
 
             if (workflowNode.GetSequence("steps") is { } stepsNode)
                 CollectUnknownStepListFields(stepsNode, $"{workflowPath}.steps", unknownFields);
+            if (workflowNode.GetSequence("finally") is { } finallyNode)
+                CollectUnknownStepListFields(finallyNode, $"{workflowPath}.finally", unknownFields);
         }
     }
 
@@ -308,6 +310,10 @@ public static class WorkflowParser
         var stepsNode = node.GetSequence("steps")
             ?? throw new WorkflowParseException($"Workflow '{name}' missing required 'steps'");
         wf.Steps = ParseStepList(stepsNode);
+
+        // finalization steps
+        if (node.GetSequence("finally") is { } finallyNode)
+            wf.Finally = ParseStepList(finallyNode);
 
         // outputs
         if (node.HasKey("outputs"))

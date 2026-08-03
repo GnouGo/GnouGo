@@ -48,7 +48,7 @@ Interactive permission, user-input, and nested MCP elicitation callbacks are bri
 
 ## Pull-request review contract
 
-Git MCP supplies exact patches. Copilot review results contain fingerprint, severity, category, confidence, path, diff side, line range, evidence, explanation, and optional suggested patch. The server rejects unknown paths and lines outside the supplied diff, deduplicates fingerprints, and reports binary/submodule skips plus truncated files.
+Git MCP supplies exact patches. `copilot_review_start` and `copilot_review` accept optional `reviewInstructions` (maximum 32,000 characters) and `existingCommentsJson`. Existing comments contain path, optional side/line range, body, and optional fingerprint; only comments relevant to the current batch are included as bounded untrusted model context. Copilot review results contain fingerprint, severity, category, confidence, path, diff side, line range, evidence, explanation, and optional suggested patch. The server rejects unknown paths and lines outside the supplied diff, removes matching fingerprints or equivalent location/body findings, and reports binary/submodule skips plus truncated files.
 
 The review session has no tools, no configuration discovery, no write permission, and is deleted after completion. Publication is deliberately outside this MCP and belongs to the Flow agent plus the official GitHub MCP. The publication gate fails closed for stale SHAs, dry runs, no findings, and unapproved interactive runs. `auto_comment` can only submit `COMMENT`; automated approval and merge are unsupported.
 

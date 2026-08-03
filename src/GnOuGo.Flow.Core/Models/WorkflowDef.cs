@@ -17,6 +17,12 @@ public sealed class WorkflowDef
     /// <summary>Ordered list of steps.</summary>
     public List<StepDef> Steps { get; set; } = new();
 
+    /// <summary>
+    /// Ordered finalization steps executed once after success, failure, or cancellation.
+    /// Finalizers run with an independent bounded cancellation token.
+    /// </summary>
+    public List<StepDef> Finally { get; set; } = new();
+
     /// <summary>Typed output declarations. Each value contains the expression and optional type schema.</summary>
     public Dictionary<string, OutputDef>? Outputs { get; set; }
 }

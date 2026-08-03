@@ -112,16 +112,17 @@ internal static class WorkflowPlanSemanticValidator
 
         foreach (var (workflowName, workflow) in document.Workflows)
         {
-            var allStepIds = CollectStepIds(workflow.Steps).ToHashSet(StringComparer.Ordinal);
-            var knownEmptyStringReferences = CollectKnownEmptySetStringReferences(workflow.Steps);
+            var allSteps = workflow.Steps.Concat(workflow.Finally).ToList();
+            var allStepIds = CollectStepIds(allSteps).ToHashSet(StringComparer.Ordinal);
+            var knownEmptyStringReferences = CollectKnownEmptySetStringReferences(allSteps);
             var knownContracts = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
             var symbols = WorkflowSymbolTable.Create(workflowName, workflow.Inputs, allStepIds);
             ValidateFunctionJsDoc(workflow.Functions, workflowName, errors);
             var allowedFunctionNames = BuildAllowedFunctionNames(workflow.Functions, globalFunctionNames);
             var functionDefinitions = BuildFunctionDefinitions(workflow.Functions, $"workflows.{workflowName}.functions", globalFunctionDefinitions);
-            ValidateLoopResultsFunctionCalls(workflow.Steps, workflowName, functionDefinitions, errors);
+            ValidateLoopResultsFunctionCalls(allSteps, workflowName, functionDefinitions, errors);
             ValidateStepList(
-                workflow.Steps,
+                allSteps,
                 workflowName,
                 document.Workflows,
                 workflow.Inputs,
@@ -161,7 +162,10 @@ internal static class WorkflowPlanSemanticValidator
         var changes = 0;
 
         foreach (var workflow in document.Workflows.Values)
+        {
             changes += NormalizeMcpCallInputRequests(workflow.Steps, mcpContracts);
+            changes += NormalizeMcpCallInputRequests(workflow.Finally, mcpContracts);
+        }
 
         return changes;
     }

@@ -55,6 +55,8 @@ Shell availability is auto-detected at runtime. The `cmd_get_environment` tool r
 
 This is intended to help planning workflows generate valid `cmd_run` calls directly.
 
+The packaged allowlist includes both read aliases and guarded workspace write aliases such as directory creation, Markdown writing, and recursive deletion. These capabilities are discoverable by default, but `cmd_run` still accepts only named aliases and validates every workspace path and parameter before execution.
+
 `cmd_get_policy` and `cmd_list_allowed_commands` are also enriched during MCP `tools/list`.
 Their descriptions include the returned JSON shape plus the current policy roots, limits, shell availability, and allowlisted command aliases.
 This gives `workflow.plan` enough context to generate frozen `mcp.call` requests without first adding discovery calls to the generated workflow.

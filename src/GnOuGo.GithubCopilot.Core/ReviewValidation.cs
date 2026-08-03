@@ -131,6 +131,39 @@ public static partial class ReviewValidation
             .ThenBy(static finding => finding.StartLine)
             .ToArray();
 
+    public static bool IsDuplicateOfExisting(
+        ReviewFinding finding,
+        IEnumerable<ExistingReviewComment> existingComments)
+    {
+        ArgumentNullException.ThrowIfNull(finding);
+        ArgumentNullException.ThrowIfNull(existingComments);
+
+        var normalizedExplanation = NormalizeReviewText(finding.Explanation);
+        foreach (var comment in existingComments)
+        {
+            if (comment is null)
+                continue;
+            if (string.Equals(comment.Fingerprint?.Trim(), finding.Fingerprint, StringComparison.OrdinalIgnoreCase)
+                || (!string.IsNullOrWhiteSpace(comment.Body)
+                    && comment.Body.Contains(finding.Fingerprint, StringComparison.OrdinalIgnoreCase)))
+                return true;
+
+            if (!string.Equals(NormalizePath(comment.Path), finding.Path, StringComparison.Ordinal)
+                || comment.Side is not null && comment.Side != finding.Side
+                || comment.EndLine is not null && comment.EndLine != finding.EndLine
+                || comment.StartLine is not null && comment.StartLine != finding.StartLine)
+                continue;
+
+            var normalizedBody = NormalizeReviewText(comment.Body);
+            if (normalizedExplanation.Length > 0
+                && (string.Equals(normalizedBody, normalizedExplanation, StringComparison.Ordinal)
+                    || normalizedBody.Contains(normalizedExplanation, StringComparison.Ordinal)))
+                return true;
+        }
+
+        return false;
+    }
+
     public static string CreateFingerprint(
         string path,
         ReviewDiffSide side,
@@ -187,6 +220,11 @@ public static partial class ReviewValidation
 
     public static string NormalizePath(string path)
         => string.IsNullOrWhiteSpace(path) ? string.Empty : path.Replace('\\', '/').TrimStart('/');
+
+    private static string NormalizeReviewText(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : CollapseWhitespace().Replace(value.Trim(), " ").ToLowerInvariant();
 
     [GeneratedRegex(@"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")]
     private static partial Regex HunkHeader();

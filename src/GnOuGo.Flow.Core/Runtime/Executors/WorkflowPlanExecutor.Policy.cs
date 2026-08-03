@@ -19,7 +19,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var allowedSet = allowed?.Select(a => a?.GetValue<string>() ?? "").ToHashSet();
         var deniedSet = denied?.Select(a => a?.GetValue<string>() ?? "").ToHashSet();
 
-        foreach (var step in doc.Workflows.Values.SelectMany(wf => EnumerateSteps(wf.Steps)))
+        foreach (var step in doc.Workflows.Values.SelectMany(wf => EnumerateSteps(wf.Steps).Concat(EnumerateSteps(wf.Finally))))
         {
             if (allowedSet != null && !allowedSet.Contains(step.Type))
                 throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy,
@@ -32,7 +32,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var allowRemote = policy["allow_remote_workflow_refs"]?.GetValue<bool>() ?? false;
         if (!allowRemote)
         {
-            foreach (var step in doc.Workflows.Values.SelectMany(wf => EnumerateSteps(wf.Steps)))
+            foreach (var step in doc.Workflows.Values.SelectMany(wf => EnumerateSteps(wf.Steps).Concat(EnumerateSteps(wf.Finally))))
             {
                 if (step.Type == "workflow.call" && step.Input is JsonObject inputObj)
                 {
@@ -50,7 +50,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var maxSteps = limits["max_steps_total"]?.GetValue<int>();
         if (maxSteps.HasValue)
         {
-            var totalSteps = doc.Workflows.Values.Sum(wf => CountSteps(wf.Steps));
+            var totalSteps = doc.Workflows.Values.Sum(wf => CountSteps(wf.Steps) + CountSteps(wf.Finally));
             if (totalSteps > maxSteps.Value)
                 throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy,
                     $"Total steps ({totalSteps}) exceeds limit ({maxSteps.Value})");

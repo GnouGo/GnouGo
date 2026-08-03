@@ -108,17 +108,72 @@ public sealed class WorkflowCallExecutor : IStepExecutor
             ["env"] = ctx.Data["env"]?.DeepClone() ?? new JsonObject()
         };
 
-        var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(subWorkflow);
-        await ctx.Engine.ExecuteStepsAsync(
-            subWorkflow.Steps,
-            subData,
-            result,
-            ctx.Limits,
-            ctx.CallDepth + 1,
-            newCallStack,
-            executionScope,
-            ct,
-            ctx.TelemetrySpan);
+        var inheritedFinalization = ctx.EffectiveExecutionScope.IsFinalization;
+        var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(subWorkflow, inheritedFinalization);
+        try
+        {
+            await ctx.Engine.ExecuteStepsAsync(
+                subWorkflow.Steps,
+                subData,
+                result,
+                ctx.Limits,
+                ctx.CallDepth + 1,
+                newCallStack,
+                executionScope,
+                ct,
+                ctx.TelemetrySpan);
+        }
+        catch (WorkflowRuntimeException ex)
+        {
+            result.Success = false;
+            result.Error = ex.ToWorkflowError();
+        }
+        catch (OperationCanceledException)
+        {
+            result.Success = false;
+            result.Error = new WorkflowError
+            {
+                Code = "CANCELLED",
+                Type = "CANCELLED",
+                Message = "Workflow execution cancelled",
+                Retryable = true
+            };
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Error = new WorkflowError
+            {
+                Code = "INTERNAL_ERROR",
+                Type = ex.GetType().Name,
+                Message = ex.Message,
+                Retryable = false
+            };
+        }
+        finally
+        {
+            await ctx.Engine.ExecuteWorkflowFinalizationAsync(
+                subWorkflow,
+                subData,
+                result,
+                ctx.Limits,
+                ctx.CallDepth + 1,
+                newCallStack,
+                executionScope,
+                ctx.TelemetrySpan,
+                inheritedFinalization ? ct : null);
+        }
+
+        if (!result.Success)
+        {
+            var error = result.Error ?? new WorkflowError
+            {
+                Code = "INTERNAL_ERROR",
+                Message = "Called workflow failed.",
+                Retryable = false
+            };
+            throw new WorkflowRuntimeException(error.Code, error.Message, error.Retryable, details: error.Details);
+        }
 
         // Evaluate outputs
         JsonNode? outputs;
@@ -142,6 +197,4 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         };
     }
 }
-
-
 

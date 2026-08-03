@@ -20,6 +20,7 @@ public sealed class CompiledWorkflow
     public string Name { get; set; } = "";
     public WorkflowDef Source { get; set; } = null!;
     public List<CompiledStep> Steps { get; set; } = new();
+    public List<CompiledStep> Finally { get; set; } = new();
     public Dictionary<string, OutputDef>? Outputs { get; set; }
 
     /// <summary>Reference to the parent compiled document (for sub-workflow calls).</summary>
@@ -114,6 +115,8 @@ public sealed class ExecutionLimits
     public int ExpressionMemoryLimitBytes { get; set; } = 1_000_000_000;
     public int MaxSwitchCases { get; set; } = 100;
     public int MaxFunctionCallDepth { get; set; } = 50;
+    public int FinalizationTimeoutSeconds { get; set; } = 30;
+    public int MaxFinalizationSteps { get; set; } = 50;
 
     /// <summary>
     /// When true, step inputs and outputs are logged as OpenTelemetry span events
@@ -128,4 +131,3 @@ public sealed class ExecutionLimits
     /// </summary>
     public string? RunId { get; set; }
 }
-

@@ -224,9 +224,12 @@ public class ConfiguredMcpClientFactoryTests
             MethodName = "code_suggest_change",
             Kind = "tool",
             TenantId = "tenant-1",
-            Repository = "owner/repository",
-            PullRequestNumber = 42,
-            HeadSha = "abcdef123456"
+            Context = new JsonObject
+            {
+                ["workspace"] = "catalog-a",
+                ["operationRevision"] = 42,
+                ["labels"] = new JsonArray("priority", "batch")
+            }
         });
 
         var meta = InvokeBuildCurrentCorrelationMeta();
@@ -239,9 +242,39 @@ public class ConfiguredMcpClientFactoryTests
         Assert.Equal(activity.SpanId.ToString(), gnougo["spanId"]!.GetValue<string>());
         Assert.Equal(activity.ParentSpanId.ToString(), gnougo["parentSpanId"]!.GetValue<string>());
         Assert.Equal("tenant-1", gnougo["tenantId"]!.GetValue<string>());
-        Assert.Equal("owner/repository", gnougo["repository"]!.GetValue<string>());
-        Assert.Equal(42, gnougo["pullRequestNumber"]!.GetValue<int>());
-        Assert.Equal("abcdef123456", gnougo["headSha"]!.GetValue<string>());
+        var context = Assert.IsType<JsonObject>(gnougo["context"]);
+        Assert.Equal("catalog-a", context["workspace"]!.GetValue<string>());
+        Assert.Equal(42, context["operationRevision"]!.GetValue<int>());
+        Assert.Equal(2, Assert.IsType<JsonArray>(context["labels"]).Count);
+        Assert.False(gnougo.ContainsKey("repository"));
+        Assert.False(gnougo.ContainsKey("pullRequestNumber"));
+        Assert.False(gnougo.ContainsKey("headSha"));
+    }
+
+    [Fact]
+    public void TransportCorrelation_LeavesExplicitContextOutOfHeadersAndEnvironment()
+    {
+        var correlation = new McpCorrelationContext
+        {
+            CorrelationId = "corr-transport",
+            TenantId = "tenant-transport",
+            Context = new JsonObject
+            {
+                ["workspace"] = "catalog-a",
+                ["operationRevision"] = 7
+            }
+        };
+        using var request = new HttpRequestMessage();
+
+        InvokeAddCorrelationHeaders(request, correlation);
+        var environment = InvokeBuildCorrelationEnvironment(correlation);
+
+        Assert.Equal("corr-transport", Assert.Single(request.Headers.GetValues("x-gnougo-correlation-id")));
+        Assert.DoesNotContain(request.Headers, header => header.Key.Contains("workspace", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(request.Headers.SelectMany(header => header.Value), value => value.Contains("catalog-a", StringComparison.Ordinal));
+        Assert.Equal("corr-transport", environment!["GNouGo__CorrelationId"]);
+        Assert.DoesNotContain(environment, item => item.Key.Contains("workspace", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(environment.Values, value => value?.Contains("catalog-a", StringComparison.Ordinal) == true);
     }
 
     [Fact]
@@ -312,6 +345,24 @@ public class ConfiguredMcpClientFactoryTests
 
         Assert.NotNull(method);
         return method.Invoke(null, []) as JsonObject;
+    }
+
+    private static void InvokeAddCorrelationHeaders(HttpRequestMessage request, McpCorrelationContext correlation)
+    {
+        var method = typeof(ConfiguredMcpClientFactory).GetMethod(
+            "AddCorrelationHeaders",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        method.Invoke(null, [request.Headers, correlation]);
+    }
+
+    private static Dictionary<string, string?>? InvokeBuildCorrelationEnvironment(McpCorrelationContext correlation)
+    {
+        var method = typeof(ConfiguredMcpClientFactory).GetMethod(
+            "BuildCorrelationEnvironment",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        return method.Invoke(null, [correlation]) as Dictionary<string, string?>;
     }
 
     private static string? InvokeResolveStdioWorkingDirectory(string command)

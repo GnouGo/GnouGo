@@ -27,6 +27,14 @@ public sealed record ReviewFilePatch(
     bool Truncated = false,
     string? PreviousPath = null);
 
+public sealed record ExistingReviewComment(
+    string Path,
+    ReviewDiffSide? Side,
+    int? StartLine,
+    int? EndLine,
+    string Body,
+    string? Fingerprint = null);
+
 public sealed record ReviewFinding(
     string Fingerprint,
     ReviewSeverity Severity,
@@ -67,7 +75,9 @@ public sealed record CopilotReviewStartRequest(
     string HeadSha,
     IReadOnlyList<ReviewFilePatch> Files,
     int MaxBatchCharacters = 60_000,
-    CopilotPermissionMode PermissionMode = CopilotPermissionMode.Deny);
+    CopilotPermissionMode PermissionMode = CopilotPermissionMode.Deny,
+    string? ReviewInstructions = null,
+    IReadOnlyList<ExistingReviewComment>? ExistingComments = null);
 
 public sealed record CopilotReviewSession(
     string ReviewHandle,

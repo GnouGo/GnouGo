@@ -45,16 +45,20 @@ public sealed class EmbeddedWorkflowResourcesTests
     }
 
     [Fact]
-    public void ConfigureAgentsWorkflow_ConstrainsGeneratedPullRequestReviewAgents()
+    public void ConfigureAgentsWorkflow_UsesOnlyGenericCapabilityPreflightRules()
     {
         var yaml = LoadEmbeddedYaml("configure-agents-agent.yaml");
 
-        Assert.Contains("git_compare_refs", yaml, StringComparison.Ordinal);
-        Assert.Contains("copilot_review", yaml, StringComparison.Ordinal);
-        Assert.Contains("re-read the PR head SHA immediately before any GitHub write", yaml, StringComparison.Ordinal);
-        Assert.Contains("must never APPROVE, merge, push, commit, checkout", yaml, StringComparison.Ordinal);
-        Assert.Contains("publication_policy must be one of dry_run", yaml, StringComparison.Ordinal);
-        Assert.Contains("interactive, or auto_comment", yaml, StringComparison.Ordinal);
+        Assert.Contains("capability_preflight:", yaml, StringComparison.Ordinal);
+        Assert.Contains("mode: infer", yaml, StringComparison.Ordinal);
+        Assert.Contains("Enumerate every required positive external read, write, side effect", yaml, StringComparison.Ordinal);
+        Assert.Contains("Classify prohibitions, safety rules, ordering requirements, and invariants as constraints", yaml, StringComparison.Ordinal);
+        Assert.Contains("workflow-level finally array", yaml, StringComparison.Ordinal);
+        Assert.Contains("Never invent, rename, substitute, or silently omit a required capability", yaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("git_compare_refs", yaml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("copilot_review", yaml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("pull-request", yaml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("publication_policy", yaml, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string LoadEmbeddedYaml(string resourceSuffix)

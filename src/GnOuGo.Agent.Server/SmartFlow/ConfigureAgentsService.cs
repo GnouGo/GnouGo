@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
@@ -219,10 +220,21 @@ public sealed class ConfigureAgentsService
 
         if (error is not null)
         {
-            commandTrace.SetStatus(ActivityStatusCode.Error, error.Message);
+            var workflowError = error is WorkflowRuntimeException workflowRuntimeException
+                ? workflowRuntimeException.ToWorkflowError()
+                : new WorkflowError
+                {
+                    Code = "INTERNAL_ERROR",
+                    Type = error.GetType().Name,
+                    Message = error.Message,
+                    Retryable = false
+                };
+            var presentation = WorkflowFailureFormatter.Format(workflowError);
+            commandTrace.SetStatus(ActivityStatusCode.Error, presentation.TraceDetails);
             commandTrace.SetTag("error.type", error.GetType().FullName);
-            commandTrace.SetTag("error.message", error.Message);
-            yield return new SmartFlowEvent("error", error.Message);
+            commandTrace.SetTag("error.message", presentation.TraceDetails);
+            RecordFailureDetails(commandTrace.Activity, workflowError, presentation);
+            yield return new SmartFlowEvent("error", presentation.UserMessage);
             yield break;
         }
 
@@ -241,14 +253,41 @@ public sealed class ConfigureAgentsService
 
         if (result is { Success: false })
         {
-            var errMsg = result.Error?.Message ?? "Agent configuration workflow failed";
-            commandTrace.SetStatus(ActivityStatusCode.Error, errMsg);
-            yield return new SmartFlowEvent("error", errMsg);
+            var workflowError = result.Error ?? new WorkflowError
+            {
+                Code = "INTERNAL_ERROR",
+                Message = "Agent configuration workflow failed",
+                Retryable = false
+            };
+            var presentation = WorkflowFailureFormatter.Format(workflowError);
+            commandTrace.SetStatus(ActivityStatusCode.Error, presentation.TraceDetails);
+            RecordFailureDetails(commandTrace.Activity, workflowError, presentation);
+            yield return new SmartFlowEvent("error", presentation.UserMessage);
         }
         else
         {
             commandTrace.SetStatus(ActivityStatusCode.Ok);
         }
+    }
+
+    private static void RecordFailureDetails(
+        Activity? activity,
+        WorkflowError error,
+        WorkflowFailurePresentation presentation)
+    {
+        if (activity is null)
+            return;
+
+        activity.SetTag("error.code", error.Code);
+        activity.SetTag("gnougo.agent.workflow.error.unavailable_capability_count", presentation.UnavailableCapabilityCount);
+        activity.SetTag("gnougo.agent.workflow.error.unavailable_server_count", presentation.UnavailableServerCount);
+        activity.AddEvent(new ActivityEvent(
+            "gnougo.agent.workflow.error.details",
+            tags: new ActivityTagsCollection
+            {
+                ["error.code"] = error.Code,
+                ["gnougo.agent.workflow.error.details"] = presentation.TraceDetails
+            }));
     }
 
     private static CommandTraceDescriptor DescribeCommand(string command)

@@ -10,6 +10,7 @@ public sealed partial class WorkflowPlanExecutor
     private async Task<JsonNode?> ExecuteRepairPlanAsync(
         StepExecutionContext ctx,
         JsonObject input,
+        CapabilityPreflightResult capabilityPreflight,
         CancellationToken ct)
     {
         var repair = input["repair"] as JsonObject
@@ -53,7 +54,7 @@ public sealed partial class WorkflowPlanExecutor
         repairInput.Remove("repair");
 
         ctx.SetTelemetryAttribute("gnougo-flow.plan.mode", "repair");
-        var result = await ExecuteSinglePlanAsync(ctx, repairInput, ct);
+        var result = await ExecuteSinglePlanAsync(ctx, repairInput, ct, capabilityPreflight: capabilityPreflight);
         if (result is JsonObject resultObject)
         {
             var meta = resultObject["meta"] as JsonObject ?? new JsonObject();

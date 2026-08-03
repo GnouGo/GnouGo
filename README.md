@@ -83,7 +83,7 @@ The GnOuGo project is composed of several complementary families:
 | **GnOuGo.OtlpCollector** | OpenTelemetry ingestion stack: multi-tenant OTLP collection plus tooling to send and inspect telemetry data. |
 | **GnOuGo.Assets** | Deterministic, themeable GnOuGo mascot SVGs and workflow animation scenes through the independently packaged Bears and Animation libraries. |
 
-Supporting libraries such as **GnOuGo.AI.Core**, **GnOuGo.Auth.Core**, and **GnOuGo.VectorDbDisk** provide shared AI, authentication, and storage foundations across these families.
+Supporting libraries such as **GnOuGo.AI.Core** and **GnOuGo.Auth.Core** provide shared AI and authentication foundations across these families.
 
 The current dependency security review and documented upstream exceptions are maintained in [`DEPENDENCY_AUDIT.md`](DEPENDENCY_AUDIT.md).
 

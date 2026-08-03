@@ -53,6 +53,7 @@ public sealed class WorkflowCompiler
                 Name = name,
                 Source = wf,
                 Steps = CompileSteps(wf.Steps),
+                Finally = CompileSteps(wf.Finally),
                 Outputs = wf.Outputs,
                 Document = compiled
             };

@@ -174,7 +174,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         StepDef Step,
         IReadOnlyList<StepDef> Ancestors);
 
-    private async Task<JsonNode?> ExecutePipelineAsync(StepExecutionContext ctx, JsonObject input, CancellationToken ct)
+    private async Task<JsonNode?> ExecutePipelineAsync(
+        StepExecutionContext ctx,
+        JsonObject input,
+        CapabilityPreflightResult capabilityPreflight,
+        CancellationToken ct)
     {
         var llmClient = ctx.Engine.LLMClient
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "No LLM client configured");
@@ -215,10 +219,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             llmClient, rawPrompt, provider, model, reasoning, ctx, ct);
 
         var globalMcpContext = await BuildPipelineGlobalMcpContextAsync(
-            llmClient, generator, normalizedMarkdown, rawPrompt, model, provider, reasoning, ctx, ct);
+            llmClient, generator, normalizedMarkdown, rawPrompt, model, provider, reasoning, capabilityPreflight, ctx, ct);
 
         var (annotatedMarkdown, extraction) = await MarkAndExtractSubworkflowSpecsAsync(
-            llmClient, normalizedMarkdown, globalMcpContext, input, provider, model, reasoning, useStructuredExtraction, ctx, ct);
+            llmClient, normalizedMarkdown, globalMcpContext, input, provider, model, reasoning, useStructuredExtraction, capabilityPreflight, ctx, ct);
 
         ctx.SetTelemetryAttribute("gnougo-flow.plan.pipeline.subworkflow_count", extraction.Subworkflows.Count);
 
@@ -269,6 +273,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     ct);
                 string? previousAssemblyResponse = null;
                 string? previousAssemblyError = null;
+                string? previousAssemblyDiagnosticFingerprint = null;
+                var unchangedAssemblyRepairAttempts = 0;
                 Exception? lastAssemblyException = null;
                 string? assembledYaml = null;
                 WorkflowDocument? assembledDocument = null;
@@ -405,6 +411,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                                     ctx,
                                     validationSpan.Span,
                                     ct);
+                                ValidateLockedCapabilitiesInDocument(assembledDocument, capabilityPreflight);
                             }
                             catch (Exception ex)
                             {
@@ -425,8 +432,30 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     {
                         throw;
                     }
-                    catch (Exception ex) when (attempt < maxAssemblyAttempts)
+                    catch (Exception ex)
                     {
+                        var stalled = DetectRepairStall(
+                            ex,
+                            attempt,
+                            isRepairAttempt: attempt > 1,
+                            ref previousAssemblyDiagnosticFingerprint,
+                            ref unchangedAssemblyRepairAttempts);
+                        if (stalled != null)
+                        {
+                            attemptSpan.Fail(stalled);
+                            throw stalled;
+                        }
+                        if (attempt >= maxAssemblyAttempts)
+                        {
+                            lastAssemblyException = ex;
+                            attemptSpan.AddEvent(
+                                "gnougo-flow.plan.pipeline.main_assembly.error",
+                                BuildPlanErrorTelemetryAttributes(ex, attempt, "assemble_main_workflow"));
+                            attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "failed");
+                            attemptSpan.Fail(ex);
+                            break;
+                        }
+
                         lastAssemblyException = ex;
                         previousAssemblyError = BuildStructuredPlanError(ex, attempt);
                         var contractDemand = TryAnalyzePipelineLeafContractDemand(ex, assembledDocument, currentLeaves);
@@ -548,16 +577,6 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             ex.GetType().Name,
                             TruncatePipelineQualityMessage(ex.Message)));
                     }
-                    catch (Exception ex)
-                    {
-                        lastAssemblyException = ex;
-                        attemptSpan.AddEvent(
-                            "gnougo-flow.plan.pipeline.main_assembly.error",
-                            BuildPlanErrorTelemetryAttributes(ex, attempt, "assemble_main_workflow"));
-                        attemptSpan.SetAttribute("gnougo-flow.plan.pipeline.assembly_status", "failed");
-                        attemptSpan.Fail(ex);
-                        break;
-                    }
                 }
 
                 if (!assemblySucceeded || assembledYaml == null || assembledDocument == null)
@@ -651,6 +670,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 ["normalized_markdown"] = normalizedMarkdown,
                 ["annotated_markdown"] = annotatedMarkdown,
+                ["capability_preflight"] = BuildCapabilityPreflightJson(capabilityPreflight),
                 ["specs"] = BuildExtractionJson(extraction),
                 ["quality_report"] = qualityReport,
                 ["inspection"] = inspection
@@ -749,17 +769,20 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string model,
         string? provider,
         string? reasoning,
+        CapabilityPreflightResult capabilityPreflight,
         StepExecutionContext ctx,
         CancellationToken ct)
     {
+        var mcpFactory = ctx.Engine.McpClientFactory;
         var prefilterNode = generator["prefilter"];
         var shouldPrefilter = prefilterNode == null
             || prefilterNode is JsonObject
             || (prefilterNode is JsonValue jv && (!jv.TryGetValue<bool>(out var bv) || bv));
-        if (!shouldPrefilter)
+        if (!shouldPrefilter && !capabilityPreflight.Enabled)
             return PipelineMcpContext.Empty;
 
-        if (ctx.Engine.McpClientFactory?.ServerMetadata == null || ctx.Engine.McpClientFactory.ServerMetadata.Count == 0)
+        if (!capabilityPreflight.Enabled
+            && (mcpFactory?.ServerMetadata == null || mcpFactory.ServerMetadata.Count == 0))
             return PipelineMcpContext.Empty;
 
         var prefilterModel = model;
@@ -781,14 +804,46 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         try
         {
+            if (capabilityPreflight.Enabled)
+            {
+                var discoveredFromPreflight = capabilityPreflight.DiscoveredServers.Select(CloneDiscovery).ToList();
+                if (shouldPrefilter && discoveredFromPreflight.Count > 0)
+                {
+                    var complete = discoveredFromPreflight.Select(CloneDiscovery).ToList();
+                    discoveredFromPreflight = await PrefilterMcpServersAsync(
+                        llmClient,
+                        discoveredFromPreflight,
+                        normalizedMarkdown,
+                        rawPrompt,
+                        prefilterModel,
+                        prefilterProvider,
+                        prefilterTemperature,
+                        reasoning,
+                        ctx,
+                        mcpContextSpan.Span,
+                        ct);
+                    discoveredFromPreflight = MergeLockedCapabilitiesIntoDiscovery(
+                        discoveredFromPreflight,
+                        complete,
+                        capabilityPreflight);
+                }
+
+                var preflightDoc = discoveredFromPreflight.Count == 0
+                    ? FormatLockedCapabilities(capabilityPreflight)
+                    : FormatMcpServersDoc(discoveredFromPreflight) + "\n" + FormatLockedCapabilities(capabilityPreflight);
+                mcpContextSpan.SetAttribute("mcp.servers_selected", discoveredFromPreflight.Count);
+                mcpContextSpan.SetAttribute("mcp.tools_selected", discoveredFromPreflight.Sum(static server => server.Tools.Count));
+                return new PipelineMcpContext(discoveredFromPreflight, preflightDoc);
+            }
+
             var requiredMcpServerNames = ExtractRequiredMcpServerNames(
                 normalizedMarkdown,
                 rawPrompt,
-                ctx.Engine.McpClientFactory.ServerMetadata);
+                mcpFactory!.ServerMetadata);
 
             var candidateMcpServers = await PrefilterMcpServerMetadataAsync(
                 llmClient,
-                ctx.Engine.McpClientFactory,
+                mcpFactory,
                 normalizedMarkdown,
                 rawPrompt,
                 prefilterModel,
@@ -801,12 +856,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
             candidateMcpServers = MergeRequiredMcpServerMetadata(
                 candidateMcpServers,
-                ctx.Engine.McpClientFactory.ServerMetadata,
+                mcpFactory.ServerMetadata,
                 requiredMcpServerNames,
                 ctx);
 
             var discovered = await DiscoverMcpServersAsync(
-                ctx.Engine.McpClientFactory,
+                mcpFactory,
                 ctx.Engine.McpCache,
                 ctx.Engine.Logger,
                 ctx,
@@ -864,6 +919,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string model,
         string? reasoning,
         bool useStructuredExtraction,
+        CapabilityPreflightResult capabilityPreflight,
         StepExecutionContext ctx,
         CancellationToken ct)
     {
@@ -951,6 +1007,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             {
                 var extraction = ExtractSubworkflowSpecs(annotatedMarkdown);
                 extraction = EnrichSubworkflowSpecsWithStructuredMetadata(extraction, structuredMetadata, pipelineMcpContext, responseValidationErrors);
+                extraction = ValidateLockedCapabilitiesInExtraction(extraction, capabilityPreflight);
                 extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.subworkflow_count", extraction.Subworkflows.Count);
                 extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.validation_error_count", extraction.ValidationErrors.Count);
                 extractionSpan.SetAttribute("gnougo-flow.plan.pipeline.planned_tool_count", extraction.Subworkflows.Sum(static spec => spec.PlannedTools.Count));
@@ -4595,7 +4652,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static string? TryFindMainLeafCallStepId(WorkflowDef main, string leafName)
     {
-        foreach (var step in EnumerateSteps(main.Steps))
+        foreach (var step in EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally)))
         {
             if (string.Equals(step.Type, "workflow.call", StringComparison.Ordinal)
                 && string.Equals(ReadWorkflowCallRefNameFromInput(step), leafName, StringComparison.Ordinal))
@@ -4793,7 +4850,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? leafName)
     {
         leafName = null;
-        var step = EnumerateSteps(main.Steps).FirstOrDefault(candidate => string.Equals(candidate.Id, stepId, StringComparison.Ordinal));
+        var step = EnumerateSteps(main.Steps)
+            .Concat(EnumerateSteps(main.Finally))
+            .FirstOrDefault(candidate => string.Equals(candidate.Id, stepId, StringComparison.Ordinal));
         if (step?.Input is not JsonObject input
             || !string.Equals(step.Type, "workflow.call", StringComparison.Ordinal)
             || input["ref"] is not JsonObject refObject)
@@ -5141,7 +5200,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         EnforcePlannedMcpToolsUsed(spec, workflow);
         EnforcePipelineLeafIntent(spec, workflow);
         EnforceLeafBlueprintImplemented(spec, blueprint, workflow);
-        foreach (var step in EnumerateSteps(workflow.Steps))
+        foreach (var step in EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
         {
             if (step.Type is "workflow.call" or "workflow.plan")
                 throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy, $"Leaf workflow '{spec.Name}' must not contain step type '{step.Type}'.");
@@ -5338,13 +5397,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         WorkflowDocument doc,
         WorkflowDef workflow)
     {
-        var allStepIds = EnumerateSteps(workflow.Steps)
+        var allStepIds = EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally))
             .Select(static step => step.Id)
             .Where(static id => !string.IsNullOrWhiteSpace(id))
             .ToHashSet(StringComparer.Ordinal);
         var symbols = WorkflowSymbolTable.Create(workflowName, workflow.Inputs, allStepIds);
         var result = new Dictionary<string, FlowTypeDescriptor>(StringComparer.Ordinal);
-        foreach (var step in EnumerateSteps(workflow.Steps))
+        foreach (var step in EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
         {
             if (string.IsNullOrWhiteSpace(step.Id))
                 continue;
@@ -5522,7 +5581,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     }
 
     private static bool WorkflowContainsExecutableActionStep(WorkflowDef workflow)
-        => EnumerateSteps(workflow.Steps).Any(static step => IsExecutableActionStepType(step.Type));
+        => EnumerateSteps(workflow.Steps)
+            .Concat(EnumerateSteps(workflow.Finally))
+            .Any(static step => IsExecutableActionStepType(step.Type));
 
     private static bool IsExecutableActionStepType(string? stepType)
         => stepType is "mcp.call" or "llm.call" or "template.render" or "human.input" or "mcp.list";
@@ -5534,7 +5595,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (!IsExternalWorkSpec(spec) || WorkflowContainsExecutableActionStep(workflow))
             yield break;
 
-        foreach (var step in EnumerateSteps(workflow.Steps))
+        foreach (var step in EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
         {
             if (!string.Equals(step.Type, "emit", StringComparison.Ordinal))
                 continue;
@@ -5606,7 +5667,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
     private static bool WorkflowContainsPlannedMcpToolCall(WorkflowDef workflow, PipelinePlannedTool plannedTool)
     {
-        foreach (var step in EnumerateSteps(workflow.Steps))
+        foreach (var step in EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
         {
             if (step.Type != "mcp.call" || step.Input is not JsonObject input)
                 continue;
@@ -5919,6 +5980,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("      leaf: example_leaf");
         sb.AppendLine("      args:");
         sb.AppendLine("        query: ${data.inputs.user_query}");
+        sb.AppendLine("  finally: []");
         sb.AppendLine("  outputs:");
         sb.AppendLine("    result: ${data.steps.call_example_leaf.outputs.result}");
         return sb.ToString();
@@ -5965,6 +6027,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
              */
             function projectResults(iterations) { return []; }
           steps: []            # ordered graph nodes
+          finally: []          # optional idempotent cleanup nodes; same shape as steps
           outputs:             # public main outputs
             result: ${data.steps.call_leaf.outputs.result}
 
@@ -6011,14 +6074,14 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         - sequence output: object keyed by nested step id; nested steps also execute in order on the same path.
         - parallel output: `${data.steps.<parallel_id>.branches}` is an array of branch step-output objects. Do not reference branch child step ids outside the branch.
         - loop output: `${data.steps.<loop_id>.results}` is an array of per-iteration step-output objects and `${data.steps.<loop_id>.count}` is the number of iterations. Do not reference loop child step ids after the loop.
-        - loop result item shape: each element of `${data.steps.<loop_id>.results}` is a per-iteration step-output object. If a loop child step `build_issue_result` produced fields, read them as `iteration.build_issue_result.<field>` when flattening/filtering, not `iteration.<field>`.
+        - loop result item shape: each element of `${data.steps.<loop_id>.results}` is a per-iteration step-output object. If a loop child step `build_item_result` produced fields, read them as `iteration.build_item_result.<field>` when flattening/filtering, not `iteration.<field>`.
         - Never expose raw `${data.steps.<loop_id>.results}` as a public business output. It contains full per-iteration step snapshots and will not match a clean public array contract.
         - To flatten loop results, add a post-loop `set` support node with an `output_schema`, project exact declared fields into a clean array, and point graph.outputs at that set field.
         - If flattening needs array map/filter logic, define a deterministic helper in `graph.functions` and call it from the post-loop `set` input. The renderer copies `graph.functions` to the generated main workflow.
         - Every helper in `graph.functions` must have a JSDoc block immediately before the `function` declaration, including `@param` and `@returns`.
-        - Projection helpers must read child step outputs through the iteration snapshot, for example `iteration.build_issue_result.status` or `iteration.route_by_classification.summarize_issue_result_bug.status`.
+        - Projection helpers must read child step outputs through the iteration snapshot, for example `iteration.build_item_result.status` or `iteration.route_by_classification.summarize_item_result_warning.status`.
         - switch output is path-dependent. Do not reference case/default child step ids after the switch unless the reference remains inside that same case/default path.
-        - Do not flatten switch child fields onto the switch step. Invalid: `${data.steps.route.pr_url}` when `pr_url` is produced by a child `set` inside a case/default branch.
+        - Do not flatten switch child fields onto the switch step. Invalid: `${data.steps.route.result_url}` when `result_url` is produced by a child `set` inside a case/default branch.
         - For final graph.outputs after containers, return only projected/typed outputs that match the public contract. Do not return raw loop snapshots or raw branch snapshots as business outputs.
 
         set shape:
@@ -6143,6 +6206,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         Main graph boundaries:
         - Keep business/tool/LLM work inside leaf workflows. The main graph should only orchestrate, derive values, branch, loop, and call leaves.
+        - Put required resource cleanup in graph.finally. Finalizers may reference inputs, previous step outputs, and data.workflow_error.
         - If a value is required by a generated leaf input contract, pass it in the leaf args or derive it in an earlier support step.
         - Do not add MCP, LLM, template, human-input, workflow.plan, or raw workflow.call support nodes to the main graph.
         """);
@@ -6226,6 +6290,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "Pipeline orchestration graph must include steps or nodes.");
 
         AddYaml(main, "steps", RenderGraphStepSequence(sourceSteps, leafNames));
+
+        if (graph.GetSequence("finally") is { } sourceFinalizers)
+            AddYaml(main, "finally", RenderGraphStepSequence(sourceFinalizers, leafNames));
 
         if (graph.GetMapping("outputs") is { } outputs)
             AddYaml(main, "outputs", outputs);
@@ -6688,6 +6755,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 ? new JsonObject()
                 : BuildSchemaMapJson(BuildInputSchemaMap(workflow.Inputs)),
             ["steps"] = BuildStepInspectionArray(workflow.Steps),
+            ["finally"] = BuildStepInspectionArray(workflow.Finally),
             ["outputs"] = workflow.Outputs == null
                 ? new JsonObject()
                 : BuildWorkflowOutputInspectionJson(workflow.Outputs, skillOutputs)
@@ -6798,9 +6866,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         finalDoc.Workflows.TryGetValue("main", out var main);
         var mainSteps = main == null
             ? Array.Empty<StepDef>()
-            : EnumerateSteps(main.Steps).ToArray();
+            : EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally)).ToArray();
         var totalStepCount = finalDoc.Workflows.Values
-            .SelectMany(static workflow => EnumerateSteps(workflow.Steps))
+            .SelectMany(static workflow => EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
             .Count();
         var warnings = BuildPipelineQualityWarningsJson(extraction);
         var skillOutputSchemas = finalDoc.Skill?.Outputs == null
@@ -6948,7 +7016,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             var workflow = leaf == null ? null : GetGeneratedLeafWorkflow(leaf);
             var steps = workflow == null
                 ? Array.Empty<StepDef>()
-                : EnumerateSteps(workflow.Steps).ToArray();
+                : EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)).ToArray();
             var item = new JsonObject
             {
                 ["name"] = spec.Name,
@@ -8065,7 +8133,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 .ToArray(),
             StringComparer.Ordinal);
 
-        foreach (var step in EnumerateSteps(main.Steps))
+        foreach (var step in EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally)))
         {
             if (step.Type != "workflow.call" || step.Input is not JsonObject input)
                 continue;
@@ -8107,7 +8175,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             StringComparer.Ordinal);
         var diagnostics = new JsonArray();
 
-        foreach (var step in EnumerateSteps(main.Steps))
+        foreach (var step in EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally)))
         {
             foreach (var expression in EnumerateStepExpressionTexts(step))
             {
@@ -8258,7 +8326,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static IEnumerable<(string StepId, string Field, string TargetName, string SourceInputName, string Expression)>
         EnumerateSuspiciousUrlToIdentifierAssignments(WorkflowDef main)
     {
-        foreach (var step in EnumerateSteps(main.Steps))
+        foreach (var step in EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally)))
         {
             foreach (var expression in EnumerateJsonExpressionTexts(step.Input, "input"))
             {
@@ -8342,7 +8410,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         if (!doc.Workflows.TryGetValue("main", out var main) || main.Outputs == null || main.Outputs.Count == 0)
             return;
 
-        var stepsById = EnumerateSteps(main.Steps)
+        var stepsById = EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally))
             .Where(static step => !string.IsNullOrWhiteSpace(step.Id))
             .ToDictionary(static step => step.Id, StringComparer.Ordinal);
         var diagnostics = new JsonArray();
@@ -8770,7 +8838,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         foreach (var (workflowName, workflow) in doc.Workflows)
         {
-            foreach (var step in EnumerateSteps(workflow.Steps))
+            foreach (var step in EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
             {
                 if (step.Type == "workflow.plan")
                     throw new WorkflowRuntimeException(ErrorCodes.TemplatePolicy, "Pipeline final YAML must not contain workflow.plan.");

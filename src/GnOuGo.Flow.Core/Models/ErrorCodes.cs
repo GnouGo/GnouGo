@@ -15,6 +15,12 @@ public static class ErrorCodes
     public const string TemplateSyntax = "TEMPLATE_SYNTAX";
     public const string TemplateRender = "TEMPLATE_RENDER";
     public const string TemplateMissingVar = "TEMPLATE_MISSING_VAR";
+    public const string CapabilityPreflightUnavailable = "CAPABILITY_PREFLIGHT_UNAVAILABLE";
+    public const string CapabilityPreflightDiscoveryFailed = "CAPABILITY_PREFLIGHT_DISCOVERY_FAILED";
+    public const string CapabilityPreflightInferenceFailed = "CAPABILITY_PREFLIGHT_INFERENCE_FAILED";
+    public const string WorkflowPlanRepairStalled = "WORKFLOW_PLAN_REPAIR_STALLED";
+    public const string WorkflowFinalizationFailed = "WORKFLOW_FINALIZATION_FAILED";
+    public const string WorkflowFinalizationTimeout = "WORKFLOW_FINALIZATION_TIMEOUT";
     public const string JsonParse = "JSON_PARSE";
     public const string LlmTimeout = "LLM_TIMEOUT";
     public const string LlmNetwork = "LLM_NETWORK";

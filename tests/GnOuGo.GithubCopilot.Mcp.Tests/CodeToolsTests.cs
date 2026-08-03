@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+﻿using System.Diagnostics;
+using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -264,6 +266,74 @@ public sealed class CodeToolsTests : IDisposable
 		Assert.Equal(context.TraceId, headers["x-gnougo-trace-id"]);
 		Assert.Equal(context.ParentSpanId, headers["x-gnougo-parent-span-id"]);
 		Assert.Equal(context.CorrelationId, headers["x-gnougo-correlation-id"]);
+	}
+
+	[Fact]
+	public void Capture_WithCurrentActivity_PreservesExplicitBoundaryContext()
+	{
+		var accessor = new CodeMcpTraceContextAccessor();
+		var requestContext = new CodeMcpTraceContext(
+			TraceParent: null,
+			TraceState: null,
+			TraceId: null,
+			SpanId: null,
+			ParentSpanId: null,
+			CorrelationId: "corr-context",
+			RunId: "run-context",
+			StepId: "step-context",
+			StepType: "mcp.call",
+			McpServer: "specialized",
+			McpMethod: "analyze",
+			McpKind: "tool")
+		{
+			TenantId = "tenant-context",
+			Repository = "owner/resource",
+			PullRequestNumber = 12,
+			HeadSha = "abcdef"
+		};
+		using var scope = accessor.Push(requestContext);
+		using var activity = new Activity("specialized-call").Start();
+
+		var captured = CodeMcpTraceContext.Capture(accessor);
+
+		Assert.NotNull(captured);
+		Assert.Equal(activity.TraceId.ToString(), captured.TraceId);
+		Assert.Equal("corr-context", captured.CorrelationId);
+		Assert.Equal("tenant-context", captured.TenantId);
+		Assert.Equal("owner/resource", captured.Repository);
+		Assert.Equal(12, captured.PullRequestNumber);
+		Assert.Equal("abcdef", captured.HeadSha);
+	}
+
+	[Fact]
+	public void McpMetadata_UsesNestedGenericContextAtSpecializedBoundary()
+	{
+		var meta = new JsonObject
+		{
+			["gnougo"] = new JsonObject
+			{
+				["correlationId"] = "corr-nested",
+				["context"] = new JsonObject
+				{
+					["repository"] = "owner/resource",
+					["pullRequestNumber"] = 7,
+					["headSha"] = "123456"
+				}
+			}
+		};
+
+		var context = CodeMcpTraceContext.FromMcpMeta(meta);
+
+		Assert.NotNull(context);
+		Assert.Equal("owner/resource", context.Repository);
+		Assert.Equal(7, context.PullRequestNumber);
+		Assert.Equal("123456", context.HeadSha);
+		var roundTripGnougo = Assert.IsType<JsonObject>(context.ToMcpMeta()["gnougo"]);
+		var roundTripContext = Assert.IsType<JsonObject>(roundTripGnougo["context"]);
+		Assert.Equal("owner/resource", roundTripContext["repository"]!.GetValue<string>());
+		Assert.False(roundTripGnougo.ContainsKey("repository"));
+		Assert.False(roundTripGnougo.ContainsKey("pullRequestNumber"));
+		Assert.False(roundTripGnougo.ContainsKey("headSha"));
 	}
 
 	[Fact]

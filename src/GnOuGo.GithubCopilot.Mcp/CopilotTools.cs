@@ -188,20 +188,30 @@ internal sealed class CopilotTools
     public Task<CopilotOperationResult> CreateWorkspaceFileAsync(string handle, string path, string content, string? tenantId = null, CancellationToken cancellationToken = default)
         => ExecuteAsync(() => _sessions.CreateWorkspaceFileAsync(BuildContext(tenantId), handle, path, content, cancellationToken));
 
-    [McpServerTool(Name = "copilot_review_start", UseStructuredContent = true, OutputSchemaType = typeof(CopilotReviewSession)), Description("Starts a read-only, batched PR review in one managed ephemeral Copilot session. filesJson must contain exact Git MCP compare patches.")]
+    [McpServerTool(Name = "copilot_review_start", UseStructuredContent = true, OutputSchemaType = typeof(CopilotReviewSession)), Description("Starts a read-only, batched PR review in one managed ephemeral Copilot session. filesJson must contain exact Git MCP compare patches. Optional reviewInstructions are applied to every batch, and existingCommentsJson is used to suppress duplicate findings.")]
     public Task<CopilotReviewSession> ReviewStartAsync(
         RequestContext<CallToolRequestParams> requestContext,
         string projectRoot,
         string baseSha,
         string headSha,
         string filesJson,
+        [Description("Optional caller review instructions applied to every batch; maximum 32000 characters.")] string? reviewInstructions = null,
+        [Description("Optional JSON array of existing inline review comments with path, side, line range, body, and optional fingerprint.")] string? existingCommentsJson = null,
         string? provider = null,
         string? model = null,
         int maxBatchCharacters = 60_000,
         string? tenantId = null,
         CancellationToken cancellationToken = default)
         => WithServerAsync(requestContext, () => _reviews.StartAsync(
-            new CopilotReviewStartRequest(BuildContext(tenantId), BuildConfiguration(projectRoot, provider, model), baseSha, headSha, ParseReviewFiles(filesJson), maxBatchCharacters),
+            new CopilotReviewStartRequest(
+                BuildContext(tenantId),
+                BuildConfiguration(projectRoot, provider, model),
+                baseSha,
+                headSha,
+                ParseReviewFiles(filesJson),
+                maxBatchCharacters,
+                ReviewInstructions: reviewInstructions,
+                ExistingComments: ParseExistingReviewComments(existingCommentsJson)),
             cancellationToken));
 
     [McpServerTool(Name = "copilot_review_analyze_batch", UseStructuredContent = true, OutputSchemaType = typeof(CopilotReviewAnalyzeResult)), Description("Analyzes one bounded review batch and returns only validated findings on exact diff lines.")]
@@ -217,20 +227,30 @@ internal sealed class CopilotTools
     public Task<CopilotReviewResult> ReviewFinishAsync(string reviewHandle, string? tenantId = null, CancellationToken cancellationToken = default)
         => ExecuteAsync(() => _reviews.FinishAsync(BuildContext(tenantId), reviewHandle, cancellationToken));
 
-    [McpServerTool(Name = "copilot_review", UseStructuredContent = true, OutputSchemaType = typeof(CopilotReviewResult)), Description("Runs all bounded PR review batches in one ephemeral Copilot session and permanently deletes session state afterward.")]
+    [McpServerTool(Name = "copilot_review", UseStructuredContent = true, OutputSchemaType = typeof(CopilotReviewResult)), Description("Runs all bounded PR review batches in one ephemeral Copilot session and permanently deletes session state afterward. Optional reviewInstructions are applied to every batch, and existingCommentsJson is used to suppress duplicate findings.")]
     public Task<CopilotReviewResult> ReviewAsync(
         RequestContext<CallToolRequestParams> requestContext,
         string projectRoot,
         string baseSha,
         string headSha,
         string filesJson,
+        [Description("Optional caller review instructions applied to every batch; maximum 32000 characters.")] string? reviewInstructions = null,
+        [Description("Optional JSON array of existing inline review comments with path, side, line range, body, and optional fingerprint.")] string? existingCommentsJson = null,
         string? provider = null,
         string? model = null,
         int maxBatchCharacters = 60_000,
         string? tenantId = null,
         CancellationToken cancellationToken = default)
         => WithServerAsync(requestContext, () => _reviews.ReviewAsync(
-            new CopilotReviewStartRequest(BuildContext(tenantId), BuildConfiguration(projectRoot, provider, model), baseSha, headSha, ParseReviewFiles(filesJson), maxBatchCharacters),
+            new CopilotReviewStartRequest(
+                BuildContext(tenantId),
+                BuildConfiguration(projectRoot, provider, model),
+                baseSha,
+                headSha,
+                ParseReviewFiles(filesJson),
+                maxBatchCharacters,
+                ReviewInstructions: reviewInstructions,
+                ExistingComments: ParseExistingReviewComments(existingCommentsJson)),
             cancellationToken));
 
     [McpServerTool(Name = "copilot_review_publication_gate", UseStructuredContent = true, OutputSchemaType = typeof(ReviewPublicationGateResult)), Description("Makes the final fail-closed publication decision after the GitHub MCP re-reads the PR head SHA. dry_run never writes, interactive requires explicit approval, auto_comment can only submit COMMENT, and APPROVE is not representable.")]
@@ -391,4 +411,10 @@ internal sealed class CopilotTools
     private static IReadOnlyList<ReviewFilePatch> ParseReviewFiles(string json)
         => JsonSerializer.Deserialize(json, CopilotCoreJsonContext.Default.IReadOnlyListReviewFilePatch)
            ?? throw new McpException("filesJson must be a JSON array of review file patches.");
+
+    private static IReadOnlyList<ExistingReviewComment> ParseExistingReviewComments(string? json)
+        => string.IsNullOrWhiteSpace(json)
+            ? Array.Empty<ExistingReviewComment>()
+            : JsonSerializer.Deserialize(json, CopilotCoreJsonContext.Default.IReadOnlyListExistingReviewComment)
+              ?? throw new McpException("existingCommentsJson must be a JSON array of existing review comments.");
 }

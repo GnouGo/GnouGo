@@ -17,7 +17,7 @@ internal static partial class WorkflowPlanPipelineQualityAnalyzer
         if (!doc.Workflows.TryGetValue("main", out var main))
             return diagnostics;
 
-        var steps = EnumerateSteps(main.Steps).ToArray();
+        var steps = EnumerateSteps(main.Steps).Concat(EnumerateSteps(main.Finally)).ToArray();
         var stepsById = new Dictionary<string, StepDef>(StringComparer.Ordinal);
         foreach (var step in steps)
         {

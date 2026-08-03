@@ -50,7 +50,7 @@ public sealed class McpListExecutor : IStepExecutor
         - id: discover
           type: mcp.list
           input:
-            servers: [github, docs]              # required — MCP server names
+            servers: [inventory, docs]           # required — MCP server names
             include: ["tools", "prompts"]      # optional — defaults to ["tools"]
             timeout_ms: 30000                    # optional
 

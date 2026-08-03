@@ -43,7 +43,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     {
         new(ErrorCodes.InputValidation, false, "workflow.plan input, generator, policy or validation sections are malformed or missing required fields."),
         new(ErrorCodes.TemplatePlan, false, "The planning LLM is unavailable or the generated workflow could not be made valid after the configured reprompts."),
-        new(ErrorCodes.TemplatePolicy, false, "The generated workflow violates allowed step types, denied step types, or max step limits.")
+        new(ErrorCodes.TemplatePolicy, false, "The generated workflow violates allowed step types, denied step types, or max step limits."),
+        new(ErrorCodes.CapabilityPreflightUnavailable, false, "A required operation has no exact discovered MCP capability or allowed native step."),
+        new(ErrorCodes.CapabilityPreflightDiscoveryFailed, false, "A configured MCP catalog required for fail-closed capability validation could not be discovered."),
+        new(ErrorCodes.CapabilityPreflightInferenceFailed, false, "Capability inference returned an invalid, uncertain, or incomplete operation inventory."),
+        new(ErrorCodes.WorkflowPlanRepairStalled, false, "The same normalized validation diagnostics survived two repair attempts.")
     };
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
@@ -52,24 +56,25 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan input must be object");
 
         var mode = GetConfiguredPlanMode(input);
+        var capabilityPreflight = await RunCapabilityPreflightAsync(ctx, input, ct);
 
         if (string.Equals(mode, "repair", StringComparison.OrdinalIgnoreCase))
         {
-            var result = await ExecuteRepairPlanAsync(ctx, input, ct);
+            var result = await ExecuteRepairPlanAsync(ctx, input, capabilityPreflight, ct);
             AttachPlanModeMetadata(result, "repair", null);
             return result;
         }
 
         if (string.Equals(mode, "pipeline", StringComparison.OrdinalIgnoreCase))
         {
-            var result = await ExecutePipelineAsync(ctx, input, ct);
+            var result = await ExecutePipelineAsync(ctx, input, capabilityPreflight, ct);
             AttachPlanModeMetadata(result, "pipeline", null);
             return result;
         }
 
         if (string.Equals(mode, "basic", StringComparison.OrdinalIgnoreCase))
         {
-            var result = await ExecuteSinglePlanAsync(ctx, input, ct);
+            var result = await ExecuteSinglePlanAsync(ctx, input, ct, capabilityPreflight: capabilityPreflight);
             AttachPlanModeMetadata(result, "basic", null);
             return result;
         }
@@ -80,12 +85,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var selection = await ClassifyPlanModeAsync(ctx, input, ct);
         if (string.Equals(selection.SelectedMode, "pipeline", StringComparison.OrdinalIgnoreCase))
         {
-            var result = await ExecutePipelineAsync(ctx, input, ct);
+            var result = await ExecutePipelineAsync(ctx, input, capabilityPreflight, ct);
             AttachPlanModeMetadata(result, "pipeline", selection);
             return result;
         }
 
-        var autoResult = await ExecuteSinglePlanAsync(ctx, input, ct);
+        var autoResult = await ExecuteSinglePlanAsync(ctx, input, ct, capabilityPreflight: capabilityPreflight);
         AttachPlanModeMetadata(autoResult, "basic", selection);
         return autoResult;
     }
@@ -113,14 +118,15 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- That JSDoc MUST include one typed `@param {type} name - meaning` tag for every function parameter.");
         sb.AppendLine("- That JSDoc MUST include a typed `@returns {type} - meaning` tag for the function output, including `{void}` when it intentionally returns nothing.");
         sb.AppendLine("- Use semantic JSDoc types such as `{string}`, `{number}`, `{boolean}`, `{object}`, `{Array<string>}`, or a concise object shape when it clarifies the contract.");
-        sb.AppendLine("- Do not invent helpers such as `functions.parseRepoUrl`, `functions.clampNumber`, `functions.take`, or `functions.filterUnprocessedIssues`; implement them in `functions:` or replace them with built-ins, structured_output normalization, or explicit workflow steps.");
+        sb.AppendLine("- Do not invent helpers such as `functions.parseResourceId`, `functions.clampNumber`, `functions.take`, or `functions.filterPendingItems`; implement them in `functions:` or replace them with built-ins, structured_output normalization, or explicit workflow steps.");
     }
 
     private async Task<JsonNode?> ExecuteSinglePlanAsync(
         StepExecutionContext ctx,
         JsonObject input,
         CancellationToken ct,
-        ITelemetrySpan? parentSpan = null)
+        ITelemetrySpan? parentSpan = null,
+        CapabilityPreflightResult? capabilityPreflight = null)
     {
         var llmClient = ctx.Engine.LLMClient
             ?? throw new WorkflowRuntimeException(ErrorCodes.TemplatePlan, "No LLM client configured");
@@ -214,7 +220,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ? ctx.BeginTelemetrySpan("workflow.plan.generate", "generation", generationAttributes)
             : ctx.BeginTelemetrySpan(parentSpan, "workflow.plan.generate", "generation", generationAttributes);
 
-        var candidateMcpServers = shouldPrefilter
+        capabilityPreflight ??= CapabilityPreflightResult.Off;
+        var candidateMcpServers = capabilityPreflight.Enabled
+            ? null
+            : shouldPrefilter
             ? await PrefilterMcpServerMetadataAsync(
                 llmClient, ctx.Engine.McpClientFactory, instruction, generatorContext,
                 prefilterModel, prefilterProvider, prefilterTemperature, planReasoning, ctx, generationSpan.Span, ct)
@@ -227,12 +236,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ctx);
 
         var validateDryRun = validate?["dry_run"]?.GetValue<bool>() ?? false;
-        var validationDiscovered = validateDryRun
+        var validationDiscovered = capabilityPreflight.Enabled
+            ? capabilityPreflight.DiscoveredServers.Select(CloneDiscovery).ToList()
+            : validateDryRun
             ? await DiscoverMcpServersAsync(
                 ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateServers: null, generationSpan.Span, ct)
             : null;
 
-        var discovered = SelectDiscoveredServers(validationDiscovered, candidateMcpServers)
+        var discovered = capabilityPreflight.Enabled
+            ? capabilityPreflight.DiscoveredServers.Select(CloneDiscovery).ToList()
+            : SelectDiscoveredServers(validationDiscovered, candidateMcpServers)
             ?? await DiscoverMcpServersAsync(
             ctx.Engine.McpClientFactory, ctx.Engine.McpCache, ctx.Engine.Logger, ctx, candidateMcpServers, generationSpan.Span, ct);
 
@@ -247,6 +260,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 prefilterSource,
                 requiredMcpServerNames,
                 ctx);
+            discovered = MergeLockedCapabilitiesIntoDiscovery(discovered, prefilterSource, capabilityPreflight);
         }
 
         validationDiscovered ??= discovered;
@@ -273,6 +287,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- skill: required object with description, tags, inputs, and outputs for routing and argument extraction");
         basePrompt.AppendLine("- workflows: non-empty object");
         basePrompt.AppendLine("Each workflow entry under workflows MUST define a steps array.");
+        basePrompt.AppendLine("A workflow may also define a `finally` step array for required cleanup after success, failure, or cancellation.");
         basePrompt.AppendLine("If any required key is missing or has the wrong shape, the output is invalid.");
         basePrompt.AppendLine("Minimal valid skeleton:");
         basePrompt.AppendLine("version: \"1.0\"");
@@ -292,6 +307,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("Before returning YAML, self-check these rules and fix the YAML silently:");
         basePrompt.AppendLine("- Use only exact step types listed in <available_step_types>. Do not invent aliases or legacy names.");
         basePrompt.AppendLine("- Every step has a unique non-empty `id` and a non-empty `type`.");
+        basePrompt.AppendLine("- Put required resource cleanup in the workflow-level `finally` array. Finalizers can read prior step outputs and `data.workflow_error`, must be idempotent, and must not be placed after the cleanup target in ordinary `steps` when cancellation safety is required.");
         basePrompt.AppendLine("- Put common step fields (`id`, `type`, `if`, `input`, `output`, `retry`, `on_error`) at the step level, not inside `input`.");
         basePrompt.AppendLine("- Put executor-specific arguments inside `input` only. For example `llm.call.input.prompt`, `mcp.call.input.server`, `template.render.input.template`.");
         basePrompt.AppendLine("- For non-trivial `set` steps that normalize or reshape data, declare step-level `output_schema` so later `data.steps.<id>.<field>` references have a real contract.");
@@ -302,7 +318,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- Do not reference `data.steps.<id>.*` produced only inside `switch` cases, `if`-guarded steps, or loop bodies from later steps unless you first map every possible path to a guaranteed value.");
         basePrompt.AppendLine("- Function arguments are evaluated before the function runs: `coalesce(data.steps.branch_a.value, data.steps.branch_b.value)` is invalid if either branch step may not exist.");
         basePrompt.AppendLine("- After a `switch`, prefer writing a common result object via the same workflow-level output alias in every case/default branch, or add one guaranteed normalization step that receives the whole switch/branch context and emits a stable schema.");
-        basePrompt.AppendLine("- A `switch` step output is a path-dependent step snapshot, not a flattened object. Invalid: `data.steps.route.pr_url` when `pr_url` is produced by `set_pr_success` inside a case.");
+        basePrompt.AppendLine("- A `switch` step output is a path-dependent step snapshot, not a flattened object. Invalid: `data.steps.route.result_url` when `result_url` is produced by `set_route_success` inside a case.");
         basePrompt.AppendLine("- Use documented output shapes exactly: `template.render` text is `data.steps.<id>.text`; `llm.call` text is `data.steps.<id>.text` and structured JSON is `data.steps.<id>.json`; `mcp.call` single-tool response is `data.steps.<id>.response`.");
         basePrompt.AppendLine("- Do not assume nested fields inside opaque MCP `response` unless the tool schema/description explicitly documents them; pass the whole response onward when uncertain.");
         basePrompt.AppendLine("- NEVER invent properties under `data.steps.<id>.response`. Access `response.<field>` only when an `output_schema` or `example_response` explicitly documents that field.");
@@ -351,6 +367,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             basePrompt.AppendLine("For batch/auto-discover output: `{ status, results: [{ method, status, response }] }` — access via `data.steps.<id>.results`.");
             basePrompt.AppendLine("For LLM-assisted output: `{ status, selection_mode: \"llm\", text, tool_calls, results, json? }` — structured content is in `data.steps.<id>.json` when `structured_output` is used, or `data.steps.<id>.text` for free-form text.");
             AppendPromptSectionEnd(basePrompt, "mcp_output_access");
+        }
+
+        var lockedCapabilitiesDoc = FormatLockedCapabilities(capabilityPreflight);
+        if (!string.IsNullOrWhiteSpace(lockedCapabilitiesDoc))
+        {
+            basePrompt.AppendLine();
+            AppendPromptSection(basePrompt, "locked_capabilities", lockedCapabilitiesDoc);
         }
 
         basePrompt.AppendLine();
@@ -408,6 +431,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         string? lastError = null;
         string? lastInvalidYaml = null;
         string? lastRepairContext = null;
+        string? previousDiagnosticFingerprint = null;
+        var unchangedRepairAttempts = 0;
         var forcedMcpServerNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         ctx.SetTelemetryAttribute("gen_ai.operation.name", "chat");
@@ -584,6 +609,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             validationSpan.Span,
                             ct,
                             validateGeneratedOutputSchemas: string.IsNullOrWhiteSpace(pipelineLeafName));
+                        ValidateLockedCapabilitiesInDocument(generatedDoc, capabilityPreflight);
                     }
                     catch (Exception ex)
                     {
@@ -609,16 +635,38 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 workflowInfo["workflows"] = wfNames;
 
                 generationSpan.Complete();
+                var resultMeta = new JsonObject { ["model"] = model, ["attempt"] = attempt + 1 };
+                if (capabilityPreflight.Enabled)
+                    resultMeta["capability_preflight"] = BuildCapabilityPreflightJson(capabilityPreflight);
+
                 return new JsonObject
                 {
                     ["workflow"] = workflowInfo,
                     ["yaml"] = yaml,
-                    ["meta"] = new JsonObject { ["model"] = model, ["attempt"] = attempt + 1 },
+                    ["meta"] = resultMeta,
                     ["diagnostics"] = new JsonArray()
                 };
             }
-            catch (Exception ex) when (attempt < maxAttempts - 1)
+            catch (OperationCanceledException)
             {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var stalled = DetectRepairStall(
+                    ex,
+                    attempt + 1,
+                    isRepairAttempt: attempt > 0,
+                    ref previousDiagnosticFingerprint,
+                    ref unchangedRepairAttempts);
+                if (stalled != null)
+                {
+                    generationSpan.Fail(stalled);
+                    throw stalled;
+                }
+                if (attempt >= maxAttempts - 1)
+                    throw;
+
                 // Capture the error for injection into the next prompt
                 ctx.Engine.Logger.LogWarning(ex, "workflow.plan: attempt {Attempt}/{MaxAttempts} failed, reprompting", attempt + 1, maxAttempts);
                 var missingMcpServerName = TryExtractMissingMcpServerName(ex.Message);
@@ -651,6 +699,41 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 : $"Failed to generate valid workflow after {maxAttempts} attempts. Last strict validation error: {lastError}");
         generationSpan.Fail(finalException);
         throw finalException;
+    }
+
+    private static WorkflowRuntimeException? DetectRepairStall(
+        Exception exception,
+        int attempt,
+        bool isRepairAttempt,
+        ref string? previousDiagnosticFingerprint,
+        ref int unchangedRepairAttempts)
+    {
+        var fingerprint = WorkflowPlanDiagnostics.BuildDiagnosticFingerprint(exception);
+        if (isRepairAttempt
+            && string.Equals(previousDiagnosticFingerprint, fingerprint, StringComparison.Ordinal))
+        {
+            unchangedRepairAttempts++;
+        }
+        else
+        {
+            unchangedRepairAttempts = 0;
+        }
+        previousDiagnosticFingerprint = fingerprint;
+
+        if (unchangedRepairAttempts < 2)
+            return null;
+
+        return new WorkflowRuntimeException(
+            ErrorCodes.WorkflowPlanRepairStalled,
+            "Workflow repair stopped because the same validation diagnostics survived two repair attempts. Change the workflow shape or its required-value contract before retrying. Last validation error: " + exception.Message,
+            details: new JsonObject
+            {
+                ["phase"] = "validation",
+                ["attempt"] = attempt,
+                ["repair_attempts"] = unchangedRepairAttempts,
+                ["diagnostic_fingerprint"] = fingerprint,
+                ["last_error"] = JsonNode.Parse(BuildStructuredPlanError(exception, attempt))
+            });
     }
 
     private static int GetWorkflowPlanRepairMaxAttempts(JsonObject? onInvalid, JsonObject? validate)

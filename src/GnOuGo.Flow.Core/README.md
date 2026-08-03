@@ -11,7 +11,7 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 The runtime uses the stable C# MCP SDK `2.0.0`. HTTP and stdio clients prefer MCP `2026-07-28` discovery with `server/discover` and automatically fall back to `2025-11-25` initialization when an external server is older. GnOuGo-owned servers require `2026-07-28` in conformance tests. Flow does not use `Mcp-Session-Id` for Copilot identity.
 
-Every discovery/tool/resource/prompt request carries `_meta.gnougo` correlation, run, step, tenant, repository, PR number, and head SHA when present in workflow data. HTTP headers and stdio environment receive the same non-secret context. MCP elicitation is bridged to the workflow `IHumanInputProvider`, enabling stable multi-round-trip HITL without putting credentials in YAML.
+Every discovery/tool/resource/prompt request carries reserved technical metadata such as correlation, run, trace, step, and tenant identifiers under `_meta.gnougo`; HTTP headers and stdio environment receive the same technical identifiers. A caller may explicitly add domain-neutral request context through `mcp.call.input.context`, which is propagated only under `_meta.gnougo.context`. Flow never extracts domain fields from workflow data. MCP elicitation is bridged to the workflow `IHumanInputProvider`, enabling stable multi-round-trip HITL without putting credentials in YAML.
 
 ---
 
@@ -349,6 +349,10 @@ workflows:
       - id: step1
         type: template.render
         input: { ... }
+    finally:                  # Optional cleanup after success, failure, or cancellation
+      - id: release_resources
+        type: emit
+        input: { message: "Releasing resources", level: progress }
     outputs:                  # Output expressions (optional)
       result: "${data.steps.step1.text}"
 ```
@@ -388,6 +392,13 @@ All expressions read from a shared `data` context:
 | `data.inputs.*` | Workflow input parameters |
 | `data.steps.<step_id>.*` | Output of a previously executed step |
 | `data.env.*` | Environment variables |
+| `data.workflow_error` | Finalizers only: null after success, otherwise the primary workflow error |
+
+---
+
+### Workflow Finalization
+
+An optional workflow-level `finally` array contains ordinary Flow steps that execute once after the main `steps`, including after failure or caller cancellation. Finalizers retain access to inputs and completed step outputs and run with an independent token. The defaults are a 30-second timeout and 50 finalization steps. A finalizer failure fails an otherwise successful workflow; if the main workflow already failed, its error remains primary and `details.finalization_errors` records cleanup failures. Use idempotent operations because process termination still relies on component TTL cleanup.
 
 ---
 
@@ -473,7 +484,7 @@ Use a one-item array for a single server, or `servers: ["*"]` to discover all co
 - id: discover
   type: mcp.list
   input:
-    servers: [github, docs]         # Required — configured MCP server names
+    servers: [inventory, docs]      # Required — configured MCP server names
     include: ["tools", "prompts"] # Optional — default: ["tools"]
 
 - id: discover_all
@@ -508,6 +519,24 @@ Calls one or more capabilities on an MCP server. Three modes are available:
 
 **Output:** `{ status: "ok", response: { temperature: 22, ... } }`
 
+An optional context object can carry non-secret application metadata to a specialized MCP boundary:
+
+```yaml
+- id: reserve_stock
+  type: mcp.call
+  input:
+    server: inventory
+    kind: tool
+    method: reserve_items
+    context:
+      workspace: "${data.inputs.workspace}"
+      operation_revision: "${data.inputs.revision}"
+    request:
+      items: "${data.inputs.items}"
+```
+
+`context` is copied only to `_meta.gnougo.context`. It does not create dedicated HTTP headers or stdio environment variables. Reserved technical keys and keys representing secrets, tokens, passwords, credentials, API keys, or authorization are rejected recursively.
+
 #### Direct prompt call
 
 ```yaml
@@ -530,15 +559,15 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 - id: discover
   type: mcp.list
   input:
-    servers: [github]
+    servers: [inventory]
 
 - id: smart_call
   type: mcp.call
   input:
-    server: github
+    server: inventory
     model: gpt-4o-mini
     temperature: 0.2
-    prompt: "Find and call the right tool to list my repositories"
+    prompt: "Find and call the right tool to list available items"
     tools: "${data.steps.discover.tools}"
     prompts: "${data.steps.discover.prompts}"
     structured_output:
@@ -1181,6 +1210,8 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
   type: workflow.plan
   input:
     mode: auto                    # auto | basic | pipeline | repair
+    capability_preflight:
+      mode: infer                 # off (default) | infer | explicit
     generator:
       model: gpt-4o                 # LLM model for planning
       provider: openai              # Optional — LLM provider
@@ -1230,6 +1261,45 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
       max_attempts: 3               # Legacy repair attempt budget when validate.max_repair_attempts is absent
 ```
 
+#### Generic capability preflight
+
+`capability_preflight.mode: infer` discovers every configured MCP catalog and asks one strict structured-output planning call to separate positive operations from constraints. Positive operations resolve to an exact advertised MCP tool/prompt, an allowed native Flow step, or `unavailable`; required unavailable operations fail before classification, decomposition, or YAML generation. Prohibitions, safety rules, ordering requirements, and invariants are constraints rather than executable operations, so abstaining never requires a tool. Resolved operations and constraints are locked into basic generation and pipeline decomposition, then validated against the generated direct calls.
+
+Ordinary `workflow.plan` callers remain compatible because the default is `off`. `explicit` mode performs the same deterministic validation without an inference call:
+
+```yaml
+capability_preflight:
+  mode: explicit
+  requirements:
+    - id: load_object
+      description: Load an object from configured storage.
+      required: true
+      alternatives:
+        - server: object-storage
+          kind: tool
+          method: get_object
+        - server: archive-storage
+          kind: prompt
+          method: retrieve_object
+    - id: send_notification
+      description: Notify the caller when processing finishes.
+      required: false
+      alternatives:
+        - server: messaging
+          kind: tool
+          method: send_message
+  constraints:
+    - id: preserve_source
+      description: Never delete the source object.
+      required: true
+      denied_alternatives:
+        - server: object-storage
+          kind: tool
+          method: delete_object
+```
+
+Alternatives are exact tuples; capabilities from different alternatives cannot be combined. A required constraint may have no denied alternatives when it is a textual invariant; any listed denial must be an exact discovered tuple, and generated direct calls to it are rejected. Discovery, inference, and availability failures return `CAPABILITY_PREFLIGHT_DISCOVERY_FAILED`, `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`, and `CAPABILITY_PREFLIGHT_UNAVAILABLE` respectively.
+
 #### Auto and basic modes
 
 `mode: auto` is the default. It performs one classifier LLM call before generation and returns the classifier result under `meta.mode_selection`. The classifier estimates complexity by counting meaningful branches such as conditions, switch/case paths, loops, retries, error handling, cleanup paths, validation branches, tool-orchestration choices, and state transitions.
@@ -1276,16 +1346,16 @@ Use `mode: pipeline` when the input is a raw user automation prompt that should 
   type: workflow.plan
   input:
     mode: pipeline
-    name: repository-issue-report
+    name: source-record-report
     skill:
-      description: Build a report from repository issues.
-      tags: [github, issues]
+      description: Build a report from records in a configured source.
+      tags: [records, report]
       inputs:
-        target_repository_url:
+        target_collection:
           type: string
           required: false
-          default: https://github.com/AxaFrance/oidc-client
-        number_of_issues_to_process:
+          default: inventory-main
+        number_of_records_to_process:
           type: number
           required: false
           default: 20
@@ -1324,68 +1394,68 @@ Standalone generated leaf:
 
 ```yaml
 version: 1
-name: parse-repository
+name: parse-resource
 functions: |
-  function parseRepoUrl(url) {
-    var parts = url.replace(/\/$/, "").split("/");
+  function parseResourceId(resourceId) {
+    var parts = resourceId.replace(/\/$/, "").split("/");
     return {
-      owner: parts[parts.length - 2],
-      repo: parts[parts.length - 1]
+      namespace: parts[parts.length - 2],
+      item: parts[parts.length - 1]
     };
   }
 workflows:
-  parse_repository:
+  parse_resource:
     inputs:
-      repo_url: { type: string, required: true }
+      resource_id: { type: string, required: true }
     steps:
       - id: parsed
         type: set
         input:
-          value: "${functions.parseRepoUrl(data.inputs.repo_url)}"
+          value: "${functions.parseResourceId(data.inputs.resource_id)}"
     outputs:
-      owner: "${data.steps.parsed.value.owner}"
-      repo: "${data.steps.parsed.value.repo}"
+      namespace: "${data.steps.parsed.value.namespace}"
+      item: "${data.steps.parsed.value.item}"
 ```
 
 Composed pipeline document:
 
 ```yaml
 version: 1
-name: repository-pipeline
+name: resource-pipeline
 workflows:
   main:
     inputs:
-      repo_url: { type: string, required: true }
+      resource_id: { type: string, required: true }
     steps:
       - id: parse
         type: workflow.call
         input:
-          ref: { kind: local, name: parse_repository }
+          ref: { kind: local, name: parse_resource }
           args:
-            repo_url: "${data.inputs.repo_url}"
+            resource_id: "${data.inputs.resource_id}"
     outputs:
-      owner: "${data.steps.parse.outputs.owner}"
-      repo: "${data.steps.parse.outputs.repo}"
+      namespace: "${data.steps.parse.outputs.namespace}"
+      item: "${data.steps.parse.outputs.item}"
 
-  parse_repository:
+  parse_resource:
     functions: |
-      function parseRepoUrl(url) {
-        var parts = url.replace(/\/$/, "").split("/");
+      function parseResourceId(resourceId) {
+        var parts = resourceId.replace(/\/$/, "").split("/");
         return {
-          owner: parts[parts.length - 2],
-          repo: parts[parts.length - 1]
+          namespace: parts[parts.length - 2],
+          item: parts[parts.length - 1]
         };
       }
     inputs:
-      repo_url: { type: string, required: true }
+      resource_id: { type: string, required: true }
     steps:
       - id: parsed
         type: set
         input:
-          value: "${functions.parseRepoUrl(data.inputs.repo_url)}"
+          value: "${functions.parseResourceId(data.inputs.resource_id)}"
     outputs:
-      owner: "${data.steps.parsed.value.owner}"
-      repo: "${data.steps.parsed.value.repo}"
+      namespace: "${data.steps.parsed.value.namespace}"
+      item: "${data.steps.parsed.value.item}"
 ```
 
 Configured `name`, `skill`, and public input schemas are authoritative and are preserved exactly in the root skill and `main` workflow. Leaf inputs are call arguments and are not automatically promoted to public inputs; the main assembler maps public names to leaf argument names and derives internal values in workflow steps. When no structured contract is configured, the final assembly phase infers the public contract from the normalized user request, but leaf call arguments and available outputs come from the actual generated leaf workflows rather than the initial extraction draft. Composition rejects any `data.inputs.<name>` reference that is not declared by the resolved main input contract, and it also rejects calls that omit required arguments from the generated leaf contract.
@@ -1414,6 +1484,7 @@ The final composed pipeline document uses the same validation sequence as standa
 - **Expanded JSON Schema checks**: MCP requests support `enum`, `const`, `allOf`, exact `oneOf`, `anyOf`, string length/pattern, numeric bounds/multiples, object/array size, `uniqueItems`, nested schemas, and schema-correct `additionalProperties` behavior. Quoted numeric, integer, and boolean YAML scalars remain strings during `workflow.plan` validation and fail when the contract requires real booleans or numbers.
 - **Runtime request validation**: Requests containing expressions or `request_template` are checked again after resolution/rendering and immediately before `CallToolAsync`. The live tool catalog proves the method exists, and the resolved request must satisfy that tool's `input_schema`.
 - **Bounded automatic self-correction**: If the generated YAML is invalid (parse error, policy violation, compilation error, semantic mapping error, or optional dry-run failure), the structured error is sent back to the LLM for repair until `validate.max_repair_attempts`, legacy `on_invalid.max_attempts`, or the default budget is exhausted. `on_invalid.action` is accepted only for compatibility and cannot disable automatic repair while attempts remain.
+- **Repair-stall detection**: Validation diagnostics are normalized and fingerprinted. When the same diagnostics survive two repair attempts, planning stops early with `WORKFLOW_PLAN_REPAIR_STALLED` instead of consuming the remaining repair budget.
 - **OpenTelemetry tracing**: Full GenAI convention traces for the planning LLM call, MCP discovery, and pre-filter phases.
 
 Workflow execution traces also include injected workflow inputs on the workflow span:
@@ -1424,7 +1495,7 @@ Workflow execution traces also include injected workflow inputs on the workflow 
 
 **Semantic mapping guardrails:** generated plans must not read `data.steps.<id>.*` from steps that are produced only inside a `switch` case, an `if`-guarded step, or a loop body unless that value is first mapped into a guaranteed location. Function arguments are evaluated eagerly, so `coalesce(data.steps.fix.value, data.steps.question.value)` is still unsafe when either step may not have executed. Prefer a common workflow-level output alias in every branch, or a guaranteed normalization step with a stable output schema.
 
-Loop outputs need special care: `data.steps.<loop_id>.results` is an array of per-iteration `data.steps` snapshots, not an array of the last child step's output. If a loop child `set` step named `build_issue_result` produces `handled_by_gnougo`, post-loop code must read `iteration.build_issue_result.handled_by_gnougo`. To produce a flat list, create a typed child `set` step in the loop and flatten/filter through that child step id.
+Loop outputs need special care: `data.steps.<loop_id>.results` is an array of per-iteration `data.steps` snapshots, not an array of the last child step's output. If a loop child `set` step named `build_item_result` produces `processed`, post-loop code must read `iteration.build_item_result.processed`. To produce a flat list, create a typed child `set` step in the loop and flatten/filter through that child step id.
 
 Generated YAML should preserve typed scalars: emit `required: false`, `strict: true`, `timeout_ms: 1200000`, and `append: false` as booleans/numbers, not quoted strings. Use literal block scalars (`|`) for multiline prompts/templates or strings containing JSON/double quotes. Required string fields must be present and non-empty; use an optional nullable string field when empty text is a valid value.
 
@@ -1743,6 +1814,10 @@ on_error:
 | `LLM_NETWORK` | Yes | Network error reaching the LLM |
 | `MCP_CONNECTION_ERROR` | Yes | Cannot connect to MCP server |
 | `MCP_TOOL_ERROR` | No | MCP tool returned an error |
+| `CAPABILITY_PREFLIGHT_UNAVAILABLE` | No | A required operation has no exact available capability |
+| `CAPABILITY_PREFLIGHT_DISCOVERY_FAILED` | No | A required catalog could not be discovered reliably |
+| `CAPABILITY_PREFLIGHT_INFERENCE_FAILED` | No | Capability inventory inference was invalid or incomplete |
+| `WORKFLOW_PLAN_REPAIR_STALLED` | No | The same diagnostics survived two repair attempts |
 | `TEMPLATE_PLAN` | No | `workflow.plan` failed to generate valid YAML |
 | `TEMPLATE_POLICY` | No | Generated workflow violates policy constraints |
 | `HUMAN_INPUT_TIMEOUT` | No | User didn't respond within `timeout_ms` |

@@ -35,12 +35,19 @@ workflows:
       - id: step1
         type: template.render
         input: { engine: mustache, template: "Hello {{name}}", data: { name: "${data.inputs.message}" }, mode: text }
+    finally:
+      - id: release_resources
+        type: emit
+        input: { message: "Finalizing workflow resources.", level: progress }
     outputs:
       result:
         expr: "${data.steps.step1.text}"
         type: string
         description: The rendered result text
 ```
+
+## Workflow finalization
+`finally` is an optional workflow-level array of ordinary steps. It runs exactly once after the workflow's main `steps` on success, failure, or cancellation. It has access to `data.inputs`, all completed `data.steps`, and `data.workflow_error` (null after success, otherwise `{ code, type, message, retryable, details? }`). Use it for required resource cleanup. Finalizers run with an independent bounded cancellation token and must remain idempotent.
 
 ## Skill metadata
 Workflow documents MUST include a top-level `skill` block. Routers use it to select the right workflow and to auto-extract structured inputs from natural-language prompts.

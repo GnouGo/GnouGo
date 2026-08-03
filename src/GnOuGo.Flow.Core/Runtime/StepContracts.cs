@@ -179,6 +179,18 @@ public static class BuiltInStepContracts
         ("workflow_name", String()),
         ("document_name", String()),
         ("description", String()),
+        ("capability_preflight", Object(
+            ("mode", Enum("off", "infer", "explicit")),
+            ("requirements", Array(Object(
+                new[] { "id", "description", "required", "alternatives" },
+                ("id", String()),
+                ("description", String()),
+                ("required", Boolean()),
+                ("alternatives", Array(Object(
+                    new[] { "server", "kind", "method" },
+                    ("server", String()),
+                    ("kind", Enum("tool", "prompt")),
+                    ("method", String()))))))))),
         ("generator", Object(
             ("mode", Enum("auto", "basic", "pipeline")),
             ("provider", String()),
@@ -223,6 +235,7 @@ public static class BuiltInStepContracts
         ("request", Any()),
         ("request_template", String()),
         ("template_data", OpenObject()),
+        ("context", OpenObject()),
         ("timeout_ms", PositiveInteger()),
         ("prompt", String()),
         ("provider", String()),

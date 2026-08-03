@@ -16,13 +16,13 @@ internal static class WorkflowStepOutputAnalyzer
         IReadOnlyDictionary<(string ServerName, string ToolName), McpToolOutputContract>? mcpContracts = null,
         IReadOnlyDictionary<string, StepContract>? stepContracts = null)
     {
-        var allStepIds = EnumerateSteps(workflow.Steps)
+        var allStepIds = EnumerateSteps(workflow.Steps.Concat(workflow.Finally).ToList())
             .Select(static step => step.Id)
             .Where(static id => !string.IsNullOrWhiteSpace(id))
             .ToHashSet(StringComparer.Ordinal);
         var symbols = WorkflowSymbolTable.Create(workflowName, workflow.Inputs, allStepIds);
         AnalyzeStepList(
-            workflow.Steps,
+            workflow.Steps.Concat(workflow.Finally).ToList(),
             workflowName,
             workflows,
             symbols,

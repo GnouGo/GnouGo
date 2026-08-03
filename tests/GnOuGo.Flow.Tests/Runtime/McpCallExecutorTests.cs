@@ -259,6 +259,115 @@ workflows:
     }
 
     [Fact]
+    public async Task McpCall_ExplicitContext_ReachesOnlyGnougoContextMetadata()
+    {
+        JsonObject? capturedMeta = null;
+        JsonNode? capturedArguments = null;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("inventory", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo { Name = "reserve_items" }
+            ],
+            ToolHandlers =
+            {
+                ["reserve_items"] = arguments =>
+                {
+                    capturedArguments = arguments?.DeepClone();
+                    capturedMeta = ReadCurrentCorrelationMeta();
+                    return new McpCallResult { Content = new JsonObject { ["reserved"] = true } };
+                }
+            }
+        });
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    inputs:
+      scope: string
+    steps:
+      - id: reserve
+        type: mcp.call
+        input:
+          server: inventory
+          method: reserve_items
+          context:
+            workspace: "${data.inputs.scope}"
+            operation_revision: 7
+            labels: [priority, batch]
+          request:
+            sku: item-1
+""", new JsonObject { ["scope"] = "catalog-a" }, factory);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.NotNull(capturedArguments);
+        Assert.False(capturedArguments!.AsObject().ContainsKey("context"));
+        var gnougo = Assert.IsType<JsonObject>(capturedMeta!["gnougo"]);
+        var context = Assert.IsType<JsonObject>(gnougo["context"]);
+        Assert.Equal("catalog-a", context["workspace"]!.GetValue<string>());
+        Assert.Equal(7, context["operation_revision"]!.GetValue<int>());
+        Assert.False(gnougo.ContainsKey("workspace"));
+    }
+
+    [Theory]
+    [InlineData("runId")]
+    [InlineData("authorization")]
+    [InlineData("api_token")]
+    [InlineData("servicePassword")]
+    public async Task McpCall_ContextRejectsReservedAndSensitiveKeys(string forbiddenKey)
+    {
+        var handlerCalled = false;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("inventory", new MockMcpServerConfig
+        {
+            Tools = [new McpToolInfo { Name = "reserve_items" }],
+            ToolHandlers =
+            {
+                ["reserve_items"] = _ =>
+                {
+                    handlerCalled = true;
+                    return new McpCallResult { Content = new JsonObject { ["reserved"] = true } };
+                }
+            }
+        });
+
+        var yaml = $$"""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: reserve
+        type: mcp.call
+        input:
+          server: inventory
+          method: reserve_items
+          context:
+            batches:
+              - - metadata:
+                    {{forbiddenKey}}: forbidden
+          request:
+            sku: item-1
+""";
+
+        var result = await RunMain(yaml, mcpFactory: factory);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains(forbiddenKey, result.Error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(handlerCalled);
+    }
+
+    private static JsonObject? ReadCurrentCorrelationMeta()
+    {
+        var method = typeof(ConfiguredMcpClientFactory).GetMethod(
+            "BuildCurrentCorrelationMeta",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        return method?.Invoke(null, null) as JsonObject;
+    }
+
+    [Fact]
     public async Task McpCall_ToolProgressEvents_AreForwardedAsThinkingTelemetry()
     {
         var spanEvents = new List<(string Name, IReadOnlyList<KeyValuePair<string, object?>>? Attributes)>();

@@ -56,6 +56,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("MCP request expressions must also match the schema statically. Do not pass nullable structured_output fields into required MCP request fields unless the value was refined with `assert.non_null` or the same step has an `if` guard proving that exact field is non-null.");
         sb.AppendLine("Never satisfy missing MCP request arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.");
         sb.AppendLine("Workflow output expressions must resolve to their declared type on every branch.");
+        sb.AppendLine("Every required string must be non-empty on every path. If a value can be absent, make that property optional and omit it instead of emitting an empty-string sentinel.");
         sb.AppendLine("Every `skill.outputs.*` and `workflows.*.outputs.*` entry must be strongly typed: no `any`, no bare `object`, and no bare `array` without `items`.");
         sb.AppendLine("Array outputs need concrete `items`; object outputs and object array items need non-empty `properties`.");
         sb.AppendLine("Closed set output_schema objects and arrays require exact projection. Do not pass through opaque custom-function objects into fields with `additionalProperties: false`.");
@@ -98,11 +99,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AppendPromptSectionStart(sb, "workflow_plan_generation_guardrails");
         sb.AppendLine("Loop output shape:");
         sb.AppendLine("- `loop.sequential` and `loop.parallel` output `{ results, count }`; every `results[]` item is a per-iteration `data.steps` snapshot, not the direct output of the last loop child step.");
-        sb.AppendLine("- If a loop child step `build_issue_result` emits `{ handled_by_gnougo, title, ... }`, post-loop filtering must read `iteration.build_issue_result.handled_by_gnougo`, not `iteration.handled_by_gnougo`.");
+        sb.AppendLine("- If a loop child step `build_item_result` emits `{ processed, label, ... }`, post-loop filtering must read `iteration.build_item_result.processed`, not `iteration.processed`.");
         sb.AppendLine("- To produce a flat array after a loop, make the loop body end with a `set` step that has `output_schema`, then map/filter `data.steps.<loop_id>.results` through that child step id.");
         sb.AppendLine("- If that flat array feeds a closed output_schema, custom functions must push new projected objects with exactly the declared fields. Do not push/pass through the original source object because it may contain extra properties.");
         sb.AppendLine("Switch output shape:");
-        sb.AppendLine("- `switch` output is a path-dependent step snapshot. Do not read flattened child fields such as `data.steps.route.pr_url` when `pr_url` is produced inside a case/default child step.");
+        sb.AppendLine("- `switch` output is a path-dependent step snapshot. Do not read flattened child fields such as `data.steps.route.result_url` when `result_url` is produced inside a case/default child step.");
         sb.AppendLine("- Prefer writing the same output alias in every case/default branch and read `data.<alias>.<field>` after the switch.");
         sb.AppendLine("YAML scalar and quoting rules:");
         sb.AppendLine("- Emit booleans and numbers as unquoted YAML scalars: `required: false`, `strict: true`, `timeout_ms: 1200000`, `append: false`. Do not emit `\"false\"`, `\"true\"`, or `\"1200000\"` for typed scalar fields.");
@@ -110,6 +111,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Use YAML literal block scalars (`|`) for multiline prompts/templates or strings containing JSON/double quotes; do not put unescaped nested double quotes inside a double-quoted YAML scalar.");
         sb.AppendLine("MCP request rules:");
         sb.AppendLine("- Follow the discovered MCP schema and tool description exactly; do not add Flow-specific conventions for request fields.");
+        sb.AppendLine("- Treat opaque custom-function results as untrusted shapes: project exact declared fields into new objects before assigning them to closed output schemas.");
         AppendPromptSectionEnd(sb, "workflow_plan_generation_guardrails");
     }
 
@@ -164,21 +166,21 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
           schema_inline:
             type: object
             properties:
-              issues:
+              records:
                 type: array
                 items:
                   type: object
                   properties:
-                    number: { type: integer }
-                    title: { type: string }
-                    severity:
+                    id: { type: integer }
+                    label: { type: string }
+                    score:
                       anyOf:
-                        - type: string
+                        - type: number
                         - type: "null"
-                  required: [number, title, severity]
+                  required: [id, label, score]
                   additionalProperties: false
               summary: { type: string }
-            required: [issues, summary]
+            required: [records, summary]
             additionalProperties: false
         """);
     }
@@ -516,7 +518,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         {
             var doc = Parsing.WorkflowParser.Parse(invalidYaml);
             foreach (var workflow in doc.Workflows.Values)
+            {
                 AddStepRepairInfo(workflow.Steps, Array.Empty<string>(), lookup);
+                AddStepRepairInfo(workflow.Finally, ["finally"], lookup);
+            }
         }
         catch
         {
@@ -593,7 +598,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         }
 
         var calls = doc.Workflows.Values
-            .SelectMany(workflow => EnumerateSteps(workflow.Steps))
+            .SelectMany(workflow => EnumerateSteps(workflow.Steps).Concat(EnumerateSteps(workflow.Finally)))
             .Where(step => step.Type == "mcp.call" && step.Input is JsonObject)
             .Select(step =>
             {

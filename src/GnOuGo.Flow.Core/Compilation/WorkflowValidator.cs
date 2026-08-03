@@ -94,9 +94,12 @@ public sealed class WorkflowValidator
         // Check unique step IDs
         var ids = new HashSet<string>();
         CollectStepIds(wf.Steps, ids, name, errors);
+        CollectStepIds(wf.Finally, ids, name, errors);
 
         // Validate each step
         foreach (var step in wf.Steps)
+            ValidateStep(step, name, doc, errors);
+        foreach (var step in wf.Finally)
             ValidateStep(step, name, doc, errors);
 
         // Validate output expressions and type schemas
@@ -522,6 +525,7 @@ public sealed class WorkflowValidator
         {
             var called = new HashSet<string>();
             CollectLocalCalls(wf.Steps, called);
+            CollectLocalCalls(wf.Finally, called);
             graph[name] = called;
         }
 

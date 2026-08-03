@@ -270,9 +270,9 @@ public interface IMcpClientFactory
 }
 
 /// <summary>
-/// Correlation metadata propagated from workflow MCP steps to MCP transports.
-/// HTTP transports send it as headers; stdio transports expose it as environment
-/// variables when the MCP server process is started.
+/// Technical correlation metadata propagated from workflow MCP steps to MCP transports.
+/// Domain context is explicitly supplied by the workflow and is carried only in
+/// the MCP request metadata envelope.
 /// </summary>
 public sealed record McpCorrelationContext
 {
@@ -287,9 +287,7 @@ public sealed record McpCorrelationContext
     public string? ServerName { get; init; }
     public string? MethodName { get; init; }
     public string? Kind { get; init; }
-    public string? Repository { get; init; }
-    public int? PullRequestNumber { get; init; }
-    public string? HeadSha { get; init; }
+    public JsonObject? Context { get; init; }
 }
 
 /// <summary>

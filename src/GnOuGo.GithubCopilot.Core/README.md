@@ -12,7 +12,7 @@ It provides:
 - one-shot sessions that always disconnect and delete persisted SDK state;
 - `interactive`, `auto_approve_allowlist`, `deny`, and policy-gated `approve_all` permission modes;
 - KeyVault-provider abstractions that keep credentials out of workflow arguments and results;
-- bounded pull-request review batches, strict structured finding parsing, diff-line/path validation, fingerprints, deduplication, and coverage metadata;
+- bounded pull-request review batches, caller instructions applied to every batch, bounded untrusted existing-comment context, strict structured finding parsing, diff-line/path validation, fingerprints, existing-comment deduplication, and coverage metadata;
 - a fail-closed publication gate for `dry_run`, `interactive`, and `auto_comment` policies. It never represents GitHub `APPROVE` or merge operations;
 - source-generated JSON metadata for trimming and Native AOT consumers.
 

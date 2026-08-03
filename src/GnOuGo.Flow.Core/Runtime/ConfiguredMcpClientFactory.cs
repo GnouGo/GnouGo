@@ -487,9 +487,6 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         AddHeader(headers, "x-gnougo-mcp-server", correlation.ServerName);
         AddHeader(headers, "x-gnougo-mcp-method", correlation.MethodName);
         AddHeader(headers, "x-gnougo-mcp-kind", correlation.Kind);
-        AddHeader(headers, "x-gnougo-repository", correlation.Repository);
-        AddHeader(headers, "x-gnougo-pr-number", correlation.PullRequestNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        AddHeader(headers, "x-gnougo-head-sha", correlation.HeadSha);
         AddHeader(headers, "traceparent", correlation.TraceParent);
     }
 
@@ -531,9 +528,6 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         AddEnv(env, "GNouGo__McpServer", correlation.ServerName);
         AddEnv(env, "GNouGo__McpMethod", correlation.MethodName);
         AddEnv(env, "GNouGo__McpKind", correlation.Kind);
-        AddEnv(env, "GNouGo__Repository", correlation.Repository);
-        AddEnv(env, "GNouGo__PullRequestNumber", correlation.PullRequestNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        AddEnv(env, "GNouGo__HeadSha", correlation.HeadSha);
         return env.Count == 0 ? null : env;
     }
 
@@ -559,10 +553,8 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         AddJson(gnougo, "mcpServer", correlation?.ServerName);
         AddJson(gnougo, "mcpMethod", correlation?.MethodName);
         AddJson(gnougo, "mcpKind", correlation?.Kind);
-        AddJson(gnougo, "repository", correlation?.Repository);
-        if (correlation?.PullRequestNumber is not null)
-            gnougo["pullRequestNumber"] = correlation.PullRequestNumber.Value;
-        AddJson(gnougo, "headSha", correlation?.HeadSha);
+        if (correlation?.Context is { Count: > 0 })
+            gnougo["context"] = correlation.Context.DeepClone();
 
         if (gnougo.Count == 0)
             return null;

@@ -123,16 +123,16 @@ public sealed class McpCallExecutor : IStepExecutor
         - id: discover
           type: mcp.list
           input:
-            server: github
+            server: inventory
             include: ["tools", "prompts"]
 
         - id: choose_and_call
           type: mcp.call
           input:
-            server: github
+            server: inventory
             model: gpt-4o-mini
             temperature: 0.2
-            prompt: "Find the right GitHub capability and call it to summarize my repos"
+            prompt: "Find the right inventory capability and call it to summarize available items"
             tools: "${data.steps.discover.tools}"
             prompts: "${data.steps.discover.prompts}"
             structured_output:
@@ -259,7 +259,8 @@ public sealed class McpCallExecutor : IStepExecutor
                 : new CancellationTokenSource();
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
-            var correlation = BuildCorrelationContext(ctx, serverName, kind, singleMethod, batchMethods);
+            var requestContext = ValidateAndCloneRequestContext(input["context"]);
+            var correlation = BuildCorrelationContext(ctx, serverName, kind, singleMethod, batchMethods, requestContext);
             ctx.SetTelemetryAttribute("gnougo.correlation_id", correlation.CorrelationId);
             if (!string.IsNullOrWhiteSpace(correlation.TraceId))
                 ctx.SetTelemetryAttribute("gnougo.trace_id", correlation.TraceId);
@@ -295,7 +296,7 @@ public sealed class McpCallExecutor : IStepExecutor
 
             if (hasPromptSelection)
             {
-                return await ExecuteLlmAssistedAsync(session, input, kind, singleMethod, batchMethods, errorPolicy, runtimeToolCatalog, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                return await ExecuteLlmAssistedAsync(session, input, kind, singleMethod, batchMethods, errorPolicy, runtimeToolCatalog, requestContext, ctx, realtimeProgressFingerprints, linkedCts.Token);
             }
 
             // Auto-discover: list all tools or prompts from the server
@@ -459,6 +460,7 @@ public sealed class McpCallExecutor : IStepExecutor
         List<string>? batchMethods,
         McpErrorPolicy errorPolicy,
         IReadOnlyList<McpToolInfo>? runtimeToolCatalog,
+        JsonObject? requestContext,
         StepExecutionContext ctx,
         ConcurrentDictionary<string, byte>? realtimeProgressFingerprints,
         CancellationToken ct)
@@ -560,7 +562,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 throw new WorkflowRuntimeException(defaultKind == "prompt" ? ErrorCodes.McpPromptError : ErrorCodes.McpCallError,
                     $"mcp.call prompt mode selected unknown MCP capability '{toolCall.Name}'", retryable: false);
 
-            var correlation = BuildCorrelationContext(ctx, session.ServerName, capability.Kind, capability.MethodName, null);
+            var correlation = BuildCorrelationContext(ctx, session.ServerName, capability.Kind, capability.MethodName, null, requestContext);
             var itemResult = await CallSingleAsync(session, capability.Kind, capability.MethodName, toolCall.Arguments?.DeepClone(), correlation, errorPolicy.DetectResultErrors, runtimeToolCatalog, ctx, realtimeProgressFingerprints, ct);
             var itemObj = (JsonObject)itemResult!;
             itemObj["method"] = capability.MethodName;
@@ -1310,7 +1312,8 @@ Produce the final answer strictly from the executed MCP results.
         string serverName,
         string kind,
         string? singleMethod,
-        List<string>? batchMethods)
+        List<string>? batchMethods,
+        JsonObject? requestContext)
     {
         var activity = Activity.Current;
         var method = singleMethod ?? (batchMethods is { Count: > 0 } ? string.Join(",", batchMethods) : null);
@@ -1329,10 +1332,65 @@ Produce the final answer strictly from the executed MCP results.
             ServerName = serverName,
             MethodName = method,
             Kind = kind,
-            Repository = ReadString(ctx.Data, "repository", "repositoryName", "repo"),
-            PullRequestNumber = ReadInt(ctx.Data, "pullRequestNumber", "pull_request_number", "prNumber", "pr_number"),
-            HeadSha = ReadString(ctx.Data, "headSha", "head_sha")
+            Context = requestContext
         };
+    }
+
+    private static readonly HashSet<string> ReservedContextKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "correlationId", "tenantId", "runId", "traceId", "spanId", "parentSpanId",
+        "traceparent", "tracestate", "stepId", "stepType", "mcpServer", "mcpMethod", "mcpKind"
+    };
+
+    private static JsonObject? ValidateAndCloneRequestContext(JsonNode? node)
+    {
+        if (node == null)
+            return null;
+        if (node is not JsonObject context)
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "mcp.call context must be an object.");
+
+        ValidateContextObject(context, "context");
+        return (JsonObject)context.DeepClone();
+    }
+
+    private static void ValidateContextObject(JsonObject context, string path)
+    {
+        foreach (var (key, value) in context)
+        {
+            var fieldPath = path + "." + key;
+            if (ReservedContextKeys.Contains(key))
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"mcp.call context field '{fieldPath}' is reserved technical metadata.");
+            if (IsSensitiveContextKey(key))
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"mcp.call context field '{fieldPath}' is not allowed because context must not carry credentials or secrets.");
+            ValidateContextNode(value, fieldPath);
+        }
+    }
+
+    private static void ValidateContextNode(JsonNode? node, string path)
+    {
+        if (node is JsonObject child)
+        {
+            ValidateContextObject(child, path);
+            return;
+        }
+
+        if (node is not JsonArray array)
+            return;
+        for (var index = 0; index < array.Count; index++)
+            ValidateContextNode(array[index], $"{path}[{index}]");
+    }
+
+    private static bool IsSensitiveContextKey(string key)
+    {
+        var normalized = key.Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
+        return normalized.Contains("secret", StringComparison.Ordinal)
+               || normalized.Contains("token", StringComparison.Ordinal)
+               || normalized.Contains("password", StringComparison.Ordinal)
+               || normalized.Contains("authorization", StringComparison.Ordinal)
+               || normalized.Contains("credential", StringComparison.Ordinal)
+               || normalized.Contains("apikey", StringComparison.Ordinal);
     }
 
     private static string? ReadString(JsonObject data, params string[] names)
@@ -1341,20 +1399,6 @@ Produce the final answer strictly from the executed MCP results.
         {
             if (data[name] is JsonValue value && value.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text))
                 return text;
-        }
-        return null;
-    }
-
-    private static int? ReadInt(JsonObject data, params string[] names)
-    {
-        foreach (var name in names)
-        {
-            if (data[name] is not JsonValue value)
-                continue;
-            if (value.TryGetValue<int>(out var number))
-                return number;
-            if (value.TryGetValue<string>(out var text) && int.TryParse(text, out number))
-                return number;
         }
         return null;
     }

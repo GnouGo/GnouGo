@@ -23,9 +23,30 @@ internal sealed record CodeMcpTraceContext(
     public string? HeadSha { get; init; }
 
     public static CodeMcpTraceContext? Capture(CodeMcpTraceContextAccessor? accessor = null)
-        => FromActivity(Activity.Current)
-           ?? accessor?.Current
-           ?? FromEnvironment();
+    {
+        var activityContext = FromActivity(Activity.Current);
+        var requestContext = accessor?.Current;
+        if (activityContext is null)
+            return requestContext ?? FromEnvironment();
+        if (requestContext is null)
+            return activityContext;
+
+        return activityContext with
+        {
+            TraceState = FirstNonEmpty(activityContext.TraceState, requestContext.TraceState),
+            CorrelationId = FirstNonEmpty(activityContext.CorrelationId, requestContext.CorrelationId),
+            RunId = FirstNonEmpty(activityContext.RunId, requestContext.RunId),
+            StepId = FirstNonEmpty(activityContext.StepId, requestContext.StepId),
+            StepType = FirstNonEmpty(activityContext.StepType, requestContext.StepType),
+            McpServer = FirstNonEmpty(activityContext.McpServer, requestContext.McpServer),
+            McpMethod = FirstNonEmpty(activityContext.McpMethod, requestContext.McpMethod),
+            McpKind = FirstNonEmpty(activityContext.McpKind, requestContext.McpKind),
+            TenantId = FirstNonEmpty(activityContext.TenantId, requestContext.TenantId),
+            Repository = FirstNonEmpty(activityContext.Repository, requestContext.Repository),
+            PullRequestNumber = activityContext.PullRequestNumber ?? requestContext.PullRequestNumber,
+            HeadSha = FirstNonEmpty(activityContext.HeadSha, requestContext.HeadSha)
+        };
+    }
 
     public static CodeMcpTraceContext? FromActivity(Activity? activity)
     {
@@ -100,6 +121,7 @@ internal sealed record CodeMcpTraceContext(
             return null;
 
         var gnougo = meta["gnougo"] as JsonObject;
+        var domainContext = gnougo?["context"] as JsonObject;
         var traceParent = FirstNonEmpty(ReadString(gnougo, "traceparent"), ReadString(meta, "traceparent"));
         var traceState = FirstNonEmpty(ReadString(gnougo, "tracestate"), ReadString(meta, "tracestate"));
         var traceId = ReadString(gnougo, "traceId");
@@ -128,9 +150,9 @@ internal sealed record CodeMcpTraceContext(
             McpKind: ReadString(gnougo, "mcpKind"))
         {
             TenantId = ReadString(gnougo, "tenantId"),
-            Repository = ReadString(gnougo, "repository"),
-            PullRequestNumber = ReadInt(gnougo, "pullRequestNumber"),
-            HeadSha = ReadString(gnougo, "headSha")
+            Repository = ReadString(domainContext, "repository") ?? ReadString(gnougo, "repository"),
+            PullRequestNumber = ReadInt(domainContext, "pullRequestNumber") ?? ReadInt(gnougo, "pullRequestNumber"),
+            HeadSha = ReadString(domainContext, "headSha") ?? ReadString(gnougo, "headSha")
         };
 
         return context.HasAnyValue ? context : null;
@@ -152,10 +174,13 @@ internal sealed record CodeMcpTraceContext(
         Add(gnougo, "mcpMethod", McpMethod);
         Add(gnougo, "mcpKind", McpKind);
         Add(gnougo, "tenantId", TenantId);
-        Add(gnougo, "repository", Repository);
+        var domainContext = new JsonObject();
+        Add(domainContext, "repository", Repository);
         if (PullRequestNumber is not null)
-            gnougo["pullRequestNumber"] = PullRequestNumber.Value;
-        Add(gnougo, "headSha", HeadSha);
+            domainContext["pullRequestNumber"] = PullRequestNumber.Value;
+        Add(domainContext, "headSha", HeadSha);
+        if (domainContext.Count > 0)
+            gnougo["context"] = domainContext;
 
         var meta = new JsonObject { ["gnougo"] = gnougo };
         Add(meta, "traceparent", TraceParent);

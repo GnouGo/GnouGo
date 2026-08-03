@@ -71,7 +71,10 @@ public sealed class LivePullRequestReviewTests
                 RunId = runId,
                 StepId = "provider-preflight",
                 StepType = "e2e",
-                Repository = $"{owner}/{repository}"
+                Context = new JsonObject
+                {
+                    ["repository"] = $"{owner}/{repository}"
+                }
             }))
             {
                 copilot = await mcpFactory.GetClientAsync("copilot", ct);
@@ -136,9 +139,12 @@ public sealed class LivePullRequestReviewTests
                 RunId = runId,
                 StepId = "live-pr-review",
                 StepType = "e2e",
-                Repository = $"{owner}/{repository}",
-                PullRequestNumber = pullNumber,
-                HeadSha = headSha
+                Context = new JsonObject
+                {
+                    ["repository"] = $"{owner}/{repository}",
+                    ["pullRequestNumber"] = pullNumber,
+                    ["headSha"] = headSha
+                }
             });
 
             // Read every PR input through the official GitHub MCP before analysis.
@@ -181,6 +187,7 @@ public sealed class LivePullRequestReviewTests
                 ["baseSha"] = baseSha,
                 ["headSha"] = headSha,
                 ["filesJson"] = new JsonArray(comparedFiles.Select(static file => file.DeepClone()).ToArray()).ToJsonString(),
+                ["reviewInstructions"] = "Report only demonstrable correctness defects introduced by the supplied fixture diff. Prefer a small number of high-confidence findings.",
                 ["provider"] = "OpenAi",
                 ["maxBatchCharacters"] = 60_000,
                 ["tenantId"] = tenantId
@@ -242,7 +249,7 @@ public sealed class LivePullRequestReviewTests
                     ["repo"] = repository,
                     ["pullNumber"] = pullNumber.Value,
                     ["path"] = fixtureRelativePath,
-                    ["subjectType"] = "line",
+                    ["subjectType"] = "LINE",
                     ["side"] = side,
                     ["line"] = endLine,
                     ["body"] = $"{ReviewMarker} {RequireString(finding, "explanation")}\n\nEvidence: {RequireString(finding, "evidence")}\n\nFingerprint: `{RequireString(finding, "fingerprint")}`"
@@ -509,10 +516,15 @@ public sealed class LivePullRequestReviewTests
 
     private static string FindMcpAssembly(string repositoryRoot, string projectName)
     {
+#if DEBUG
+        string[] configurations = ["Debug", "Release"];
+#else
+        string[] configurations = ["Release", "Debug"];
+#endif
         var candidates = new[]
         {
-            Path.Combine(repositoryRoot, "src", projectName, "bin", "Release", "net10.0", $"{projectName}.dll"),
-            Path.Combine(repositoryRoot, "src", projectName, "bin", "Debug", "net10.0", $"{projectName}.dll")
+            Path.Combine(repositoryRoot, "src", projectName, "bin", configurations[0], "net10.0", $"{projectName}.dll"),
+            Path.Combine(repositoryRoot, "src", projectName, "bin", configurations[1], "net10.0", $"{projectName}.dll")
         };
         return candidates.FirstOrDefault(File.Exists)
                ?? throw new FileNotFoundException($"Build {projectName} before running the live E2E test.");

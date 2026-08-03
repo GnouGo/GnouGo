@@ -146,4 +146,123 @@ public sealed class ReviewValidationTests
         Assert.Single(result);
         Assert.Equal(ReviewSeverity.High, result[0].Severity);
     }
+
+    [Fact]
+    public void ExistingComments_DeduplicateByFingerprintOrEquivalentLocationAndBody()
+    {
+        var finding = new ReviewFinding(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            ReviewSeverity.High,
+            "correctness",
+            .95,
+            "src/Calculator.cs",
+            ReviewDiffSide.Right,
+            12,
+            12,
+            "return left / right",
+            "Division by zero is not handled.");
+
+        Assert.True(ReviewValidation.IsDuplicateOfExisting(finding,
+        [
+            new ExistingReviewComment("src/other.cs", ReviewDiffSide.Right, 1, 1, "Different", finding.Fingerprint)
+        ]));
+        Assert.True(ReviewValidation.IsDuplicateOfExisting(finding,
+        [
+            new ExistingReviewComment("src\\Calculator.cs", ReviewDiffSide.Right, 12, 12, "Already reported: Division by zero is not handled.")
+        ]));
+        Assert.False(ReviewValidation.IsDuplicateOfExisting(finding,
+        [
+            new ExistingReviewComment("src/Calculator.cs", ReviewDiffSide.Right, 12, 12, "This is a different problem.")
+        ]));
+    }
+
+    [Fact]
+    public void BuildBatchPrompt_AppliesInstructionsAndOnlyRelevantExistingComments()
+    {
+        var request = new CopilotReviewStartRequest(
+            new CopilotRequestContext("tenant", "correlation", "run", "step"),
+            new CopilotRuntimeConfiguration(Path.GetTempPath(), "test-model"),
+            new string('a', 40),
+            new string('b', 40),
+            [new ReviewFilePatch("src/Calculator.cs", "modified", Patch)],
+            ReviewInstructions: "Check integer division and null handling.",
+            ExistingComments:
+            [
+                new ExistingReviewComment("src/Calculator.cs", ReviewDiffSide.Right, 12, 12, "Existing division finding."),
+                new ExistingReviewComment("src/Unrelated.cs", ReviewDiffSide.Right, 5, 5, "Unrelated finding.")
+            ]);
+        var batch = Assert.Single(ReviewValidation.CreateBatches(request.Files, 60_000));
+
+        var prompt = CopilotReviewManager.BuildBatchPrompt(request, batch);
+
+        Assert.Contains("Check integer division and null handling.", prompt, StringComparison.Ordinal);
+        Assert.Contains("<review_instructions_json>", prompt, StringComparison.Ordinal);
+        Assert.Contains("<untrusted_existing_comments_json>", prompt, StringComparison.Ordinal);
+        Assert.Contains("Existing division finding.", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Unrelated finding.", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildBatchPrompt_BoundsSerializedExistingCommentsBlock()
+    {
+        var request = new CopilotReviewStartRequest(
+            new CopilotRequestContext("tenant", "correlation", "run", "step"),
+            new CopilotRuntimeConfiguration(Path.GetTempPath(), "test-model"),
+            new string('a', 40),
+            new string('b', 40),
+            [new ReviewFilePatch("src/Calculator.cs", "modified", Patch)],
+            ExistingComments:
+            [
+                new ExistingReviewComment(
+                    "src/Calculator.cs",
+                    ReviewDiffSide.Right,
+                    12,
+                    12,
+                    string.Concat(Enumerable.Repeat("quoted \\\" text \\\\ ", 10_000)))
+            ]);
+        var batch = Assert.Single(ReviewValidation.CreateBatches(request.Files, 60_000));
+
+        var prompt = CopilotReviewManager.BuildBatchPrompt(request, batch);
+        const string openingTag = "<untrusted_existing_comments_json>\n";
+        var start = prompt.IndexOf(openingTag, StringComparison.Ordinal) + openingTag.Length;
+        var end = prompt.IndexOf("\n</untrusted_existing_comments_json>", start, StringComparison.Ordinal);
+        var serializedComments = prompt[start..end];
+
+        Assert.InRange(serializedComments.Length, 1, 64_000);
+        var comments = System.Text.Json.JsonSerializer.Deserialize(
+            serializedComments,
+            CopilotCoreJsonContext.Default.IReadOnlyListExistingReviewComment);
+        Assert.NotEmpty(comments!);
+    }
+
+    [Fact]
+    public async Task StartAsync_RejectsOversizedReviewInstructionsBeforeCreatingSession()
+    {
+        var manager = new CopilotReviewManager(null!);
+        var request = new CopilotReviewStartRequest(
+            new CopilotRequestContext("tenant", "correlation", "run", "step"),
+            new CopilotRuntimeConfiguration(Path.GetTempPath(), "test-model"),
+            new string('a', 40),
+            new string('b', 40),
+            [new ReviewFilePatch("src/Calculator.cs", "modified", Patch)],
+            ReviewInstructions: new string('x', 32_001));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => manager.StartAsync(request, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public void ExistingComments_AotJsonContextRoundTrips()
+    {
+        IReadOnlyList<ExistingReviewComment> comments =
+        [
+            new ExistingReviewComment("src/Calculator.cs", ReviewDiffSide.Right, 12, 12, "Existing finding.", "fingerprint")
+        ];
+
+        var json = System.Text.Json.JsonSerializer.Serialize(comments, CopilotCoreJsonContext.Default.IReadOnlyListExistingReviewComment);
+        var roundTrip = System.Text.Json.JsonSerializer.Deserialize(json, CopilotCoreJsonContext.Default.IReadOnlyListExistingReviewComment);
+
+        var comment = Assert.Single(roundTrip!);
+        Assert.Equal("src/Calculator.cs", comment.Path);
+        Assert.Equal(ReviewDiffSide.Right, comment.Side);
+    }
 }

@@ -831,7 +831,7 @@ workflows:
         Assert.Contains("required_properties: [field_name]", capturedPrompt);
         Assert.Contains("<workflow_plan_generation_guardrails>", capturedPrompt);
         Assert.Contains("every `results[]` item is a per-iteration `data.steps` snapshot", capturedPrompt);
-        Assert.Contains("iteration.build_issue_result.handled_by_gnougo", capturedPrompt);
+        Assert.Contains("iteration.build_item_result.processed", capturedPrompt);
         Assert.Contains("Emit booleans and numbers as unquoted YAML scalars", capturedPrompt);
         Assert.Contains("Use YAML literal block scalars (`|`) for multiline prompts/templates", capturedPrompt);
         Assert.Contains("Follow the discovered MCP schema and tool description exactly", capturedPrompt);
@@ -849,7 +849,7 @@ workflows:
         Assert.Contains("Never satisfy a missing required MCP argument with data.env.*, empty string, fake values, or casts.", capturedPrompt);
         Assert.Contains("Prefer the exact MCP argument name and type.", capturedPrompt);
         Assert.Contains("Expression function rules:", capturedPrompt);
-        Assert.Contains("Do not invent helpers such as `functions.parseRepoUrl`", capturedPrompt);
+        Assert.Contains("Do not invent helpers such as `functions.parseResourceId`", capturedPrompt);
         // Should contain built-in functions doc
         Assert.Contains("exists(val)", capturedPrompt);
         Assert.Contains("len(val)", capturedPrompt);
@@ -2265,6 +2265,11 @@ workflows:
                                 repository_url: ${data.inputs.target_repository_url}
                                 max_issues: ${data.inputs.number_of_issues_to_process}
                                 working_directory_base: ${data.steps.derive_working_directory.value}
+                          finally:
+                            - id: cleanup_marker
+                              type: set
+                              input:
+                                completed: true
                           outputs:
                             issues: ${data.steps.call_list_issues.outputs.issues}
                         """
@@ -2306,6 +2311,8 @@ workflows:
         Assert.DoesNotContain("working_directory_base", mainInputs.Keys);
         Assert.Contains("repository_url: ${data.inputs.target_repository_url}", yaml);
         Assert.Contains("max_issues: ${data.inputs.number_of_issues_to_process}", yaml);
+        Assert.Single(generatedDoc.Workflows["main"].Finally);
+        Assert.Equal("cleanup_marker", generatedDoc.Workflows["main"].Finally[0].Id);
 
         var assemblyPrompt = Assert.Single(requests, request =>
             request.Prompt.Contains("assembling the parent `main` workflow", StringComparison.Ordinal)).Prompt;
@@ -2335,9 +2342,10 @@ workflows:
         Assert.Contains("loop output: `${data.steps.<loop_id>.results}`", assemblyPrompt);
         Assert.Contains("Do not reference loop child step ids after the loop.", assemblyPrompt);
         Assert.Contains("loop result item shape: each element of `${data.steps.<loop_id>.results}`", assemblyPrompt);
-        Assert.Contains("iteration.build_issue_result.<field>", assemblyPrompt);
+        Assert.Contains("iteration.build_item_result.<field>", assemblyPrompt);
         Assert.Contains("To flatten loop results", assemblyPrompt);
         Assert.Contains("Do not add MCP, LLM, template, human-input, workflow.plan, or raw workflow.call support nodes to the main graph.", assemblyPrompt);
+        Assert.Contains("Put required resource cleanup in graph.finally.", assemblyPrompt);
         Assert.DoesNotContain("generated_leaf_workflows_yaml", assemblyPrompt);
         Assert.DoesNotContain("version: 1\nname: list-issues-leaf", assemblyPrompt);
     }
@@ -9947,7 +9955,7 @@ workflows:
 
         Assert.False(result.Success);
         Assert.NotNull(result.Error);
-        Assert.Equal(ErrorCodes.TemplatePolicy, result.Error!.Code);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
         Assert.Contains("workflow.plan", result.Error.Message);
     }
 
@@ -10034,7 +10042,7 @@ workflows:
         Assert.Contains("required_properties", prompts[1]);
         Assert.Contains("Input-level `required` is only a boolean", prompts[1]);
         Assert.Contains("<workflow_plan_generation_guardrails>", prompts[1]);
-        Assert.Contains("iteration.build_issue_result.handled_by_gnougo", prompts[1]);
+        Assert.Contains("iteration.build_item_result.processed", prompts[1]);
         Assert.Contains("Emit booleans and numbers as unquoted YAML scalars", prompts[1]);
         Assert.Contains("Use YAML literal block scalars (`|`) for multiline prompts/templates", prompts[1]);
         Assert.Contains("Fix the issues", prompts[1]);
@@ -10502,7 +10510,7 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.False(result.Success);
-        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
         Assert.Contains("MCP_SERVER_UNKNOWN", result.Error.Message);
         Assert.Contains("missing_docs", result.Error.Message);
         Assert.Contains("mcp.server:docs", result.Error.Message);
@@ -10560,7 +10568,7 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.False(result.Success);
-        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
         Assert.Contains("MCP_METHOD_UNKNOWN", result.Error.Message);
         Assert.Contains("missing_doc", result.Error.Message);
         Assert.Contains("mcp.server:docs.method:get_doc", result.Error.Message);
@@ -10618,7 +10626,7 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.False(result.Success);
-        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
         Assert.Contains("MCP_METHOD_UNKNOWN", result.Error.Message);
         Assert.Contains("input.methods[1]:missing_doc", result.Error.Message);
         Assert.Contains("mcp.server:docs.method:get_doc", result.Error.Message);
@@ -11402,7 +11410,7 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.False(result.Success);
-        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
         Assert.Contains("STEP_OUTPUT_PROPERTY_UNKNOWN", result.Error.Message);
         Assert.Contains("data.steps.fetch.response.missing_title", result.Error.Message);
         Assert.Contains("data.steps.fetch.response.title", result.Error.Message);
@@ -11468,7 +11476,7 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.False(result.Success);
-        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
         Assert.Contains("OPAQUE_RESPONSE_DEEP_ACCESS", result.Error.Message);
         Assert.Contains("json(data.steps.fetch.response)", result.Error.Message);
         Assert.Contains("structured_output", result.Error.Message);
@@ -11521,7 +11529,7 @@ workflows:
             .ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.False(result.Success);
-        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
         Assert.Contains("OPAQUE_RESPONSE_DEEP_ACCESS", result.Error.Message);
         Assert.Contains("data.steps.generate.raw.missing", result.Error.Message);
         Assert.Contains("opaque output", result.Error.Message);
@@ -11615,7 +11623,7 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.False(result.Success);
-        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
         Assert.Contains("MCP_REQUEST_SCHEMA_INVALID", result.Error.Message);
         Assert.Contains("input.request.method", result.Error.Message);
         Assert.Contains("missing required property", result.Error.Message);
@@ -14287,7 +14295,7 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.False(result.Success);
-        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
         Assert.Contains("INVALID_INPUT_SCHEMA", result.Error.Message);
         Assert.Contains("INVALID_OUTPUT_SCHEMA", result.Error.Message);
         Assert.Contains("STEP_REFERENCE_UNKNOWN", result.Error.Message);
@@ -14356,7 +14364,7 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.False(result.Success);
-        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
         Assert.Contains("STEP_REFERENCE_NOT_AVAILABLE", result.Error.Message);
         Assert.Contains("data.steps.set_fix_result.pr_link", result.Error.Message);
         Assert.Contains("data.steps.set_question_result.pr_link", result.Error.Message);
@@ -14440,7 +14448,7 @@ workflows:
         var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
 
         Assert.False(result.Success);
-        Assert.Equal(ErrorCodes.TemplatePlan, result.Error!.Code);
+        Assert.Equal(ErrorCodes.WorkflowPlanRepairStalled, result.Error!.Code);
         Assert.Contains("STEP_OUTPUT_PROPERTY_UNKNOWN", result.Error.Message);
         Assert.Contains("data.steps.compute_pr_result.pr_url", result.Error.Message);
     }
