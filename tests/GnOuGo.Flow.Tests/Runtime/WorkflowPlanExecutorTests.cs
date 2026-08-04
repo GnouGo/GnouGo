@@ -2367,9 +2367,10 @@ workflows:
                     {
                       "type": "object",
                       "properties": {
+                        "operation": { "type": "string", "enum": ["list"] },
                         "repository_url": { "type": "string" }
                       },
-                      "required": ["repository_url"],
+                      "required": ["operation", "repository_url"],
                       "additionalProperties": false
                     }
                     """),
@@ -2496,6 +2497,14 @@ workflows:
                                         ["server"] = "github",
                                         ["kind"] = "tool",
                                         ["method"] = "list_issues",
+                                        ["request_bindings"] = new JsonArray
+                                        {
+                                            new JsonObject
+                                            {
+                                                ["path"] = "/operation",
+                                                ["value"] = "list"
+                                            }
+                                        },
                                         ["required"] = true,
                                         ["purpose"] = "Fetch repository issues.",
                                         ["consumes"] = new JsonArray { "repository_url" },
@@ -2511,6 +2520,7 @@ workflows:
                 {
                     Assert.Contains("Planned MCP tools:", request.Prompt);
                     Assert.Contains("github/list_issues", request.Prompt);
+                    Assert.Contains("/operation=\"list\"", request.Prompt);
                     Assert.Contains("Structured output schemas:", request.Prompt);
                     Assert.Contains("html_url", request.Prompt);
 
@@ -2549,6 +2559,7 @@ workflows:
                                   kind: tool
                                   method: list_issues
                                   request:
+                                    operation: list
                                     repository_url: ${data.inputs.repository_url}
                             outputs:
                               issues:
@@ -2673,6 +2684,8 @@ workflows:
         Assert.Equal("github", plannedTool["server"]!.GetValue<string>());
         Assert.Equal("list_issues", plannedTool["method"]!.GetValue<string>());
         Assert.True(plannedTool["required"]!.GetValue<bool>());
+        Assert.Equal("/operation", plannedTool["request_bindings"]![0]!["path"]!.GetValue<string>());
+        Assert.Equal("list", plannedTool["request_bindings"]![0]!["value"]!.GetValue<string>());
         Assert.Contains("html_url", spec["output_schemas"]!.ToJsonString());
     }
 

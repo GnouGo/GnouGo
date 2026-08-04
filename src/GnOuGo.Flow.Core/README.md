@@ -1263,7 +1263,9 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 
 #### Generic capability preflight
 
-`capability_preflight.mode: infer` discovers every configured MCP catalog and asks one strict structured-output planning call to separate positive operations from constraints. Positive operations resolve to an exact advertised MCP tool/prompt, an allowed native Flow step, or `unavailable`; required unavailable operations fail before classification, decomposition, or YAML generation. Prohibitions, safety rules, ordering requirements, and invariants are constraints rather than executable operations, so abstaining never requires a tool. Resolved operations and constraints are locked into basic generation and pipeline decomposition, then validated against the generated direct calls.
+`capability_preflight.mode: infer` discovers every configured MCP catalog and uses two strict structured-output calls. Pass 1 inventories positive runtime operations and constraints without seeing tools. Pass 2 matches that inventory to deterministic opaque IDs from a compact schema-aware catalog. The catalog expands documented scalar `enum`/`const`, nested selectors, discriminators, `oneOf`, and `anyOf` branches, so logical variants of one physical tool remain distinct capabilities. Required unavailable operations fail before classification, decomposition, or YAML generation. Prohibitions, safety rules, ordering requirements, and invariants are constraints rather than executable operations, so abstaining never requires a tool.
+
+The inventory excludes configuration already supplied by the host, provider or credential resolution performed internally by a selected capability, and persistence performed outside the generated workflow. Catalog traversal is bounded to four schema levels, 64 selector values per property, 512 description characters, and 256,000 total catalog characters. An incomplete or oversized catalog fails closed with `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`.
 
 Ordinary `workflow.plan` callers remain compatible because the default is `off`. `explicit` mode performs the same deterministic validation without an inference call:
 
@@ -1278,6 +1280,9 @@ capability_preflight:
         - server: object-storage
           kind: tool
           method: get_object
+          request_bindings:
+            - path: /method
+              value: get_metadata
         - server: archive-storage
           kind: prompt
           method: retrieve_object
@@ -1296,9 +1301,12 @@ capability_preflight:
         - server: object-storage
           kind: tool
           method: delete_object
+          request_bindings:
+            - path: /mode
+              value: permanent
 ```
 
-Alternatives are exact tuples; capabilities from different alternatives cannot be combined. A required constraint may have no denied alternatives when it is a textual invariant; any listed denial must be an exact discovered tuple, and generated direct calls to it are rejected. Discovery, inference, and availability failures return `CAPABILITY_PREFLIGHT_DISCOVERY_FAILED`, `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`, and `CAPABILITY_PREFLIGHT_UNAVAILABLE` respectively.
+`request_bindings` are optional for backward compatibility. Each binding is an RFC 6901 JSON Pointer relative to `mcp.call.input.request` and a JSON scalar value documented by the discovered input schema. When present, the generated call must contain that exact literal request value; expressions and opaque request construction do not satisfy it. Selector-aware denials reject only the matching logical variant, while a denial without bindings rejects the whole tool or prompt. Discovery, inference, and availability failures return `CAPABILITY_PREFLIGHT_DISCOVERY_FAILED`, `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`, and `CAPABILITY_PREFLIGHT_UNAVAILABLE` respectively.
 
 #### Auto and basic modes
 

@@ -316,9 +316,10 @@ workflows:
                   The stored agent workflow must be self-contained and should not ask the user to review its own YAML.
                   Enumerate every required positive external read, write, side effect, resource lifecycle, cleanup, and recovery operation before decomposition.
                   Classify prohibitions, safety rules, ordering requirements, and invariants as constraints rather than executable operations. A prohibition never requires a tool merely to abstain from an action.
+                  Treat this generated workflow as the runtime boundary: do not inventory host configuration, credential/provider resolution performed inside selected capabilities, or persistence of the generated agent performed by this outer workflow.
                   Resolve each external operation only to an exact capability discovered from a configured MCP catalog, or to an allowed native Flow step.
                   Never invent, rename, substitute, or silently omit a required capability. If the preflight inventory is incomplete or a required operation is unavailable, fail before generating or persisting the agent.
-                  Keep the capability decisions locked through decomposition and emit each required external operation as a direct call to the exact discovered server, kind, and method.
+                  Keep the capability decisions locked through decomposition and emit each required external operation as a direct call to the exact discovered server, kind, method, and literal schema selector bindings.
                   Put required resource cleanup in the workflow-level finally array so it runs after success, failure, or cancellation.
               policy:
                 allowed_step_types:

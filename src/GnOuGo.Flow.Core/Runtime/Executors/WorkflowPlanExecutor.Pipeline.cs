@@ -1214,7 +1214,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             - Avoid `any`, bare `object`, and bare `array` outputs. If an output may be looped over or inspected by the main workflow, declare concrete `items` and object `properties`.
             - Structured `planned_tools` must list every MCP server tool or prompt this leaf is expected to call directly.
             - Mark planned tools as required when omitting that MCP call would violate the leaf goal.
-            - For each relevant MCP tool or prompt, add a structured planned_tools entry with the exact server name, kind, method name, purpose, consumed fields, and produced fields.
+            - For each relevant MCP tool or prompt, add a structured planned_tools entry with the exact server name, kind, method name, purpose, consumed fields, produced fields, and any locked request_bindings.
+            - request_bindings are JSON Pointer/scalar pairs that must later appear as exact literal values under mcp.call.input.request. Do not omit, merge, or dynamically construct them.
             - External-work leaves that clone, read/fetch/query/list external data, write, delete, cleanup, report, post, push, or call outside systems must declare concrete planned_tools when matching MCP tools/prompts are documented above.
             - Do not invent planned tools. Only use MCP servers, tools, and prompts documented in the global MCP tool context.
             - If no MCP tool or prompt is required for a leaf, use an empty planned_tools array.
@@ -2000,6 +2001,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                         "server": { "type": "string" },
                         "kind": { "type": "string", "enum": ["tool", "prompt"] },
                         "method": { "type": "string" },
+                        "request_bindings": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["path", "value"],
+                            "properties": {
+                              "path": { "type": "string" },
+                              "value": { "type": ["string", "number", "boolean", "null"] }
+                            }
+                          }
+                        },
                         "required": { "type": "boolean" },
                         "purpose": { "type": "string" },
                         "consumes": { "type": "array", "items": { "type": "string" } },
@@ -2283,6 +2296,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             var server = GetStringProperty(tool, "server") ?? "";
             var kind = GetStringProperty(tool, "kind") ?? "tool";
             var method = GetStringProperty(tool, "method") ?? "";
+            IReadOnlyList<CapabilityRequestBinding> requestBindings;
+            try
+            {
+                requestBindings = ParseCapabilityRequestBindings(
+                    tool["request_bindings"] as JsonArray,
+                    $"Structured subworkflow '{subworkflowName}' planned tool '{server}/{method}'");
+            }
+            catch (WorkflowRuntimeException ex)
+            {
+                validationErrors.Add(ex.Message);
+                requestBindings = Array.Empty<CapabilityRequestBinding>();
+            }
             var required = tool["required"] is JsonValue requiredValue
                            && requiredValue.TryGetValue<bool>(out var requiredBool)
                            && requiredBool;
@@ -2294,7 +2319,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 required,
                 GetStringProperty(tool, "purpose"),
                 GetStringArray(tool["consumes"] as JsonArray),
-                GetStringArray(tool["produces"] as JsonArray)));
+                GetStringArray(tool["produces"] as JsonArray),
+                requestBindings));
         }
 
         return result;
@@ -2463,6 +2489,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 : server.Tools.Any(tool => string.Equals(tool.Name, plannedTool.Method, StringComparison.Ordinal));
             if (!exists)
                 validationErrors.Add($"Subworkflow '{subworkflowName}' planned {plannedTool.Kind} '{plannedTool.Server}/{plannedTool.Method}' was not found in discovered MCP capabilities.");
+            else if (plannedTool.RequestBindings.Count > 0 && !AlternativeBindingsMatchSchema(
+                         new CapabilityAlternative(plannedTool.Server, plannedTool.Kind, plannedTool.Method, plannedTool.RequestBindings),
+                         server))
+                validationErrors.Add($"Subworkflow '{subworkflowName}' planned tool '{plannedTool.Server}/{plannedTool.Method}' contains request_bindings that are not documented scalar selectors in the discovered input schema.");
         }
     }
 
@@ -3475,6 +3505,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 sb.AppendLine($"  consumes: {string.Join(", ", plannedTool.Consumes)}");
             if (plannedTool.Produces.Count > 0)
                 sb.AppendLine($"  produces: {string.Join(", ", plannedTool.Produces)}");
+            if (plannedTool.RequestBindings.Count > 0)
+                sb.AppendLine($"  request_bindings (mandatory literal request values): {FormatBindingsCompact(plannedTool.RequestBindings)}");
         }
     }
 
@@ -3837,7 +3869,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
     private static bool PlannedToolMatches(PipelinePlannedTool candidate, PipelinePlannedTool expected)
         => string.Equals(candidate.Server, expected.Server, StringComparison.Ordinal)
            && string.Equals(candidate.Kind, expected.Kind, StringComparison.Ordinal)
-           && string.Equals(candidate.Method, expected.Method, StringComparison.Ordinal);
+           && string.Equals(candidate.Method, expected.Method, StringComparison.Ordinal)
+           && RequestBindingsEqual(candidate.RequestBindings, expected.RequestBindings);
 
     private static JsonObject BuildLeafPlanInput(
         JsonObject pipelineInput,
@@ -3889,6 +3922,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("- Implement every required planned tool call and public output binding from the blueprint.");
         sb.AppendLine("- Do not weaken output schemas from the blueprint.");
         sb.AppendLine("- If the blueprint names a planned MCP tool, the YAML must contain a matching explicit direct mcp.call.");
+        sb.AppendLine("- Every planned tool request_binding must appear as the exact literal scalar at its JSON Pointer path under mcp.call.input.request. Expressions, opaque request objects, and a different selector value are invalid.");
         AppendPromptSection(sb, "locked_leaf_blueprint_json", BuildPipelineLeafBlueprintJson(blueprint).ToJsonString(PromptJsonOptions));
         return sb.ToString().TrimEnd();
     }
@@ -5218,7 +5252,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         foreach (var requiredTool in blueprint.Steps
                      .Where(static step => step.PlannedTool is { Required: true })
                      .Select(static step => step.PlannedTool!)
-                     .DistinctBy(static tool => $"{tool.Server}/{tool.Kind}/{tool.Method}", StringComparer.Ordinal))
+                     .DistinctBy(static tool => $"{tool.Server}/{tool.Kind}/{tool.Method}/{CanonicalizeBindings(tool.RequestBindings)}", StringComparer.Ordinal))
         {
             if (!WorkflowContainsPlannedMcpToolCall(workflow, requiredTool))
             {
@@ -5227,7 +5261,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                     spec.Name,
                     "steps",
                     "PIPELINE_LEAF_BLUEPRINT_YAML_MISSING_PLANNED_TOOL",
-                    $"Generated YAML did not use required planned MCP tool {requiredTool.Server}/{requiredTool.Method} ({requiredTool.Kind}) from the locked blueprint.");
+                    $"Generated YAML did not use required planned MCP tool {requiredTool.Server}/{requiredTool.Method} ({requiredTool.Kind}) from the locked blueprint with literal request bindings [{FormatBindingsCompact(requiredTool.RequestBindings)}].");
             }
         }
 
@@ -5480,7 +5514,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         var missing = requiredTools
             .Where(plannedTool => !WorkflowContainsPlannedMcpToolCall(workflow, plannedTool))
-            .Select(static plannedTool => $"{plannedTool.Server}/{plannedTool.Method} ({plannedTool.Kind})")
+            .Select(static plannedTool => $"{plannedTool.Server}/{plannedTool.Method} ({plannedTool.Kind}) bindings=[{FormatBindingsCompact(plannedTool.RequestBindings)}]")
             .Order(StringComparer.Ordinal)
             .ToArray();
         if (missing.Length == 0)
@@ -5488,7 +5522,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
         throw new WorkflowRuntimeException(
             ErrorCodes.TemplatePlan,
-            $"Leaf workflow '{spec.Name}' did not use required planned MCP tool(s): {string.Join(", ", missing)}. Add explicit direct mcp.call step(s) with matching input.server, input.kind, and literal input.method or input.methods.");
+            $"Leaf workflow '{spec.Name}' did not use required planned MCP tool(s): {string.Join(", ", missing)}. Add explicit direct mcp.call step(s) with matching input.server, input.kind, literal input.method, and every locked request binding as a literal input.request value. Dynamic or opaque selector construction cannot satisfy a locked capability.");
     }
 
     private static void EnforcePipelineLeafIntent(WorkflowPipelineSubworkflowSpec spec, WorkflowDef workflow)
@@ -5681,11 +5715,11 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 continue;
 
             if (StringNodeEquals(input["method"], plannedTool.Method))
-                return true;
+                return RequestContainsLiteralBindings(input["request"], plannedTool.RequestBindings);
 
             if (input["methods"] is JsonArray methods
                 && methods.Any(method => StringNodeEquals(method, plannedTool.Method)))
-                return true;
+                return RequestContainsLiteralBindings(input["request"], plannedTool.RequestBindings);
         }
 
         return false;
@@ -8972,6 +9006,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             ["server"] = tool.Server,
             ["kind"] = tool.Kind,
             ["method"] = tool.Method,
+            ["request_bindings"] = BuildRequestBindingsJson(tool.RequestBindings),
             ["required"] = tool.Required,
             ["purpose"] = tool.Purpose,
             ["consumes"] = BuildStringArrayJson(tool.Consumes),
@@ -9120,7 +9155,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         bool Required,
         string? Purpose,
         IReadOnlyList<string> Consumes,
-        IReadOnlyList<string> Produces);
+        IReadOnlyList<string> Produces,
+        IReadOnlyList<CapabilityRequestBinding> RequestBindings);
 
     private sealed record StructuredPipelineExtractionMetadata(
         IReadOnlyDictionary<string, StructuredPipelineSubworkflowMetadata> Subworkflows,

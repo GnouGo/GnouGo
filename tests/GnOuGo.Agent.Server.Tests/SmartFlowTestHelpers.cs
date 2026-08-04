@@ -65,14 +65,27 @@ internal sealed class RecordingLlmClient : ILLMClient
     {
         CallCount++;
         LastRequest = request;
-        if (request.Prompt.Contains("domain-neutral workflow capability analyst", StringComparison.OrdinalIgnoreCase))
+        if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult(new LLMResponse
             {
                 Json = new JsonObject
                 {
                     ["complete"] = true,
-                    ["operations"] = new JsonArray()
+                    ["operations"] = new JsonArray(),
+                    ["constraints"] = new JsonArray()
+                }
+            });
+        }
+        if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(new LLMResponse
+            {
+                Json = new JsonObject
+                {
+                    ["complete"] = true,
+                    ["operation_matches"] = new JsonArray(),
+                    ["constraint_denials"] = new JsonArray()
                 }
             });
         }

@@ -8,7 +8,13 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 
 public sealed partial class WorkflowPlanExecutor
 {
-    private sealed record CapabilityAlternative(string Server, string Kind, string Method);
+    private sealed record CapabilityRequestBinding(string Path, JsonNode? Value);
+
+    private sealed record CapabilityAlternative(
+        string Server,
+        string Kind,
+        string Method,
+        IReadOnlyList<CapabilityRequestBinding> RequestBindings);
 
     private sealed record CapabilityRequirement(
         string Id,
@@ -29,7 +35,8 @@ public sealed partial class WorkflowPlanExecutor
         string Resolution,
         string? Server,
         string? Kind,
-        string? Method);
+        string? Method,
+        IReadOnlyList<CapabilityRequestBinding> RequestBindings);
 
     private sealed record CapabilityPreflightResult(
         string Mode,
@@ -108,6 +115,7 @@ public sealed partial class WorkflowPlanExecutor
             {
                 var requirements = ParseExplicitCapabilityRequirements(preflight?["requirements"] as JsonArray);
                 constraints = ParseCapabilityConstraints(preflight?["constraints"] as JsonArray);
+                ValidateExplicitCapabilityBindings(requirements, constraints, discovered);
                 var unresolvedDiscoveryServers = requirements
                     .Where(static requirement => requirement.Required)
                     .Where(requirement => !HasExactDiscoveredAlternative(requirement, discovered))
@@ -210,21 +218,9 @@ public sealed partial class WorkflowPlanExecutor
             if (string.IsNullOrWhiteSpace(description))
                 throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"Capability requirement '{id}' requires a non-empty description.");
 
-            var alternatives = new List<CapabilityAlternative>();
-            if (requirement["alternatives"] is JsonArray alternativesArray)
-            {
-                foreach (var alternativeNode in alternativesArray)
-                {
-                    if (alternativeNode is not JsonObject alternative)
-                        throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"Capability requirement '{id}' contains an invalid alternative.");
-                    var server = alternative["server"]?.GetValue<string>()?.Trim();
-                    var kind = alternative["kind"]?.GetValue<string>()?.Trim().ToLowerInvariant();
-                    var method = alternative["method"]?.GetValue<string>()?.Trim();
-                    if (string.IsNullOrWhiteSpace(server) || kind is not ("tool" or "prompt") || string.IsNullOrWhiteSpace(method))
-                        throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"Capability requirement '{id}' alternatives require server, tool|prompt kind, and method.");
-                    alternatives.Add(new CapabilityAlternative(server, kind, method));
-                }
-            }
+            var alternatives = ParseCapabilityAlternatives(
+                requirement["alternatives"] as JsonArray,
+                $"Capability requirement '{id}'");
 
             if (required && alternatives.Count == 0)
                 throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"Required capability '{id}' must declare at least one alternative.");
@@ -279,10 +275,37 @@ public sealed partial class WorkflowPlanExecutor
             var method = alternative["method"]?.GetValue<string>()?.Trim();
             if (string.IsNullOrWhiteSpace(server) || kind is not ("tool" or "prompt") || string.IsNullOrWhiteSpace(method))
                 throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"{owner} alternatives require server, tool|prompt kind, and method.");
-            alternatives.Add(new CapabilityAlternative(server, kind, method));
+            var bindings = ParseCapabilityRequestBindings(
+                alternative["request_bindings"] as JsonArray,
+                $"{owner} alternative '{server}/{method}'");
+            if (kind == "prompt" && bindings.Count > 0)
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"{owner} prompt alternatives cannot declare request_bindings.");
+            alternatives.Add(new CapabilityAlternative(server, kind, method, bindings));
         }
 
         return alternatives;
+    }
+
+    private static IReadOnlyList<CapabilityRequestBinding> ParseCapabilityRequestBindings(JsonArray? nodes, string owner)
+    {
+        if (nodes == null || nodes.Count == 0)
+            return Array.Empty<CapabilityRequestBinding>();
+
+        var result = new List<CapabilityRequestBinding>(nodes.Count);
+        var paths = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var node in nodes)
+        {
+            if (node is not JsonObject binding)
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"{owner} contains an invalid request binding.");
+            var path = binding["path"]?.GetValue<string>()?.Trim();
+            if (string.IsNullOrWhiteSpace(path) || !IsValidJsonPointer(path) || !paths.Add(path))
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"{owner} request binding paths must be unique RFC 6901 JSON Pointers.");
+            if (!binding.ContainsKey("value") || !IsJsonScalar(binding["value"]))
+                throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"{owner} request binding '{path}' must contain a JSON scalar value.");
+            result.Add(new CapabilityRequestBinding(path, binding["value"]?.DeepClone()));
+        }
+
+        return result;
     }
 
     private static IReadOnlyList<ResolvedCapability> ResolveExplicitCapabilities(
@@ -301,7 +324,7 @@ public sealed partial class WorkflowPlanExecutor
                 var exists = alternative.Kind == "prompt"
                     ? server.Prompts.Any(prompt => string.Equals(prompt.Name, alternative.Method, StringComparison.Ordinal))
                     : server.Tools.Any(tool => string.Equals(tool.Name, alternative.Method, StringComparison.Ordinal));
-                if (exists)
+                if (exists && AlternativeBindingsMatchSchema(alternative, server))
                 {
                     match = alternative;
                     break;
@@ -309,11 +332,40 @@ public sealed partial class WorkflowPlanExecutor
             }
 
             resolved.Add(match == null
-                ? new ResolvedCapability(requirement.Id, requirement.Description, requirement.Required, "unavailable", null, null, null)
-                : new ResolvedCapability(requirement.Id, requirement.Description, requirement.Required, "mcp", match.Server, match.Kind, match.Method));
+                ? new ResolvedCapability(requirement.Id, requirement.Description, requirement.Required, "unavailable", null, null, null, Array.Empty<CapabilityRequestBinding>())
+                : new ResolvedCapability(requirement.Id, requirement.Description, requirement.Required, "mcp", match.Server, match.Kind, match.Method, match.RequestBindings));
         }
 
         return resolved;
+    }
+
+    private static void ValidateExplicitCapabilityBindings(
+        IReadOnlyList<CapabilityRequirement> requirements,
+        IReadOnlyList<CapabilityConstraint> constraints,
+        IReadOnlyList<McpServerDiscovery> discovered)
+    {
+        var alternatives = requirements.SelectMany(static requirement => requirement.Alternatives)
+            .Concat(constraints.SelectMany(static constraint => constraint.DeniedAlternatives));
+        foreach (var alternative in alternatives.Where(static item => item.RequestBindings.Count > 0))
+        {
+            var server = discovered.FirstOrDefault(candidate => string.Equals(candidate.Name, alternative.Server, StringComparison.Ordinal));
+            if (server?.Discovered != true)
+                continue;
+            if (!AlternativeBindingsMatchSchema(alternative, server))
+            {
+                throw new WorkflowRuntimeException(
+                    ErrorCodes.InputValidation,
+                    $"Capability alternative '{alternative.Server}/{alternative.Method}' contains request_bindings that are not documented scalar selectors in the discovered input schema.",
+                    details: new JsonObject
+                    {
+                        ["phase"] = "capability_preflight",
+                        ["server"] = alternative.Server,
+                        ["kind"] = alternative.Kind,
+                        ["method"] = alternative.Method,
+                        ["request_bindings"] = BuildRequestBindingsJson(alternative.RequestBindings)
+                    });
+            }
+        }
     }
 
     private static bool HasExactDiscoveredAlternative(
@@ -329,7 +381,7 @@ public sealed partial class WorkflowPlanExecutor
             var exists = alternative.Kind == "prompt"
                 ? server.Prompts.Any(prompt => string.Equals(prompt.Name, alternative.Method, StringComparison.Ordinal))
                 : server.Tools.Any(tool => string.Equals(tool.Name, alternative.Method, StringComparison.Ordinal));
-            if (exists)
+            if (exists && AlternativeBindingsMatchSchema(alternative, server))
                 return true;
         }
         return false;
@@ -353,70 +405,42 @@ public sealed partial class WorkflowPlanExecutor
         var model = resolvedModel ?? "gpt-4";
         var reasoning = generator["reasoning"]?.GetValue<string>() ?? "low";
         var allowedNativeTypes = ResolveAllowedNativeStepTypes(ctx, input);
-        var prompt = BuildCapabilityInferencePrompt(instruction, generatorContext, discovered, allowedNativeTypes);
+        var catalog = BuildSchemaAwareCapabilityCatalog(discovered, allowedNativeTypes);
 
         using var inferenceSpan = ctx.BeginTelemetrySpan(parentSpan!, "workflow.plan.capability_preflight.infer", "capability_preflight_infer", new[]
         {
             new KeyValuePair<string, object?>("gen_ai.operation.name", "chat"),
             new KeyValuePair<string, object?>("gen_ai.system", provider ?? "unknown"),
-            new KeyValuePair<string, object?>("gen_ai.request.model", model)
+            new KeyValuePair<string, object?>("gen_ai.request.model", model),
+            new KeyValuePair<string, object?>("gnougo-flow.plan.capability_catalog.entry_count", catalog.Entries.Count)
         });
 
         try
         {
-            var response = await llmClient.CallAsync(new LLMRequest
+            var inventoryResponse = await llmClient.CallAsync(new LLMRequest
             {
                 Provider = provider,
                 Model = model,
-                Prompt = prompt,
+                Prompt = BuildCapabilityInventoryPrompt(instruction, generatorContext),
                 Reasoning = reasoning,
-                StructuredOutputSchema = BuildCapabilityInferenceSchema(),
+                StructuredOutputSchema = BuildCapabilityInventorySchema(),
                 StructuredOutputStrict = true
             }, ct);
-            AddUsageAttributes(inferenceSpan, response.Usage, model, provider);
+            AddUsageAttributes(inferenceSpan, inventoryResponse.Usage, model, provider);
+            var inventory = ParseCapabilityInventory(ParseStructuredObject(inventoryResponse, "operation inventory"));
 
-            var json = response.Json as JsonObject;
-            if (json == null && !string.IsNullOrWhiteSpace(response.Text))
-                json = JsonNode.Parse(StripMarkdownFences(response.Text).Trim()) as JsonObject;
-            if (json == null || json["complete"] is not JsonValue completeValue || !completeValue.TryGetValue<bool>(out var complete))
-                throw new InvalidOperationException("Capability inference response is missing the complete flag.");
-            if (!complete)
-                throw new WorkflowRuntimeException(
-                    ErrorCodes.CapabilityPreflightInferenceFailed,
-                    "Capability inference reported that it could not produce a complete operation inventory.");
-
-            var operations = json["operations"] as JsonArray
-                ?? throw new InvalidOperationException("Capability inference response is missing operations.");
-            var resolved = new List<ResolvedCapability>(operations.Count);
-            var identifiers = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var node in operations)
+            var matchingResponse = await llmClient.CallAsync(new LLMRequest
             {
-                if (node is not JsonObject operation)
-                    throw new InvalidOperationException("Capability inference operation must be an object.");
-                var id = operation["id"]?.GetValue<string>()?.Trim();
-                var description = operation["description"]?.GetValue<string>()?.Trim();
-                var required = operation["required"]?.GetValue<bool>() ?? true;
-                var resolution = operation["resolution"]?.GetValue<string>()?.Trim().ToLowerInvariant();
-                var server = EmptyToNull(operation["server"]?.GetValue<string>());
-                var kind = EmptyToNull(operation["kind"]?.GetValue<string>())?.ToLowerInvariant();
-                var method = EmptyToNull(operation["method"]?.GetValue<string>());
-                if (string.IsNullOrWhiteSpace(id) || !identifiers.Add(id) || string.IsNullOrWhiteSpace(description))
-                    throw new InvalidOperationException("Capability inference operation ids must be unique and descriptions must be non-empty.");
-                if (resolution is not ("mcp" or "native" or "unavailable"))
-                    throw new InvalidOperationException($"Capability inference operation '{id}' has invalid resolution '{resolution}'.");
-                if (resolution == "mcp"
-                    && (string.IsNullOrWhiteSpace(server) || kind is not ("tool" or "prompt") || string.IsNullOrWhiteSpace(method)))
-                    throw new InvalidOperationException($"Capability inference operation '{id}' has an incomplete MCP resolution.");
-                if (resolution == "native"
-                    && (!string.IsNullOrWhiteSpace(server) || !string.IsNullOrWhiteSpace(kind) || string.IsNullOrWhiteSpace(method)))
-                    throw new InvalidOperationException($"Capability inference operation '{id}' has an invalid native resolution.");
-                if (resolution == "unavailable"
-                    && (!string.IsNullOrWhiteSpace(server) || !string.IsNullOrWhiteSpace(kind) || !string.IsNullOrWhiteSpace(method)))
-                    throw new InvalidOperationException($"Capability inference operation '{id}' has an invalid unavailable resolution.");
-                resolved.Add(new ResolvedCapability(id, description, required, resolution, server, kind, method));
-            }
-
-            var constraints = ParseInferredCapabilityConstraints(json["constraints"] as JsonArray, identifiers);
+                Provider = provider,
+                Model = model,
+                Prompt = BuildCapabilityMatchingPrompt(inventory, catalog),
+                Reasoning = reasoning,
+                StructuredOutputSchema = BuildCapabilityMatchingSchema(),
+                StructuredOutputStrict = true
+            }, ct);
+            AddUsageAttributes(inferenceSpan, matchingResponse.Usage, model, provider);
+            var (resolved, constraints) = ParseCapabilityMatches(
+                ParseStructuredObject(matchingResponse, "capability matching"), inventory, catalog);
 
             inferenceSpan.Complete();
             return (resolved, constraints);
@@ -439,39 +463,12 @@ public sealed partial class WorkflowPlanExecutor
         }
     }
 
-    private static IReadOnlyList<CapabilityConstraint> ParseInferredCapabilityConstraints(
-        JsonArray? constraints,
-        HashSet<string> identifiers)
+    private static JsonObject ParseStructuredObject(LLMResponse response, string phase)
     {
-        if (constraints == null || constraints.Count == 0)
-            return Array.Empty<CapabilityConstraint>();
-
-        var parsed = new List<CapabilityConstraint>(constraints.Count);
-        foreach (var node in constraints)
-        {
-            if (node is not JsonObject constraint)
-                throw new InvalidOperationException("Capability inference constraint must be an object.");
-            var id = constraint["id"]?.GetValue<string>()?.Trim();
-            var description = constraint["description"]?.GetValue<string>()?.Trim();
-            var required = constraint["required"]?.GetValue<bool>() ?? true;
-            if (string.IsNullOrWhiteSpace(id) || !identifiers.Add(id) || string.IsNullOrWhiteSpace(description))
-                throw new InvalidOperationException("Capability inference ids must be unique and constraint descriptions must be non-empty.");
-
-            IReadOnlyList<CapabilityAlternative> denied;
-            try
-            {
-                denied = ParseCapabilityAlternatives(
-                    constraint["denied_alternatives"] as JsonArray,
-                    $"Capability constraint '{id}'");
-            }
-            catch (WorkflowRuntimeException ex)
-            {
-                throw new InvalidOperationException(ex.Message, ex);
-            }
-            parsed.Add(new CapabilityConstraint(id, description, required, denied));
-        }
-
-        return parsed;
+        var json = response.Json as JsonObject;
+        if (json == null && !string.IsNullOrWhiteSpace(response.Text))
+            json = JsonNode.Parse(StripMarkdownFences(response.Text).Trim()) as JsonObject;
+        return json ?? throw new InvalidOperationException($"Capability {phase} returned no structured object.");
     }
 
     private static HashSet<string> ResolveAllowedNativeStepTypes(StepExecutionContext ctx, JsonObject? input)
@@ -487,54 +484,25 @@ public sealed partial class WorkflowPlanExecutor
         return available;
     }
 
-    private static string BuildCapabilityInferencePrompt(
-        string instruction,
-        string context,
-        IReadOnlyList<McpServerDiscovery> discovered,
-        IReadOnlySet<string> nativeStepTypes)
-    {
-        var catalog = new StringBuilder();
-        foreach (var server in discovered)
-        {
-            catalog.AppendLine($"server: {server.Name}");
-            if (!string.IsNullOrWhiteSpace(server.Description))
-                catalog.AppendLine($"  description: {server.Description}");
-            foreach (var tool in server.Tools)
-                catalog.AppendLine($"  tool: {tool.Name} — {tool.Description}");
-            foreach (var prompt in server.Prompts)
-                catalog.AppendLine($"  prompt: {prompt.Name} — {prompt.Description}");
-        }
+    private static string BuildCapabilityInventoryPrompt(string instruction, string context) => $$"""
+        You are a domain-neutral workflow runtime analyst. Return only the requested structured JSON.
 
-        return $$"""
-            You are a domain-neutral workflow capability analyst. Return only the requested structured JSON.
+        Pass 1 has no tool catalog. Enumerate every distinct positive operation that the generated workflow itself must perform at runtime to satisfy the task. Include required external reads, external writes, resource creation, cleanup, recovery, and user interactions. Do not guess implementation names.
 
-            Enumerate every distinct positive operation required to satisfy the task before workflow generation. Include external reads, external writes, side effects, resource creation, resource cleanup, and recovery actions. Do not omit an operation merely because no matching capability exists.
+        Separately enumerate constraints: prohibitions, safety rules, ordering requirements, and invariants. A prohibition is never a positive operation.
 
-            Separately enumerate constraints: prohibitions, safety rules, ordering requirements, and invariants that describe what must not happen or what must remain true. A prohibition is not a positive operation and must never be marked unavailable merely because abstaining does not require a tool. When a constraint forbids one or more exact catalog capabilities, list those exact entries in denied_alternatives. Leave denied_alternatives empty for constraints that cannot be represented as exact catalog denials.
+        Runtime boundary rules:
+        - Exclude host configuration already supplied to the workflow runtime.
+        - Exclude credentials, provider selection, secret-vault lookup, authentication, and connection setup performed internally by whichever runtime capability is selected later.
+        - Exclude persistence, registration, or provisioning of the generated workflow/agent when that happens outside the generated workflow after planning.
+        - Include cleanup only when the generated workflow must execute it at runtime.
+        - Mark optional enrichment required=false.
+        - Set complete=false if the runtime inventory is uncertain or incomplete.
 
-            Resolution rules:
-            - Use `mcp` only with one exact server, kind, and method from the catalog.
-            - Use `native` only with one exact allowed native step type in method; server and kind must be empty strings.
-            - Use `unavailable` when no listed capability can perform the operation; server, kind, and method must be empty strings.
-            - Mark an operation required when omitting it would violate the task. Optional enrichment may be required=false.
-            - Constraints do not require a capability resolution and never make capability availability fail by themselves.
-            - denied_alternatives may contain only exact server/kind/method entries from the catalog.
-            - Do not infer support from names, URLs, brands, or undocumented behavior.
-            - Set complete=false if the operation inventory itself is uncertain or incomplete.
+        {{BuildUserTaskBlock(instruction, context)}}
+        """;
 
-            <allowed_native_step_types>
-            {{string.Join("\n", nativeStepTypes.OrderBy(static value => value, StringComparer.Ordinal))}}
-            </allowed_native_step_types>
-
-            <mcp_catalog>
-            {{catalog}}
-            </mcp_catalog>
-
-            {{BuildUserTaskBlock(instruction, context)}}
-            """;
-    }
-
-    private static JsonObject BuildCapabilityInferenceSchema() => new()
+    private static JsonObject BuildCapabilityInventorySchema() => new()
     {
         ["type"] = "object",
         ["properties"] = new JsonObject
@@ -550,17 +518,9 @@ public sealed partial class WorkflowPlanExecutor
                     {
                         ["id"] = new JsonObject { ["type"] = "string" },
                         ["description"] = new JsonObject { ["type"] = "string" },
-                        ["required"] = new JsonObject { ["type"] = "boolean" },
-                        ["resolution"] = new JsonObject
-                        {
-                            ["type"] = "string",
-                            ["enum"] = new JsonArray("mcp", "native", "unavailable")
-                        },
-                        ["server"] = new JsonObject { ["type"] = "string" },
-                        ["kind"] = new JsonObject { ["type"] = "string" },
-                        ["method"] = new JsonObject { ["type"] = "string" }
+                        ["required"] = new JsonObject { ["type"] = "boolean" }
                     },
-                    ["required"] = new JsonArray("id", "description", "required", "resolution", "server", "kind", "method"),
+                    ["required"] = new JsonArray("id", "description", "required"),
                     ["additionalProperties"] = false
                 }
             },
@@ -574,25 +534,9 @@ public sealed partial class WorkflowPlanExecutor
                     {
                         ["id"] = new JsonObject { ["type"] = "string" },
                         ["description"] = new JsonObject { ["type"] = "string" },
-                        ["required"] = new JsonObject { ["type"] = "boolean" },
-                        ["denied_alternatives"] = new JsonObject
-                        {
-                            ["type"] = "array",
-                            ["items"] = new JsonObject
-                            {
-                                ["type"] = "object",
-                                ["properties"] = new JsonObject
-                                {
-                                    ["server"] = new JsonObject { ["type"] = "string" },
-                                    ["kind"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("tool", "prompt") },
-                                    ["method"] = new JsonObject { ["type"] = "string" }
-                                },
-                                ["required"] = new JsonArray("server", "kind", "method"),
-                                ["additionalProperties"] = false
-                            }
-                        }
+                        ["required"] = new JsonObject { ["type"] = "boolean" }
                     },
-                    ["required"] = new JsonArray("id", "description", "required", "denied_alternatives"),
+                    ["required"] = new JsonArray("id", "description", "required"),
                     ["additionalProperties"] = false
                 }
             }
@@ -600,6 +544,210 @@ public sealed partial class WorkflowPlanExecutor
         ["required"] = new JsonArray("complete", "operations", "constraints"),
         ["additionalProperties"] = false
     };
+
+    private static CapabilityInventory ParseCapabilityInventory(JsonObject json)
+    {
+        if (!TryReadComplete(json, out var complete) || !complete)
+            throw new WorkflowRuntimeException(
+                ErrorCodes.CapabilityPreflightInferenceFailed,
+                "Capability inference reported that it could not produce a complete runtime operation inventory.");
+        var operationNodes = json["operations"] as JsonArray
+            ?? throw new InvalidOperationException("Capability inventory is missing operations.");
+        var constraintNodes = json["constraints"] as JsonArray
+            ?? throw new InvalidOperationException("Capability inventory is missing constraints.");
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
+        var operations = operationNodes.Select(node =>
+        {
+            var (id, description, required) = ParseInventoryItem(node, identifiers, "operation");
+            return new CapabilityInventoryOperation(id, description, required);
+        }).ToArray();
+        var constraints = constraintNodes.Select(node =>
+        {
+            var (id, description, required) = ParseInventoryItem(node, identifiers, "constraint");
+            return new CapabilityInventoryConstraint(id, description, required);
+        }).ToArray();
+        return new CapabilityInventory(operations, constraints);
+    }
+
+    private static (string Id, string Description, bool Required) ParseInventoryItem(
+        JsonNode? node,
+        HashSet<string> identifiers,
+        string kind)
+    {
+        if (node is not JsonObject item)
+            throw new InvalidOperationException($"Capability inventory {kind} must be an object.");
+        var id = item["id"]?.GetValue<string>()?.Trim();
+        var description = item["description"]?.GetValue<string>()?.Trim();
+        var required = item["required"]?.GetValue<bool>() ?? true;
+        if (string.IsNullOrWhiteSpace(id) || !identifiers.Add(id) || string.IsNullOrWhiteSpace(description))
+            throw new InvalidOperationException("Capability inventory ids must be unique and descriptions must be non-empty.");
+        return (id, description, required);
+    }
+
+    private static string BuildCapabilityMatchingPrompt(CapabilityInventory inventory, CapabilityCatalog catalog)
+    {
+        var operations = new JsonArray(inventory.Operations.Select(static operation => (JsonNode)new JsonObject
+        {
+            ["id"] = operation.Id,
+            ["description"] = operation.Description,
+            ["required"] = operation.Required
+        }).ToArray());
+        var constraints = new JsonArray(inventory.Constraints.Select(static constraint => (JsonNode)new JsonObject
+        {
+            ["id"] = constraint.Id,
+            ["description"] = constraint.Description,
+            ["required"] = constraint.Required
+        }).ToArray());
+        return $$"""
+            You are a domain-neutral capability matcher. Return only the requested structured JSON.
+
+            Match each positive runtime operation to exactly one catalog ID, or mark it unavailable. For a multi-action tool, choose the selector-specific catalog entry whose request_bindings describe the exact logical operation. Different selector values are different capabilities.
+
+            For each constraint, return every exact catalog ID it prohibits. Do not deny a whole multi-action tool when only one selector-specific operation is prohibited. Return an empty list when a constraint is not representable as exact capability denials.
+
+            Rules:
+            - Return only catalog IDs shown below; never invent server, tool, prompt, method, or selector names.
+            - Use resolution=mcp or native only when the referenced entry has that resolution.
+            - Use resolution=unavailable with an empty catalog_id when no exact entry is documented.
+            - Do not infer behavior from server names, product names, URLs, brands, or undocumented semantics.
+            - Every inventory operation and constraint ID must occur exactly once.
+            - Set complete=false for uncertainty, incomplete matching, or ambiguous selector choice.
+
+            <runtime_inventory>
+            {{new JsonObject { ["operations"] = operations, ["constraints"] = constraints }.ToJsonString()}}
+            </runtime_inventory>
+
+            <capability_catalog>
+            {{catalog.Text}}
+            </capability_catalog>
+            """;
+    }
+
+    private static JsonObject BuildCapabilityMatchingSchema() => new()
+    {
+        ["type"] = "object",
+        ["properties"] = new JsonObject
+        {
+            ["complete"] = new JsonObject { ["type"] = "boolean" },
+            ["operation_matches"] = new JsonObject
+            {
+                ["type"] = "array",
+                ["items"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["operation_id"] = new JsonObject { ["type"] = "string" },
+                        ["resolution"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("mcp", "native", "unavailable") },
+                        ["catalog_id"] = new JsonObject { ["type"] = "string" }
+                    },
+                    ["required"] = new JsonArray("operation_id", "resolution", "catalog_id"),
+                    ["additionalProperties"] = false
+                }
+            },
+            ["constraint_denials"] = new JsonObject
+            {
+                ["type"] = "array",
+                ["items"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["constraint_id"] = new JsonObject { ["type"] = "string" },
+                        ["catalog_ids"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" } }
+                    },
+                    ["required"] = new JsonArray("constraint_id", "catalog_ids"),
+                    ["additionalProperties"] = false
+                }
+            }
+        },
+        ["required"] = new JsonArray("complete", "operation_matches", "constraint_denials"),
+        ["additionalProperties"] = false
+    };
+
+    private static (IReadOnlyList<ResolvedCapability>, IReadOnlyList<CapabilityConstraint>) ParseCapabilityMatches(
+        JsonObject json,
+        CapabilityInventory inventory,
+        CapabilityCatalog catalog)
+    {
+        if (!TryReadComplete(json, out var complete) || !complete)
+            throw new WorkflowRuntimeException(
+                ErrorCodes.CapabilityPreflightInferenceFailed,
+                "Capability matching reported uncertainty or an incomplete match.");
+        var entries = catalog.Entries.ToDictionary(static entry => entry.Id, StringComparer.Ordinal);
+        var operationMatches = json["operation_matches"] as JsonArray
+            ?? throw new InvalidOperationException("Capability matching is missing operation_matches.");
+        var matchesById = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+        foreach (var node in operationMatches)
+        {
+            if (node is not JsonObject match)
+                throw new InvalidOperationException("Capability operation match must be an object.");
+            var operationId = match["operation_id"]?.GetValue<string>()?.Trim();
+            if (string.IsNullOrWhiteSpace(operationId) || !matchesById.TryAdd(operationId, match))
+                throw new InvalidOperationException("Capability operation matches must use unique inventory ids.");
+        }
+        if (matchesById.Count != inventory.Operations.Count
+            || matchesById.Keys.Any(id => inventory.Operations.All(operation => !string.Equals(operation.Id, id, StringComparison.Ordinal))))
+            throw new InvalidOperationException("Capability matching did not match every inventory operation exactly once.");
+
+        var resolved = new List<ResolvedCapability>(inventory.Operations.Count);
+        foreach (var operation in inventory.Operations)
+        {
+            var match = matchesById[operation.Id];
+            var resolution = match["resolution"]?.GetValue<string>()?.Trim().ToLowerInvariant();
+            var catalogId = match["catalog_id"]?.GetValue<string>()?.Trim() ?? string.Empty;
+            if (resolution == "unavailable" && catalogId.Length == 0)
+            {
+                resolved.Add(new ResolvedCapability(operation.Id, operation.Description, operation.Required,
+                    "unavailable", null, null, null, Array.Empty<CapabilityRequestBinding>()));
+                continue;
+            }
+            if (resolution is not ("mcp" or "native") || !entries.TryGetValue(catalogId, out var entry)
+                || !string.Equals(resolution, entry.Resolution, StringComparison.Ordinal))
+                throw new InvalidOperationException($"Capability operation '{operation.Id}' references unknown or incompatible catalog ID '{catalogId}'.");
+            resolved.Add(new ResolvedCapability(operation.Id, operation.Description, operation.Required,
+                entry.Resolution, entry.Server, entry.Kind, entry.Method, entry.RequestBindings));
+        }
+
+        var denialNodes = json["constraint_denials"] as JsonArray
+            ?? throw new InvalidOperationException("Capability matching is missing constraint_denials.");
+        var denialsById = new Dictionary<string, JsonArray>(StringComparer.Ordinal);
+        foreach (var node in denialNodes)
+        {
+            if (node is not JsonObject denial)
+                throw new InvalidOperationException("Capability constraint denial must be an object.");
+            var constraintId = denial["constraint_id"]?.GetValue<string>()?.Trim();
+            if (string.IsNullOrWhiteSpace(constraintId) || denial["catalog_ids"] is not JsonArray ids
+                || !denialsById.TryAdd(constraintId, ids))
+                throw new InvalidOperationException("Capability constraint denials must use unique inventory ids.");
+        }
+        if (denialsById.Count != inventory.Constraints.Count
+            || denialsById.Keys.Any(id => inventory.Constraints.All(constraint => !string.Equals(constraint.Id, id, StringComparison.Ordinal))))
+            throw new InvalidOperationException("Capability matching did not match every inventory constraint exactly once.");
+
+        var constraints = new List<CapabilityConstraint>(inventory.Constraints.Count);
+        foreach (var constraint in inventory.Constraints)
+        {
+            var alternatives = new List<CapabilityAlternative>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var idNode in denialsById[constraint.Id])
+            {
+                var id = idNode?.GetValue<string>()?.Trim();
+                if (string.IsNullOrWhiteSpace(id) || !seen.Add(id) || !entries.TryGetValue(id, out var entry)
+                    || entry.Resolution != "mcp" || entry.Server == null || entry.Kind == null)
+                    throw new InvalidOperationException($"Capability constraint '{constraint.Id}' references unknown or invalid catalog ID '{id}'.");
+                alternatives.Add(new CapabilityAlternative(entry.Server, entry.Kind, entry.Method, entry.RequestBindings));
+            }
+            constraints.Add(new CapabilityConstraint(constraint.Id, constraint.Description, constraint.Required, alternatives));
+        }
+        return (resolved, constraints);
+    }
+
+    private static bool TryReadComplete(JsonObject json, out bool complete)
+    {
+        complete = false;
+        return json["complete"] is JsonValue value && value.TryGetValue(out complete);
+    }
 
     private static void ValidateCapabilityConstraints(
         IReadOnlyList<CapabilityConstraint> constraints,
@@ -614,7 +762,7 @@ public sealed partial class WorkflowPlanExecutor
                 var exists = server?.Discovered == true && (alternative.Kind == "prompt"
                     ? server.Prompts.Any(prompt => string.Equals(prompt.Name, alternative.Method, StringComparison.Ordinal))
                     : server.Tools.Any(tool => string.Equals(tool.Name, alternative.Method, StringComparison.Ordinal)));
-                if (!exists)
+                if (!exists || !AlternativeBindingsMatchSchema(alternative, server!))
                 {
                     throw new WorkflowRuntimeException(
                         ErrorCodes.CapabilityPreflightInferenceFailed,
@@ -640,7 +788,7 @@ public sealed partial class WorkflowPlanExecutor
             if (capability.Resolution == "native")
             {
                 if (string.IsNullOrWhiteSpace(capability.Method) || !allowedNativeTypes.Contains(capability.Method))
-                    unavailable.Add(capability with { Resolution = "unavailable", Server = null, Kind = null, Method = null });
+                    unavailable.Add(capability with { Resolution = "unavailable", Server = null, Kind = null, Method = null, RequestBindings = Array.Empty<CapabilityRequestBinding>() });
                 continue;
             }
 
@@ -649,7 +797,7 @@ public sealed partial class WorkflowPlanExecutor
                 || capability.Kind is not ("tool" or "prompt")
                 || string.IsNullOrWhiteSpace(capability.Method))
             {
-                unavailable.Add(capability with { Resolution = "unavailable", Server = null, Kind = null, Method = null });
+                unavailable.Add(capability with { Resolution = "unavailable", Server = null, Kind = null, Method = null, RequestBindings = Array.Empty<CapabilityRequestBinding>() });
                 continue;
             }
 
@@ -657,8 +805,10 @@ public sealed partial class WorkflowPlanExecutor
             var exists = server?.Discovered == true && (capability.Kind == "prompt"
                 ? server.Prompts.Any(prompt => string.Equals(prompt.Name, capability.Method, StringComparison.Ordinal))
                 : server.Tools.Any(tool => string.Equals(tool.Name, capability.Method, StringComparison.Ordinal)));
-            if (!exists)
-                unavailable.Add(capability with { Resolution = "unavailable", Server = null, Kind = null, Method = null });
+            var bindingsValid = capability.Kind != "tool" || server != null && AlternativeBindingsMatchSchema(
+                new CapabilityAlternative(capability.Server!, capability.Kind, capability.Method!, capability.RequestBindings), server);
+            if (!exists || !bindingsValid)
+                unavailable.Add(capability with { Resolution = "unavailable", Server = null, Kind = null, Method = null, RequestBindings = Array.Empty<CapabilityRequestBinding>() });
         }
 
         if (unavailable.Count > 0)
@@ -686,7 +836,11 @@ public sealed partial class WorkflowPlanExecutor
                 ["id"] = capability.Id,
                 ["description"] = capability.Description,
                 ["required"] = capability.Required,
-                ["reason"] = "no_matching_discovered_capability"
+                ["reason"] = "no_matching_discovered_capability",
+                ["server"] = capability.Server,
+                ["kind"] = capability.Kind,
+                ["method"] = capability.Method,
+                ["request_bindings"] = BuildRequestBindingsJson(capability.RequestBindings)
             });
         }
 
@@ -775,7 +929,11 @@ public sealed partial class WorkflowPlanExecutor
         {
             sb.Append("- ").Append(capability.Id).Append(": ").Append(capability.Resolution);
             if (capability.Resolution == "mcp")
+            {
                 sb.Append(' ').Append(capability.Server).Append('/').Append(capability.Method).Append(" (").Append(capability.Kind).Append(')');
+                if (capability.RequestBindings.Count > 0)
+                    sb.Append(" request_bindings=[").Append(FormatBindingsCompact(capability.RequestBindings)).Append(']');
+            }
             else if (capability.Resolution == "native")
                 sb.Append(' ').Append(capability.Method);
             sb.Append(" — ").AppendLine(capability.Description);
@@ -787,7 +945,11 @@ public sealed partial class WorkflowPlanExecutor
             {
                 sb.Append("- ").Append(constraint.Id).Append(": ").AppendLine(constraint.Description);
                 foreach (var denied in constraint.DeniedAlternatives)
+                {
                     sb.Append("  denied: ").Append(denied.Server).Append('/').Append(denied.Method).Append(" (").Append(denied.Kind).AppendLine(")");
+                    if (denied.RequestBindings.Count > 0)
+                        sb.Append("    request_bindings: [").Append(FormatBindingsCompact(denied.RequestBindings)).AppendLine("]");
+                }
             }
         }
         return sb.ToString();
@@ -806,7 +968,8 @@ public sealed partial class WorkflowPlanExecutor
                 ["resolution"] = capability.Resolution,
                 ["server"] = capability.Server,
                 ["kind"] = capability.Kind,
-                ["method"] = capability.Method
+                ["method"] = capability.Method,
+                ["request_bindings"] = BuildRequestBindingsJson(capability.RequestBindings)
             });
         }
 
@@ -820,7 +983,8 @@ public sealed partial class WorkflowPlanExecutor
                 {
                     ["server"] = alternative.Server,
                     ["kind"] = alternative.Kind,
-                    ["method"] = alternative.Method
+                    ["method"] = alternative.Method,
+                    ["request_bindings"] = BuildRequestBindingsJson(alternative.RequestBindings)
                 });
             }
             constraints.Add((JsonNode)new JsonObject
@@ -855,20 +1019,8 @@ public sealed partial class WorkflowPlanExecutor
             .ToArray();
         var calls = steps.Where(static step => string.Equals(step.Type, "mcp.call", StringComparison.Ordinal)).ToArray();
         var missing = preflight.RequiredMcpCapabilities.Where(capability => !calls.Any(step =>
-        {
-            var server = ReadMcpCallInputString(step, "server");
-            var kind = ReadMcpCallInputString(step, "kind") ?? "tool";
-            if (!string.Equals(server, capability.Server, StringComparison.Ordinal)
-                || !string.Equals(kind, capability.Kind, StringComparison.Ordinal))
-                return false;
-            var method = ReadMcpCallInputString(step, "method");
-            if (string.Equals(method, capability.Method, StringComparison.Ordinal))
-                return true;
-            return step.Input?["methods"] is JsonArray methods
-                   && methods.Any(node => node is JsonValue value
-                                          && value.TryGetValue<string>(out var candidate)
-                                          && string.Equals(candidate, capability.Method, StringComparison.Ordinal));
-        })).Concat(preflight.RequiredNativeCapabilities.Where(capability =>
+            McpStepMatchesCapability(step, capability.Server!, capability.Kind!, capability.Method!, capability.RequestBindings)))
+            .Concat(preflight.RequiredNativeCapabilities.Where(capability =>
             !steps.Any(step => string.Equals(step.Type, capability.Method, StringComparison.Ordinal)))).ToArray();
 
         if (missing.Length > 0)
@@ -881,19 +1033,12 @@ public sealed partial class WorkflowPlanExecutor
         var deniedCalls = preflight.Constraints
             .Where(static constraint => constraint.Required)
             .SelectMany(static constraint => constraint.DeniedAlternatives.Select(alternative => (constraint, alternative)))
-            .Where(item => calls.Any(step =>
-            {
-                var server = ReadMcpCallInputString(step, "server");
-                var kind = ReadMcpCallInputString(step, "kind") ?? "tool";
-                var method = ReadMcpCallInputString(step, "method");
-                return string.Equals(server, item.alternative.Server, StringComparison.Ordinal)
-                       && string.Equals(kind, item.alternative.Kind, StringComparison.Ordinal)
-                       && (string.Equals(method, item.alternative.Method, StringComparison.Ordinal)
-                           || step.Input?["methods"] is JsonArray methods
-                           && methods.Any(node => node is JsonValue value
-                                                && value.TryGetValue<string>(out var candidate)
-                                                && string.Equals(candidate, item.alternative.Method, StringComparison.Ordinal)));
-            }))
+            .Where(item => calls.Any(step => McpStepMatchesCapability(
+                step,
+                item.alternative.Server,
+                item.alternative.Kind,
+                item.alternative.Method,
+                item.alternative.RequestBindings)))
             .ToArray();
         if (deniedCalls.Length > 0)
         {
@@ -910,7 +1055,8 @@ public sealed partial class WorkflowPlanExecutor
                             ["description"] = item.constraint.Description,
                             ["server"] = item.alternative.Server,
                             ["kind"] = item.alternative.Kind,
-                            ["method"] = item.alternative.Method
+                            ["method"] = item.alternative.Method,
+                            ["request_bindings"] = BuildRequestBindingsJson(item.alternative.RequestBindings)
                         }).ToArray())
                 });
         }
@@ -928,7 +1074,8 @@ public sealed partial class WorkflowPlanExecutor
             .Where(capability => !planned.Any(tool => tool.Required
                                                        && string.Equals(tool.Server, capability.Server, StringComparison.Ordinal)
                                                        && string.Equals(tool.Kind, capability.Kind, StringComparison.Ordinal)
-                                                       && string.Equals(tool.Method, capability.Method, StringComparison.Ordinal)))
+                                                       && string.Equals(tool.Method, capability.Method, StringComparison.Ordinal)
+                                                       && RequestBindingsEqual(tool.RequestBindings, capability.RequestBindings)))
             .ToArray();
         if (missing.Length == 0)
             return extraction;
@@ -937,7 +1084,10 @@ public sealed partial class WorkflowPlanExecutor
         var rootCauses = extraction.RootCauses.ToList();
         foreach (var capability in missing)
         {
-            var message = $"CAPABILITY_PREFLIGHT_REQUIRED_CAPABILITY_OMITTED: Required capability '{capability.Id}' must be assigned to one external-work leaf as exact planned tool {capability.Server}/{capability.Method} ({capability.Kind}) with required=true.";
+            var bindingText = capability.RequestBindings.Count == 0
+                ? string.Empty
+                : $" and literal request_bindings [{FormatBindingsCompact(capability.RequestBindings)}]";
+            var message = $"CAPABILITY_PREFLIGHT_REQUIRED_CAPABILITY_OMITTED: Required capability '{capability.Id}' must be assigned to one external-work leaf as exact planned tool {capability.Server}/{capability.Method} ({capability.Kind}) with required=true{bindingText}.";
             errors.Add(message);
             rootCauses.Add(new PipelineRootCause(
                 "required_capability_omitted",
@@ -957,6 +1107,26 @@ public sealed partial class WorkflowPlanExecutor
         };
     }
 
-    private static string? EmptyToNull(string? value)
-        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static bool McpStepMatchesCapability(
+        StepDef step,
+        string server,
+        string kind,
+        string method,
+        IReadOnlyList<CapabilityRequestBinding> bindings)
+    {
+        if (!string.Equals(ReadMcpCallInputString(step, "server"), server, StringComparison.Ordinal)
+            || !string.Equals(ReadMcpCallInputString(step, "kind") ?? "tool", kind, StringComparison.Ordinal))
+            return false;
+        var methodMatches = string.Equals(ReadMcpCallInputString(step, "method"), method, StringComparison.Ordinal)
+                            || step.Input?["methods"] is JsonArray methods
+                            && methods.Any(node => node is JsonValue value
+                                                   && value.TryGetValue<string>(out var candidate)
+                                                   && string.Equals(candidate, method, StringComparison.Ordinal));
+        return methodMatches && RequestContainsLiteralBindings(step.Input?["request"], bindings);
+    }
+
+    private static bool RequestBindingsEqual(
+        IReadOnlyList<CapabilityRequestBinding> left,
+        IReadOnlyList<CapabilityRequestBinding> right)
+        => string.Equals(CanonicalizeBindings(left), CanonicalizeBindings(right), StringComparison.Ordinal);
 }

@@ -70,6 +70,35 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                     key: sample
         """;
 
+    private const string ValidMultiActionWorkflow = """
+        version: 1
+        name: generated-inventory
+        skill:
+          description: Read inventory variants.
+          tags: [generated]
+          inputs: {}
+          outputs: {}
+        workflows:
+          main:
+            steps:
+              - id: list_items
+                type: mcp.call
+                input:
+                  server: inventory
+                  kind: tool
+                  method: inventory_read
+                  request:
+                    method: list_items
+              - id: get_status
+                type: mcp.call
+                input:
+                  server: inventory
+                  kind: tool
+                  method: inventory_read
+                  request:
+                    method: get_status
+        """;
+
     [Fact]
     public async Task ExplicitPreflight_ResolvesExactAlternativeAndLocksGeneratedCall()
     {
@@ -181,6 +210,257 @@ public sealed class WorkflowPlanCapabilityPreflightTests
     }
 
     [Fact]
+    public async Task ExplicitPreflight_SelectorBindingRequiresMatchingLiteralRequestValue()
+    {
+        var plan = ExplicitPlan("""
+            - id: list_items
+              description: List inventory items.
+              required: true
+              alternatives:
+                - server: inventory
+                  kind: tool
+                  method: inventory_read
+                  request_bindings:
+                    - path: /method
+                      value: list_items
+            """)
+            .Replace("Load an object and produce the requested result.", "List inventory items.", StringComparison.Ordinal)
+            .Replace("max_repair_attempts: 3", "max_repair_attempts: 1", StringComparison.Ordinal);
+        var workflowWithWrongSelector = ValidMultiActionWorkflow.Replace("method: list_items", "method: get_status", StringComparison.Ordinal);
+        var llm = ConstantLlm(workflowWithWrongSelector);
+
+        var result = await ExecuteAsync(plan, llm.Object, CreateMultiActionFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+        Assert.Contains("omitted", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExplicitPreflight_DynamicSelectorCannotSatisfyLockedBinding()
+    {
+        var plan = ExplicitPlan("""
+            - id: list_items
+              description: List inventory items.
+              required: true
+              alternatives:
+                - server: inventory
+                  kind: tool
+                  method: inventory_read
+                  request_bindings:
+                    - path: /method
+                      value: list_items
+            """).Replace("max_repair_attempts: 3", "max_repair_attempts: 1", StringComparison.Ordinal);
+        var dynamicWorkflow = ValidMultiActionWorkflow.Replace("method: list_items", "method: \"${data.inputs.selector}\"", StringComparison.Ordinal);
+        var llm = ConstantLlm(dynamicWorkflow);
+
+        var result = await ExecuteAsync(plan, llm.Object, CreateMultiActionFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
+        Assert.Contains("omitted", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExplicitPreflight_RejectsUndocumentedSelectorBinding()
+    {
+        var llm = new Mock<ILLMClient>(MockBehavior.Strict);
+        var result = await ExecuteAsync(ExplicitPlan("""
+            - id: unsupported_variant
+              description: Invoke an undocumented inventory variant.
+              required: true
+              alternatives:
+                - server: inventory
+                  kind: tool
+                  method: inventory_read
+                  request_bindings:
+                    - path: /method
+                      value: remove_everything
+            """), llm.Object, CreateMultiActionFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("documented scalar selectors", result.Error.Message, StringComparison.Ordinal);
+        llm.Verify(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_ExpandsOneToolIntoDistinctSelectorCapabilities()
+    {
+        var prompts = new List<string>();
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                prompts.Add(request.Prompt);
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                {
+                    return InventoryResponse(
+                        ("list_items", "List inventory items.", true),
+                        ("get_status", "Read inventory status.", true));
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    return MatchResponse(
+                        ("list_items", "mcp", CatalogIdForBinding(request.Prompt, "/method", "list_items")),
+                        ("get_status", "mcp", CatalogIdForBinding(request.Prompt, "/method", "get_status")));
+                }
+                return new LLMResponse { Text = ValidMultiActionWorkflow };
+            });
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateMultiActionFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(3, prompts.Count);
+        Assert.Contains("request_bindings=[/method=\"list_items\"]", prompts[1], StringComparison.Ordinal);
+        Assert.Contains("request_bindings=[/method=\"get_status\"]", prompts[1], StringComparison.Ordinal);
+        Assert.Contains("/method=\"list_items\"", prompts[2], StringComparison.Ordinal);
+        Assert.Contains("/method=\"get_status\"", prompts[2], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_RejectsUnknownCatalogId()
+    {
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+                request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal)
+                    ? InventoryResponse(("list_items", "List inventory items.", true))
+                    : MatchResponse(("list_items", "mcp", "cap_999999")));
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateMultiActionFactory());
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightInferenceFailed, result.Error!.Code);
+        Assert.Contains("invalid or incomplete", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_CatalogIncludesNestedAndComposedSelectors()
+    {
+        var prompts = new List<string>();
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                prompts.Add(request.Prompt);
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
+                    return InventoryResponse();
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                    return MatchResponse();
+                return new LLMResponse { Text = ValidTemplateWorkflow };
+            });
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateComposedSelectorFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Contains("/request/action=\"lookup\"", prompts[1], StringComparison.Ordinal);
+        Assert.Contains("/request/action=\"search\"", prompts[1], StringComparison.Ordinal);
+        Assert.Contains("/mode=\"read\"", prompts[1], StringComparison.Ordinal);
+        Assert.Contains("/mode=\"write\"", prompts[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ExplicitPreflight_SelectorAwareConstraintDoesNotDenyOtherVariant()
+    {
+        var llm = ConstantLlm(ValidMultiActionWorkflow.Replace("method: list_items", "method: get_status", StringComparison.Ordinal));
+        var result = await ExecuteAsync("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: basic
+                      capability_preflight:
+                        mode: explicit
+                        requirements:
+                          - id: get_status
+                            description: Read inventory status.
+                            required: true
+                            alternatives:
+                              - server: inventory
+                                kind: tool
+                                method: inventory_read
+                                request_bindings:
+                                  - path: /method
+                                    value: get_status
+                        constraints:
+                          - id: never_list
+                            description: Do not list inventory items.
+                            required: true
+                            denied_alternatives:
+                              - server: inventory
+                                kind: tool
+                                method: inventory_read
+                                request_bindings:
+                                  - path: /method
+                                    value: list_items
+                      generator:
+                        model: gpt-4
+                        prefilter: false
+                        instruction: Read inventory status without listing items.
+            """, llm.Object, CreateMultiActionFactory());
+
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_FailsBeforeLlmWhenSelectorValueLimitIsExceeded()
+    {
+        var values = new JsonArray();
+        for (var index = 0; index < 65; index++)
+            values.Add((JsonNode?)JsonValue.Create($"action_{index:D2}"));
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("inventory", new MockMcpServerConfig
+        {
+            Tools = [new McpToolInfo
+            {
+                Name = "inventory_action",
+                InputSchema = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["action"] = new JsonObject { ["type"] = "string", ["enum"] = values }
+                    }
+                }
+            }]
+        });
+        var llm = new Mock<ILLMClient>(MockBehavior.Strict);
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, factory);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightInferenceFailed, result.Error!.Code);
+        Assert.Equal("selector_value_limit_exceeded", result.Error.Details!["reason"]!.GetValue<string>());
+        llm.Verify(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task InferredPreflight_FailsInsteadOfTruncatingOversizedCatalog()
+    {
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("large-inventory", new MockMcpServerConfig
+        {
+            Tools = Enumerable.Range(0, 600).Select(index => new McpToolInfo
+            {
+                Name = $"inventory_action_{index:D4}",
+                Description = new string('x', 512)
+            }).ToList()
+        });
+        var llm = new Mock<ILLMClient>(MockBehavior.Strict);
+
+        var result = await ExecuteAsync(InferredPlan(), llm.Object, factory);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.CapabilityPreflightInferenceFailed, result.Error!.Code);
+        Assert.Equal("catalog_too_large", result.Error.Details!["reason"]!.GetValue<string>());
+        llm.Verify(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task InferredPreflight_UsesDiscoveredNeutralCatalogBeforeGeneration()
     {
         var prompts = new List<string>();
@@ -189,7 +469,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             .ReturnsAsync((LLMRequest request, CancellationToken _) =>
             {
                 prompts.Add(request.Prompt);
-                if (request.Prompt.Contains("domain-neutral workflow capability analyst", StringComparison.Ordinal))
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
                 {
                     return new LLMResponse
                     {
@@ -202,25 +482,24 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                                 {
                                     ["id"] = "load_object",
                                     ["description"] = "Load the requested object.",
-                                    ["required"] = true,
-                                    ["resolution"] = "mcp",
-                                    ["server"] = "object-storage",
-                                    ["kind"] = "tool",
-                                    ["method"] = "get_object"
+                                    ["required"] = true
                                 },
                                 new JsonObject
                                 {
                                     ["id"] = "notify",
                                     ["description"] = "Optionally notify a consumer.",
-                                    ["required"] = false,
-                                    ["resolution"] = "unavailable",
-                                    ["server"] = "",
-                                    ["kind"] = "",
-                                    ["method"] = ""
+                                    ["required"] = false
                                 }
-                            }
+                            },
+                            ["constraints"] = new JsonArray()
                         }
                     };
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    return MatchResponse(
+                        ("load_object", "mcp", CatalogIdForMethod(request.Prompt, "get_object")),
+                        ("notify", "unavailable", ""));
                 }
 
                 return new LLMResponse { Text = ValidStorageWorkflow };
@@ -229,9 +508,13 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateNeutralFactory());
 
         Assert.True(result.Success, result.Error?.Message);
-        Assert.Equal(2, prompts.Count);
-        Assert.Contains("tool: get_object", prompts[0], StringComparison.Ordinal);
-        Assert.Contains("locked by preflight", prompts[1], StringComparison.Ordinal);
+        Assert.Equal(3, prompts.Count);
+        Assert.DoesNotContain("get_object", prompts[0], StringComparison.Ordinal);
+        Assert.Contains("Exclude host configuration", prompts[0], StringComparison.Ordinal);
+        Assert.Contains("provider selection, secret-vault lookup", prompts[0], StringComparison.Ordinal);
+        Assert.Contains("persistence, registration, or provisioning", prompts[0], StringComparison.Ordinal);
+        Assert.Contains("method=get_object", prompts[1], StringComparison.Ordinal);
+        Assert.Contains("locked by preflight", prompts[2], StringComparison.Ordinal);
         Assert.DoesNotContain("pull request", prompts[0], StringComparison.OrdinalIgnoreCase);
     }
 
@@ -244,7 +527,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             .ReturnsAsync((LLMRequest request, CancellationToken _) =>
             {
                 prompts.Add(request.Prompt);
-                if (request.Prompt.Contains("domain-neutral workflow capability analyst", StringComparison.Ordinal))
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
                 {
                     return new LLMResponse
                     {
@@ -257,11 +540,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                                 {
                                     ["id"] = "load_object",
                                     ["description"] = "Load the requested object.",
-                                    ["required"] = true,
-                                    ["resolution"] = "mcp",
-                                    ["server"] = "object-storage",
-                                    ["kind"] = "tool",
-                                    ["method"] = "get_object"
+                                    ["required"] = true
                                 }
                             },
                             ["constraints"] = new JsonArray
@@ -270,20 +549,17 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                                 {
                                     ["id"] = "never_delete",
                                     ["description"] = "Never delete stored objects.",
-                                    ["required"] = true,
-                                    ["denied_alternatives"] = new JsonArray
-                                    {
-                                        new JsonObject
-                                        {
-                                            ["server"] = "object-storage",
-                                            ["kind"] = "tool",
-                                            ["method"] = "delete_object"
-                                        }
-                                    }
+                                    ["required"] = true
                                 }
                             }
                         }
                     };
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    return MatchResponseWithConstraints(
+                        [("load_object", "mcp", CatalogIdForMethod(request.Prompt, "get_object"))],
+                        [("never_delete", [CatalogIdForMethod(request.Prompt, "delete_object")])]);
                 }
 
                 return new LLMResponse { Text = ValidStorageWorkflow };
@@ -292,9 +568,9 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         var result = await ExecuteAsync(InferredPlan(), llm.Object, CreateNeutralFactory());
 
         Assert.True(result.Success, result.Error?.Message);
-        Assert.Equal(2, prompts.Count);
-        Assert.Contains("invariants, not operations", prompts[1], StringComparison.Ordinal);
-        Assert.Contains("object-storage/delete_object", prompts[1], StringComparison.Ordinal);
+        Assert.Equal(3, prompts.Count);
+        Assert.Contains("invariants, not operations", prompts[2], StringComparison.Ordinal);
+        Assert.Contains("object-storage/delete_object", prompts[2], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -304,7 +580,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((LLMRequest request, CancellationToken _) =>
             {
-                if (request.Prompt.Contains("domain-neutral workflow capability analyst", StringComparison.Ordinal))
+                if (request.Prompt.Contains("domain-neutral workflow runtime analyst", StringComparison.Ordinal))
                 {
                     return new LLMResponse
                     {
@@ -318,20 +594,17 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                                 {
                                     ["id"] = "never_delete",
                                     ["description"] = "Never delete stored objects.",
-                                    ["required"] = true,
-                                    ["denied_alternatives"] = new JsonArray
-                                    {
-                                        new JsonObject
-                                        {
-                                            ["server"] = "object-storage",
-                                            ["kind"] = "tool",
-                                            ["method"] = "delete_object"
-                                        }
-                                    }
+                                    ["required"] = true
                                 }
                             }
                         }
                     };
+                }
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                {
+                    return MatchResponseWithConstraints(
+                        [],
+                        [("never_delete", [CatalogIdForMethod(request.Prompt, "delete_object")])]);
                 }
 
                 return new LLMResponse { Text = InvalidDeniedStorageWorkflow };
@@ -350,9 +623,11 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         var calls = 0;
         var llm = new Mock<ILLMClient>();
         llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() =>
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
             {
                 calls++;
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                    return MatchResponse(("remove_expired_record", "unavailable", ""));
                 return new LLMResponse
                 {
                     Json = new JsonObject
@@ -364,13 +639,10 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                             {
                                 ["id"] = "remove_expired_record",
                                 ["description"] = "Remove an expired record safely.",
-                                ["required"] = true,
-                                ["resolution"] = "unavailable",
-                                ["server"] = "",
-                                ["kind"] = "",
-                                ["method"] = ""
+                                ["required"] = true
                             }
-                        }
+                        },
+                        ["constraints"] = new JsonArray()
                     }
                 };
             });
@@ -379,7 +651,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
-        Assert.Equal(1, calls);
+        Assert.Equal(2, calls);
     }
 
     [Fact]
@@ -391,6 +663,8 @@ public sealed class WorkflowPlanCapabilityPreflightTests
             .ReturnsAsync((LLMRequest request, CancellationToken _) =>
             {
                 prompts.Add(request.Prompt);
+                if (request.Prompt.Contains("domain-neutral capability matcher", StringComparison.Ordinal))
+                    return MatchResponse(("dispatch_record", "unavailable", ""));
                 return new LLMResponse
                 {
                     Json = new JsonObject
@@ -402,13 +676,10 @@ public sealed class WorkflowPlanCapabilityPreflightTests
                             {
                                 ["id"] = "dispatch_record",
                                 ["description"] = "Dispatch a record to an unavailable destination.",
-                                ["required"] = true,
-                                ["resolution"] = "unavailable",
-                                ["server"] = "",
-                                ["kind"] = "",
-                                ["method"] = ""
+                                ["required"] = true
                             }
-                        }
+                        },
+                        ["constraints"] = new JsonArray()
                     }
                 };
             });
@@ -418,7 +689,7 @@ public sealed class WorkflowPlanCapabilityPreflightTests
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.CapabilityPreflightUnavailable, result.Error!.Code);
-        Assert.Single(prompts);
+        Assert.Equal(2, prompts.Count);
         Assert.DoesNotContain("preparing a raw user automation prompt", prompts[0], StringComparison.Ordinal);
         Assert.DoesNotContain("annotate normalized automation Markdown", prompts[0], StringComparison.Ordinal);
     }
@@ -552,6 +823,61 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         Assert.Contains("make the property optional and omit it", prompts[1], StringComparison.Ordinal);
     }
 
+    private static LLMResponse MatchResponse(params (string OperationId, string Resolution, string CatalogId)[] matches)
+        => MatchResponseWithConstraints(matches, Array.Empty<(string ConstraintId, string[] CatalogIds)>());
+
+    private static LLMResponse InventoryResponse(params (string Id, string Description, bool Required)[] operations)
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["complete"] = true,
+                ["operations"] = new JsonArray(operations.Select(static operation => (JsonNode)new JsonObject
+                {
+                    ["id"] = operation.Id,
+                    ["description"] = operation.Description,
+                    ["required"] = operation.Required
+                }).ToArray()),
+                ["constraints"] = new JsonArray()
+            }
+        };
+
+    private static LLMResponse MatchResponseWithConstraints(
+        IReadOnlyList<(string OperationId, string Resolution, string CatalogId)> matches,
+        IReadOnlyList<(string ConstraintId, string[] CatalogIds)> denials)
+        => new()
+        {
+            Json = new JsonObject
+            {
+                ["complete"] = true,
+                ["operation_matches"] = new JsonArray(matches.Select(static match => (JsonNode)new JsonObject
+                {
+                    ["operation_id"] = match.OperationId,
+                    ["resolution"] = match.Resolution,
+                    ["catalog_id"] = match.CatalogId
+                }).ToArray()),
+                ["constraint_denials"] = new JsonArray(denials.Select(static denial => (JsonNode)new JsonObject
+                {
+                    ["constraint_id"] = denial.ConstraintId,
+                    ["catalog_ids"] = new JsonArray(denial.CatalogIds.Select(static id => (JsonNode?)JsonValue.Create(id)).ToArray())
+                }).ToArray())
+            }
+        };
+
+    private static string CatalogIdForMethod(string prompt, string method)
+    {
+        var marker = $" method={method} ";
+        var line = prompt.Split('\n').First(value => value.Contains(marker, StringComparison.Ordinal));
+        return line.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+    }
+
+    private static string CatalogIdForBinding(string prompt, string path, string value)
+    {
+        var marker = $"request_bindings=[{path}=\"{value}\"]";
+        var line = prompt.Split('\n').First(candidate => candidate.Contains(marker, StringComparison.Ordinal));
+        return line.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+    }
+
     private static Mock<ILLMClient> ConstantLlm(string yaml)
     {
         var llm = new Mock<ILLMClient>();
@@ -592,6 +918,86 @@ public sealed class WorkflowPlanCapabilityPreflightTests
         {
             Description = "Sends messages.",
             Tools = [new McpToolInfo { Name = "publish_event", Description = "Publish an event." }]
+        });
+        return factory;
+    }
+
+    private static InMemoryMcpClientFactory CreateMultiActionFactory()
+    {
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("inventory", new MockMcpServerConfig
+        {
+            Description = "Reads inventory information.",
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "inventory_read",
+                    Description = "Perform one documented inventory read operation.",
+                    InputSchema = JsonNode.Parse("""
+                        {
+                          "type": "object",
+                          "properties": {
+                            "method": {
+                              "type": "string",
+                              "enum": ["list_items", "get_status"]
+                            }
+                          },
+                          "required": ["method"],
+                          "additionalProperties": false
+                        }
+                        """)
+                }
+            ]
+        });
+        return factory;
+    }
+
+    private static InMemoryMcpClientFactory CreateComposedSelectorFactory()
+    {
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("inventory", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "inventory_action",
+                    Description = "Perform a composed inventory operation.",
+                    InputSchema = JsonNode.Parse("""
+                        {
+                          "type": "object",
+                          "properties": {
+                            "request": {
+                              "type": "object",
+                              "properties": {
+                                "action": { "type": "string", "enum": ["lookup", "search"] }
+                              }
+                            }
+                          },
+                          "discriminator": {
+                            "propertyName": "mode",
+                            "mapping": {
+                              "read": "#/$defs/readRequest",
+                              "write": "#/$defs/writeRequest"
+                            }
+                          },
+                          "oneOf": [
+                            {
+                              "properties": {
+                                "mode": { "const": "read" }
+                              }
+                            },
+                            {
+                              "properties": {
+                                "mode": { "const": "write" }
+                              }
+                            }
+                          ]
+                        }
+                        """)
+                }
+            ]
         });
         return factory;
     }
