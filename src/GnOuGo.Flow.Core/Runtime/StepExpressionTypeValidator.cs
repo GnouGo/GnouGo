@@ -186,17 +186,21 @@ internal static class StepExpressionTypeValidator
             return semanticMismatch;
 
         var inferred = InferInterpolatedStringType(expression, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
-        if (inferred == null || inferred.IsCompatibleWith(expectedType))
+        var assignmentIssue = inferred?.FindAssignmentIssue(expectedType);
+        if (inferred == null || assignmentIssue == null)
             return null;
 
-        var expected = expectedType.Describe();
-        var actual = inferred.Describe();
+        var expected = assignmentIssue.ExpectedType;
+        var actual = assignmentIssue.ActualType;
+        var message = string.IsNullOrEmpty(assignmentIssue.Path)
+            ? $"Expression assigned to '{field}' resolves to {actual}, but the contract requires {expected}."
+            : BuildNestedAssignmentMessage(field, assignmentIssue, "contract");
         return new StepExpressionTypeMismatch(
             field,
             expression,
             expected,
             actual,
-            $"Expression assigned to '{field}' resolves to {actual}, but the contract requires {expected}.");
+            message);
     }
 
     public static IReadOnlySet<string> InferNonNullReferencesFromGuard(string? guard)
@@ -282,16 +286,20 @@ internal static class StepExpressionTypeValidator
                 mismatches.Add(semanticMismatch);
 
             var inferred = InferInterpolatedStringType(text, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
-            if (inferred != null && !inferred.IsCompatibleWith(expectedType))
+            var assignmentIssue = inferred?.FindAssignmentIssue(expectedType);
+            if (inferred != null && assignmentIssue != null)
             {
-                var expected = expectedType.Describe();
-                var actual = inferred.Describe();
+                var expected = assignmentIssue.ExpectedType;
+                var actual = assignmentIssue.ActualType;
+                var message = string.IsNullOrEmpty(assignmentIssue.Path)
+                    ? $"Expression assigned to '{field}' resolves to {actual}, but the step contract requires {expected}."
+                    : BuildNestedAssignmentMessage(field, assignmentIssue, "step contract");
                 mismatches.Add(new StepExpressionTypeMismatch(
                     field,
                     text,
                     expected,
                     actual,
-                    $"Expression assigned to '{field}' resolves to {actual}, but the step contract requires {expected}."));
+                    message));
             }
             return;
         }
@@ -315,6 +323,19 @@ internal static class StepExpressionTypeValidator
             for (var i = 0; i < array.Count; i++)
                 ValidateNode(array[i], arrayType.Items, $"{field}[{i}]", workflowInputs, knownStepOutputs, dataVariables, nonNullReferences, mismatches);
         }
+    }
+
+    private static string BuildNestedAssignmentMessage(
+        string field,
+        FlowTypeAssignmentIssue issue,
+        string destinationName)
+    {
+        var separator = issue.Path.StartsWith("[", StringComparison.Ordinal) ? "" : ".";
+        var fullPath = field + separator + issue.Path;
+        var projectionGuidance = issue.ExpectedType.Contains("closed object", StringComparison.OrdinalIgnoreCase)
+            ? " Project a new object containing only the declared destination properties instead of passing the richer source object through."
+            : "";
+        return $"Expression assigned to '{field}' has an incompatible nested contract: '{fullPath}' resolves to {issue.ActualType}, but the {destinationName} requires {issue.ExpectedType}.{projectionGuidance}";
     }
 
     private static FlowTypeDescriptor? SelectObjectCompatibleType(JsonNode? value, FlowTypeDescriptor expectedType)
@@ -464,7 +485,157 @@ internal static class StepExpressionTypeValidator
             return null;
 
         var expression = exact.Groups["expression"].Value.Trim();
-        return ValidateTernaryConditions(expression, text, field, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+        return ValidateTernaryConditions(expression, text, field, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences)
+               ?? ValidateComparisonOperands(expression, text, field, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+    }
+
+    private static StepExpressionTypeMismatch? ValidateComparisonOperands(
+        string expression,
+        string originalExpression,
+        string field,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? workflowInputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor> knownStepOutputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? dataVariables,
+        IReadOnlySet<string>? nonNullReferences)
+    {
+        expression = TrimEnclosingParentheses(expression);
+
+        // JavaScript comparison operators bind more tightly than logical AND/OR.
+        // Validate each top-level logical operand independently so an expression
+        // such as `kind == 'item' && exists(value)` is not misread as comparing
+        // `kind` with the boolean result of the entire right-hand expression.
+        var logicalOperands = SplitTopLevelLogicalOperands(expression);
+        if (logicalOperands.Count > 1)
+        {
+            foreach (var operand in logicalOperands)
+            {
+                var mismatch = ValidateComparisonOperands(
+                    operand,
+                    originalExpression,
+                    field,
+                    workflowInputs,
+                    knownStepOutputs,
+                    dataVariables,
+                    nonNullReferences);
+                if (mismatch != null)
+                    return mismatch;
+            }
+
+            return null;
+        }
+
+        if (!TrySplitTopLevelComparison(expression, out var left, out var comparisonOperator, out var right))
+            return null;
+
+        var leftType = InferExpressionType(left, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+        var rightType = InferExpressionType(right, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+        if (leftType == null
+            || rightType == null
+            || leftType.IsOpaque
+            || rightType.IsOpaque
+            || leftType.IsCompatibleWith(rightType)
+            || rightType.IsCompatibleWith(leftType))
+        {
+            return null;
+        }
+
+        var leftDescription = leftType.Describe();
+        var rightDescription = rightType.Describe();
+        return new StepExpressionTypeMismatch(
+            field,
+            originalExpression,
+            leftDescription,
+            rightDescription,
+            $"Comparison operands in '{field}' are incompatible: the left side resolves to {leftDescription}, but operator '{comparisonOperator}' is applied to {rightDescription} on the right side.");
+    }
+
+    private static bool TrySplitTopLevelComparison(
+        string expression,
+        out string left,
+        out string comparisonOperator,
+        out string right)
+    {
+        left = "";
+        comparisonOperator = "";
+        right = "";
+        var quote = '\0';
+        var escaped = false;
+        var parenDepth = 0;
+        var bracketDepth = 0;
+        var braceDepth = 0;
+        string[] operators = ["===", "!==", "==", "!=", ">=", "<=", ">", "<"];
+
+        for (var i = 0; i < expression.Length; i++)
+        {
+            var current = expression[i];
+            if (UpdateQuotedState(current, ref quote, ref escaped))
+                continue;
+
+            UpdateNestingDepth(current, ref parenDepth, ref bracketDepth, ref braceDepth);
+            if (parenDepth != 0 || bracketDepth != 0 || braceDepth != 0)
+                continue;
+
+            var matchedOperator = operators.FirstOrDefault(candidate => IsAt(expression, i, candidate));
+            if (matchedOperator == null)
+                continue;
+
+            var leftOperand = expression[..i].Trim();
+            var rightOperand = expression[(i + matchedOperator.Length)..].Trim();
+            if (leftOperand.Length == 0 || rightOperand.Length == 0)
+                return false;
+
+            left = leftOperand;
+            comparisonOperator = matchedOperator;
+            right = rightOperand;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<string> SplitTopLevelLogicalOperands(string expression)
+    {
+        var operands = new List<string>();
+        var quote = '\0';
+        var escaped = false;
+        var parenDepth = 0;
+        var bracketDepth = 0;
+        var braceDepth = 0;
+        var start = 0;
+
+        for (var i = 0; i < expression.Length - 1; i++)
+        {
+            var current = expression[i];
+            if (UpdateQuotedState(current, ref quote, ref escaped))
+                continue;
+
+            UpdateNestingDepth(current, ref parenDepth, ref bracketDepth, ref braceDepth);
+            if (parenDepth != 0 || bracketDepth != 0 || braceDepth != 0)
+                continue;
+
+            var isLogicalOperator = (current == '&' && expression[i + 1] == '&')
+                                    || (current == '|' && expression[i + 1] == '|');
+            if (!isLogicalOperator)
+                continue;
+
+            var operand = expression[start..i].Trim();
+            if (operand.Length == 0)
+                return Array.Empty<string>();
+
+            operands.Add(operand);
+            start = i + 2;
+            i++;
+        }
+
+        if (operands.Count == 0)
+            return Array.Empty<string>();
+
+        var last = expression[start..].Trim();
+        if (last.Length == 0)
+            return Array.Empty<string>();
+
+        operands.Add(last);
+        return operands;
     }
 
     private static StepExpressionTypeMismatch? ValidateTernaryConditions(

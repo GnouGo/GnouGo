@@ -73,6 +73,21 @@ internal static class HumanInputDslReference
             choices: [approve, reject]
         ```
 
+        A `confirm` response is always boolean. Choice labels are presentation text and do not
+        change that contract. Branch on the boolean directly:
+        ```yaml
+        - id: route_confirmation
+          type: switch
+          cases:
+            - when: "${data.steps.confirm_publish.response}"
+              steps:
+                - id: publish
+                  type: set
+                  input: { approved: true }
+        ```
+        Never compare a `confirm` response to a choice label such as `"approve"`. Use
+        `mode: choice` when the selected label itself is required as a string.
+
         ```yaml
         - id: user_config
           type: human.input
@@ -114,7 +129,8 @@ internal static class HumanInputDslReference
           - Use `date` for ISO date input (`YYYY-MM-DD`); it is returned as a string.
 
         Output access patterns:
-          - text/choice/confirm: `data.steps.<id>.response`
+          - text/choice: `data.steps.<id>.response` (string)
+          - confirm: `data.steps.<id>.response` (boolean)
           - form: `data.steps.<id>.<field_name>` (for example `data.steps.user_config.due_date`)
           - Providers may also include `source`; use `data.steps.<id>.source` only when the provider supplies it.
         """;

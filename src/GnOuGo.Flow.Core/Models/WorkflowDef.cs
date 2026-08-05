@@ -39,6 +39,9 @@ public sealed class InputDef
     /// <summary>Whether the input is required (default true).</summary>
     public bool Required { get; set; } = true;
 
+    /// <summary>Whether the value may be JSON null in addition to its declared type.</summary>
+    public bool Nullable { get; set; }
+
     /// <summary>Default value when the caller does not supply one.</summary>
     public object? Default { get; set; }
 
@@ -73,6 +76,9 @@ public sealed class OutputDef
 
     /// <summary>Base type: string, number, integer, boolean, array, object, dictionary, any.</summary>
     public string Type { get; set; } = "any";
+
+    /// <summary>Whether the value may be JSON null in addition to its declared type.</summary>
+    public bool Nullable { get; set; }
 
     /// <summary>Optional human-readable description.</summary>
     public string? Description { get; set; }

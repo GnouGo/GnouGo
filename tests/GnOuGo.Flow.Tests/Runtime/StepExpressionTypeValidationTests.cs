@@ -61,6 +61,45 @@ steps:
     }
 
     [Fact]
+    public void SemanticValidation_AcceptsComparisonFollowedByLogicalExistenceChecks()
+    {
+        var doc = Parse("""
+inputs:
+  comments:
+    type: array
+    items:
+      type: object
+      properties:
+        subjectType: { type: string, required: true }
+        path: { type: string, required: true }
+        body: { type: string, required: true }
+        line: { type: number, required: true }
+      required_properties: [subjectType, path, body, line]
+steps:
+  - id: publish
+    type: loop.sequential
+    input:
+      items: "${data.inputs.comments}"
+    item_var: comment
+    steps:
+      - id: route_target
+        type: switch
+        cases:
+          - when: "${data.comment.subjectType == 'LINE' && exists(data.comment.path) && exists(data.comment.body) && exists(data.comment.line)}"
+            steps:
+              - id: line_target
+                type: set
+                input: { selected: true }
+        default:
+          - id: file_target
+            type: set
+            input: { selected: false }
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
     public void SemanticValidation_RejectsUnknownNamespacedFunction()
     {
         var doc = Parse("""
@@ -198,6 +237,47 @@ workflows:
     }
 
     [Fact]
+    public void FunctionJsDocNormalizer_AddsOnlyParametersWithProvableCoarseTypes()
+    {
+        var script = """
+        /**
+         * Builds a request.
+         * @returns {object} Request payload.
+         */
+        function buildRequest(payload, items, label, count, enabled, opaque) {
+          if (!enabled) return {};
+          return {
+            id: payload.id,
+            first: Array.isArray(items) ? items[0] : null,
+            label: label.trim(),
+            count: count + 1,
+            opaque: opaque
+          };
+        }
+        """;
+
+        var normalized = WorkflowPlanSemanticValidator.CompleteInferableFunctionParameterJsDoc(script);
+
+        Assert.Contains("@param {object} payload", normalized);
+        Assert.Contains("@param {Array<object>} items", normalized);
+        Assert.Contains("@param {string} label", normalized);
+        Assert.Contains("@param {number} count", normalized);
+        Assert.Contains("@param {boolean} enabled", normalized);
+        Assert.DoesNotContain("@param {", normalized.AsSpan(normalized.IndexOf("opaque", StringComparison.Ordinal)).ToString());
+        var document = WorkflowParser.Parse($$"""
+        version: 1
+        functions: |
+        {{string.Join(Environment.NewLine, normalized.Split('\n').Select(static line => "  " + line))}}
+        workflows:
+          main:
+            steps: []
+        """);
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(document));
+        Assert.Contains("FUNCTION_JSDOC_PARAM_MISSING", exception.InnerException!.Message);
+        Assert.Contains("opaque", exception.InnerException.Message);
+    }
+
+    [Fact]
     public void SemanticValidation_PropagatesSetExpressionOutputType()
     {
         var doc = Parse("""
@@ -332,6 +412,269 @@ steps:
         Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
         Assert.Contains("\"field\":\"if\"", exception.InnerException.Message);
         Assert.Contains("requires boolean", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsConfirmBooleanComparedToChoiceLabel()
+    {
+        var doc = Parse("""
+steps:
+  - id: approval
+    type: human.input
+    input:
+      mode: confirm
+      prompt: Publish the result?
+      choices: [approve, reject]
+  - id: route
+    type: switch
+    cases:
+      - when: "${data.steps.approval.response == 'approve'}"
+        steps:
+          - id: publish
+            type: set
+            input: { published: true }
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
+        Assert.Contains("left side resolves to boolean", exception.InnerException.Message);
+        Assert.Contains("string on the right side", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_AcceptsConfirmBooleanAsSwitchCondition()
+    {
+        var doc = Parse("""
+steps:
+  - id: approval
+    type: human.input
+    input:
+      mode: confirm
+      prompt: Publish the result?
+      choices: [approve, reject]
+  - id: route
+    type: switch
+    cases:
+      - when: "${data.steps.approval.response}"
+        steps:
+          - id: publish
+            type: set
+            input: { published: true }
+""");
+
+        InvokeSemanticValidation(doc);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsNestedWorkflowCallContractMismatch()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Nested workflow-call contract validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: produce
+        type: workflow.call
+        input:
+          ref: { kind: local, name: produce_findings }
+          args: {}
+      - id: normalize
+        type: workflow.call
+        input:
+          ref: { kind: local, name: normalize_findings }
+          args:
+            findings: "${data.steps.produce.outputs.findings}"
+  produce_findings:
+    steps:
+      - id: value
+        type: set
+        input:
+          findings:
+            - confidence: high
+    outputs:
+      findings:
+        type: array
+        expr: "${data.steps.value.findings}"
+        items:
+          type: object
+          properties:
+            confidence: { type: string }
+          required_properties: [confidence]
+  normalize_findings:
+    inputs:
+      findings:
+        type: array
+        items:
+          type: object
+          properties:
+            confidence: { type: number }
+          required_properties: []
+    steps: []
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
+        Assert.Contains("findings[].confidence", exception.InnerException.Message);
+        Assert.Contains("resolves to string", exception.InnerException.Message);
+        Assert.Contains("requires number", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_ExplainsHowToNormalizeNestedNullableAssignments()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Nested nullable output validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: source
+        type: set
+        output_schema:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                properties:
+                  label:
+                    anyOf:
+                      - type: string
+                      - type: "null"
+                required: [label]
+                additionalProperties: false
+          required: [items]
+          additionalProperties: false
+        input:
+          items: []
+    outputs:
+      items:
+        type: array
+        expr: "${data.steps.source.items}"
+        items:
+          type: object
+          properties:
+            label: { type: string }
+          required_properties: [label]
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains("nullable nested value", exception.InnerException!.Message);
+        Assert.Contains("deterministic normalization step", exception.InnerException.Message);
+        Assert.Contains("do not map the incompatible container directly", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_TreatsOptionalNestedPropertyAsNullableAtUseSite()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Optional nested property validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: produce
+        type: workflow.call
+        input:
+          ref: { kind: local, name: produce_location }
+          args: {}
+      - id: consume
+        type: workflow.call
+        input:
+          ref: { kind: local, name: consume_line }
+          args:
+            line: "${data.steps.produce.outputs.location.line}"
+  produce_location:
+    steps:
+      - id: value
+        type: set
+        input:
+          location: {}
+    outputs:
+      location:
+        type: object
+        expr: "${data.steps.value.location}"
+        properties:
+          line: { type: number }
+        required_properties: []
+  consume_line:
+    inputs:
+      line: { type: number, required: true }
+    steps: []
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
+        Assert.Contains("resolves to null or number", exception.InnerException.Message);
+        Assert.Contains("requires number", exception.InnerException.Message);
+    }
+
+    [Fact]
+    public void SemanticValidation_RejectsPassingRicherObjectsToClosedOutputContract()
+    {
+        var doc = WorkflowParser.Parse("""
+version: 1
+skill:
+  description: Closed output projection validation test.
+  tags: [test]
+  inputs: {}
+  outputs: {}
+workflows:
+  main:
+    steps:
+      - id: source
+        type: set
+        output_schema:
+          type: object
+          properties:
+            files:
+              type: array
+              items:
+                type: object
+                properties:
+                  path: { type: string }
+                  previousPath: { type: string }
+                required: [path, previousPath]
+                additionalProperties: false
+          required: [files]
+          additionalProperties: false
+        input:
+          files: []
+    outputs:
+      files:
+        type: array
+        expr: "${data.steps.source.files}"
+        items:
+          type: object
+          properties:
+            path: { type: string }
+          required_properties: [path]
+""");
+
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeSemanticValidation(doc));
+
+        Assert.Contains(ErrorCodes.ExprTypeMismatch, exception.InnerException!.Message);
+        Assert.Contains("files[].previousPath", exception.InnerException.Message);
+        Assert.Contains("closed object without additional properties", exception.InnerException.Message);
+        Assert.Contains("Project", exception.InnerException.Message);
     }
 
     [Fact]

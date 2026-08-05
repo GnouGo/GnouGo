@@ -24,6 +24,51 @@ public sealed class ConfigurationCopilotProviderConfigResolverTests
     }
 
     [Fact]
+    public async Task ResolveAsync_UsesHostDefaultProviderMetadataWhenProviderIsOmitted()
+    {
+        using var services = CreateServices(new Dictionary<string, string?>
+        {
+            ["GNouGo:DefaultLlmProvider"] = "OpenAi",
+            ["GNouGo:DefaultLlmModel"] = "host-default-model",
+            ["Code:Copilot:Providers:OpenAi:url"] = "https://api.openai.com/v1",
+            ["Code:Copilot:Providers:OpenAi:type"] = "openai",
+            ["Code:Copilot:Providers:OpenAi:authType"] = "api_key",
+            ["Code:Copilot:Providers:OpenAi:apiKey"] = "test-secret"
+        });
+        var resolver = CreateResolver(services);
+
+        var result = await resolver.ResolveAsync(null, "copilot-fallback-model", null, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("OpenAi", result.ProviderName);
+        Assert.Equal("host-default-model", result.Model);
+        Assert.Equal("host-default-model", result.Provider.ModelId);
+        Assert.Equal("test-secret", result.Provider.ApiKey);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_UsesHostDefaultWhenCallerEchoesBuiltInPolicyProvider()
+    {
+        using var services = CreateServices(new Dictionary<string, string?>
+        {
+            ["GNouGo:DefaultLlmProvider"] = "OpenAi",
+            ["GNouGo:DefaultLlmModel"] = "host-default-model",
+            ["Code:Copilot:Providers:OpenAi:url"] = "https://api.openai.com/v1",
+            ["Code:Copilot:Providers:OpenAi:type"] = "openai",
+            ["Code:Copilot:Providers:OpenAi:authType"] = "api_key",
+            ["Code:Copilot:Providers:OpenAi:apiKey"] = "test-secret"
+        });
+        var resolver = CreateResolver(services);
+
+        var result = await resolver.ResolveAsync("Copilot", "copilot-policy-model", null, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("OpenAi", result.ProviderName);
+        Assert.Equal("host-default-model", result.Model);
+        Assert.Equal("test-secret", result.Provider.ApiKey);
+    }
+
+    [Fact]
     public async Task ResolveAsync_LoadsConfiguredProviderSection()
     {
         using var services = CreateServices(new Dictionary<string, string?>

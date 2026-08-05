@@ -45,7 +45,7 @@ internal static class WorkflowPlanContractNormalizer
 
     public static YamlNode BuildCanonicalSchemaYaml(FlowTypeDescriptor descriptor)
     {
-        descriptor = NormalizeForWorkflowContract(descriptor.RemoveNullDeep());
+        descriptor = NormalizeForWorkflowContract(descriptor);
         var node = FlowTypeDescriptorConverter.ToWorkflowContractNode(
             descriptor,
             inputStyle: false,
@@ -59,6 +59,292 @@ internal static class WorkflowPlanContractNormalizer
     public static bool IsWeakOutputDef(OutputDef output, bool allowSkillScalarTypeShorthand = false)
         => IsWeakDescriptor(OutputDefToDescriptor(output, allowSkillScalarTypeShorthand));
 
+    public static bool PruneWeakNestedOutputProperties(YamlNode outputSchema)
+    {
+        if (outputSchema is not YamlMappingNode mapping)
+            return false;
+
+        var changed = false;
+        if (mapping.Children.TryGetValue(Scalar("properties"), out var propertiesNode)
+            && propertiesNode is YamlMappingNode properties)
+        {
+            foreach (var (propertyKey, originalPropertySchema) in properties.Children.ToArray())
+            {
+                var propertySchema = CanonicalizeRepresentableUnion(originalPropertySchema, out var canonicalized);
+                if (canonicalized)
+                {
+                    properties.Children[propertyKey] = propertySchema;
+                    changed = true;
+                }
+                changed |= PruneWeakNestedOutputProperties(propertySchema);
+                if (!IsWeakYamlOutputSchema(propertySchema))
+                    continue;
+
+                properties.Children.Remove(propertyKey);
+                RemoveRequiredProperty(mapping, propertyKey);
+                changed = true;
+            }
+        }
+
+        if (mapping.Children.TryGetValue(Scalar("items"), out var items))
+        {
+            var normalizedItems = CanonicalizeRepresentableUnion(items, out var canonicalized);
+            if (canonicalized)
+            {
+                mapping.Children[Scalar("items")] = normalizedItems;
+                changed = true;
+            }
+            changed |= PruneWeakNestedOutputProperties(normalizedItems);
+        }
+        if (mapping.Children.TryGetValue(Scalar("additional_properties"), out var additionalProperties))
+        {
+            var normalizedAdditional = CanonicalizeRepresentableUnion(additionalProperties, out var canonicalized);
+            if (canonicalized)
+            {
+                mapping.Children[Scalar("additional_properties")] = normalizedAdditional;
+                changed = true;
+            }
+            changed |= PruneWeakNestedOutputProperties(normalizedAdditional);
+        }
+        if (mapping.Children.TryGetValue(Scalar("additionalProperties"), out var jsonAdditionalProperties))
+        {
+            var normalizedAdditional = CanonicalizeRepresentableUnion(jsonAdditionalProperties, out var canonicalized);
+            if (canonicalized)
+            {
+                mapping.Children[Scalar("additionalProperties")] = normalizedAdditional;
+                changed = true;
+            }
+            changed |= PruneWeakNestedOutputProperties(normalizedAdditional);
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Normalizes workflow-contract shorthand that a planner may place inside a
+    /// set step's JSON Schema. Public workflow contracts accept names such as
+    /// <c>dictionary</c>, <c>required_properties</c>, and
+    /// <c>additional_properties</c>; JSON Schema does not.
+    /// </summary>
+    public static bool NormalizeSetOutputSchema(YamlNode outputSchema)
+    {
+        if (outputSchema is not YamlMappingNode)
+            return false;
+
+        // Unlike public workflow output contracts, set output schemas use JSON
+        // Schema directly and may precisely represent nullable unions. Do not
+        // prune those fields or narrow their runtime contract here.
+        _ = NormalizeJsonSchemaNode(outputSchema, out var changed);
+        return changed;
+    }
+
+    private static YamlNode NormalizeJsonSchemaNode(YamlNode schema, out bool changed)
+    {
+        changed = false;
+        if (schema is YamlScalarNode scalar)
+        {
+            var type = scalar.Value?.Trim().ToLowerInvariant();
+            if (type is not ("string" or "number" or "integer" or "boolean" or "null"
+                or "object" or "array" or "dictionary"))
+            {
+                return schema;
+            }
+
+            changed = true;
+            return new YamlMappingNode
+            {
+                { Scalar("type"), Scalar(type == "dictionary" ? "object" : type) }
+            };
+        }
+
+        if (schema is not YamlMappingNode mapping)
+            return schema;
+
+        changed |= RenameJsonSchemaKeyword(mapping, "required_properties", "required");
+        changed |= RenameJsonSchemaKeyword(mapping, "additional_properties", "additionalProperties");
+
+        if (mapping.Children.TryGetValue(Scalar("type"), out var typeNode))
+        {
+            if (typeNode is YamlScalarNode typeScalar
+                && string.Equals(typeScalar.Value, "dictionary", StringComparison.OrdinalIgnoreCase))
+            {
+                mapping.Children[Scalar("type")] = Scalar("object");
+                changed = true;
+            }
+            else if (typeNode is YamlSequenceNode typeSequence)
+            {
+                for (var index = 0; index < typeSequence.Children.Count; index++)
+                {
+                    if (typeSequence.Children[index] is not YamlScalarNode candidate
+                        || !string.Equals(candidate.Value, "dictionary", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    typeSequence.Children[index] = Scalar("object");
+                    changed = true;
+                }
+            }
+        }
+
+        if (mapping.Children.TryGetValue(Scalar("properties"), out var propertiesNode)
+            && propertiesNode is YamlMappingNode properties)
+        {
+            foreach (var property in properties.Children.ToArray())
+            {
+                var normalized = NormalizeJsonSchemaNode(property.Value, out var childChanged);
+                if (childChanged)
+                {
+                    properties.Children[property.Key] = normalized;
+                    changed = true;
+                }
+            }
+        }
+
+        foreach (var keyword in new[] { "items", "additionalProperties" })
+        {
+            var key = Scalar(keyword);
+            if (!mapping.Children.TryGetValue(key, out var child))
+                continue;
+            var normalized = NormalizeJsonSchemaNode(child, out var childChanged);
+            if (childChanged)
+            {
+                mapping.Children[key] = normalized;
+                changed = true;
+            }
+        }
+
+        foreach (var keyword in new[] { "anyOf", "oneOf", "allOf" })
+        {
+            if (!mapping.Children.TryGetValue(Scalar(keyword), out var variantsNode)
+                || variantsNode is not YamlSequenceNode variants)
+            {
+                continue;
+            }
+
+            for (var index = 0; index < variants.Children.Count; index++)
+            {
+                var normalized = NormalizeJsonSchemaNode(variants.Children[index], out var childChanged);
+                if (childChanged)
+                {
+                    variants.Children[index] = normalized;
+                    changed = true;
+                }
+            }
+        }
+
+        foreach (var definitionsKeyword in new[] { "$defs", "definitions" })
+        {
+            if (!mapping.Children.TryGetValue(Scalar(definitionsKeyword), out var definitionsNode)
+                || definitionsNode is not YamlMappingNode definitions)
+            {
+                continue;
+            }
+
+            foreach (var definition in definitions.Children.ToArray())
+            {
+                var normalized = NormalizeJsonSchemaNode(definition.Value, out var childChanged);
+                if (childChanged)
+                {
+                    definitions.Children[definition.Key] = normalized;
+                    changed = true;
+                }
+            }
+        }
+
+        return mapping;
+    }
+
+    private static bool RenameJsonSchemaKeyword(YamlMappingNode mapping, string workflowName, string jsonName)
+    {
+        var workflowKey = Scalar(workflowName);
+        if (!mapping.Children.TryGetValue(workflowKey, out var value))
+            return false;
+
+        var jsonKey = Scalar(jsonName);
+        if (!mapping.Children.ContainsKey(jsonKey))
+            mapping.Children[jsonKey] = value;
+        mapping.Children.Remove(workflowKey);
+        return true;
+    }
+
+    private static bool ContainsNullUnionVariant(YamlNode schema)
+    {
+        if (schema is not YamlMappingNode mapping)
+            return false;
+
+        if (mapping.Children.TryGetValue(Scalar("type"), out var typeNode)
+            && typeNode is YamlSequenceNode types
+            && types.Children.OfType<YamlScalarNode>().Any(static type =>
+                string.Equals(type.Value, "null", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        foreach (var key in new[] { "anyOf", "oneOf" })
+        {
+            if (!mapping.Children.TryGetValue(Scalar(key), out var variantsNode)
+                || variantsNode is not YamlSequenceNode variants)
+            {
+                continue;
+            }
+
+            if (variants.Children.Any(static variant => variant is YamlScalarNode scalar
+                    && string.Equals(scalar.Value, "null", StringComparison.OrdinalIgnoreCase)
+                || variant is YamlMappingNode variantMapping
+                && variantMapping.Children.TryGetValue(Scalar("type"), out var variantType)
+                && variantType is YamlScalarNode variantTypeScalar
+                && string.Equals(variantTypeScalar.Value, "null", StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static YamlNode CanonicalizeRepresentableUnion(YamlNode schema, out bool changed)
+    {
+        changed = false;
+        if (schema is not YamlMappingNode mapping)
+            return schema;
+        var hasUnion = mapping.Children.ContainsKey(Scalar("anyOf"))
+                       || mapping.Children.ContainsKey(Scalar("oneOf"))
+                       || mapping.Children.TryGetValue(Scalar("type"), out var typeNode)
+                       && typeNode is YamlSequenceNode;
+        if (!hasUnion)
+            return schema;
+
+        var canonical = BuildCanonicalSchemaYaml(WorkflowParserYamlToJson(schema));
+        if (IsWeakYamlOutputSchema(canonical))
+            return schema;
+
+        changed = true;
+        return canonical;
+    }
+
+    private static void RemoveRequiredProperty(YamlMappingNode schema, YamlNode propertyKey)
+    {
+        foreach (var key in new[] { "required_properties", "required" })
+        {
+            if (!schema.Children.TryGetValue(Scalar(key), out var requiredNode)
+                || requiredNode is not YamlSequenceNode required)
+            {
+                continue;
+            }
+
+            var propertyName = (propertyKey as YamlScalarNode)?.Value;
+            for (var index = required.Children.Count - 1; index >= 0; index--)
+            {
+                if (required.Children[index] is YamlScalarNode requiredName
+                    && string.Equals(requiredName.Value, propertyName, StringComparison.Ordinal))
+                {
+                    required.Children.RemoveAt(index);
+                }
+            }
+        }
+    }
+
     public static bool IsWeakDescriptor(FlowTypeDescriptor descriptor)
     {
         descriptor = NormalizeForWorkflowContract(descriptor.RemoveNull());
@@ -68,7 +354,9 @@ internal static class WorkflowPlanContractNormalizer
         return descriptor.Kind switch
         {
             FlowTypeKind.Array => descriptor.Items == null || IsWeakDescriptor(descriptor.Items),
-            FlowTypeKind.Object => descriptor.Properties.Count == 0,
+            FlowTypeKind.Object => descriptor.Properties.Count == 0
+                                   && (descriptor.AdditionalProperties == null
+                                       || IsWeakDescriptor(descriptor.AdditionalProperties)),
             FlowTypeKind.Dictionary => descriptor.AdditionalProperties == null || IsWeakDescriptor(descriptor.AdditionalProperties),
             FlowTypeKind.Union => descriptor.Variants.Count == 0 || descriptor.Variants.Any(IsWeakDescriptor),
             _ => false
@@ -79,6 +367,7 @@ internal static class WorkflowPlanContractNormalizer
     {
         if (descriptor.Kind == FlowTypeKind.Union)
         {
+            var containsNull = descriptor.Variants.Any(static variant => variant.Kind == FlowTypeKind.Null);
             var variants = descriptor.Variants
                 .Where(static variant => variant.Kind != FlowTypeKind.Null)
                 .Select(NormalizeForWorkflowContract)
@@ -86,16 +375,22 @@ internal static class WorkflowPlanContractNormalizer
 
             if (variants.Length == 0)
                 return FlowTypeDescriptor.Any;
-            if (variants.Length == 1)
-                return variants[0];
-            if (variants.All(static variant => variant.Kind == FlowTypeKind.Array))
-                return FlowTypeDescriptor.Array(FlowTypeDescriptor.Union(variants.Select(static variant => variant.Items ?? FlowTypeDescriptor.Any)));
-            if (variants.All(static variant => variant.Kind is FlowTypeKind.Object or FlowTypeKind.Dictionary))
-                return MergeObjectLikeVariants(variants);
-            if (variants.Select(static variant => variant.Kind).Distinct().Count() == 1)
-                return variants[0];
-
-            return FlowTypeDescriptor.Any;
+            FlowTypeDescriptor normalized = variants.Length == 1
+                ? variants[0]
+                : variants.All(static variant => variant.Kind == FlowTypeKind.Array)
+                    ? FlowTypeDescriptor.Array(FlowTypeDescriptor.Union(variants.Select(static variant => variant.Items ?? FlowTypeDescriptor.Any)))
+                    : variants.All(static variant => variant.Kind is FlowTypeKind.Object or FlowTypeKind.Dictionary)
+                        ? MergeObjectLikeVariants(variants)
+                        : variants.Select(static variant => variant.Kind).Distinct().Count() == 1
+                            ? variants[0]
+                            : FlowTypeDescriptor.Any;
+            return containsNull && !normalized.IsOpaque
+                ? FlowTypeDescriptor.Union([normalized, FlowTypeDescriptor.Null]) with
+                {
+                    Description = descriptor.Description,
+                    Default = descriptor.Default
+                }
+                : normalized;
         }
 
         if (descriptor.Kind == FlowTypeKind.Array)
@@ -117,6 +412,64 @@ internal static class WorkflowPlanContractNormalizer
 
         return descriptor;
     }
+
+    /// <summary>
+    /// Workflow output contracts cannot express nullable unions. Preserve the
+    /// sound part of an object contract by omitting nullable properties, but do
+    /// not narrow a nullable root or array item to its non-null variant. Returning
+    /// <see cref="FlowTypeDescriptor.Any"/> for those positions makes the
+    /// resulting public contract weak so generation fails closed instead of
+    /// accepting a contract that can reject valid runtime values.
+    /// </summary>
+    private static FlowTypeDescriptor RemoveUnrepresentableNullableValues(FlowTypeDescriptor descriptor)
+    {
+        if (ContainsNullVariant(descriptor))
+            return FlowTypeDescriptor.Any;
+
+        if (descriptor.Kind == FlowTypeKind.Array)
+        {
+            return descriptor with
+            {
+                Items = descriptor.Items == null
+                    ? null
+                    : RemoveUnrepresentableNullableValues(descriptor.Items)
+            };
+        }
+
+        if (descriptor.Kind is not (FlowTypeKind.Object or FlowTypeKind.Dictionary))
+            return descriptor;
+
+        var properties = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal);
+        foreach (var (name, property) in descriptor.Properties)
+        {
+            if (ContainsNullVariant(property.Type))
+                continue;
+
+            var normalized = RemoveUnrepresentableNullableValues(property.Type);
+            if (normalized.IsOpaque)
+                continue;
+
+            properties[name] = new FlowPropertyDescriptor(normalized, property.Required);
+        }
+
+        var additionalProperties = descriptor.AdditionalProperties == null
+            || ContainsNullVariant(descriptor.AdditionalProperties)
+            ? null
+            : RemoveUnrepresentableNullableValues(descriptor.AdditionalProperties);
+        if (additionalProperties?.IsOpaque == true)
+            additionalProperties = null;
+
+        return descriptor with
+        {
+            Properties = properties,
+            AdditionalProperties = additionalProperties
+        };
+    }
+
+    private static bool ContainsNullVariant(FlowTypeDescriptor descriptor)
+        => descriptor.Kind == FlowTypeKind.Null
+           || descriptor.Kind == FlowTypeKind.Union
+           && descriptor.Variants.Any(static variant => variant.Kind == FlowTypeKind.Null);
 
     private static FlowTypeDescriptor MergeObjectLikeVariants(IReadOnlyList<FlowTypeDescriptor> variants)
     {

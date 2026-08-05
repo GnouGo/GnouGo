@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.GithubCopilot.Core;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol;
@@ -11,6 +12,9 @@ namespace GnOuGo.GithubCopilot.Mcp;
 [McpServerToolType]
 internal sealed class CopilotTools
 {
+    private const string ReviewProjectRootDescription = "Required workspace-relative path to an existing checked-out project root. Pass a documented repository-materialization capability output such as projectRootRelative; a URL, repository identifier, or invented path is invalid.";
+    private const string ReviewFilesJsonDescription = "Required JSON array of per-file exact comparison patches returned by a documented revision-comparison capability. A raw aggregate diff or invented file list is invalid.";
+
     private readonly CopilotSessionManager _sessions;
     private readonly CopilotReviewManager _reviews;
     private readonly CodePolicy _policy;
@@ -188,17 +192,17 @@ internal sealed class CopilotTools
     public Task<CopilotOperationResult> CreateWorkspaceFileAsync(string handle, string path, string content, string? tenantId = null, CancellationToken cancellationToken = default)
         => ExecuteAsync(() => _sessions.CreateWorkspaceFileAsync(BuildContext(tenantId), handle, path, content, cancellationToken));
 
-    [McpServerTool(Name = "copilot_review_start", UseStructuredContent = true, OutputSchemaType = typeof(CopilotReviewSession)), Description("Starts a read-only, batched PR review in one managed ephemeral Copilot session. filesJson must contain exact Git MCP compare patches. Optional reviewInstructions are applied to every batch, and existingCommentsJson is used to suppress duplicate findings.")]
+    [McpServerTool(Name = "copilot_review_start", UseStructuredContent = true, OutputSchemaType = typeof(CopilotReviewSession)), Description("Starts a read-only, batched PR review in one managed ephemeral Copilot session. filesJson must contain exact Git MCP compare patches. Optional reviewInstructions are applied to every batch, and existingCommentsJson is used to suppress duplicate findings. Omit provider and model to use the host's configured KeyVault-backed default; do not copy them from code_get_policy.")]
     public Task<CopilotReviewSession> ReviewStartAsync(
         RequestContext<CallToolRequestParams> requestContext,
-        string projectRoot,
-        string baseSha,
-        string headSha,
-        string filesJson,
+        [Description(ReviewProjectRootDescription)] string projectRoot,
+        [Description("Required exact base revision identifier returned by repository or comparison metadata.")] string baseSha,
+        [Description("Required exact head revision identifier returned by repository or comparison metadata.")] string headSha,
+        [Description(ReviewFilesJsonDescription)] string filesJson,
         [Description("Optional caller review instructions applied to every batch; maximum 32000 characters.")] string? reviewInstructions = null,
         [Description("Optional JSON array of existing inline review comments with path, side, line range, body, and optional fingerprint.")] string? existingCommentsJson = null,
-        string? provider = null,
-        string? model = null,
+        [Description("Optional explicit configured KeyVault-backed provider override. Omit to use the host default; do not copy code_get_policy.provider.")] string? provider = null,
+        [Description("Optional model override for an explicitly selected provider. Omit to use the host/provider default; do not copy code_get_policy.model.")] string? model = null,
         int maxBatchCharacters = 60_000,
         string? tenantId = null,
         CancellationToken cancellationToken = default)
@@ -227,17 +231,17 @@ internal sealed class CopilotTools
     public Task<CopilotReviewResult> ReviewFinishAsync(string reviewHandle, string? tenantId = null, CancellationToken cancellationToken = default)
         => ExecuteAsync(() => _reviews.FinishAsync(BuildContext(tenantId), reviewHandle, cancellationToken));
 
-    [McpServerTool(Name = "copilot_review", UseStructuredContent = true, OutputSchemaType = typeof(CopilotReviewResult)), Description("Runs all bounded PR review batches in one ephemeral Copilot session and permanently deletes session state afterward. Optional reviewInstructions are applied to every batch, and existingCommentsJson is used to suppress duplicate findings.")]
+    [McpServerTool(Name = "copilot_review", UseStructuredContent = true, OutputSchemaType = typeof(CopilotReviewResult)), Description("Runs all bounded PR review batches in one ephemeral Copilot session and permanently deletes session state afterward. Optional reviewInstructions are applied to every batch, and existingCommentsJson is used to suppress duplicate findings. Omit provider and model to use the host's configured KeyVault-backed default; do not copy them from code_get_policy.")]
     public Task<CopilotReviewResult> ReviewAsync(
         RequestContext<CallToolRequestParams> requestContext,
-        string projectRoot,
-        string baseSha,
-        string headSha,
-        string filesJson,
+        [Description(ReviewProjectRootDescription)] string projectRoot,
+        [Description("Required exact base revision identifier returned by repository or comparison metadata.")] string baseSha,
+        [Description("Required exact head revision identifier returned by repository or comparison metadata.")] string headSha,
+        [Description(ReviewFilesJsonDescription)] string filesJson,
         [Description("Optional caller review instructions applied to every batch; maximum 32000 characters.")] string? reviewInstructions = null,
         [Description("Optional JSON array of existing inline review comments with path, side, line range, body, and optional fingerprint.")] string? existingCommentsJson = null,
-        string? provider = null,
-        string? model = null,
+        [Description("Optional explicit configured KeyVault-backed provider override. Omit to use the host default; do not copy code_get_policy.provider.")] string? provider = null,
+        [Description("Optional model override for an explicitly selected provider. Omit to use the host/provider default; do not copy code_get_policy.model.")] string? model = null,
         int maxBatchCharacters = 60_000,
         string? tenantId = null,
         CancellationToken cancellationToken = default)
@@ -257,17 +261,17 @@ internal sealed class CopilotTools
     public ReviewPublicationGateResult ReviewPublicationGate(
         string expectedHeadSha,
         string currentHeadSha,
-        string publicationPolicy,
+        ReviewPublicationPolicy publicationPolicy,
         int validatedFindingCount,
         bool humanApproved = false,
-        string proposedEvent = "comment")
+        ReviewSubmitEvent proposedEvent = ReviewSubmitEvent.Comment)
         => ReviewValidation.EvaluatePublication(new ReviewPublicationGateRequest(
             expectedHeadSha,
             currentHeadSha,
-            ParsePublicationPolicy(publicationPolicy),
+            publicationPolicy,
             validatedFindingCount,
             humanApproved,
-            ParseSubmitEvent(proposedEvent)));
+            proposedEvent));
 
     private CopilotRuntimeConfiguration BuildConfiguration(
         string? projectRoot,
@@ -380,24 +384,6 @@ internal sealed class CopilotTools
             _ => throw new McpException("permissionMode must be interactive, auto_approve_allowlist, deny, or approve_all.")
         };
 
-    private static ReviewPublicationPolicy ParsePublicationPolicy(string value)
-        => value.Trim().ToLowerInvariant() switch
-        {
-            "dry_run" => ReviewPublicationPolicy.DryRun,
-            "interactive" => ReviewPublicationPolicy.Interactive,
-            "auto_comment" => ReviewPublicationPolicy.AutoComment,
-            _ => throw new McpException("publicationPolicy must be dry_run, interactive, or auto_comment.")
-        };
-
-    private static ReviewSubmitEvent ParseSubmitEvent(string value)
-        => value.Trim().ToLowerInvariant() switch
-        {
-            "comment" => ReviewSubmitEvent.Comment,
-            "request_changes" => ReviewSubmitEvent.RequestChanges,
-            "approve" => throw new McpException("Automated review must never submit APPROVE."),
-            _ => throw new McpException("proposedEvent must be comment or request_changes.")
-        };
-
     private static IReadOnlyList<string>? ParseStringList(string? json)
         => string.IsNullOrWhiteSpace(json)
             ? null
@@ -413,8 +399,114 @@ internal sealed class CopilotTools
            ?? throw new McpException("filesJson must be a JSON array of review file patches.");
 
     private static IReadOnlyList<ExistingReviewComment> ParseExistingReviewComments(string? json)
-        => string.IsNullOrWhiteSpace(json)
-            ? Array.Empty<ExistingReviewComment>()
-            : JsonSerializer.Deserialize(json, CopilotCoreJsonContext.Default.IReadOnlyListExistingReviewComment)
-              ?? throw new McpException("existingCommentsJson must be a JSON array of existing review comments.");
+    {
+        if (string.IsNullOrWhiteSpace(json)
+            || string.Equals(json.Trim(), "null", StringComparison.OrdinalIgnoreCase))
+            return Array.Empty<ExistingReviewComment>();
+
+        var root = JsonNode.Parse(json)
+                   ?? throw new McpException("existingCommentsJson must contain JSON review comments or a documented comments envelope.");
+        if (root is not JsonArray && root is not JsonObject)
+            throw new McpException("existingCommentsJson must be a JSON array or object envelope containing review comments.");
+
+        var comments = new List<ExistingReviewComment>();
+        CollectExistingReviewComments(root, comments, null, null, null, null, depth: 0);
+        if (comments.Count == 0 && root is JsonObject envelope
+                                && ReadInteger(envelope, "totalCount", "total_count") is > 0)
+        {
+            throw new McpException("existingCommentsJson reports existing comments but none could be mapped to path/body review-comment fields.");
+        }
+
+        return comments;
+    }
+
+    private static void CollectExistingReviewComments(
+        JsonNode node,
+        List<ExistingReviewComment> comments,
+        string? inheritedPath,
+        ReviewDiffSide? inheritedSide,
+        int? inheritedStartLine,
+        int? inheritedEndLine,
+        int depth)
+    {
+        if (depth > 8)
+            return;
+        if (node is JsonArray array)
+        {
+            foreach (var item in array.OfType<JsonNode>())
+                CollectExistingReviewComments(item, comments, inheritedPath, inheritedSide, inheritedStartLine, inheritedEndLine, depth + 1);
+            return;
+        }
+        if (node is not JsonObject obj)
+            return;
+
+        var path = ReadString(obj, "path", "filePath", "file_path") ?? inheritedPath;
+        var side = ReadReviewSide(obj) ?? inheritedSide;
+        var startLine = ReadInteger(obj, "startLine", "start_line", "originalStartLine", "original_start_line") ?? inheritedStartLine;
+        var endLine = ReadInteger(obj, "endLine", "end_line", "line", "originalLine", "original_line") ?? inheritedEndLine;
+        var body = ReadString(obj, "body", "bodyText", "body_text");
+        if (!string.IsNullOrWhiteSpace(path) && !string.IsNullOrWhiteSpace(body))
+        {
+            comments.Add(new ExistingReviewComment(
+                path,
+                side,
+                startLine,
+                endLine,
+                body,
+                ReadString(obj, "fingerprint")));
+        }
+
+        foreach (var child in obj.Select(static property => property.Value).OfType<JsonNode>())
+        {
+            if (child is JsonArray or JsonObject)
+                CollectExistingReviewComments(child, comments, path, side, startLine, endLine, depth + 1);
+        }
+    }
+
+    private static ReviewDiffSide? ReadReviewSide(JsonObject obj)
+    {
+        var value = ReadString(obj, "side", "diffSide", "diff_side");
+        return value?.Trim().ToUpperInvariant() switch
+        {
+            "LEFT" => ReviewDiffSide.Left,
+            "RIGHT" => ReviewDiffSide.Right,
+            _ => null
+        };
+    }
+
+    private static string? ReadString(JsonObject obj, params string[] names)
+    {
+        var node = FindProperty(obj, names);
+        return node is JsonValue scalar && scalar.TryGetValue<string>(out var value)
+            ? value
+            : null;
+    }
+
+    private static int? ReadInteger(JsonObject obj, params string[] names)
+    {
+        var node = FindProperty(obj, names);
+        if (node is not JsonValue scalar)
+            return null;
+        if (scalar.TryGetValue<int>(out var value))
+            return value;
+        if (scalar.TryGetValue<long>(out var longValue) && longValue is >= int.MinValue and <= int.MaxValue)
+            return (int)longValue;
+        return scalar.TryGetValue<string>(out var text) && int.TryParse(text, out value) ? value : null;
+    }
+
+    private static JsonNode? FindProperty(JsonObject obj, IReadOnlyList<string> names)
+    {
+        foreach (var property in obj)
+        foreach (var name in names)
+        {
+            if (string.Equals(NormalizeJsonPropertyName(property.Key), NormalizeJsonPropertyName(name), StringComparison.Ordinal))
+                return property.Value;
+        }
+        return null;
+    }
+
+    private static string NormalizeJsonPropertyName(string value)
+        => value.Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
 }

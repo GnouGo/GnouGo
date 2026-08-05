@@ -109,15 +109,20 @@ public sealed record CopilotReviewResult(
 [JsonConverter(typeof(JsonStringEnumConverter<ReviewPublicationPolicy>))]
 public enum ReviewPublicationPolicy
 {
+    [JsonStringEnumMemberName("dry_run")]
     DryRun,
+    [JsonStringEnumMemberName("interactive")]
     Interactive,
+    [JsonStringEnumMemberName("auto_comment")]
     AutoComment
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ReviewSubmitEvent>))]
 public enum ReviewSubmitEvent
 {
+    [JsonStringEnumMemberName("comment")]
     Comment,
+    [JsonStringEnumMemberName("request_changes")]
     RequestChanges
 }
 

@@ -36,6 +36,7 @@ public sealed class ConfigureAgentsService
     private readonly WorkflowMermaidMarkdownOptions _workflowMermaidOptions;
     private readonly string _workflowYaml;
     private readonly TimeSpan _mcpCacheSlidingExpiration;
+    private readonly string _tenantId;
 
     public ConfigureAgentsService(
         ILLMClient llm,
@@ -49,7 +50,8 @@ public sealed class ConfigureAgentsService
         ILogger<ConfigureAgentsService> logger,
         AgentUserConfigMcpClient? userConfigClient = null,
         IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null,
-        IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null)
+        IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null,
+        IOptions<OpenTelemetrySettings>? openTelemetrySettings = null)
     {
         _llm = llm;
         _mcpFactory = mcpFactory;
@@ -63,6 +65,7 @@ public sealed class ConfigureAgentsService
         _logger = logger;
         _workflowMermaidOptions = workflowMermaidOptions?.Value ?? new WorkflowMermaidMarkdownOptions();
         _mcpCacheSlidingExpiration = (mcpCapabilityCacheSettings?.Value ?? new McpCapabilityCacheSettings()).SlidingExpiration;
+        _tenantId = WorkflowExecutionTenant.Resolve(openTelemetrySettings);
 
         // Load the embedded workflow YAML
         var asm = typeof(ConfigureAgentsService).Assembly;
@@ -179,7 +182,8 @@ public sealed class ConfigureAgentsService
             Limits = new ExecutionLimits
             {
                 LogStepContent = true,
-                RunId = Guid.NewGuid().ToString("N")
+                RunId = Guid.NewGuid().ToString("N"),
+                TenantId = _tenantId
             }
         };
 
@@ -281,6 +285,9 @@ public sealed class ConfigureAgentsService
         activity.SetTag("error.code", error.Code);
         activity.SetTag("gnougo.agent.workflow.error.unavailable_capability_count", presentation.UnavailableCapabilityCount);
         activity.SetTag("gnougo.agent.workflow.error.unavailable_server_count", presentation.UnavailableServerCount);
+        activity.SetTag("gnougo.agent.workflow.error.inference_reason_count", presentation.InferenceReasonCount);
+        activity.SetTag("gnougo.agent.workflow.error.matching_issue_count", presentation.MatchingIssueCount);
+        activity.SetTag("gnougo.agent.workflow.error.violated_constraint_count", presentation.ViolatedConstraintCount);
         activity.AddEvent(new ActivityEvent(
             "gnougo.agent.workflow.error.details",
             tags: new ActivityTagsCollection

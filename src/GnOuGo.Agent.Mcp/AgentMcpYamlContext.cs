@@ -10,7 +10,7 @@ internal static class AgentMcpYamlContext
         AppendScalar(builder, "id", snapshot.Id);
         AppendScalar(builder, "name", snapshot.Name);
         AppendBlock(builder, "workflow", snapshot.Workflow);
-        AppendScalar(builder, "originalPrompt", snapshot.OriginalPrompt);
+        AppendBlock(builder, "originalPrompt", snapshot.OriginalPrompt);
 
         AppendScalar(builder, "createdAt", snapshot.CreatedAt);
         AppendScalar(builder, "updatedAt", snapshot.UpdatedAt);

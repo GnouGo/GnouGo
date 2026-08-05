@@ -1168,6 +1168,46 @@ workflows:
     // === StepExecutorRegistry Tests ===
 
     [Fact]
+    public async Task Execute_CustomFunction_UsesConfiguredExpressionStatementLimit()
+    {
+        var wf = CompileMain("""
+version: 1
+workflows:
+  main:
+    functions: |
+      /**
+       * Counts array entries with deterministic iteration.
+       * @param {Array<object>} items - Values to count.
+       * @returns {number} Number of values.
+       */
+      function countItems(items) {
+        var count = 0;
+        for (var i = 0; i < items.length; i++) count++;
+        return count;
+      }
+    steps:
+      - id: count
+        type: set
+        input:
+          value: "${functions.countItems(data.inputs.items)}"
+    outputs:
+      value: "${data.steps.count.value}"
+""");
+        var items = new JsonArray();
+        for (var i = 0; i < 20_000; i++)
+            items.Add(i);
+        var engine = CreateEngine();
+
+        var result = await engine.ExecuteAsync(
+            wf,
+            new JsonObject { ["items"] = items },
+            CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(20_000, result.Outputs!["value"]!.GetValue<int>());
+    }
+
+    [Fact]
     public void StepExecutorRegistry_Get_ReturnsExecutor()
     {
         var registry = new StepExecutorRegistry();

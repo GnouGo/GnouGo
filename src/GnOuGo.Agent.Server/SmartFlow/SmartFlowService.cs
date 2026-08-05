@@ -63,6 +63,7 @@ public sealed class SmartFlowService
     private readonly WorkflowMermaidMarkdownOptions _workflowMermaidOptions;
     private readonly string _routingWorkflowYaml;
     private readonly TimeSpan _mcpCacheSlidingExpiration;
+    private readonly string _tenantId;
 
     /// <summary>Slash commands that route to the configure-providers workflow.</summary>
     private static readonly string[] ProviderCommands = { "/llm", "/embedding", "/mcp", "/status" };
@@ -83,7 +84,8 @@ public sealed class SmartFlowService
         IServiceScopeFactory? scopeFactory = null,
         IWorkflowTraceFileExporter? traceFileExporter = null,
         IOptions<McpCapabilityCacheSettings>? mcpCapabilityCacheSettings = null,
-        IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null)
+        IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null,
+        IOptions<OpenTelemetrySettings>? openTelemetrySettings = null)
     {
         _llm = llm;
         _mcpCache = mcpCache;
@@ -100,6 +102,7 @@ public sealed class SmartFlowService
         _otel = otel;
         _logger = logger;
         _mcpCacheSlidingExpiration = (mcpCapabilityCacheSettings?.Value ?? new McpCapabilityCacheSettings()).SlidingExpiration;
+        _tenantId = WorkflowExecutionTenant.Resolve(openTelemetrySettings);
 
         _routingWorkflowYaml = LoadEmbeddedWorkflowYaml("main-routing-agent.yaml");
     }
@@ -380,7 +383,8 @@ public sealed class SmartFlowService
                 Limits = new ExecutionLimits
                 {
                     LogStepContent = true,
-                    RunId = correlationId
+                    RunId = correlationId,
+                    TenantId = _tenantId
                 }
             };
             var inputs = BuildWorkflowInputs(task, selectedAgentName, correlationId, filesIds, workflowInputs);
@@ -924,7 +928,8 @@ public sealed class SmartFlowService
             Limits = new ExecutionLimits
             {
                 LogStepContent = true,
-                RunId = $"repair-{Guid.NewGuid():N}"
+                RunId = $"repair-{Guid.NewGuid():N}",
+                TenantId = _tenantId
             }
         };
 

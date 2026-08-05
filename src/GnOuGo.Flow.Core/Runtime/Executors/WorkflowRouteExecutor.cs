@@ -1473,6 +1473,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             MaxSwitchCases = parent.MaxSwitchCases,
             MaxFunctionCallDepth = parent.MaxFunctionCallDepth,
             LogStepContent = parent.LogStepContent,
+            TenantId = parent.TenantId,
             RunId = $"{parentRunId}:route:{SanitizeRunIdPart(candidate.Id)}:{Guid.NewGuid():N}"
         };
     }

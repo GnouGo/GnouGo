@@ -22,6 +22,12 @@ internal sealed record FlowPropertyDescriptor(
     FlowTypeDescriptor Type,
     bool Required = false);
 
+internal sealed record FlowTypeAssignmentIssue(
+    string Path,
+    string ActualType,
+    string ExpectedType,
+    string Message);
+
 internal sealed record FlowTypeDescriptor
 {
     private static readonly IReadOnlyDictionary<string, FlowPropertyDescriptor> EmptyProperties =
@@ -174,7 +180,9 @@ internal sealed record FlowTypeDescriptor
         var segment = path[0];
         FlowTypeDescriptor? child = null;
         if (Properties.TryGetValue(segment, out var property))
-            child = property.Type;
+            child = property.Required
+                ? property.Type
+                : Union(new[] { property.Type, Null });
         else if (AdditionalProperties != null)
             child = AdditionalProperties;
         else if (AllowsAdditionalProperties)
@@ -198,6 +206,122 @@ internal sealed record FlowTypeDescriptor
             return true;
 
         return Kind == FlowTypeKind.Integer && expected.Kind == FlowTypeKind.Number;
+    }
+
+    public FlowTypeAssignmentIssue? FindAssignmentIssue(FlowTypeDescriptor expected, string path = "")
+    {
+        if (IsOpaque || expected.IsOpaque)
+            return null;
+
+        if (Kind == FlowTypeKind.Union)
+        {
+            foreach (var variant in Variants)
+            {
+                var issue = variant.FindAssignmentIssue(expected, path);
+                if (issue != null)
+                    return BuildAssignmentIssue(path, this, expected);
+            }
+            return null;
+        }
+
+        if (expected.Kind == FlowTypeKind.Union)
+        {
+            foreach (var variant in expected.Variants)
+            {
+                if (FindAssignmentIssue(variant, path) == null)
+                    return null;
+            }
+
+            return BuildAssignmentIssue(path, this, expected);
+        }
+
+        if (Kind != expected.Kind
+            && !(Kind == FlowTypeKind.Integer && expected.Kind == FlowTypeKind.Number))
+        {
+            return BuildAssignmentIssue(path, this, expected);
+        }
+
+        if (Kind == FlowTypeKind.Array && Items != null && expected.Items != null)
+            return Items.FindAssignmentIssue(expected.Items, path + "[]");
+
+        if (Kind is not (FlowTypeKind.Object or FlowTypeKind.Dictionary)
+            || expected.Kind is not (FlowTypeKind.Object or FlowTypeKind.Dictionary))
+        {
+            return null;
+        }
+
+        foreach (var (name, expectedProperty) in expected.Properties)
+        {
+            var propertyPath = string.IsNullOrEmpty(path) ? name : path + "." + name;
+            if (!Properties.TryGetValue(name, out var actualProperty))
+            {
+                if (expectedProperty.Required)
+                {
+                    return new FlowTypeAssignmentIssue(
+                        propertyPath,
+                        "missing property",
+                        expectedProperty.Type.Describe(),
+                        $"Required property '{propertyPath}' is not guaranteed by the source contract.");
+                }
+                continue;
+            }
+
+            if (expectedProperty.Required && !actualProperty.Required)
+            {
+                return new FlowTypeAssignmentIssue(
+                    propertyPath,
+                    "optional property",
+                    expectedProperty.Type.Describe(),
+                    $"Property '{propertyPath}' is optional in the source contract but required by the destination contract.");
+            }
+
+            var nestedIssue = actualProperty.Type.FindAssignmentIssue(expectedProperty.Type, propertyPath);
+            if (nestedIssue != null)
+                return nestedIssue;
+        }
+
+        foreach (var (name, actualProperty) in Properties)
+        {
+            if (expected.Properties.ContainsKey(name))
+                continue;
+
+            var propertyPath = string.IsNullOrEmpty(path) ? name : path + "." + name;
+            if (!expected.AllowsAdditionalProperties)
+            {
+                return new FlowTypeAssignmentIssue(
+                    propertyPath,
+                    "declared property",
+                    "closed object without additional properties",
+                    $"Property '{propertyPath}' can be emitted by the source contract but is not allowed by the closed destination contract. Project an object containing only declared destination properties.");
+            }
+
+            if (expected.AdditionalProperties != null)
+            {
+                var additionalIssue = actualProperty.Type.FindAssignmentIssue(expected.AdditionalProperties, propertyPath);
+                if (additionalIssue != null)
+                    return additionalIssue;
+            }
+        }
+
+        if (AdditionalProperties != null && expected.AdditionalProperties != null)
+            return AdditionalProperties.FindAssignmentIssue(expected.AdditionalProperties, path + ".*");
+
+        return null;
+    }
+
+    private static FlowTypeAssignmentIssue BuildAssignmentIssue(
+        string path,
+        FlowTypeDescriptor actual,
+        FlowTypeDescriptor expected)
+    {
+        var actualDescription = actual.Describe();
+        var expectedDescription = expected.Describe();
+        var location = string.IsNullOrEmpty(path) ? "the assigned value" : $"'{path}'";
+        return new FlowTypeAssignmentIssue(
+            path,
+            actualDescription,
+            expectedDescription,
+            $"Nested value {location} resolves to {actualDescription}, but the destination contract requires {expectedDescription}.");
     }
 
     public string Describe()
@@ -291,19 +415,26 @@ internal static class FlowTypeDescriptorConverter
                 StringComparer.Ordinal),
             definition.AdditionalProperties == null ? null : FromInputDef(definition.AdditionalProperties));
 
-        return descriptor with
+        descriptor = descriptor with
         {
             Description = definition.Description,
             Default = definition.Default == null
                 ? null
                 : InputDefaultValueConverter.ConvertToNode(definition.Default, definition)
         };
+        return definition.Nullable
+            ? FlowTypeDescriptor.Union([descriptor, FlowTypeDescriptor.Null]) with
+            {
+                Description = definition.Description,
+                Default = descriptor.Default
+            }
+            : descriptor;
     }
 
     public static FlowTypeDescriptor FromOutputDef(OutputDef definition)
     {
         var type = NormalizeWorkflowType(definition.Type);
-        return FromWorkflowSchemaParts(
+        var descriptor = FromWorkflowSchemaParts(
             type,
             definition.Items == null ? null : FromOutputDef(definition.Items),
             definition.Properties?.ToDictionary(
@@ -316,6 +447,9 @@ internal static class FlowTypeDescriptorConverter
         {
             Description = definition.Description
         };
+        return definition.Nullable
+            ? FlowTypeDescriptor.Union([descriptor, FlowTypeDescriptor.Null]) with { Description = definition.Description }
+            : descriptor;
     }
 
     public static FlowTypeDescriptor InputsObject(IReadOnlyDictionary<string, InputDef>? inputs)
@@ -448,6 +582,27 @@ internal static class FlowTypeDescriptorConverter
         bool inputStyle,
         bool allowScalarShortForm = true)
     {
+        if (descriptor.Kind == FlowTypeKind.Union)
+        {
+            var nonNullVariants = descriptor.Variants
+                .Where(static variant => variant.Kind != FlowTypeKind.Null)
+                .ToArray();
+            if (nonNullVariants.Length == 1
+                && nonNullVariants.Length != descriptor.Variants.Count)
+            {
+                var nullableNode = ToWorkflowContractNode(
+                    nonNullVariants[0] with
+                    {
+                        Description = descriptor.Description ?? nonNullVariants[0].Description,
+                        Default = descriptor.Default ?? nonNullVariants[0].Default
+                    },
+                    inputStyle,
+                    allowScalarShortForm: false) as JsonObject ?? new JsonObject { ["type"] = "any" };
+                nullableNode["nullable"] = true;
+                return nullableNode;
+            }
+        }
+
         if (allowScalarShortForm && CanUseScalarWorkflowContract(descriptor))
             return JsonValue.Create(ToWorkflowTypeName(descriptor.Kind))!;
 

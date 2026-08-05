@@ -131,7 +131,11 @@ builder.Services.AddSingleton<IMcpClientFactory>(sp =>
 {
     var llmOptions = builder.Configuration.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
     if (llmOptions.McpServers.Count > 0)
-        return new ConfiguredMcpClientFactory(llmOptions.McpServers, sp.GetService<IHumanInputProvider>());
+        return new ConfiguredMcpClientFactory(
+            llmOptions.McpServers,
+            sp.GetService<IHumanInputProvider>(),
+            llmOptions.DefaultProvider,
+            llmOptions.DefaultModel);
     return new InMemoryMcpClientFactory();
 });
 

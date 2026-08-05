@@ -54,6 +54,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AppendExpressionFunctionRules(sb);
         sb.AppendLine("MCP request objects must preserve schema scalar types exactly. Numeric/integer/boolean fields must be unquoted YAML scalars when required explicitly by the MCP schema/validator.");
         sb.AppendLine("MCP request expressions must also match the schema statically. Do not pass nullable structured_output fields into required MCP request fields unless the value was refined with `assert.non_null` or the same step has an `if` guard proving that exact field is non-null.");
+        sb.AppendLine("MCP property descriptions are contractual. A globally optional property may be mandatory for a selected mode or target; preserve applicable exact-named identity, target, location, range, and selector values from typed source items.");
         sb.AppendLine("Never satisfy missing MCP request arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.");
         sb.AppendLine("Workflow output expressions must resolve to their declared type on every branch.");
         sb.AppendLine("Every required string must be non-empty on every path. If a value can be absent, make that property optional and omit it instead of emitting an empty-string sentinel.");
@@ -66,6 +67,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         AppendWorkflowPlanGenerationGuardrails(sb);
         sb.AppendLine();
         AppendStructuredOutputStrictSchemaRules(sb);
+        AppendFunctionJsDocRepairContext(sb, invalidYaml, structuredError);
         if (structuredError.Contains("Duplicate key required", StringComparison.OrdinalIgnoreCase))
         {
             sb.AppendLine();
@@ -85,6 +87,58 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine();
         sb.AppendLine("Fix the issues above and generate a corrected YAML.");
         return sb.ToString();
+    }
+
+    private static void AppendFunctionJsDocRepairContext(
+        StringBuilder sb,
+        string? invalidYaml,
+        string structuredError)
+    {
+        if (string.IsNullOrWhiteSpace(invalidYaml)
+            || !structuredError.Contains("FUNCTION_JSDOC_", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var declarations = Regex.Matches(
+                invalidYaml,
+                @"\bfunction\s+(?<name>[A-Za-z_$][A-Za-z0-9_$]*)\s*\((?<params>[^)]*)\)",
+                RegexOptions.CultureInvariant)
+            .Cast<Match>()
+            .Select(static match => new
+            {
+                Name = match.Groups["name"].Value,
+                Parameters = match.Groups["params"].Value
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(static parameter => parameter.StartsWith("...", StringComparison.Ordinal)
+                        ? parameter[3..].TrimStart()
+                        : parameter)
+                    .Select(static parameter => parameter.Split('=', 2, StringSplitOptions.TrimEntries)[0])
+                    .Where(static parameter => Regex.IsMatch(parameter, @"^[A-Za-z_$][A-Za-z0-9_$]*$"))
+                    .ToArray()
+            })
+            .Where(static declaration => declaration.Parameters.Length > 0)
+            .DistinctBy(static declaration => declaration.Name, StringComparer.Ordinal)
+            .Take(64)
+            .ToArray();
+
+        if (declarations.Length == 0)
+            return;
+
+        sb.AppendLine();
+        AppendPromptSectionStart(sb, "function_jsdoc_repair");
+        sb.AppendLine("Rewrite the complete JSDoc block immediately above every listed function declaration.");
+        sb.AppendLine("Preserve each function signature and body. Include exactly one typed @param tag for every parameter name listed below and retain a typed @returns tag.");
+        sb.AppendLine("Use accurate semantic types inferred from the existing function body and call sites; do not use the literal placeholders `type`, `any`, or `unknown`.");
+        sb.AppendLine("Do not document a renamed parameter: the @param name must exactly match the function signature.");
+        foreach (var declaration in declarations)
+        {
+            sb.AppendLine($"- function {declaration.Name}({string.Join(", ", declaration.Parameters)}):");
+            foreach (var parameter in declaration.Parameters)
+                sb.AppendLine($"  - required tag: @param {{<semantic-type>}} {parameter} - <meaning>");
+            sb.AppendLine("  - required tag: @returns {<semantic-type>} - <meaning>");
+        }
+        AppendPromptSectionEnd(sb, "function_jsdoc_repair");
     }
 
     private static string BuildUserTaskBlock(string instruction, string? context)
@@ -355,7 +409,26 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 sb.AppendLine("Affected output field(s): " + string.Join(", ", outputFields.Select(static field => $"`{field}`")));
         }
 
-        if (lower.Contains("resolves to boolean", StringComparison.Ordinal) && lower.Contains("requires string", StringComparison.Ordinal))
+        if (lower.Contains("incompatible nested contract", StringComparison.Ordinal)
+            && lower.Contains("closed object without additional properties", StringComparison.Ordinal))
+        {
+            sb.AppendLine("The source container has documented fields that the destination's closed object schema does not allow. Directly reusing the source expression will always repeat this error.");
+            sb.AppendLine("Keep the destination contract unchanged. Add a deterministic projection function and a `set` step with a closed `output_schema` identical to that destination contract, then point the workflow output at the set result.");
+            sb.AppendLine("The function must return fresh objects containing exactly the destination fields: no object spread, no `return item`, no `push(item)`, and no offending extra field.");
+            sb.AppendLine("Give the function a precise JSDoc return shape derived from the destination, for example `@returns {Array<{id:string,status:string}>}` rather than `Array<object>`.");
+            sb.AppendLine("Projection pattern: `return source.map(function (item) { return { id: item.id, status: item.status }; });`; replace the example fields and types with every exact field declared by the affected destination schema.");
+            sb.AppendLine("Do not widen or weaken a locked output contract, and do not keep mapping the richer source container directly.");
+        }
+        else if (lower.Contains("incompatible nested contract", StringComparison.Ordinal)
+                 && lower.Contains("resolves to null or", StringComparison.Ordinal))
+        {
+            sb.AppendLine("The exact container expression has a nested nullable field whose type is incompatible with the destination schema.");
+            sb.AppendLine("Changing only the outer array/object expression cannot repair a nested mismatch. Project every item/property through a deterministic normalization step or typed custom function before assigning it to the destination.");
+            sb.AppendLine("When the locked destination requires a non-null scalar, replace null explicitly with a contract-valid default, for example `value == null ? \"\" : String(value)` for a string field, and emit a closed `set.output_schema` matching the destination.");
+            sb.AppendLine("When null is intentionally part of the public contract and the locked schema permits it, use `type: any` only for that nullable workflow input/output property or omit the optional property from the projected object. Never use `type: any` inside strict `structured_output` JSON Schema.");
+            sb.AppendLine("Do not weaken a locked output contract and do not keep mapping the original incompatible container directly.");
+        }
+        else if (lower.Contains("resolves to boolean", StringComparison.Ordinal) && lower.Contains("requires string", StringComparison.Ordinal))
         {
             sb.AppendLine("A comparison/predicate expression returns boolean, so it cannot satisfy a string output contract.");
             sb.AppendLine("Do not assign `${a == b}`, `${a != b}`, `${contains(...)}`, `${exists(...)}`, or other predicates to string outputs.");
@@ -635,6 +708,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("  type: mcp.call");
         sb.AppendLine("  input: { server: <exact-server>, kind: tool, method: <exact-tool>, request: { ... } }");
         sb.AppendLine("For every listed input_schema_json, copy all required request properties into input.request with the exact schema name and scalar type.");
+        sb.AppendLine("Also inspect every property description and selected enum/const/discriminator value. Include conditionally applicable companion properties even when the root schema does not list them in required.");
         sb.AppendLine("If a required numeric/integer/boolean MCP property is missing, add an explicit YAML scalar value; do not use an expression string, cast, empty value, fake value, or data.env fallback.");
         sb.AppendLine("When repairing one MCP call, re-check every MCP call in the YAML so earlier schema fixes are preserved.");
         sb.AppendLine("Available MCP servers: " + string.Join(", ", discovered.Select(static server => server.Name).OrderBy(static name => name, StringComparer.Ordinal)));

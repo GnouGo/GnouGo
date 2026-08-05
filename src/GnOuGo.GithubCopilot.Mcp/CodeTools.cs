@@ -25,7 +25,7 @@ public sealed class CodeTools
         _logger = logger;
     }
 
-    [McpServerTool(Name = "code_get_policy", UseStructuredContent = true, OutputSchemaType = typeof(CodePolicyInfo)), Description("Returns the active code MCP policy: allowed roots/extensions, write mode, limits, and Copilot/GitHub Models auth source status. Call this first to discover the default workspace.")]
+    [McpServerTool(Name = "code_get_policy", UseStructuredContent = true, OutputSchemaType = typeof(CodePolicyInfo)), Description("Returns policy for the legacy code_* tools: allowed roots/extensions, write mode, limits, and Copilot/GitHub Models auth source status. Use it only when a code_* operation needs the default workspace. Do not use its provider or model fields to configure copilot_* tools; those tools resolve the host default provider internally when their optional overrides are omitted.")]
     public CodePolicyInfo GetPolicy() => _projectService.GetPolicy();
 
     [McpServerTool(Name = "code_project_summary", UseStructuredContent = true, OutputSchemaType = typeof(CodeProjectSummary)), Description("Summarizes and verifies an existing project root: solution files, project files, top-level directories, and approximate allowed code file counts." + RequiredProjectRootToolSuffix)]

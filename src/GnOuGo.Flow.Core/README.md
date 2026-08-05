@@ -601,6 +601,10 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 >
 > When an MCP server returns protocol `structuredContent`, `mcp.call` uses that value as `response`. `workflow.plan` can include and validate fields inside that response only when the same tool is discoverable with an `OutputSchema` or representative `ExampleResponse`.
 
+Resolved request properties whose discovered input schema marks them optional are omitted when their value is JSON `null`. This lets one typed request represent optional scalar fields without sending schema-invalid nulls. A null value for a required property is never omitted and still fails before transport.
+
+Documented action selectors (`method`, `action`, `operation`, `command`, `mode`, `event`, `kind`, JSON Schema `const`, and explicit discriminators) must be literal request scalars. Generated expressions cannot hide or dynamically replace the logical MCP operation selected during planning.
+
 #### MCP progress events → thinking telemetry
 
 For stdio MCP servers, `mcp.call` also listens to structured JSONL progress messages written on stderr while the tool is still running. Matching events are forwarded immediately as `gnougo-flow.step.thinking` telemetry events. As a fallback/history mechanism, when the final tool result contains a `progressEvents` array (also accepted: `progress_events`, `progress`, or `events`), `mcp.call` forwards each item the same way. Agent Server can stream these as `thinking:<level>` UI events.
@@ -649,6 +653,8 @@ Sets variables in the workflow data context using expressions.
 **Output:** `{ total: 0, prefix: "report_", full_name: "...", items_count: 5 }`
 
 `output_schema` is optional, but recommended for any `set` step that normalizes or reshapes data for later steps. When present, workflow.plan validates `input` against the schema, downstream references use the declared output type, and the runtime verifies the resolved output before exposing it as `data.steps.<id>`.
+
+Generated `set.output_schema` values use JSON Schema. During plan normalization, workflow-contract shorthand such as `dictionary`, `required_properties`, and `additional_properties` is converted to the corresponding JSON Schema object form. Concrete nullable unions remain intact because they are enforceable by the JSON Schema runtime.
 
 ---
 
@@ -1265,7 +1271,11 @@ The most powerful step type: asks an LLM to **generate a complete YAML workflow*
 
 `capability_preflight.mode: infer` discovers every configured MCP catalog and uses two strict structured-output calls. Pass 1 inventories positive runtime operations and constraints without seeing tools. Pass 2 matches that inventory to deterministic opaque IDs from a compact schema-aware catalog. The catalog expands documented scalar `enum`/`const`, nested selectors, discriminators, `oneOf`, and `anyOf` branches, so logical variants of one physical tool remain distinct capabilities. Required unavailable operations fail before classification, decomposition, or YAML generation. Prohibitions, safety rules, ordering requirements, and invariants are constraints rather than executable operations, so abstaining never requires a tool.
 
-The inventory excludes configuration already supplied by the host, provider or credential resolution performed internally by a selected capability, and persistence performed outside the generated workflow. Catalog traversal is bounded to four schema levels, 64 selector values per property, 512 description characters, and 256,000 total catalog characters. An incomplete or oversized catalog fails closed with `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`.
+The inventory excludes configuration already supplied by the host, provider or credential resolution performed internally by a selected capability, and persistence performed outside the generated workflow. Inventory completeness means that all requested runtime intentions were enumerated; it does not assert that tools or selector matches exist. If the first inventory is incomplete, Flow performs one bounded repair call. A second incomplete result fails closed with sanitized `incomplete_reasons` in the error details so interactive callers can explain what user intent needs clarification. Catalog traversal is bounded to four schema levels, 64 selector values per property, 512 description characters, and 256,000 total catalog characters. An incomplete or oversized catalog fails closed with `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`.
+
+Each operation is classified as `external_effect`, `human_interaction`, or `local_processing`; external effects are additionally classified as `read`, `write`, `execute`, or owned-resource `lifecycle`. Matching can select one capability, the smallest complementary composition, or no capability for local work. Operation and opaque catalog IDs remain locked through pipeline extraction, leaf blueprints, repair, and final validation. Required capability occurrences are a multiset: two operations selecting the same tool still require two statically verifiable calls. Local operations remain semantic blueprint obligations instead of being forced onto an arbitrary native step.
+
+The matcher computes completeness deterministically and performs at most one repair while retaining valid decisions. Confirmed required omissions use `CAPABILITY_PREFLIGHT_UNAVAILABLE`; malformed, unknown-ID, or unresolved ambiguous decisions use `CAPABILITY_PREFLIGHT_INFERENCE_FAILED`. Both expose bounded, sanitized matching diagnostics. Unless unattended execution was explicitly requested, inferred generation deterministically adds a required `human_interaction` operation and ordering constraint before the first external write; this safety gate is no longer optional prompt guidance. Conditional and ordering constraints remain policy-only because an exact denied capability would incorrectly ban its valid post-gate use.
 
 Ordinary `workflow.plan` callers remain compatible because the default is `off`. `explicit` mode performs the same deterministic validation without an inference call:
 
@@ -1392,9 +1402,13 @@ Pipeline mode runs five traced phases:
 4. `generate_subworkflows` runs the normal `workflow.plan` generator for each leaf workflow in parallel. Each leaf prompt contains only that leaf's goal, input/output contract, and content; leaf generation forbids `workflow.call` and `workflow.plan`, preserves the configured MCP prefilter behavior, forces validation, retries failed leaf generation up to the parent repair attempt budget, and rejects bare `type: object` schemas unless they define non-empty `properties`.
 5. `assemble_main_workflow` sends a compact leaf manifest, the generated leaf contracts, and a minimal main-graph DSL context to the LLM. The LLM returns only a `document` plus orchestration `graph`; the runtime renders the real `main` workflow deterministically and grafts the validated leaf workflows before final validation.
 
+Generated public outputs must remain concrete. Before final validation, Flow strengthens outputs from locked producer contracts where possible and removes only unverifiable or nullable nested properties (including their `required_properties` entries) when the Flow contract cannot represent their exact value set. It never narrows nullable values to non-null scalars and never invents array item or root-output types; a weak root contract still fails with `WEAK_OUTPUT_SCHEMA` diagnostics.
+
 The final YAML has exactly one hierarchy level: `main` may call local leaf workflows with `workflow.call`, while leaf workflows must never contain `workflow.call` or `workflow.plan`. The returned `pipeline` object includes `normalized_markdown`, `annotated_markdown`, and parsed `specs`; each spec includes `description`, `input_schemas`, `output_schemas`, and `planned_tools`.
 
 When structured extraction is active and `planned_tools[].required` is true, leaf generation must emit an explicit direct `mcp.call` with matching `input.server`, `input.kind`, and literal `input.method` or `input.methods`. Pipeline validation rejects a generated leaf that omits a required planned tool. If pipeline-level MCP context was built, extraction also verifies planned server/tool/prompt names against the discovered capabilities; otherwise final MCP-aware validation still checks generated calls against the runtime registry.
+
+Locked capability occurrences are assigned as an exact multiset. Deterministic ownership normalization excludes local shaping leaves, rewards positive action-family agreement between a capability and a leaf, and ignores actions mentioned only as prohibitions. This keeps complementary capabilities in cohesive producer/action leaves without relying on product or server names.
 
 When a generated leaf workflow contains root-level helper functions, final assembly moves those helpers into the grafted leaf workflow's own `functions:` block. They are not promoted to the final document root, so helpers remain isolated with the leaf that uses them.
 
@@ -1701,7 +1715,7 @@ Expression evaluation is sandboxed through `ExecutionLimits`:
 | Property | Default | Description |
 |----------|---------|-------------|
 | `MaxExpressionAstNodes` | `500` | Parser/validator complexity limit. |
-| `MaxExpressionStatements` | `100000` | Jint statement budget for expression evaluation. |
+| `MaxExpressionStatements` | `1000000` | Jint statement budget for bounded generated data transformations. |
 | `ExpressionTimeoutSeconds` | `15` | Evaluation timeout. |
 | `ExpressionMemoryLimitBytes` | `50000000` | Jint memory limit. |
 
@@ -1713,6 +1727,8 @@ Increase these limits only for trusted workflows; prefer simplifying expressions
 
 Define reusable functions in the `functions:` block (document-level or workflow-level).
 When `workflow.plan` generates custom functions, each generated `function` must be immediately preceded by JSDoc with typed `@param` entries for every parameter and a typed `@returns` entry for the output:
+
+Before generated YAML is validated, the planner may add a missing exact-name `@param` tag only when deterministic JavaScript usage proves a coarse semantic type such as object, array, string, number, or boolean. Ambiguous parameters are not guessed and continue to fail validation with `FUNCTION_JSDOC_PARAM_MISSING`.
 
 Scope rules:
 

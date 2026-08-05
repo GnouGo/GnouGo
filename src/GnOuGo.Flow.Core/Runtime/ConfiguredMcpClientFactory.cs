@@ -31,11 +31,19 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
     private readonly ConcurrentDictionary<string, McpClient> _clients = new();
     private readonly IReadOnlyList<McpServerMetadata> _serverMetadata;
     private readonly IHumanInputProvider? _humanInputProvider;
+    private readonly string? _defaultLlmProvider;
+    private readonly string? _defaultLlmModel;
 
-    public ConfiguredMcpClientFactory(Dictionary<string, McpServerOptions> serverConfigs, IHumanInputProvider? humanInputProvider = null)
+    public ConfiguredMcpClientFactory(
+        Dictionary<string, McpServerOptions> serverConfigs,
+        IHumanInputProvider? humanInputProvider = null,
+        string? defaultLlmProvider = null,
+        string? defaultLlmModel = null)
     {
         _serverConfigs = serverConfigs;
         _humanInputProvider = humanInputProvider;
+        _defaultLlmProvider = string.IsNullOrWhiteSpace(defaultLlmProvider) ? null : defaultLlmProvider.Trim();
+        _defaultLlmModel = string.IsNullOrWhiteSpace(defaultLlmModel) ? null : defaultLlmModel.Trim();
         _serverMetadata = _serverConfigs
             .Select(kv => new McpServerMetadata
             {
@@ -128,7 +136,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         IClientTransport transport = type switch
         {
             "http" or "sse" => CreateHttpTransport(config, correlation),
-            "stdio" => CreateStdioTransport(serverName, config, correlation),
+            "stdio" => CreateStdioTransport(serverName, config, correlation, _defaultLlmProvider, _defaultLlmModel),
             _ => throw new WorkflowRuntimeException(
                 ErrorCodes.McpConnectionError,
                 $"Unknown MCP transport type '{config.Type}' for server '{serverName}'")
@@ -252,7 +260,12 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
         return IPAddress.TryParse(endpoint.Host, out var address) && IPAddress.IsLoopback(address);
     }
 
-    private static StdioClientTransport CreateStdioTransport(string serverName, McpServerOptions config, McpCorrelationContext? correlation)
+    private static StdioClientTransport CreateStdioTransport(
+        string serverName,
+        McpServerOptions config,
+        McpCorrelationContext? correlation,
+        string? defaultLlmProvider,
+        string? defaultLlmModel)
     {
         if (string.IsNullOrWhiteSpace(config.Command))
             throw new WorkflowRuntimeException(
@@ -269,7 +282,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             Arguments = config.Args ?? [],
             Name = "GnOuGo.Flow",
             WorkingDirectory = commandResolution.WorkingDirectory,
-            EnvironmentVariables = BuildStdioEnvironment(config, correlation),
+            EnvironmentVariables = BuildStdioEnvironment(config, correlation, defaultLlmProvider, defaultLlmModel),
             StandardErrorLines = line => CaptureStdioErrorLine(serverName, line)
         });
     }
@@ -496,9 +509,15 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
             headers.TryAddWithoutValidation(name, value);
     }
 
-    private static Dictionary<string, string?>? BuildStdioEnvironment(McpServerOptions config, McpCorrelationContext? correlation)
+    private static Dictionary<string, string?>? BuildStdioEnvironment(
+        McpServerOptions config,
+        McpCorrelationContext? correlation,
+        string? defaultLlmProvider,
+        string? defaultLlmModel)
     {
         var env = BuildCorrelationEnvironment(correlation) ?? new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        AddEnv(env, "GNouGo__DefaultLlmProvider", defaultLlmProvider);
+        AddEnv(env, "GNouGo__DefaultLlmModel", defaultLlmModel);
         if (config.EnvironmentVariables is not null)
         {
             foreach (var kv in config.EnvironmentVariables)

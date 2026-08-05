@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Reflection;
 using Moq;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
@@ -17,7 +18,8 @@ public class McpCallExecutorTests
     }
 
     private static async Task<RunResult> RunMain(string yaml, JsonObject? inputs = null,
-        IMcpClientFactory? mcpFactory = null, ILLMClient? llm = null, IWorkflowTelemetry? telemetry = null)
+        IMcpClientFactory? mcpFactory = null, ILLMClient? llm = null, IWorkflowTelemetry? telemetry = null,
+        ExecutionLimits? limits = null)
     {
         var compiled = CompileDoc(yaml);
         var wf = compiled.Workflows[compiled.Entrypoint!];
@@ -25,12 +27,53 @@ public class McpCallExecutorTests
         {
             McpClientFactory = mcpFactory,
             LLMClient = llm,
-            Telemetry = telemetry ?? NullWorkflowTelemetry.Instance
+            Telemetry = telemetry ?? NullWorkflowTelemetry.Instance,
+            Limits = limits ?? new ExecutionLimits()
         };
         return await engine.ExecuteAsync(wf, inputs ?? new JsonObject(), CancellationToken.None);
     }
 
     // ------ Basic mcp.call ------
+
+    [Fact]
+    public async Task McpCall_UsesHostTenantMetadata_AndIgnoresWorkflowTenantInput()
+    {
+        JsonObject? capturedMeta = null;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("service", new MockMcpServerConfig
+        {
+            Tools = [new McpToolInfo { Name = "read", InputSchema = JsonNode.Parse("{\"type\":\"object\"}") }],
+            ToolHandlers =
+            {
+                ["read"] = _ =>
+                {
+                    var method = typeof(ConfiguredMcpClientFactory).GetMethod(
+                        "BuildCurrentCorrelationMeta",
+                        BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+                    capturedMeta = Assert.IsType<JsonObject>(method!.Invoke(null, []));
+                    return new McpCallResult { Content = new JsonObject { ["ok"] = true } };
+                }
+            }
+        });
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: read
+        type: mcp.call
+        input:
+          server: service
+          method: read
+          request: {}
+""", new JsonObject { ["tenantId"] = "workflow-controlled" }, factory,
+            limits: new ExecutionLimits { TenantId = "host-controlled", RunId = "run-1" });
+
+        Assert.True(result.Success, result.Error?.Message);
+        var gnougo = Assert.IsType<JsonObject>(capturedMeta!["gnougo"]);
+        Assert.Equal("host-controlled", gnougo["tenantId"]!.GetValue<string>());
+    }
 
     [Fact]
     public async Task McpCall_ResolvedRequestIsValidatedAgainstLiveToolSchemaBeforeTransport()
@@ -84,6 +127,131 @@ workflows:
         Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
         Assert.Contains("runtime JSON Schema validation", result.Error.Message);
         Assert.Contains("expected integer", result.Error.Message);
+        Assert.False(handlerCalled);
+    }
+
+    [Fact]
+    public async Task McpCall_OmitsResolvedNullForOptionalToolProperty()
+    {
+        JsonObject? capturedArguments = null;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("comments", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "add_comment",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "body": { "type": "string" },
+                        "startLine": { "type": "number" }
+                      },
+                      "required": ["body"],
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            ],
+            ToolHandlers =
+            {
+                ["add_comment"] = arguments =>
+                {
+                    capturedArguments = Assert.IsType<JsonObject>(arguments?.DeepClone());
+                    return new McpCallResult { Content = new JsonObject { ["ok"] = true } };
+                }
+            }
+        });
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: comment
+        type: mcp.call
+        input:
+          server: comments
+          method: add_comment
+          request:
+            body: Demonstrable finding.
+            startLine: null
+""", mcpFactory: factory);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.NotNull(capturedArguments);
+        Assert.Equal("Demonstrable finding.", capturedArguments!["body"]!.GetValue<string>());
+        Assert.False(capturedArguments.ContainsKey("startLine"));
+    }
+
+    [Fact]
+    public async Task McpCall_ResolvedRequestEnforcesConditionalSchemaRequirementsBeforeTransport()
+    {
+        var handlerCalled = false;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("inventory", new MockMcpServerConfig
+        {
+            Tools =
+            [
+                new McpToolInfo
+                {
+                    Name = "locate_record",
+                    InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "mode": { "type": "string", "enum": ["summary", "position"] },
+                        "target": { "type": "string" },
+                        "offset": { "type": "integer" },
+                        "partition": { "type": "string" }
+                      },
+                      "required": ["mode"],
+                      "dependentRequired": {
+                        "target": ["offset"]
+                      },
+                      "if": {
+                        "properties": { "mode": { "const": "position" } },
+                        "required": ["mode"]
+                      },
+                      "then": {
+                        "required": ["target", "partition"]
+                      },
+                      "additionalProperties": false
+                    }
+                    """)
+                }
+            ],
+            ToolHandlers =
+            {
+                ["locate_record"] = _ =>
+                {
+                    handlerCalled = true;
+                    return new McpCallResult { Content = new JsonObject { ["ok"] = true } };
+                }
+            }
+        });
+
+        var result = await RunMain("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: locate
+        type: mcp.call
+        input:
+          server: inventory
+          method: locate_record
+          request:
+            mode: position
+            target: record-42
+""", mcpFactory: factory);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        Assert.Contains("partition", result.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("offset", result.Error.Message, StringComparison.Ordinal);
         Assert.False(handlerCalled);
     }
 

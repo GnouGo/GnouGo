@@ -823,7 +823,8 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             FinalizationTimeoutSeconds = source.FinalizationTimeoutSeconds,
             MaxFinalizationSteps = source.MaxFinalizationSteps,
             LogStepContent = source.LogStepContent,
-            RunId = null
+            RunId = null,
+            TenantId = source.TenantId
         };
 
     private static JsonNode? ToErrorJson(WorkflowError? error)
@@ -952,7 +953,10 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         bool isFinalization = false)
     {
         var scriptFunctions = new Dictionary<string, Func<JsonNode?[], JsonNode?>>();
-        var jint = new JintSandbox();
+        var jint = new JintSandbox(
+            maxStatements: Limits.MaxExpressionStatements,
+            timeoutMs: checked(Limits.ExpressionTimeoutSeconds * 1000),
+            memoryLimitBytes: Limits.ExpressionMemoryLimitBytes);
 
         if (workflow.Document?.Source?.Functions != null)
         {

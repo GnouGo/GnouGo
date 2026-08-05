@@ -90,6 +90,51 @@ workflows:
     }
 
     [Fact]
+    public async Task HumanInput_Confirm_ReturnsBooleanAndRoutesApprovedBranch()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: ask
+        type: human.input
+        input:
+          mode: confirm
+          prompt: Publish the result?
+          choices: [approve, reject]
+      - id: route
+        type: switch
+        cases:
+          - when: ""${data.steps.ask.response}""
+            steps:
+              - id: approved
+                type: set
+                input: { published: true }
+        default:
+          - id: rejected
+            type: set
+            input: { published: false }
+");
+
+        var fakeProvider = new FakeHumanInputProvider(new JsonObject { ["response"] = true });
+        var engine = new WorkflowEngine
+        {
+            HumanInputProvider = fakeProvider,
+            Limits = new ExecutionLimits { RunId = "test-run-confirm" }
+        };
+
+        var result = await engine.ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(HumanInputContract.ModeConfirm, fakeProvider.LastRequest!.Mode);
+        var routeOutput = Assert.IsType<JsonObject>(result.StepResults.Single(step => step.StepId == "route").Output);
+        var approvedOutput = Assert.IsType<JsonObject>(routeOutput["approved"]);
+        Assert.True(approvedOutput["published"]!.GetValue<bool>());
+        Assert.Null(routeOutput["rejected"]);
+    }
+
+    [Fact]
     public async Task HumanInput_WithFields_ParsesFieldDefs()
     {
         var wf = CompileMain(@"
@@ -134,6 +179,41 @@ workflows:
         Assert.True(fakeProvider.LastRequest.Fields[0].Required);
         Assert.Equal("select", fakeProvider.LastRequest.Fields[1].Type);
         Assert.Contains("high", fakeProvider.LastRequest.Fields[1].Options!);
+    }
+
+    [Fact]
+    public async Task WorkflowCall_ExplicitEmptyRequiredProperties_KeepsNestedPropertiesOptional()
+    {
+        var wf = CompileMain(@"
+version: 1
+workflows:
+  main:
+    steps:
+      - id: call
+        type: workflow.call
+        input:
+          ref: { kind: local, name: accept_variants }
+          args:
+            value:
+              canonical: present
+  accept_variants:
+    inputs:
+      value:
+        type: object
+        required: true
+        properties:
+          canonical: { type: string }
+          alternative: { type: string }
+        required_properties: []
+    steps:
+      - id: done
+        type: set
+        input: { ok: true }
+");
+
+        var result = await new WorkflowEngine().ExecuteAsync(wf, new JsonObject(), CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
     }
 
     [Fact]

@@ -192,7 +192,10 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
             var routingClient = new RoutingLLMClient(http, llmOptions, llmLoggerFactory);
             llmClient = new RoutingLLMClientAdapter(routingClient);
             mcpFactory = llmOptions.McpServers.Count > 0
-                ? new ConfiguredMcpClientFactory(llmOptions.McpServers)
+                ? new ConfiguredMcpClientFactory(
+                    llmOptions.McpServers,
+                    defaultLlmProvider: llmOptions.DefaultProvider,
+                    defaultLlmModel: llmOptions.DefaultModel)
                 : new InMemoryMcpClientFactory();
         }
 
@@ -468,4 +471,3 @@ static string FormatOutputType(GnOuGo.Flow.Core.Models.OutputDef def)
         _ => def.Type
     };
 }
-

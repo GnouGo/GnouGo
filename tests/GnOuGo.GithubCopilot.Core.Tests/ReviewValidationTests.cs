@@ -1,3 +1,4 @@
+using System.Text.Json;
 using GnOuGo.GithubCopilot.Core;
 
 namespace GnOuGo.GithubCopilot.Core.Tests;
@@ -37,6 +38,24 @@ public sealed class ReviewValidationTests
 
         Assert.False(result.MayWrite);
         Assert.Contains("no validated", result.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PublicationGate_UsesSchemaVisibleWireEnumValues()
+    {
+        var request = new ReviewPublicationGateRequest(
+            "abcdef123456",
+            "abcdef123456",
+            ReviewPublicationPolicy.AutoComment,
+            1,
+            ProposedEvent: ReviewSubmitEvent.RequestChanges);
+
+        var json = JsonSerializer.Serialize(
+            request,
+            CopilotCoreJsonContext.Default.ReviewPublicationGateRequest);
+
+        Assert.Contains("\"policy\":\"auto_comment\"", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"proposedEvent\":\"request_changes\"", json, StringComparison.Ordinal);
     }
 
     private const string Patch = """
@@ -145,6 +164,38 @@ public sealed class ReviewValidationTests
 
         Assert.Single(result);
         Assert.Equal(ReviewSeverity.High, result[0].Severity);
+    }
+
+    [Fact]
+    public void ParseCandidates_AcceptsStableFindingsEnvelope()
+    {
+        var result = CopilotReviewManager.ParseCandidates("""
+            {"findings":[{"severity":"critical","category":"security","confidence":0.99,"path":"a.cs","side":"right","startLine":2,"endLine":2,"evidence":"x","explanation":"y"}]}
+            """);
+
+        Assert.Single(result);
+        Assert.Equal(ReviewSeverity.Critical, result[0].Severity);
+    }
+
+    [Fact]
+    public void ParseCandidates_FindsValidArrayAfterNonJsonBracketedProse()
+    {
+        var result = CopilotReviewManager.ParseCandidates("""
+            Required fields are [severity, path, line].
+            [{"severity":"medium","category":"correctness","confidence":0.8,"path":"a.cs","side":"left","startLine":4,"endLine":4,"evidence":"x","explanation":"y"}]
+            """);
+
+        Assert.Single(result);
+        Assert.Equal(ReviewDiffSide.Left, result[0].Side);
+    }
+
+    [Fact]
+    public void ParseCandidates_RejectsProseWithoutStructuredFindings()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            CopilotReviewManager.ParseCandidates("No concrete issue was identified."));
+
+        Assert.Contains("valid JSON array", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

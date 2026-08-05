@@ -278,6 +278,31 @@ public class ConfiguredMcpClientFactoryTests
     }
 
     [Fact]
+    public void StdioEnvironment_IncludesOnlyNonSecretHostDefaultLlmIdentity()
+    {
+        var environment = InvokeBuildStdioEnvironment(
+            new McpServerOptions
+            {
+                EnvironmentVariables = new Dictionary<string, string?>
+                {
+                    ["SERVER_SETTING"] = "enabled"
+                }
+            },
+            "OpenAi",
+            "gpt-test");
+
+        Assert.NotNull(environment);
+        Assert.Equal("OpenAi", environment["GNouGo__DefaultLlmProvider"]);
+        Assert.Equal("gpt-test", environment["GNouGo__DefaultLlmModel"]);
+        Assert.Equal("enabled", environment["SERVER_SETTING"]);
+        Assert.DoesNotContain(environment.Keys, static key =>
+            key.Contains("key", StringComparison.OrdinalIgnoreCase)
+            || key.Contains("token", StringComparison.OrdinalIgnoreCase)
+            || key.Contains("password", StringComparison.OrdinalIgnoreCase)
+            || key.Contains("authorization", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void ResolveStdioWorkingDirectory_ReturnsExecutableDirectory_ForExistingCommandPath()
     {
         var root = Path.Combine(Path.GetTempPath(), "gnougo-stdio-working-dir-" + Guid.NewGuid().ToString("N"));
@@ -365,6 +390,18 @@ public class ConfiguredMcpClientFactoryTests
         return method.Invoke(null, [correlation]) as Dictionary<string, string?>;
     }
 
+    private static Dictionary<string, string?>? InvokeBuildStdioEnvironment(
+        McpServerOptions options,
+        string? defaultLlmProvider,
+        string? defaultLlmModel)
+    {
+        var method = typeof(ConfiguredMcpClientFactory).GetMethod(
+            "BuildStdioEnvironment",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        return method.Invoke(null, [options, null, defaultLlmProvider, defaultLlmModel]) as Dictionary<string, string?>;
+    }
+
     private static string? InvokeResolveStdioWorkingDirectory(string command)
     {
         var method = typeof(ConfiguredMcpClientFactory).GetMethod(
@@ -401,7 +438,7 @@ public class ConfiguredMcpClientFactoryTests
             BindingFlags.Static | BindingFlags.NonPublic);
 
         Assert.NotNull(method);
-        method.Invoke(null, [serverName, options, null]);
+        method.Invoke(null, [serverName, options, null, null, null]);
     }
 
     private static void InvokeCaptureStdioErrorLine(string serverName, string line)

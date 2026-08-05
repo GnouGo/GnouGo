@@ -12,11 +12,19 @@ public sealed partial class WorkflowPlanExecutor
     private const int CapabilityDescriptionMaxCharacters = 512;
     private const int CapabilityCatalogMaxCharacters = 256_000;
 
-    private sealed record CapabilityInventoryOperation(string Id, string Description, bool Required);
+    private sealed record CapabilityInventoryOperation(
+        string Id,
+        string Description,
+        bool Required,
+        string ExecutionKind,
+        string ExternalEffectKind);
     private sealed record CapabilityInventoryConstraint(string Id, string Description, bool Required);
+    private sealed record CapabilityInventoryIncompleteReason(string Id, string Description);
     private sealed record CapabilityInventory(
+        bool Complete,
         IReadOnlyList<CapabilityInventoryOperation> Operations,
-        IReadOnlyList<CapabilityInventoryConstraint> Constraints);
+        IReadOnlyList<CapabilityInventoryConstraint> Constraints,
+        IReadOnlyList<CapabilityInventoryIncompleteReason> IncompleteReasons);
 
     private sealed record CapabilityCatalogEntry(
         string Id,
@@ -24,7 +32,43 @@ public sealed partial class WorkflowPlanExecutor
         string? Server,
         string? Kind,
         string Method,
-        IReadOnlyList<CapabilityRequestBinding> RequestBindings);
+        IReadOnlyList<CapabilityRequestBinding> RequestBindings,
+        string Card,
+        IReadOnlyList<CapabilitySchemaField> RequiredInputs,
+        IReadOnlyList<CapabilitySchemaField> Outputs);
+
+    private sealed record CapabilitySchemaField(
+        string Path,
+        string Type,
+        string Description);
+
+    private sealed record CapabilityMatchingIssue(
+        string OperationId,
+        string Description,
+        bool Required,
+        string Status,
+        string Reason,
+        IReadOnlyList<string> CandidateCatalogIds);
+
+    private sealed record CapabilityOperationMatch(
+        CapabilityInventoryOperation Operation,
+        string Status,
+        string Reason,
+        IReadOnlyList<string> CatalogIds,
+        IReadOnlyList<string> CandidateCatalogIds);
+
+    private sealed record CapabilityConstraintMatch(
+        CapabilityInventoryConstraint Constraint,
+        string Status,
+        string Reason,
+        IReadOnlyList<string> DeniedCatalogIds,
+        IReadOnlyList<string> CandidateCatalogIds);
+
+    private sealed record CapabilityMatchingEvaluation(
+        IReadOnlyList<CapabilityOperationMatch> OperationMatches,
+        IReadOnlyList<CapabilityConstraintMatch> ConstraintMatches,
+        IReadOnlyList<CapabilityMatchingIssue> Issues,
+        bool ContractValid);
 
     private sealed record CapabilityCatalog(
         IReadOnlyList<CapabilityCatalogEntry> Entries,
@@ -36,12 +80,12 @@ public sealed partial class WorkflowPlanExecutor
         IReadOnlyList<McpServerDiscovery> discovered,
         IReadOnlySet<string> nativeStepTypes)
     {
-        var pending = new List<(string Resolution, string? Server, string? Kind, string Method, string Description, IReadOnlyList<CapabilityRequestBinding> Bindings, string Card)>();
+        var pending = new List<(string Resolution, string? Server, string? Kind, string Method, string Description, IReadOnlyList<CapabilityRequestBinding> Bindings, string Card, IReadOnlyList<CapabilitySchemaField> RequiredInputs, IReadOnlyList<CapabilitySchemaField> Outputs)>();
 
         foreach (var native in nativeStepTypes.OrderBy(static value => value, StringComparer.Ordinal))
         {
             pending.Add(("native", null, null, native, $"Native Flow step type {native}.", Array.Empty<CapabilityRequestBinding>(),
-                $"resolution=native method={native}"));
+                $"resolution=native method={native}", Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>()));
         }
 
         foreach (var server in discovered.OrderBy(static item => item.Name, StringComparer.Ordinal))
@@ -55,26 +99,29 @@ public sealed partial class WorkflowPlanExecutor
                         : $"{argument.Name}:string"))
                     : "none";
                 pending.Add(("mcp", server.Name, "prompt", prompt.Name, description, Array.Empty<CapabilityRequestBinding>(),
-                    $"resolution=mcp server={server.Name} kind=prompt method={prompt.Name} description={description} arguments=[{arguments}]"));
+                    $"resolution=mcp server={server.Name} kind=prompt method={prompt.Name} description={description} arguments=[{arguments}]",
+                    Array.Empty<CapabilitySchemaField>(), Array.Empty<CapabilitySchemaField>()));
             }
 
             foreach (var tool in server.Tools.OrderBy(static item => item.Name, StringComparer.Ordinal))
             {
                 var description = LimitCapabilityDescription(tool.Description);
-                var arguments = BuildCompactArgumentSummary(tool.InputSchema);
+                var arguments = BuildCompactArgumentSummary(tool.InputSchema, includeDescriptions: true);
+                var selectorArguments = BuildCompactArgumentSummary(tool.InputSchema, includeDescriptions: false);
+                var outputs = BuildCompactOutputSummary(tool.OutputSchema);
+                var requiredInputs = BuildCapabilitySchemaFields(tool.InputSchema, requiredOnly: true);
+                var outputFields = BuildCapabilitySchemaFields(tool.OutputSchema, requiredOnly: false);
                 var variants = ExtractSelectorVariants(tool.InputSchema);
-                if (variants.Count == 0)
-                {
-                    pending.Add(("mcp", server.Name, "tool", tool.Name, description, Array.Empty<CapabilityRequestBinding>(),
-                        $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}]"));
-                    continue;
-                }
+                pending.Add(("mcp", server.Name, "tool", tool.Name, description, Array.Empty<CapabilityRequestBinding>(),
+                    $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] outputs=[{outputs}]",
+                    requiredInputs, outputFields));
 
                 foreach (var variant in variants.OrderBy(static item => CanonicalizeBindings(item.Bindings), StringComparer.Ordinal))
                 {
                     var bindings = FormatBindingsCompact(variant.Bindings);
                     pending.Add(("mcp", server.Name, "tool", tool.Name, description, variant.Bindings,
-                        $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{arguments}] request_bindings=[{bindings}]"));
+                        $"resolution=mcp server={server.Name} kind=tool method={tool.Name} description={description} arguments=[{selectorArguments}] outputs=[{outputs}] request_bindings=[{bindings}]",
+                        requiredInputs, outputFields));
                 }
             }
         }
@@ -108,7 +155,16 @@ public sealed partial class WorkflowPlanExecutor
             }
 
             text.AppendLine(line);
-            entries.Add(new CapabilityCatalogEntry(id, item.Resolution, item.Server, item.Kind, item.Method, item.Bindings));
+            entries.Add(new CapabilityCatalogEntry(
+                id,
+                item.Resolution,
+                item.Server,
+                item.Kind,
+                item.Method,
+                item.Bindings,
+                item.Card,
+                item.RequiredInputs,
+                item.Outputs));
         }
 
         return new CapabilityCatalog(entries, text.ToString());
@@ -124,13 +180,108 @@ public sealed partial class WorkflowPlanExecutor
             : normalized[..CapabilityDescriptionMaxCharacters];
     }
 
-    private static string BuildCompactArgumentSummary(JsonNode? inputSchema)
+    private static string BuildCompactArgumentSummary(JsonNode? inputSchema, bool includeDescriptions)
     {
         if (inputSchema is not JsonObject root)
             return "unknown";
         var values = new List<string>();
-        CollectArgumentSummaries(root, string.Empty, 0, GetRequiredPropertyNames(root), values);
-        return values.Count == 0 ? "none" : string.Join(", ", values);
+        CollectArgumentSummaries(root, string.Empty, 0, GetRequiredPropertyNames(root), values, includeDescriptions);
+        var conditions = new List<string>();
+        CollectConditionalRequirementSummaries(root, string.Empty, 0, conditions);
+        var arguments = values.Count == 0 ? "none" : string.Join(", ", values);
+        return conditions.Count == 0
+            ? arguments
+            : arguments + "; conditional_requirements=[" + string.Join(", ", conditions.Distinct(StringComparer.Ordinal)) + "]";
+    }
+
+    private static string BuildCompactOutputSummary(JsonNode? outputSchema)
+    {
+        if (outputSchema is not JsonObject root)
+            return "unknown";
+        var values = new List<string>();
+        CollectOutputSummaries(root, string.Empty, 0, values);
+        return values.Count == 0 ? ReadCompactSchemaType(root) : string.Join(", ", values);
+    }
+
+    private static IReadOnlyList<CapabilitySchemaField> BuildCapabilitySchemaFields(
+        JsonNode? schema,
+        bool requiredOnly)
+    {
+        if (schema is not JsonObject root)
+            return Array.Empty<CapabilitySchemaField>();
+
+        var fields = new List<CapabilitySchemaField>();
+        CollectCapabilitySchemaFields(
+            root,
+            string.Empty,
+            0,
+            parentRequired: true,
+            requiredOnly,
+            fields);
+        return fields;
+    }
+
+    private static void CollectCapabilitySchemaFields(
+        JsonObject schema,
+        string pointer,
+        int depth,
+        bool parentRequired,
+        bool requiredOnly,
+        List<CapabilitySchemaField> fields)
+    {
+        if (depth >= CapabilitySchemaMaxDepth || schema["properties"] is not JsonObject properties)
+            return;
+
+        var required = GetRequiredPropertyNames(schema);
+        foreach (var property in properties.OrderBy(static item => item.Key, StringComparer.Ordinal))
+        {
+            if (property.Value is not JsonObject propertySchema)
+                continue;
+
+            var path = pointer + "/" + EncodeJsonPointerToken(property.Key);
+            if (IsSensitiveSelectorPath(path))
+                continue;
+
+            var isRequired = parentRequired && required.Contains(property.Key);
+            if (!requiredOnly || isRequired)
+            {
+                fields.Add(new CapabilitySchemaField(
+                    path,
+                    ReadCompactSchemaType(propertySchema),
+                    ReadCapabilitySchemaFieldDescription(propertySchema)));
+            }
+
+            CollectCapabilitySchemaFields(
+                propertySchema,
+                path,
+                depth + 1,
+                isRequired,
+                requiredOnly,
+                fields);
+        }
+    }
+
+    private static string ReadCapabilitySchemaFieldDescription(JsonObject schema)
+        => schema["description"] is JsonValue value
+           && value.TryGetValue<string>(out var description)
+           && !string.IsNullOrWhiteSpace(description)
+            ? LimitCapabilityDescription(description)
+            : string.Empty;
+
+    private static void CollectOutputSummaries(JsonObject schema, string pointer, int depth, List<string> values)
+    {
+        if (depth >= 2 || schema["properties"] is not JsonObject properties)
+            return;
+        foreach (var property in properties.OrderBy(static item => item.Key, StringComparer.Ordinal))
+        {
+            if (property.Value is not JsonObject propertySchema)
+                continue;
+            var path = pointer + "/" + EncodeJsonPointerToken(property.Key);
+            if (IsSensitiveSelectorPath(path))
+                continue;
+            values.Add($"{path}:{ReadCompactSchemaType(propertySchema)}");
+            CollectOutputSummaries(propertySchema, path, depth + 1, values);
+        }
     }
 
     private static void CollectArgumentSummaries(
@@ -138,7 +289,8 @@ public sealed partial class WorkflowPlanExecutor
         string pointer,
         int depth,
         IReadOnlyCollection<string> required,
-        List<string> values)
+        List<string> values,
+        bool includeDescriptions)
     {
         if (depth >= CapabilitySchemaMaxDepth || schema["properties"] is not JsonObject properties)
             return;
@@ -148,8 +300,99 @@ public sealed partial class WorkflowPlanExecutor
                 continue;
             var path = pointer + "/" + EncodeJsonPointerToken(property.Key);
             var type = ReadCompactSchemaType(propertySchema);
-            values.Add($"{path}:{type}{(required.Contains(property.Key) ? "(required)" : string.Empty)}");
-            CollectArgumentSummaries(propertySchema, path, depth + 1, GetRequiredPropertyNames(propertySchema), values);
+            var description = !includeDescriptions || IsSensitiveSelectorPath(path)
+                ? string.Empty
+                : ReadCompactPropertyDescription(propertySchema);
+            values.Add($"{path}:{type}{(required.Contains(property.Key) ? "(required)" : string.Empty)}{description}");
+            CollectArgumentSummaries(propertySchema, path, depth + 1, GetRequiredPropertyNames(propertySchema), values, includeDescriptions);
+        }
+    }
+
+    private static string ReadCompactPropertyDescription(JsonObject schema)
+    {
+        if (schema["description"] is not JsonValue value
+            || !value.TryGetValue<string>(out var description)
+            || string.IsNullOrWhiteSpace(description))
+        {
+            return string.Empty;
+        }
+
+        var normalized = LimitCapabilityDescription(description)
+            .Replace("[", "(", StringComparison.Ordinal)
+            .Replace("]", ")", StringComparison.Ordinal);
+        return $"(description={normalized})";
+    }
+
+    private static void CollectConditionalRequirementSummaries(
+        JsonObject schema,
+        string pointer,
+        int depth,
+        List<string> values)
+    {
+        if (depth > CapabilitySchemaMaxDepth)
+            return;
+
+        if (schema["dependentRequired"] is JsonObject dependentRequired)
+        {
+            foreach (var (propertyName, dependenciesNode) in dependentRequired.OrderBy(static item => item.Key, StringComparer.Ordinal))
+            {
+                if (dependenciesNode is not JsonArray dependencies)
+                    continue;
+                var triggerPath = pointer + "/" + EncodeJsonPointerToken(propertyName);
+                if (IsSensitiveSelectorPath(triggerPath))
+                    continue;
+                var dependencyPaths = dependencies.OfType<JsonValue>()
+                    .Select(node => node.TryGetValue<string>(out var dependency) ? dependency : null)
+                    .Where(static dependency => !string.IsNullOrWhiteSpace(dependency))
+                    .Select(dependency => pointer + "/" + EncodeJsonPointerToken(dependency!))
+                    .Where(static path => !IsSensitiveSelectorPath(path))
+                    .OrderBy(static path => path, StringComparer.Ordinal)
+                    .ToArray();
+                if (dependencyPaths.Length > 0)
+                    values.Add($"when {triggerPath} is present require {string.Join('|', dependencyPaths)}");
+            }
+        }
+
+        if (schema["if"] is JsonObject condition
+            && schema["then"] is JsonObject consequence)
+        {
+            var selectors = new List<string>();
+            if (condition["properties"] is JsonObject conditionProperties)
+            {
+                foreach (var (propertyName, propertyNode) in conditionProperties.OrderBy(static item => item.Key, StringComparer.Ordinal))
+                {
+                    if (propertyNode is not JsonObject propertySchema)
+                        continue;
+                    var selectorPath = pointer + "/" + EncodeJsonPointerToken(propertyName);
+                    if (IsSensitiveSelectorPath(selectorPath))
+                        continue;
+                    var selectorValues = ReadDocumentedScalarValues(propertySchema, selectorPath);
+                    if (selectorValues.Count > 0)
+                    {
+                        selectors.Add(selectorPath + "=" + string.Join('|', selectorValues.Select(CanonicalScalar)));
+                    }
+                }
+            }
+
+            var requiredPaths = GetRequiredPropertyNames(consequence)
+                .Select(propertyName => pointer + "/" + EncodeJsonPointerToken(propertyName))
+                .Where(static path => !IsSensitiveSelectorPath(path))
+                .OrderBy(static path => path, StringComparer.Ordinal)
+                .ToArray();
+            if (selectors.Count > 0 && requiredPaths.Length > 0)
+                values.Add($"when {string.Join('&', selectors)} require {string.Join('|', requiredPaths)}");
+        }
+
+        if (depth == CapabilitySchemaMaxDepth || schema["properties"] is not JsonObject properties)
+            return;
+        foreach (var (propertyName, propertyNode) in properties.OrderBy(static item => item.Key, StringComparer.Ordinal))
+        {
+            if (propertyNode is not JsonObject propertySchema)
+                continue;
+            var propertyPointer = pointer + "/" + EncodeJsonPointerToken(propertyName);
+            if (IsSensitiveSelectorPath(propertyPointer))
+                continue;
+            CollectConditionalRequirementSummaries(propertySchema, propertyPointer, depth + 1, values);
         }
     }
 
@@ -174,10 +417,64 @@ public sealed partial class WorkflowPlanExecutor
             return Array.Empty<SelectorVariant>();
         var variants = new List<SelectorVariant>();
         CollectSelectorVariants(root, string.Empty, 0, variants);
+        CollectBoundedIndependentSelectorCombination(root, variants);
         return variants
             .GroupBy(static variant => CanonicalizeBindings(variant.Bindings), StringComparer.Ordinal)
             .Select(static group => group.First())
             .ToArray();
+    }
+
+    private static void CollectBoundedIndependentSelectorCombination(
+        JsonObject root,
+        List<SelectorVariant> variants)
+    {
+        var dimensions = new List<(string Path, IReadOnlyList<JsonNode?> Values)>();
+        CollectIndependentSelectorDimensions(root, string.Empty, 0, dimensions);
+        if (dimensions.Count is < 2 or > 4)
+            return;
+        long product = 1;
+        foreach (var dimension in dimensions)
+        {
+            product *= dimension.Values.Count;
+            if (product > 128)
+                return;
+        }
+
+        var combinations = new List<List<CapabilityRequestBinding>> { new() };
+        foreach (var dimension in dimensions)
+        {
+            combinations = combinations.SelectMany(existing => dimension.Values.Select(value =>
+            {
+                var next = new List<CapabilityRequestBinding>(existing)
+                {
+                    new(dimension.Path, value?.DeepClone())
+                };
+                return next;
+            })).ToList();
+        }
+        variants.AddRange(combinations.Select(static bindings => new SelectorVariant(bindings)));
+    }
+
+    private static void CollectIndependentSelectorDimensions(
+        JsonObject schema,
+        string pointer,
+        int depth,
+        List<(string Path, IReadOnlyList<JsonNode?> Values)> dimensions)
+    {
+        if (depth >= CapabilitySchemaMaxDepth || schema["properties"] is not JsonObject properties)
+            return;
+        foreach (var property in properties.OrderBy(static item => item.Key, StringComparer.Ordinal))
+        {
+            if (property.Value is not JsonObject propertySchema)
+                continue;
+            var path = pointer + "/" + EncodeJsonPointerToken(property.Key);
+            if (IsSensitiveSelectorPath(path))
+                continue;
+            var values = ReadDocumentedScalarValues(propertySchema, path);
+            if (values.Count > 0)
+                dimensions.Add((path, values));
+            CollectIndependentSelectorDimensions(propertySchema, path, depth + 1, dimensions);
+        }
     }
 
     private static void CollectSelectorVariants(

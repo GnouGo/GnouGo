@@ -19,3 +19,15 @@ Prerequisites:
 - permission to push a temporary branch and create, review, close, and delete a branch in the current origin repository.
 
 Secrets are decrypted in memory only and are never included in MCP arguments, test output, review bodies, or telemetry. The GitHub endpoint is rejected if it is not the official server or if it selects an insiders/preview route.
+
+## Intention-first generated-agent acceptance
+
+The opt-in intention harness submits the fixed short request from `LiveIntentAgentGenerationTests` without server names, tool names, providers, selectors, or workflow instructions:
+
+```bash
+GNOU_GO_LIVE_INTENT_AGENT_E2E=1 \
+dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj \
+  --filter FullyQualifiedName~LiveIntentAgentGenerationTests
+```
+
+It validates three independently generated and persisted agents by default. The first generated agent executes against the read-only acceptance pull request behind a write-denying MCP recorder, then reviews a disposable draft-PR correctness fixture through the interactive approval gate and must submit inline findings as a `COMMENT` review. The harness closes the PR, deletes its branch and isolated workspaces, deletes generated agents, and restores the previous default agent. `GNOU_GO_LIVE_INTENT_AGENT_GENERATIONS` may temporarily reduce the generation count to one while diagnosing a live failure.

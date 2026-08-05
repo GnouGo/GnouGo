@@ -110,7 +110,7 @@ public sealed class ExecutionLimits
     public int MaxParallelBranches { get; set; } = 50;
     public int MaxLoopIterations { get; set; } = 1_000;
     public int MaxExpressionAstNodes { get; set; } = 500;
-    public int MaxExpressionStatements { get; set; } = 100_000;
+    public int MaxExpressionStatements { get; set; } = 1_000_000;
     public int ExpressionTimeoutSeconds { get; set; } = 15;
     public int ExpressionMemoryLimitBytes { get; set; } = 1_000_000_000;
     public int MaxSwitchCases { get; set; } = 100;
@@ -130,4 +130,10 @@ public sealed class ExecutionLimits
     /// providers to route responses to the correct waiting step.
     /// </summary>
     public string? RunId { get; set; }
+
+    /// <summary>
+    /// Host-owned tenant identifier propagated as reserved technical metadata to
+    /// external capabilities. Workflow inputs cannot override this value.
+    /// </summary>
+    public string? TenantId { get; set; }
 }

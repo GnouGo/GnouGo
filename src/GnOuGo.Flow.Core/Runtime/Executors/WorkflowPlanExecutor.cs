@@ -34,7 +34,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         "4. Never satisfy a missing required MCP argument with data.env.*, empty string, fake values, or casts.",
         "5. Never convert a string input to a number just to satisfy an MCP schema.",
         "6. Follow the discovered MCP schema and tool description exactly without adding Flow-specific request conventions.",
-        "7. Prefer the exact MCP argument name and type."
+        "7. Prefer the exact MCP argument name and type.",
+        "8. Read argument descriptions as part of the contract: a globally optional argument can be mandatory for the selected mode, discriminator, target, or operation.",
+        "9. When forwarding a typed source item, preserve exact-named schema-compatible identity, target, location, range, and selector values unless their descriptions limit them to a case that does not apply.",
+        "10. Before returning YAML, self-check every selected enum/const/discriminator value against the tool and argument descriptions and include all applicable companion arguments."
     };
 
     public string StepType => "workflow.plan";
@@ -261,6 +264,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                 requiredMcpServerNames,
                 ctx);
             discovered = MergeLockedCapabilitiesIntoDiscovery(discovered, prefilterSource, capabilityPreflight);
+            discovered = ExpandSelectedOperationalArtifactPrerequisites(
+                discovered,
+                prefilterSource,
+                instruction);
         }
 
         validationDiscovered ??= discovered;
@@ -581,6 +588,10 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             try
             {
                 var yaml = StripMarkdownFences(response.Text ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(pipelineLeafName))
+                    yaml = PruneWeakNestedOutputProperties(yaml);
+                else
+                    yaml = NormalizeGeneratedFunctionParameterDocs(yaml);
                 WorkflowDocument generatedDoc;
                 var validationAttributes = new List<KeyValuePair<string, object?>>
                 {
@@ -597,6 +608,18 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
 
                         // Parse + validate minimal required shape before policy/limits/compile checks.
                         generatedDoc = ParseAndValidateGeneratedWorkflow(yaml);
+                        if (!string.IsNullOrWhiteSpace(pipelineLeafName))
+                        {
+                            (generatedDoc, yaml) = PromoteGeneratedDirectMcpScalarInputSchemas(
+                                generatedDoc,
+                                yaml,
+                                validationDiscovered);
+                            (generatedDoc, yaml) = PromoteGeneratedDirectOutputSchemas(
+                                generatedDoc,
+                                yaml,
+                                validationDiscovered,
+                                ctx.Engine.Registry);
+                        }
                         validationSpan.SetAttribute("gnougo-flow.plan.workflow_count", generatedDoc.Workflows.Count);
 
                         await RunStandardPlanValidationSequenceAsync(
@@ -653,6 +676,12 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
             catch (Exception ex)
             {
+                if (WorkflowPlanDiagnostics.IsTransientProviderFailure(ex))
+                {
+                    generationSpan.Fail(ex);
+                    throw;
+                }
+
                 var stalled = DetectRepairStall(
                     ex,
                     attempt + 1,
@@ -708,6 +737,13 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         ref string? previousDiagnosticFingerprint,
         ref int unchangedRepairAttempts)
     {
+        if (WorkflowPlanDiagnostics.IsTransientProviderFailure(exception))
+        {
+            previousDiagnosticFingerprint = null;
+            unchangedRepairAttempts = 0;
+            return null;
+        }
+
         var fingerprint = WorkflowPlanDiagnostics.BuildDiagnosticFingerprint(exception);
         if (isRepairAttempt
             && string.Equals(previousDiagnosticFingerprint, fingerprint, StringComparison.Ordinal))

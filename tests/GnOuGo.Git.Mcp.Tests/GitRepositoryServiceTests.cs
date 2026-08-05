@@ -346,6 +346,66 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void Clone_FullyQualifiedRemoteReference_FetchesExactlyAndChecksOutDetached()
+    {
+        var source = Path.Combine(_root, "source-exact-reference");
+        var target = Path.Combine(_root, "target-exact-reference");
+        Directory.CreateDirectory(source);
+        Repository.Init(source);
+        var sourceService = CreateService(source, allowNetwork: true);
+        var baseCommit = WriteCommit(sourceService, "README.md", "base\n", "base", root: source);
+        var exactCommit = WriteCommit(sourceService, "README.md", "exact\n", "exact", root: source);
+        using (var sourceRepository = new Repository(source))
+        {
+            sourceRepository.Refs.Add("refs/changes/123/head", exactCommit.Sha, allowOverwrite: true);
+            Commands.Checkout(sourceRepository, baseCommit.Sha);
+        }
+        var service = CreateService(allowNetwork: true);
+
+        var clone = service.Clone(
+            source,
+            "target-exact-reference",
+            branch: "refs/changes/123/head",
+            historyDepth: 0,
+            fetchAllBranches: true);
+
+        Assert.Equal("refs/changes/123/head", clone.Branch);
+        Assert.Equal("refs/changes/123/head", clone.ResolvedBranch);
+        using var repository = new Repository(target);
+        Assert.True(repository.Info.IsHeadDetached);
+        Assert.Equal(exactCommit.Sha, repository.Head.Tip.Sha);
+        Assert.NotNull(repository.Refs["refs/remotes/origin/gnougo-requested-ref"]);
+    }
+
+    [Fact]
+    public void Clone_FullCommitObjectId_FetchesExactlyAndChecksOutDetached()
+    {
+        var source = Path.Combine(_root, "source-exact-object-id");
+        var target = Path.Combine(_root, "target-exact-object-id");
+        Directory.CreateDirectory(source);
+        Repository.Init(source);
+        var sourceService = CreateService(source, allowNetwork: true);
+        var baseCommit = WriteCommit(sourceService, "README.md", "base\n", "base", root: source);
+        var exactCommit = WriteCommit(sourceService, "README.md", "exact\n", "exact", root: source);
+        using (var sourceRepository = new Repository(source))
+            Commands.Checkout(sourceRepository, baseCommit.Sha);
+        var service = CreateService(allowNetwork: true);
+
+        var clone = service.Clone(
+            source,
+            "target-exact-object-id",
+            branch: exactCommit.Sha,
+            historyDepth: 0);
+
+        Assert.Equal(exactCommit.Sha, clone.Branch);
+        Assert.Equal(exactCommit.Sha, clone.ResolvedBranch);
+        using var repository = new Repository(target);
+        Assert.True(repository.Info.IsHeadDetached);
+        Assert.Equal(exactCommit.Sha, repository.Head.Tip.Sha);
+        Assert.NotNull(repository.Refs["refs/remotes/origin/gnougo-requested-ref"]);
+    }
+
+    [Fact]
     public void Clone_RejectsInvalidHistoryDepthAndTagFetchMode()
     {
         var service = CreateService(allowNetwork: true);

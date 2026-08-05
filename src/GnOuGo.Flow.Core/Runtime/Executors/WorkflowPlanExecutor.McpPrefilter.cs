@@ -410,6 +410,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("If a server lists a recommended mcp.call timeout, include at least that value as `input.timeout_ms` for generated calls to that server.");
         sb.AppendLine("When building `mcp.call.input.request`, preserve JSON schema scalar types exactly: numbers/integers/booleans must be unquoted YAML scalars, while strings may be quoted.");
         sb.AppendLine("Follow the discovered MCP schema and tool description exactly; do not add Flow-specific conventions for request fields.");
+        sb.AppendLine("Treat property descriptions as part of the request contract. A property marked optional at the root can still be required for a selected enum/const/discriminator mode or target.");
+        sb.AppendLine("When an MCP call forwards a typed source item, preserve exact-named schema-compatible identity, target, location, range, and selector fields unless their descriptions explicitly limit them to a case that does not apply.");
         sb.AppendLine("Prefer adapting each `capability_card_yaml` example when it matches the task; the JSON schemas remain authoritative for exact validation.");
         sb.AppendLine("If a string field must contain JSON text, prefer a YAML literal block (`|`) so nested quotes remain valid YAML.");
         sb.AppendLine("For `mcp.call` single-tool outputs, access `data.steps.<id>.response.<field>` only when that field is documented in `output_schema` or `example_response` above. Otherwise the response is opaque: use `json(data.steps.<id>.response)` or normalize it with `llm.call` + `structured_output`.");
@@ -428,9 +430,16 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             .Select(name => new { Name = name, Values = GetEnumValues(GetSchemaProperty(properties, name)) })
             .Where(item => item.Values.Count > 0)
             .ToList();
+        var descriptionsByName = propertyNames
+            .Select(name => new { Name = name, Description = GetBoundedSchemaDescription(GetSchemaProperty(properties, name), "/" + EncodeJsonPointerToken(name)) })
+            .Where(static item => !string.IsNullOrWhiteSpace(item.Description))
+            .ToList();
         var numericRequiredNames = requiredNames
             .Where(name => IsNumericJsonSchema(GetSchemaProperty(properties, name)))
             .ToList();
+        var conditionalRequirements = new List<string>();
+        if (tool.InputSchema is JsonObject inputSchemaObject)
+            CollectConditionalRequirementSummaries(inputSchemaObject, string.Empty, 0, conditionalRequirements);
 
         sb.Append(indent).AppendLine("capability_card_yaml:");
         sb.Append(indent).Append("  server: ").AppendLine(FormatYamlScalar(server.Name));
@@ -484,6 +493,26 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             }
         }
 
+        if (descriptionsByName.Count > 0)
+        {
+            sb.Append(indent).AppendLine("    argument_descriptions:");
+            foreach (var item in descriptionsByName)
+            {
+                sb.Append(indent)
+                    .Append("      ")
+                    .Append(item.Name)
+                    .Append(": ")
+                    .AppendLine(FormatYamlScalar(item.Description!));
+            }
+        }
+
+        if (conditionalRequirements.Count > 0)
+        {
+            sb.Append(indent).AppendLine("    conditional_requirements:");
+            foreach (var requirement in conditionalRequirements.Distinct(StringComparer.Ordinal))
+                sb.Append(indent).Append("      - ").AppendLine(FormatYamlScalar(requirement));
+        }
+
         sb.Append(indent).AppendLine("  examples:");
         var methodVariants = enumValuesByName
             .FirstOrDefault(item => string.Equals(item.Name, "method", StringComparison.OrdinalIgnoreCase))
@@ -521,6 +550,27 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             sb.Append(indent).Append("    - ").AppendLine(FormatYamlScalar(
                 $"request.{item.Name} must be one of: {string.Join(", ", item.Values)}."));
         }
+        if (descriptionsByName.Count > 0)
+        {
+            sb.Append(indent).Append("    - ").AppendLine(FormatYamlScalar(
+                "Globally optional arguments can still be required for a selected mode or target; honor every applicable argument description."));
+            sb.Append(indent).Append("    - ").AppendLine(FormatYamlScalar(
+                "When forwarding a typed source item, preserve its exact-named schema-compatible target, identity, location, range, and selector values unless the argument description limits them to a case that does not apply."));
+        }
+    }
+
+    private static string? GetBoundedSchemaDescription(JsonNode? schema, string pointer)
+    {
+        if (IsSensitiveSelectorPath(pointer)
+            || schema is not JsonObject obj
+            || obj["description"] is not JsonValue value
+            || !value.TryGetValue<string>(out var description)
+            || string.IsNullOrWhiteSpace(description))
+        {
+            return null;
+        }
+
+        return LimitCapabilityDescription(description);
     }
 
     private static void AppendMcpCapabilityExample(

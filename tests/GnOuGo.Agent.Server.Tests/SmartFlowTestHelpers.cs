@@ -72,6 +72,7 @@ internal sealed class RecordingLlmClient : ILLMClient
                 Json = new JsonObject
                 {
                     ["complete"] = true,
+                    ["incomplete_reasons"] = new JsonArray(),
                     ["operations"] = new JsonArray(),
                     ["constraints"] = new JsonArray()
                 }
@@ -83,9 +84,8 @@ internal sealed class RecordingLlmClient : ILLMClient
             {
                 Json = new JsonObject
                 {
-                    ["complete"] = true,
                     ["operation_matches"] = new JsonArray(),
-                    ["constraint_denials"] = new JsonArray()
+                    ["constraint_matches"] = new JsonArray()
                 }
             });
         }

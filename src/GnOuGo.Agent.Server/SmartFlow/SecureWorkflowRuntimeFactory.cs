@@ -43,7 +43,11 @@ public sealed class SecureWorkflowRuntimeFactory
         var sslLogger = _loggerFactory.CreateLogger("GnOuGo.AI.Core.SSL");
         var http = LLMHttpClientFactory.Create(options.DangerousAcceptAnyServerCertificate, LLMHttpClientDefaults.MinimumTimeout, sslLogger);
         IMcpClientFactory mcpFactory = _mcpClientFactoryOverride ?? (options.McpServers.Count > 0
-            ? new ConfiguredMcpClientFactory(options.McpServers, _humanInputProvider)
+            ? new ConfiguredMcpClientFactory(
+                options.McpServers,
+                _humanInputProvider,
+                options.DefaultProvider,
+                options.DefaultModel)
             : new InMemoryMcpClientFactory());
 
         var llmClient = _llmClientOverride

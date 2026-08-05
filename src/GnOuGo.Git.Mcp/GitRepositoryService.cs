@@ -447,6 +447,20 @@ public sealed class GitRepositoryService
         var target = _policy.ResolveCloneTargetDirectory(targetDirectory);
         var credentialsProvider = CreateCredentialsProvider();
 
+        if (requestedBranch?.StartsWith("refs/", StringComparison.Ordinal) == true
+            || IsFullObjectId(requestedBranch))
+        {
+            return CloneExactReference(
+                remoteUrl,
+                targetDirectory,
+                target,
+                requestedBranch!,
+                historyDepth,
+                fetchAllBranches,
+                resolvedTagFetchMode,
+                credentialsProvider);
+        }
+
         return fetchAllBranches
             ? CloneAllBranches(remoteUrl, targetDirectory, target, requestedBranch, historyDepth, resolvedTagFetchMode, credentialsProvider)
             : CloneSingleBranch(remoteUrl, targetDirectory, target, requestedBranch, historyDepth, resolvedTagFetchMode, credentialsProvider);
@@ -477,6 +491,46 @@ public sealed class GitRepositoryService
             resolvedBranch,
             historyDepth,
             fetchAllBranches: true,
+            tagFetchMode.Name);
+    }
+
+    private GitCloneResult CloneExactReference(
+        string remoteUrl,
+        string targetDirectory,
+        string target,
+        string requestedReference,
+        int historyDepth,
+        bool fetchAllBranches,
+        CloneTagFetchMode tagFetchMode,
+        CredentialsHandler? credentialsProvider)
+    {
+        const string requestedReferenceDestination = "refs/remotes/origin/gnougo-requested-ref";
+        var exactRefSpec = IsFullObjectId(requestedReference)
+            ? $"{requestedReference}:{requestedReferenceDestination}"
+            : NormalizeFetchRefSpec($"{requestedReference}:{requestedReferenceDestination}");
+        var repositoryPath = Repository.Init(target);
+        using (var repository = new Repository(repositoryPath))
+        {
+            var remote = repository.Network.Remotes.Add(_settings.DefaultRemoteName, remoteUrl);
+            var refSpecs = fetchAllBranches
+                ? remote.FetchRefSpecs.Select(static spec => spec.Specification).Append(exactRefSpec).ToArray()
+                : [exactRefSpec];
+            var fetchOptions = CreateCloneFetchOptions(historyDepth, tagFetchMode.Mode, credentialsProvider);
+            Commands.Fetch(repository, remote.Name, refSpecs, fetchOptions, "clone exact reference from Git MCP");
+
+            var commit = repository.Lookup<Commit>(requestedReferenceDestination)
+                ?? throw new InvalidOperationException($"Remote reference '{requestedReference}' did not resolve to a commit after clone fetch.");
+            Commands.Checkout(repository, commit);
+        }
+
+        return CreateCloneResult(
+            remoteUrl,
+            targetDirectory,
+            target,
+            requestedReference,
+            requestedReference,
+            historyDepth,
+            fetchAllBranches,
             tagFetchMode.Name);
     }
 
@@ -886,9 +940,8 @@ public sealed class GitRepositoryService
         var parts = normalized.Split(':');
         if (parts.Length is < 1 or > 2 || parts.Any(static part => string.IsNullOrWhiteSpace(part)))
             throw new InvalidOperationException("refSpec must be a source ref or a source:destination ref.");
-        if (!parts[0].StartsWith("refs/heads/", StringComparison.Ordinal)
-            && !parts[0].StartsWith("refs/tags/", StringComparison.Ordinal))
-            throw new InvalidOperationException("refSpec source must start with refs/heads/ or refs/tags/.");
+        if (!parts[0].StartsWith("refs/", StringComparison.Ordinal))
+            throw new InvalidOperationException("refSpec source must be a fully qualified ref starting with refs/.");
         if (parts.Length == 2
             && !parts[1].StartsWith("refs/remotes/", StringComparison.Ordinal)
             && !parts[1].StartsWith("refs/tags/", StringComparison.Ordinal)
@@ -905,6 +958,12 @@ public sealed class GitRepositoryService
         if (branchName.Contains("..", StringComparison.Ordinal) || branchName.StartsWith('/') || branchName.EndsWith('/') || branchName.IndexOfAny(['~', '^', ':', '?', '*', '[', '\\']) >= 0)
             throw new InvalidOperationException("branchName contains characters that are not allowed by the Git MCP policy.");
     }
+
+    private static bool IsFullObjectId(string? value)
+        => value is { Length: 40 or 64 }
+           && value.All(static character => character is >= '0' and <= '9'
+               or >= 'a' and <= 'f'
+               or >= 'A' and <= 'F');
 
     private static Commit ResolveCommitish(Repository repository, string commitish)
     {

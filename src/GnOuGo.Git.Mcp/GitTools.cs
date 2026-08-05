@@ -136,7 +136,7 @@ public sealed class GitTools
     public GitCloneResult GitClone(
         [Description("Remote Git URL to clone.")] string remoteUrl,
         [Description("Clone target directory relative to the workspace root only. Must be empty or non-existing. After clone succeeds, use response.projectRootRelative as the existing projectRoot for later tools.")] string targetDirectory,
-        [Description("Optional branch to checkout during clone. When omitted and fetchAllBranches=false, Git MCP resolves the remote default branch.")] string? branch = null,
+        [Description("Optional plain branch name, full commit object ID, or fully qualified remote ref to checkout during clone. A full object ID or refs/... value is fetched exactly and checked out detached. When omitted and fetchAllBranches=false, Git MCP resolves the remote default branch.")] string? branch = null,
         [Description("Commit history depth to fetch. 1 fetches the latest commit only; 0 fetches full history. Defaults to 1 for minimal clones.")] int historyDepth = 1,
         [Description("When false, fetch only the selected/default branch. When true, fetch all remote branches. Defaults to false.")] bool fetchAllBranches = false,
         [Description("Tag fetch mode: none, auto, or all. Defaults to none for minimal clones.")] string tagFetchMode = "none")
@@ -146,7 +146,7 @@ public sealed class GitTools
     public GitOperationResult GitFetch(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName = null,
-        [Description("Optional fetch refspec, for example refs/heads/my-branch:refs/remotes/origin/my-branch.")] string? refSpec = null)
+        [Description("Optional fetch refspec with a fully qualified refs/... source and a controlled refs/remotes/..., refs/tags/..., or refs/heads/... destination; for example refs/heads/my-branch:refs/remotes/origin/my-branch.")] string? refSpec = null)
         => Execute("git_fetch", () => _gitRepositoryService.Fetch(projectRoot, remoteName, refSpec));
 
     [McpServerTool(Name = "git_pull", UseStructuredContent = true, OutputSchemaType = typeof(GitMergeResult)), Description("Pulls the current branch of an existing repository project root from its configured remote. Requires Git:AllowNetworkOperations=true and Git:AllowMutations=true." + RequiredProjectRootToolSuffix)]

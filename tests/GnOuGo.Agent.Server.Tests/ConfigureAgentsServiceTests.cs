@@ -21,6 +21,7 @@ public sealed class ConfigureAgentsServiceTests
     public async Task ExecuteAsync_AgentAdd_WhenCreationSucceeds_SelectsCreatedAgentByDefault()
     {
         var llm = new RecordingLlmClient();
+        string? savedOriginalPrompt = null;
         var agentMcp = new FakeMcpSession("GnOuGo.Agent.Mcp")
             .OnTool("agent_get_by_name", (arguments, _) =>
             {
@@ -36,13 +37,21 @@ public sealed class ConfigureAgentsServiceTests
                     }
                 });
             })
-            .OnTool("agent_add", new JsonObject
+            .OnTool("agent_add", (arguments, _) =>
             {
-                ["success"] = true,
-                ["agent"] = SmartFlowTestFactory.AgentSummary(
-                    "12345678-1234-1234-1234-1234567890ab",
-                    "slimfaas",
-                    "2026-04-01T12:35:00+00:00")
+                savedOriginalPrompt = arguments?["originalPrompt"]?.GetValue<string>();
+                return Task.FromResult(new McpCallResult
+                {
+                    IsError = false,
+                    Content = new JsonObject
+                    {
+                        ["success"] = true,
+                        ["agent"] = SmartFlowTestFactory.AgentSummary(
+                            "12345678-1234-1234-1234-1234567890ab",
+                            "slimfaas",
+                            "2026-04-01T12:35:00+00:00")
+                    }
+                });
             });
 
         var humanInput = new AgentHumanInputProvider();
@@ -55,7 +64,7 @@ public sealed class ConfigureAgentsServiceTests
                 JsonNode response = request.StepId.EndsWith("input_name", StringComparison.Ordinal)
                     ? new JsonObject { ["agent_name"] = " slimfaas " }
                     : request.StepId.EndsWith("input_prompt", StringComparison.Ordinal)
-                        ? new JsonObject { ["description"] = "Explain SlimFaas" }
+                        ? new JsonObject { ["description"] = "\nExplain SlimFaas\nwith examples.\n" }
                         : request.StepId.EndsWith("review_workflow", StringComparison.Ordinal)
                             ? new JsonObject { ["response"] = "approve" }
                                 : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
@@ -79,6 +88,7 @@ public sealed class ConfigureAgentsServiceTests
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal("slimfaas", result.Outputs?["agent_name"]?.GetValue<string>());
+        Assert.Equal("Explain SlimFaas\nwith examples.", savedOriginalPrompt);
         Assert.Contains(events, evt =>
             evt.Type == "thinking:response" &&
             evt.Text == "✅ Agent 'slimfaas' created successfully and is now the active agent for this chat.");

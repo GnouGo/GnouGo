@@ -85,7 +85,7 @@ public sealed class McpCallExecutor : IStepExecutor
         By default, MCP tool errors raise MCP_CALL_ERROR/MCP_PROMPT_ERROR runtime exceptions so `on_error` handlers can run. Set `raise_on_error: false` only when the workflow intentionally wants to inspect `data.steps.<id>.status == "error"` as normal output.
         Optional `error_policy.detect_result_errors: true` treats common structured failure envelopes like `{ success: false, error_code, error_message }` as MCP errors even when the transport did not set IsError.
         For generated plans, do NOT use `mcp.call` with only `server` as the default next step after `mcp.list` unless calling everything is the explicit goal.
-        Request fields must statically match the discovered MCP input_schema. Do not pass nullable structured_output fields such as `string|null` into required request fields; make the source non-null, refine it with `assert.non_null`, add an exact `if: "${data.steps.x.json.field != null}"` guard on the same mcp.call step, or skip the call.
+        Request fields must statically match the discovered MCP input_schema. Do not pass nullable structured_output fields such as `string|null` into required request fields; make the source non-null, refine it with `assert.non_null`, add an exact `if: "${data.steps.x.json.field != null}"` guard on the same mcp.call step, or skip the call. A request property that is optional in the discovered schema is omitted automatically when its resolved value is null.
 
         Output access patterns:
         - Single tool: `data.steps.<id>.status` ("ok"|"error") and `data.steps.<id>.response` (opaque tool-specific JSON).
@@ -986,6 +986,9 @@ Produce the final answer strictly from the executed MCP results.
         McpCorrelationContext correlation, bool detectResultErrors, IReadOnlyList<McpToolInfo>? runtimeToolCatalog,
         StepExecutionContext ctx, ConcurrentDictionary<string, byte>? realtimeProgressFingerprints, CancellationToken ct)
     {
+        if (kind == "tool")
+            requestArgs = NormalizeResolvedToolRequest(method, requestArgs, runtimeToolCatalog);
+
         EmitMcpContentEvent(ctx, "gen_ai.content.prompt", "gen_ai.prompt",
             BuildMcpContentEnvelope(session.ServerName, kind, method, requestArgs), correlation);
 
@@ -1046,6 +1049,19 @@ Produce the final answer strictly from the executed MCP results.
                 result, correlation);
             return result;
         }
+    }
+
+    private static JsonNode? NormalizeResolvedToolRequest(
+        string method,
+        JsonNode? requestArgs,
+        IReadOnlyList<McpToolInfo>? tools)
+    {
+        var schema = tools?
+            .FirstOrDefault(candidate => string.Equals(candidate.Name, method, StringComparison.Ordinal))?
+            .InputSchema;
+        return schema == null
+            ? requestArgs
+            : McpRequestSchemaNormalizer.OmitNullOptionalProperties(requestArgs, schema);
     }
 
     private static void ValidateResolvedToolCall(
@@ -1321,7 +1337,7 @@ Produce the final answer strictly from the executed MCP results.
         var spanId = activity?.SpanId.ToString();
         return new McpCorrelationContext
         {
-            TenantId = ReadString(ctx.Data, "tenantId", "tenant_id", "TenantId") ?? Environment.GetEnvironmentVariable("GNouGo__TenantId"),
+            TenantId = ctx.Limits.TenantId ?? Environment.GetEnvironmentVariable("GNouGo__TenantId"),
             CorrelationId = ctx.Limits.RunId ?? activity?.TraceId.ToString() ?? Guid.NewGuid().ToString("N"),
             RunId = ctx.Limits.RunId,
             TraceId = traceId,

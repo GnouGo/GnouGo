@@ -51,10 +51,21 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
 		string? fallbackBearerToken,
 		CancellationToken ct)
 	{
-		if (string.IsNullOrWhiteSpace(providerName))
+		var hostDefaultProvider = _configuration["GNouGo:DefaultLlmProvider"]
+			?? _configuration["LLM:DefaultProvider"];
+		var useHostDefault = string.IsNullOrWhiteSpace(providerName)
+			|| string.Equals(providerName, "Copilot", StringComparison.OrdinalIgnoreCase)
+			&& !string.IsNullOrWhiteSpace(hostDefaultProvider)
+			&& !string.Equals(hostDefaultProvider, "Copilot", StringComparison.OrdinalIgnoreCase);
+		if (useHostDefault)
+			providerName = hostDefaultProvider;
+		if (string.IsNullOrWhiteSpace(providerName)
+			|| string.Equals(providerName, "Copilot", StringComparison.OrdinalIgnoreCase))
 			return null;
 
 		var normalizedProviderName = providerName.Trim();
+		if (useHostDefault)
+			fallbackModel = _configuration["GNouGo:DefaultLlmModel"] ?? _configuration["LLM:DefaultModel"] ?? fallbackModel;
 		var config = await LoadProviderConfigAsync(normalizedProviderName, ct);
 		if (config is null)
 			throw new McpException($"Copilot provider '{normalizedProviderName}' was not found in configuration or KeyVault. Expected configuration section '{ProvidersSectionPath}:{normalizedProviderName}' or KeyVault secret 'LLM--Models--{normalizedProviderName}'.");
