@@ -38,6 +38,8 @@ public sealed class ConfigureAgentsService
     private readonly TimeSpan _mcpCacheSlidingExpiration;
     private readonly string _tenantId;
 
+    internal string WorkflowSource => _workflowYaml;
+
     public ConfigureAgentsService(
         ILLMClient llm,
         IMcpClientFactory mcpFactory,
@@ -89,6 +91,15 @@ public sealed class ConfigureAgentsService
     /// </summary>
     public async IAsyncEnumerable<SmartFlowEvent> ExecuteAsync(
         string command,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        await foreach (var evt in ExecuteAsync(command, animation: null, ct))
+            yield return evt;
+    }
+
+    internal async IAsyncEnumerable<SmartFlowEvent> ExecuteAsync(
+        string command,
+        AgentWorkflowAnimationBridge? animation,
         [EnumeratorCancellation] CancellationToken ct)
     {
         var trimmedCommand = command.Trim();
@@ -160,7 +171,7 @@ public sealed class ConfigureAgentsService
         });
 
         var telemetry = new CompositeWorkflowTelemetry(
-            new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt)),
+            new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt), animation),
             _otel);
 
         await using var runtime = await _runtimeFactory.CreateAsync(ct);

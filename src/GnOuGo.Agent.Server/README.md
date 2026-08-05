@@ -102,25 +102,27 @@ The Blazor chat composer resolves the active/default agent workflow through `Sma
 
 ## Live workflow animation in chat
 
-Regular workflow-backed chat requests render a transient
-`GnOuGo.Assets.Animation` scene in the active conversation's navigation entry.
-The scene follows real workflow telemetry: stable workflow
+Every submitted chat request renders a correlation-owned
+`GnOuGo.Assets.Animation` scene inside its assistant response, including
+workflow/agent creation and slash commands. The **Traces**, **Animation**, and
+**Activity** controls remain available even when a response has no text or
+ends in an error. The scene follows real workflow telemetry: stable workflow
 instances and step occurrences drive walking, roundabout work, parallel clones,
 runtime workflow handoffs, parcel completion, failure, and final delivery. It
-never runs a second synthetic timer.
+never runs a second timer-driven preview. Agent creation/management commands
+reuse their native workflow telemetry and preserve child-workflow identities.
+Direct slash commands without a workflow use a small synthetic command
+lifecycle so their waiting, success, and failure states have the same visual
+contract as workflow-backed messages.
 
 The conversation uses a document-style layout: compact right-aligned user
-prompts and borderless full-width assistant turns. A single live workflow scene
-is hosted directly below the active conversation title in the left navigation
-history, while its Activity and visibility controls remain in the related
-response action row beside Trace. The scene has the same subtle border as the
-rest of the application, a viewport-responsive height capped at 500 px, and
-native horizontal and vertical scrollbars. Follow mode is enabled by default
-and scrolls only this internal panel. Every submitted message allocates a new,
-correlation-keyed animation host before workflow telemetry starts. The previous
-host fades, disposes its browser controller, and is replaced by this clean panel
-so actors, portals, scene layers, and queued events cannot leak between turns.
-No title, lane count, node count, or live-telemetry caption is rendered.
+prompts and borderless full-width assistant turns. Each response keeps its own
+full-width animation panel, with a viewport-responsive height capped at 620 px
+and native horizontal and vertical scrollbars. Follow mode is enabled by
+default and scrolls only that message's panel. Switching conversations disposes
+detached browser controllers; returning to an in-memory conversation remounts
+the SVG and replays its ordered scene patches/events so actors, portals, scene
+layers, and queued events cannot leak between turns.
 
 Human Input cards use the same centered 1160 px conversation column, with an
 860 px maximum card width. While the workflow waits, its GnOuGo retains the
@@ -196,8 +198,10 @@ Additional `animation.prepared`, `animation.scene.patch`, and
 Workflow YAML and inputs are not included in those animation payloads.
 
 Blazor serializes animation interop through a single guarded queue so
-overlapping post-render callbacks cannot remove or reorder live events. The
-browser controller records its applied-event count, latest event, pending
+overlapping post-render callbacks cannot remove or reorder live events across
+message-owned panels. Error statuses are normalized and a terminal failed event
+is added when a response-level failure has no matching workflow terminal event.
+The browser controller records its applied-event count, latest event, pending
 queue size, and recoverable error on the scene host for runtime diagnostics.
 One malformed visual event is logged and skipped without stopping later
 workflow motion.

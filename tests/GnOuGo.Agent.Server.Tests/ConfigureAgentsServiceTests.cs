@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Assets.Animation;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
@@ -137,7 +138,16 @@ public sealed class ConfigureAgentsServiceTests
         }, token);
 
         var service = CreateConfigureAgentsServiceForStreaming(llm, humanInput, agentMcp);
-        var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/gnougo add", token), TestContext.Current.CancellationToken);
+        var animationEvents = new List<SmartFlowEvent>();
+        var animation = AgentWorkflowAnimationBridge.Create(
+            service.WorkflowSource,
+            "main",
+            "corr-configure-agent",
+            animationEvents.Add,
+            out _);
+        var events = await SmartFlowTestFactory.CollectAsync(
+            service.ExecuteAsync("/gnougo add", animation, token),
+            TestContext.Current.CancellationToken);
         await responder;
 
         var generated = Assert.Single(events, evt =>
@@ -149,6 +159,16 @@ public sealed class ConfigureAgentsServiceTests
         Assert.DoesNotContain(events, evt =>
             evt.Type == "thinking:thinking"
             && evt.Text?.Contains("Generated workflow", StringComparison.OrdinalIgnoreCase) == true);
+        var movedStations = animationEvents
+            .Select(evt => evt.Animation?.Event)
+            .Where(evt => evt?.Type == SimulationEventTypes.ActorMoved && evt.StationId is not null)
+            .Select(evt => evt!.StationId!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        Assert.True(movedStations.Length >= 2, "Agent creation should move GnOuGo through multiple workflow stations.");
+        Assert.Contains(animationEvents, evt =>
+            evt.Animation?.Event?.Type == SimulationEventTypes.SimulationCompleted
+            && evt.Animation.Event.Status == SimulationStatus.Succeeded);
     }
 
     [Fact]

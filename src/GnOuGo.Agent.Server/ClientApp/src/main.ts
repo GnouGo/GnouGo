@@ -401,8 +401,9 @@ const workflowAnimation = {
     const sceneWidth = svg.viewBox.baseVal.width || Number(svg.getAttribute('width')) || prepared.width;
     const sceneHeight = svg.viewBox.baseVal.height || Number(svg.getAttribute('height')) || prepared.height;
 
-    // The sidebar owns the scrolling camera. Keep the full logical scene in
-    // the SVG and render it at a readable size so both scrollbars are useful.
+    // Each message panel owns its scrolling camera. Keep the full logical
+    // scene in the SVG and render it at a readable size so both scrollbars
+    // remain useful.
     svg.dataset.sceneWidth = String(sceneWidth);
     svg.dataset.sceneHeight = String(sceneHeight);
     svg.setAttribute('viewBox', `0 0 ${sceneWidth} ${sceneHeight}`);

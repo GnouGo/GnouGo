@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -12,6 +13,7 @@ using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Shared;
 using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.AI.Core;
+using GnOuGo.Assets.Animation;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
@@ -282,17 +284,23 @@ public sealed class SmartFlowService
 
             if (IsCommand(trimmed, "/help"))
             {
-                yield return new SmartFlowEvent("answer", RenderHelp());
+                await foreach (var evt in ExecuteAnimatedCommandAsync(
+                                   SingleEvent(new SmartFlowEvent("answer", RenderHelp())),
+                                   correlationId,
+                                   "help",
+                                   ct))
+                    yield return evt;
                 yield break;
             }
 
             // Route /gnougo commands to ConfigureAgentsService
             if (IsCommand(trimmed, "/gnougo"))
             {
-                await foreach (var evt in _configureAgents.ExecuteAsync(trimmed, ct))
-                {
+                await foreach (var evt in ExecuteAnimatedAgentCommandAsync(
+                                   trimmed,
+                                   correlationId,
+                                   ct))
                     yield return evt;
-                }
                 yield break;
             }
 
@@ -301,10 +309,12 @@ public sealed class SmartFlowService
             {
                 if (IsCommand(trimmed, cmd))
                 {
-                    await foreach (var evt in _configureProviders.ExecuteAsync(trimmed, ct))
-                    {
+                    await foreach (var evt in ExecuteAnimatedCommandAsync(
+                                       _configureProviders.ExecuteAsync(trimmed, ct),
+                                       correlationId,
+                                       $"configure-{cmd.TrimStart('/')}",
+                                       ct))
                         yield return evt;
-                    }
                     yield break;
                 }
             }
@@ -337,6 +347,11 @@ public sealed class SmartFlowService
 
             if (resolveError is not null)
             {
+                foreach (var animationEvent in CreatePreflightFailureAnimation(
+                             correlationId,
+                             "resolve-workflow",
+                             resolveError.Message))
+                    yield return animationEvent;
                 yield return new SmartFlowEvent("error", resolveError.Message);
                 yield break;
             }
@@ -528,6 +543,309 @@ public sealed class SmartFlowService
         {
             Activity.Current = previousActivity;
         }
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteAnimatedCommandAsync(
+        IAsyncEnumerable<SmartFlowEvent> commandEvents,
+        string correlationId,
+        string commandName,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var animationEvents = new ConcurrentQueue<SmartFlowEvent>();
+        AgentWorkflowAnimationBridge? bridge = null;
+        SmartFlowEvent? preparedEvent = null;
+        try
+        {
+            bridge = AgentWorkflowAnimationBridge.Create(
+                sourceText: null,
+                workflowName: commandName,
+                correlationId,
+                animationEvents.Enqueue,
+                out var prepared);
+            preparedEvent = prepared;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not prepare the live animation for slash command '{CommandName}'.", commandName);
+        }
+
+        if (bridge is null || preparedEvent is null)
+        {
+            await foreach (var evt in commandEvents.WithCancellation(ct).ConfigureAwait(false))
+                yield return evt;
+            yield break;
+        }
+
+        yield return preparedEvent;
+
+        const string workflowInstanceId = "workflow-command";
+        const string stepOccurrenceId = "step-command";
+        const string stepId = "runtime-work";
+        const string stepType = "workflow.execute";
+        StartCommandAnimation(bridge, workflowInstanceId, commandName, stepOccurrenceId, stepId, stepType);
+        while (animationEvents.TryDequeue(out var startupEvent))
+            yield return startupEvent;
+
+        var waitingForHuman = false;
+        var completed = false;
+
+        await foreach (var evt in commandEvents.WithCancellation(ct).ConfigureAwait(false))
+        {
+            var isError = string.Equals(evt.Type, "error", StringComparison.OrdinalIgnoreCase);
+            var isHumanInput = string.Equals(evt.Type, "human_input_request", StringComparison.Ordinal);
+
+            if (waitingForHuman && !isHumanInput && !isError)
+            {
+                bridge.Apply(new AnimationExecutionSignal
+                {
+                    Kind = AnimationExecutionSignalKind.HumanInputResumed,
+                    WorkflowInstanceId = workflowInstanceId,
+                    StepOccurrenceId = stepOccurrenceId,
+                    StepId = stepId,
+                    StepType = stepType,
+                    Status = SimulationStatus.Running,
+                    Message = "Human input received."
+                });
+                waitingForHuman = false;
+            }
+
+            if (isHumanInput)
+            {
+                bridge.Apply(new AnimationExecutionSignal
+                {
+                    Kind = AnimationExecutionSignalKind.HumanInputWaiting,
+                    WorkflowInstanceId = workflowInstanceId,
+                    StepOccurrenceId = stepOccurrenceId,
+                    StepId = stepId,
+                    StepType = stepType,
+                    Status = SimulationStatus.Running,
+                    Message = "Waiting for slash-command input."
+                });
+                waitingForHuman = true;
+            }
+            else if (isError && !completed)
+            {
+                CompleteCommandAnimation(
+                    bridge,
+                    workflowInstanceId,
+                    commandName,
+                    stepOccurrenceId,
+                    stepId,
+                    stepType,
+                    SimulationStatus.Failed,
+                    evt.Text);
+                completed = true;
+            }
+
+            while (animationEvents.TryDequeue(out var animationEvent))
+                yield return animationEvent;
+            yield return evt;
+        }
+
+        if (!completed)
+            CompleteCommandAnimation(
+                bridge,
+                workflowInstanceId,
+                commandName,
+                stepOccurrenceId,
+                stepId,
+                stepType,
+                SimulationStatus.Succeeded,
+                message: null);
+
+        while (animationEvents.TryDequeue(out var completionEvent))
+            yield return completionEvent;
+    }
+
+    private async IAsyncEnumerable<SmartFlowEvent> ExecuteAnimatedAgentCommandAsync(
+        string command,
+        string correlationId,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var animationEvents = Channel.CreateUnbounded<SmartFlowEvent>(new UnboundedChannelOptions
+        {
+            SingleReader = true,
+            SingleWriter = false
+        });
+        AgentWorkflowAnimationBridge? bridge = null;
+        SmartFlowEvent? preparedEvent = null;
+        try
+        {
+            bridge = AgentWorkflowAnimationBridge.Create(
+                _configureAgents.WorkflowSource,
+                workflowName: "main",
+                correlationId,
+                evt => animationEvents.Writer.TryWrite(evt),
+                out var prepared);
+            preparedEvent = prepared;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not prepare the live animation for the agent configuration command.");
+        }
+
+        if (bridge is null || preparedEvent is null)
+        {
+            await foreach (var evt in _configureAgents.ExecuteAsync(command, ct).WithCancellation(ct).ConfigureAwait(false))
+                yield return evt;
+            yield break;
+        }
+
+        yield return preparedEvent;
+
+        var receivedNativeAnimation = false;
+        string? commandError = null;
+        await using var commandEnumerator = _configureAgents
+            .ExecuteAsync(command, bridge, ct)
+            .GetAsyncEnumerator(ct);
+        var commandMoveNext = commandEnumerator.MoveNextAsync().AsTask();
+        Task<bool>? animationReady = null;
+        while (true)
+        {
+            while (animationEvents.Reader.TryRead(out var animationEvent))
+            {
+                receivedNativeAnimation = true;
+                yield return animationEvent;
+            }
+
+            if (!commandMoveNext.IsCompleted)
+            {
+                animationReady ??= animationEvents.Reader.WaitToReadAsync(ct).AsTask();
+                var readyTask = await Task.WhenAny(commandMoveNext, animationReady).ConfigureAwait(false);
+                if (ReferenceEquals(readyTask, animationReady))
+                {
+                    await animationReady.ConfigureAwait(false);
+                    animationReady = null;
+                }
+                continue;
+            }
+
+            if (!await commandMoveNext.ConfigureAwait(false))
+                break;
+
+            var evt = commandEnumerator.Current;
+            if (string.Equals(evt.Type, "error", StringComparison.OrdinalIgnoreCase))
+                commandError = evt.Text;
+            commandMoveNext = commandEnumerator.MoveNextAsync().AsTask();
+            yield return evt;
+        }
+
+        while (animationEvents.Reader.TryRead(out var trailingAnimationEvent))
+        {
+            receivedNativeAnimation = true;
+            yield return trailingAnimationEvent;
+        }
+
+        if (!receivedNativeAnimation)
+        {
+            const string workflowInstanceId = "workflow-command";
+            const string stepOccurrenceId = "step-command";
+            const string stepId = "runtime-work";
+            const string stepType = "workflow.execute";
+            StartCommandAnimation(bridge, workflowInstanceId, "main", stepOccurrenceId, stepId, stepType);
+            CompleteCommandAnimation(
+                bridge,
+                workflowInstanceId,
+                "main",
+                stepOccurrenceId,
+                stepId,
+                stepType,
+                commandError is null ? SimulationStatus.Succeeded : SimulationStatus.Failed,
+                commandError);
+        }
+
+        animationEvents.Writer.TryComplete();
+        while (animationEvents.Reader.TryRead(out var completionEvent))
+            yield return completionEvent;
+    }
+
+    private static void StartCommandAnimation(
+        AgentWorkflowAnimationBridge bridge,
+        string workflowInstanceId,
+        string workflowName,
+        string stepOccurrenceId,
+        string stepId,
+        string stepType)
+    {
+        bridge.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = workflowInstanceId,
+            WorkflowName = workflowName,
+            Status = SimulationStatus.Running,
+            Message = $"Slash command '{workflowName}' started."
+        });
+        bridge.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = workflowInstanceId,
+            StepOccurrenceId = stepOccurrenceId,
+            StepId = stepId,
+            StepType = stepType,
+            Status = SimulationStatus.Running,
+            Message = $"Running slash command '{workflowName}'."
+        });
+    }
+
+    private static void CompleteCommandAnimation(
+        AgentWorkflowAnimationBridge bridge,
+        string workflowInstanceId,
+        string workflowName,
+        string stepOccurrenceId,
+        string stepId,
+        string stepType,
+        SimulationStatus status,
+        string? message)
+    {
+        bridge.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepCompleted,
+            WorkflowInstanceId = workflowInstanceId,
+            StepOccurrenceId = stepOccurrenceId,
+            StepId = stepId,
+            StepType = stepType,
+            Status = status,
+            Message = message
+        });
+        bridge.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowCompleted,
+            WorkflowInstanceId = workflowInstanceId,
+            WorkflowName = workflowName,
+            Status = status,
+            Message = message
+        });
+    }
+
+    private static IReadOnlyList<SmartFlowEvent> CreatePreflightFailureAnimation(
+        string correlationId,
+        string workflowName,
+        string message)
+    {
+        var events = new List<SmartFlowEvent>();
+        try
+        {
+            var bridge = AgentWorkflowAnimationBridge.Create(
+                sourceText: null,
+                workflowName,
+                correlationId,
+                events.Add,
+                out var preparedEvent);
+            events.Insert(0, preparedEvent);
+            bridge.FailBeforeWorkflowStart(message);
+        }
+        catch
+        {
+            // Animation preparation must never hide the original workflow error.
+        }
+
+        return events;
+    }
+
+    private static async IAsyncEnumerable<SmartFlowEvent> SingleEvent(SmartFlowEvent evt)
+    {
+        await Task.CompletedTask;
+        yield return evt;
     }
 
     private static bool IsCommand(string text, string command)

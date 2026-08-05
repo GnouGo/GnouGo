@@ -390,7 +390,7 @@ public sealed class WorkflowTelemetryAdapterTests
     }
 
     [Fact]
-    public void ChatPage_KeepsThinkingOutOfHistoryAndMovesLatestAnimationIntoSidebar()
+    public void ChatPage_KeepsThinkingOutOfHistoryAndOwnsAnimationPerAssistantResponse()
     {
         var root = FindRepositoryRoot();
         var chatPage = File.ReadAllText(Path.Combine(
@@ -404,9 +404,10 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.DoesNotContain("new ChatMessageDto(\"thinking\"", chatPage, StringComparison.Ordinal);
         Assert.Contains("gnougo-workflow-card", chatPage, StringComparison.Ordinal);
         Assert.Contains("gnougo-execution-panel", chatPage, StringComparison.Ordinal);
-        Assert.Contains("gnougo-sidebar__workflow", chatPage, StringComparison.Ordinal);
-        Assert.Contains("@if (isActive && SidebarExecution is { } sidebarExecution)", chatPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("gnougo-chat__response-animation", chatPage, StringComparison.Ordinal);
+        Assert.Contains("gnougo-chat__response-animation", chatPage, StringComparison.Ordinal);
+        Assert.Contains("GnOuGo animation for this response", chatPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("gnougo-sidebar__workflow", chatPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("SidebarExecution", chatPage, StringComparison.Ordinal);
         Assert.Contains("gnougo-chat__response-actions", chatPage, StringComparison.Ordinal);
         Assert.Contains("CopyMessageAsync(msg.Content)", chatPage, StringComparison.Ordinal);
         Assert.Contains("PlainTextContent Class=\"gnougo-chat__bubble-text gnougo-chat__bubble-text--user\"", chatPage, StringComparison.Ordinal);
@@ -428,21 +429,20 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.DoesNotContain("chatAgentSelect", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("gnougo-chat__agent-select", chatPage, StringComparison.Ordinal);
         Assert.Contains("Open workflow activity", chatPage, StringComparison.Ordinal);
-        Assert.Contains("Hide workflow diagram", chatPage, StringComparison.Ordinal);
+        Assert.Contains("Show GnOuGo animation", chatPage, StringComparison.Ordinal);
+        Assert.Contains("<span>Traces</span>", chatPage, StringComparison.Ordinal);
+        Assert.Contains("<span>Animation</span>", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("GnOuGo team execution", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("visual node", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Live telemetry ·", chatPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("gnougo-workflow-card__header", chatPage, StringComparison.Ordinal);
+        Assert.Contains("gnougo-workflow-card__header", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("gnougo-workflow-card__stage-toolbar", chatPage, StringComparison.Ordinal);
         Assert.True(
             chatPage.IndexOf("OpenTraceSidebar(msg)", StringComparison.Ordinal)
             < chatPage.IndexOf("OpenExecutionSidebar(execution)", StringComparison.Ordinal));
         Assert.True(
-            chatPage.IndexOf("<span class=\"gnougo-sidebar__item-title\">@s.Title</span>", StringComparison.Ordinal)
-            < chatPage.IndexOf("gnougo-sidebar__workflow", StringComparison.Ordinal));
-        Assert.True(
-            chatPage.IndexOf("gnougo-sidebar__workflow", StringComparison.Ordinal)
-            < chatPage.IndexOf("</nav>", StringComparison.Ordinal));
+            chatPage.IndexOf("gnougo-chat__response-animation", StringComparison.Ordinal)
+            < chatPage.IndexOf("gnougo-chat__response-actions", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -459,14 +459,16 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("SetWorkflowResponseError(assistantMsg, ex.Message);", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("_error = errText;", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("_error = ex.Message;", chatPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("gnougo-chat__response-animation", chatPage, StringComparison.Ordinal);
+        Assert.Contains("gnougo-chat__response-animation", chatPage, StringComparison.Ordinal);
+        Assert.Contains("MarkExecutionFailed(correlationId, errText);", chatPage, StringComparison.Ordinal);
+        Assert.Contains("SimulationEventTypes.SimulationCompleted", chatPage, StringComparison.Ordinal);
         Assert.Contains(".gnougo-chat__response-error {", styles, StringComparison.Ordinal);
         Assert.Contains("white-space: pre-wrap;", styles, StringComparison.Ordinal);
         Assert.Contains("overflow-wrap: anywhere;", styles, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AgentAnimationClient_QueuesTelemetryAndFollowsInsideScrollableSidebar()
+    public void AgentAnimationClient_QueuesTelemetryAndFollowsInsideScrollableMessagePanel()
     {
         var root = FindRepositoryRoot();
         var agentRoot = Path.Combine(root, "src", "GnOuGo.Agent.Server");
@@ -498,8 +500,8 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("gnougo-workflow-card__stage--leaving", main, StringComparison.Ordinal);
         Assert.Contains("copyText,", main, StringComparison.Ordinal);
         Assert.Contains(".gnougo-workflow-card__stage", styles, StringComparison.Ordinal);
-        Assert.Contains("height: clamp(280px, 42dvh, 500px);", styles, StringComparison.Ordinal);
-        Assert.Contains("max-height: min(500px, calc(100dvh - 320px));", styles, StringComparison.Ordinal);
+        Assert.Contains("height: clamp(340px, 52dvh, 620px);", styles, StringComparison.Ordinal);
+        Assert.Contains("max-height: min(620px, calc(100dvh - 220px));", styles, StringComparison.Ordinal);
         Assert.Contains("overflow: scroll;", styles, StringComparison.Ordinal);
         Assert.Contains("scrollbar-gutter: stable both-edges;", styles, StringComparison.Ordinal);
         Assert.Contains("border: 1px solid var(--gnougo-border);", styles, StringComparison.Ordinal);
@@ -514,8 +516,8 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains(".gnougo-chat__bubble-text--user", styles, StringComparison.Ordinal);
         Assert.Contains("white-space: pre-wrap;", styles, StringComparison.Ordinal);
         Assert.Contains("field-sizing: content;", styles, StringComparison.Ordinal);
-        Assert.Contains(".gnougo-sidebar__workflow", styles, StringComparison.Ordinal);
-        Assert.DoesNotContain(".gnougo-workflow-card__header", styles, StringComparison.Ordinal);
+        Assert.Contains(".gnougo-chat__response-animation", styles, StringComparison.Ordinal);
+        Assert.Contains(".gnougo-workflow-card__header", styles, StringComparison.Ordinal);
         Assert.DoesNotContain(".gnougo-workflow-card__stage-toolbar", styles, StringComparison.Ordinal);
         Assert.DoesNotContain("Sidebar (blue", styles, StringComparison.Ordinal);
         Assert.DoesNotContain(
@@ -527,9 +529,11 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("InvokeAsync<bool>", chatPage, StringComparison.Ordinal);
         Assert.Contains("data-follow=\"true\"", chatPage, StringComparison.Ordinal);
         Assert.Contains("_animationInteropGate", chatPage, StringComparison.Ordinal);
-        Assert.Contains("_sidebarExecutionCorrelationId", chatPage, StringComparison.Ordinal);
-        Assert.Contains("FadeOutSidebarAnimationAsync()", chatPage, StringComparison.Ordinal);
-        Assert.Contains("if (SidebarExecution is not { } execution)", chatPage, StringComparison.Ordinal);
+        Assert.Contains("GetActiveExecutions().Where", chatPage, StringComparison.Ordinal);
+        Assert.Contains("RecordAnimationUpdate(execution", chatPage, StringComparison.Ordinal);
+        Assert.Contains("ResetExecutionForReplay(execution)", chatPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("_sidebarExecutionCorrelationId", chatPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("FadeOutSidebarAnimationAsync()", chatPage, StringComparison.Ordinal);
         Assert.Contains("var freshExecution = new ChatExecutionModel", chatPage, StringComparison.Ordinal);
         Assert.Contains("Prepared = prepared;", chatPage, StringComparison.Ordinal);
         Assert.Contains("public AnimationPreparedPayload? Prepared", chatPage, StringComparison.Ordinal);
@@ -553,6 +557,9 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("human-input-delivery-", runtime, StringComparison.Ordinal);
         Assert.Contains("event.type === 'human_input.resumed'", runtime, StringComparison.Ordinal);
         Assert.Contains("event.stepType?.toLowerCase().startsWith('human.')", runtime, StringComparison.Ordinal);
+        Assert.Contains("function isFailedStatus(status?: string)", runtime, StringComparison.Ordinal);
+        Assert.Contains("target.x - routeEnd.x", runtime, StringComparison.Ordinal);
+        Assert.Contains("from.x - routeStart.x", runtime, StringComparison.Ordinal);
 
         var resumedStart = runtime.IndexOf("case 'human_input.resumed':", StringComparison.Ordinal);
         var resumedEnd = runtime.IndexOf("case 'actor.cloned':", resumedStart, StringComparison.Ordinal);

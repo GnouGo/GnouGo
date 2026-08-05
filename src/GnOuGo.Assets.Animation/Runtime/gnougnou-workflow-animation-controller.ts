@@ -149,6 +149,20 @@ function actionForStep(stepType?: string): GnouGnouWorkflowCharacterAction {
   return 'type'
 }
 
+function normalizedStatus(status?: string): string {
+  return status?.trim().toLowerCase() ?? ''
+}
+
+function isFailedStatus(status?: string): boolean {
+  const normalized = normalizedStatus(status)
+  return normalized === 'failed' || normalized === 'failure' || normalized === 'error'
+}
+
+function isSucceededStatus(status?: string): boolean {
+  const normalized = normalizedStatus(status)
+  return normalized === 'succeeded' || normalized === 'success' || normalized === 'completed'
+}
+
 /**
  * Shared workflow-scene controller used by the autonomous demo and Agent chat.
  * It owns scene motion; articulated character motion remains in Assets.Bears.
@@ -710,7 +724,7 @@ export class GnouGnouWorkflowAnimationController {
         break
       case 'workflow.completed':
         this.options.onStatus?.(
-          event.status === 'Failed' ? 'Failed' : 'Running',
+          isFailedStatus(event.status) ? 'Failed' : 'Running',
           event.message,
         )
         break
@@ -839,7 +853,7 @@ export class GnouGnouWorkflowAnimationController {
           this.characters.play(event.actorId, transit ? 'walk' : 'handoff', actionDuration, actionDirection)
           this.characters.play(event.targetActorId, 'pickup', actionDuration, -actionDirection)
         }
-        if (event.status === 'Failed') this.setTaskStatus(event.taskId, 'Failed')
+        if (isFailedStatus(event.status)) this.setTaskStatus(event.taskId, 'Failed')
         break
       case 'step.started':
         this.activateSceneForActor(event.actorId)
@@ -856,10 +870,10 @@ export class GnouGnouWorkflowAnimationController {
         if (!isHumanInputStep) this.activateSceneForActor(event.actorId)
         this.stopPersistentAction(event.actorId)
         this.setActorStatus(event.actorId, event.status)
-        this.updateParcel(event.progressCurrent, event.progressTotal, event.status === 'Failed')
+        this.updateParcel(event.progressCurrent, event.progressTotal, isFailedStatus(event.status))
         // A successful Human Input completion must not touch the character rig:
         // the response capsule is the only moving element during receipt.
-        if (event.status === 'Failed')
+        if (isFailedStatus(event.status))
           this.characters.play(event.actorId, 'fail', 1200)
         else if (!isHumanInputStep)
           this.characters.play(event.actorId, 'celebrate', 700)
@@ -870,14 +884,14 @@ export class GnouGnouWorkflowAnimationController {
         if (event.x !== undefined && event.y !== undefined) {
           this.setTaskStatus(event.taskId, event.status)
           this.animateMotion(event.taskId, { x: event.x, y: event.y }, event.durationMs, 'sky', undefined, true)
-          this.characters.play(event.actorId, event.status === 'Failed' ? 'fail' : 'deliver', Math.max(900, event.durationMs))
+          this.characters.play(event.actorId, isFailedStatus(event.status) ? 'fail' : 'deliver', Math.max(900, event.durationMs))
         }
         break
       case 'simulation.completed':
         this.stopPersistentAction(event.actorId)
         this.setActorStatus(event.actorId, event.status)
-        this.characters.play(event.actorId, event.status === 'Failed' ? 'fail' : 'celebrate', 1600)
-        this.options.onStatus?.(event.status === 'Failed' ? 'Failed' : 'Completed', event.message)
+        this.characters.play(event.actorId, isFailedStatus(event.status) ? 'fail' : 'celebrate', 1600)
+        this.options.onStatus?.(isFailedStatus(event.status) ? 'Failed' : 'Completed', event.message)
         break
       case 'simulation.cancelled':
         this.stopPersistentAction(event.actorId)
@@ -2092,6 +2106,8 @@ export class GnouGnouWorkflowAnimationController {
       ? this.find<SVGGraphicsElement>(pathId)?.querySelector<SVGPathElement>('[data-route-path="true"]') ?? null
       : null
     const routeLength = route?.getTotalLength() ?? 0
+    const routeStart = route && routeLength > 0 ? route.getPointAtLength(0) : undefined
+    const routeEnd = route && routeLength > 0 ? route.getPointAtLength(routeLength) : undefined
     this.show(id, true)
 
     const render = (now: number) => {
@@ -2102,10 +2118,18 @@ export class GnouGnouWorkflowAnimationController {
       let y = from.y + (target.y - from.y) * eased
       let rotation = 0
       let scale = 1
-      if (mode === 'walk' && route && routeLength > 0) {
+      if (mode === 'walk' && route && routeLength > 0 && routeStart && routeEnd) {
         const point = route.getPointAtLength(routeLength * eased)
+        // Flow edges are drawn through control-node centers while actors stand
+        // beside their stations. Interpolate the endpoint offsets so the walk
+        // begins at the actor's real position and ends exactly at the target;
+        // otherwise every step visibly jumps at the start/end of its route.
         x = point.x
+          + (from.x - routeStart.x) * (1 - eased)
+          + (target.x - routeEnd.x) * eased
         y = point.y
+          + (from.y - routeStart.y) * (1 - eased)
+          + (target.y - routeEnd.y) * eased
       } else if (mode === 'walk') {
         const distance = Math.hypot(target.x - from.x, target.y - from.y)
         y -= Math.sin(progress * Math.PI) * Math.min(90, distance * .1)
@@ -2138,9 +2162,9 @@ export class GnouGnouWorkflowAnimationController {
   }
 
   private setFlowStatus(event: WorkflowSimulationEvent) {
-    const statusClass = event.status === 'Failed'
+    const statusClass = isFailedStatus(event.status)
       ? 'is-failed'
-      : event.status === 'Succeeded'
+      : isSucceededStatus(event.status)
         ? 'is-success'
         : 'is-active'
     if (event.type === 'actor.moved' || event.type === 'step.started')
@@ -2157,18 +2181,18 @@ export class GnouGnouWorkflowAnimationController {
     const actor = this.find<SVGGraphicsElement>(id)
     if (!actor) return
     actor.classList.remove('is-running', 'is-success', 'is-failed')
-    if (status === 'Running') actor.classList.add('is-running')
-    if (status === 'Succeeded') actor.classList.add('is-success')
-    if (status === 'Failed') actor.classList.add('is-failed')
+    if (normalizedStatus(status) === 'running') actor.classList.add('is-running')
+    if (isSucceededStatus(status)) actor.classList.add('is-success')
+    if (isFailedStatus(status)) actor.classList.add('is-failed')
   }
 
   private setTaskStatus(id?: string, status?: string) {
     const task = this.find<SVGGraphicsElement>(id)
     if (!task) return
     task.classList.remove('is-working', 'is-complete', 'is-failed')
-    if (status === 'Running') task.classList.add('is-working')
-    if (status === 'Succeeded') task.classList.add('is-complete')
-    if (status === 'Failed') task.classList.add('is-failed')
+    if (normalizedStatus(status) === 'running') task.classList.add('is-working')
+    if (isSucceededStatus(status)) task.classList.add('is-complete')
+    if (isFailedStatus(status)) task.classList.add('is-failed')
   }
 
   private pulseStation(id?: string, duration = 900) {

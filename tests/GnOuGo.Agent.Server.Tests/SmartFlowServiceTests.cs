@@ -9,6 +9,7 @@ using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.AI.Core;
+using GnOuGo.Assets.Animation;
 using GnOuGo.Flow.Core.Runtime;
 using OtlpTenantCollector.Models;
 
@@ -35,6 +36,11 @@ public sealed class SmartFlowServiceTests
         Assert.Contains("`/mcp add`", answer.Text);
         Assert.Contains("`/gnougo add`", answer.Text);
         Assert.Contains("`/status`", answer.Text);
+        Assert.Contains(events, evt => evt.Type == "animation.prepared");
+        Assert.Contains(events, evt => evt.Animation?.Event?.Type == SimulationEventTypes.ActorMoved);
+        Assert.Contains(events, evt =>
+            evt.Animation?.Event?.Type == SimulationEventTypes.SimulationCompleted
+            && evt.Animation.Event.Status == SimulationStatus.Succeeded);
         Assert.Equal(0, llm.CallCount);
     }
 
