@@ -190,7 +190,9 @@ Animation state is also transient and is not restored after a reload.
 alive with calm waiting motion. Text, choice, confirmation, and structured
 controls appear attached to the live card; submitted values are summarized in
 that card instead of becoming chat messages. Timeout, cancellation, and
-failure update the same parcel and execution status.
+failure update the same parcel and execution status. Confirmation buttons use
+their labels only for presentation and submit a Boolean response; Flow.Core also
+normalizes provider labels such as `approve` and `reject` before expressions run.
 
 `/api/chat/stream` retains its existing SSE event names and text payloads.
 Additional `animation.prepared`, `animation.scene.patch`, and

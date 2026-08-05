@@ -55,6 +55,94 @@ public static class HumanInputContract
         || fieldType.Equals("radio", StringComparison.OrdinalIgnoreCase)
         || fieldType.Equals("multiselect", StringComparison.OrdinalIgnoreCase)
         || fieldType.Equals("checkbox", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Returns whether a choice label represents confirmation.</summary>
+    public static bool IsAffirmativeConfirmationChoice(string? value) =>
+        value is not null
+        && (value.Equals("approve", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("true", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("confirm", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("ok", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Returns whether a choice label represents rejection.</summary>
+    public static bool IsNegativeConfirmationChoice(string? value) =>
+        value is not null
+        && (value.Equals("reject", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("no", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("false", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("cancel", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Reads a provider response using the stable <c>confirm</c> contract. The
+    /// response may be a Boolean, a common confirmation label, or either of two
+    /// configured presentation choices (first = true, second = false).
+    /// </summary>
+    public static bool TryReadConfirmation(
+        JsonNode? response,
+        IReadOnlyList<string>? choices,
+        out bool confirmed)
+    {
+        var value = response;
+        if (response is JsonObject obj)
+        {
+            value = obj["response"]
+                    ?? obj["confirmed"]
+                    ?? obj["approved"]
+                    ?? obj["decision"];
+        }
+
+        if (value is JsonValue jsonValue)
+        {
+            if (jsonValue.TryGetValue<bool>(out confirmed))
+                return true;
+
+            if (jsonValue.TryGetValue<string>(out var text))
+            {
+                var normalized = text.Trim();
+                if (bool.TryParse(normalized, out confirmed))
+                    return true;
+                if (normalized == "1" || IsAffirmativeConfirmationChoice(normalized))
+                {
+                    confirmed = true;
+                    return true;
+                }
+                if (normalized == "0" || IsNegativeConfirmationChoice(normalized))
+                {
+                    confirmed = false;
+                    return true;
+                }
+
+                if (choices is { Count: 2 })
+                {
+                    if (normalized.Equals(choices[0], StringComparison.OrdinalIgnoreCase))
+                    {
+                        confirmed = true;
+                        return true;
+                    }
+                    if (normalized.Equals(choices[1], StringComparison.OrdinalIgnoreCase))
+                    {
+                        confirmed = false;
+                        return true;
+                    }
+                }
+            }
+
+            if (jsonValue.TryGetValue<int>(out var intValue) && intValue is 0 or 1)
+            {
+                confirmed = intValue == 1;
+                return true;
+            }
+            if (jsonValue.TryGetValue<long>(out var longValue) && longValue is 0L or 1L)
+            {
+                confirmed = longValue == 1L;
+                return true;
+            }
+        }
+
+        confirmed = false;
+        return false;
+    }
 }
 
 /// <summary>

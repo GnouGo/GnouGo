@@ -699,6 +699,28 @@ Pauses the workflow and prompts the user for input. The workflow resumes when th
     timeout_ms: 36000000      # 10 hours (default)
 ```
 
+#### Boolean confirmation
+
+```yaml
+- id: confirm_send
+  type: human.input
+  input:
+    mode: confirm
+    prompt: "Send the email now?"
+    choices: [approve, reject]
+- id: route_send
+  type: switch
+  cases:
+    - when: "${data.steps.confirm_send.response}"
+      steps:
+        - { id: send, type: workflow.call, input: { ref: { kind: local, name: send_email } } }
+```
+
+`confirm` always exposes `response` as a Boolean. Providers may submit a Boolean,
+a common label such as `approve`/`reject`, or one of two custom presentation
+choices; the runtime normalizes the first choice to `true` and the second to
+`false`. Branch on the Boolean directly rather than comparing it to a label.
+
 #### Structured form fields
 
 ```yaml
@@ -722,7 +744,7 @@ Pauses the workflow and prompts the user for input. The workflow resumes when th
         default: "3"
 ```
 
-**Output:** The user's response as a JSON object (e.g., `{ "response": "approve" }` or `{ "api_key": "...", "region": "eu-west", "max_retries": "3" }`).
+**Output:** The user's response as a JSON object (e.g., `{ "response": "approve" }` for `choice`, `{ "response": true }` for `confirm`, or `{ "api_key": "...", "region": "eu-west", "max_retries": "3" }` for `form`).
 
 **Modes:** `text`, `choice`, `form`, `confirm`. When omitted, the engine infers `form` from `fields`, `choice`/`confirm` from `choices`, otherwise `text`.
 

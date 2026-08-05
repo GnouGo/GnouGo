@@ -117,7 +117,14 @@ workflows:
             input: { published: false }
 ");
 
-        var fakeProvider = new FakeHumanInputProvider(new JsonObject { ["response"] = true });
+        // UI and CLI providers submit the selected presentation label. The
+        // executor must normalize it to the boolean contract advertised to
+        // expression validation and downstream switch conditions.
+        var fakeProvider = new FakeHumanInputProvider(new JsonObject
+        {
+            ["response"] = "approve",
+            ["source"] = "test"
+        });
         var engine = new WorkflowEngine
         {
             HumanInputProvider = fakeProvider,
@@ -128,10 +135,24 @@ workflows:
 
         Assert.True(result.Success);
         Assert.Equal(HumanInputContract.ModeConfirm, fakeProvider.LastRequest!.Mode);
+        var confirmationOutput = Assert.IsType<JsonObject>(result.StepResults.Single(step => step.StepId == "ask").Output);
+        Assert.True(confirmationOutput["response"]!.GetValue<bool>());
+        Assert.Equal("test", confirmationOutput["source"]!.GetValue<string>());
         var routeOutput = Assert.IsType<JsonObject>(result.StepResults.Single(step => step.StepId == "route").Output);
         var approvedOutput = Assert.IsType<JsonObject>(routeOutput["approved"]);
         Assert.True(approvedOutput["published"]!.GetValue<bool>());
         Assert.Null(routeOutput["rejected"]);
+    }
+
+    [Fact]
+    public void HumanInputContract_ConfirmMapsTwoCustomPresentationChoicesToBoolean()
+    {
+        var choices = new[] { "Send email", "Do not send" };
+
+        Assert.True(HumanInputContract.TryReadConfirmation(JsonValue.Create("Send email"), choices, out var approved));
+        Assert.True(approved);
+        Assert.True(HumanInputContract.TryReadConfirmation(JsonValue.Create("Do not send"), choices, out var rejected));
+        Assert.False(rejected);
     }
 
     [Fact]

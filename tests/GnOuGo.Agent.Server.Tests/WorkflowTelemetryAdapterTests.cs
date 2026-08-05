@@ -653,6 +653,9 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("ContextMarkdown = HumanInputContextMarkdownFormatter.Format(context)", chatPage, StringComparison.Ordinal);
         Assert.Contains("Content=\"@_pendingHumanInput.ContextMarkdown\"", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"@FormatHumanInputContextAsMarkdown", chatPage, StringComparison.Ordinal);
+        Assert.Contains("_pendingHumanInput.Mode.Equals(HumanInputContract.ModeConfirm", chatPage, StringComparison.Ordinal);
+        Assert.Contains("HumanInputContract.TryReadConfirmation(", chatPage, StringComparison.Ordinal);
+        Assert.Contains("responseValue = JsonValue.Create(confirmed);", chatPage, StringComparison.Ordinal);
         var styles = File.ReadAllText(Path.Combine(agentRoot, "ClientApp", "src", "styles", "app.scss"));
         Assert.Contains(".gnougo-workflow-hitl {", styles, StringComparison.Ordinal);
         Assert.Contains("justify-content: center;", styles, StringComparison.Ordinal);

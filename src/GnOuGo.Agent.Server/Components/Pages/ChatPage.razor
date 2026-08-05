@@ -8,6 +8,7 @@
 @using GnOuGo.Agent.Server.Components.Tracing
 @using GnOuGo.Assets.Animation
 @using GnOuGo.Assets.Bears
+@using GnOuGo.Flow.Core.Runtime
 @implements IAsyncDisposable
 
 @inject IJSRuntime Js
@@ -2372,7 +2373,17 @@
     {
         if (_pendingHumanInput is null) return;
 
-        var response = new JsonObject { ["response"] = choice };
+        JsonNode? responseValue = JsonValue.Create(choice);
+        if (_pendingHumanInput.Mode.Equals(HumanInputContract.ModeConfirm, StringComparison.OrdinalIgnoreCase)
+            && HumanInputContract.TryReadConfirmation(
+                responseValue,
+                _pendingHumanInput.Choices,
+                out var confirmed))
+        {
+            responseValue = JsonValue.Create(confirmed);
+        }
+
+        var response = new JsonObject { ["response"] = responseValue };
         HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
 
         RecordHumanInput(_pendingHumanInput.Prompt, choice);

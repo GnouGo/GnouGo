@@ -225,8 +225,8 @@ internal static class StepOutputTypeResolver
             else if (input["choices"] is JsonArray choices && choices.Count > 0)
             {
                 mode = choices.Count == 2
-                       && choices.Any(choice => IsConfirmChoice(TryGetLiteralString(choice)))
-                       && choices.Any(choice => IsRejectChoice(TryGetLiteralString(choice)))
+                       && choices.Any(choice => HumanInputContract.IsAffirmativeConfirmationChoice(TryGetLiteralString(choice)))
+                       && choices.Any(choice => HumanInputContract.IsNegativeConfirmationChoice(TryGetLiteralString(choice)))
                     ? HumanInputContract.ModeConfirm
                     : HumanInputContract.ModeChoice;
             }
@@ -243,21 +243,6 @@ internal static class StepOutputTypeResolver
             _ => FlowTypeDescriptor.Any
         };
     }
-
-    private static bool IsConfirmChoice(string? value) =>
-        value is not null
-        && (value.Equals("approve", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("true", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("confirm", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("ok", StringComparison.OrdinalIgnoreCase));
-
-    private static bool IsRejectChoice(string? value) =>
-        value is not null
-        && (value.Equals("reject", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("no", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("false", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("cancel", StringComparison.OrdinalIgnoreCase));
 
     private static FlowTypeDescriptor HumanInputFieldType(string type) =>
         type.ToLowerInvariant() switch
