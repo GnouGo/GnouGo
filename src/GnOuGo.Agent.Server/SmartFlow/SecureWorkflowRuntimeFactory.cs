@@ -17,6 +17,8 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly ILLMCapabilityResolver? _llmCapabilityResolver;
     private readonly IHumanInputProvider? _humanInputProvider;
 
+    internal bool UsesLiveMcpConfiguration => _mcpClientFactoryOverride is null;
+
     public SecureWorkflowRuntimeFactory(
         LLMRuntimeOptionsStore optionsStore,
         IKeyVaultRuntimeConfigStore keyVaultStore,

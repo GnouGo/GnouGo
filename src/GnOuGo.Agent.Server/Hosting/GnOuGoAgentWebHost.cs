@@ -348,7 +348,20 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddAgentMcpPersistence(agentDbPath);
         builder.Services.AddKeyVaultMcpPersistence(keyVaultDbPath);
         builder.Services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
-        builder.Services.AddSingleton<SecureWorkflowRuntimeFactory>();
+        // Do not let DI inject the singleton IMcpClientFactory here. That
+        // factory is a startup snapshot, while /mcp add and /mcp edit update
+        // the encrypted runtime configuration without restarting the host.
+        // SecureWorkflowRuntimeFactory must build a fresh MCP factory from the
+        // latest KeyVault-backed options for every workflow execution.
+        builder.Services.AddSingleton<SecureWorkflowRuntimeFactory>(sp => new SecureWorkflowRuntimeFactory(
+            sp.GetRequiredService<LLMRuntimeOptionsStore>(),
+            sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(),
+            sp.GetRequiredService<ILoggerFactory>(),
+            llmClientOverride: null,
+            mcpClientFactoryOverride: null,
+            backgroundModeCache: sp.GetRequiredService<IMemoryCache>(),
+            llmCapabilityResolver: sp.GetService<ILLMCapabilityResolver>(),
+            humanInputProvider: sp.GetRequiredService<AgentHumanInputProvider>()));
         builder.Services.AddSingleton<CollectorTracePersistence>();
         builder.Services.AddSingleton<ILoggerProvider, CollectorLoggerProvider>();
 
