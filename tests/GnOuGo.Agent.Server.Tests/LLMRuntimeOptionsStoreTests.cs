@@ -147,6 +147,32 @@ public sealed class LlmRuntimeOptionsStoreTests
     }
 
     [Fact]
+    public void RemoveMcpServer_RemovesNamedServerCaseInsensitivelyAndPreservesTransientEndpoints()
+    {
+        var store = new LLMRuntimeOptionsStore(
+            Options.Create(new LLMOptions
+            {
+                McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Mail_gnougo"] = new() { Type = "http", Url = "https://mail.example.com/mcp/" }
+                }
+            }),
+            NullLogger<LLMRuntimeOptionsStore>.Instance);
+
+        store.UpsertTransientMcpServer("GnOuGo.Agent.Mcp", new McpServerOptions
+        {
+            Type = "http",
+            Url = "http://127.0.0.1:64123/mcp/agent"
+        });
+
+        Assert.True(store.RemoveMcpServer("mail_GNOUgo"));
+        Assert.False(store.Current.McpServers.ContainsKey("Mail_gnougo"));
+        Assert.True(store.Current.McpServers.ContainsKey("GnOuGo.Agent.Mcp"));
+        Assert.False(store.RemoveMcpServer("GnOuGo.Agent.Mcp"));
+        Assert.True(store.Current.McpServers.ContainsKey("GnOuGo.Agent.Mcp"));
+    }
+
+    [Fact]
     public void UpdateProvider_InitializesProviderTypeFromKeyForApiKeyAuth()
     {
         var store = new LLMRuntimeOptionsStore(
@@ -248,4 +274,3 @@ public sealed class LlmRuntimeOptionsStoreTests
         Assert.Equal("gpt-4o-mini", store.Current.DefaultModel);
     }
 }
-

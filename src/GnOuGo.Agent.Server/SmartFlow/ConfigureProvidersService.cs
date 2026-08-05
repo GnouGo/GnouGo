@@ -1690,6 +1690,10 @@ public sealed class ConfigureProvidersService
             yield break;
         }
 
+        // The live options snapshot is also used as the base of every new
+        // workflow runtime. Leaving the deleted KeyVault entry in that
+        // snapshot makes workflow.plan keep discovering the removed server.
+        _optionsStore.RemoveMcpServer(existing.Name);
         yield return new SmartFlowEvent("answer", $"✅ MCP server '{existing.Name}' removed.");
     }
 

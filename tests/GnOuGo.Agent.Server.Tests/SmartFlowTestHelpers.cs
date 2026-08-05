@@ -306,13 +306,14 @@ internal static class SmartFlowTestFactory
         AgentHumanInputProvider? humanInput = null,
         IKeyVaultRuntimeConfigStore? keyVaultStore = null,
         AgentOTelTelemetry? telemetry = null,
-        BundledMcpSettings? bundledMcpSettings = null)
+        BundledMcpSettings? bundledMcpSettings = null,
+        LLMRuntimeOptionsStore? runtimeOptionsStore = null)
         => new(
             llmClient,
             humanInput ?? new AgentHumanInputProvider(),
             modelCatalog ?? new FakeModelCatalog(),
             keyVaultStore ?? new FakeKeyVaultRuntimeConfigStore(),
-            CreateRuntimeOptionsStore(options),
+            runtimeOptionsStore ?? CreateRuntimeOptionsStore(options),
             telemetry ?? CreateTelemetry(),
             NullLogger<ConfigureProvidersService>.Instance,
             bundledMcpSettings: Options.Create(bundledMcpSettings ?? new BundledMcpSettings()));

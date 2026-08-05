@@ -268,6 +268,32 @@ public sealed class LLMRuntimeOptionsStore
     }
 
     /// <summary>
+    /// Removes a persisted MCP server from the live runtime snapshot.
+    /// Transient mounted endpoints are owned by the host and cannot be removed
+    /// through the KeyVault-backed <c>/mcp remove</c> command.
+    /// </summary>
+    public bool RemoveMcpServer(string serverName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(serverName);
+
+        lock (_lock)
+        {
+            var existingKey = _current.McpServers.Keys.FirstOrDefault(key =>
+                string.Equals(key, serverName, StringComparison.OrdinalIgnoreCase));
+
+            if (existingKey is null || _transientMcpServers.Contains(existingKey))
+                return false;
+
+            var snapshot = DeepClone(_current);
+            snapshot.McpServers.Remove(existingKey);
+            _current = snapshot;
+        }
+
+        _logger.LogInformation("MCP server '{ServerName}' removed from runtime options.", serverName);
+        return true;
+    }
+
+    /// <summary>
     /// Updates or inserts an MCP server in memory without persisting the change.
     /// Intended for runtime-only endpoint normalization such as loopback/self-hosted MCP mounts.
     /// </summary>

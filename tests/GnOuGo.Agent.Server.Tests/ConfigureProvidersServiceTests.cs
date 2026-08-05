@@ -1493,11 +1493,29 @@ public sealed class ConfigureProvidersServiceTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_McpRemove_DeletesSecretWithoutKeyVaultMcpCrud()
+    public async Task ExecuteAsync_McpRemove_DeletesSecretAndRemovesServerFromFutureRuntimeCatalogs()
     {
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
             .AddSecret("gnougo_mcp_Github", "{\"name\":\"Github\",\"transport\":\"http\",\"description\":\"GitHub\",\"url\":\"https://api.githubcopilot.com/mcp/\"}");
+        var runtimeOptionsStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions
+        {
+            McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Github"] = new()
+                {
+                    Type = "http",
+                    Description = "GitHub",
+                    Url = "https://api.githubcopilot.com/mcp/"
+                },
+                ["StillConfigured"] = new()
+                {
+                    Type = "http",
+                    Description = "Still configured",
+                    Url = "https://example.com/mcp/"
+                }
+            }
+        });
         var humanInput = new AgentHumanInputProvider();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var token = cts.Token;
@@ -1517,7 +1535,8 @@ public sealed class ConfigureProvidersServiceTests
         var service = SmartFlowTestFactory.CreateProvidersService(
             llm,
             humanInput: humanInput,
-            keyVaultStore: keyVaultStore);
+            keyVaultStore: keyVaultStore,
+            runtimeOptionsStore: runtimeOptionsStore);
 
         var events = await SmartFlowTestFactory.CollectAsync(service.ExecuteAsync("/mcp remove Github", token), token);
         await responder;
@@ -1525,6 +1544,17 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Contains(events, evt => evt.Type == "answer" && evt.Text == "✅ MCP server 'Github' removed.");
         Assert.Null(await keyVaultStore.GetSecretValueAsync("gnougo_mcp_Github", CancellationToken.None));
         Assert.Null(await keyVaultStore.GetSecretValueAsync("LLM--McpServers--Github", CancellationToken.None));
+        Assert.False(runtimeOptionsStore.Current.McpServers.ContainsKey("Github"));
+        Assert.True(runtimeOptionsStore.Current.McpServers.ContainsKey("StillConfigured"));
+
+        var runtimeFactory = new SecureWorkflowRuntimeFactory(runtimeOptionsStore, keyVaultStore);
+        await using var runtime = await runtimeFactory.CreateAsync(token);
+        Assert.DoesNotContain(
+            runtime.McpClientFactory.ServerMetadata ?? [],
+            server => string.Equals(server.Name, "Github", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            runtime.McpClientFactory.ServerMetadata ?? [],
+            server => string.Equals(server.Name, "StillConfigured", StringComparison.OrdinalIgnoreCase));
         Assert.Equal(0, llm.CallCount);
     }
 
