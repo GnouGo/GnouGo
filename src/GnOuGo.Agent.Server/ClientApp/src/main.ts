@@ -373,6 +373,7 @@ const fileUploads = {
 };
 
 interface WorkflowAnimationHandle {
+  host: HTMLElement
   controller: GnouGnouWorkflowAnimationController
   resizeObserver: ResizeObserver
   resize: () => void
@@ -382,6 +383,23 @@ interface WorkflowAnimationHandle {
 
 const workflowAnimationControllers = new Map<string, WorkflowAnimationHandle>();
 const nextAnimationFrame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+function mountedWorkflowAnimationHandle(hostId: string): WorkflowAnimationHandle | undefined {
+  const handle = workflowAnimationControllers.get(hostId);
+  if (!handle) return undefined;
+
+  const currentHost = el(hostId);
+  if (currentHost === handle.host && handle.host.isConnected) return handle;
+
+  // A streamed Blazor response can replace its keyed DOM branch while the
+  // browser controller still references the former element. Never acknowledge
+  // an update against that detached SVG: returning false makes Blazor remount
+  // the current host and replay its authoritative event history.
+  handle.resizeObserver.disconnect();
+  handle.controller.dispose();
+  workflowAnimationControllers.delete(hostId);
+  return undefined;
+}
 
 const workflowAnimation = {
   mount: async (hostId: string, prepared: WorkflowAnimationPrepared): Promise<boolean> => {
@@ -410,8 +428,9 @@ const workflowAnimation = {
     svg.setAttribute('preserveAspectRatio', 'xMidYMin meet');
     host.dataset.follow = 'true';
 
-    const handle = { follow: true } as WorkflowAnimationHandle;
+    const handle = { host, follow: true } as WorkflowAnimationHandle;
     const resize = () => {
+      if (!host.isConnected || el(hostId) !== host) return;
       const logicalWidth = Number(svg.dataset.sceneWidth) || svg.viewBox.baseVal.width || prepared.width;
       const logicalHeight = Number(svg.dataset.sceneHeight) || svg.viewBox.baseVal.height || prepared.height;
       const availableWidth = Math.max(1, host!.clientWidth);
@@ -452,7 +471,7 @@ const workflowAnimation = {
   },
 
   applyPatch: (hostId: string, patch: WorkflowAnimationScenePatch): boolean => {
-    const handle = workflowAnimationControllers.get(hostId);
+    const handle = mountedWorkflowAnimationHandle(hostId);
     if (!handle) return false;
     handle.controller.applyScenePatch(patch);
     handle.resize();
@@ -460,25 +479,25 @@ const workflowAnimation = {
   },
 
   applyEvent: (hostId: string, event: WorkflowSimulationEvent): boolean => {
-    const handle = workflowAnimationControllers.get(hostId);
+    const handle = mountedWorkflowAnimationHandle(hostId);
     if (!handle) return false;
     handle.controller.enqueueEvent(event);
     return true;
   },
 
   focus: (hostId: string, elementId: string) => {
-    workflowAnimationControllers.get(hostId)?.controller.focus(elementId);
+    mountedWorkflowAnimationHandle(hostId)?.controller.focus(elementId);
   },
 
   setZoom: (hostId: string, zoom: number) => {
-    const handle = workflowAnimationControllers.get(hostId);
+    const handle = mountedWorkflowAnimationHandle(hostId);
     if (!handle) return;
     handle.zoom = Math.max(.25, Math.min(zoom, 4));
     handle.resize();
   },
 
   setFollow: (hostId: string, follow: boolean): boolean => {
-    const handle = workflowAnimationControllers.get(hostId);
+    const handle = mountedWorkflowAnimationHandle(hostId);
     if (!handle) return false;
     handle.follow = follow;
     const host = el(hostId);

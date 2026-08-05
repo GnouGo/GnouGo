@@ -149,6 +149,69 @@ public sealed class LiveWorkflowAnimationTests
     }
 
     [Fact]
+    public void LiveSession_MovesBeforeEachSequentialVisibleStep()
+    {
+        var validation = WorkflowPreviewValidator.ParseAndValidate("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - { id: draft, type: llm.call }
+                  - { id: send, type: mcp.call }
+            """);
+        var plan = GnouGnouAnimationPlanner.BuildLive(
+            validation,
+            new GnouGnouAnimationOptions { Seed = 23 });
+        var session = new WorkflowLiveAnimationSession(plan);
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "run-main",
+            WorkflowName = "main"
+        });
+
+        var first = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "run-main",
+            StepOccurrenceId = "draft-1",
+            StepId = "draft",
+            StepType = "llm.call"
+        });
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepCompleted,
+            WorkflowInstanceId = "run-main",
+            StepOccurrenceId = "draft-1",
+            StepId = "draft",
+            StepType = "llm.call",
+            Status = SimulationStatus.Succeeded
+        });
+        var second = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.StepStarted,
+            WorkflowInstanceId = "run-main",
+            StepOccurrenceId = "send-1",
+            StepId = "send",
+            StepType = "mcp.call"
+        });
+
+        var firstEvents = first.Select(update => update.Event).OfType<SimulationEvent>().ToArray();
+        var secondEvents = second.Select(update => update.Event).OfType<SimulationEvent>().ToArray();
+        var firstMove = Assert.Single(firstEvents, item => item.Type == SimulationEventTypes.ActorMoved);
+        var secondMove = Assert.Single(secondEvents, item => item.Type == SimulationEventTypes.ActorMoved);
+
+        Assert.True(
+            Array.IndexOf(firstEvents, firstMove)
+            < Array.FindIndex(firstEvents, item => item.Type == SimulationEventTypes.StepStarted));
+        Assert.True(
+            Array.IndexOf(secondEvents, secondMove)
+            < Array.FindIndex(secondEvents, item => item.Type == SimulationEventTypes.StepStarted));
+        Assert.NotEqual((firstMove.X, firstMove.Y), (secondMove.X, secondMove.Y));
+    }
+
+    [Fact]
     public void HumanInput_IsVisibleAndProducesWaitingAndResumeEvents()
     {
         var validation = WorkflowPreviewValidator.ParseAndValidate("""

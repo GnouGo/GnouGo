@@ -309,7 +309,7 @@ workflows:
               generator:
                 prefilter: true
                 mode: auto
-                reasoning: medium
+                reasoning: low
                 instruction: >
                   Generate a valid GnOuGo.Flow YAML workflow for a persisted chat agent.
 
@@ -711,7 +711,7 @@ workflows:
                   mode: repair
                   generator:
                     prefilter: true
-                    reasoning: medium
+                    reasoning: low
                     instruction: |
                       Keep the same agent identity unless the user explicitly asks otherwise:
                       - agent name: ${data.steps.find_agent.response.agent.name}

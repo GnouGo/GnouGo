@@ -119,7 +119,9 @@ The conversation uses a document-style layout: compact right-aligned user
 prompts and borderless full-width assistant turns. Each response keeps its own
 full-width animation panel, with a viewport-responsive height capped at 620 px
 and native horizontal and vertical scrollbars. Follow mode is enabled by
-default and scrolls only that message's panel. Switching conversations disposes
+default and scrolls only that message's panel. During a walk, the camera leads
+only partway toward the next station so GnOuGo remains visibly in motion; the
+step event then completes the centering. Switching conversations disposes
 detached browser controllers; returning to an in-memory conversation remounts
 the SVG and replays its ordered scene patches/events so actors, portals, scene
 layers, and queued events cannot leak between turns.
@@ -174,9 +176,14 @@ produce visible walking, working, handoff, and delivery motion without delaying
 the workflow. A long-running real step repeats a calm action cycle until its
 authoritative `step.end` arrives: routing communicates, LLM work types, MCP
 work uses its communication pose, and HITL keeps waiting. Controller mounting
-is acknowledged before events leave the Blazor queue. The card and message bubbles use the full chat width; the SVG
-keeps its complete aspect ratio, has no maximum scene height, and is resized by
-a `ResizeObserver` when the application window changes. When a later question
+is acknowledged before events leave the Blazor queue. Every patch and event
+also verifies that the controller still owns the currently connected Blazor
+host. If streaming replaced that DOM branch, the stale controller is rejected
+and the current panel is remounted from its authoritative event history instead
+of silently animating a detached SVG. The card and message bubbles use the full
+chat width; the SVG keeps its complete aspect ratio, has no maximum scene
+height, and is resized by a `ResizeObserver` when the application window
+changes. When a later question
 creates another animation card, the chat follows it only after its SVG has
 mounted and acquired its final height. Focus events may pan inside their own
 card but cannot scroll the conversation back to an older execution.

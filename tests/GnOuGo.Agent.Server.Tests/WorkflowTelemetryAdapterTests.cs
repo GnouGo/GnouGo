@@ -484,6 +484,11 @@ public sealed class WorkflowTelemetryAdapterTests
             "gnougnou-workflow-animation-controller.ts"));
 
         Assert.Contains("controller.enqueueEvent(event)", main, StringComparison.Ordinal);
+        Assert.Contains("host: HTMLElement", main, StringComparison.Ordinal);
+        Assert.Contains("function mountedWorkflowAnimationHandle(hostId: string)", main, StringComparison.Ordinal);
+        Assert.Contains("currentHost === handle.host && handle.host.isConnected", main, StringComparison.Ordinal);
+        Assert.Contains("const handle = mountedWorkflowAnimationHandle(hostId);", main, StringComparison.Ordinal);
+        Assert.Contains("if (!host.isConnected || el(hostId) !== host) return;", main, StringComparison.Ordinal);
         Assert.Contains("new ResizeObserver(resize)", main, StringComparison.Ordinal);
         Assert.Contains("Promise<boolean>", main, StringComparison.Ordinal);
         Assert.Contains("allowDocumentFocusScroll: false", main, StringComparison.Ordinal);
@@ -560,6 +565,9 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("function isFailedStatus(status?: string)", runtime, StringComparison.Ordinal);
         Assert.Contains("target.x - routeEnd.x", runtime, StringComparison.Ordinal);
         Assert.Contains("from.x - routeStart.x", runtime, StringComparison.Ordinal);
+        Assert.Contains("const LIVE_MOVEMENT_CAMERA_LEAD = .35", runtime, StringComparison.Ordinal);
+        Assert.Contains("this.readPosition(event.actorId)", runtime, StringComparison.Ordinal);
+        Assert.Contains("LIVE_MOVEMENT_CAMERA_LEAD", runtime, StringComparison.Ordinal);
 
         var resumedStart = runtime.IndexOf("case 'human_input.resumed':", StringComparison.Ordinal);
         var resumedEnd = runtime.IndexOf("case 'actor.cloned':", resumedStart, StringComparison.Ordinal);

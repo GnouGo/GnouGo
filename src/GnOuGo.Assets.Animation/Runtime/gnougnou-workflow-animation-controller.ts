@@ -131,6 +131,7 @@ interface ParallelCohort {
 type MotionMode = 'walk' | 'arc' | 'drop' | 'spawn' | 'merge' | 'sky'
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
+const LIVE_MOVEMENT_CAMERA_LEAD = .35
 
 function easeInOut(value: number): number {
   return value < .5
@@ -1311,9 +1312,20 @@ export class GnouGnouWorkflowAnimationController {
       if (transit) return this.portalSourceFocusPosition(transit.branch)
     }
     if (event.x === undefined || event.y === undefined) return undefined
-    return event.type === 'actor.moved' || event.type === 'actor.spawned'
-      ? { x: event.x, y: event.y }
-      : undefined
+    const destination = { x: event.x, y: event.y }
+    if (event.type === 'actor.moved' && event.actorId) {
+      // Moving the camera all the way to the station at the same time as the
+      // actor makes the actor appear stationary inside a scrolling message
+      // panel. Follow only leads part of the route during the walk; the
+      // following step event finishes centering the destination after GnOuGo
+      // has visibly travelled through the scene.
+      return this.interpolatePosition(
+        this.readPosition(event.actorId),
+        destination,
+        LIVE_MOVEMENT_CAMERA_LEAD,
+      )
+    }
+    return event.type === 'actor.spawned' ? destination : undefined
   }
 
   private updateParallelCohort(event: WorkflowSimulationEvent) {

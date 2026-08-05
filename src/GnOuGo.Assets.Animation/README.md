@@ -160,6 +160,10 @@ timer-driven consumers continue to use `applyEvent(...)` directly. Persistent
 live `step.started` and human-waiting signals are rendered as calm repeated
 action cycles and stop only when the corresponding completion, resume,
 cancellation, or failure event arrives.
+In scroll-camera consumers, an `actor.moved` focus leads only partway toward
+the target while the actor walks. The next step focus completes the centering,
+keeping step-to-step travel visible instead of cancelling it with an equal
+camera movement.
 `human_input.waiting` is an authoritative presentation barrier: the browser
 drains older queued events immediately and settles the actor and parcel on the
 declared Human station. This prevents a delayed previous-step walk from
