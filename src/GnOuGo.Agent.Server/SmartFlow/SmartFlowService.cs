@@ -525,7 +525,7 @@ public sealed class SmartFlowService
                                    runtime,
                                    resolvedWorkflow,
                                    task,
-                                   WorkflowFailure.FromResult(result),
+                                   WorkflowFailure.FromResult(result, resolvedWorkflow.Workflow.Name),
                                    parentActivity,
                                    repairedValue => repaired = repairedValue,
                                    ct))
@@ -1213,7 +1213,9 @@ public sealed class SmartFlowService
             ["error_code"] = failure.Code,
             ["error_type"] = failure.Type ?? "",
             ["error_message"] = failure.Message,
-            ["error_details"] = failure.Details?.DeepClone()
+            ["error_details"] = failure.Details?.DeepClone(),
+            ["failed_workflow"] = GetString(failure.Details?["workflow"]) ?? "",
+            ["failed_step_id"] = GetString(failure.Details?["step_id"]) ?? ""
         };
 
         var channel = Channel.CreateUnbounded<SmartFlowEvent>(new UnboundedChannelOptions
@@ -1560,7 +1562,9 @@ public sealed class SmartFlowService
         enriched["routed"] = true;
         enriched["route_result_id"] = GetString(routeResult["id"]);
         enriched["route_result_name"] = GetString(routeResult["name"]);
-        enriched["workflow"] = GetString(routeResult["workflow"]);
+        enriched["routed_agent_workflow"] = GetString(routeResult["workflow"]);
+        if (enriched["workflow"] is null)
+            enriched["workflow"] = GetString(routeResult["workflow"]);
 
         if (handledError is not null)
         {
@@ -1669,6 +1673,14 @@ public sealed class SmartFlowService
               error_details:
                 type: object
                 required: false
+              failed_workflow:
+                type: string
+                required: false
+                default: ""
+              failed_step_id:
+                type: string
+                required: false
+                default: ""
 
             steps:
               - id: plan_repair
@@ -1684,6 +1696,8 @@ public sealed class SmartFlowService
                       - It must expose an `answer` output string.
                       - It must remain self-contained and must not ask the user to review its own YAML.
                       - Prefer fixing the smallest root cause that explains the latest runtime error.
+                      - Preserve every local sub-workflow, workflow.call edge, step ID, step type, branch, public input, and public output contract.
+                      - Change only the identified failing step and, when required, existing expressions that directly consume that step.
                       - For MCP failures, update the MCP request shape, output access, error handling, or tool choice based on the error details.
                       - `mcp.call` raises workflow errors by default; use `on_error` only when the workflow can recover intentionally.
                     context: |
@@ -1700,33 +1714,17 @@ public sealed class SmartFlowService
                       type: "${data.inputs.error_type}"
                       message: "${data.inputs.error_message}"
                       details: "${data.inputs.error_details}"
+                    scope:
+                      workflow: "${data.inputs.failed_workflow}"
+                      step_id: "${data.inputs.failed_step_id}"
                   policy:
-                    allowed_step_types:
-                      - emit
-                      - set
-                      - template.render
-                      - llm.call
-                      - mcp.list
-                      - mcp.call
-                      - sequence
-                      - parallel
-                      - loop.sequential
-                      - loop.parallel
-                      - switch
-                      - human.input
-                    denied_step_types:
-                      - workflow.plan
-                      - workflow.execute
-                      - workflow.call
                     allow_remote_workflow_refs: false
-                  limits:
-                    max_steps_total: 100
                   validate:
                     compile: true
                     dry_run: true
                   on_invalid:
                     action: reprompt
-                    max_attempts: 10
+                    max_attempts: 3
 
             outputs:
               answer:
@@ -1959,12 +1957,25 @@ public sealed class SmartFlowService
 
     private sealed record WorkflowFailure(string Code, string Message, string? Type, JsonNode? Details)
     {
-        public static WorkflowFailure FromResult(RunResult result)
-            => new(
+        public static WorkflowFailure FromResult(RunResult result, string workflowName)
+        {
+            var details = result.Error?.Details?.DeepClone() as JsonObject ?? new JsonObject();
+            var failedStep = result.StepResults.LastOrDefault(static item => item.Error is not null);
+            if (details["workflow"] is null && !string.IsNullOrWhiteSpace(workflowName))
+                details["workflow"] = workflowName;
+            if (details["step_id"] is null && failedStep is not null)
+                details["step_id"] = failedStep.StepId;
+            if (details["step_type"] is null && failedStep is not null)
+                details["step_type"] = failedStep.StepType;
+            if (details["step_status"] is null && failedStep is not null)
+                details["step_status"] = failedStep.Status.ToString();
+
+            return new WorkflowFailure(
                 result.Error?.Code ?? "WORKFLOW_EXECUTION_ERROR",
                 result.Error?.Message ?? "Workflow execution failed.",
                 result.Error?.Type,
-                result.Error?.Details?.DeepClone());
+                details.Count == 0 ? null : details);
+        }
     }
 
     private sealed record AgentWorkflowLoadResult(CompiledWorkflow? Workflow, AgentDto? Agent, string? ErrorMessage)

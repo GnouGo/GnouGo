@@ -250,6 +250,22 @@ public sealed class WorkflowLiveAnimationSession
             workflow: workflow, actorId: workflow.Lane.ActorId, status: status,
             message: signal.Message ?? $"Workflow '{workflow.WorkflowName}' completed.");
 
+        // Failure is a terminal visual state, not a successful delivery. Keep
+        // the actor and parcel at the step/workflow where execution stopped so
+        // the user can see the failed location. Moving to Return/Delivery and
+        // immediately replaying the failure pose made the GnOuGo flash between
+        // walk and fail while hiding the actual crash point.
+        if (status == SimulationStatus.Failed)
+        {
+            if (string.IsNullOrWhiteSpace(workflow.ParentWorkflowInstanceId))
+            {
+                Add(updates, SimulationEventTypes.SimulationCompleted,
+                    workflow: workflow, actorId: workflow.Lane.ActorId, status: status,
+                    message: "Workflow execution failed at the highlighted step.");
+            }
+            return;
+        }
+
         var parent = GetWorkflow(workflow.ParentWorkflowInstanceId);
         if (parent is not null)
         {

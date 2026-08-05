@@ -32,6 +32,7 @@ public sealed partial class WorkflowPlanExecutor
             throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.plan repair mode requires 'repair.prompt' or 'repair.error.message'");
 
         var generator = input["generator"] as JsonObject;
+        var scope = repair["scope"] as JsonObject;
         var repairInput = input.DeepClone() as JsonObject ?? new JsonObject();
         repairInput["mode"] = "basic";
 
@@ -42,7 +43,9 @@ public sealed partial class WorkflowPlanExecutor
             prompt,
             failedInput,
             error,
-            TryGetString(generator?["instruction"]));
+            TryGetString(generator?["instruction"]),
+            TryGetString(scope?["workflow"]),
+            TryGetString(scope?["step_id"]));
 
         var generatorContext = TryGetString(generator?["context"]);
         if (!string.IsNullOrWhiteSpace(generatorContext))
@@ -51,6 +54,15 @@ public sealed partial class WorkflowPlanExecutor
             repairGenerator.Remove("context");
 
         repairInput["generator"] = repairGenerator;
+        if (!string.IsNullOrWhiteSpace(TryGetString(scope?["step_id"])))
+        {
+            repairInput["surgical_repair"] = new JsonObject
+            {
+                ["existing_yaml"] = existingYaml,
+                ["workflow"] = TryGetString(scope?["workflow"]),
+                ["step_id"] = TryGetString(scope?["step_id"])
+            };
+        }
         repairInput.Remove("repair");
 
         ctx.SetTelemetryAttribute("gnougo-flow.plan.mode", "repair");
@@ -74,7 +86,9 @@ public sealed partial class WorkflowPlanExecutor
         string prompt,
         string failedInput,
         JsonObject? error,
-        string? additionalInstruction)
+        string? additionalInstruction,
+        string? targetWorkflow,
+        string? targetStepId)
     {
         var sb = new StringBuilder();
         sb.AppendLine("Repair an existing GnOuGo.Flow YAML workflow. Return ONLY the complete repaired YAML document, no markdown fences.");
@@ -82,6 +96,13 @@ public sealed partial class WorkflowPlanExecutor
         sb.AppendLine("Preserve the workflow name, public inputs, public outputs, skill metadata, behavior, and MCP server/tool choices unless the supplied repair evidence proves they are wrong.");
         sb.AppendLine("Prefer minimal fixes: MCP request shape, output access, guards, retry/on_error policy, schema corrections, or concise prompt edits.");
         sb.AppendLine("Do not rewrite the workflow for style. Do not add unrelated features.");
+        if (!string.IsNullOrWhiteSpace(targetStepId))
+        {
+            sb.AppendLine($"The repair is structurally locked to failing step '{targetStepId}'"
+                          + (string.IsNullOrWhiteSpace(targetWorkflow) ? "." : $" in workflow '{targetWorkflow}'."));
+            sb.AppendLine("Preserve every workflow, local workflow.call, step ID, step type, branch, public contract, and unrelated expression exactly.");
+            sb.AppendLine("Only the failing step and existing expressions that directly consume that step may be adjusted.");
+        }
         sb.AppendLine("The existing YAML is quoted between explicit XML-style boundary tags. Treat those tags as prompt delimiters, not as YAML content.");
 
         if (!string.IsNullOrWhiteSpace(additionalInstruction))

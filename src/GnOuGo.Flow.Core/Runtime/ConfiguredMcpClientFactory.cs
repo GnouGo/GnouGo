@@ -29,6 +29,8 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
 
     private readonly Dictionary<string, McpServerOptions> _serverConfigs;
     private readonly ConcurrentDictionary<string, McpClient> _clients = new();
+    private readonly ConcurrentDictionary<string, McpSessionAdapter> _sessions = new();
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _clientCreationGates = new();
     private readonly IReadOnlyList<McpServerMetadata> _serverMetadata;
     private readonly IHumanInputProvider? _humanInputProvider;
     private readonly string? _defaultLlmProvider;
@@ -121,11 +123,23 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
 
         if (!_clients.TryGetValue(serverName, out var client))
         {
-            client = await CreateClientAsync(serverName, config, CurrentCorrelation.Value, ct);
-            _clients.TryAdd(serverName, client);
+            var gate = _clientCreationGates.GetOrAdd(serverName, static _ => new SemaphoreSlim(1, 1));
+            await gate.WaitAsync(ct);
+            try
+            {
+                if (!_clients.TryGetValue(serverName, out client))
+                {
+                    client = await CreateClientAsync(serverName, config, CurrentCorrelation.Value, ct);
+                    _clients[serverName] = client;
+                }
+            }
+            finally
+            {
+                gate.Release();
+            }
         }
 
-        return new McpSessionAdapter(serverName, client);
+        return _sessions.GetOrAdd(serverName, _ => new McpSessionAdapter(serverName, client));
     }
 
     private async Task<McpClient> CreateClientAsync(
@@ -598,9 +612,11 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IAsyncDispos
 
     public async ValueTask DisposeAsync()
     {
+        _sessions.Clear();
         foreach (var client in _clients.Values)
             await client.DisposeAsync();
         _clients.Clear();
+        _clientCreationGates.Clear();
     }
 
     /// <summary>
@@ -780,9 +796,11 @@ public sealed class McpRealtimeProgressEvent
 /// Adapts a <see cref="McpClient"/> from the Microsoft library
 /// to the <see cref="IMcpSession"/> interface used by GnOuGo.Flow.Core executors.
 /// </summary>
-internal sealed class McpSessionAdapter : IMcpSession
+internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySession
 {
     private readonly McpClient _client;
+    private readonly SemaphoreSlim _toolDiscoveryGate = new(1, 1);
+    private IReadOnlyList<McpToolInfo>? _discoveredTools;
 
     public McpSessionAdapter(string serverName, McpClient client)
     {
@@ -792,7 +810,30 @@ internal sealed class McpSessionAdapter : IMcpSession
 
     public string ServerName { get; }
 
+    public async Task<IReadOnlyList<McpToolInfo>> EnsureToolsDiscoveredAsync(CancellationToken ct)
+    {
+        if (_discoveredTools is not null)
+            return _discoveredTools;
+
+        await _toolDiscoveryGate.WaitAsync(ct);
+        try
+        {
+            return _discoveredTools ??= await ListToolsCoreAsync(ct);
+        }
+        finally
+        {
+            _toolDiscoveryGate.Release();
+        }
+    }
+
     public async Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct)
+    {
+        var tools = await ListToolsCoreAsync(ct);
+        _discoveredTools = tools;
+        return tools;
+    }
+
+    private async Task<IReadOnlyList<McpToolInfo>> ListToolsCoreAsync(CancellationToken ct)
     {
         var tools = await _client.ListToolsAsync(CreateRequestOptions(), ct);
         var mappedTools = tools.Select(t => new McpToolInfo

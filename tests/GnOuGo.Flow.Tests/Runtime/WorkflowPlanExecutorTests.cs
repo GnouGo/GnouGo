@@ -453,6 +453,138 @@ public class WorkflowPlanExecutorTests
         Assert.Contains("<invalid_yaml>", prompts[1]);
     }
 
+    [Fact]
+    public async Task WorkflowPlan_RepairMode_SurgicalScopeRepromptsInsteadOfBreakingSubworkflows()
+    {
+        const string originalWorkflow = """
+            version: 1
+            name: scoped-agent
+            skill:
+              description: Scoped repair test agent.
+              tags: [test]
+              inputs: {}
+              outputs:
+                answer: { type: string, description: Final answer. }
+            workflows:
+              main:
+                steps:
+                  - id: broken
+                    type: set
+                    input: { text: broken }
+                  - id: final
+                    type: set
+                    input:
+                      answer: "${data.steps.broken.text}"
+                outputs:
+                  answer: { expr: "${data.steps.final.answer}", type: string }
+              helper:
+                steps:
+                  - id: keep_me
+                    type: set
+                    input: { value: preserved }
+                outputs:
+                  value: { expr: "${data.steps.keep_me.value}", type: string }
+            """;
+        const string broadRewrite = """
+            version: 1
+            name: scoped-agent
+            skill:
+              description: Scoped repair test agent.
+              tags: [test]
+              inputs: {}
+              outputs:
+                answer: { type: string, description: Final answer. }
+            workflows:
+              main:
+                steps:
+                  - id: broken
+                    type: set
+                    input: { text: fixed }
+                outputs:
+                  answer: { expr: "${data.steps.broken.text}", type: string }
+            """;
+        const string surgicalRepair = """
+            version: 1
+            name: scoped-agent
+            skill:
+              description: Scoped repair test agent.
+              tags: [test]
+              inputs: {}
+              outputs:
+                answer: { type: string, description: Final answer. }
+            workflows:
+              main:
+                steps:
+                  - id: broken
+                    type: set
+                    input: { text: fixed }
+                  - id: final
+                    type: set
+                    input:
+                      answer: "${data.steps.broken.text}"
+                outputs:
+                  answer: { expr: "${data.steps.final.answer}", type: string }
+              helper:
+                steps:
+                  - id: keep_me
+                    type: set
+                    input: { value: preserved }
+                outputs:
+                  value: { expr: "${data.steps.keep_me.value}", type: string }
+            """;
+
+        var callCount = 0;
+        var prompts = new List<string>();
+        var mockLlm = new Mock<ILLMClient>();
+        mockLlm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) =>
+            {
+                prompts.Add(request.Prompt);
+                callCount++;
+                return new LLMResponse { Text = callCount == 1 ? broadRewrite : surgicalRepair };
+            });
+
+        var workflow = CompileMain("""
+            version: 1
+            workflows:
+              main:
+                inputs:
+                  existing_yaml:
+                    type: string
+                    required: true
+                steps:
+                  - id: plan
+                    type: workflow.plan
+                    input:
+                      mode: repair
+                      generator:
+                        model: gpt-4
+                        prefilter: false
+                      repair:
+                        existing_yaml: "${data.inputs.existing_yaml}"
+                        error:
+                          message: The broken template failed.
+                        scope:
+                          workflow: main
+                          step_id: broken
+                      validate:
+                        compile: true
+                      on_invalid:
+                        max_attempts: 2
+            """);
+
+        var result = await new WorkflowEngine { LLMClient = mockLlm.Object }
+            .ExecuteAsync(workflow, new JsonObject { ["existing_yaml"] = originalWorkflow }, CancellationToken.None);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, callCount);
+        Assert.Contains("REPAIR_SCOPE_VIOLATION", prompts[1], StringComparison.Ordinal);
+        var plan = Assert.IsType<JsonObject>(result.Outputs!["plan"]);
+        var yaml = plan["yaml"]!.GetValue<string>();
+        Assert.Contains("helper:", yaml, StringComparison.Ordinal);
+        Assert.Contains("keep_me", yaml, StringComparison.Ordinal);
+    }
+
     private sealed class StaticLlmCapabilityResolver : ILLMCapabilityResolver
     {
         private readonly bool? _supportsStructuredOutput;

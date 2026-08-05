@@ -328,6 +328,17 @@ public interface IMcpSession : IAsyncDisposable
 }
 
 /// <summary>
+/// Implemented by live MCP transports that must hydrate per-session tool
+/// metadata before calls are sent. Application-level schema caches cannot
+/// replace this registration because the transport consumes x-mcp-header
+/// annotations to build Mcp-Param-* headers.
+/// </summary>
+internal interface ILiveMcpToolDiscoverySession
+{
+    Task<IReadOnlyList<McpToolInfo>> EnsureToolsDiscoveredAsync(CancellationToken ct);
+}
+
+/// <summary>
 /// Describes an MCP tool.
 /// </summary>
 public sealed class McpToolInfo

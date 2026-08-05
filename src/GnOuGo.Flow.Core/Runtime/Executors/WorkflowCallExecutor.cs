@@ -172,7 +172,11 @@ public sealed class WorkflowCallExecutor : IStepExecutor
                 Message = "Called workflow failed.",
                 Retryable = false
             };
-            throw new WorkflowRuntimeException(error.Code, error.Message, error.Retryable, details: error.Details);
+            throw new WorkflowRuntimeException(
+                error.Code,
+                error.Message,
+                error.Retryable,
+                details: EnrichCalledWorkflowFailureDetails(error.Details, result, resolution.WorkflowName));
         }
 
         // Evaluate outputs
@@ -196,5 +200,27 @@ public sealed class WorkflowCallExecutor : IStepExecutor
             ["workflow"] = resolution.WorkflowName
         };
     }
-}
 
+    private static JsonObject EnrichCalledWorkflowFailureDetails(
+        JsonNode? existingDetails,
+        RunResult result,
+        string workflowName)
+    {
+        var details = existingDetails?.DeepClone() as JsonObject ?? new JsonObject();
+        var failedStep = result.StepResults.LastOrDefault(static item => item.Error is not null);
+
+        // The deepest workflow.call adds these fields first. Parent calls keep
+        // that precise leaf location instead of replacing it with their own
+        // orchestration step, so repair can target one real crashing step.
+        if (details["workflow"] is null)
+            details["workflow"] = workflowName;
+        if (details["step_id"] is null && failedStep is not null)
+            details["step_id"] = failedStep.StepId;
+        if (details["step_type"] is null && failedStep is not null)
+            details["step_type"] = failedStep.StepType;
+        if (details["step_status"] is null && failedStep is not null)
+            details["step_status"] = failedStep.Status.ToString();
+
+        return details;
+    }
+}

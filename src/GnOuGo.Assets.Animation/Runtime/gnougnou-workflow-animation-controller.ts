@@ -178,6 +178,7 @@ export class GnouGnouWorkflowAnimationController {
   private readonly transitBranches = new Map<string, TransitBranch>()
   private readonly parallelCohorts = new Map<string, ParallelCohort>()
   private readonly actorParallelCohorts = new Map<string, string>()
+  private readonly terminalFailureActors = new Set<string>()
   private liveEventTimer: number | undefined
   private cameraFrame: number | undefined
   private cameraViewport: SceneBounds | undefined
@@ -211,6 +212,7 @@ export class GnouGnouWorkflowAnimationController {
     this.transitBranches.clear()
     this.parallelCohorts.clear()
     this.actorParallelCohorts.clear()
+    this.terminalFailureActors.clear()
     this.activeLaneId = undefined
     this.transitTransferSequence = 0
     this.cameraViewport = undefined
@@ -248,6 +250,7 @@ export class GnouGnouWorkflowAnimationController {
     this.transitBranches.clear()
     this.parallelCohorts.clear()
     this.actorParallelCohorts.clear()
+    this.terminalFailureActors.clear()
     this.activeLaneId = undefined
     this.transitTransferSequence = 0
     this.cameraViewport = undefined
@@ -724,6 +727,7 @@ export class GnouGnouWorkflowAnimationController {
         this.options.onStatus?.('Running', event.message)
         break
       case 'workflow.completed':
+        if (isFailedStatus(event.status)) this.showTerminalFailure(event.actorId, 1600)
         this.options.onStatus?.(
           isFailedStatus(event.status) ? 'Failed' : 'Running',
           event.message,
@@ -743,6 +747,7 @@ export class GnouGnouWorkflowAnimationController {
         break
       }
       case 'actor.moved':
+        if (event.actorId) this.terminalFailureActors.delete(event.actorId)
         this.activateSceneForActor(event.actorId)
         this.stopPersistentAction(event.actorId)
         if (event.x !== undefined && event.y !== undefined) {
@@ -857,6 +862,7 @@ export class GnouGnouWorkflowAnimationController {
         if (isFailedStatus(event.status)) this.setTaskStatus(event.taskId, 'Failed')
         break
       case 'step.started':
+        if (event.actorId) this.terminalFailureActors.delete(event.actorId)
         this.activateSceneForActor(event.actorId)
         this.setActorStatus(event.actorId, 'Running')
         this.playStepAction(event.actorId, actionForStep(event.stepType), event.durationMs)
@@ -875,7 +881,7 @@ export class GnouGnouWorkflowAnimationController {
         // A successful Human Input completion must not touch the character rig:
         // the response capsule is the only moving element during receipt.
         if (isFailedStatus(event.status))
-          this.characters.play(event.actorId, 'fail', 1200)
+          this.showTerminalFailure(event.actorId, 1200)
         else if (!isHumanInputStep)
           this.characters.play(event.actorId, 'celebrate', 700)
         break
@@ -885,13 +891,21 @@ export class GnouGnouWorkflowAnimationController {
         if (event.x !== undefined && event.y !== undefined) {
           this.setTaskStatus(event.taskId, event.status)
           this.animateMotion(event.taskId, { x: event.x, y: event.y }, event.durationMs, 'sky', undefined, true)
-          this.characters.play(event.actorId, isFailedStatus(event.status) ? 'fail' : 'deliver', Math.max(900, event.durationMs))
+          if (isFailedStatus(event.status))
+            this.showTerminalFailure(event.actorId, Math.max(900, event.durationMs))
+          else
+            this.characters.play(event.actorId, 'deliver', Math.max(900, event.durationMs))
         }
         break
       case 'simulation.completed':
         this.stopPersistentAction(event.actorId)
         this.setActorStatus(event.actorId, event.status)
-        this.characters.play(event.actorId, isFailedStatus(event.status) ? 'fail' : 'celebrate', 1600)
+        if (isFailedStatus(event.status)) {
+          this.setTaskStatus(event.taskId, 'Failed')
+          this.showTerminalFailure(event.actorId, 1600)
+        } else {
+          this.characters.play(event.actorId, 'celebrate', 1600)
+        }
         this.options.onStatus?.(isFailedStatus(event.status) ? 'Failed' : 'Completed', event.message)
         break
       case 'simulation.cancelled':
@@ -1157,6 +1171,14 @@ export class GnouGnouWorkflowAnimationController {
     const timer = this.persistentActionTimers.get(actorId)
     if (timer !== undefined) window.clearTimeout(timer)
     this.persistentActionTimers.delete(actorId)
+  }
+
+  private showTerminalFailure(actorId: string | undefined, durationMs: number) {
+    if (!actorId || this.terminalFailureActors.has(actorId)) return
+    this.terminalFailureActors.add(actorId)
+    this.stopPersistentAction(actorId)
+    this.setActorStatus(actorId, 'Failed')
+    this.characters.play(actorId, 'fail', durationMs)
   }
 
   fitScene(behavior: ScrollBehavior = 'smooth') {

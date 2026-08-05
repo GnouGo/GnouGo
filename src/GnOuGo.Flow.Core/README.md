@@ -13,6 +13,12 @@ The runtime uses the stable C# MCP SDK `2.0.0`. HTTP and stdio clients prefer MC
 
 Every discovery/tool/resource/prompt request carries reserved technical metadata such as correlation, run, trace, step, and tenant identifiers under `_meta.gnougo`; HTTP headers and stdio environment receive the same technical identifiers. A caller may explicitly add domain-neutral request context through `mcp.call.input.context`, which is propagated only under `_meta.gnougo.context`. Flow never extracts domain fields from workflow data. MCP elicitation is bridged to the workflow `IHumanInputProvider`, enabling stable multi-round-trip HITL without putting credentials in YAML.
 
+Before the first tool call on each live MCP client, Flow performs that client's
+`tools/list` discovery even when the process-wide capability catalog is already
+cached. This lets the SDK register transport annotations such as `x-mcp-header`
+and reliably emit their `Mcp-Param-*` headers; a catalog learned by an older
+client is used for validation, but never substitutes for live-session setup.
+
 ---
 
 ## Table of Contents
@@ -1369,13 +1375,16 @@ Use `mode: repair` when a workflow already exists and should be minimally change
         type: "${data.inputs.error_type}"
         message: "${data.inputs.error_message}"
         details: "${data.inputs.error_details}"
+      scope:                                             # Optional surgical lock
+        workflow: "${data.inputs.failed_workflow}"
+        step_id: "${data.inputs.failed_step_id}"
     validate:
       mode: strict
       dry_run: true
       max_repair_attempts: 3
 ```
 
-`repair.existing_yaml` is required. At least one of `repair.prompt` or `repair.error.message` must be present. When `repair.error` is present, `repair.error.message` is required. The returned shape is the same as other modes: `{ workflow, yaml, meta, diagnostics }`, with `meta.mode: repair`.
+`repair.existing_yaml` is required. At least one of `repair.prompt` or `repair.error.message` must be present. When `repair.error` is present, `repair.error.message` is required. When `repair.scope.step_id` is set, validation becomes surgical: every workflow, local `workflow.call`, step ID/type/order, branch, skill, and public contract must remain unchanged. Only the identified failing step, its existing direct consumers, and directly dependent output expressions may change. An over-broad proposal is rejected with `REPAIR_SCOPE_VIOLATION` and can be reprompted within the configured attempt bound. The returned shape is the same as other modes: `{ workflow, yaml, meta, diagnostics }`, with `meta.mode: repair`.
 
 #### Pipeline mode
 

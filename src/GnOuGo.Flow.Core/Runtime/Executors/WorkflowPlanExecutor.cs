@@ -141,6 +141,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         var limits = input["limits"] as JsonObject;
         var validate = input["validate"] as JsonObject;
         var onInvalid = input["on_invalid"] as JsonObject;
+        var surgicalRepair = input["surgical_repair"] as JsonObject;
 
         var requestedModel = generator["model"]?.GetValue<string>();
         var requestedProvider = generator["provider"]?.GetValue<string>();
@@ -588,9 +589,9 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
             try
             {
                 var yaml = StripMarkdownFences(response.Text ?? string.Empty);
-                if (string.IsNullOrWhiteSpace(pipelineLeafName))
+                if (string.IsNullOrWhiteSpace(pipelineLeafName) && surgicalRepair is null)
                     yaml = PruneWeakNestedOutputProperties(yaml);
-                else
+                else if (!string.IsNullOrWhiteSpace(pipelineLeafName))
                     yaml = NormalizeGeneratedFunctionParameterDocs(yaml);
                 WorkflowDocument generatedDoc;
                 var validationAttributes = new List<KeyValuePair<string, object?>>
@@ -633,6 +634,7 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
                             ct,
                             validateGeneratedOutputSchemas: string.IsNullOrWhiteSpace(pipelineLeafName));
                         ValidateLockedCapabilitiesInDocument(generatedDoc, capabilityPreflight);
+                        ValidateSurgicalRepairScope(surgicalRepair, generatedDoc);
                     }
                     catch (Exception ex)
                     {

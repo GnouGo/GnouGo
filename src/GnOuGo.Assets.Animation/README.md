@@ -184,6 +184,11 @@ roundabout's authoritative station position and incoming edge. The Master
 therefore follows the final road all the way to the visible center before the
 parcel is sent.
 
+A failed root workflow does not enter that successful delivery sequence. Its
+GnOuGo remains at the last highlighted step, the parcel is marked failed, and
+the browser applies one de-duplicated terminal failure pose. This keeps the
+crash location visible instead of alternating failure and walking animations.
+
 The controller continues draining queued telemetry after a recoverable visual
 error and exposes `data-animation-event-count`, `data-animation-last-event`,
 `data-animation-queued-events`, and `data-animation-error` on its host. Exact

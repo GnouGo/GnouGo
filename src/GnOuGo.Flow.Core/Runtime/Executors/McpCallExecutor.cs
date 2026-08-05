@@ -279,8 +279,16 @@ public sealed class McpCallExecutor : IStepExecutor
             IReadOnlyList<McpToolInfo>? runtimeToolCatalog = null;
             if (string.Equals(kind, "tool", StringComparison.Ordinal))
             {
-                runtimeToolCatalog = McpCacheHelper.GetCachedTools(ctx.Engine.McpCache, serverName)
-                    ?? await session.ListToolsAsync(linkedCts.Token);
+                // A process-level catalog is sufficient for validation, but not
+                // for transport behavior. The MCP SDK learns x-mcp-header
+                // annotations from tools/list and uses them to mirror selected
+                // arguments into Mcp-Param-* headers. Always initialize the live
+                // session before calling a tool, even when GnOuGo already has a
+                // cached copy of the same schema from another runtime session.
+                runtimeToolCatalog = session is ILiveMcpToolDiscoverySession liveSession
+                    ? await liveSession.EnsureToolsDiscoveredAsync(linkedCts.Token)
+                    : McpCacheHelper.GetCachedTools(ctx.Engine.McpCache, serverName)
+                      ?? await session.ListToolsAsync(linkedCts.Token);
                 if (runtimeToolCatalog != null)
                     McpCacheHelper.CacheTools(ctx.Engine.McpCache, serverName, runtimeToolCatalog, ctx.Engine.McpCacheSlidingExpiration);
 

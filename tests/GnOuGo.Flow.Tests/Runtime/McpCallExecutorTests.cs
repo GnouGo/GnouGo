@@ -5,6 +5,7 @@ using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using Microsoft.Extensions.Caching.Memory;
 using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
@@ -19,13 +20,14 @@ public class McpCallExecutorTests
 
     private static async Task<RunResult> RunMain(string yaml, JsonObject? inputs = null,
         IMcpClientFactory? mcpFactory = null, ILLMClient? llm = null, IWorkflowTelemetry? telemetry = null,
-        ExecutionLimits? limits = null)
+        ExecutionLimits? limits = null, IMemoryCache? mcpCache = null)
     {
         var compiled = CompileDoc(yaml);
         var wf = compiled.Workflows[compiled.Entrypoint!];
         var engine = new WorkflowEngine
         {
             McpClientFactory = mcpFactory,
+            McpCache = mcpCache,
             LLMClient = llm,
             Telemetry = telemetry ?? NullWorkflowTelemetry.Instance,
             Limits = limits ?? new ExecutionLimits()
@@ -34,6 +36,57 @@ public class McpCallExecutorTests
     }
 
     // ------ Basic mcp.call ------
+
+    [Fact]
+    public async Task McpCall_LiveSessionDiscoveryIsNotSkippedByProcessCatalogCache()
+    {
+        var tools = new List<McpToolInfo>
+        {
+            new()
+            {
+                Name = "pull_request_read",
+                InputSchema = JsonNode.Parse("""
+                    {
+                      "type": "object",
+                      "properties": {
+                        "owner": { "type": "string", "x-mcp-header": true }
+                      },
+                      "required": ["owner"]
+                    }
+                    """)
+            }
+        };
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        McpCacheHelper.CacheTools(cache, "github", tools);
+
+        var session = new LiveDiscoveryMcpSession(tools);
+
+        var factory = new Mock<IMcpClientFactory>(MockBehavior.Strict);
+        factory.Setup(item => item.GetClientAsync("github", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(session);
+        factory.SetupGet(item => item.ServerMetadata).Returns([
+            new McpServerMetadata { Name = "github" }
+        ]);
+
+        var result = await RunMain("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: read
+                    type: mcp.call
+                    input:
+                      server: github
+                      method: pull_request_read
+                      request:
+                        owner: AxaFrance
+            """, mcpFactory: factory.Object, mcpCache: cache);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, session.LiveDiscoveryCount);
+        Assert.Equal(0, session.OrdinaryListCount);
+        Assert.Equal("AxaFrance", session.Owner);
+    }
 
     [Fact]
     public async Task McpCall_UsesHostTenantMetadata_AndIgnoresWorkflowTenantInput()
@@ -2549,5 +2602,47 @@ workflows:
         var promptsResults = promptsOut!["results"] as JsonArray;
         Assert.Single(promptsResults!);
         Assert.Equal("summarize", promptsResults[0]!["method"]!.GetValue<string>());
+    }
+
+    private sealed class LiveDiscoveryMcpSession(IReadOnlyList<McpToolInfo> tools)
+        : IMcpSession, ILiveMcpToolDiscoverySession
+    {
+        public string ServerName => "github";
+        public int LiveDiscoveryCount { get; private set; }
+        public int OrdinaryListCount { get; private set; }
+        public string? Owner { get; private set; }
+
+        public Task<IReadOnlyList<McpToolInfo>> EnsureToolsDiscoveredAsync(CancellationToken ct)
+        {
+            LiveDiscoveryCount++;
+            return Task.FromResult(tools);
+        }
+
+        public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct)
+        {
+            OrdinaryListCount++;
+            return Task.FromResult(tools);
+        }
+
+        public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<McpResourceInfo>>([]);
+
+        public Task<IReadOnlyList<McpPromptInfo>> ListPromptsAsync(CancellationToken ct)
+            => Task.FromResult<IReadOnlyList<McpPromptInfo>>([]);
+
+        public Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
+        {
+            Assert.Equal("pull_request_read", toolName);
+            Owner = arguments?["owner"]?.GetValue<string>();
+            return Task.FromResult(new McpCallResult
+            {
+                Content = new JsonObject { ["title"] = "Review" }
+            });
+        }
+
+        public Task<McpGetPromptResult> GetPromptAsync(string promptName, JsonNode? arguments, CancellationToken ct)
+            => throw new NotSupportedException();
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

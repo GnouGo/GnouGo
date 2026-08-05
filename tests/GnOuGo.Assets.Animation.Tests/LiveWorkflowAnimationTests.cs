@@ -77,6 +77,48 @@ public sealed class LiveWorkflowAnimationTests
     }
 
     [Fact]
+    public void LiveSession_FailedWorkflowStaysAtCrashPointWithoutDeliveryChoreography()
+    {
+        var validation = WorkflowPreviewValidator.ParseAndValidate("""
+            version: 1
+            entrypoint: main
+            workflows:
+              main:
+                steps:
+                  - { id: failing_call, type: mcp.call }
+            """);
+        var plan = GnouGnouAnimationPlanner.BuildLive(validation, new GnouGnouAnimationOptions { Seed = 19 });
+        var session = new WorkflowLiveAnimationSession(plan);
+
+        session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowStarted,
+            WorkflowInstanceId = "run-main",
+            WorkflowName = "main"
+        });
+        var completed = session.Apply(new AnimationExecutionSignal
+        {
+            Kind = AnimationExecutionSignalKind.WorkflowCompleted,
+            WorkflowInstanceId = "run-main",
+            WorkflowName = "main",
+            Status = SimulationStatus.Failed
+        });
+
+        Assert.Contains(completed, update => update.Event is
+        {
+            Type: SimulationEventTypes.WorkflowCompleted,
+            Status: SimulationStatus.Failed
+        });
+        Assert.Contains(completed, update => update.Event is
+        {
+            Type: SimulationEventTypes.SimulationCompleted,
+            Status: SimulationStatus.Failed
+        });
+        Assert.DoesNotContain(completed, update => update.Event?.Type == SimulationEventTypes.ActorMoved);
+        Assert.DoesNotContain(completed, update => update.Event?.Type == SimulationEventTypes.OutputSent);
+    }
+
+    [Fact]
     public void BuildLive_RendersDedicatedOrchestrationStations()
     {
         var validation = WorkflowPreviewValidator.ParseAndValidate("""

@@ -213,6 +213,9 @@ snapshotted before any JavaScript interop await, preventing streaming updates
 from invalidating an active renderer enumeration and terminating the Blazor
 circuit. Error statuses are normalized and a terminal failed event
 is added when a response-level failure has no matching workflow terminal event.
+On a real workflow failure, the actor stays at the highlighted crashing step
+in a single terminal failure pose; no successful return-to-delivery
+choreography is queued, so the panel does not blink between failure and walking.
 The browser controller records its applied-event count, latest event, pending
 queue size, and recoverable error on the scene host for runtime diagnostics.
 One malformed visual event is logged and skipped without stopping later
@@ -509,6 +512,19 @@ The cache key includes the active provider configuration fingerprint, so changin
 ## MCP capability cache
 
 Workflow execution uses `IMemoryCache` to cache MCP server capability discovery results: tools, prompts, resources, and their descriptions.
+
+Tool schemas are still discovered once on every newly created live MCP client.
+This per-session initialization is required for SDK transport annotations such
+as `x-mcp-header`; the shared cache cannot replace it. Consequently request
+fields such as GitHub `owner` and `repo` continue to be emitted as
+`Mcp-Param-*` headers after a runtime has been rebuilt.
+
+When an agent run offers **Improve**, the failure details carry the deepest
+failing local workflow and step. The repair planner is structurally locked to
+that location: it may update the failed step and existing direct consumers,
+but it cannot remove or rename sub-workflows, `workflow.call` edges, steps,
+branches, skills, or public contracts. Any broad rewrite is rejected and
+reprompted up to three times before the original workflow is left untouched.
 
 - Service: `WorkflowEngine`
 - Default sliding expiration: `3600` seconds
