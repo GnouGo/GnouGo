@@ -332,6 +332,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         basePrompt.AppendLine("- NEVER invent properties under `data.steps.<id>.response`. Access `response.<field>` only when an `output_schema` or `example_response` explicitly documents that field.");
         basePrompt.AppendLine("- If an MCP response is opaque, use `json(data.steps.<id>.response)` to pass the whole response to another step.");
         basePrompt.AppendLine("- If precise fields are needed from an opaque response, add an `llm.call` normalization step with `structured_output`, then read fields from `data.steps.<normalizer>.json`.");
+        basePrompt.AppendLine("- When an opaque response decodes to a string (for example a unified diff), keep it as text. Do not treat the decoded string as an object/array or silently replace it with an empty collection; preserve the raw text when parsing it explicitly.");
+        basePrompt.AppendLine("- Before any external write based on analyzed records/files/findings, prove coverage of the upstream read. If the source reports non-empty content but normalization yields zero items, stop before Human Input and before the write instead of treating that as a valid no-findings result.");
         AppendMcpInputContractChecklist(basePrompt);
         AppendExpressionFunctionRules(basePrompt);
         basePrompt.AppendLine("- When a field expects a string containing JSON, use a YAML literal block (`|`) or single quotes; do not put unescaped JSON inside a double-quoted YAML string.");

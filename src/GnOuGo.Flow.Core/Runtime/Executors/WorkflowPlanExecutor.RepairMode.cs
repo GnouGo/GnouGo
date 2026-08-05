@@ -95,6 +95,8 @@ public sealed partial class WorkflowPlanExecutor
         sb.AppendLine("Make the smallest patch-style change that fixes the supplied error and/or user repair instruction.");
         sb.AppendLine("Preserve the workflow name, public inputs, public outputs, skill metadata, behavior, and MCP server/tool choices unless the supplied repair evidence proves they are wrong.");
         sb.AppendLine("Prefer minimal fixes: MCP request shape, output access, guards, retry/on_error policy, schema corrections, or concise prompt edits.");
+        sb.AppendLine("If an opaque MCP response decodes to a string, preserve that raw text and parse it explicitly only when needed; never assume the string has object fields or silently replace it with an empty collection.");
+        sb.AppendLine("For external writes based on analyzed records/files/findings, a non-empty source count paired with zero normalized items must fail closed before Human Input and before the write.");
         sb.AppendLine("Do not rewrite the workflow for style. Do not add unrelated features.");
         if (!string.IsNullOrWhiteSpace(targetStepId))
         {

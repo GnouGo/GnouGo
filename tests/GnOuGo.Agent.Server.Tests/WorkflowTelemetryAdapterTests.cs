@@ -387,6 +387,11 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("\"stepId\":\"model\"", json, StringComparison.Ordinal);
         Assert.Contains("\"status\":\"Failed\"", json, StringComparison.Ordinal);
         Assert.Contains("\\n", json, StringComparison.Ordinal);
+
+        var interopPayload = JsonSerializer.SerializeToElement(
+            payload.Event!,
+            AgentAnimationJsonContext.Default.SimulationEvent);
+        Assert.Equal("Failed", interopPayload.GetProperty("status").GetString());
     }
 
     [Fact]
@@ -436,6 +441,11 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.DoesNotContain("visual node", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("Live telemetry ·", chatPage, StringComparison.Ordinal);
         Assert.Contains("gnougo-workflow-card__header", chatPage, StringComparison.Ordinal);
+        Assert.Contains("public required string MessageId", chatPage, StringComparison.Ordinal);
+        Assert.Contains("string.Equals(correlatedExecution.MessageId, msg.MessageId", chatPage, StringComparison.Ordinal);
+        Assert.Contains("var messageRenderKey = (object?)msg.MessageId ?? msg;", chatPage, StringComparison.Ordinal);
+        Assert.Contains("<article @key=\"messageRenderKey\"", chatPage, StringComparison.Ordinal);
+        Assert.Contains("await CollapseCompletedExecutionPanelsAsync();", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("gnougo-workflow-card__stage-toolbar", chatPage, StringComparison.Ordinal);
         Assert.True(
             chatPage.IndexOf("OpenTraceSidebar(msg)", StringComparison.Ordinal)
@@ -547,6 +557,10 @@ public sealed class WorkflowTelemetryAdapterTests
             < chatPage.IndexOf("SmartFlow.ExecuteAsync(", StringComparison.Ordinal));
         Assert.DoesNotContain("_animationScrollCorrelationId", chatPage, StringComparison.Ordinal);
         Assert.Contains("PendingUpdates.TryPeek", chatPage, StringComparison.Ordinal);
+        Assert.Contains("MaxAutomaticAnimationInteropFailures = 3", chatPage, StringComparison.Ordinal);
+        Assert.Contains("execution.InteropAbandoned = true", chatPage, StringComparison.Ordinal);
+        Assert.Contains("JsonSerializer.SerializeToElement(", chatPage, StringComparison.Ordinal);
+        Assert.Contains("AgentAnimationJsonContext.Default.SimulationEvent", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("CollapseExecutionLaterAsync", chatPage, StringComparison.Ordinal);
         Assert.Contains("BeforeTargets=\"Build;PrepareForPublish\"", project, StringComparison.Ordinal);
         Assert.Contains("enqueueEvent(event: WorkflowSimulationEvent)", runtime, StringComparison.Ordinal);
@@ -562,7 +576,9 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("human-input-delivery-", runtime, StringComparison.Ordinal);
         Assert.Contains("event.type === 'human_input.resumed'", runtime, StringComparison.Ordinal);
         Assert.Contains("event.stepType?.toLowerCase().startsWith('human.')", runtime, StringComparison.Ordinal);
-        Assert.Contains("function isFailedStatus(status?: string)", runtime, StringComparison.Ordinal);
+        Assert.Contains("status?: 'Pending' | 'Running' | 'Succeeded' | 'Failed' | 'Skipped' | number", runtime, StringComparison.Ordinal);
+        Assert.Contains("if (typeof status === 'number')", runtime, StringComparison.Ordinal);
+        Assert.Contains("function isFailedStatus(status?: WorkflowSimulationEvent['status'])", runtime, StringComparison.Ordinal);
         Assert.Contains("target.x - routeEnd.x", runtime, StringComparison.Ordinal);
         Assert.Contains("from.x - routeStart.x", runtime, StringComparison.Ordinal);
         Assert.Contains("const LIVE_MOVEMENT_CAMERA_LEAD = .35", runtime, StringComparison.Ordinal);
@@ -606,7 +622,9 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("var messageSnapshot = active.Messages.ToArray();", chatPage, StringComparison.Ordinal);
         Assert.Contains("foreach (var message in messageSnapshot)", chatPage, StringComparison.Ordinal);
         Assert.Contains("var executionSnapshot = GetActiveExecutions()", chatPage, StringComparison.Ordinal);
-        Assert.Contains(".Where(static item => item.IsExpanded && item.Prepared is not null)", chatPage, StringComparison.Ordinal);
+        Assert.Contains(".Where(static item => item.IsExpanded", chatPage, StringComparison.Ordinal);
+        Assert.Contains("&& item.Prepared is not null", chatPage, StringComparison.Ordinal);
+        Assert.Contains("&& !item.InteropAbandoned", chatPage, StringComparison.Ordinal);
         Assert.Contains(".ToArray();\n            foreach (var execution in executionSnapshot)", chatPage, StringComparison.Ordinal);
         Assert.Contains("var executionSnapshot = _executions.Values.ToArray();", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("private IEnumerable<ChatExecutionModel> GetActiveExecutions()", chatPage, StringComparison.Ordinal);

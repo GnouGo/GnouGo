@@ -145,6 +145,70 @@ workflows:
         Assert.Equal("fallback: hello", result.Outputs!["answer"]!.GetValue<string>());
     }
 
+    public static TheoryData<string, string, string> StructuredFirstResultCases => new()
+    {
+        { "any", "{ nested: value, count: 2 }", "{\"nested\":\"value\",\"count\":2}" },
+        { "any", "[one, two]", "[\"one\",\"two\"]" },
+        { "any", "42", "42" },
+        { "any", "true", "true" },
+        { "any", "null", "null" }
+    };
+
+    [Theory]
+    [MemberData(nameof(StructuredFirstResultCases))]
+    public async Task WorkflowRoute_FirstSerializesNonStringPreferredOutputs(
+        string outputType,
+        string yamlValue,
+        string expected)
+    {
+        var yaml = """
+version: 1
+workflows:
+  main:
+    inputs:
+      prompt: { type: string, required: true }
+    steps:
+      - id: route
+        type: workflow.route
+        input:
+          prompt: "${data.inputs.prompt}"
+          candidates:
+            - ref: { kind: local, name: child }
+          combine:
+            strategy: first
+    outputs:
+      answer:
+        expr: "${data.steps.route.answer}"
+        type: string
+  child:
+    inputs:
+      prompt: { type: string, required: true }
+    steps:
+      - id: produce
+        type: set
+        input:
+          result: __YAML_VALUE__
+    outputs:
+      result:
+        expr: "${data.steps.produce.result}"
+        type: __OUTPUT_TYPE__
+"""
+            .Replace("__YAML_VALUE__", yamlValue, StringComparison.Ordinal)
+            .Replace("__OUTPUT_TYPE__", outputType, StringComparison.Ordinal);
+
+        var workflow = Compile(yaml);
+        var result = await new WorkflowEngine().ExecuteAsync(
+            workflow,
+            new JsonObject { ["prompt"] = "hello" },
+            CancellationToken.None);
+
+        Assert.True(
+            result.Success,
+            result.Error?.Message + " | route output: "
+            + result.StepResults.FirstOrDefault(static step => step.StepId == "route")?.Output?.ToJsonString());
+        Assert.Equal(expected, result.Outputs!["answer"]!.GetValue<string>());
+    }
+
     [Fact]
     public async Task WorkflowRoute_AutoExtractsSelectedWorkflowArgumentsWithConfiguredModel()
     {

@@ -280,6 +280,8 @@ public class WorkflowPlanExecutorTests
         Assert.Contains("Fix the answer output mapping.", capturedPrompt);
         Assert.Contains("<existing_workflow_yaml>", capturedPrompt);
         Assert.Contains("Make the smallest patch-style change", capturedPrompt);
+        Assert.Contains("an opaque MCP response decodes to a string", capturedPrompt);
+        Assert.Contains("non-empty source count paired with zero normalized items", capturedPrompt);
     }
 
     [Fact]
@@ -1566,6 +1568,8 @@ workflows:
         Assert.Contains("Step IDs must be globally unique", mainAssemblyRequest.Prompt);
         Assert.Contains("`output_schema` is supported only on `set` steps", mainAssemblyRequest.Prompt);
         Assert.Contains("Custom-function results are otherwise opaque", mainAssemblyRequest.Prompt);
+        Assert.Contains("JSON-decoded string must not be treated as an object", mainAssemblyRequest.Prompt);
+        Assert.Contains("fail-closed coverage guard", mainAssemblyRequest.Prompt);
         Assert.Contains("must not emit `mcp.call`, `llm.call`, `template.render`, `workflow.plan`, an unlisted `human.input`/`emit`", mainAssemblyRequest.Prompt);
         Assert.Contains("main_required_native_steps_json", mainAssemblyRequest.Prompt);
         var collectRequest = Assert.Single(requests, request => request.Prompt.Contains("Generate exactly one leaf GnOuGo workflow named `collect_data`.", StringComparison.Ordinal));
@@ -1581,6 +1585,8 @@ workflows:
         Assert.Contains("1. Inspect every MCP tool used by this workflow.", collectRequest.Prompt);
         Assert.Contains("Never convert a string input to a number just to satisfy an MCP schema.", collectRequest.Prompt);
         Assert.Contains("Workflow outputs must match their declared contract type exactly.", collectRequest.Prompt);
+        Assert.Contains("Preserve textual results verbatim", collectRequest.Prompt);
+        Assert.Contains("expose enough source/coverage information", collectRequest.Prompt);
         Assert.Contains("Comparison/predicate expressions such as `${a == b}`", collectRequest.Prompt);
         Assert.Contains("Invalid for a string output", collectRequest.Prompt);
         Assert.Contains("<structured_output_strict_schema_rules>", collectRequest.Prompt);
@@ -16433,6 +16439,8 @@ workflows:
         Assert.Contains("data.steps.<id>.results", capturedPrompt);
         Assert.Contains("data.steps.<id>.json", capturedPrompt);
         Assert.Contains("data.steps.<id>.text", capturedPrompt);
+        Assert.Contains("opaque response decodes to a string", capturedPrompt);
+        Assert.Contains("prove coverage of the upstream read", capturedPrompt);
     }
 
     [Fact]

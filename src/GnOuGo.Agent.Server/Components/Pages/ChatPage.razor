@@ -213,12 +213,18 @@
                     var isUser = string.Equals(msg.Role, "user", StringComparison.OrdinalIgnoreCase);
                     var isThinking = string.Equals(msg.Role, "thinking", StringComparison.OrdinalIgnoreCase);
                     var isThought = string.Equals(msg.Role, "thought", StringComparison.OrdinalIgnoreCase);
-                    var execution = isUser ? null : GetExecution(msg.CorrelationId);
+                    var correlatedExecution = isUser ? null : GetExecution(msg.CorrelationId);
+                    var execution = correlatedExecution is not null
+                                    && string.Equals(correlatedExecution.MessageId, msg.MessageId, StringComparison.Ordinal)
+                        ? correlatedExecution
+                        : null;
+                    var messageRenderKey = (object?)msg.MessageId ?? msg;
                     var responseError = isUser ? null : GetWorkflowResponseError(msg);
 
                     @if (isThinking || isThought)
                     {
-                        <article class="gnougo-chat__message @(isThought ? "gnougo-chat__message--thought" : "gnougo-chat__message--thinking")">
+                        <article @key="messageRenderKey"
+                                 class="gnougo-chat__message @(isThought ? "gnougo-chat__message--thought" : "gnougo-chat__message--thinking")">
                             <div class="gnougo-chat__thinking">
                                 <span class="gnougo-chat__thinking-icon">💭</span>
                                 <span class="gnougo-chat__thinking-text">@msg.Content</span>
@@ -248,7 +254,8 @@
                                             && string.IsNullOrWhiteSpace(msg.Content)
                                             && string.IsNullOrWhiteSpace(responseError);
 
-                        <article class="gnougo-chat__message @(isUser ? "gnougo-chat__message--user" : "gnougo-chat__message--assistant") @(isPlaceholder ? "gnougo-chat__message--placeholder" : "") @(isTypingResponse ? "gnougo-chat__message--typing" : "")"
+                        <article @key="messageRenderKey"
+                                 class="gnougo-chat__message @(isUser ? "gnougo-chat__message--user" : "gnougo-chat__message--assistant") @(isPlaceholder ? "gnougo-chat__message--placeholder" : "") @(isTypingResponse ? "gnougo-chat__message--typing" : "")"
                                  aria-label="@(isUser ? "Your message" : "GnOuGo.Agent response")">
                             <div class="gnougo-chat__bubble">
                                 @if (isUser)
@@ -803,6 +810,7 @@
     private sealed class ChatExecutionModel
     {
         public required string CorrelationId { get; init; }
+        public required string MessageId { get; init; }
         public required string HostId { get; init; }
         public AnimationPreparedPayload? Prepared { get; set; }
         public string Entrypoint => Prepared?.Entrypoint ?? "Preparing workflow";
@@ -813,6 +821,8 @@
         public string LastEventType { get; set; } = "waiting for workflow";
         public bool IsExpanded { get; set; } = true;
         public bool NeedsMount { get; set; }
+        public int InteropFailureCount { get; set; }
+        public bool InteropAbandoned { get; set; }
         public Queue<AnimationLiveUpdate> PendingUpdates { get; } = new();
         public List<AnimationLiveUpdate> AnimationUpdates { get; } = [];
         public string? LastActorId { get; set; }
@@ -825,6 +835,7 @@
     }
 
     private const string DefaultWorkflowDisplayName = "Workflow GnOuGo";
+    private const int MaxAutomaticAnimationInteropFailures = 3;
 
     private static readonly JsonSerializerOptions PrettyJsonOptions = new() { WriteIndented = true };
     private static readonly MarkupString SidebarMascotSvg = new(
@@ -1695,6 +1706,7 @@
         _composerUploads.Clear();
         if (UseWorkflowInputComposer)
             ResetWorkflowInputValues();
+        await CollapseCompletedExecutionPanelsAsync();
         var correlationId = ActivityTraceId.CreateRandom().ToHexString();
 
         // Add user message
@@ -1715,12 +1727,13 @@
         StateHasChanged();
         await ScrollToBottomAsync();
 
-        // Every assistant response owns a distinct animation host. Completed
-        // scenes therefore remain attached to their message while a newer
-        // response starts rendering and moving independently.
+        // Every assistant response owns a distinct animation host. Older
+        // completed scenes keep their per-message button, but are collapsed
+        // before this live response starts so only one presentation queue moves.
         var freshExecution = new ChatExecutionModel
         {
             CorrelationId = correlationId,
+            MessageId = assistantMsg.MessageId ?? correlationId,
             HostId = AnimationHostId(correlationId),
             Status = "Preparing"
         };
@@ -1739,6 +1752,7 @@
                     var execution = GetExecution(correlationId) ?? new ChatExecutionModel
                     {
                         CorrelationId = correlationId,
+                        MessageId = assistantMsg.MessageId ?? correlationId,
                         HostId = AnimationHostId(correlationId)
                     };
                     execution.Prepared = prepared;
@@ -2143,6 +2157,23 @@
         execution.NeedsMount = execution.Prepared is not null;
     }
 
+    private void HandleAnimationInteropFailure(ChatExecutionModel execution, string message)
+    {
+        execution.InteropFailureCount++;
+        execution.LastEventType = message;
+        if (execution.InteropFailureCount >= MaxAutomaticAnimationInteropFailures)
+        {
+            execution.Status = "Animation error";
+            execution.InteropAbandoned = true;
+            execution.NeedsMount = false;
+            execution.PendingUpdates.Clear();
+            return;
+        }
+
+        ResetExecutionForReplay(execution);
+        ScheduleAnimationInteropRetry();
+    }
+
     private void AddExecutionActivity(
         string correlationId,
         string level,
@@ -2235,21 +2266,28 @@
         try
         {
             var executionSnapshot = GetActiveExecutions()
-                .Where(static item => item.IsExpanded && item.Prepared is not null)
+                .Where(static item => item.IsExpanded
+                                      && item.Prepared is not null
+                                      && !item.InteropAbandoned)
                 .ToArray();
             foreach (var execution in executionSnapshot)
             {
+                var interopFailed = false;
                 try
                 {
                     if (execution.NeedsMount)
                     {
+                        var preparedPayload = JsonSerializer.SerializeToElement(
+                            execution.Prepared,
+                            AgentAnimationJsonContext.Default.AnimationPreparedPayload);
                         var mounted = await Js.InvokeAsync<bool>(
                             "GnOuGo.Agent.workflowAnimation.mount",
                             execution.HostId,
-                            execution.Prepared);
+                            preparedPayload);
                         if (!mounted)
                         {
-                            ScheduleAnimationInteropRetry();
+                            interopFailed = true;
+                            HandleAnimationInteropFailure(execution, "Animation host was not available for mounting.");
                             continue;
                         }
                         execution.NeedsMount = false;
@@ -2259,31 +2297,43 @@
                     {
                         if (update.ScenePatch is not null)
                         {
+                            var patchPayload = JsonSerializer.SerializeToElement(
+                                update.ScenePatch,
+                                AgentAnimationJsonContext.Default.AnimationScenePatch);
                             var applied = await Js.InvokeAsync<bool>(
                                 "GnOuGo.Agent.workflowAnimation.applyPatch",
                                 execution.HostId,
-                                update.ScenePatch);
+                                patchPayload);
                             if (!applied)
                             {
-                                ResetExecutionForReplay(execution);
-                                ScheduleAnimationInteropRetry();
+                                interopFailed = true;
+                                HandleAnimationInteropFailure(execution, "Animation scene patch could not be applied.");
                                 break;
                             }
                         }
                         if (update.Event is not null)
                         {
+                            var eventPayload = JsonSerializer.SerializeToElement(
+                                update.Event,
+                                AgentAnimationJsonContext.Default.SimulationEvent);
                             var applied = await Js.InvokeAsync<bool>(
                                 "GnOuGo.Agent.workflowAnimation.applyEvent",
                                 execution.HostId,
-                                update.Event);
+                                eventPayload);
                             if (!applied)
                             {
-                                ResetExecutionForReplay(execution);
-                                ScheduleAnimationInteropRetry();
+                                interopFailed = true;
+                                HandleAnimationInteropFailure(execution, "Animation event could not be applied.");
                                 break;
                             }
                         }
                         execution.PendingUpdates.Dequeue();
+                    }
+
+                    if (!interopFailed && !execution.NeedsMount && execution.PendingUpdates.Count == 0)
+                    {
+                        execution.InteropFailureCount = 0;
+                        execution.InteropAbandoned = false;
                     }
                 }
                 catch (JSDisconnectedException)
@@ -2296,10 +2346,7 @@
                 }
                 catch (JSException ex)
                 {
-                    execution.Status = "Animation error";
-                    execution.LastEventType = ex.Message;
-                    ResetExecutionForReplay(execution);
-                    ScheduleAnimationInteropRetry();
+                    HandleAnimationInteropFailure(execution, ex.Message);
                 }
             }
         }
@@ -2311,6 +2358,7 @@
         if (GetActiveExecutions().Any(static execution =>
                 execution.IsExpanded
                 && execution.Prepared is not null
+                && !execution.InteropAbandoned
                 && (execution.NeedsMount || execution.PendingUpdates.Count > 0)))
             ScheduleAnimationInteropRetry();
     }
@@ -2337,9 +2385,46 @@
         });
     }
 
+    private async Task CollapseCompletedExecutionPanelsAsync()
+    {
+        var completed = GetActiveExecutions()
+            .Where(static execution => execution.IsExpanded && execution.TerminalStatus is not null)
+            .ToArray();
+        foreach (var execution in completed)
+        {
+            execution.IsExpanded = false;
+            ResetExecutionForReplay(execution);
+            try
+            {
+                await Js.InvokeVoidAsync(
+                    "GnOuGo.Agent.workflowAnimation.dispose",
+                    execution.HostId);
+            }
+            catch (JSDisconnectedException)
+            {
+                return;
+            }
+            catch (InvalidOperationException ex) when (IsDeferredJavaScriptInterop(ex))
+            {
+                return;
+            }
+            catch (JSException)
+            {
+                // The panel is collapsed and will remount from its event history
+                // if the user explicitly opens it again.
+            }
+        }
+    }
+
     private void ToggleExecutionCard(ChatExecutionModel execution)
     {
         execution.IsExpanded = !execution.IsExpanded;
+        if (execution.IsExpanded && execution.InteropAbandoned)
+        {
+            execution.InteropFailureCount = 0;
+            execution.InteropAbandoned = false;
+            ResetExecutionForReplay(execution);
+        }
         if (execution.IsExpanded && execution.NeedsMount)
             ScheduleAnimationInteropRetry();
     }
@@ -2692,7 +2777,11 @@
             CloseSidebar();
             _needsMarkdownEnhance = true;
             foreach (var execution in GetActiveExecutions())
+            {
                 ResetExecutionForReplay(execution);
+                if (execution.TerminalStatus is not null)
+                    execution.IsExpanded = false;
+            }
             StateHasChanged();
             await ScrollToBottomAsync();
         }

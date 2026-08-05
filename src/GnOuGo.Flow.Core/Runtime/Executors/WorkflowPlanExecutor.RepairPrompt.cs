@@ -55,6 +55,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("MCP request objects must preserve schema scalar types exactly. Numeric/integer/boolean fields must be unquoted YAML scalars when required explicitly by the MCP schema/validator.");
         sb.AppendLine("MCP request expressions must also match the schema statically. Do not pass nullable structured_output fields into required MCP request fields unless the value was refined with `assert.non_null` or the same step has an `if` guard proving that exact field is non-null.");
         sb.AppendLine("MCP property descriptions are contractual. A globally optional property may be mandatory for a selected mode or target; preserve applicable exact-named identity, target, location, range, and selector values from typed source items.");
+        sb.AppendLine("When an opaque MCP response decodes to a string, preserve it as raw text unless an explicit parser produces a verified structured collection; never turn a textual response into an empty object/array by assumption.");
+        sb.AppendLine("If an external write depends on analyzed records/files/findings, require proven read/parse coverage first. A non-empty source count paired with zero normalized items must stop before Human Input and before the write.");
         sb.AppendLine("Never satisfy missing MCP request arguments with `data.env.*`, empty strings, fake values, casts, or string-to-number conversions.");
         sb.AppendLine("Workflow output expressions must resolve to their declared type on every branch.");
         sb.AppendLine("Every required string must be non-empty on every path. If a value can be absent, make that property optional and omit it instead of emitting an empty-string sentinel.");
@@ -166,6 +168,8 @@ public sealed partial class WorkflowPlanExecutor : IStepExecutor
         sb.AppendLine("MCP request rules:");
         sb.AppendLine("- Follow the discovered MCP schema and tool description exactly; do not add Flow-specific conventions for request fields.");
         sb.AppendLine("- Treat opaque custom-function results as untrusted shapes: project exact declared fields into new objects before assigning them to closed output schemas.");
+        sb.AppendLine("- Preserve opaque textual MCP responses as text and retain the raw value when explicitly parsing a structured collection; never assume a JSON-decoded string has object fields.");
+        sb.AppendLine("- Before an external write based on analyzed items, fail closed when upstream metadata proves content exists but parsing/normalization yields zero items.");
         AppendPromptSectionEnd(sb, "workflow_plan_generation_guardrails");
     }
 

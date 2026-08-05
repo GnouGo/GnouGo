@@ -66,7 +66,9 @@ export interface WorkflowSimulationEvent {
   edgeId?: string
   taskId?: string
   branchId?: string
-  status?: 'Pending' | 'Running' | 'Succeeded' | 'Failed' | 'Skipped'
+  // Numeric values are accepted for compatibility with older Blazor JS
+  // interop payloads. New Agent payloads use the canonical enum names.
+  status?: 'Pending' | 'Running' | 'Succeeded' | 'Failed' | 'Skipped' | number
   progressCurrent?: number
   progressTotal?: number
   x?: number
@@ -150,16 +152,18 @@ function actionForStep(stepType?: string): GnouGnouWorkflowCharacterAction {
   return 'type'
 }
 
-function normalizedStatus(status?: string): string {
-  return status?.trim().toLowerCase() ?? ''
+function normalizedStatus(status?: WorkflowSimulationEvent['status']): string {
+  if (typeof status === 'number')
+    return ['pending', 'running', 'succeeded', 'failed', 'skipped'][status] ?? ''
+  return typeof status === 'string' ? status.trim().toLowerCase() : ''
 }
 
-function isFailedStatus(status?: string): boolean {
+function isFailedStatus(status?: WorkflowSimulationEvent['status']): boolean {
   const normalized = normalizedStatus(status)
   return normalized === 'failed' || normalized === 'failure' || normalized === 'error'
 }
 
-function isSucceededStatus(status?: string): boolean {
+function isSucceededStatus(status?: WorkflowSimulationEvent['status']): boolean {
   const normalized = normalizedStatus(status)
   return normalized === 'succeeded' || normalized === 'success' || normalized === 'completed'
 }
@@ -2211,7 +2215,7 @@ export class GnouGnouWorkflowAnimationController {
     }
   }
 
-  private setActorStatus(id?: string, status?: string) {
+  private setActorStatus(id?: string, status?: WorkflowSimulationEvent['status']) {
     const actor = this.find<SVGGraphicsElement>(id)
     if (!actor) return
     actor.classList.remove('is-running', 'is-success', 'is-failed')
@@ -2220,7 +2224,7 @@ export class GnouGnouWorkflowAnimationController {
     if (isFailedStatus(status)) actor.classList.add('is-failed')
   }
 
-  private setTaskStatus(id?: string, status?: string) {
+  private setTaskStatus(id?: string, status?: WorkflowSimulationEvent['status']) {
     const task = this.find<SVGGraphicsElement>(id)
     if (!task) return
     task.classList.remove('is-working', 'is-complete', 'is-failed')
