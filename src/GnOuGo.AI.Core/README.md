@@ -58,6 +58,15 @@ ILLMProvider  (interface — one per backend)
 RoutingLLMClient  (routes requests to the right ILLMProvider based on config)
 ```
 
+## HTTP resilience
+
+OpenAI, Ollama, Copilot/GitHub Models, and Anthropic HTTP operations retry transient
+HTTP `500`–`599` responses up to two times after the initial request. Retries use
+exponential backoff delays of 250 ms and 500 ms, recreate the request (including
+its payload and authentication headers), honor cancellation, and emit a warning
+log for each retry. Non-server HTTP responses such as `400`, `401`, `404`, and
+`429` are returned immediately to the provider's normal error handling.
+
 ### Adding a new provider
 
 1. Create a class implementing `ILLMProvider` in this project.

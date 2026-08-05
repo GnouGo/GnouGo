@@ -2039,21 +2039,30 @@
     private static string AnimationHostId(string correlationId)
         => $"workflow-animation-{correlationId}";
 
-    private IEnumerable<ChatExecutionModel> GetActiveExecutions()
+    private IReadOnlyList<ChatExecutionModel> GetActiveExecutions()
     {
-        if (_active is null)
-            yield break;
+        var active = _active;
+        if (active is null)
+            return Array.Empty<ChatExecutionModel>();
 
+        // OnAfterRenderAsync awaits JavaScript while consuming this result.
+        // Materialize both the mutable message list and the execution lookup
+        // before the first interop await so streaming completion cannot
+        // invalidate a lazy List<T> enumerator and terminate the Blazor circuit.
+        var messageSnapshot = active.Messages.ToArray();
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var message in _active.Messages)
+        var executions = new List<ChatExecutionModel>(messageSnapshot.Length);
+        foreach (var message in messageSnapshot)
         {
             if (string.IsNullOrWhiteSpace(message.CorrelationId)
                 || !seen.Add(message.CorrelationId)
                 || GetExecution(message.CorrelationId) is not { } execution)
                 continue;
 
-            yield return execution;
+            executions.Add(execution);
         }
+
+        return executions;
     }
 
     private void RecordAnimationUpdate(ChatExecutionModel execution, AnimationLiveUpdate update)
@@ -2224,7 +2233,10 @@
 
         try
         {
-            foreach (var execution in GetActiveExecutions().Where(static item => item.IsExpanded && item.Prepared is not null))
+            var executionSnapshot = GetActiveExecutions()
+                .Where(static item => item.IsExpanded && item.Prepared is not null)
+                .ToArray();
+            foreach (var execution in executionSnapshot)
             {
                 try
                 {
@@ -2960,7 +2972,8 @@
         try
         {
             await Js.InvokeVoidAsync("GnOuGo.Agent.fileUploads.unregister", ComposerDropZoneId, ComposerFileInputId);
-            foreach (var execution in _executions.Values)
+            var executionSnapshot = _executions.Values.ToArray();
+            foreach (var execution in executionSnapshot)
             {
                 await Js.InvokeVoidAsync(
                     "GnOuGo.Agent.workflowAnimation.dispose",

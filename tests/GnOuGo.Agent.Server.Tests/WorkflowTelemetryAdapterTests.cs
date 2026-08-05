@@ -529,7 +529,7 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("InvokeAsync<bool>", chatPage, StringComparison.Ordinal);
         Assert.Contains("data-follow=\"true\"", chatPage, StringComparison.Ordinal);
         Assert.Contains("_animationInteropGate", chatPage, StringComparison.Ordinal);
-        Assert.Contains("GetActiveExecutions().Where", chatPage, StringComparison.Ordinal);
+        Assert.Contains("var executionSnapshot = GetActiveExecutions()", chatPage, StringComparison.Ordinal);
         Assert.Contains("RecordAnimationUpdate(execution", chatPage, StringComparison.Ordinal);
         Assert.Contains("ResetExecutionForReplay(execution)", chatPage, StringComparison.Ordinal);
         Assert.DoesNotContain("_sidebarExecutionCorrelationId", chatPage, StringComparison.Ordinal);
@@ -580,6 +580,32 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("if (!isHumanInputStep) this.activateSceneForActor", runtime, StringComparison.Ordinal);
         Assert.Contains("else if (!isHumanInputStep)", runtime, StringComparison.Ordinal);
         Assert.DoesNotContain("isHumanInputStep ? 'communicate'", runtime, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ChatPage_SnapshotsMutableCollectionsBeforeAwaitingAnimationInterop()
+    {
+        var root = FindRepositoryRoot();
+        var chatPage = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "GnOuGo.Agent.Server",
+            "Components",
+            "Pages",
+            "ChatPage.razor"));
+
+        Assert.Contains("private IReadOnlyList<ChatExecutionModel> GetActiveExecutions()", chatPage, StringComparison.Ordinal);
+        Assert.Contains("var messageSnapshot = active.Messages.ToArray();", chatPage, StringComparison.Ordinal);
+        Assert.Contains("foreach (var message in messageSnapshot)", chatPage, StringComparison.Ordinal);
+        Assert.Contains("var executionSnapshot = GetActiveExecutions()", chatPage, StringComparison.Ordinal);
+        Assert.Contains(".Where(static item => item.IsExpanded && item.Prepared is not null)", chatPage, StringComparison.Ordinal);
+        Assert.Contains(".ToArray();\n            foreach (var execution in executionSnapshot)", chatPage, StringComparison.Ordinal);
+        Assert.Contains("var executionSnapshot = _executions.Values.ToArray();", chatPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("private IEnumerable<ChatExecutionModel> GetActiveExecutions()", chatPage, StringComparison.Ordinal);
+
+        var snapshotIndex = chatPage.IndexOf("var executionSnapshot = GetActiveExecutions()", StringComparison.Ordinal);
+        var mountAwaitIndex = chatPage.IndexOf("var mounted = await Js.InvokeAsync<bool>", snapshotIndex, StringComparison.Ordinal);
+        Assert.True(snapshotIndex >= 0 && mountAwaitIndex > snapshotIndex);
     }
 
     [Fact]

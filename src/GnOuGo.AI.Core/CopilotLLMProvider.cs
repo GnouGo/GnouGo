@@ -61,12 +61,21 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             request.StructuredOutputSchema, request.StructuredOutputStrict,
             request.Reasoning);
 
-        using var req = HttpRequestHelper.CreateJsonPost(url, payload);
+        HttpRequestMessage CreateChatRequest()
+        {
+            var requestMessage = HttpRequestHelper.CreateJsonPost(url, payload);
+            if (!string.IsNullOrWhiteSpace(bearerToken))
+                HttpRequestHelper.SetBearerAuth(requestMessage, bearerToken);
+            return requestMessage;
+        }
 
-        if (!string.IsNullOrWhiteSpace(bearerToken))
-            HttpRequestHelper.SetBearerAuth(req, bearerToken);
-
-        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var resp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+            _http,
+            CreateChatRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            _logger,
+            "Copilot/GitHub Models chat completion",
+            ct);
 
         if (!resp.IsSuccessStatusCode)
         {
@@ -174,11 +183,21 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         {
             try
             {
-                using var req = GnOuGo.AI.Core.HttpRequestHelper.CreateGet(candidate);
-                if (!string.IsNullOrWhiteSpace(bearerToken))
-                    HttpRequestHelper.SetBearerAuth(req, bearerToken);
+                HttpRequestMessage CreateModelListRequest()
+                {
+                    var requestMessage = HttpRequestHelper.CreateGet(candidate);
+                    if (!string.IsNullOrWhiteSpace(bearerToken))
+                        HttpRequestHelper.SetBearerAuth(requestMessage, bearerToken);
+                    return requestMessage;
+                }
 
-                using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+                using var resp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+                    _http,
+                    CreateModelListRequest,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    _logger,
+                    "Copilot/GitHub Models model discovery",
+                    ct);
                 if (!resp.IsSuccessStatusCode)
                 {
                     var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
@@ -265,4 +284,3 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                || message.Contains("Too many requests", StringComparison.OrdinalIgnoreCase);
     }
 }
-

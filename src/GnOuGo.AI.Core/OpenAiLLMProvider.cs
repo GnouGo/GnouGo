@@ -71,21 +71,33 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         _logger.LogDebug("OpenAI bearer token present: {HasToken}",
             !string.IsNullOrWhiteSpace(bearerToken));
 
-        using var req = HttpRequestHelper.CreateJsonPost(url, payload);
+        HttpRequestMessage CreateChatRequest()
+        {
+            var requestMessage = HttpRequestHelper.CreateJsonPost(url, payload);
+            if (!string.IsNullOrWhiteSpace(bearerToken))
+                HttpRequestHelper.SetBearerAuth(requestMessage, bearerToken);
+            return requestMessage;
+        }
 
-        if (!string.IsNullOrWhiteSpace(bearerToken))
-            HttpRequestHelper.SetBearerAuth(req, bearerToken);
-
-        _logger.LogInformation("OpenAI request headers: {Headers}",
-            string.Join("; ", req.Headers.Select(h =>
-                string.Equals(h.Key, "Authorization", StringComparison.OrdinalIgnoreCase)
-                    ? $"{h.Key}=<redacted>"
-                    : $"{h.Key}={string.Join(",", h.Value)}")));
+        using (var loggingRequest = CreateChatRequest())
+        {
+            _logger.LogInformation("OpenAI request headers: {Headers}",
+                string.Join("; ", loggingRequest.Headers.Select(h =>
+                    string.Equals(h.Key, "Authorization", StringComparison.OrdinalIgnoreCase)
+                        ? $"{h.Key}=<redacted>"
+                        : $"{h.Key}={string.Join(",", h.Value)}")));
+        }
 
         HttpResponseMessage resp;
         try
         {
-            resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            resp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+                _http,
+                CreateChatRequest,
+                HttpCompletionOption.ResponseHeadersRead,
+                _logger,
+                "OpenAI chat completion",
+                ct);
         }
         catch (HttpRequestException ex)
         {
@@ -159,12 +171,21 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         byte[] payload = ChatRequestBuilder.OpenAiResponsesBackground(
             model, request.Prompt, request.Temperature, request.Reasoning);
 
-        using var req = HttpRequestHelper.CreateJsonPost(url, payload);
+        HttpRequestMessage CreateBackgroundRequest()
+        {
+            var requestMessage = HttpRequestHelper.CreateJsonPost(url, payload);
+            if (!string.IsNullOrWhiteSpace(bearerToken))
+                HttpRequestHelper.SetBearerAuth(requestMessage, bearerToken);
+            return requestMessage;
+        }
 
-        if (!string.IsNullOrWhiteSpace(bearerToken))
-            HttpRequestHelper.SetBearerAuth(req, bearerToken);
-
-        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var resp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+            _http,
+            CreateBackgroundRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            _logger,
+            "OpenAI background response creation",
+            ct);
         var body = await resp.Content.ReadAsStringAsync(ct);
 
         if (!resp.IsSuccessStatusCode)
@@ -263,11 +284,22 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                 status,
                 delay.TotalMilliseconds);
 
-            using var pollReq = HttpRequestHelper.CreateGet(responsesUrl.TrimEnd('/') + "/" + Uri.EscapeDataString(id));
-            if (!string.IsNullOrWhiteSpace(bearerToken))
-                HttpRequestHelper.SetBearerAuth(pollReq, bearerToken);
+            var pollUrl = responsesUrl.TrimEnd('/') + "/" + Uri.EscapeDataString(id);
+            HttpRequestMessage CreatePollRequest()
+            {
+                var requestMessage = HttpRequestHelper.CreateGet(pollUrl);
+                if (!string.IsNullOrWhiteSpace(bearerToken))
+                    HttpRequestHelper.SetBearerAuth(requestMessage, bearerToken);
+                return requestMessage;
+            }
 
-            using var pollResp = await _http.SendAsync(pollReq, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var pollResp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+                _http,
+                CreatePollRequest,
+                HttpCompletionOption.ResponseHeadersRead,
+                _logger,
+                "OpenAI background response polling",
+                ct);
             responseBody = await pollResp.Content.ReadAsStringAsync(ct);
 
             if (!pollResp.IsSuccessStatusCode)
@@ -339,13 +371,22 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     public async Task<IReadOnlyList<LLMModelDescriptor>> ListModelsAsync(ModelProviderOptions provider, CancellationToken ct)
     {
         var url = OpenAiEndpoints.Models(provider.Url, provider.ApiVersion);
-        using var req = HttpRequestHelper.CreateGet(url);
         var bearerToken = await ProviderAuthenticationResolver.ResolveBearerTokenAsync(_http, provider, ResolveApiKey, ct);
+        HttpRequestMessage CreateModelListRequest()
+        {
+            var requestMessage = HttpRequestHelper.CreateGet(url);
+            if (!string.IsNullOrWhiteSpace(bearerToken))
+                HttpRequestHelper.SetBearerAuth(requestMessage, bearerToken);
+            return requestMessage;
+        }
 
-        if (!string.IsNullOrWhiteSpace(bearerToken))
-            HttpRequestHelper.SetBearerAuth(req, bearerToken);
-
-        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var resp = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+            _http,
+            CreateModelListRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            _logger,
+            "OpenAI model discovery",
+            ct);
         if (!resp.IsSuccessStatusCode)
         {
             var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);

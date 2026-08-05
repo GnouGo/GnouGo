@@ -199,7 +199,10 @@ Workflow YAML and inputs are not included in those animation payloads.
 
 Blazor serializes animation interop through a single guarded queue so
 overlapping post-render callbacks cannot remove or reorder live events across
-message-owned panels. Error statuses are normalized and a terminal failed event
+message-owned panels. Mutable conversation and execution collections are
+snapshotted before any JavaScript interop await, preventing streaming updates
+from invalidating an active renderer enumeration and terminating the Blazor
+circuit. Error statuses are normalized and a terminal failed event
 is added when a response-level failure has no matching workflow terminal event.
 The browser controller records its applied-event count, latest event, pending
 queue size, and recoverable error on the scene host for runtime diagnostics.
